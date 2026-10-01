@@ -37,6 +37,7 @@ pub(crate) struct Shell {
     focused_document: Option<fold_foundation::DocumentId>,
     focus_workspace: Option<(String, u8)>,
     pending_workspace: Option<String>,
+    focused_editor: Option<String>,
     visible_panels: Vec<usize>,
 }
 impl Shell {
@@ -86,6 +87,7 @@ impl Shell {
             focused_document: None,
             focus_workspace: None,
             pending_workspace: None,
+            focused_editor: None,
             visible_panels: Vec::new(),
         }
     }
@@ -154,6 +156,7 @@ impl Shell {
             }
         });
         if let Some(kind) = self.pending_workspace.take() {
+            client.command(DesktopCommand::ActivateWorkspace(kind.clone()));
             self.focus_workspace = Some((kind, 0));
         }
         ui.dockspace()
@@ -193,6 +196,7 @@ impl Shell {
                 ui.text_colored([0.95, 0.75, 0.35, 1.0], "LIVE EDIT PREVIEW — not committed");
             }
         });
+        let activate_focused_editor = !self.visible_panels.is_empty();
         self.visible_panels.clear();
         for (index, registered) in self.panels.iter_mut().enumerate() {
             let visible = ui
@@ -204,7 +208,22 @@ impl Shell {
                             (1, PanelPlacement::Inspector) | (2, PanelPlacement::Editor)
                         )
                 }))
-                .build(|| registered.panel.draw(ExtensionUi { ui, host: client }))
+                .build(|| {
+                    // Direct dock-tab clicks bypass the workspace toolbar.
+                    // React to a focus transition, not every frame: otherwise
+                    // the old editor would undo Open Source while tabs settle.
+                    if registered.descriptor.placement == PanelPlacement::Editor
+                        && ui.is_window_focused()
+                        && let Some(kind) = registered.panel.document_type()
+                        && self.focused_editor.as_deref() != Some(kind)
+                    {
+                        self.focused_editor = Some(kind.into());
+                        if activate_focused_editor && self.focus_workspace.is_none() {
+                            client.command(DesktopCommand::ActivateWorkspace(kind.into()));
+                        }
+                    }
+                    registered.panel.draw(ExtensionUi { ui, host: client });
+                })
                 .is_some();
             if visible {
                 self.visible_panels.push(index);
@@ -307,13 +326,15 @@ mod tests {
         assert_eq!(fitted_size([640, 360], [800.0, 600.0]), [800.0, 450.0]);
         assert_eq!(fitted_size([640, 360], [-1.0, 90.0]), [0.0, 0.0]);
     }
-    struct Client(DesktopState);
+    struct Client(DesktopState, Vec<DesktopCommand>);
     impl DesktopClient for Client {
         fn state(&self) -> &DesktopState {
             &self.0
         }
         fn poll(&mut self) {}
-        fn command(&mut self, _: DesktopCommand) {}
+        fn command(&mut self, command: DesktopCommand) {
+            self.1.push(command);
+        }
         fn request_preview(&mut self, _: PreviewKey) {}
         fn cancel_preview(&mut self) {}
         fn take_preview(&mut self) -> Option<PreviewResult> {
@@ -399,7 +420,7 @@ mod tests {
         context.io_mut().set_delta_time(1.0 / 60.0);
         let mut shell = Shell::new(panels);
         shell.pending_workspace = Some("graph".into());
-        let mut client = Client(DesktopState::default());
+        let mut client = Client(DesktopState::default(), vec![]);
         for _ in 0..12 {
             editor.set(false);
             inspector.set(false);
@@ -408,6 +429,13 @@ mod tests {
             shell.viewer(ui, &Preview::Pending, "test");
             context.end_frame();
         }
+        assert!(
+            client
+                .1
+                .iter()
+                .any(|c| matches!(c, DesktopCommand::ActivateWorkspace(kind) if kind == "graph")),
+            "switching workspace must restore host playback context"
+        );
         assert!(editor.get(), "requested graph tab must be visible");
         assert!(
             inspector.get(),
@@ -426,6 +454,26 @@ mod tests {
             !shell.accepts_background_pan([75.0, 75.0]),
             "hidden canvases cannot capture background drag"
         );
+        assert!(
+            client
+                .1
+                .iter()
+                .any(|c| matches!(c, DesktopCommand::ActivateWorkspace(kind) if kind == "other"))
+        );
+        // A dock-tab focus change must notify the host too, without a toolbar
+        // request. Merely drawing both registered editors must not switch back.
+        client.1.clear();
+        for frame in 0..5 {
+            let ui = context.frame();
+            shell.controls(ui, &mut client).unwrap();
+            if frame == 0 {
+                ui.window(&shell.panels[2].key).focused(true).build(|| {});
+            }
+            shell.viewer(ui, &Preview::Pending, "test");
+            context.end_frame();
+        }
+        assert_eq!(client.1.len(), 1);
+        assert!(matches!(&client.1[0], DesktopCommand::ActivateWorkspace(kind) if kind == "graph"));
     }
     #[test]
     fn generic_shell_without_feature_panels_builds() {
@@ -441,7 +489,7 @@ mod tests {
             .unwrap()
             .build();
         let mut shell = Shell::new(vec![]);
-        let mut client = Client(DesktopState::default());
+        let mut client = Client(DesktopState::default(), vec![]);
         for size in [[1280.0, 800.0], [640.0, 480.0], [1920.0, 1080.0]] {
             context.io_mut().set_display_size(size);
             context.io_mut().set_delta_time(1.0 / 60.0);

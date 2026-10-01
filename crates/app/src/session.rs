@@ -385,6 +385,10 @@ impl DesktopClient for Session {
                 self.back();
                 return;
             }
+            DesktopCommand::ActivateWorkspace(kind) => {
+                self.activate_workspace(&kind);
+                return;
+            }
             DesktopCommand::Play => {
                 self.start_playback();
                 return;

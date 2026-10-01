@@ -98,6 +98,8 @@ pub enum DesktopCommand {
     CancelPreviewEdit,
     Navigate(ViewLocation),
     NavigateBack,
+    /// Restore the viewer context for the selected editor workspace.
+    ActivateWorkspace(String),
     Select(Selection),
     Play,
     Pause,

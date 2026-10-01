@@ -187,6 +187,142 @@ fn project_can_open_directly_into_its_compositor_workspace() {
     assert_eq!(host.state().navigation.last().unwrap().document, id);
 }
 #[test]
+fn returning_to_timeline_restores_transport_and_evaluates_nested_frames() {
+    use fold_compositor::Source;
+    use fold_foundation::{AssetId, ObjectId};
+    use fold_project::DocumentRef;
+    use fold_timeline::{Clip, Sequence, SourceMedia, Track, TrackKind};
+    let (_, source, solid) = fixture();
+    let composite = DocumentId::new();
+    let timeline = DocumentId::new();
+    let reference = |document| DocumentRef {
+        document,
+        output: "video".into(),
+        extensions: Default::default(),
+    };
+    // A real temporal change in a nested graph: black until 0.5s, then red.
+    let read = Node::new(
+        P::Read {
+            source: Source::Document {
+                source: reference(source),
+                info: solid.info.clone(),
+            },
+            start: Time::new(1, 2).unwrap(),
+            source_start: Time::ZERO,
+            duration: Time::new(7, 2).unwrap(),
+        },
+        vec![],
+    );
+    let output = Node::new(P::Output, vec![read.id]);
+    let graph = Composite {
+        info: solid.info.clone(),
+        output: output.id,
+        nodes: vec![read, output],
+        extensions: Default::default(),
+    };
+    let track = Track::new(TrackKind::Video, "V1");
+    let sequence = Sequence {
+        dimensions: [16, 16],
+        rate: [24, 1],
+        clips: vec![Clip {
+            id: ObjectId::new(),
+            track: track.id,
+            link: None,
+            asset: AssetId::new(),
+            info: SourceMedia::Document {
+                source: reference(composite),
+                info: solid.info.clone(),
+            },
+            start: Time::ZERO,
+            source_start: Time::ZERO,
+            duration: Time::new(4, 1).unwrap(),
+            level: 1.0,
+            extensions: Default::default(),
+        }],
+        tracks: vec![track],
+        extensions: Default::default(),
+    };
+    let mut project = Project::new(8);
+    project
+        .commit(EditBatch {
+            base: project.snapshot().revision(),
+            mutations: vec![
+                Mutation::PutDocument(solid.document(source).unwrap()),
+                Mutation::PutDocument(graph.document(composite).unwrap()),
+                Mutation::PutDocument(sequence.document(timeline).unwrap()),
+            ],
+        })
+        .unwrap();
+    let mut host = Session::new(project);
+    host.command(C::Seek(6));
+    let parent_content = host.state().content.clone();
+    host.command(C::Navigate(ViewLocation {
+        document: composite,
+        time: Time::new(1, 1).unwrap(),
+        label: "Composite".into(),
+    }));
+    assert_eq!(host.state().navigation.len(), 2);
+    host.command(C::ActivateWorkspace(fold_timeline::SEQUENCE.into()));
+    assert_eq!(host.state().navigation.len(), 1);
+    assert_eq!(host.state().selection.document, Some(timeline));
+    assert_eq!(
+        host.state().frame,
+        6,
+        "restore parent time, not the source playhead"
+    );
+    assert_eq!(host.state().content, parent_content);
+    let key = host.state().preview_key(6, 1).unwrap();
+    assert_eq!(key.target, Some((timeline, Time::new(1, 4).unwrap())));
+    let before = media_workflow::evaluate(
+        &host.snapshot().unwrap(),
+        &key,
+        &mut Default::default(),
+        &Default::default(),
+    )
+    .unwrap();
+    assert_eq!(before.pixels()[0], [0.0, 0.0, 0.0, 1.0]);
+
+    #[cfg(feature = "desktop")]
+    {
+        host.command(C::Play);
+        assert!(
+            host.state().playing,
+            "timeline Play must not be blocked by the old source view"
+        );
+        // Repeated workspace focus notifications must not stop playback.
+        host.command(C::ActivateWorkspace(fold_timeline::SEQUENCE.into()));
+        assert!(host.state().playing);
+        let started = std::time::Instant::now();
+        while host.state().frame < 13 {
+            host.poll();
+            assert!(
+                host.state().playing,
+                "transport stopped: {}",
+                host.state().status
+            );
+            assert!(
+                started.elapsed() < std::time::Duration::from_secs(5),
+                "timeline did not advance"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        let key = host.state().preview_key(host.state().frame, 1).unwrap();
+        assert_eq!(key.target.unwrap().0, timeline);
+        host.request_preview(key.clone());
+        let result = loop {
+            if let Some(result) = host.take_preview() {
+                break result;
+            }
+            assert!(started.elapsed() < std::time::Duration::from_secs(5));
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        };
+        assert_eq!(result.key, key);
+        assert_eq!(&result.frame.unwrap().rgba()[..4], &[255, 0, 0, 255]);
+        host.command(C::Pause);
+        assert!(!host.state().playing);
+    }
+}
+#[test]
 fn missing_input_is_a_render_diagnostic_not_a_silent_bypass() {
     let (mut host, id, mut graph) = fixture();
     graph.disconnect(graph.output, "image").unwrap();

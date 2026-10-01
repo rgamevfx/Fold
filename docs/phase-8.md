@@ -31,6 +31,7 @@ Architecture reference: `Fold_Application_Product_Architecture.docx`, sections 3
 - Creation currently accepts video clips on one unlocked track. Locked linked audio, enclosed unselected clips, and unknown selected-video extension data block conversion rather than being lost.
 - Open Source from a timeline clip maps the current sequence time into the composite. Open Source from a Read maps through its own exact time range. Viewer keys identify document and exact local time; breadcrumbs and Back restore parent context/time.
 - `--compositor PROJECT` loads on a worker and opens the compositing workspace directly. The ordinary `--project PROJECT` entry remains available.
+- Playback correction: switching to Timeline via the workspace button or a dock-tab focus change restores its viewer document and saved parent time, rather than leaving the source-view playback restriction active. Timeline Play explicitly activates that context too. Repeated activation of the current workspace does not interrupt playback or edits. Nested compositions remain live provider-evaluated timeline sources; no flattening is introduced.
 
 ## Automated verification
 
@@ -46,7 +47,7 @@ Focused suites:
 - `crates/compositor/src/ui/navigation.rs`: pointer hit testing excludes nodes/pin edges and curved wires, but allows empty space within a curve's bounding box.
 - `crates/ui/src/canvas_pan.rs`: background-only event mapping, gesture latching, Shift-selection modifier consumption/restoration, physical middle-button exclusion, and focus-loss reset.
 - `crates/ui/src/shell.rs`: native dock startup regression proving that a workspace request reveals both its editor and inspector tabs.
-- `crates/app/tests/compositor_session.rs`: transient preview versus committed roots, cancellation, one-step undo/redo, stale proposals, exact navigation, semantic cache identities, explicit missing-input errors, and asynchronous workspace opening.
+- `crates/app/tests/compositor_session.rs`: transient preview versus committed roots, cancellation, one-step undo/redo, stale proposals, exact navigation, semantic cache identities, explicit missing-input errors, and asynchronous workspace opening. The playback regression restores timeline context from a nested composite, advances the real silent transport, and verifies a time-dependent nested graph changes the preview worker's output from black to red. This device-independent test does not claim new physical audio-device verification.
 - `crates/app/tests/compositor_workflow.rs`: nested timing/alpha, recursive dependencies, unavailable providers, persistence, cache invalidation, locked audio, and atomic cross-document undo.
 - `crates/app/tests/compositor_media.rs`: actual MP4 import, linked audio sample preservation, graph edits, save/reopen, and MP4 export with audio.
 - `crates/render/tests/compositor_ops.rs`: crop, blur reference comparisons, gain, masks, parameter validation, and IR remapping.
@@ -65,7 +66,7 @@ The retained project and media are outside the repository:
 2. Select Grade or Blur. Only that node's properties should appear in Node Inspector. Drag or Ctrl-click a value; verify live preview, release, Undo/Redo, and Escape cancellation.
 3. Move nodes with left-drag, box-select several with Shift + left-drag on empty canvas, pan by left-dragging empty canvas (or with MMB), zoom with wheel/trackpad scrolling, and frame with F. Verify one Undo per movement gesture and position persistence across save/reopen.
 4. Use Tab / **+ Add node** / background context menu to search for a node. New processors have disconnected sockets; wire them into the graph explicitly. Verify incompatible types/cycles are rejected, rewiring replaces only the destination connection, and Delete/Undo work for nodes and wires.
-5. Use the timeline inspector's Open Source and a nested Read's Open Source. Verify local time/breadcrumbs and Back restoration. Source view supports exact scrubbing; return to project output for synchronized audio playback.
+5. Use the timeline inspector's Open Source and a nested Read's Open Source. Verify local time/breadcrumbs and Back restoration. Then return using both the Timeline workspace button and dock tab: the parent playhead/viewer must be restored, Play must advance the nested composition with sequence audio, and no flattened intermediate is required. Source view itself remains scrub-only.
 6. Create a composition from selected linked footage; verify audio remains and one Undo restores the original linked clips.
 7. Save/reopen and export the committed project output. Confirm that live parameter previews are not saved/exported until committed.
 

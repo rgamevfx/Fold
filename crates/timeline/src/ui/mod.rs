@@ -118,11 +118,14 @@ impl Panel for TimelinePanel {
         if ui.button(if state.playing { "Pause" } else { "Play" })
             || (keyboard && ui.is_key_pressed(Key::Space))
         {
-            host.command(if state.playing {
-                DesktopCommand::Pause
+            if state.playing {
+                host.command(DesktopCommand::Pause);
             } else {
-                DesktopCommand::Play
-            });
+                // Transport belongs to this workspace even if a source-view
+                // tab-focus transition has not reached the shell yet.
+                host.command(DesktopCommand::ActivateWorkspace(crate::SEQUENCE.into()));
+                host.command(DesktopCommand::Play);
+            }
         }
         ui.same_line();
         if (ui.button("Split")

@@ -28,6 +28,71 @@ impl Session {
             }
         }
     }
+    pub(super) fn activate_workspace(&mut self, kind: &str) {
+        let snapshot = self.project.snapshot();
+        let matches = |id| {
+            snapshot
+                .state()
+                .documents
+                .get(&id)
+                .is_some_and(|d| d.type_id == kind)
+        };
+        let current = self
+            .state
+            .navigation
+            .last()
+            .map(|v| v.document)
+            .or_else(|| {
+                workflow::output(&snapshot)
+                    .ok()
+                    .map(|(source, _)| source.document)
+            });
+        // Focusing an already active workspace must not restart transport or
+        // cancel a live edit. Selection alone is not the viewer context.
+        if current.is_some_and(matches) {
+            return;
+        }
+        let location = self
+            .state
+            .navigation
+            .iter()
+            .rev()
+            .find(|v| matches(v.document))
+            .cloned()
+            .or_else(|| {
+                self.state
+                    .selection
+                    .document
+                    .filter(|&id| matches(id))
+                    .or_else(|| {
+                        snapshot
+                            .state()
+                            .documents
+                            .values()
+                            .find(|d| d.type_id == kind)
+                            .map(|d| d.id)
+                    })
+                    .map(|document| ViewLocation {
+                        document,
+                        time: Time::ZERO,
+                        label: kind.rsplit('.').next().unwrap_or(kind).into(),
+                    })
+            });
+        if let Some(location) = location {
+            // navigate truncates to an existing ancestor, restoring its exact
+            // saved playhead, selection, preview identity and output metadata.
+            let document = location.document;
+            self.navigate(location);
+            if self
+                .state
+                .navigation
+                .last()
+                .is_some_and(|v| v.document == document)
+            {
+                self.state.status = "Workspace changed".into();
+            }
+        }
+    }
     pub(super) fn navigate(&mut self, location: ViewLocation) {
         let snapshot = self.project.snapshot();
         let result = crate::packages::builtins()
