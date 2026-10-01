@@ -7,7 +7,7 @@ default-run = "fold-cli"
 
 [features]
 default = []
-desktop = ["dep:fold-ui"]
+desktop = ["dep:fold-ui", "dep:cpal", "dep:rtrb", "fold-timeline/ui"]
 
 [dependencies]
 fold-foundation.workspace = true
@@ -20,6 +20,8 @@ fold-timeline.workspace = true
 fold-compositor.workspace = true
 fold-motion.workspace = true
 fold-ui = { workspace = true, optional = true }
+cpal = { version = "0.15.3", optional = true }
+rtrb = { version = "0.3", optional = true }
 
 [[bin]]
 name = "fold-cli"

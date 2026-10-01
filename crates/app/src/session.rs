@@ -112,6 +112,8 @@ pub struct Session {
     state: DesktopState,
     preview: PreviewWorker,
     background: Option<Background>,
+    #[cfg(feature = "desktop")]
+    playback: crate::playback::Playback,
 }
 impl Default for Session {
     fn default() -> Self {
@@ -125,6 +127,8 @@ impl Session {
             state: DesktopState::default(),
             preview: PreviewWorker::new(),
             background: None,
+            #[cfg(feature = "desktop")]
+            playback: crate::playback::Playback::default(),
         };
         session.refresh();
         session
@@ -133,14 +137,48 @@ impl Session {
         let snapshot = self.project.snapshot();
         let content = workflow::content(&snapshot).ok();
         if self.state.content != content {
+            self.stop_playback();
             self.preview.cancel();
         }
         self.state.content = content;
+        if self
+            .state
+            .selection
+            .document
+            .is_some_and(|id| !snapshot.state().documents.contains_key(&id))
+        {
+            self.state.selection = Default::default();
+        }
+        if let Ok((_, info)) = workflow::output(&snapshot) {
+            self.state.frames = info.frames;
+            self.state.dimensions = [info.width, info.height];
+            self.state.rate = info.rate;
+            self.state.frame = self.state.frame.min(info.frames - 1);
+        } else {
+            self.state.frames = 1;
+            self.state.frame = 0;
+        }
         if let Ok((_, layers)) = workflow::active(&snapshot) {
-            self.state.frames = layers.info.frames;
-            self.state.dimensions = [layers.info.width, layers.info.height];
-            self.state.rate = layers.info.rate;
             self.state.foreground_opacity = layers.foreground_opacity;
+        }
+    }
+    fn stop_playback(&mut self) {
+        #[cfg(feature = "desktop")]
+        self.playback.pause();
+        self.state.playing = false;
+        self.state.priming = false;
+    }
+    fn start_playback(&mut self) {
+        #[cfg(feature = "desktop")]
+        {
+            self.playback
+                .play(self.project.snapshot(), self.state.frame);
+            self.state.playing = true;
+            self.state.priming = true;
+        }
+        #[cfg(not(feature = "desktop"))]
+        {
+            self.state.status = "Playback requires the desktop feature".into();
         }
     }
     fn background(&mut self, command: DesktopCommand) {
@@ -153,9 +191,12 @@ impl Session {
         let token = cancel.clone();
         let (sender, result) = mpsc::sync_channel(1);
         self.state.busy = true;
-        self.state.status = "Background job running (video only)…".into();
+        self.state.status = "Background job running…".into();
         let thread = std::thread::spawn(move || {
             let result = token.check().and_then(|()| match command {
+                DesktopCommand::Extension(request) => crate::packages::builtins()
+                    .stage(&snapshot, &request, &token)
+                    .map(Completed::Imported),
                 DesktopCommand::Import(paths) => {
                     workflow::import(&snapshot, &paths, &token).map(Completed::Imported)
                 }
@@ -166,12 +207,8 @@ impl Session {
                     .map(|project| Completed::Opened(project, snapshot.revision()))
                     .map_err(|e| e.to_string()),
                 DesktopCommand::Export { path, start, end } => {
-                    workflow::export(&snapshot, &path, start, end, &token).map(|_| {
-                        Completed::Message(format!(
-                            "Export complete: {} (video only)",
-                            path.display()
-                        ))
-                    })
+                    workflow::export(&snapshot, &path, start, end, &token)
+                        .map(|_| Completed::Message(format!("Export complete: {}", path.display())))
                 }
                 _ => unreachable!(),
             });
@@ -188,7 +225,31 @@ impl DesktopClient for Session {
     fn state(&self) -> &DesktopState {
         &self.state
     }
+    fn snapshot(&self) -> Option<Snapshot> {
+        Some(self.project.snapshot())
+    }
     fn poll(&mut self) {
+        #[cfg(feature = "desktop")]
+        {
+            use fold_foundation::{Rounding, Time};
+            if let Some(sample) = self.playback.sample()
+                && self.state.playing
+            {
+                self.state.frame = Time::new(sample as i64, fold_media::audio::AUDIO_RATE)
+                    .unwrap()
+                    .to_ticks(self.state.rate[0], self.state.rate[1], Rounding::Floor)
+                    .unwrap_or(0)
+                    .max(0) as u32;
+                self.state.frame = self.state.frame.min(self.state.frames - 1);
+            }
+            self.state.playing = self.playback.playing();
+            self.state.priming = self.playback.priming();
+            self.state.audio_clock = self.playback.audio_clock();
+            self.state.underruns = self.playback.underruns();
+            if let Some(error) = self.playback.take_error() {
+                self.state.status = error;
+            }
+        }
         let result = self
             .background
             .as_ref()
@@ -217,8 +278,7 @@ impl DesktopClient for Session {
                 Ok(Completed::Imported(batch)) => match self.project.commit(batch) {
                     Ok(_) => {
                         self.refresh();
-                        self.state.status =
-                            "Imported video layers. SDR BT.709 → sRGB; audio ignored.".into();
+                        self.state.status = "Import committed".into();
                     }
                     Err(e) => self.state.status = e.to_string(),
                 },
@@ -238,6 +298,45 @@ impl DesktopClient for Session {
     }
     fn command(&mut self, command: DesktopCommand) {
         let result = match command {
+            DesktopCommand::Play => {
+                self.start_playback();
+                return;
+            }
+            DesktopCommand::Pause => {
+                self.stop_playback();
+                return;
+            }
+            DesktopCommand::Seek(frame) => {
+                self.state.frame = frame.min(self.state.frames - 1);
+                if self.state.playing {
+                    self.start_playback();
+                }
+                return;
+            }
+            DesktopCommand::Select(selection) => {
+                self.state.selection = selection;
+                return;
+            }
+            DesktopCommand::Extension(request) => {
+                let registry = crate::packages::builtins();
+                match registry.command(&request.id) {
+                    Ok(command)
+                        if command.execution == fold_platform::packages::Execution::Worker =>
+                    {
+                        self.background(DesktopCommand::Extension(request));
+                        return;
+                    }
+                    Ok(_) => registry
+                        .stage(&self.project.snapshot(), &request, &Cancel::default())
+                        .and_then(|batch| {
+                            self.project
+                                .commit(batch)
+                                .map(|_| ())
+                                .map_err(|e| e.to_string())
+                        }),
+                    Err(error) => Err(error),
+                }
+            }
             DesktopCommand::Cancel => {
                 if let Some(job) = &self.background {
                     job.cancel.cancel();
@@ -249,6 +348,9 @@ impl DesktopClient for Session {
             DesktopCommand::Redo => self.project.redo().map(|_| ()).map_err(|e| e.to_string()),
             DesktopCommand::Opacity(opacity) => (|| {
                 let snapshot = self.project.snapshot();
+                if crate::timeline_workflow::has_sequence(&snapshot) {
+                    return Err("Opacity is a legacy layer control, not a sequence edit".into());
+                }
                 let (reference, mut layers) = workflow::active(&snapshot)?;
                 layers.foreground_opacity = opacity;
                 let mut document = layers.document(reference.document)?;

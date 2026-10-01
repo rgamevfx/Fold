@@ -216,9 +216,12 @@ struct Pinned {
 #[derive(Default)]
 pub struct Decoder {
     pinned: VecDeque<Pinned>,
+    // Bounded sequential read-ahead avoids launching a codec for every playback
+    // frame. Shared across sources/resolutions, at most 32 MiB / 512 frames.
+    read_ahead: VecDeque<(String, VideoInfo, u32, RgbImage)>,
 }
 impl Decoder {
-    fn pin(&mut self, source: &VideoSource, cancel: &Cancel) -> Result<PathBuf, String> {
+    pub(crate) fn pin(&mut self, source: &VideoSource, cancel: &Cancel) -> Result<PathBuf, String> {
         source.info.validate()?;
         if let Some(index) = self.pinned.iter().position(|p| {
             p.source.fingerprint == source.fingerprint && p.source.info == source.info
@@ -282,7 +285,38 @@ impl Decoder {
         if count == 0 || count > crate::MAX_PIXELS as u64 {
             return Err("invalid decode resolution".into());
         }
+        cancel.check()?;
+        if let Some((_, _, _, image)) =
+            self.read_ahead
+                .iter()
+                .find(|(fingerprint, info, index, image)| {
+                    fingerprint == &source.fingerprint
+                        && info == &source.info
+                        && *index == frame
+                        && image.dimensions() == dimensions
+                })
+        {
+            return Ok(image.clone());
+        }
         let path = self.pin(source, cancel)?;
+        let batch = u64::from((source.info.frames - frame).min(32))
+            .min((16 * 1024 * 1024 / (count * 3)).max(1));
+        let mut retained: u64 = self
+            .read_ahead
+            .iter()
+            .map(|(_, _, _, image)| {
+                u64::from(image.dimensions()[0]) * u64::from(image.dimensions()[1]) * 3
+            })
+            .sum();
+        while retained + count * 3 * batch > 32 * 1024 * 1024
+            || self.read_ahead.len() + batch as usize > 512
+        {
+            let (_, _, _, image) = self
+                .read_ahead
+                .pop_front()
+                .ok_or("read-ahead budget exceeded")?;
+            retained -= u64::from(image.dimensions()[0]) * u64::from(image.dimensions()[1]) * 3;
+        }
         let output = tempfile::NamedTempFile::new().map_err(|e| e.to_string())?;
         // Seek to a whole second at/before the requested frame. Accurate input
         // seek discards earlier frames; select the remaining exact CFR offset.
@@ -295,7 +329,7 @@ impl Decoder {
             .map_err(|e| e.to_string())?;
         let offset = i64::from(frame) - first;
         let filter = format!(
-            "select=eq(n\\,{offset}),scale={}:{}:flags=neighbor,zscale=matrixin=709:transferin=709:primariesin=709:rangein=limited:matrix=gbr:transfer=iec61966-2-1:primaries=709:range=full,format=gbrpf32le,format=rgb24",
+            "select=gte(n\\,{offset}),scale={}:{}:flags=neighbor,zscale=matrixin=709:transferin=709:primariesin=709:rangein=limited:matrix=gbr:transfer=iec61966-2-1:primaries=709:range=full,format=gbrpf32le,format=rgb24",
             dimensions[0], dimensions[1]
         );
         let mut cmd = base("ffmpeg");
@@ -318,7 +352,7 @@ impl Decoder {
             "-vf",
             &filter,
             "-frames:v",
-            "1",
+            &batch.to_string(),
             "-fps_mode",
             "passthrough",
             "-f",
@@ -328,16 +362,34 @@ impl Decoder {
             "pipe:1",
         ])
         .stdout(Stdio::from(output.reopen().map_err(|e| e.to_string())?));
-        Process::spawn(cmd, cancel.clone(), Some((output.path().into(), count * 3)))?.finish()?;
+        Process::spawn(
+            cmd,
+            cancel.clone(),
+            Some((output.path().into(), count * 3 * batch)),
+        )?
+        .finish()?;
         cancel.check()?;
         let mut bytes = Vec::new();
         output
             .reopen()
             .map_err(|e| e.to_string())?
-            .take(count * 3 + 1)
+            .take(count * 3 * batch + 1)
             .read_to_end(&mut bytes)
             .map_err(|e| e.to_string())?;
-        RgbImage::from_rgb(dimensions, bytes).map_err(str::to_owned)
+        if bytes.len() as u64 != count * 3 * batch {
+            return Err("incomplete video read-ahead decode".into());
+        }
+        for (offset, bytes) in bytes.chunks_exact((count * 3) as usize).enumerate() {
+            self.read_ahead.push_back((
+                source.fingerprint.clone(),
+                source.info.clone(),
+                frame + offset as u32,
+                RgbImage::from_rgb(dimensions, bytes.to_vec()).map_err(str::to_owned)?,
+            ));
+        }
+        Ok(self.read_ahead[self.read_ahead.len() - batch as usize]
+            .3
+            .clone())
     }
 }
 

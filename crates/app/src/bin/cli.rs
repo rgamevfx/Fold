@@ -7,6 +7,116 @@ use std::{error::Error, io::Write, path::Path};
 
 fn run() -> Result<(), Box<dyn Error>> {
     let args: Vec<_> = std::env::args_os().skip(1).collect();
+    if args.first().is_some_and(|arg| arg == "import-timeline") {
+        if args.len() < 3 {
+            return Err("usage: fold-cli import-timeline <new-project.fold> <video.mp4>...".into());
+        }
+        let path = Path::new(&args[1]);
+        if path.exists() {
+            return Err("project already exists".into());
+        }
+        let mut project = Project::new(32);
+        let paths = args[2..]
+            .iter()
+            .map(std::path::PathBuf::from)
+            .collect::<Vec<_>>();
+        let snapshot = project.snapshot();
+        let request = fold_timeline::package::request(
+            &snapshot,
+            fold_timeline::package::IMPORT,
+            &fold_timeline::ImportArgs {
+                document: None,
+                paths,
+                at: None,
+                video_track: None,
+                audio_track: None,
+                audio_only: false,
+            },
+        )?;
+        project.commit(fold_app::packages::builtins().stage(
+            &snapshot,
+            &request,
+            &fold_media::Cancel::default(),
+        )?)?;
+        save(&project.snapshot(), path)?;
+        println!("Imported editable timeline with linked audio");
+        return Ok(());
+    }
+    if args.first().is_some_and(|arg| arg == "edit-timeline") {
+        if !(5..=6).contains(&args.len()) {
+            return Err("usage: fold-cli edit-timeline <project.fold> <clip-index-0-based> move|trim|split <frame> [end-frame]".into());
+        }
+        let path = Path::new(&args[1]);
+        let mut project = load(path, 32)?;
+        let snapshot = project.snapshot();
+        let (reference, sequence) = fold_app::timeline_workflow::active(&snapshot)?;
+        let index: usize = args[2].to_str().ok_or("invalid clip")?.parse()?;
+        let clip = sequence
+            .clips
+            .get(index)
+            .ok_or("clip index outside sequence")?;
+        let info = sequence.info()?;
+        let time = info.time(args[4].to_str().ok_or("invalid frame")?.parse()?)?;
+        let edit = match args[3].to_str() {
+            Some("move") if args.len() == 5 => fold_timeline::ClipEdit::Move { start: time },
+            Some("split") if args.len() == 5 => fold_timeline::ClipEdit::Split {
+                at: time,
+                right_id: fold_foundation::ObjectId::new(),
+            },
+            Some("trim") if args.len() == 6 => fold_timeline::ClipEdit::Trim {
+                start: time,
+                end: info.time(args[5].to_str().ok_or("invalid end")?.parse()?)?,
+            },
+            _ => return Err("invalid timeline edit".into()),
+        };
+        let request = fold_timeline::package::request(
+            &snapshot,
+            fold_timeline::package::EDIT,
+            &fold_timeline::package::EditArgs {
+                document: reference.document,
+                edit: fold_timeline::SequenceEdit::Clip {
+                    id: clip.id,
+                    linked: true,
+                    edit,
+                },
+            },
+        )?;
+        project.commit(fold_app::packages::builtins().stage(
+            &snapshot,
+            &request,
+            &fold_media::Cancel::default(),
+        )?)?;
+        save(&project.snapshot(), path)?;
+        println!("Timeline edit committed and saved");
+        return Ok(());
+    }
+    if args.first().is_some_and(|arg| arg == "command") {
+        if args.len() != 4 {
+            return Err(
+                "usage: fold-cli command <project.fold> <registered-command-id> <json-arguments>"
+                    .into(),
+            );
+        }
+        let path = Path::new(&args[1]);
+        let mut project = load(path, 32)?;
+        let snapshot = project.snapshot();
+        let request = fold_platform::packages::CommandRequest {
+            id: args[2].to_str().ok_or("invalid command ID")?.into(),
+            base: snapshot.revision(),
+            arguments: args[3]
+                .to_str()
+                .ok_or("invalid arguments")?
+                .as_bytes()
+                .to_vec(),
+        };
+        project.commit(fold_app::packages::builtins().stage(
+            &snapshot,
+            &request,
+            &fold_media::Cancel::default(),
+        )?)?;
+        save(&project.snapshot(), path)?;
+        return Ok(());
+    }
     if args.first().is_some_and(|arg| arg == "import-video") {
         if !(3..=4).contains(&args.len()) {
             return Err(
@@ -48,7 +158,7 @@ fn run() -> Result<(), Box<dyn Error>> {
             args[4].to_str().ok_or("invalid end")?.parse()?,
             &fold_media::Cancel::default(),
         )?;
-        println!("Export complete (video only)");
+        println!("Export complete (sequence exports include audio; legacy layers are video-only)");
         return Ok(());
     }
     if args.first().is_some_and(|arg| arg == "import-sequence") {
@@ -136,6 +246,7 @@ fn run() -> Result<(), Box<dyn Error>> {
     registry.register(SolidProvider)?;
     registry.register(fold_timeline::ImageSequenceProvider)?;
     registry.register(fold_timeline::VideoLayersProvider)?;
+    registry.register(fold_timeline::SequenceProvider)?;
     let source = DocumentRef {
         document: id,
         output: "video".into(),

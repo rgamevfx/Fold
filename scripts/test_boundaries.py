@@ -28,7 +28,7 @@ class BoundaryTests(unittest.TestCase):
         data = fixture()
         for source, targets in ALLOWED.items():
             for target in targets:
-                add_edge(data, source, target)
+                add_edge(data, source, target, optional=(target == "fold-ui"))
         self.assertEqual(violations(data), [])
 
     def test_infrastructure_cannot_import_creative_packages(self):
@@ -87,6 +87,18 @@ class BoundaryTests(unittest.TestCase):
             "forbidden transitive dependency: fold-timeline -> fold-compositor",
             violations(data),
         )
+
+    def test_native_panel_sdk_is_optional_and_headless_excluded(self):
+        data = fixture()
+        add_edge(data, "fold-timeline", "fold-ui", optional=True)
+        self.assertEqual(violations(data), [])
+        self.assertIn("forbidden transitive dependency: fold-timeline -> fold-ui", violations(data, headless=True))
+        data = fixture()
+        add_edge(data, "fold-timeline", "fold-ui", optional=False)
+        self.assertTrue(violations(data))
+        data = fixture()
+        add_edge(data, "fold-timeline", "dear-imgui-rs", resolved=False, optional=True)
+        self.assertTrue(violations(data))
 
     def test_new_workspace_members_require_policy(self):
         data = fixture()

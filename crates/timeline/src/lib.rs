@@ -1,10 +1,22 @@
 //! Timeline-owned source timing and embedded image-sequence documents.
+mod authoring;
+mod editing;
+pub mod package;
+mod sequence;
+#[cfg(feature = "ui")]
+pub mod ui;
+pub use authoring::{ImportArgs, active, has_sequence, import, import_media};
+pub use editing::{ClipEdit, SequenceEdit, edit_clip, edit_sequence};
+mod sequence_audio;
+mod sequence_video;
 mod video;
 use fold_foundation::{DocumentId, Rounding, Time};
 use fold_media::RgbImage;
 use fold_platform::VideoProvider;
 use fold_project::{Document, Revision};
 use fold_render::{ImageOp, RenderGraph};
+pub use sequence::{Clip, SEQUENCE, SEQUENCE_SCHEMA, Sequence, SourceMedia, Track, TrackKind};
+pub use sequence_video::SequenceProvider;
 pub use video::{VIDEO_LAYERS, VideoLayers, VideoLayersProvider};
 
 pub const PACKAGE: &str = "fold.timeline";

@@ -6,13 +6,37 @@ fn main() -> std::process::ExitCode {
     if !args.is_empty() {
         if args[0] == "--project" && args.len() == 2 {
             session.command(DesktopCommand::Open(args[1].clone().into()));
-        } else {
+        } else if args[0] == "--layers" {
             session.command(DesktopCommand::Import(
-                args.into_iter().map(Into::into).collect(),
+                args[1..].iter().map(Into::into).collect(),
             ));
+        } else {
+            let snapshot = session.snapshot().unwrap();
+            let request = fold_timeline::package::request(
+                &snapshot,
+                fold_timeline::package::IMPORT,
+                &fold_timeline::ImportArgs {
+                    document: None,
+                    paths: args[usize::from(args[0] == "--timeline")..]
+                        .iter()
+                        .map(Into::into)
+                        .collect(),
+                    at: None,
+                    video_track: None,
+                    audio_track: None,
+                    audio_only: false,
+                },
+            )
+            .expect("serializable import arguments");
+            session.command(DesktopCommand::Extension(request));
         }
     }
-    match fold_ui::run_desktop(Box::new(session)) {
+    let mut panels = fold_ui::sdk::PanelRegistry::new(&fold_app::packages::builtins());
+    if let Err(error) = fold_timeline::ui::register(&mut panels) {
+        eprintln!("Fold panel registration failed: {error}");
+        return std::process::ExitCode::FAILURE;
+    }
+    match fold_ui::run_desktop(Box::new(session), panels) {
         Ok(()) => std::process::ExitCode::SUCCESS,
         Err(error) => {
             eprintln!("Fold desktop failed: {error}");

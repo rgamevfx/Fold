@@ -4,12 +4,17 @@ version.workspace = true
 edition.workspace = true
 publish.workspace = true
 
+[features]
+default = []
+ui = ["dep:fold-ui"]
+
 [dependencies]
 fold-foundation.workspace = true
 fold-project.workspace = true
 fold-media.workspace = true
 fold-render.workspace = true
 fold-platform.workspace = true
+fold-ui = { workspace = true, optional = true }
 serde.workspace = true
 serde_json.workspace = true
 

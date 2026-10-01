@@ -11,8 +11,19 @@ pub struct PreviewKey {
     /// Fixed SDR sRGB output transform version; never a project revision.
     pub view: u32,
 }
+#[derive(Clone, Debug, Default)]
+pub struct Selection {
+    pub document: Option<fold_foundation::DocumentId>,
+    pub objects: Vec<fold_foundation::ObjectId>,
+}
 #[derive(Clone, Debug)]
 pub struct DesktopState {
+    pub selection: Selection,
+    pub frame: u32,
+    pub playing: bool,
+    pub priming: bool,
+    pub audio_clock: bool,
+    pub underruns: u64,
     pub content: Option<String>,
     pub dimensions: [u32; 2],
     pub frames: u32,
@@ -24,13 +35,18 @@ pub struct DesktopState {
 impl Default for DesktopState {
     fn default() -> Self {
         Self {
+            selection: Selection::default(),
+            frame: 0,
+            playing: false,
+            priming: false,
+            audio_clock: false,
+            underruns: 0,
             content: None,
             dimensions: [640, 360],
             frames: 1,
             rate: [24, 1],
             foreground_opacity: 0.5,
-            status: "Import one or two matching SDR BT.709 H.264 MP4 files. Video only; no audio."
-                .into(),
+            status: "Import media in a registered editor panel to begin.".into(),
             busy: false,
         }
     }
@@ -51,6 +67,11 @@ impl DesktopState {
 #[derive(Clone, Debug)]
 pub enum DesktopCommand {
     Import(Vec<PathBuf>),
+    Extension(crate::packages::CommandRequest),
+    Select(Selection),
+    Play,
+    Pause,
+    Seek(u32),
     Save(PathBuf),
     Open(PathBuf),
     Undo,
@@ -65,6 +86,10 @@ pub struct PreviewResult {
 }
 pub trait DesktopClient {
     fn state(&self) -> &DesktopState;
+    /// Immutable committed state, never a mutable project or device handle.
+    fn snapshot(&self) -> Option<fold_project::Snapshot> {
+        None
+    }
     fn poll(&mut self);
     fn command(&mut self, command: DesktopCommand);
     fn request_preview(&mut self, key: PreviewKey);

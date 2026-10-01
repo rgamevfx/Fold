@@ -10,6 +10,12 @@ pub fn import(
     paths: &[PathBuf],
     cancel: &Cancel,
 ) -> Result<EditBatch, String> {
+    if crate::timeline_workflow::has_sequence(snapshot) {
+        return Err(
+            "An editable sequence is active. Use Import sequence, or open a layer-only project."
+                .into(),
+        );
+    }
     if !(1..=2).contains(&paths.len()) {
         return Err("import requires one or two matching videos".into());
     }
@@ -88,10 +94,19 @@ pub fn active(snapshot: &Snapshot) -> Result<(DocumentRef, VideoLayers), String>
 /// Hash authoring bytes, ordered asset identities, and implementation versions.
 /// Unrelated project revisions and undo/redo do not invalidate viewer textures.
 pub fn content(snapshot: &Snapshot) -> Result<String, String> {
-    let (reference, layers) = active(snapshot)?;
+    let (reference, assets) = if crate::timeline_workflow::has_sequence(snapshot) {
+        let (reference, sequence) = crate::timeline_workflow::active(snapshot)?;
+        (
+            reference,
+            sequence.clips.iter().map(|c| c.asset).collect::<Vec<_>>(),
+        )
+    } else {
+        let (reference, layers) = active(snapshot)?;
+        (reference, layers.assets)
+    };
     let mut data = b"fold-video-evaluator-v1;ffmpeg-zscale-bt709-srgb-v1;nearest;".to_vec();
     data.extend_from_slice(&snapshot.state().documents[&reference.document].payload);
-    for id in layers.assets {
+    for id in assets {
         let asset = snapshot
             .state()
             .assets
@@ -112,20 +127,43 @@ pub fn evaluate(
     if key.content != content(snapshot)? || key.view != 1 {
         return Err("preview identity/settings mismatch".into());
     }
-    let (source, layers) = active(snapshot)?;
-    if key.frame >= layers.info.frames {
+    let (source, info) = output(snapshot)?;
+    if key.frame >= info.frames {
         return Err("frame outside sequence".into());
     }
     let mut registry = VideoRegistry::default();
     registry.register(VideoLayersProvider)?;
-    let plan = registry.compile(
-        snapshot,
-        &source,
-        layers.info.time(key.frame)?,
-        key.dimensions[0],
-        key.dimensions[1],
-    )?;
+    let packages = crate::packages::builtins();
+    let plan = if packages.supports(&snapshot.state().documents[&source.document]) {
+        packages.video(
+            snapshot,
+            &source,
+            info.time(key.frame)?,
+            key.dimensions[0],
+            key.dimensions[1],
+        )?
+    } else {
+        registry.compile(
+            snapshot,
+            &source,
+            info.time(key.frame)?,
+            key.dimensions[0],
+            key.dimensions[1],
+        )?
+    };
     fold_render::render_with(plan, decoder, cancel)
+}
+
+pub fn output(snapshot: &Snapshot) -> Result<(DocumentRef, VideoInfo), String> {
+    if crate::timeline_workflow::has_sequence(snapshot) {
+        let (reference, sequence) = crate::timeline_workflow::active(snapshot)?;
+        let _ = sequence;
+        let info = crate::packages::builtins().output(snapshot, reference.document)?;
+        Ok((reference, info))
+    } else {
+        let (reference, layers) = active(snapshot)?;
+        Ok((reference, layers.info))
+    }
 }
 
 pub fn export(
@@ -135,11 +173,59 @@ pub fn export(
     end: u32,
     cancel: &Cancel,
 ) -> Result<(), String> {
-    let (_, layers) = active(snapshot)?;
-    if start >= end || end > layers.info.frames {
+    use fold_foundation::Rounding;
+    use fold_media::audio::{AUDIO_RATE, AudioDecoder};
+    use std::io::Write;
+    if !crate::timeline_workflow::has_sequence(snapshot) {
+        return export_video(snapshot, path, start, end, cancel);
+    }
+    let (reference, sequence) = crate::timeline_workflow::active(snapshot)?;
+    let info = sequence.info()?;
+    if path.exists() || start >= end || end > info.frames {
+        return Err("invalid export range or destination exists".into());
+    }
+    let plan = crate::packages::builtins().audio(snapshot, reference.document)?;
+    let mut decoder = AudioDecoder::default();
+    plan.preflight(&mut decoder, cancel)?;
+    let temporary = tempfile::tempdir().map_err(|e| e.to_string())?;
+    let video = temporary.path().join("video.mp4");
+    let pcm = temporary.path().join("audio.f32");
+    let mut file = std::fs::File::create(&pcm).map_err(|e| e.to_string())?;
+    let mut sample = info
+        .time(start)?
+        .to_ticks(AUDIO_RATE, 1, Rounding::Ceil)
+        .map_err(|e| e.to_string())? as u64;
+    let end_sample = info
+        .time(end)?
+        .to_ticks(AUDIO_RATE, 1, Rounding::Ceil)
+        .map_err(|e| e.to_string())? as u64;
+    while sample < end_sample {
+        let count = (end_sample - sample).min(4096) as usize;
+        let block = plan.evaluate(sample, count, &mut decoder, cancel)?;
+        let bytes: Vec<u8> = block
+            .into_iter()
+            .flatten()
+            .flat_map(f32::to_le_bytes)
+            .collect();
+        file.write_all(&bytes).map_err(|e| e.to_string())?;
+        sample += count as u64;
+    }
+    drop(file);
+    export_video(snapshot, &video, start, end, cancel)?;
+    fold_media::audio::mux_audio(&video, &pcm, path, cancel)
+}
+
+fn export_video(
+    snapshot: &Snapshot,
+    path: &Path,
+    start: u32,
+    end: u32,
+    cancel: &Cancel,
+) -> Result<(), String> {
+    let (_, info) = output(snapshot)?;
+    if start >= end || end > info.frames {
         return Err("export requires nonempty half-open [start,end) within the sequence".into());
     }
-    let info: VideoInfo = layers.info;
     let mut decoder = Decoder::default();
     let mut key = PreviewKey {
         content: content(snapshot)?,

@@ -15,7 +15,7 @@ ALLOWED = {
     "fold-render": {"fold-foundation", "fold-media"},
     "fold-platform": SHARED - {"fold-platform"},
     "fold-ui": {"fold-foundation", "fold-platform"},
-    **{name: SHARED for name in CREATIVE},
+    **{name: SHARED | {"fold-ui"} for name in CREATIVE},
     "fold-app": SHARED | CREATIVE | {"fold-ui"},
 }
 
@@ -53,6 +53,9 @@ def violations(metadata, headless=False):
         # workspace dependencies must obey the policy even when not resolved.
         for dependency in package["dependencies"]:
             target = dependency["name"]  # Cargo reports the original name for aliases.
+            if name in CREATIVE and is_ui(target):
+                if target != "fold-ui" or not dependency.get("optional", False):
+                    errors.append(f"creative UI must use an optional shared SDK: {name} -> {target}")
             if target in names and target not in ALLOWED[name]:
                 errors.append(f"forbidden dependency: {name} -> {target}")
         # Third-party crates must not smuggle creative implementations or UI
@@ -61,7 +64,8 @@ def violations(metadata, headless=False):
             for identity in sorted(reachable(metadata, package["id"])):
                 target = packages[identity]["name"]
                 forbidden_peer = name != "fold-app" and target in CREATIVE and target != name
-                if is_ui(target) or forbidden_peer:
+                forbidden_ui = is_ui(target) and (name in SHARED or headless)
+                if forbidden_ui or forbidden_peer:
                     errors.append(f"forbidden transitive dependency: {name} -> {target}")
     return errors
 

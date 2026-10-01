@@ -1,5 +1,11 @@
-use dear_imgui_rs::{DockLayout, DockLayoutApply, DockSplit, TextureId, Ui, WindowKey};
-use fold_platform::desktop::{DesktopClient, DesktopCommand, PreviewKey};
+//! Generic workspace shell. Creative panels arrive through the shared SDK;
+//! this module knows no clips, tracks, nodes, or package command arguments.
+use crate::sdk::{ExtensionUi, RegisteredPanel};
+use dear_imgui_rs::{DockLayout, DockLayoutApply, DockSplit, Key, TextureId, Ui, WindowKey};
+use fold_platform::{
+    desktop::{DesktopClient, DesktopCommand, PreviewKey},
+    packages::PanelPlacement,
+};
 
 pub(crate) enum Preview {
     Pending,
@@ -16,59 +22,69 @@ fn fitted_size(dimensions: [u32; 2], available: [f32; 2]) -> [f32; 2] {
 }
 pub(crate) struct Shell {
     viewer: WindowKey,
-    inspector: WindowKey,
-    timeline: WindowKey,
+    delivery: WindowKey,
+    empty: WindowKey,
+    panels: Vec<RegisteredPanel>,
     layout: DockLayout,
     reset_layout: bool,
-    first: String,
-    second: String,
     project_path: String,
     export_path: String,
-    frame: i32,
+    frame: u32,
     divisor: u32,
     start: i32,
     end: i32,
-    opacity: f32,
     content: Option<String>,
 }
 impl Shell {
-    pub fn new() -> Self {
+    pub fn new(panels: Vec<RegisteredPanel>) -> Self {
         let viewer = WindowKey::new("fold.viewer.main", "Viewer").unwrap();
-        let inspector = WindowKey::new("fold.inspector.main", "Media / Delivery").unwrap();
-        let timeline = WindowKey::new("fold.timeline.main", "Transport").unwrap();
+        let delivery = WindowKey::new("fold.delivery.main", "Project / Delivery").unwrap();
+        let empty = WindowKey::new("fold.editors.empty", "Editors").unwrap();
+        let mut editors: Vec<_> = panels
+            .iter()
+            .filter(|p| p.descriptor.placement == PanelPlacement::Editor)
+            .map(|p| &p.key)
+            .collect();
+        if editors.is_empty() {
+            editors.push(&empty);
+        }
+        let mut inspectors: Vec<_> = panels
+            .iter()
+            .filter(|p| p.descriptor.placement == PanelPlacement::Inspector)
+            .map(|p| &p.key)
+            .collect();
+        inspectors.push(&delivery);
         let layout = DockLayout::split(
             DockSplit::Down,
-            0.28,
-            DockLayout::tabs([&timeline]),
+            0.46,
+            DockLayout::tabs(editors),
             DockLayout::split(
                 DockSplit::Right,
-                0.36,
-                DockLayout::tabs([&inspector]),
+                0.29,
+                DockLayout::tabs(inspectors),
                 DockLayout::tabs([&viewer]),
             ),
         );
         Self {
             viewer,
-            inspector,
-            timeline,
+            delivery,
+            empty,
+            panels,
             layout,
             reset_layout: false,
-            first: String::new(),
-            second: String::new(),
             project_path: "/tmp/fold-project.fold".into(),
             export_path: "/tmp/fold-export.mp4".into(),
             frame: 0,
             divisor: 2,
             start: 0,
             end: 1,
-            opacity: 0.5,
             content: None,
         }
     }
     pub fn key(&self, client: &dyn DesktopClient) -> Option<PreviewKey> {
         client
             .state()
-            .preview_key(self.frame.max(0) as u32, self.divisor)
+            .preview_key(client.state().frame, self.divisor)
     }
     pub fn controls(
         &mut self,
@@ -76,18 +92,20 @@ impl Shell {
         client: &mut dyn DesktopClient,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let state = client.state().clone();
+        self.frame = state.frame;
         if self.content != state.content {
-            self.frame = self.frame.clamp(0, state.frames as i32 - 1);
             self.end = state.frames as i32;
             self.content = state.content.clone();
-            self.opacity = state.foreground_opacity;
+        }
+        if !ui.io().want_text_input() && ui.io().key_ctrl() && ui.is_key_pressed(Key::Z) {
+            client.command(if ui.io().key_shift() {
+                DesktopCommand::Redo
+            } else {
+                DesktopCommand::Undo
+            });
         }
         ui.main_menu_bar(|| {
-            ui.text("Fold | Media | Video only");
-            ui.same_line();
-            if ui.button("Reset layout") {
-                self.reset_layout = true;
-            }
+            ui.text("Fold  |  Editing");
             ui.same_line();
             if ui.button("Undo") {
                 client.command(DesktopCommand::Undo);
@@ -95,6 +113,10 @@ impl Shell {
             ui.same_line();
             if ui.button("Redo") {
                 client.command(DesktopCommand::Redo);
+            }
+            ui.same_line();
+            if ui.button("Reset layout") {
+                self.reset_layout = true;
             }
         });
         ui.dockspace()
@@ -108,70 +130,69 @@ impl Shell {
             )
             .build()?;
         self.reset_layout = false;
-        ui.window(&self.inspector).build(|| {
-            ui.text_wrapped("MP4/H.264 | 8-bit SDR BT.709 limited range | CFR | square pixels. Audio is ignored.");
-            ui.input_text("Background path", &mut self.first).build();
-            ui.input_text("Foreground (optional)", &mut self.second).build();
-            if ui.button("Import layers") {
-                let mut paths = vec![self.first.clone().into()];
-                if !self.second.is_empty() { paths.push(self.second.clone().into()); }
-                client.command(DesktopCommand::Import(paths));
+        for registered in &mut self.panels {
+            ui.window(&registered.key)
+                .build(|| registered.panel.draw(ExtensionUi { ui, host: client }));
+        }
+        if !self
+            .panels
+            .iter()
+            .any(|p| p.descriptor.placement == PanelPlacement::Editor)
+        {
+            ui.window(&self.empty)
+                .build(|| ui.text_wrapped("No editor contribution is installed."));
+        }
+        ui.window(&self.delivery).build(|| {
+            ui.input_text("Project path", &mut self.project_path)
+                .build();
+            if ui.button("Save") {
+                client.command(DesktopCommand::Save(self.project_path.clone().into()));
             }
-            ui.text_wrapped("Two layers must have matching dimensions, rate and frame count.");
-            ui.slider("Foreground opacity", 0.0f32, 1.0f32, &mut self.opacity);
-            if ui.button("Apply opacity") { client.command(DesktopCommand::Opacity(self.opacity)); }
+            ui.same_line();
+            if ui.button("Open") {
+                client.command(DesktopCommand::Open(self.project_path.clone().into()));
+            }
             ui.separator();
-            ui.input_text("Project path", &mut self.project_path).build();
-            if ui.button("Save project") { client.command(DesktopCommand::Save(self.project_path.clone().into())); }
-            ui.same_line(); if ui.button("Open project") { client.command(DesktopCommand::Open(self.project_path.clone().into())); }
-            ui.separator();
-            ui.input_text("New MP4 output", &mut self.export_path).build();
-            ui.text("Export range [start, end): end is exclusive");
+            ui.input_text("New MP4 output", &mut self.export_path)
+                .build();
             ui.input_int("Start frame", &mut self.start);
-            ui.input_int("End frame", &mut self.end);
+            ui.input_int("End (exclusive)", &mut self.end);
             if ui.button("Export range") && self.start >= 0 && self.end > self.start {
-                client.command(DesktopCommand::Export { path: self.export_path.clone().into(), start: self.start as u32, end: self.end as u32 });
+                client.command(DesktopCommand::Export {
+                    path: self.export_path.clone().into(),
+                    start: self.start as u32,
+                    end: self.end as u32,
+                });
             }
-            ui.same_line(); if ui.button("Cancel job") { client.command(DesktopCommand::Cancel); }
-            ui.text(if state.busy { "Background job active" } else { "Background worker idle" });
+            ui.same_line();
+            if ui.button("Cancel job") {
+                client.command(DesktopCommand::Cancel);
+            }
+            ui.text(if state.busy {
+                "Background job active"
+            } else {
+                "Worker idle"
+            });
             ui.text_wrapped(&state.status);
-        });
-        ui.window(&self.timeline).build(|| {
-            ui.text(format!(
-                "Frame {} / {} | {} / {} fps | exact frame-based scrubbing",
-                self.frame,
-                state.frames.saturating_sub(1),
-                state.rate[0],
-                state.rate[1]
-            ));
-            ui.slider("Seek", 0, (state.frames as i32 - 1).max(0), &mut self.frame);
-            ui.input_int("Frame", &mut self.frame);
-            self.frame = self.frame.clamp(0, state.frames as i32 - 1);
-            for (label, divisor) in [("Full", 1), ("Half", 2), ("Quarter", 4)] {
-                if ui.button(label) {
-                    self.divisor = divisor;
-                }
-                ui.same_line();
-            }
-            ui.text(format!(
-                "Preview 1/{} | No playback/audio yet",
-                self.divisor
-            ));
         });
         Ok(())
     }
-    pub fn viewer(&self, ui: &Ui, preview: &Preview, statistics: &str) {
+    pub fn viewer(&mut self, ui: &Ui, preview: &Preview, statistics: &str) {
         ui.window(&self.viewer).build(|| {
             ui.text(format!(
-                "Frame {} | SDR sRGB v1 | preview 1/{}",
+                "Frame {}  |  SDR sRGB  |  Preview 1/{}",
                 self.frame, self.divisor
             ));
+            for (label, divisor) in [("Full", 1), ("Half", 2), ("Quarter", 4)] {
+                ui.same_line();
+                if ui.button(label) {
+                    self.divisor = divisor;
+                }
+            }
             ui.text(statistics);
             ui.separator();
             match preview {
-                Preview::Pending => {
-                    ui.text("No current image: import media or wait for rendering…")
-                }
+                Preview::Pending => ui.text("Waiting for the current frame…"),
                 Preview::Failed(error) => {
                     ui.text("Preview failed");
                     ui.text_wrapped(error);
@@ -180,10 +201,6 @@ impl Shell {
                     texture,
                     dimensions,
                 } => {
-                    ui.text(format!(
-                        "{} x {} display pixels",
-                        dimensions[0], dimensions[1]
-                    ));
                     let size = fitted_size(*dimensions, ui.content_region_avail());
                     if size[0] > 0.0 && size[1] > 0.0 {
                         ui.image(*texture, size);
@@ -203,7 +220,8 @@ mod tests {
         assert_eq!(fitted_size([640, 360], [-1.0, 90.0]), [0.0, 0.0]);
     }
     #[test]
-    fn docked_controls_and_viewer_build() {
+    fn generic_shell_without_feature_panels_builds() {
+        let _guard = crate::IMGUI_TEST_LOCK.lock().unwrap();
         struct Client(DesktopState);
         impl DesktopClient for Client {
             fn state(&self) -> &DesktopState {
@@ -227,7 +245,7 @@ mod tests {
             .try_claim_legacy_renderer()
             .unwrap()
             .build();
-        let mut shell = Shell::new();
+        let mut shell = Shell::new(vec![]);
         let mut client = Client(DesktopState::default());
         for size in [[1280.0, 800.0], [640.0, 480.0], [1920.0, 1080.0]] {
             context.io_mut().set_display_size(size);

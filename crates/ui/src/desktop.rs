@@ -14,9 +14,13 @@ use winit::{
 
 type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
-pub(crate) fn run(preview: Box<dyn DesktopClient>) -> Result<()> {
+pub(crate) fn run(
+    preview: Box<dyn DesktopClient>,
+    panels: Vec<crate::sdk::RegisteredPanel>,
+) -> Result<()> {
     let mut app = App {
         preview: Some(preview),
+        panels: Some(panels),
         desktop: None,
         error: None,
     };
@@ -29,6 +33,7 @@ pub(crate) fn run(preview: Box<dyn DesktopClient>) -> Result<()> {
 
 struct App {
     preview: Option<Box<dyn DesktopClient>>,
+    panels: Option<Vec<crate::sdk::RegisteredPanel>>,
     desktop: Option<Desktop>,
     error: Option<Box<dyn Error>>,
 }
@@ -46,6 +51,7 @@ impl ApplicationHandler for App {
             match Desktop::new(
                 event_loop,
                 self.preview.take().expect("single desktop initialization"),
+                self.panels.take().expect("single panel initialization"),
             ) {
                 Ok(desktop) => self.desktop = Some(desktop),
                 Err(error) => self.stop(event_loop, error),
@@ -112,7 +118,11 @@ impl Drop for Desktop {
 }
 
 impl Desktop {
-    fn new(event_loop: &ActiveEventLoop, preview: Box<dyn DesktopClient>) -> Result<Self> {
+    fn new(
+        event_loop: &ActiveEventLoop,
+        preview: Box<dyn DesktopClient>,
+        panels: Vec<crate::sdk::RegisteredPanel>,
+    ) -> Result<Self> {
         let window = Arc::new(
             event_loop.create_window(
                 Window::default_attributes()
@@ -169,7 +179,7 @@ impl Desktop {
             queue,
             config,
             window,
-            shell: Shell::new(),
+            shell: Shell::new(panels),
             preview: PreviewHost::new(),
             client: preview,
         })

@@ -21,7 +21,7 @@
 
 ## Editing slice
 
-- [ ] 7. Add timeline move/trim/split and synchronized audio playback.
+- [x] 7. Add timeline move/trim/split and synchronized audio playback. Complete: registered first-party multi-track NLE package, direct canvas editing, linked A/V transactions, shared compositing/mixing and export, and synchronized transport. Workspace tests and checks pass; native interaction acceptance is user-verified. Scope, evidence, and hardening limits: `docs/phase-7.md`.
 - [ ] 8. Add basic compositor nodes, a static operator registry, and nested document references.
 - [ ] Checkpoint: edit a short sequence with audio and a nested composite; verify cross-document undo.
 

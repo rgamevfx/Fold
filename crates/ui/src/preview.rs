@@ -23,6 +23,7 @@ pub(crate) struct PreviewHost {
     displayed: Option<PreviewKey>,
     cache: Cache<PreviewKey, Texture>,
     pending: Option<DisplayFrame>,
+    requested: bool,
 }
 impl PreviewHost {
     pub fn new() -> Self {
@@ -32,24 +33,39 @@ impl PreviewHost {
             displayed: None,
             cache: Cache::new(256 * 1024 * 1024),
             pending: None,
+            requested: false,
         }
     }
     pub fn statistics(&self) -> String {
         format!(
-            "GPU RGBA8 cache: {:.1}/256 MiB | hits {} | misses {}",
+            "GPU RGBA8 cache: {:.1}/256 MiB | hits {} | misses {} | displayed frame {:?}",
             self.cache.bytes as f64 / 1048576.0,
             self.cache.hits,
-            self.cache.misses
+            self.cache.misses,
+            self.displayed.as_ref().map(|key| key.frame)
         )
     }
     pub fn select(&mut self, wanted: Option<PreviewKey>, client: &mut dyn DesktopClient) {
+        let playing = client.state().playing && !client.state().priming;
+        if playing
+            && self.requested
+            && wanted
+                .as_ref()
+                .zip(self.wanted.as_ref())
+                .is_some_and(|(a, b)| a.content == b.content && a.dimensions == b.dimensions)
+        {
+            return; // Finish current decode; drop intervening video demands, never stall audio.
+        }
         if wanted == self.wanted {
             return;
         }
         client.cancel_preview();
         self.pending = None;
         self.wanted = wanted.clone();
-        self.state = Preview::Pending;
+        self.requested = false;
+        if !playing {
+            self.state = Preview::Pending;
+        }
         if let Some(key) = wanted {
             if let Some(texture) = self.cache.get(&key) {
                 self.state = Preview::Ready {
@@ -58,6 +74,7 @@ impl PreviewHost {
                 };
                 self.displayed = Some(key);
             } else {
+                self.requested = true;
                 client.request_preview(key);
             }
         } else {
@@ -75,6 +92,7 @@ impl PreviewHost {
         if let Some(result) = client.take_preview()
             && self.wanted.as_ref() == Some(&result.key)
         {
+            self.requested = false;
             match result.frame {
                 Ok(frame) => self.pending = Some(frame),
                 Err(error) => self.state = Preview::Failed(error),

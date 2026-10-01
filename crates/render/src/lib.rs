@@ -1,6 +1,7 @@
 //! Feature-neutral CPU execution. Creative packages compile immutable inputs here.
 use std::io::{self, Write};
 
+pub mod audio;
 mod graph;
 pub use graph::{Affine, ImageId, ImageOp, RenderGraph};
 

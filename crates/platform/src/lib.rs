@@ -1,7 +1,9 @@
 //! Static capability contracts. Only the application assembles implementations.
 pub mod desktop;
+pub mod packages;
 use fold_foundation::Time;
 use fold_project::{Document, DocumentRef, Snapshot};
+pub use fold_project::{Revision as ProjectRevision, Snapshot as ProjectSnapshot};
 use fold_render::RenderGraph;
 
 // Presentation contract, not access to engine resources or GPU implementation.
@@ -38,6 +40,9 @@ pub struct VideoRegistry {
 }
 impl VideoRegistry {
     pub fn register(&mut self, provider: impl VideoProvider + 'static) -> Result<(), String> {
+        self.register_boxed(Box::new(provider))
+    }
+    pub fn register_boxed(&mut self, provider: Box<dyn VideoProvider>) -> Result<(), String> {
         if self
             .providers
             .iter()
@@ -45,7 +50,7 @@ impl VideoRegistry {
         {
             return Err("duplicate video provider".into());
         }
-        self.providers.push(Box::new(provider));
+        self.providers.push(provider);
         Ok(())
     }
 

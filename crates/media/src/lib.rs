@@ -1,10 +1,13 @@
 //! Bounded media adapters and opaque, full-range SDR sRGB RGB8 source images.
 use std::sync::Arc;
 
+pub mod audio;
 mod process;
 mod video;
+mod wave;
 pub use process::Cancel;
 pub use video::{Decoder, Encoder, VideoInfo, VideoSource, fingerprint, inspect};
+pub use wave::{WaveInfo, WaveSource, inspect_wave};
 
 pub fn content_hash(bytes: &[u8]) -> String {
     use sha2::{Digest, Sha256};

@@ -2,10 +2,16 @@
 mod cache;
 mod desktop;
 mod preview;
+pub mod sdk;
 mod shell;
+
+// Dear ImGui permits only one owning thread at a time, including headless tests.
+#[cfg(test)]
+static IMGUI_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 pub fn run_desktop(
     client: Box<dyn fold_platform::desktop::DesktopClient>,
+    panels: sdk::PanelRegistry,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    desktop::run(client)
+    desktop::run(client, panels.finish()?)
 }
