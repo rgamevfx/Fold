@@ -15,7 +15,7 @@
 
 - [x] 3. Build a thin Dear ImGui shell with docking, viewer, inspector, and timeline placeholders. User accepted; verification evidence and deferred native checks in `docs/phase-3.md`.
 - [x] 4. Display an engine-rendered texture in the viewer. CPU-upload path and native resize/close verified; see `docs/phase-4.md`.
-- [ ] 5. Build the shared render graph with transforms, opacity, and compositing.
+- [x] 5. Build the shared render graph with transforms, opacity, and compositing. Bounded CPU graph and shared provider contract verified; see `docs/phase-5.md`.
 - [ ] 6. Connect media import, decoding, scrubbing, and export through the shared engine.
 - [ ] Checkpoint: preview and export two composited sources without blocking UI input.
 

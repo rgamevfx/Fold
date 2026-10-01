@@ -13,6 +13,15 @@ worker-rendered solid demo in the viewer; inspector and timeline remain docked
 placeholders, not creative package models. App assembles the committed source and
 provider; render produces owned opaque sRGB display bytes, re-exported by platform.
 UI polls a bounded result channel and owns only the uploaded presentation copy.
+Phase 5 changes video providers to return a shared full-frame `RenderGraph`:
+solid sources, affine transforms, premultiplied opacity, and ordered source-over.
+The CPU evaluator validates topological image edges and parameters, evaluates
+only the output dependency closure, and releases intermediates at their last
+consumer. Both desktop and CLI use this path; `SolidPlan` is a one-node adapter.
+Coordinates are raster pixels with top-left origin and pixel-center nearest
+sampling, transparent borders, and scene-linear sRGB RGBA32F throughout. Graphs
+have at most 4096 nodes, 4,194,304 pixels per frame and 64 MiB of live evaluator
+pixel buffers per invocation (not a global process or presentation budget).
 
 | Crate | Responsibility | Allowed Fold dependencies |
 | --- | --- | --- |
@@ -78,7 +87,9 @@ project behavioral tests cover exact time, transaction atomicity, immutable
 snapshots, history, preview isolation, and unknown-data preservation (phase 2).
 Checkpoint tests cover solid pixels, output color conversion, CPU allocation
 limits, provider errors, snapshot isolation, and CLI persistence/render equivalence.
-Graph evaluation and GPU resource ownership need tests in subsequent phases. Keep
+Phase 5 graph tests cover transforms, alpha/merge ordering, shared inputs,
+validation, live pixel budgets, and display/headless equivalence. GPU resource
+ownership still needs tests in subsequent phases. Keep
 future public contracts separate from service implementations; do not create a
 universal creative model in infrastructure.
 

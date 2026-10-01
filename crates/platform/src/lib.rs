@@ -1,7 +1,7 @@
 //! Static capability contracts. Only the application assembles implementations.
 use fold_foundation::Time;
 use fold_project::{Document, DocumentRef, Snapshot};
-use fold_render::SolidPlan;
+use fold_render::RenderGraph;
 
 // Presentation contract, not access to engine resources or GPU implementation.
 pub use fold_render::DisplayFrame;
@@ -16,7 +16,7 @@ pub trait VideoProvider: Send + Sync {
         time: Time,
         width: u32,
         height: u32,
-    ) -> Result<SolidPlan, String>;
+    ) -> Result<RenderGraph, String>;
 }
 
 #[derive(Default)]
@@ -43,7 +43,7 @@ impl VideoRegistry {
         time: Time,
         width: u32,
         height: u32,
-    ) -> Result<SolidPlan, String> {
+    ) -> Result<RenderGraph, String> {
         let document = snapshot
             .state()
             .documents

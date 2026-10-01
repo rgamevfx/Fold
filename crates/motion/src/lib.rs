@@ -2,7 +2,7 @@
 use fold_foundation::{DocumentId, Time};
 use fold_platform::VideoProvider;
 use fold_project::{Document, Revision};
-use fold_render::SolidPlan;
+use fold_render::{RenderGraph, SolidPlan};
 use serde::{Deserialize, Serialize};
 
 pub const PACKAGE: &str = "fold.motion";
@@ -56,7 +56,7 @@ impl VideoProvider for SolidProvider {
         _time: Time,
         width: u32,
         height: u32,
-    ) -> Result<SolidPlan, String> {
+    ) -> Result<RenderGraph, String> {
         if document.package_id != PACKAGE
             || document.type_id != SOLID
             || document.schema_version != 1
@@ -77,6 +77,7 @@ impl VideoProvider for SolidProvider {
             width,
             height,
             rgba: [r, g, b, 1.0],
-        })
+        }
+        .into())
     }
 }

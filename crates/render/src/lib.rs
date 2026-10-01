@@ -1,6 +1,9 @@
 //! Feature-neutral CPU execution. Creative packages compile immutable inputs here.
 use std::io::{self, Write};
 
+mod graph;
+pub use graph::{Affine, ImageId, ImageOp, RenderGraph};
+
 /// One full-frame operation; colors are scene-linear sRGB, premultiplied RGBA.
 #[derive(Clone, Copy, Debug)]
 pub struct SolidPlan {
@@ -85,33 +88,9 @@ fn encode(linear: f32) -> u8 {
     (srgb * 255.0).round() as u8
 }
 
-pub fn render(plan: SolidPlan) -> Result<Frame, &'static str> {
-    // Fixed 64 MiB pixel budget for this initial CPU path.
-    let count = u64::from(plan.width) * u64::from(plan.height);
-    if count == 0 || count > 4_194_304 {
-        return Err("resolution must contain 1..=4194304 pixels");
-    }
-    let [r, g, b, a] = plan.rgba;
-    if !plan
-        .rgba
-        .iter()
-        .all(|v| v.is_finite() && (0.0..=1.0).contains(v))
-        || r > a
-        || g > a
-        || b > a
-    {
-        return Err("expected finite SDR premultiplied linear RGBA");
-    }
-    let mut pixels = Vec::new();
-    pixels
-        .try_reserve_exact(count as usize)
-        .map_err(|_| "frame allocation failed")?;
-    pixels.resize(count as usize, plan.rgba);
-    Ok(Frame {
-        width: plan.width,
-        height: plan.height,
-        pixels,
-    })
+/// Executes the shared image graph. SolidPlan is a one-node convenience adapter.
+pub fn render(plan: impl Into<RenderGraph>) -> Result<Frame, &'static str> {
+    graph::evaluate(plan.into())
 }
 
 #[cfg(test)]
