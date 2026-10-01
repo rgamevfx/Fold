@@ -7,7 +7,7 @@
 
 ## Foundation slice
 
-- [ ] 1. Scaffold the Rust workspace and enforce package boundaries.
+- [x] 1. Scaffold the Rust workspace and enforce package boundaries.
 - [ ] 2. Implement project state, exact time, transactions, undo, and save/load.
 - [ ] Checkpoint: create, edit, undo, save/reopen, and render a generated image headlessly.
 

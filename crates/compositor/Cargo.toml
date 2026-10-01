@@ -1,0 +1,15 @@
+[package]
+name = "fold-compositor"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+fold-foundation.workspace = true
+fold-project.workspace = true
+fold-media.workspace = true
+fold-render.workspace = true
+fold-platform.workspace = true
+
+[lints]
+workspace = true

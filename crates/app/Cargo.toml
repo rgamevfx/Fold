@@ -1,0 +1,32 @@
+[package]
+name = "fold-app"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+default-run = "fold-cli"
+
+[features]
+default = []
+desktop = ["dep:fold-ui"]
+
+[dependencies]
+fold-project.workspace = true
+fold-media.workspace = true
+fold-render.workspace = true
+fold-platform.workspace = true
+fold-timeline.workspace = true
+fold-compositor.workspace = true
+fold-motion.workspace = true
+fold-ui = { workspace = true, optional = true }
+
+[[bin]]
+name = "fold-cli"
+path = "src/bin/cli.rs"
+
+[[bin]]
+name = "fold-desktop"
+path = "src/bin/desktop.rs"
+required-features = ["desktop"]
+
+[lints]
+workspace = true

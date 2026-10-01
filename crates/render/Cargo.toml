@@ -1,0 +1,12 @@
+[package]
+name = "fold-render"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+fold-foundation.workspace = true
+fold-media.workspace = true
+
+[lints]
+workspace = true

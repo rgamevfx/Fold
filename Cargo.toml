@@ -1,0 +1,34 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/foundation",
+    "crates/project",
+    "crates/media",
+    "crates/render",
+    "crates/platform",
+    "crates/ui",
+    "crates/timeline",
+    "crates/compositor",
+    "crates/motion",
+    "crates/app",
+]
+default-members = ["crates/app"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[workspace.dependencies]
+fold-foundation = { path = "crates/foundation" }
+fold-project = { path = "crates/project" }
+fold-media = { path = "crates/media" }
+fold-render = { path = "crates/render" }
+fold-platform = { path = "crates/platform" }
+fold-ui = { path = "crates/ui" }
+fold-timeline = { path = "crates/timeline" }
+fold-compositor = { path = "crates/compositor" }
+fold-motion = { path = "crates/motion" }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
