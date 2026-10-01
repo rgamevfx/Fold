@@ -1,4 +1,4 @@
-use crate::{Asset, Document, Metadata, ProjectState, Revision, Snapshot};
+use crate::{Asset, CommittedSnapshot, Document, Metadata, ProjectState, Revision, Snapshot};
 use fold_foundation::{AssetId, DocumentId};
 use std::{
     collections::{BTreeMap, VecDeque},
@@ -45,7 +45,7 @@ impl fmt::Display for ProjectError {
 }
 impl std::error::Error for ProjectError {}
 
-/// A transient overlay, deliberately not a committed Snapshot accepted by save.
+/// A transient overlay, deliberately not a CommittedSnapshot accepted by save.
 /// Replace its batch on each update; consuming it commits once, dropping cancels.
 pub struct EditSession {
     batch: EditBatch,
@@ -58,6 +58,10 @@ impl EditSession {
     }
     pub fn generation(&self) -> u64 {
         self.generation
+    }
+    /// Retain the current overlay for a worker. It has no save/export authority.
+    pub fn snapshot(&self) -> Snapshot {
+        Snapshot(self.state.clone())
     }
 }
 
@@ -88,8 +92,8 @@ impl Project {
         }
     }
 
-    pub fn snapshot(&self) -> Snapshot {
-        Snapshot(self.current.clone())
+    pub fn snapshot(&self) -> CommittedSnapshot {
+        CommittedSnapshot(Snapshot(self.current.clone()))
     }
 
     fn next_revision(&self) -> Result<Revision, ProjectError> {
@@ -143,13 +147,7 @@ impl Project {
         Ok(Arc::new(state))
     }
 
-    /// Validate a transient proposal without publishing or changing history.
-    /// Hosts must keep this render-only snapshot separate from save/export roots.
-    pub fn preview(&self, batch: &EditBatch) -> Result<Snapshot, ProjectError> {
-        self.stage(batch).map(Snapshot)
-    }
-
-    pub fn commit(&mut self, batch: EditBatch) -> Result<Snapshot, ProjectError> {
+    pub fn commit(&mut self, batch: EditBatch) -> Result<CommittedSnapshot, ProjectError> {
         let after = self.stage(&batch)?;
         let before = std::mem::replace(&mut self.current, after.clone());
         self.redo.clear();
@@ -164,7 +162,7 @@ impl Project {
 
     // Undo restores content but always publishes a fresh project revision, so
     // asynchronous proposals cannot accidentally match an old revision after undo.
-    pub fn undo(&mut self) -> Result<Snapshot, ProjectError> {
+    pub fn undo(&mut self) -> Result<CommittedSnapshot, ProjectError> {
         let entry = self.undo.back().ok_or(ProjectError::NoUndo)?;
         let mut state = (*entry.before).clone();
         state.revision = self.next_revision()?;
@@ -173,7 +171,7 @@ impl Project {
         Ok(self.snapshot())
     }
 
-    pub fn redo(&mut self) -> Result<Snapshot, ProjectError> {
+    pub fn redo(&mut self) -> Result<CommittedSnapshot, ProjectError> {
         let entry = self.redo.last().ok_or(ProjectError::NoRedo)?;
         let mut state = (*entry.after).clone();
         state.revision = self.next_revision()?;
@@ -213,7 +211,7 @@ impl Project {
         Ok(())
     }
 
-    pub fn commit_edit(&mut self, session: EditSession) -> Result<Snapshot, ProjectError> {
+    pub fn commit_edit(&mut self, session: EditSession) -> Result<CommittedSnapshot, ProjectError> {
         self.commit(session.batch)
     }
 }

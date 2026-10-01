@@ -108,16 +108,25 @@ pub struct Sample {
 }
 pub struct Budget {
     remaining: usize,
+    cancel: fold_media::Cancel,
 }
 impl Default for Budget {
     fn default() -> Self {
         Self {
             remaining: 2_000_000,
+            cancel: fold_media::Cancel::default(),
         }
     }
 }
 impl Budget {
+    pub fn cancellable(cancel: &fold_media::Cancel) -> Self {
+        Self {
+            cancel: cancel.clone(),
+            ..Self::default()
+        }
+    }
     pub fn spend(&mut self) -> Result<(), String> {
+        self.cancel.check()?;
         self.remaining = self
             .remaining
             .checked_sub(1)

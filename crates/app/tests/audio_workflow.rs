@@ -243,8 +243,15 @@ fn missing_audio_is_silent_and_pinned_pcm_rejects_metadata_changes() {
             .read(&source.clone().into(), 0, 48, &cancel)
             .is_err()
     );
+    let retained = source.into();
+    let usage = decoder.prepared_usage();
+    assert_eq!(usage.0, 1);
+    decoder.retain_sources([&retained]);
+    assert_eq!(decoder.prepared_usage(), usage);
+    decoder.retain_sources(std::iter::empty());
+    assert_eq!(decoder.prepared_usage(), (0, 0));
     cancel.cancel();
-    assert!(decoder.preflight(&source.into(), &cancel).is_err());
+    assert!(decoder.preflight(&retained, &cancel).is_err());
 }
 
 #[test]

@@ -130,6 +130,8 @@ pub enum DesktopCommand {
     /// Restore the viewer context for the selected editor workspace.
     ActivateWorkspace(String),
     Select(Selection),
+    /// Undoable persisted delivery output; independent of source navigation.
+    SetOutput(fold_foundation::DocumentId),
     Transport(TransportAction),
     Play,
     Pause,
@@ -158,8 +160,12 @@ pub struct PreviewResult {
 pub trait DesktopClient {
     fn state(&self) -> &DesktopState;
     /// Immutable committed state, never a mutable project or device handle.
-    fn snapshot(&self) -> Option<fold_project::Snapshot> {
+    fn snapshot(&self) -> Option<fold_project::CommittedSnapshot> {
         None
+    }
+    /// Current committed delivery output and its range metadata.
+    fn output_info(&self) -> Result<(fold_foundation::DocumentId, fold_media::VideoInfo), String> {
+        Err("no project output".into())
     }
     /// Lightweight capability metadata for document browsers (no media I/O).
     fn video_info(

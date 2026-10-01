@@ -90,7 +90,30 @@ impl Frame {
     }
 }
 
+/// Exact RGB8 quantization of the reference transfer, without per-pixel powf.
+/// Thresholds are the first representable nonnegative f32 that rounds to each
+/// code. Build once using the original transfer, rather than an approximate LUT.
 fn encode(linear: f32) -> u8 {
+    static THRESHOLDS: std::sync::OnceLock<[f32; 255]> = std::sync::OnceLock::new();
+    let thresholds = THRESHOLDS.get_or_init(|| {
+        std::array::from_fn(|index| {
+            let target = (index + 1) as u8;
+            let (mut low, mut high) = (0u32, 1.0f32.to_bits());
+            while low < high {
+                let mid = low + (high - low) / 2;
+                if encode_reference(f32::from_bits(mid)) < target {
+                    low = mid + 1;
+                } else {
+                    high = mid;
+                }
+            }
+            f32::from_bits(low)
+        })
+    });
+    thresholds.partition_point(|&threshold| linear >= threshold) as u8
+}
+
+fn encode_reference(linear: f32) -> u8 {
     let srgb = if linear <= 0.0031308 {
         12.92 * linear
     } else {
@@ -123,6 +146,30 @@ pub fn render_with(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn fast_transfer_matches_reference_including_quantization_boundaries() {
+        let mut bits = 1u32;
+        for _ in 0..100_000 {
+            bits = bits.wrapping_mul(1664525).wrapping_add(1013904223);
+            let value = f32::from_bits(bits);
+            assert_eq!(encode(value), encode_reference(value), "{value:?}");
+        }
+        for code in 1..=255u8 {
+            let (mut low, mut high) = (0u32, 1.0f32.to_bits());
+            while low < high {
+                let mid = low + (high - low) / 2;
+                if encode_reference(f32::from_bits(mid)) < code {
+                    low = mid + 1;
+                } else {
+                    high = mid;
+                }
+            }
+            for bits in [low - 1, low, low + 1] {
+                let value = f32::from_bits(bits);
+                assert_eq!(encode(value), encode_reference(value));
+            }
+        }
+    }
     #[test]
     fn display_matches_headless_output_without_mutating_scene_pixels() {
         let frame = render(SolidPlan {

@@ -1,122 +1,176 @@
-# Workspace ownership and dependency policy
+# Current architecture and dependency policy
 
-The workspace follows sections 3, 16, and 17 of
-`Fold_Application_Product_Architecture.docx`. All crates are statically linked.
-Foundation implements stable IDs and exact rational time. Project implements
-feature-neutral document/asset records, immutable snapshots, transactions,
-bounded undo/redo, preview sessions, and versioned persistence. The foundation
-checkpoint adds a motion-owned solid source, static video-provider registry, and
-bounded CPU solid rendering with explicit linear-sRGB to RGB8 PPM delivery.
-The phase 3 shell adds a private Dear ImGui/winit/wgpu presentation backend in
-`fold-ui`, exposed to app through `run_desktop(preview)`. Phase 4 adds a one-shot
-worker-rendered solid demo in the viewer; inspector and timeline remain docked
-placeholders, not creative package models. App assembles the committed source and
-provider; render produces owned opaque sRGB display bytes, re-exported by platform.
-UI polls a bounded result channel and owns only the uploaded presentation copy.
-Phase 5 changes video providers to return a shared full-frame `RenderGraph`:
-solid sources, affine transforms, premultiplied opacity, and ordered source-over.
-The CPU evaluator validates topological image edges and parameters, evaluates
-only the output dependency closure, and releases intermediates at their last
-consumer. Both desktop and CLI use this path; `SolidPlan` is a one-node adapter.
-Coordinates are raster pixels with top-left origin and pixel-center nearest
-sampling, transparent borders, and scene-linear sRGB RGBA32F throughout. Graphs
-have at most 4096 nodes, 4,194,304 pixels per frame and 64 MiB of live evaluator
-pixel buffers per invocation (not a global process or presentation budget).
+Fold follows the ownership model in `Fold_Application_Product_Architecture.docx`.
+This document describes the current implementation; phase documents record
+historical slice evidence, not the current architecture. See `consolidation.md`
+for the remaining consolidation work and `phase-9.md` for motion acceptance.
 
-| Crate | Responsibility | Allowed Fold dependencies |
-| --- | --- | --- |
-| `fold-foundation` | Stable IDs, rational time, math, diagnostics | None |
-| `fold-project` | Generic envelopes, assets, revisions, transactions, persistence | foundation |
-| `fold-media` | Media types/adapters, separate video and audio concerns | foundation |
-| `fold-render` | Render IR, scheduling, caches, GPU/resource ownership | foundation, media |
-| `fold-platform` | Commands, capabilities, explicit services, static registration contracts | foundation, project, media, render |
-| `fold-ui` | Shared Dear ImGui UI SDK, components and presentation | foundation, platform |
-| `fold-timeline` | Sequences, tracks, clips, commands and compilation | foundation, project, media, render, platform |
-| `fold-compositor` | Typed authoring graphs, commands and compilation | foundation, project, media, render, platform |
-| `fold-motion` | Geometry, fields, controls, scene authoring and compilation | foundation, project, media, render, platform |
-| `fold-app` | Desktop/CLI assembly of concrete implementations | All |
+## Ownership
 
-Dependencies flow toward shared contracts/infrastructure. Creative packages are
-peers and never import one another. Project and render know no feature models.
-Cross-feature references must use stable IDs and capability/service contracts.
-Only the app wires concrete implementations together. The UI does not own
-project state or authoritative render logic; future controls submit commands and
-edit sessions through the platform. Render workers use immutable snapshots.
+| Crate | Responsibility |
+| --- | --- |
+| `fold-foundation` | Stable IDs and checked rational time |
+| `fold-project` | Feature-neutral envelopes, assets, revisions, transactions, history and persistence |
+| `fold-media` | Bounded CPU image/media adapters, supervised FFmpeg processes and audio preparation |
+| `fold-render` | Feature-neutral image IR, CPU reference evaluation, vector rasterization and offline audio plans |
+| `fold-platform` | Static package registration, document/video/audio capabilities, commands and desktop host contracts |
+| `fold-ui` | Private desktop backend, shared editor components, viewer/transport and presentation cache |
+| `fold-timeline` | Sequences, tracks, clip editing, video/audio compilation and optional UI |
+| `fold-compositor` | Image graph model, validation, compilation and optional UI |
+| `fold-motion` | Procedural graph, geometry, fields, animation, authoring and optional UI |
+| `fold-app` | Concrete assembly, cross-feature commands, workers, playback, desktop and CLI |
 
-## Build and validation
+Creative packages are peers: none imports another's implementation. Project and
+render do not import creative models. Cross-feature nesting uses stable document
+references resolved within one snapshot and compiled into shared render IR.
+Only app assembles concrete implementations. Cross-feature authoring operations
+such as Create Composition stage one atomic batch and retain linked timeline audio.
+Document registration does not require video metadata; timed output information
+belongs to the video capability. Audio validation does not require a video output.
+
+Creative packages have optional `ui` features. App has no default features;
+`desktop` opts into the UI and native audio device dependencies. Static Rust
+traits are in-process contracts, not a stable plugin ABI.
+
+`scripts/check_boundaries.py` checks declared dependencies (including optional,
+target-specific, renamed, dev and build dependencies), transitive dependencies,
+and headless UI isolation. Its regression tests live beside it. This checks
+crate ownership, not runtime semantics.
+
+## Project state and editing
+
+`Project` is the single writer. `EditBatch` uses an expected revision; the
+coordinator validates envelopes, declared references and cycles before publishing.
+Unchanged document roots are shared through `Arc`. Undo/redo publishes fresh
+project revisions, preventing stale asynchronous proposals from becoming valid
+again. History is bounded by entry count, not yet by retained bytes.
+
+`CommittedSnapshot` is issued only by the coordinator. Persistence, application
+export and playback require it. It dereferences to a read-only `Snapshot` for
+provider queries and evaluation; `evaluation()` retains a worker handle without
+persistence authority. There is no reverse conversion.
+
+`EditSession` owns a transient proposal and generation. Updating it replaces the
+staged mutations without publishing or adding undo entries. Its `snapshot()`
+returns an immutable evaluation-only handle that remains valid after later updates
+or cancellation. Desktop gestures use this same session mechanism; releasing a
+gesture stages/commits the final command once, while cancellation drops the overlay.
+Save/export always pin the committed root, never the active overlay. Compile-fail
+tests enforce that evaluation handles cannot be passed to save/export.
+
+Known document validation currently runs through registered package command
+handlers; project core deliberately validates only generic state. Consolidating
+all application publication paths behind typed/capability validation remains work.
+
+## Evaluation and media
+
+Timeline, compositor and motion compile to one full-frame image IR. Nested outputs
+append graph fragments rather than render intermediate images. All providers use
+one `VideoCompile` request carrying the snapshot, reference, exact time, dimensions,
+cancellation token and nested resolver. Nested requests inherit cancellation;
+provider dispatch, dependency walks, motion fields and scene traversal check it.
+The CPU evaluator
+validates graph ordering and parameters, evaluates only output-reachable work and
+releases intermediate frames at their last consumer. Operations include media,
+solid/vector sources, affine transform, opacity, crop, blur, grade, mask and over.
+
+Working pixels are scene-linear sRGB, premultiplied RGBA32F, square pixels, with
+explicit sRGB display conversion. Transforms currently use nearest sampling and
+transparent borders. Vector rasterization uses 8-bit linear coverage/color before
+expanding to float pixels. Delivery is opaque black-backed SDR; nested sources
+retain alpha. This is a restricted reference path, not a general HDR pipeline.
+
+Authored output validation is independent of codec restrictions. Odd raster sizes
+and durations longer than 18000 frames can describe procedural outputs. The
+verified MP4/H.264 adapter separately requires even dimensions and limits imported
+sources/exported ranges to 18000 frames. It accepts a strict zero-origin CFR,
+limited BT.709/yuv420p profile and rejects unsupported interpretations rather than
+silently guessing. WAVE and video audio are prepared as stereo 48 kHz float PCM.
+Video presentation and audio sample ranges share exact rational timing. Exact
+256-entry input-transfer and quantization-threshold output-transfer tables avoid
+per-pixel powers without approximating the existing RGB8 conversion semantics.
+
+The CPU graph limits are 4096 nodes and 4194304 pixels per frame. `render()` allows
+64 MiB of live working pixels; worker `render_with()` allows 128 MiB. Decoder,
+source-copy, audio, vector and presentation budgets are separate. These are not
+an aggregate process-memory/disk budget. There is no GPU evaluation scheduler yet.
+
+Media workers retain verified temporary source copies and bounded frame read-ahead.
+Audio workers prepare disk-backed PCM; the device callback consumes a bounded
+ring without decoding or taking the project lock. The playback worker retains its
+audio decoder across seeks/restarts and drops PCM sources absent from the next
+plan before preparation. Device streams/rings remain generation-local.
+Preview requests replace a bounded mailbox and obsolete results are rejected.
+
+Motion document/video providers share a package-owned cache of validated immutable
+roots and canonical evaluation identities. It retains at most four roots and
+8 MiB of source payloads (not an exact heap-byte budget); larger documents bypass
+retention. Full envelope equality invalidates entries. Parsing/evaluation never
+holds the cache lock, and reference control overrides copy rather than mutate a
+cached root. Time-dependent geometry is not cached by this mechanism.
+
+Video still uses codec processes and temporary raw-frame files for bounded batches.
+This remains a measured throughput bottleneck. Global budget enforcement and
+long-running native performance acceptance are not complete; see
+`consolidation-performance.md`. No real-time performance claim is implied.
+
+## UI
+
+The native window uses Dear ImGui, winit and wgpu. GPU ownership is currently for
+presentation, not engine evaluation. `fold-ui` owns a byte-bounded display-texture
+cache and protects in-flight textures from eviction. Layouts stay outside project
+content; current docking layout is session-local.
+
+Timeline, compositor and motion contribute package-owned panels. Compositor and
+motion share the graph editor and Node Inspector window. Viewer transport and
+review ranges are shared; review ranges are session state, not authored duration.
+The shared `EditResponse` centralizes property activation, change, completion and
+Escape cancellation. `UiId` scopes inspector identity by package, panel instance,
+document and object; property paths are independent of labels. `NumericProperty`
+provides scalar identity, units, step, optional limits and reset metadata. Motion
+scalar/vector/color fields and compositor transform fields use it. Remaining
+custom controls retain the trusted ImGui escape hatch; this is deliberately not
+a full public extension schema or an animation-stack interface.
+
+Delivery output is an undoable persisted `fold.output` document reference. The
+Delivery panel can explicitly select the viewed document and reports the selected
+output's frame range independently of viewer navigation. An unavailable explicit
+selection errors instead of falling back. Older projects retain their previous
+root-selection convention until the user chooses an output. Legacy two-layer
+media documents register through the same capability/compiler path as sequences.
+
+Decode, save/load and export run on workers. Some parsing, validation and content
+identity calculation still occurs on immediate edit/refresh paths; responsiveness
+must be measured rather than inferred from the existence of workers.
+
+## Persistence and compatibility
+
+The v1 `.fold` archive is a versioned JSON container with independent opaque payload
+byte arrays. Unknown payload bytes, metadata, dependencies and manifest assets
+survive load/save. The core neither migrates unknown data nor prunes assets.
+Known schemas are interpreted by their owning packages.
+
+Save writes and syncs a same-directory temporary file, replaces the destination,
+and on Unix syncs the parent directory. `SaveError::DirectorySync` means the new
+archive is visible but durability could not be confirmed. Interrupted temporary
+writes preserve the old archive. Recovery retention, provider migrations, broader
+platform durability and complete reproducible environment records remain work.
+
+## Validation
+
+During iteration, format touched files and check/test affected crates. At a
+vertical-slice checkpoint:
 
 ```sh
-cargo run -p fold-app --bin fold-cli --no-default-features --locked -- checkpoint demo.fold demo.ppm
-cargo run -p fold-app --bin fold-cli --no-default-features --locked -- render demo.fold rerender.ppm
-cargo run -p fold-app --bin fold-desktop --features desktop --locked
 python3 scripts/check_boundaries.py
 python3 -m unittest discover -s scripts -p 'test_*.py'
 cargo fmt --all --check
 cargo check --workspace --all-targets --all-features --locked
 cargo test --workspace --all-features --locked
+cargo clippy --workspace --all-targets --all-features --locked
 ```
 
-The default workspace member is app, with no default features. `desktop` opts
-into `fold-ui`; the desktop target cannot build without that feature. Both
-use separate entry points: the desktop opens a single docked native window; the CLI supports
-`checkpoint` (create/edit/undo/save/reopen/render) and `render` (reopen/render).
-The initial CLI requires exactly one document, uses its `video` output at exact
-time zero and 64×64 resolution, and refuses to overwrite image outputs. Checkpoint
-also refuses an existing project path. Desktop uses dear-imgui-rs, dear-imgui-winit,
-and dear-imgui-wgpu 0.18 with winit 0.30 and wgpu 27. UI GPU resources are currently
-presentation-only: phase 4 uploads a CPU engine result once into a host-registered
-texture, with no engine GPU pool or zero-copy claim. The opaque SDR path requires a
-non-sRGB RGBA8/BGRA8 surface to preserve the engine's exact output transform and
-avoid the UI backend's approximate gamma correction. Layouts
-are session-only and never written to project content or a working-directory ini.
-No codec is selected. If feature packages later contribute UI, add explicitly
-optional UI dependencies and update
-the policy deliberately, preserving the headless graph check.
-
-`scripts/check_boundaries.py` checks Cargo metadata for all features and for no
-default features. It checks every declared workspace dependency, including
-renamed, optional, target-specific, dev, and build dependencies. Resolved
-transitive dependencies must not introduce creative packages or UI into shared
-infrastructure, peer implementations or UI into creative packages, or UI/ImGui
-into the headless app. Adding a workspace member
-requires an explicit policy entry. CI runs this checker and its regression tests
-alongside the workspace build/test checkpoint.
-
-This enforces crate dependency boundaries, not runtime semantics. Foundation and
-project behavioral tests cover exact time, transaction atomicity, immutable
-snapshots, history, preview isolation, and unknown-data preservation (phase 2).
-Checkpoint tests cover solid pixels, output color conversion, CPU allocation
-limits, provider errors, snapshot isolation, and CLI persistence/render equivalence.
-Phase 5 graph tests cover transforms, alpha/merge ordering, shared inputs,
-validation, live pixel budgets, and display/headless equivalence. GPU resource
-ownership still needs tests in subsequent phases. Keep
-future public contracts separate from service implementations; do not create a
-universal creative model in infrastructure.
-
-## Project state and persistence
-
-`Project` is the single writer. Callers submit `EditBatch` values against an
-expected revision; declared document/asset references and cycles are checked
-against the complete staged state before publication. Unchanged document roots
-are shared via `Arc`. Undo/redo restores content under a fresh project revision,
-so old asynchronous proposals remain stale. History has a configurable entry
-limit (not a byte budget). `EditSession` holds a transient overlay; updates replace
-the staged batch, dropping cancels, and committing adds one history entry.
-Preview state cannot be passed to the committed-snapshot save API.
-
-Persistence is synchronous I/O intended for worker threads using pinned snapshots.
-The v1 `.fold` archive is a JSON container with a versioned manifest and independent
-opaque payload byte arrays. Save flushes and syncs a same-directory temporary file,
-atomically replaces the destination, and on Unix syncs its parent directory.
-`SaveError::DirectorySync` explicitly means replacement occurred but durability
-could not be confirmed. An unfinished temporary write does not replace the old
-archive. Linux replacement behavior is tested; cross-platform crash durability and
-recovery snapshot retention remain hardening work.
-
-Unknown document schemas need no installed provider to load/save. Payload bytes,
-unknown JSON fields, dependencies, and asset records are retained; the core neither
-migrates payloads nor automatically prunes assets. Known typed schemas, capability
-and port validation, and provider migrations belong to later package integration.
-Missing external media is retained in the manifest; missing declared manifest IDs
-are errors. Undo history, preview overlays, caches, and workspace layouts are not
-persisted. See `docs/phase-2.md` for acceptance evidence and deferred scope.
+Desktop builds require the platform's development dependencies, including ALSA
+on Linux. Keep machine-specific dependency paths outside repository configuration.
+Native interaction/audio acceptance and release-build performance measurements
+are separate from passing headless or synthetic ImGui tests.

@@ -1,7 +1,7 @@
-use fold_foundation::{AssetId, DocumentId, Time};
+use fold_foundation::{AssetId, DocumentId};
 use fold_media::{VideoInfo, VideoSource};
-use fold_platform::VideoProvider;
-use fold_project::{Document, Revision, Snapshot};
+use fold_platform::{VideoCompile, VideoProvider};
+use fold_project::{Document, Revision};
 use fold_render::{ImageOp, RenderGraph};
 use serde::{Deserialize, Serialize};
 
@@ -72,26 +72,21 @@ impl VideoProvider for VideoLayersProvider {
     fn type_id(&self) -> &'static str {
         VIDEO_LAYERS
     }
-    fn compile(
-        &self,
-        _: &Document,
-        _: &str,
-        _: Time,
-        _: u32,
-        _: u32,
-    ) -> Result<RenderGraph, String> {
-        Err("video layers require snapshot asset resolution".into())
+    fn video_info(&self, document: &Document) -> Result<VideoInfo, String> {
+        Ok(VideoLayers::from_document(document)?.info)
     }
-    fn compile_snapshot(
-        &self,
-        snapshot: &Snapshot,
-        document: &Document,
-        output: &str,
-        time: Time,
-        width: u32,
-        height: u32,
-    ) -> Result<RenderGraph, String> {
-        if output != "video" {
+    fn compile(&self, request: VideoCompile<'_>) -> Result<RenderGraph, String> {
+        let VideoCompile {
+            snapshot,
+            document,
+            reference,
+            time,
+            dimensions: [width, height],
+            cancel,
+            ..
+        } = request;
+        cancel.check()?;
+        if reference.output != "video" {
             return Err("unsupported video output".into());
         }
         let layers = VideoLayers::from_document(document)?;

@@ -194,9 +194,53 @@ fn motion_nests_in_compositor_and_timeline_without_flattening() {
     assert!(frame.pixels().iter().all(|p| p[3] == 1.));
     assert!(frame.pixels().iter().any(|p| p[0] > 0.));
     let dir = tempfile::tempdir().unwrap();
+    // Delivery selection is explicit, persisted and independent of the viewer.
+    assert_eq!(
+        media_workflow::output(&project.snapshot())
+            .unwrap()
+            .0
+            .document,
+        sequence_id
+    );
+    project
+        .commit(media_workflow::select_output(&project.snapshot(), id).unwrap())
+        .unwrap();
+    assert_eq!(
+        media_workflow::output(&project.snapshot())
+            .unwrap()
+            .0
+            .document,
+        id
+    );
+    project.undo().unwrap();
+    assert_eq!(
+        media_workflow::output(&project.snapshot())
+            .unwrap()
+            .0
+            .document,
+        sequence_id
+    );
+    project.redo().unwrap();
+    let encoded = dir.path().join("motion.mp4");
+    media_workflow::export(&project.snapshot(), &encoded, 0, 1, &Cancel::default()).unwrap();
+    assert_eq!(
+        fold_media::inspect(&encoded, &Cancel::default())
+            .unwrap()
+            .info
+            .frames,
+        1
+    );
     let path = dir.path().join("motion.fold");
     fold_project::save(&project.snapshot(), &path).unwrap();
     let reopened = fold_project::load(&path, 32).unwrap();
+    assert_eq!(
+        media_workflow::output(&reopened.snapshot())
+            .unwrap()
+            .0
+            .document,
+        id
+    );
+    assert!(media_workflow::select_output(&reopened.snapshot(), DocumentId::new()).is_err());
     assert_eq!(original, pixels(&reopened, &reference));
     key.content = media_workflow::content_for(&reopened.snapshot(), sequence_id).unwrap();
     let reopened_frame = media_workflow::evaluate(

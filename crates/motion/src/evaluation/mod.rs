@@ -159,21 +159,47 @@ pub fn compile(
     width: u32,
     height: u32,
 ) -> Result<RenderGraph, String> {
+    compile_with(motion, time, width, height, &fold_media::Cancel::default())
+}
+
+pub fn compile_with(
+    motion: &Motion,
+    time: Time,
+    width: u32,
+    height: u32,
+    cancel: &fold_media::Cancel,
+) -> Result<RenderGraph, String> {
+    cancel.check()?;
+    motion.validate()?;
+    compile_prepared(motion, time, width, height, cancel)
+}
+
+/// Only called after provider preparation or public-entry validation.
+pub(crate) fn compile_prepared(
+    motion: &Motion,
+    time: Time,
+    width: u32,
+    height: u32,
+    cancel: &fold_media::Cancel,
+) -> Result<RenderGraph, String> {
+    cancel.check()?;
     motion.info.frame_at(time)?;
     if width == 0 || height == 0 || u64::from(width) * u64::from(height) > 4_194_304 {
         return Err("invalid motion output resolution".into());
     }
-    let mut evaluator = Evaluator::new(motion, time)?;
+    let mut evaluator = Evaluator::for_graph(motion, &motion.graph, time)?;
+    evaluator.budget = Budget::cancellable(cancel);
     let value = evaluator.resolve(&motion.graph.output)?;
     let Value::Content(content) = value else {
         return Err("motion output must be scene content".into());
     };
-    let drawings = crate::geometry::drawings(
+    let drawings = crate::geometry::drawings_with(
         &content,
         [
             width as f64 / motion.info.width as f64,
             height as f64 / motion.info.height as f64,
         ],
+        cancel,
     )?;
     Ok(RenderGraph {
         width,

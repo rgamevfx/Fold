@@ -55,7 +55,6 @@ pub trait DocumentProvider: Send + Sync {
         schema == self.schema()
     }
     fn validate(&self, document: &Document) -> Result<(), String>;
-    fn video_info(&self, document: &Document) -> Result<VideoInfo, String>;
     /// Semantic evaluation identity, excluding provider-owned presentation data.
     fn evaluation_identity(&self, document: &Document) -> Result<Vec<u8>, String> {
         self.validate(document)?;
@@ -218,7 +217,12 @@ impl PackageRegistry {
             .find(|p| p.package_id() == document.package_id && p.type_id() == document.type_id)
             .ok_or("missing document provider")?;
         provider.validate(document)?;
-        provider.video_info(document)
+        self.video
+            .providers
+            .iter()
+            .find(|p| p.package_id() == document.package_id && p.type_id() == document.type_id)
+            .ok_or("document has no video capability")?
+            .video_info(document)
     }
     pub fn evaluation_identity(&self, document: &Document) -> Result<Vec<u8>, String> {
         self.documents
@@ -235,8 +239,25 @@ impl PackageRegistry {
         width: u32,
         height: u32,
     ) -> Result<RenderGraph, String> {
-        self.validate_video_dependencies(snapshot, source, &mut Vec::new(), &mut BTreeSet::new())?;
-        self.video.compile(snapshot, source, time, width, height)
+        self.video_with(snapshot, source, time, [width, height], &Cancel::default())
+    }
+    pub fn video_with(
+        &self,
+        snapshot: &Snapshot,
+        source: &DocumentRef,
+        time: Time,
+        dimensions: [u32; 2],
+        cancel: &Cancel,
+    ) -> Result<RenderGraph, String> {
+        self.validate_video_dependencies(
+            snapshot,
+            source,
+            &mut Vec::new(),
+            &mut BTreeSet::new(),
+            cancel,
+        )?;
+        self.video
+            .compile_with(snapshot, source, time, dimensions, cancel)
     }
     fn validate_video_dependencies(
         &self,
@@ -244,7 +265,9 @@ impl PackageRegistry {
         source: &DocumentRef,
         path: &mut Vec<DocumentId>,
         done: &mut BTreeSet<DocumentId>,
+        cancel: &Cancel,
     ) -> Result<(), String> {
+        cancel.check()?;
         if source.output != "video" {
             return Err(format!("unsupported video port: {}", source.output));
         }
@@ -276,7 +299,7 @@ impl PackageRegistry {
         }
         path.push(source.document);
         for dependency in &document.dependencies {
-            self.validate_video_dependencies(snapshot, dependency, path, done)?;
+            self.validate_video_dependencies(snapshot, dependency, path, done, cancel)?;
         }
         path.pop();
         done.insert(source.document);
@@ -297,7 +320,11 @@ impl PackageRegistry {
             .documents
             .get(&id)
             .ok_or("missing document")?;
-        self.output(snapshot, id)?;
+        self.documents
+            .iter()
+            .find(|p| p.package_id() == document.package_id && p.type_id() == document.type_id)
+            .ok_or("missing document provider")?
+            .validate(document)?;
         self.audio
             .iter()
             .find(|p| p.package_id() == document.package_id && p.type_id() == document.type_id)

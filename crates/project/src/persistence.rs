@@ -1,4 +1,6 @@
-use crate::{Metadata, Project, ProjectError, ProjectState, Snapshot, coordinator::validate};
+use crate::{
+    CommittedSnapshot, Metadata, Project, ProjectError, ProjectState, coordinator::validate,
+};
 use serde::{Deserialize, Serialize};
 use std::{
     fmt,
@@ -67,7 +69,14 @@ pub fn load(path: impl AsRef<Path>, history_limit: usize) -> Result<Project, Loa
 
 /// Save only a pinned committed snapshot. Run off the UI thread.
 /// Same-directory replacement is atomic on the initial Linux reference platform.
-pub fn save(snapshot: &Snapshot, path: impl AsRef<Path>) -> Result<(), SaveError> {
+/// Transient evaluation snapshots do not carry persistence authority:
+/// ```compile_fail
+/// use fold_project::{save, Snapshot};
+/// fn save_preview(preview: &Snapshot) {
+///     save(preview, "preview.fold").unwrap();
+/// }
+/// ```
+pub fn save(snapshot: &CommittedSnapshot, path: impl AsRef<Path>) -> Result<(), SaveError> {
     let archive = Archive {
         format: FORMAT.into(),
         version: VERSION,

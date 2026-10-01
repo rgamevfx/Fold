@@ -115,7 +115,7 @@ impl Drop for Background {
 pub struct Session {
     project: Project,
     state: DesktopState,
-    overlay: Option<Snapshot>,
+    overlay: Option<fold_project::EditSession>,
     preview: PreviewWorker,
     background: Option<Background>,
     playback_ranges: std::collections::BTreeMap<
@@ -256,8 +256,11 @@ impl DesktopClient for Session {
     fn state(&self) -> &DesktopState {
         &self.state
     }
-    fn snapshot(&self) -> Option<Snapshot> {
+    fn snapshot(&self) -> Option<fold_project::CommittedSnapshot> {
         Some(self.project.snapshot())
+    }
+    fn output_info(&self) -> Result<(fold_foundation::DocumentId, fold_media::VideoInfo), String> {
+        workflow::output(&self.project.snapshot()).map(|(source, info)| (source.document, info))
     }
     fn video_info(
         &self,
@@ -427,6 +430,14 @@ impl DesktopClient for Session {
                 }
                 self.state.status = "Cancellation requested".into();
                 return;
+            }
+            DesktopCommand::SetOutput(document) => {
+                workflow::select_output(&self.project.snapshot(), document).and_then(|batch| {
+                    self.project
+                        .commit(batch)
+                        .map(|_| ())
+                        .map_err(|e| e.to_string())
+                })
             }
             DesktopCommand::Undo => self.project.undo().map(|_| ()).map_err(|e| e.to_string()),
             DesktopCommand::Redo => self.project.redo().map(|_| ()).map_err(|e| e.to_string()),

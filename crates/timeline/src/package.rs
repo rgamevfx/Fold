@@ -2,7 +2,7 @@
 //! cannot acquire a mutable project or touch the UI/device.
 use crate::{ImportArgs, SEQUENCE, SEQUENCE_SCHEMA, Sequence, SequenceEdit};
 use fold_foundation::DocumentId;
-use fold_media::{Cancel, VideoInfo};
+use fold_media::Cancel;
 use fold_platform::packages::*;
 use fold_project::{Document, EditBatch, Snapshot};
 use serde::{Deserialize, Serialize};
@@ -54,8 +54,22 @@ impl DocumentProvider for Documents {
     fn validate(&self, document: &Document) -> Result<(), String> {
         Sequence::from_document(document).map(|_| ())
     }
-    fn video_info(&self, document: &Document) -> Result<VideoInfo, String> {
-        Sequence::from_document(document)?.info()
+}
+/// Read-only compatibility registration for the original two-layer media slice.
+/// It uses the same capability path as current sequence documents.
+struct LegacyLayers;
+impl DocumentProvider for LegacyLayers {
+    fn package_id(&self) -> &'static str {
+        crate::PACKAGE
+    }
+    fn type_id(&self) -> &'static str {
+        crate::VIDEO_LAYERS
+    }
+    fn schema(&self) -> u32 {
+        1
+    }
+    fn validate(&self, document: &Document) -> Result<(), String> {
+        crate::VideoLayers::from_document(document).map(|_| ())
     }
 }
 struct Audio;
@@ -84,7 +98,7 @@ pub fn register(registry: &mut PackageRegistry) -> Result<(), String> {
             panels: PANELS,
             build: concat!(env!("CARGO_PKG_VERSION"), ":timeline-schema3-evaluator3"),
         },
-        documents: vec![Box::new(Documents)],
+        documents: vec![Box::new(Documents), Box::new(LegacyLayers)],
         commands: vec![
             CommandRegistration {
                 id: EDIT,
@@ -99,7 +113,10 @@ pub fn register(registry: &mut PackageRegistry) -> Result<(), String> {
                 handler: import,
             },
         ],
-        video: vec![Box::new(crate::SequenceProvider)],
+        video: vec![
+            Box::new(crate::SequenceProvider),
+            Box::new(crate::VideoLayersProvider),
+        ],
         audio: vec![Box::new(Audio)],
     })
 }

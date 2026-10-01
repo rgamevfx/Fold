@@ -10,7 +10,7 @@ pub use editing::{ClipEdit, SequenceEdit, edit_clip, edit_sequence};
 mod sequence_audio;
 mod sequence_video;
 mod video;
-use fold_foundation::{DocumentId, Rounding, Time};
+use fold_foundation::{DocumentId, Rounding};
 use fold_media::RgbImage;
 use fold_platform::VideoProvider;
 use fold_project::{Document, Revision};
@@ -80,14 +80,17 @@ impl VideoProvider for ImageSequenceProvider {
     fn type_id(&self) -> &'static str {
         IMAGE_SEQUENCE
     }
-    fn compile(
-        &self,
-        document: &Document,
-        output: &str,
-        time: Time,
-        width: u32,
-        height: u32,
-    ) -> Result<RenderGraph, String> {
+    fn compile(&self, request: fold_platform::VideoCompile<'_>) -> Result<RenderGraph, String> {
+        let fold_platform::VideoCompile {
+            document,
+            reference,
+            time,
+            dimensions: [width, height],
+            cancel,
+            ..
+        } = request;
+        let output = reference.output.as_str();
+        cancel.check()?;
         if document.package_id != PACKAGE
             || document.type_id != IMAGE_SEQUENCE
             || document.schema_version != 1
@@ -121,6 +124,7 @@ impl VideoProvider for ImageSequenceProvider {
         }
         let mut selected = None;
         for i in 0..count {
+            cancel.check()?;
             let length = word(&mut data)? as usize;
             let bytes = data.get(..length).ok_or("truncated sequence frame")?;
             data = &data[length..];

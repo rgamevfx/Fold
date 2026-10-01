@@ -94,7 +94,23 @@ pub fn derived_id(source: u64, index: u64) -> u64 {
     v ^ (v >> 31)
 }
 pub fn drawings(content: &Content, scale: [f64; 2]) -> Result<Vec<Drawing>, String> {
-    let mut result = Vec::new();
+    drawings_with(content, scale, &fold_media::Cancel::default())
+}
+
+pub fn drawings_with(
+    content: &Content,
+    scale: [f64; 2],
+    cancel: &fold_media::Cancel,
+) -> Result<Vec<Drawing>, String> {
+    cancel.check()?;
+    struct Traversal {
+        drawings: Vec<Drawing>,
+        budget: crate::fields::Budget,
+    }
+    let mut traversal = Traversal {
+        drawings: Vec::new(),
+        budget: crate::fields::Budget::cancellable(cancel),
+    };
     fn walk(
         content: &Content,
         parent: [f64; 6],
@@ -102,22 +118,23 @@ pub fn drawings(content: &Content, scale: [f64; 2]) -> Result<Vec<Drawing>, Stri
         stroke: Option<Stroke>,
         opacity: f64,
         depth: usize,
-        result: &mut Vec<Drawing>,
+        traversal: &mut Traversal,
     ) -> Result<(), String> {
         if depth > 64 {
             return Err("scene nesting exceeds 64".into());
         }
         for e in content.iter() {
+            traversal.budget.spend()?;
             let matrix = multiply(parent, e.transform);
             let fill = fill.or(e.fill);
             let stroke = stroke.clone().or_else(|| e.stroke.clone());
             let opacity = opacity * e.opacity;
             match &e.geometry {
                 Geometry::Path(path) | Geometry::Glyph { path, .. } => {
-                    if result.len() >= MAX_DRAWINGS {
+                    if traversal.drawings.len() >= MAX_DRAWINGS {
                         return Err("scene drawing budget exceeded".into());
                     }
-                    result.push(Drawing {
+                    traversal.drawings.push(Drawing {
                         path: path.clone(),
                         transform: matrix,
                         fill: Some({
@@ -132,9 +149,15 @@ pub fn drawings(content: &Content, scale: [f64; 2]) -> Result<Vec<Drawing>, Stri
                         even_odd: e.even_odd,
                     });
                 }
-                Geometry::Group(children) | Geometry::Instance(children) => {
-                    walk(children, matrix, fill, stroke, opacity, depth + 1, result)?
-                }
+                Geometry::Group(children) | Geometry::Instance(children) => walk(
+                    children,
+                    matrix,
+                    fill,
+                    stroke,
+                    opacity,
+                    depth + 1,
+                    traversal,
+                )?,
                 Geometry::Point => return Err("points must be instanced before rendering".into()),
             }
         }
@@ -147,8 +170,8 @@ pub fn drawings(content: &Content, scale: [f64; 2]) -> Result<Vec<Drawing>, Stri
         None,
         1.,
         0,
-        &mut result,
+        &mut traversal,
     )?;
-    fold_render::vector::validate(&result)?;
-    Ok(result)
+    fold_render::vector::validate(&traversal.drawings)?;
+    Ok(traversal.drawings)
 }

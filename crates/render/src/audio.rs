@@ -40,7 +40,9 @@ impl AudioPlan {
         Ok(())
     }
     pub fn preflight(&self, decoder: &mut AudioDecoder, cancel: &Cancel) -> Result<(), String> {
+        cancel.check()?;
         self.validate()?;
+        decoder.retain_sources(self.regions.iter().map(|region| &region.source));
         for region in &self.regions {
             decoder.preflight(&region.source, cancel)?;
         }

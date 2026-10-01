@@ -10,7 +10,7 @@ use fold_media::{
     Cancel,
     audio::{AUDIO_RATE, AudioDecoder},
 };
-use fold_project::Snapshot;
+use fold_project::CommittedSnapshot;
 use std::{
     sync::{
         Arc, Condvar, Mutex,
@@ -20,7 +20,7 @@ use std::{
 };
 
 struct Request {
-    snapshot: Snapshot,
+    snapshot: CommittedSnapshot,
     document: fold_foundation::DocumentId,
     frame: u32,
     end: u32,
@@ -73,6 +73,9 @@ impl Default for Playback {
         });
         let state = shared.clone();
         let thread = std::thread::spawn(move || {
+            // Prepared PCM survives seeks/restarts; only the device stream and
+            // presentation ring are generation-local.
+            let mut decoder = AudioDecoder::default();
             loop {
                 let request = {
                     let mut queue = state.queue.lock().unwrap();
@@ -84,7 +87,7 @@ impl Default for Playback {
                     }
                     queue.pending.take().unwrap()
                 };
-                let result = run(&state, &request);
+                let result = run(&state, &request, &mut decoder);
                 // Serialize final status against request replacement.
                 let mut queue = state.queue.lock().unwrap();
                 if state.generation.load(Ordering::Acquire) == request.generation {
@@ -111,7 +114,7 @@ impl Default for Playback {
 impl Playback {
     pub fn play(
         &mut self,
-        snapshot: Snapshot,
+        snapshot: CommittedSnapshot,
         document: fold_foundation::DocumentId,
         frame: u32,
         end: u32,
@@ -233,7 +236,7 @@ fn silent_transport(
     Ok(())
 }
 
-fn run(shared: &Arc<Shared>, request: &Request) -> Result<(), String> {
+fn run(shared: &Arc<Shared>, request: &Request, decoder: &mut AudioDecoder) -> Result<(), String> {
     let registry = crate::packages::builtins();
     let info = registry.output(&request.snapshot, request.document)?;
     let end_frame = request.end.min(info.frames);
@@ -257,8 +260,7 @@ fn run(shared: &Arc<Shared>, request: &Request) -> Result<(), String> {
         return silent_transport(shared, request, start, end);
     }
     shared.audio_clock.store(true, Ordering::Release);
-    let mut decoder = AudioDecoder::default();
-    plan.preflight(&mut decoder, &request.cancel)?;
+    plan.preflight(decoder, &request.cancel)?;
     request.cancel.check()?;
     let device = cpal::default_host()
         .default_output_device()
@@ -283,7 +285,7 @@ fn run(shared: &Arc<Shared>, request: &Request) -> Result<(), String> {
     let (mut producer, consumer) = rtrb::RingBuffer::<(u64, [f32; 2])>::new(AUDIO_RATE as usize);
     let mut next = start;
     let count = (plan.end - next).min(24_000) as usize;
-    for frame in plan.evaluate(next, count, &mut decoder, &request.cancel)? {
+    for frame in plan.evaluate(next, count, decoder, &request.cancel)? {
         producer
             .push((next, frame))
             .map_err(|_| "audio prime ring full")?;
@@ -371,7 +373,7 @@ fn run(shared: &Arc<Shared>, request: &Request) -> Result<(), String> {
         next = next.max(needed.load(Ordering::Acquire)).min(plan.end);
         let count = (plan.end - next).min(4096) as usize;
         if count > 0 && producer.slots() >= count {
-            for frame in plan.evaluate(next, count, &mut decoder, &request.cancel)? {
+            for frame in plan.evaluate(next, count, decoder, &request.cancel)? {
                 producer
                     .push((next, frame))
                     .map_err(|_| "audio ring unexpectedly full")?;

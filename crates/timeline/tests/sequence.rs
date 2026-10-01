@@ -213,10 +213,23 @@ fn source_handles_and_video_lowering_use_exact_half_open_ranges() {
         .unwrap();
     let snapshot = project.snapshot();
     let doc = &snapshot.state().documents[&id];
+    let compile = |output: &str, time| {
+        SequenceProvider.compile(fold_platform::VideoCompile {
+            snapshot: &snapshot,
+            document: doc,
+            reference: &fold_project::DocumentRef {
+                document: id,
+                output: output.into(),
+                extensions: Default::default(),
+            },
+            time,
+            dimensions: [2, 2],
+            cancel: &Default::default(),
+            resolve: &|_, _| Err("unexpected nested source".into()),
+        })
+    };
     for frame in [0, 25, 49] {
-        let graph = SequenceProvider
-            .compile_snapshot(&snapshot, doc, "video", t(frame), 2, 2)
-            .unwrap();
+        let graph = compile("video", t(frame)).unwrap();
         match &graph.nodes[graph.output] {
             ImageOp::Video { source, time } => {
                 assert_eq!(*time, t(frame + 10));
@@ -225,15 +238,9 @@ fn source_handles_and_video_lowering_use_exact_half_open_ranges() {
             _ => panic!("expected mapped video"),
         }
     }
-    let graph = SequenceProvider
-        .compile_snapshot(&snapshot, doc, "video", t(50), 2, 2)
-        .unwrap();
+    let graph = compile("video", t(50)).unwrap();
     assert!(matches!(graph.nodes[0], ImageOp::Solid { .. }));
-    assert!(
-        SequenceProvider
-            .compile_snapshot(&snapshot, doc, "audio", t(0), 2, 2)
-            .is_err()
-    );
+    assert!(compile("audio", t(0)).is_err());
 }
 
 #[test]

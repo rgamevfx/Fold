@@ -20,23 +20,36 @@ pub struct VideoInfo {
     pub frames: u32,
 }
 impl VideoInfo {
+    /// General authored output constraints, independent of an encoder profile.
     pub fn validate(&self) -> Result<(), String> {
         let pixels = u64::from(self.width) * u64::from(self.height);
         if pixels == 0
             || pixels > crate::MAX_PIXELS as u64
-            || !self.width.is_multiple_of(2)
-            || !self.height.is_multiple_of(2)
             || self.rate.contains(&0)
             || self.frames == 0
+            // Desktop frame entry uses signed 32-bit indices.
+            || self.frames > i32::MAX as u32
+        {
+            return Err("invalid output dimensions, frame rate, or duration".into());
+        }
+        Ok(())
+    }
+    /// Restrictions of the currently verified MP4/H.264 adapter, not documents.
+    fn validate_media_profile(&self) -> Result<(), String> {
+        self.validate()?;
+        if !self.width.is_multiple_of(2)
+            || !self.height.is_multiple_of(2)
             || self.frames > MAX_FRAMES
         {
-            return Err("unsupported video dimensions, rate, or length (max 18000 frames)".into());
+            return Err("MP4/H.264 requires even dimensions and at most 18000 frames".into());
         }
         Ok(())
     }
     pub fn time(&self, frame: u32) -> Result<Time, String> {
-        Time::new(i64::from(frame) * i64::from(self.rate[1]), self.rate[0])
-            .map_err(|e| e.to_string())
+        let numerator = i64::from(frame)
+            .checked_mul(i64::from(self.rate[1]))
+            .ok_or("output time exceeds rational range")?;
+        Time::new(numerator, self.rate[0]).map_err(|e| e.to_string())
     }
     pub fn frame_at(&self, time: Time) -> Result<u32, String> {
         self.validate()?;
@@ -184,7 +197,7 @@ fn probe(path: &Path, cancel: &Cancel) -> Result<VideoInfo, String> {
         rate,
         frames: frames.len().try_into().map_err(|_| "too many frames")?,
     };
-    info.validate()?;
+    info.validate_media_profile()?;
     // This first profile is exactly CFR from timestamp zero. Reject VFR instead
     // of guessing frame numbers from average frame rate.
     for (i, frame) in frames.iter().enumerate() {
@@ -222,7 +235,7 @@ pub struct Decoder {
 }
 impl Decoder {
     pub(crate) fn pin(&mut self, source: &VideoSource, cancel: &Cancel) -> Result<PathBuf, String> {
-        source.info.validate()?;
+        source.info.validate_media_profile()?;
         if let Some(index) = self.pinned.iter().position(|p| {
             p.source.fingerprint == source.fingerprint && p.source.info == source.info
         }) {
@@ -412,6 +425,9 @@ impl Encoder {
         cancel: Cancel,
     ) -> Result<Self, String> {
         info.validate()?;
+        let mut delivery = info.clone();
+        delivery.frames = frames;
+        delivery.validate_media_profile()?;
         if frames == 0 || frames > info.frames || destination.exists() {
             return Err("invalid export range or destination already exists".into());
         }

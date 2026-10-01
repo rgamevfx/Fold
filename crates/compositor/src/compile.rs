@@ -1,7 +1,6 @@
 use crate::{Composite, Parameters as P, Source};
 use fold_foundation::Time;
-use fold_platform::{VideoProvider, VideoResolver};
-use fold_project::{Document, Snapshot};
+use fold_platform::{VideoCompile, VideoProvider};
 use fold_render::{Affine, ImageOp as Op, RenderGraph};
 use std::collections::BTreeMap;
 
@@ -13,26 +12,24 @@ impl VideoProvider for Provider {
     fn type_id(&self) -> &'static str {
         crate::COMPOSITE
     }
-    fn compile(
+    fn video_info(
         &self,
-        _: &Document,
-        _: &str,
-        _: Time,
-        _: u32,
-        _: u32,
-    ) -> Result<RenderGraph, String> {
-        Err("composite requires snapshot capability resolution".into())
+        document: &fold_project::Document,
+    ) -> Result<fold_media::VideoInfo, String> {
+        Ok(Composite::from_document(document)?.info)
     }
-    fn compile_resolved(
-        &self,
-        snapshot: &Snapshot,
-        document: &Document,
-        output: &str,
-        time: Time,
-        dimensions: [u32; 2],
-        resolve: &VideoResolver<'_>,
-    ) -> Result<RenderGraph, String> {
-        let [width, height] = dimensions;
+    fn compile(&self, request: VideoCompile<'_>) -> Result<RenderGraph, String> {
+        let VideoCompile {
+            snapshot,
+            document,
+            reference,
+            time,
+            dimensions: [width, height],
+            cancel,
+            resolve,
+        } = request;
+        let output = reference.output.as_str();
+        cancel.check()?;
         let composite = Composite::from_document(document)?;
         if output != "video"
             || time < Time::ZERO
@@ -58,6 +55,7 @@ impl VideoProvider for Provider {
             ]
         };
         for id in composite.render_order()? {
+            cancel.check()?;
             let node = composite.node(id)?;
             let input = |i: usize| ids[&node.inputs[i].expect("validated reachable socket")];
             let op = match &node.parameters {

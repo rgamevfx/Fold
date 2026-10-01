@@ -8,16 +8,23 @@ use fold_platform::{
 impl Session {
     pub(super) fn preview_snapshot(&self) -> Snapshot {
         self.overlay
-            .clone()
-            .unwrap_or_else(|| self.project.snapshot())
+            .as_ref()
+            .map(fold_project::EditSession::snapshot)
+            .unwrap_or_else(|| self.project.snapshot().evaluation())
     }
     pub(super) fn preview_edit(&mut self, request: CommandRequest) {
         let result = crate::packages::builtins()
             .stage(&self.project.snapshot(), &request, &Cancel::default())
-            .and_then(|batch| self.project.preview(&batch).map_err(|e| e.to_string()));
+            .and_then(|batch| {
+                let session = self
+                    .overlay
+                    .get_or_insert_with(|| self.project.begin_edit());
+                self.project
+                    .update_edit(session, batch.mutations)
+                    .map_err(|e| e.to_string())
+            });
         match result {
-            Ok(snapshot) => {
-                self.overlay = Some(snapshot);
+            Ok(()) => {
                 self.refresh();
                 self.state.status = "Preview — uncommitted gesture (Escape cancels)".into();
             }

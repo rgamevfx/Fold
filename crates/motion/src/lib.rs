@@ -11,7 +11,7 @@ pub mod package;
 #[cfg(feature = "ui")]
 pub mod ui;
 pub use document::{MOTION, Motion};
-use fold_foundation::{DocumentId, Time};
+use fold_foundation::DocumentId;
 use fold_platform::VideoProvider;
 use fold_project::{Document, Revision};
 use fold_render::{RenderGraph, SolidPlan};
@@ -61,14 +61,16 @@ impl VideoProvider for SolidProvider {
     fn type_id(&self) -> &'static str {
         SOLID
     }
-    fn compile(
-        &self,
-        document: &Document,
-        output: &str,
-        _time: Time,
-        width: u32,
-        height: u32,
-    ) -> Result<RenderGraph, String> {
+    fn compile(&self, request: fold_platform::VideoCompile<'_>) -> Result<RenderGraph, String> {
+        let fold_platform::VideoCompile {
+            document,
+            reference,
+            dimensions: [width, height],
+            cancel,
+            ..
+        } = request;
+        let output = reference.output.as_str();
+        cancel.check()?;
         if document.package_id != PACKAGE
             || document.type_id != SOLID
             || document.schema_version != 1

@@ -3,21 +3,10 @@ use crate::{Parameters as P, Source, package};
 use fold_foundation::Time;
 use fold_platform::desktop::{DesktopCommand, ViewLocation};
 use fold_ui::sdk::{
-    ExtensionUi, Panel,
-    imgui::{Drag, Key, Ui},
+    EditResponse as Response, ExtensionUi, NumericProperty, Panel, UiId,
+    imgui::{Drag, Ui},
 };
 pub(super) struct Inspector(pub Shared);
-#[derive(Default)]
-struct Response {
-    changed: bool,
-    finished: bool,
-}
-impl Response {
-    fn item(&mut self, ui: &Ui, changed: bool) {
-        self.changed |= changed;
-        self.finished |= ui.is_item_deactivated_after_edit() || (changed && !ui.is_item_active());
-    }
-}
 impl Panel for Inspector {
     fn id(&self) -> &'static str {
         package::INSPECTOR
@@ -43,6 +32,15 @@ impl Panel for Inspector {
                 state.selected.len()
             ));
         }
+        let _scope = state.document.map(|document| {
+            UiId {
+                package: crate::PACKAGE,
+                panel: package::INSPECTOR,
+                document,
+                object: id,
+            }
+            .scope(ui)
+        });
         let Some(node) = state.graph.as_mut().and_then(|g| g.node_mut(id).ok()) else {
             return;
         };
@@ -62,9 +60,13 @@ impl Panel for Inspector {
                 }
             }
             P::Transform { translate, scale, opacity } => {
-                for (i,label) in ["Position X", "Position Y"].iter().enumerate() { let changed = Drag::new(label).speed(1.0).build(ui,&mut translate[i]); response.item(ui,changed); }
+                for (i,label) in ["Position X", "Position Y"].iter().enumerate() {
+                    NumericProperty { id: ["translation.x", "translation.y"][i], label, unit: "px", speed: 1.0, range: None, default: Some(0.) }.draw(ui, &mut translate[i], &mut response);
+                }
                 ui.separator();
-                for (i,label) in ["Scale X", "Scale Y"].iter().enumerate() { let changed = Drag::new(label).speed(0.01).build(ui,&mut scale[i]); response.item(ui,changed); }
+                for (i,label) in ["Scale X", "Scale Y"].iter().enumerate() {
+                    NumericProperty { id: ["scale.x", "scale.y"][i], label, unit: "", speed: 0.01, range: None, default: Some(1.) }.draw(ui, &mut scale[i], &mut response);
+                }
                 let changed = Drag::new("Opacity").speed(0.005).range(0.0,1.0).build(ui,opacity); response.item(ui,changed);
             }
             P::Crop { rect } | P::Mask { rect } => {
@@ -102,7 +104,8 @@ impl Panel for Inspector {
             state.sync(host);
             return;
         }
-        if ui.is_key_pressed(Key::Escape) && state.editing {
+        response.cancel_on_escape(ui, state.editing);
+        if response.cancelled {
             state.cancel(host);
         } else {
             if response.changed {

@@ -66,6 +66,44 @@ fn native_shapes_render_alpha_at_arbitrary_resolution() {
     assert_eq!(large.pixels()[90 * 256 + 80], [1.; 4]);
 }
 #[test]
+fn cancellation_interrupts_fields_and_rejects_motion_compilation() {
+    let cancel = fold_media::Cancel::default();
+    let mut budget = fold_motion::fields::Budget::cancellable(&cancel);
+    let field = fold_motion::fields::Field::constant(Datum::Scalar(1.));
+    field.uniform(&mut budget).unwrap();
+    cancel.cancel();
+    assert!(
+        field
+            .uniform(&mut budget)
+            .unwrap_err()
+            .contains("cancelled")
+    );
+    assert!(
+        fold_motion::evaluation::compile_with(&small(), Time::ZERO, 128, 96, &cancel)
+            .unwrap_err()
+            .contains("cancelled")
+    );
+    assert!(
+        fold_motion::geometry::drawings_with(&std::sync::Arc::new(vec![]), [1., 1.], &cancel)
+            .unwrap_err()
+            .contains("cancelled")
+    );
+}
+
+#[test]
+fn procedural_documents_allow_non_codec_dimensions_and_long_duration() {
+    let mut motion = small();
+    motion.info.width = 127;
+    motion.info.height = 95;
+    motion.info.frames = 20_000;
+    a::add_content(&mut motion, "fold.motion.rectangle").unwrap();
+    motion.validate().unwrap();
+    let plan = compile(&motion, motion.info.time(19_999).unwrap(), 127, 95).unwrap();
+    let frame = fold_render::render(plan).unwrap();
+    assert_eq!(frame.pixels().len(), 127 * 95);
+}
+
+#[test]
 fn direct_title_and_radial_tools_create_actual_editable_graphs() {
     let mut m = small();
     let text = a::add_content(&mut m, "fold.motion.text").unwrap();

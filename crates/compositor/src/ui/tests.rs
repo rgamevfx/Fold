@@ -2,7 +2,7 @@ use super::*;
 use crate::{Composite, Node, Parameters};
 use fold_foundation::DocumentId;
 use fold_platform::{desktop::*, packages::PackageRegistry};
-use fold_project::{EditBatch, Mutation, Project, Snapshot};
+use fold_project::{CommittedSnapshot, EditBatch, Mutation, Project};
 use fold_ui::sdk::{ExtensionUi, Panel, graph_canvas::*, imgui};
 struct Host {
     project: Project,
@@ -13,7 +13,7 @@ impl DesktopClient for Host {
     fn state(&self) -> &DesktopState {
         &self.state
     }
-    fn snapshot(&self) -> Option<Snapshot> {
+    fn snapshot(&self) -> Option<CommittedSnapshot> {
         Some(self.project.snapshot())
     }
     fn poll(&mut self) {}

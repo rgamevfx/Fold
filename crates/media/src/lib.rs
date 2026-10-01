@@ -109,16 +109,26 @@ impl RgbImage {
 
     /// Input transfer conversion. Output is opaque premultiplied linear sRGB.
     pub fn linear_pixels(&self) -> impl Iterator<Item = [f32; 4]> + '_ {
-        self.rgb.chunks_exact(3).map(|rgb| {
-            let linear = |v: u8| {
-                let v = f32::from(v) / 255.0;
+        // RGB8 has only 256 possible inputs. Cache the exact reference transfer
+        // values rather than recomputing three powf calls per pixel per frame.
+        static LINEAR: std::sync::OnceLock<[f32; 256]> = std::sync::OnceLock::new();
+        let linear = LINEAR.get_or_init(|| {
+            std::array::from_fn(|index| {
+                let v = index as f32 / 255.0;
                 if v <= 0.04045 {
                     v / 12.92
                 } else {
                     ((v + 0.055) / 1.055).powf(2.4)
                 }
-            };
-            [linear(rgb[0]), linear(rgb[1]), linear(rgb[2]), 1.0]
+            })
+        });
+        self.rgb.chunks_exact(3).map(|rgb| {
+            [
+                linear[rgb[0] as usize],
+                linear[rgb[1] as usize],
+                linear[rgb[2] as usize],
+                1.0,
+            ]
         })
     }
 }
@@ -126,6 +136,20 @@ impl RgbImage {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn cached_input_transfer_matches_every_rgb8_reference_value() {
+        let image =
+            RgbImage::from_rgb([256, 1], (0..=255u8).flat_map(|v| [v; 3]).collect()).unwrap();
+        for (index, pixel) in image.linear_pixels().enumerate() {
+            let v = index as f32 / 255.;
+            let expected = if v <= 0.04045 {
+                v / 12.92
+            } else {
+                ((v + 0.055) / 1.055).powf(2.4)
+            };
+            assert_eq!(pixel, [expected, expected, expected, 1.]);
+        }
+    }
     #[test]
     fn strict_profile_and_binary_separator() {
         let image = RgbImage::decode_ppm(b"P6\n# fixture\n1 1\n255\n\x0a\x20\xff").unwrap();

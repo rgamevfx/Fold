@@ -1,6 +1,6 @@
 use crate::Composite;
 use fold_foundation::DocumentId;
-use fold_media::{Cancel, VideoInfo};
+use fold_media::Cancel;
 use fold_platform::packages::*;
 use fold_project::{Document, EditBatch, Mutation, Snapshot};
 use serde::{Deserialize, Serialize};
@@ -54,9 +54,6 @@ impl DocumentProvider for Documents {
     }
     fn validate(&self, document: &Document) -> Result<(), String> {
         Composite::from_document(document).map(|_| ())
-    }
-    fn video_info(&self, document: &Document) -> Result<VideoInfo, String> {
-        Ok(Composite::from_document(document)?.info)
     }
     fn evaluation_identity(&self, document: &Document) -> Result<Vec<u8>, String> {
         let mut graph = Composite::from_document(document)?;

@@ -235,25 +235,29 @@ fn track_visibility_solo_mute_opacity_and_audio_mix_lower_to_shared_plans() {
     let (project, id, mut sequence) = setup();
     // Put the overlay over the first video track, not after it.
     sequence.clips[2].start = t(0);
+    let compile = |document: &fold_project::Document| {
+        SequenceProvider.compile(fold_platform::VideoCompile {
+            snapshot: &project.snapshot(),
+            document,
+            reference: &fold_project::DocumentRef {
+                document: id,
+                output: "video".into(),
+                extensions: Default::default(),
+            },
+            time: t(0),
+            dimensions: [2, 2],
+            cancel: &Default::default(),
+            resolve: &|_, _| Err("unexpected nested source".into()),
+        })
+    };
     let document = sequence.document(id).unwrap();
-    let graph = SequenceProvider
-        .compile_snapshot(&project.snapshot(), &document, "video", t(0), 2, 2)
-        .unwrap();
+    let graph = compile(&document).unwrap();
     assert!(matches!(
         graph.nodes[graph.output],
         fold_render::ImageOp::Over { .. }
     ));
     sequence.tracks[1].enabled = false;
-    let graph = SequenceProvider
-        .compile_snapshot(
-            &project.snapshot(),
-            &sequence.document(id).unwrap(),
-            "video",
-            t(0),
-            2,
-            2,
-        )
-        .unwrap();
+    let graph = compile(&sequence.document(id).unwrap()).unwrap();
     assert!(matches!(
         graph.nodes[graph.output],
         fold_render::ImageOp::Video { .. }

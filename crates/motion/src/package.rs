@@ -1,11 +1,14 @@
 //! Static motion contributions shared by desktop and CLI.
 use crate::{MOTION, Motion};
-use fold_foundation::{DocumentId, Time};
+use fold_foundation::DocumentId;
 use fold_media::{Cancel, VideoInfo};
 use fold_platform::{VideoProvider, packages::*};
 use fold_project::{Document, EditBatch, Mutation, Snapshot};
 use fold_render::RenderGraph;
 use serde::{Deserialize, Serialize};
+#[path = "prepared.rs"]
+mod prepared;
+use std::sync::Arc;
 pub const EDIT: &str = "fold.motion.edit";
 const BUILD: &str = "motion-schema1-evaluator1-vector-linear8-noto-b85c38ec";
 pub const PANEL: &str = "fold.motion.editor";
@@ -40,7 +43,7 @@ fn edit(snapshot: &Snapshot, args: &[u8], _: &Cancel) -> Result<EditBatch, Strin
         mutations: vec![Mutation::PutDocument(document)],
     })
 }
-struct Documents;
+struct Documents(Arc<prepared::Cache>);
 impl DocumentProvider for Documents {
     fn package_id(&self) -> &'static str {
         crate::PACKAGE
@@ -52,29 +55,14 @@ impl DocumentProvider for Documents {
         1
     }
     fn validate(&self, d: &Document) -> Result<(), String> {
-        Motion::from_document(d).map(|_| ())
-    }
-    fn video_info(&self, d: &Document) -> Result<VideoInfo, String> {
-        Ok(Motion::from_document(d)?.info)
+        self.0.get(d).map(|_| ())
     }
     fn evaluation_identity(&self, d: &Document) -> Result<Vec<u8>, String> {
-        let mut m = Motion::from_document(d)?;
-        for n in &mut m.graph.nodes {
-            n.position = [0.; 2];
-        }
-        m.graph.nodes.sort_by_key(|n| n.id);
-        for group in m.groups.values_mut() {
-            for n in &mut group.graph.nodes {
-                n.position = [0.; 2];
-            }
-            group.graph.nodes.sort_by_key(|n| n.id);
-        }
-        let mut identity = BUILD.as_bytes().to_vec();
-        identity.extend(serde_json::to_vec(&m).map_err(|e| e.to_string())?);
-        Ok(identity)
+        Ok(self.0.get(d)?.identity.clone())
     }
 }
-pub struct Provider;
+#[derive(Default)]
+pub struct Provider(Arc<prepared::Cache>);
 impl VideoProvider for Provider {
     fn package_id(&self) -> &'static str {
         crate::PACKAGE
@@ -82,19 +70,27 @@ impl VideoProvider for Provider {
     fn type_id(&self) -> &'static str {
         MOTION
     }
-    fn compile_reference(
-        &self,
-        _snapshot: &Snapshot,
-        d: &Document,
-        reference: &fold_project::DocumentRef,
-        time: Time,
-        dimensions: [u32; 2],
-        _resolve: &fold_platform::VideoResolver<'_>,
-    ) -> Result<RenderGraph, String> {
+    fn video_info(&self, d: &Document) -> Result<VideoInfo, String> {
+        Ok(self.0.get(d)?.motion.info.clone())
+    }
+    fn supports_controls(&self) -> bool {
+        true
+    }
+    fn compile(&self, request: fold_platform::VideoCompile<'_>) -> Result<RenderGraph, String> {
+        let fold_platform::VideoCompile {
+            document: d,
+            reference,
+            time,
+            dimensions,
+            cancel,
+            ..
+        } = request;
+        cancel.check()?;
         if reference.output != "video" {
             return Err("unsupported motion output".into());
         }
-        let mut motion = Motion::from_document(d)?;
+        let prepared = self.0.get(d)?;
+        let mut motion = std::borrow::Cow::Borrowed(&prepared.motion);
         if let Some(overrides) = reference.extensions.get("fold.controls") {
             let overrides: std::collections::BTreeMap<
                 fold_foundation::ObjectId,
@@ -102,6 +98,7 @@ impl VideoProvider for Provider {
             > = serde_json::from_value(overrides.clone())
                 .map_err(|e| format!("invalid motion control overrides: {e}"))?;
             for (id, value) in overrides {
+                cancel.check()?;
                 let settings = motion
                     .graph
                     .nodes
@@ -116,26 +113,14 @@ impl VideoProvider for Provider {
                 if value.kind() != settings.value_type {
                     return Err("published control override type mismatch".into());
                 }
-                motion.controls.insert(id, value);
+                motion.to_mut().controls.insert(id, value);
             }
         }
-        crate::evaluation::compile(&motion, time, dimensions[0], dimensions[1])
-    }
-    fn compile(
-        &self,
-        d: &Document,
-        output: &str,
-        time: Time,
-        width: u32,
-        height: u32,
-    ) -> Result<RenderGraph, String> {
-        if output != "video" {
-            return Err("unsupported motion output".into());
-        }
-        crate::evaluation::compile(&Motion::from_document(d)?, time, width, height)
+        crate::evaluation::compile_prepared(&motion, time, dimensions[0], dimensions[1], cancel)
     }
 }
 pub fn register(registry: &mut PackageRegistry) -> Result<(), String> {
+    let prepared = Arc::new(prepared::Cache::default());
     registry.register(Contributions {
         manifest: Manifest {
             id: crate::PACKAGE,
@@ -145,14 +130,14 @@ pub fn register(registry: &mut PackageRegistry) -> Result<(), String> {
             panels: PANELS,
             build: BUILD,
         },
-        documents: vec![Box::new(Documents)],
+        documents: vec![Box::new(Documents(prepared.clone()))],
         commands: vec![CommandRegistration {
             id: EDIT,
             title: "Edit motion",
             execution: Execution::Immediate,
             handler: edit,
         }],
-        video: vec![Box::new(Provider)],
+        video: vec![Box::new(Provider(prepared))],
         audio: vec![],
     })
 }

@@ -68,6 +68,21 @@ pub fn has_audio(path: &Path, cancel: &Cancel) -> Result<bool, String> {
     Ok(probe.as_file().metadata().map_err(|e| e.to_string())?.len() != 0)
 }
 impl AudioDecoder {
+    /// Retained PCM source count and on-disk bytes (not resident memory).
+    pub fn prepared_usage(&self) -> (usize, u64) {
+        (
+            self.pcm.len(),
+            self.pcm.iter().map(|pcm| pcm.frames * 8).sum(),
+        )
+    }
+    /// Keep preparation for the active plan across seeks, but release sources
+    /// removed by edits/project switches before enforcing the PCM budget.
+    pub fn retain_sources<'a>(&mut self, sources: impl IntoIterator<Item = &'a AudioSource>) {
+        let identities: std::collections::BTreeSet<_> =
+            sources.into_iter().map(AudioSource::identity).collect();
+        self.pcm.retain(|pcm| identities.contains(&pcm.identity));
+    }
+
     fn prepare(&mut self, source: &AudioSource, cancel: &Cancel) -> Result<&mut Pcm, String> {
         cancel.check()?;
         let identity = source.identity();

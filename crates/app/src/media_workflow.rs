@@ -1,8 +1,8 @@
 use fold_foundation::AssetId;
 use fold_media::{Cancel, Decoder, Encoder, VideoInfo};
-use fold_platform::{VideoRegistry, desktop::PreviewKey};
+use fold_platform::desktop::PreviewKey;
 use fold_project::{Asset, DocumentRef, EditBatch, Mutation, Snapshot};
-use fold_timeline::{VideoLayers, VideoLayersProvider};
+use fold_timeline::VideoLayers;
 use std::path::{Path, PathBuf};
 
 pub fn import(
@@ -155,6 +155,7 @@ pub fn evaluate(
     decoder: &mut Decoder,
     cancel: &Cancel,
 ) -> Result<fold_render::Frame, String> {
+    cancel.check()?;
     let (source, info, time) = if let Some((document, time)) = key.target {
         (
             DocumentRef {
@@ -176,32 +177,53 @@ pub fn evaluate(
     if time < fold_foundation::Time::ZERO || time >= info.time(info.frames)? {
         return Err("frame outside sequence".into());
     }
-    let mut registry = VideoRegistry::default();
-    registry.register(VideoLayersProvider)?;
-    let packages = crate::packages::builtins();
-    let plan = if packages.supports(&snapshot.state().documents[&source.document]) {
-        packages.video(
-            snapshot,
-            &source,
-            time,
-            key.dimensions[0],
-            key.dimensions[1],
-        )?
-    } else {
-        registry.compile(
-            snapshot,
-            &source,
-            time,
-            key.dimensions[0],
-            key.dimensions[1],
-        )?
-    };
+    let plan =
+        crate::packages::builtins().video_with(snapshot, &source, time, key.dimensions, cancel)?;
     // The current desktop/MP4 delivery profile is opaque black-backed SDR.
     // All providers retain alpha when nested; only delivery is flattened.
     fold_render::render_with(plan, decoder, cancel).map(fold_render::Frame::over_black)
 }
 
+const OUTPUT_SETTING: &str = "fold.output";
+
+/// Persist an explicit output choice as one undoable project setting change.
+pub fn select_output(
+    snapshot: &Snapshot,
+    document: fold_foundation::DocumentId,
+) -> Result<EditBatch, String> {
+    let reference = DocumentRef {
+        document,
+        output: "video".into(),
+        extensions: Default::default(),
+    };
+    output_info(snapshot, &reference)?;
+    let mut settings = snapshot.state().settings.clone();
+    settings.insert(
+        OUTPUT_SETTING.into(),
+        serde_json::to_value(reference).map_err(|e| e.to_string())?,
+    );
+    Ok(EditBatch {
+        base: snapshot.revision(),
+        mutations: vec![Mutation::SetSettings(settings)],
+    })
+}
+
+fn output_info(snapshot: &Snapshot, reference: &DocumentRef) -> Result<VideoInfo, String> {
+    if reference.output != "video" {
+        return Err("unsupported project output port".into());
+    }
+    crate::packages::builtins().output(snapshot, reference.document)
+}
+
 pub fn output(snapshot: &Snapshot) -> Result<(DocumentRef, VideoInfo), String> {
+    if let Some(value) = snapshot.state().settings.get(OUTPUT_SETTING) {
+        let reference: DocumentRef = serde_json::from_value(value.clone())
+            .map_err(|e| format!("invalid project output: {e}"))?;
+        let info = output_info(snapshot, &reference)?;
+        return Ok((reference, info));
+    }
+    // Compatibility for projects written before explicit output selection.
+    // An explicit but unavailable selection above never falls back silently.
     if crate::timeline_workflow::has_sequence(snapshot) {
         let (reference, sequence) = crate::timeline_workflow::active(snapshot)?;
         let _ = sequence;
@@ -233,8 +255,17 @@ pub fn output(snapshot: &Snapshot) -> Result<(DocumentRef, VideoInfo), String> {
     }
 }
 
+/// Export only a coordinator-published revision, never a live gesture overlay.
+/// ```compile_fail
+/// use fold_app::media_workflow::export;
+/// use fold_project::Snapshot;
+/// fn export_preview(preview: &Snapshot) {
+///     export(preview, std::path::Path::new("preview.mp4"), 0, 1,
+///         &fold_media::Cancel::default()).unwrap();
+/// }
+/// ```
 pub fn export(
-    snapshot: &Snapshot,
+    snapshot: &fold_project::CommittedSnapshot,
     path: &Path,
     start: u32,
     end: u32,
@@ -243,15 +274,15 @@ pub fn export(
     use fold_foundation::Rounding;
     use fold_media::audio::{AUDIO_RATE, AudioDecoder};
     use std::io::Write;
-    if !crate::timeline_workflow::has_sequence(snapshot) {
+    let (reference, info) = output(snapshot)?;
+    let registry = crate::packages::builtins();
+    if !registry.supports_audio(snapshot, reference.document) {
         return export_video(snapshot, path, start, end, cancel);
     }
-    let (reference, sequence) = crate::timeline_workflow::active(snapshot)?;
-    let info = sequence.info()?;
     if path.exists() || start >= end || end > info.frames {
         return Err("invalid export range or destination exists".into());
     }
-    let plan = crate::packages::builtins().audio(snapshot, reference.document)?;
+    let plan = registry.audio(snapshot, reference.document)?;
     let mut decoder = AudioDecoder::default();
     plan.preflight(&mut decoder, cancel)?;
     let temporary = tempfile::tempdir().map_err(|e| e.to_string())?;
@@ -283,7 +314,7 @@ pub fn export(
 }
 
 fn export_video(
-    snapshot: &Snapshot,
+    snapshot: &fold_project::CommittedSnapshot,
     path: &Path,
     start: u32,
     end: u32,

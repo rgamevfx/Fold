@@ -33,7 +33,7 @@ pub(crate) struct Shell {
     divisor: u32,
     start: i32,
     end: i32,
-    content: Option<String>,
+    delivery_output: Option<(fold_foundation::DocumentId, u32)>,
     focused_document: Option<fold_foundation::DocumentId>,
     focus_workspace: Option<(String, u8)>,
     pending_workspace: Option<String>,
@@ -84,7 +84,7 @@ impl Shell {
             divisor: 2,
             start: 0,
             end: 1,
-            content: None,
+            delivery_output: None,
             focused_document: None,
             focus_workspace: None,
             pending_workspace: None,
@@ -109,9 +109,14 @@ impl Shell {
         client: &mut dyn DesktopClient,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let state = client.state().clone();
-        if self.content != state.content {
-            self.end = state.frames as i32;
-            self.content = state.content.clone();
+        let output = client
+            .output_info()
+            .ok()
+            .map(|(id, info)| (id, info.frames));
+        if self.delivery_output != output {
+            self.start = 0;
+            self.end = output.map_or(0, |(_, frames)| frames as i32);
+            self.delivery_output = output;
         }
         if !ui.io().want_text_input() && ui.io().key_ctrl() && ui.is_key_pressed(Key::Z) {
             client.command(if ui.io().key_shift() {
@@ -264,6 +269,16 @@ impl Shell {
                 client.command(DesktopCommand::Open(self.project_path.clone().into()));
             }
             ui.separator();
+            if let Some((document, frames)) = self.delivery_output {
+                ui.text_wrapped(format!("Delivery: {document:?} • {frames} frames"));
+            } else {
+                ui.text_disabled("No valid delivery output selected");
+            }
+            if let Some(document) = state.viewer_document
+                && ui.button("Use viewed document as delivery output")
+            {
+                client.command(DesktopCommand::SetOutput(document));
+            }
             ui.input_text("New MP4 output", &mut self.export_path)
                 .build();
             ui.input_int("Start frame", &mut self.start);

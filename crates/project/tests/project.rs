@@ -23,7 +23,10 @@ fn reference(id: DocumentId) -> DocumentRef {
         extensions: Metadata::new(),
     }
 }
-fn commit(project: &mut Project, mutations: Vec<Mutation>) -> Result<Snapshot, ProjectError> {
+fn commit(
+    project: &mut Project,
+    mutations: Vec<Mutation>,
+) -> Result<CommittedSnapshot, ProjectError> {
     project.commit(EditBatch {
         base: project.snapshot().revision(),
         mutations,
@@ -162,6 +165,7 @@ fn edit_preview_commits_once_or_cancels_and_stale_sessions_fail() {
     commit(&mut project, vec![Mutation::PutDocument(first.clone())]).unwrap();
     let committed = project.snapshot();
     let mut session = project.begin_edit();
+    let initial_preview = session.snapshot();
     for value in 0..10 {
         first.payload = vec![value];
         project
@@ -169,6 +173,12 @@ fn edit_preview_commits_once_or_cancels_and_stale_sessions_fail() {
             .unwrap();
     }
     assert_eq!(session.generation(), 10);
+    assert_eq!(initial_preview.state(), committed.state());
+    let rendered_preview = session.snapshot();
+    assert_eq!(
+        rendered_preview.state().documents[&first.id].payload,
+        vec![9]
+    );
     assert_eq!(session.state().documents[&first.id].payload, vec![9]);
     assert_eq!(project.snapshot().state(), committed.state());
     let generation = session.generation();
@@ -182,6 +192,10 @@ fn edit_preview_commits_once_or_cancels_and_stale_sessions_fail() {
     );
     assert_eq!(session.generation(), generation);
     project.commit_edit(session).unwrap();
+    assert_eq!(
+        rendered_preview.state().documents[&first.id].payload,
+        vec![9]
+    );
     assert_eq!(
         project.undo().unwrap().state().documents,
         committed.state().documents

@@ -62,6 +62,54 @@ fn static_registration_and_host_transactions_do_not_require_feature_switches() {
     );
 }
 #[test]
+fn document_registration_does_not_require_video_metadata() {
+    struct Notes;
+    impl DocumentProvider for Notes {
+        fn package_id(&self) -> &'static str {
+            "test.tools"
+        }
+        fn type_id(&self) -> &'static str {
+            "test.tools.notes"
+        }
+        fn schema(&self) -> u32 {
+            1
+        }
+        fn validate(&self, _: &fold_project::Document) -> Result<(), String> {
+            Ok(())
+        }
+    }
+    let mut contributions = package();
+    contributions.documents.push(Box::new(Notes));
+    let mut registry = PackageRegistry::default();
+    registry.register(contributions).unwrap();
+    let mut project = Project::new(0);
+    let id = fold_foundation::DocumentId::new();
+    project
+        .commit(EditBatch {
+            base: project.snapshot().revision(),
+            mutations: vec![Mutation::PutDocument(fold_project::Document {
+                id,
+                type_id: "test.tools.notes".into(),
+                package_id: "test.tools".into(),
+                schema_version: 1,
+                revision: Default::default(),
+                dependencies: vec![],
+                assets: vec![],
+                payload: vec![],
+                extensions: Default::default(),
+            })],
+        })
+        .unwrap();
+    assert!(registry.supports(&project.snapshot().state().documents[&id]));
+    assert!(
+        registry
+            .output(&project.snapshot(), id)
+            .unwrap_err()
+            .contains("no video capability")
+    );
+}
+
+#[test]
 fn invalid_contribution_sets_fail_atomically() {
     let mut registry = PackageRegistry::default();
     let mut invalid = package();

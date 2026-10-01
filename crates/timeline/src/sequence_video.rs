@@ -3,8 +3,7 @@
 use crate::{SEQUENCE, Sequence, SourceMedia, TrackKind};
 use fold_foundation::Time;
 use fold_media::VideoSource;
-use fold_platform::{VideoProvider, VideoResolver};
-use fold_project::{Document, Snapshot};
+use fold_platform::{VideoCompile, VideoProvider};
 use fold_render::{ImageOp, RenderGraph};
 
 pub struct SequenceProvider;
@@ -15,44 +14,24 @@ impl VideoProvider for SequenceProvider {
     fn type_id(&self) -> &'static str {
         SEQUENCE
     }
-    fn compile(
+    fn video_info(
         &self,
-        _: &Document,
-        _: &str,
-        _: Time,
-        _: u32,
-        _: u32,
-    ) -> Result<RenderGraph, String> {
-        Err("sequence requires snapshot asset resolution".into())
+        document: &fold_project::Document,
+    ) -> Result<fold_media::VideoInfo, String> {
+        Sequence::from_document(document)?.info()
     }
-    fn compile_snapshot(
-        &self,
-        snapshot: &Snapshot,
-        document: &Document,
-        output: &str,
-        time: Time,
-        width: u32,
-        height: u32,
-    ) -> Result<RenderGraph, String> {
-        self.compile_resolved(
+    fn compile(&self, request: VideoCompile<'_>) -> Result<RenderGraph, String> {
+        let VideoCompile {
             snapshot,
             document,
-            output,
+            reference,
             time,
-            [width, height],
-            &|_, _| Err("nested sequence requires a capability registry".into()),
-        )
-    }
-    fn compile_resolved(
-        &self,
-        snapshot: &Snapshot,
-        document: &Document,
-        output: &str,
-        time: Time,
-        dimensions: [u32; 2],
-        resolve: &VideoResolver<'_>,
-    ) -> Result<RenderGraph, String> {
-        let [width, height] = dimensions;
+            dimensions: [width, height],
+            cancel,
+            resolve,
+        } = request;
+        let output = reference.output.as_str();
+        cancel.check()?;
         if output != "video" || time < Time::ZERO {
             return Err("unsupported sequence output or negative time".into());
         }
@@ -75,6 +54,7 @@ impl VideoProvider for SequenceProvider {
                 .iter()
                 .filter(|c| c.track == track.id && c.level > 0.0)
             {
+                cancel.check()?;
                 if let Some(time) = clip.source_time(time)? {
                     let (source, opaque) = match &clip.info {
                         SourceMedia::Document { source, .. } => {

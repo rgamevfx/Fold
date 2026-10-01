@@ -104,22 +104,29 @@ fn invalid_imports_and_payloads_fail_explicitly() {
     assert!(import_sequence(id, [24, 1], &[]).is_err());
     assert!(import_sequence(id, [24, 1], &[b"invalid".to_vec()]).is_err());
     let original = import_sequence(id, [24, 1], &[ppm([0; 3])]).unwrap();
+    let compile = |document: &fold_project::Document| {
+        ImageSequenceProvider.compile(fold_platform::VideoCompile {
+            snapshot: &fold_project::Project::new(0).snapshot(),
+            document,
+            reference: &fold_project::DocumentRef {
+                document: id,
+                output: "video".into(),
+                extensions: Default::default(),
+            },
+            time: Time::ZERO,
+            dimensions: [1, 1],
+            cancel: &Default::default(),
+            resolve: &|_, _| Err("unexpected nested source".into()),
+        })
+    };
     for length in 0..original.payload.len() {
         let mut document = original.clone();
         document.payload.truncate(length);
-        assert!(
-            ImageSequenceProvider
-                .compile(&document, "video", Time::ZERO, 1, 1)
-                .is_err()
-        );
+        assert!(compile(&document).is_err());
     }
     let mut document = original;
     document.payload.push(0);
-    assert!(
-        ImageSequenceProvider
-            .compile(&document, "video", Time::ZERO, 1, 1)
-            .is_err()
-    );
+    assert!(compile(&document).is_err());
 }
 
 #[test]

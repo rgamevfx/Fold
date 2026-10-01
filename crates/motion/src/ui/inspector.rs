@@ -5,20 +5,9 @@ use crate::{
     package,
 };
 use fold_ui::sdk::{
-    ExtensionUi, Panel,
-    imgui::{self, Drag, Ui},
+    EditResponse as Response, ExtensionUi, NumericProperty, Panel, UiId,
+    imgui::{Drag, Ui},
 };
-#[derive(Default)]
-struct Response {
-    changed: bool,
-    finished: bool,
-}
-impl Response {
-    fn item(&mut self, ui: &Ui, changed: bool) {
-        self.changed |= changed;
-        self.finished |= ui.is_item_deactivated_after_edit() || (changed && !ui.is_item_active());
-    }
-}
 pub struct Inspector {
     pub state: Shared,
     pub curves: super::curves::Curves,
@@ -40,6 +29,15 @@ impl Panel for Inspector {
             );
             return;
         };
+        let _scope = state.document.map(|document| {
+            UiId {
+                package: crate::PACKAGE,
+                panel: package::INSPECTOR,
+                document,
+                object: selected,
+            }
+            .scope(ui)
+        });
         let Some(mut motion) = state.view_motion() else {
             return;
         };
@@ -309,7 +307,8 @@ impl Panel for Inspector {
             state.selected = vec![id];
             state.generation += 1;
         }
-        if ui.is_key_pressed(imgui::Key::Escape) && state.editing {
+        response.cancel_on_escape(ui, state.editing);
+        if response.cancelled {
             state.cancel(host);
         } else {
             if response.changed {
@@ -330,22 +329,40 @@ impl Panel for Inspector {
 fn datum(ui: &Ui, value: &mut Datum, response: &mut Response) {
     match value {
         Datum::Scalar(v) => {
-            let changed = Drag::new("Value").speed(0.1).build(ui, v);
-            response.item(ui, changed);
+            NumericProperty {
+                id: "value",
+                label: "Value",
+                unit: "",
+                speed: 0.1,
+                range: None,
+                default: None,
+            }
+            .draw(ui, v, response);
         }
         Datum::Vector(v) => {
             for (i, label) in ["X", "Y"].iter().enumerate() {
-                let changed = Drag::new(label).speed(0.1).build(ui, &mut v[i]);
-                response.item(ui, changed);
+                NumericProperty {
+                    id: ["x", "y"][i],
+                    label,
+                    unit: "",
+                    speed: 0.1,
+                    range: None,
+                    default: None,
+                }
+                .draw(ui, &mut v[i], response);
             }
         }
         Datum::Color(v) => {
             for (i, label) in ["Red", "Green", "Blue", "Alpha"].iter().enumerate() {
-                let changed = Drag::new(label)
-                    .speed(0.005)
-                    .range(0., 1.)
-                    .build(ui, &mut v[i]);
-                response.item(ui, changed);
+                NumericProperty {
+                    id: ["r", "g", "b", "a"][i],
+                    label,
+                    unit: "",
+                    speed: 0.005,
+                    range: Some([0., 1.]),
+                    default: None,
+                }
+                .draw(ui, &mut v[i], response);
             }
         }
         Datum::Bool(v) => {

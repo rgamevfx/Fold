@@ -8,6 +8,9 @@ pub use dear_imgui_rs as imgui;
 #[path = "canvas_pan.rs"]
 mod canvas_pan;
 pub use canvas_pan::CanvasPan;
+#[path = "property_edit.rs"]
+mod property_edit;
+pub use property_edit::{EditResponse, NumericProperty, UiId};
 #[path = "graph_canvas/mod.rs"]
 pub mod graph_canvas;
 #[path = "node_inspector.rs"]

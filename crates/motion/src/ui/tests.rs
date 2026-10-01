@@ -2,7 +2,7 @@ use super::*;
 use crate::{Motion, authoring as a, fields::Datum};
 use fold_foundation::{DocumentId, Time};
 use fold_platform::{desktop::*, packages::PackageRegistry};
-use fold_project::{Project, Snapshot};
+use fold_project::{CommittedSnapshot, Project};
 use fold_ui::sdk::{ExtensionUi, Panel, imgui};
 struct Host {
     project: Project,
@@ -24,7 +24,7 @@ impl DesktopClient for Host {
     fn state(&self) -> &DesktopState {
         &self.state
     }
-    fn snapshot(&self) -> Option<Snapshot> {
+    fn snapshot(&self) -> Option<CommittedSnapshot> {
         Some(self.project.snapshot())
     }
     fn poll(&mut self) {}
@@ -43,7 +43,10 @@ impl DesktopClient for Host {
                     .registry
                     .stage(&self.project.snapshot(), &request, &Default::default())
                     .unwrap();
-                self.project.preview(&batch).unwrap();
+                let mut session = self.project.begin_edit();
+                self.project
+                    .update_edit(&mut session, batch.mutations)
+                    .unwrap();
                 self.state.transient = true;
             }
             DesktopCommand::CancelPreviewEdit => self.state.transient = false,

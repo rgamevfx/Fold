@@ -55,9 +55,27 @@ pub struct ProjectState {
     pub extensions: Metadata,
 }
 
-/// Immutable committed state. Cloning retains roots, not payload copies.
+/// Immutable evaluation state, either committed or transient. Cloning retains roots,
+/// not payload copies. This type cannot be saved or exported.
 #[derive(Clone, Debug)]
 pub struct Snapshot(pub(crate) Arc<ProjectState>);
+
+/// A coordinator-published revision. Only this handle can be saved or exported.
+/// Dereferencing exposes read-only evaluation state, never the reverse conversion.
+#[derive(Clone, Debug)]
+pub struct CommittedSnapshot(pub(crate) Snapshot);
+impl std::ops::Deref for CommittedSnapshot {
+    type Target = Snapshot;
+    fn deref(&self) -> &Snapshot {
+        &self.0
+    }
+}
+impl CommittedSnapshot {
+    /// Retain this revision for evaluation without retaining persistence authority.
+    pub fn evaluation(&self) -> Snapshot {
+        self.0.clone()
+    }
+}
 impl Snapshot {
     pub fn state(&self) -> &ProjectState {
         &self.0
