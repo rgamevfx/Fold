@@ -20,6 +20,10 @@ edition = "2024"
 publish = false
 
 [workspace.dependencies]
+serde = { version = "1", features = ["derive", "rc"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v4", "serde"] }
+tempfile = "3"
 fold-foundation = { path = "crates/foundation" }
 fold-project = { path = "crates/project" }
 fold-media = { path = "crates/media" }

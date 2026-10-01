@@ -2,8 +2,10 @@
 
 The workspace follows sections 3, 16, and 17 of
 `Fold_Application_Product_Architecture.docx`. All crates are statically linked.
-Crate libraries currently contain ownership documentation only: there are no
-placeholder domain types, registries, renderers, or UI APIs to depend on yet.
+Foundation implements stable IDs and exact rational time. Project implements
+feature-neutral document/asset records, immutable snapshots, transactions,
+bounded undo/redo, preview sessions, and versioned persistence. Other libraries
+still contain ownership documentation only; no renderer or UI API exists yet.
 
 | Crate | Responsibility | Allowed Fold dependencies |
 | --- | --- | --- |
@@ -53,8 +55,37 @@ into the headless app. Adding a workspace member
 requires an explicit policy entry. CI runs this checker and its regression tests
 alongside the workspace build/test checkpoint.
 
-This enforces crate dependency boundaries, not runtime semantics. Transactions,
-unknown-data preservation, snapshot evaluation, and resource ownership require
-implementation and behavioral tests in subsequent phases. Keep future public
-contracts separate from service implementations; do not create a universal
-creative model in infrastructure.
+This enforces crate dependency boundaries, not runtime semantics. Foundation and
+project behavioral tests cover exact time, transaction atomicity, immutable
+snapshots, history, preview isolation, and unknown-data preservation (phase 2).
+Render evaluation and resource ownership need tests in subsequent phases. Keep
+future public contracts separate from service implementations; do not create a
+universal creative model in infrastructure.
+
+## Project state and persistence
+
+`Project` is the single writer. Callers submit `EditBatch` values against an
+expected revision; declared document/asset references and cycles are checked
+against the complete staged state before publication. Unchanged document roots
+are shared via `Arc`. Undo/redo restores content under a fresh project revision,
+so old asynchronous proposals remain stale. History has a configurable entry
+limit (not a byte budget). `EditSession` holds a transient overlay; updates replace
+the staged batch, dropping cancels, and committing adds one history entry.
+Preview state cannot be passed to the committed-snapshot save API.
+
+Persistence is synchronous I/O intended for worker threads using pinned snapshots.
+The v1 `.fold` archive is a JSON container with a versioned manifest and independent
+opaque payload byte arrays. Save flushes and syncs a same-directory temporary file,
+atomically replaces the destination, and on Unix syncs its parent directory.
+`SaveError::DirectorySync` explicitly means replacement occurred but durability
+could not be confirmed. An unfinished temporary write does not replace the old
+archive. Linux replacement behavior is tested; cross-platform crash durability and
+recovery snapshot retention remain hardening work.
+
+Unknown document schemas need no installed provider to load/save. Payload bytes,
+unknown JSON fields, dependencies, and asset records are retained; the core neither
+migrates payloads nor automatically prunes assets. Known typed schemas, capability
+and port validation, and provider migrations belong to later package integration.
+Missing external media is retained in the manifest; missing declared manifest IDs
+are errors. Undo history, preview overlays, caches, and workspace layouts are not
+persisted. See `docs/phase-2.md` for acceptance evidence and deferred scope.
