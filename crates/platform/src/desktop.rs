@@ -5,6 +5,8 @@ use std::path::PathBuf;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct PreviewKey {
+    /// Explicit nested output and exact local time; None selects project root.
+    pub target: Option<(fold_foundation::DocumentId, fold_foundation::Time)>,
     pub content: String,
     pub frame: u32,
     pub dimensions: [u32; 2],
@@ -17,8 +19,16 @@ pub struct Selection {
     pub objects: Vec<fold_foundation::ObjectId>,
 }
 #[derive(Clone, Debug)]
+pub struct ViewLocation {
+    pub document: fold_foundation::DocumentId,
+    pub time: fold_foundation::Time,
+    pub label: String,
+}
+#[derive(Clone, Debug)]
 pub struct DesktopState {
     pub selection: Selection,
+    pub navigation: Vec<ViewLocation>,
+    pub transient: bool,
     pub frame: u32,
     pub playing: bool,
     pub priming: bool,
@@ -36,6 +46,8 @@ impl Default for DesktopState {
     fn default() -> Self {
         Self {
             selection: Selection::default(),
+            navigation: vec![],
+            transient: false,
             frame: 0,
             playing: false,
             priming: false,
@@ -57,6 +69,20 @@ impl DesktopState {
             return None;
         }
         Some(PreviewKey {
+            target: self.navigation.last().map(|location| {
+                (
+                    location.document,
+                    if frame == self.frame {
+                        location.time
+                    } else {
+                        fold_foundation::Time::new(
+                            i64::from(frame) * i64::from(self.rate[1]),
+                            self.rate[0],
+                        )
+                        .unwrap_or(fold_foundation::Time::ZERO)
+                    },
+                )
+            }),
             content: self.content.clone()?,
             frame,
             dimensions: self.dimensions.map(|n| (n / divisor).max(1)),
@@ -68,16 +94,29 @@ impl DesktopState {
 pub enum DesktopCommand {
     Import(Vec<PathBuf>),
     Extension(crate::packages::CommandRequest),
+    PreviewExtension(crate::packages::CommandRequest),
+    CancelPreviewEdit,
+    Navigate(ViewLocation),
+    NavigateBack,
     Select(Selection),
     Play,
     Pause,
     Seek(u32),
     Save(PathBuf),
     Open(PathBuf),
+    /// Load on a worker and navigate to the first document of a workspace type.
+    OpenInWorkspace {
+        path: PathBuf,
+        document_type: String,
+    },
     Undo,
     Redo,
     Opacity(f32),
-    Export { path: PathBuf, start: u32, end: u32 },
+    Export {
+        path: PathBuf,
+        start: u32,
+        end: u32,
+    },
     Cancel,
 }
 pub struct PreviewResult {
@@ -89,6 +128,13 @@ pub trait DesktopClient {
     /// Immutable committed state, never a mutable project or device handle.
     fn snapshot(&self) -> Option<fold_project::Snapshot> {
         None
+    }
+    /// Lightweight capability metadata for document browsers (no media I/O).
+    fn video_info(
+        &self,
+        _document: fold_foundation::DocumentId,
+    ) -> Result<fold_media::VideoInfo, String> {
+        Err("document metadata unavailable".into())
     }
     fn poll(&mut self);
     fn command(&mut self, command: DesktopCommand);

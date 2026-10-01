@@ -94,26 +94,57 @@ pub fn active(snapshot: &Snapshot) -> Result<(DocumentRef, VideoLayers), String>
 /// Hash authoring bytes, ordered asset identities, and implementation versions.
 /// Unrelated project revisions and undo/redo do not invalidate viewer textures.
 pub fn content(snapshot: &Snapshot) -> Result<String, String> {
-    let (reference, assets) = if crate::timeline_workflow::has_sequence(snapshot) {
-        let (reference, sequence) = crate::timeline_workflow::active(snapshot)?;
-        (
-            reference,
-            sequence.clips.iter().map(|c| c.asset).collect::<Vec<_>>(),
-        )
-    } else {
-        let (reference, layers) = active(snapshot)?;
-        (reference, layers.assets)
-    };
-    let mut data = b"fold-video-evaluator-v1;ffmpeg-zscale-bt709-srgb-v1;nearest;".to_vec();
-    data.extend_from_slice(&snapshot.state().documents[&reference.document].payload);
-    for id in assets {
-        let asset = snapshot
+    let (reference, _) = output(snapshot)?;
+    content_for(snapshot, reference.document)
+}
+
+pub fn content_for(
+    snapshot: &Snapshot,
+    document: fold_foundation::DocumentId,
+) -> Result<String, String> {
+    let mut data =
+        b"fold-video-evaluator-v3;compositor-v2;ffmpeg-zscale-bt709-srgb-v1;nearest;".to_vec();
+    let mut pending = vec![document];
+    let mut seen = std::collections::BTreeSet::new();
+    while let Some(id) = pending.pop() {
+        if !seen.insert(id) {
+            continue;
+        }
+        let document = snapshot
             .state()
-            .assets
+            .documents
             .get(&id)
-            .ok_or("missing video asset")?;
-        data.extend_from_slice(&(asset.fingerprint.len() as u64).to_le_bytes());
-        data.extend_from_slice(asset.fingerprint.as_bytes());
+            .ok_or("missing nested document")?;
+        let packages = crate::packages::builtins();
+        let identity = if packages.supports(document) {
+            packages.evaluation_identity(document)?
+        } else {
+            document.payload.clone()
+        };
+        for bytes in [
+            document.package_id.as_bytes(),
+            document.type_id.as_bytes(),
+            &identity,
+        ] {
+            data.extend_from_slice(&(bytes.len() as u64).to_le_bytes());
+            data.extend_from_slice(bytes);
+        }
+        data.extend_from_slice(&document.schema_version.to_le_bytes());
+        for id in &document.assets {
+            let asset = snapshot
+                .state()
+                .assets
+                .get(id)
+                .ok_or("missing video asset")?;
+            for bytes in [asset.location.as_bytes(), asset.fingerprint.as_bytes()] {
+                data.extend_from_slice(&(bytes.len() as u64).to_le_bytes());
+                data.extend_from_slice(bytes);
+            }
+        }
+        let mut dependencies: Vec<_> = document.dependencies.iter().map(|r| r.document).collect();
+        dependencies.sort();
+        dependencies.dedup();
+        pending.extend(dependencies);
     }
     Ok(fold_media::content_hash(&data))
 }
@@ -124,21 +155,35 @@ pub fn evaluate(
     decoder: &mut Decoder,
     cancel: &Cancel,
 ) -> Result<fold_render::Frame, String> {
-    if key.content != content(snapshot)? || key.view != 1 {
+    let (source, info, time) = if let Some((document, time)) = key.target {
+        (
+            DocumentRef {
+                document,
+                output: "video".into(),
+                extensions: Default::default(),
+            },
+            crate::packages::builtins().output(snapshot, document)?,
+            time,
+        )
+    } else {
+        let (source, info) = output(snapshot)?;
+        let time = info.time(key.frame)?;
+        (source, info, time)
+    };
+    if key.content != content_for(snapshot, source.document)? || key.view != 1 {
         return Err("preview identity/settings mismatch".into());
     }
-    let (source, info) = output(snapshot)?;
-    if key.frame >= info.frames {
+    if time < fold_foundation::Time::ZERO || time >= info.time(info.frames)? {
         return Err("frame outside sequence".into());
     }
     let mut registry = VideoRegistry::default();
     registry.register(VideoLayersProvider)?;
     let packages = crate::packages::builtins();
-    let plan = if packages.supports(&snapshot.state().documents[&source.document]) {
+    let mut plan = if packages.supports(&snapshot.state().documents[&source.document]) {
         packages.video(
             snapshot,
             &source,
-            info.time(key.frame)?,
+            time,
             key.dimensions[0],
             key.dimensions[1],
         )?
@@ -146,11 +191,25 @@ pub fn evaluate(
         registry.compile(
             snapshot,
             &source,
-            info.time(key.frame)?,
+            time,
             key.dimensions[0],
             key.dimensions[1],
         )?
     };
+    // The current desktop/MP4 delivery profile is opaque black-backed SDR.
+    // Nested composites retain alpha; only the selected root is flattened.
+    if snapshot.state().documents[&source.document].type_id == fold_compositor::COMPOSITE {
+        let foreground = plan.output;
+        let background = plan.nodes.len();
+        plan.nodes.push(fold_render::ImageOp::Solid {
+            rgba: [0.0, 0.0, 0.0, 1.0],
+        });
+        plan.nodes.push(fold_render::ImageOp::Over {
+            foreground,
+            background,
+        });
+        plan.output = plan.nodes.len() - 1;
+    }
     fold_render::render_with(plan, decoder, cancel)
 }
 
@@ -160,9 +219,24 @@ pub fn output(snapshot: &Snapshot) -> Result<(DocumentRef, VideoInfo), String> {
         let _ = sequence;
         let info = crate::packages::builtins().output(snapshot, reference.document)?;
         Ok((reference, info))
-    } else {
-        let (reference, layers) = active(snapshot)?;
+    } else if let Ok((reference, layers)) = active(snapshot) {
         Ok((reference, layers.info))
+    } else {
+        let document = snapshot
+            .state()
+            .documents
+            .values()
+            .find(|d| d.type_id == fold_compositor::COMPOSITE)
+            .ok_or("no supported video document")?;
+        let info = crate::packages::builtins().output(snapshot, document.id)?;
+        Ok((
+            DocumentRef {
+                document: document.id,
+                output: "video".into(),
+                extensions: Default::default(),
+            },
+            info,
+        ))
     }
 }
 
@@ -228,6 +302,7 @@ fn export_video(
     }
     let mut decoder = Decoder::default();
     let mut key = PreviewKey {
+        target: None,
         content: content(snapshot)?,
         frame: start,
         dimensions: [info.width, info.height],

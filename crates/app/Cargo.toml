@@ -7,9 +7,11 @@ default-run = "fold-cli"
 
 [features]
 default = []
-desktop = ["dep:fold-ui", "dep:cpal", "dep:rtrb", "fold-timeline/ui"]
+desktop = ["dep:fold-ui", "dep:cpal", "dep:rtrb", "fold-timeline/ui", "fold-compositor/ui"]
 
 [dependencies]
+serde.workspace = true
+serde_json.workspace = true
 fold-foundation.workspace = true
 tempfile.workspace = true
 fold-project.workspace = true

@@ -5,6 +5,10 @@
 #[path = "sdk_tests.rs"]
 mod tests;
 pub use dear_imgui_rs as imgui;
+pub use dear_node_editor as nodes;
+#[path = "canvas_pan.rs"]
+mod canvas_pan;
+pub use canvas_pan::CanvasPan;
 use fold_platform::{
     desktop::DesktopClient,
     packages::{PackageRegistry, PanelDescriptor},
@@ -16,6 +20,17 @@ pub struct ExtensionUi<'a> {
     pub host: &'a mut dyn DesktopClient,
 }
 pub trait Panel {
+    /// Called once after ImGui initialization. Panels are dropped before ImGui.
+    fn initialize(&mut self, _context: &imgui::Context) {}
+    /// Used by workspace navigation to reveal matching editor/inspector tabs.
+    fn document_type(&self) -> Option<&'static str> {
+        None
+    }
+    /// Hit-test empty canvas at a window-space pointer position. The shell
+    /// queries only visible panels; objects/pins/wires retain ordinary input.
+    fn accepts_background_pan(&self, _position: [f32; 2]) -> bool {
+        false
+    }
     fn id(&self) -> &'static str;
     fn draw(&mut self, context: ExtensionUi<'_>);
 }
@@ -63,6 +78,31 @@ impl PanelRegistry {
         Ok(self.entries)
     }
 }
+
+/// Shared graph palette. Types and selection also have labels/outlines, so
+/// color is never the only indication of socket compatibility or focus.
+pub struct GraphColors {
+    pub background: [f32; 4],
+    pub grid: [f32; 4],
+    pub node: [f32; 4],
+    pub image: [f32; 4],
+    pub mask: [f32; 4],
+    pub source: [f32; 4],
+    pub merge: [f32; 4],
+    pub selected: [f32; 4],
+    pub invalid: [f32; 4],
+}
+pub const GRAPH_COLORS: GraphColors = GraphColors {
+    background: [0.075, 0.083, 0.10, 1.0],
+    grid: [0.13, 0.145, 0.17, 0.65],
+    node: [0.13, 0.145, 0.175, 1.0],
+    image: [0.30, 0.74, 0.83, 1.0],
+    mask: [0.76, 0.57, 0.94, 1.0],
+    source: [0.40, 0.78, 0.55, 1.0],
+    merge: [0.88, 0.66, 0.35, 1.0],
+    selected: [0.98, 0.78, 0.32, 1.0],
+    invalid: [0.95, 0.35, 0.25, 1.0],
+};
 
 /// Semantic colors shared by custom editors. Base colors follow the active
 /// ImGui style; media-kind and error colors have a single application definition.

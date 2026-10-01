@@ -59,12 +59,40 @@ impl ApplicationHandler for App {
         }
     }
 
-    fn window_event(&mut self, event_loop: &ActiveEventLoop, id: WindowId, event: WindowEvent) {
+    fn window_event(&mut self, event_loop: &ActiveEventLoop, id: WindowId, mut event: WindowEvent) {
         let Some(desktop) = self.desktop.as_mut() else {
             return;
         };
         if id != desktop.window.id() {
             return;
+        }
+        // Translate before the backend queues input, so ImGui derives correct
+        // click/drag state. Never reinterpret a gesture halfway through.
+        let previous_shift = desktop.canvas_pan.effective_shift();
+        match &mut event {
+            WindowEvent::ModifiersChanged(modifiers) => {
+                desktop.canvas_pan.shift(modifiers.state().shift_key());
+            }
+            WindowEvent::CursorMoved { position, .. } => {
+                let position = position.to_logical::<f32>(desktop.platform.hidpi_factor());
+                desktop.pointer = [position.x, position.y];
+            }
+            WindowEvent::MouseInput { state, button, .. } => match *button {
+                winit::event::MouseButton::Left => {
+                    let over_canvas = desktop.shell.accepts_background_pan(desktop.pointer);
+                    if desktop
+                        .canvas_pan
+                        .left_button(state.is_pressed(), over_canvas)
+                        == dear_imgui_rs::MouseButton::Middle
+                    {
+                        *button = winit::event::MouseButton::Middle;
+                    }
+                }
+                winit::event::MouseButton::Middle => desktop.canvas_pan.middle(state.is_pressed()),
+                _ => {}
+            },
+            WindowEvent::Focused(false) => desktop.canvas_pan.reset(),
+            _ => {}
         }
         if let Err(error) =
             desktop
@@ -73,6 +101,13 @@ impl ApplicationHandler for App {
         {
             self.stop(event_loop, error.into());
             return;
+        }
+        let shift = desktop.canvas_pan.effective_shift();
+        if shift != previous_shift || matches!(event, WindowEvent::ModifiersChanged(_)) {
+            desktop
+                .context
+                .io_mut()
+                .add_key_event(dear_imgui_rs::Key::ModShift, shift);
         }
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
@@ -97,6 +132,10 @@ impl ApplicationHandler for App {
 }
 
 struct Desktop {
+    // Native editor contexts must be destroyed before their owning ImGui context.
+    shell: Shell,
+    canvas_pan: crate::sdk::CanvasPan,
+    pointer: [f32; 2],
     // Context tears down backend attachments while their resources are still alive.
     context: Context,
     platform: WinitPlatform,
@@ -106,7 +145,6 @@ struct Desktop {
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
     window: Arc<Window>,
-    shell: Shell,
     preview: PreviewHost,
     client: Box<dyn DesktopClient>,
 }
@@ -121,7 +159,7 @@ impl Desktop {
     fn new(
         event_loop: &ActiveEventLoop,
         preview: Box<dyn DesktopClient>,
-        panels: Vec<crate::sdk::RegisteredPanel>,
+        mut panels: Vec<crate::sdk::RegisteredPanel>,
     ) -> Result<Self> {
         let window = Arc::new(
             event_loop.create_window(
@@ -170,6 +208,9 @@ impl Desktop {
             WgpuInitInfo::new(device.clone(), queue.clone(), config.format),
             &mut context,
         )?;
+        for registered in &mut panels {
+            registered.panel.initialize(&context);
+        }
         Ok(Self {
             context,
             platform,
@@ -180,6 +221,8 @@ impl Desktop {
             config,
             window,
             shell: Shell::new(panels),
+            canvas_pan: crate::sdk::CanvasPan::default(),
+            pointer: [-1.0; 2],
             preview: PreviewHost::new(),
             client: preview,
         })

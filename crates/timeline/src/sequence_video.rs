@@ -1,9 +1,9 @@
-//! Video-track lowering shared by preview and export. Higher video tracks
-//! composite over lower tracks; gaps/disabled tracks contribute nothing.
+//! Video-track lowering shared by preview and export. Nested outputs are
+//! compiled through capabilities, without importing another feature's model.
 use crate::{SEQUENCE, Sequence, SourceMedia, TrackKind};
 use fold_foundation::Time;
 use fold_media::VideoSource;
-use fold_platform::VideoProvider;
+use fold_platform::{VideoProvider, VideoResolver};
 use fold_project::{Document, Snapshot};
 use fold_render::{ImageOp, RenderGraph};
 
@@ -34,14 +34,37 @@ impl VideoProvider for SequenceProvider {
         width: u32,
         height: u32,
     ) -> Result<RenderGraph, String> {
+        self.compile_resolved(
+            snapshot,
+            document,
+            output,
+            time,
+            [width, height],
+            &|_, _| Err("nested sequence requires a capability registry".into()),
+        )
+    }
+    fn compile_resolved(
+        &self,
+        snapshot: &Snapshot,
+        document: &Document,
+        output: &str,
+        time: Time,
+        dimensions: [u32; 2],
+        resolve: &VideoResolver<'_>,
+    ) -> Result<RenderGraph, String> {
+        let [width, height] = dimensions;
         if output != "video" || time < Time::ZERO {
             return Err("unsupported sequence output or negative time".into());
         }
         let sequence = Sequence::from_document(document)?;
-        let mut nodes = vec![ImageOp::Solid {
-            rgba: [0.0, 0.0, 0.0, 1.0],
-        }];
-        let mut background = 0;
+        let mut graph = RenderGraph {
+            width,
+            height,
+            nodes: vec![ImageOp::Solid {
+                rgba: [0.0, 0.0, 0.0, 1.0],
+            }],
+            output: 0,
+        };
         for track in sequence
             .tracks
             .iter()
@@ -53,46 +76,46 @@ impl VideoProvider for SequenceProvider {
                 .filter(|c| c.track == track.id && c.level > 0.0)
             {
                 if let Some(time) = clip.source_time(time)? {
-                    let asset = snapshot
-                        .state()
-                        .assets
-                        .get(&clip.asset)
-                        .ok_or("missing sequence asset")?;
-                    let SourceMedia::Video(info) = &clip.info else {
-                        return Err("non-video clip on video track".into());
+                    let (source, opaque) = match &clip.info {
+                        SourceMedia::Document { source, .. } => {
+                            (graph.append(resolve(source, time)?)?, false)
+                        }
+                        SourceMedia::Video(info) => {
+                            let asset = snapshot
+                                .state()
+                                .assets
+                                .get(&clip.asset)
+                                .ok_or("missing sequence asset")?;
+                            let id = graph.nodes.len();
+                            graph.nodes.push(ImageOp::Video {
+                                source: VideoSource {
+                                    path: asset.location.clone().into(),
+                                    fingerprint: asset.fingerprint.clone(),
+                                    info: info.clone(),
+                                },
+                                time,
+                            });
+                            (id, true)
+                        }
+                        SourceMedia::Audio(_) => return Err("non-video clip on video track".into()),
                     };
-                    let source = nodes.len();
-                    nodes.push(ImageOp::Video {
-                        source: VideoSource {
-                            path: asset.location.clone().into(),
-                            fingerprint: asset.fingerprint.clone(),
-                            info: info.clone(),
-                        },
-                        time,
-                    });
-                    if clip.level == 1.0 {
-                        // Supported video is opaque: dead lower layers need not decode.
-                        background = source;
+                    if opaque && clip.level == 1.0 {
+                        graph.output = source;
                     } else {
-                        let foreground = nodes.len();
-                        nodes.push(ImageOp::Opacity {
+                        let foreground = graph.nodes.len();
+                        graph.nodes.push(ImageOp::Opacity {
                             input: source,
                             opacity: clip.level,
                         });
-                        nodes.push(ImageOp::Over {
+                        graph.nodes.push(ImageOp::Over {
                             foreground,
-                            background,
+                            background: graph.output,
                         });
-                        background = nodes.len() - 1;
+                        graph.output = graph.nodes.len() - 1;
                     }
                 }
             }
         }
-        Ok(RenderGraph {
-            width,
-            height,
-            nodes,
-            output: background,
-        })
+        Ok(graph)
     }
 }

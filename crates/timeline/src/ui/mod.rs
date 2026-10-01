@@ -63,6 +63,9 @@ struct TimelinePanel {
     )>,
 }
 impl Panel for TimelinePanel {
+    fn document_type(&self) -> Option<&'static str> {
+        Some(crate::SEQUENCE)
+    }
     fn id(&self) -> &'static str {
         package::PANEL
     }

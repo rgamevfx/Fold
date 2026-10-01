@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 pub const SEQUENCE: &str = "fold.timeline.sequence";
-pub const SEQUENCE_SCHEMA: u32 = 2;
+pub const SEQUENCE_SCHEMA: u32 = 3;
 const MAX_PAYLOAD: usize = 1024 * 1024;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -43,11 +43,16 @@ impl Track {
 pub enum SourceMedia {
     Video(VideoInfo),
     Audio(WaveInfo),
+    /// Video-only nested capability; `Clip::asset` is ignored for this variant.
+    Document {
+        source: fold_project::DocumentRef,
+        info: VideoInfo,
+    },
 }
 impl SourceMedia {
     pub fn duration(&self) -> Result<Time, String> {
         match self {
-            Self::Video(info) => {
+            Self::Video(info) | Self::Document { info, .. } => {
                 info.validate()?;
                 info.time(info.frames)
             }
@@ -192,6 +197,16 @@ impl Sequence {
                 ],
             )?;
             let track = self.track(clip.track)?;
+            if let SourceMedia::Document { source, .. } = &clip.info
+                && (source.output != "video"
+                    || track.kind != TrackKind::Video
+                    || clip.link.is_some())
+            {
+                return Err(
+                    "nested clips require an unlinked video output; retain audio on the sequence"
+                        .into(),
+                );
+            }
             let source_end = clip
                 .source_start
                 .checked_add(clip.duration)
@@ -242,10 +257,22 @@ impl Sequence {
     fn assets(&self) -> Vec<AssetId> {
         self.clips
             .iter()
+            .filter(|c| !matches!(c.info, SourceMedia::Document { .. }))
             .map(|c| c.asset)
             .collect::<BTreeSet<_>>()
             .into_iter()
             .collect()
+    }
+    fn dependencies(&self) -> Vec<fold_project::DocumentRef> {
+        let mut refs = Vec::new();
+        for clip in &self.clips {
+            if let SourceMedia::Document { source, .. } = &clip.info
+                && !refs.contains(source)
+            {
+                refs.push(source.clone());
+            }
+        }
+        refs
     }
     pub fn document(&self, id: DocumentId) -> Result<Document, String> {
         self.validate()?;
@@ -259,7 +286,7 @@ impl Sequence {
             package_id: super::PACKAGE.into(),
             schema_version: SEQUENCE_SCHEMA,
             revision: Revision::default(),
-            dependencies: vec![],
+            dependencies: self.dependencies(),
             assets: self.assets(),
             payload,
             extensions: Metadata::default(),
@@ -268,16 +295,21 @@ impl Sequence {
     pub fn from_document(document: &Document) -> Result<Self, String> {
         if document.package_id != super::PACKAGE
             || document.type_id != SEQUENCE
-            || document.schema_version != SEQUENCE_SCHEMA
-            || !document.dependencies.is_empty()
+            || ![2, SEQUENCE_SCHEMA].contains(&document.schema_version)
             || document.payload.len() > MAX_PAYLOAD
         {
-            return Err("unsupported sequence document (multi-track schema 2 required)".into());
+            return Err(
+                "unsupported sequence document (multi-track schema 2 or 3 required)".into(),
+            );
         }
         let sequence: Self =
             serde_json::from_slice(&document.payload).map_err(|e| e.to_string())?;
         sequence.validate()?;
-        if sequence.assets() != document.assets {
+        if document.schema_version == 2 && !sequence.dependencies().is_empty() {
+            return Err("nested sequence clips require schema 3".into());
+        }
+        if sequence.assets() != document.assets || sequence.dependencies() != document.dependencies
+        {
             return Err("sequence asset declarations disagree with payload".into());
         }
         Ok(sequence)

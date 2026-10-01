@@ -143,6 +143,12 @@ impl Project {
         Ok(Arc::new(state))
     }
 
+    /// Validate a transient proposal without publishing or changing history.
+    /// Hosts must keep this render-only snapshot separate from save/export roots.
+    pub fn preview(&self, batch: &EditBatch) -> Result<Snapshot, ProjectError> {
+        self.stage(batch).map(Snapshot)
+    }
+
     pub fn commit(&mut self, batch: EditBatch) -> Result<Snapshot, ProjectError> {
         let after = self.stage(&batch)?;
         let before = std::mem::replace(&mut self.current, after.clone());

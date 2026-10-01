@@ -51,8 +51,16 @@ pub trait DocumentProvider: Send + Sync {
     fn package_id(&self) -> &'static str;
     fn type_id(&self) -> &'static str;
     fn schema(&self) -> u32;
+    fn supports_schema(&self, schema: u32) -> bool {
+        schema == self.schema()
+    }
     fn validate(&self, document: &Document) -> Result<(), String>;
     fn video_info(&self, document: &Document) -> Result<VideoInfo, String>;
+    /// Semantic evaluation identity, excluding provider-owned presentation data.
+    fn evaluation_identity(&self, document: &Document) -> Result<Vec<u8>, String> {
+        self.validate(document)?;
+        Ok(document.payload.clone())
+    }
 }
 pub trait AudioProvider: Send + Sync {
     fn package_id(&self) -> &'static str;
@@ -195,7 +203,7 @@ impl PackageRegistry {
         self.documents.iter().any(|p| {
             p.package_id() == document.package_id
                 && p.type_id() == document.type_id
-                && p.schema() == document.schema_version
+                && p.supports_schema(document.schema_version)
         })
     }
     pub fn output(&self, snapshot: &Snapshot, id: DocumentId) -> Result<VideoInfo, String> {
@@ -212,6 +220,13 @@ impl PackageRegistry {
         provider.validate(document)?;
         provider.video_info(document)
     }
+    pub fn evaluation_identity(&self, document: &Document) -> Result<Vec<u8>, String> {
+        self.documents
+            .iter()
+            .find(|p| p.package_id() == document.package_id && p.type_id() == document.type_id)
+            .ok_or("missing document provider")?
+            .evaluation_identity(document)
+    }
     pub fn video(
         &self,
         snapshot: &Snapshot,
@@ -220,8 +235,52 @@ impl PackageRegistry {
         width: u32,
         height: u32,
     ) -> Result<RenderGraph, String> {
-        self.output(snapshot, source.document)?;
+        self.validate_video_dependencies(snapshot, source, &mut Vec::new(), &mut BTreeSet::new())?;
         self.video.compile(snapshot, source, time, width, height)
+    }
+    fn validate_video_dependencies(
+        &self,
+        snapshot: &Snapshot,
+        source: &DocumentRef,
+        path: &mut Vec<DocumentId>,
+        done: &mut BTreeSet<DocumentId>,
+    ) -> Result<(), String> {
+        if source.output != "video" {
+            return Err(format!("unsupported video port: {}", source.output));
+        }
+        if path.contains(&source.document) || path.len() >= 64 {
+            return Err("recursive or excessively deep document references".into());
+        }
+        if done.contains(&source.document) {
+            return Ok(());
+        }
+        self.output(snapshot, source.document).map_err(|error| {
+            format!(
+                "video dependency {:?} / {}: {error}",
+                source.document, source.output
+            )
+        })?;
+        let document = &snapshot.state().documents[&source.document];
+        if !self
+            .video
+            .providers
+            .iter()
+            .any(|p| p.package_id() == document.package_id && p.type_id() == document.type_id)
+        {
+            return Err(format!("missing video capability: {:?}", document.id));
+        }
+        for id in &document.assets {
+            if !snapshot.state().assets.contains_key(id) {
+                return Err(format!("missing asset {id:?}"));
+            }
+        }
+        path.push(source.document);
+        for dependency in &document.dependencies {
+            self.validate_video_dependencies(snapshot, dependency, path, done)?;
+        }
+        path.pop();
+        done.insert(source.document);
+        Ok(())
     }
     pub fn audio(&self, snapshot: &Snapshot, id: DocumentId) -> Result<AudioPlan, String> {
         let document = snapshot

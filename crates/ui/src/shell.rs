@@ -34,6 +34,10 @@ pub(crate) struct Shell {
     start: i32,
     end: i32,
     content: Option<String>,
+    focused_document: Option<fold_foundation::DocumentId>,
+    focus_workspace: Option<(String, u8)>,
+    pending_workspace: Option<String>,
+    visible_panels: Vec<usize>,
 }
 impl Shell {
     pub fn new(panels: Vec<RegisteredPanel>) -> Self {
@@ -55,13 +59,13 @@ impl Shell {
             .collect();
         inspectors.push(&delivery);
         let layout = DockLayout::split(
-            DockSplit::Down,
-            0.46,
-            DockLayout::tabs(editors),
+            DockSplit::Right,
+            0.27,
+            DockLayout::tabs(inspectors),
             DockLayout::split(
-                DockSplit::Right,
-                0.29,
-                DockLayout::tabs(inspectors),
+                DockSplit::Down,
+                0.52,
+                DockLayout::tabs(editors),
                 DockLayout::tabs([&viewer]),
             ),
         );
@@ -79,7 +83,16 @@ impl Shell {
             start: 0,
             end: 1,
             content: None,
+            focused_document: None,
+            focus_workspace: None,
+            pending_workspace: None,
+            visible_panels: Vec::new(),
         }
+    }
+    pub fn accepts_background_pan(&self, position: [f32; 2]) -> bool {
+        self.visible_panels
+            .iter()
+            .any(|&index| self.panels[index].panel.accepts_background_pan(position))
     }
     pub fn key(&self, client: &dyn DesktopClient) -> Option<PreviewKey> {
         client
@@ -104,8 +117,29 @@ impl Shell {
                 DesktopCommand::Undo
             });
         }
+        if self.focused_document != state.selection.document
+            && !ui.is_mouse_down(dear_imgui_rs::MouseButton::Left)
+        {
+            self.focused_document = state.selection.document;
+            self.pending_workspace = client.snapshot().and_then(|s| {
+                state
+                    .selection
+                    .document
+                    .and_then(|id| s.state().documents.get(&id).map(|d| d.type_id.clone()))
+            });
+        }
         ui.main_menu_bar(|| {
-            ui.text("Fold  |  Editing");
+            ui.text("Fold");
+            for panel in self
+                .panels
+                .iter()
+                .filter(|p| p.descriptor.placement == PanelPlacement::Editor)
+            {
+                ui.same_line();
+                if ui.button(panel.descriptor.title) {
+                    self.pending_workspace = panel.panel.document_type().map(str::to_owned);
+                }
+            }
             ui.same_line();
             if ui.button("Undo") {
                 client.command(DesktopCommand::Undo);
@@ -119,6 +153,9 @@ impl Shell {
                 self.reset_layout = true;
             }
         });
+        if let Some(kind) = self.pending_workspace.take() {
+            self.focus_workspace = Some((kind, 0));
+        }
         ui.dockspace()
             .layout(
                 &self.layout,
@@ -130,9 +167,57 @@ impl Shell {
             )
             .build()?;
         self.reset_layout = false;
-        for registered in &mut self.panels {
-            ui.window(&registered.key)
-                .build(|| registered.panel.draw(ExtensionUi { ui, host: client }));
+        ui.window(&self.viewer).build(|| {
+            if state.navigation.len() > 1 && ui.button("< Back to parent") {
+                client.command(DesktopCommand::NavigateBack);
+            }
+            if !state.navigation.is_empty() {
+                ui.same_line();
+                ui.text(
+                    state
+                        .navigation
+                        .iter()
+                        .map(|v| v.label.as_str())
+                        .collect::<Vec<_>>()
+                        .join(" / "),
+                );
+                if let Some(location) = state.navigation.last() {
+                    ui.text(format!(
+                        "Local time {}/{} s",
+                        location.time.numerator(),
+                        location.time.denominator()
+                    ));
+                }
+            }
+            if state.transient {
+                ui.text_colored([0.95, 0.75, 0.35, 1.0], "LIVE EDIT PREVIEW — not committed");
+            }
+        });
+        self.visible_panels.clear();
+        for (index, registered) in self.panels.iter_mut().enumerate() {
+            let visible = ui
+                .window(&registered.key)
+                .focused(self.focus_workspace.as_ref().is_some_and(|(kind, stage)| {
+                    registered.panel.document_type() == Some(kind.as_str())
+                        && matches!(
+                            (stage, registered.descriptor.placement),
+                            (1, PanelPlacement::Inspector) | (2, PanelPlacement::Editor)
+                        )
+                }))
+                .build(|| registered.panel.draw(ExtensionUi { ui, host: client }))
+                .is_some();
+            if visible {
+                self.visible_panels.push(index);
+            }
+        }
+        // Let newly docked windows appear first (otherwise Delivery's initial
+        // focus wins), then select the inspector and editor on separate frames.
+        if let Some((_, stage)) = &mut self.focus_workspace {
+            if *stage == 2 {
+                self.focus_workspace = None;
+            } else {
+                *stage += 1;
+            }
         }
         if !self
             .panels
@@ -174,6 +259,9 @@ impl Shell {
                 "Worker idle"
             });
             ui.text_wrapped(&state.status);
+            ui.text_disabled(
+                "Export uses the committed project output, not a source-view or live edit.",
+            );
         });
         Ok(())
     }
@@ -219,22 +307,129 @@ mod tests {
         assert_eq!(fitted_size([640, 360], [800.0, 600.0]), [800.0, 450.0]);
         assert_eq!(fitted_size([640, 360], [-1.0, 90.0]), [0.0, 0.0]);
     }
+    struct Client(DesktopState);
+    impl DesktopClient for Client {
+        fn state(&self) -> &DesktopState {
+            &self.0
+        }
+        fn poll(&mut self) {}
+        fn command(&mut self, _: DesktopCommand) {}
+        fn request_preview(&mut self, _: PreviewKey) {}
+        fn cancel_preview(&mut self) {}
+        fn take_preview(&mut self) -> Option<PreviewResult> {
+            None
+        }
+    }
+    #[test]
+    fn initial_workspace_request_reveals_both_editor_and_inspector_tabs() {
+        let _guard = crate::IMGUI_TEST_LOCK.lock().unwrap();
+        use std::{cell::Cell, rc::Rc};
+        struct Probe {
+            id: &'static str,
+            kind: &'static str,
+            drawn: Rc<Cell<bool>>,
+        }
+        impl crate::sdk::Panel for Probe {
+            fn id(&self) -> &'static str {
+                self.id
+            }
+            fn document_type(&self) -> Option<&'static str> {
+                Some(self.kind)
+            }
+            fn accepts_background_pan(&self, p: [f32; 2]) -> bool {
+                self.id == "graph.editor"
+                    && (50.0..100.0).contains(&p[0])
+                    && (60.0..110.0).contains(&p[1])
+            }
+            fn draw(&mut self, context: ExtensionUi<'_>) {
+                self.drawn.set(true);
+                context.ui.text(self.id);
+            }
+        }
+        let editor = Rc::new(Cell::new(false));
+        let inspector = Rc::new(Cell::new(false));
+        let mut panels = Vec::new();
+        for (id, kind, placement, drawn) in [
+            (
+                "other.editor",
+                "other",
+                PanelPlacement::Editor,
+                Rc::new(Cell::new(false)),
+            ),
+            (
+                "other.inspector",
+                "other",
+                PanelPlacement::Inspector,
+                Rc::new(Cell::new(false)),
+            ),
+            (
+                "graph.editor",
+                "graph",
+                PanelPlacement::Editor,
+                editor.clone(),
+            ),
+            (
+                "graph.inspector",
+                "graph",
+                PanelPlacement::Inspector,
+                inspector.clone(),
+            ),
+        ] {
+            panels.push(RegisteredPanel {
+                descriptor: fold_platform::packages::PanelDescriptor {
+                    id,
+                    title: id,
+                    placement,
+                },
+                panel: Box::new(Probe { id, kind, drawn }),
+                key: WindowKey::new(id, id).unwrap(),
+            });
+        }
+        let mut context = dear_imgui_rs::Context::create();
+        context.set_ini_filename(None::<String>).unwrap();
+        context
+            .io_mut()
+            .set_config_flags(dear_imgui_rs::ConfigFlags::DOCKING_ENABLE);
+        context
+            .font_atlas()
+            .try_claim_legacy_renderer()
+            .unwrap()
+            .build();
+        context.io_mut().set_display_size([1280.0, 800.0]);
+        context.io_mut().set_delta_time(1.0 / 60.0);
+        let mut shell = Shell::new(panels);
+        shell.pending_workspace = Some("graph".into());
+        let mut client = Client(DesktopState::default());
+        for _ in 0..12 {
+            editor.set(false);
+            inspector.set(false);
+            let ui = context.frame();
+            shell.controls(ui, &mut client).unwrap();
+            shell.viewer(ui, &Preview::Pending, "test");
+            context.end_frame();
+        }
+        assert!(editor.get(), "requested graph tab must be visible");
+        assert!(
+            inspector.get(),
+            "requested node inspector must not stay behind Delivery"
+        );
+        assert!(shell.accepts_background_pan([75.0, 75.0]));
+        assert!(!shell.accepts_background_pan([10.0, 10.0]));
+        shell.pending_workspace = Some("other".into());
+        for _ in 0..12 {
+            let ui = context.frame();
+            shell.controls(ui, &mut client).unwrap();
+            shell.viewer(ui, &Preview::Pending, "test");
+            context.end_frame();
+        }
+        assert!(
+            !shell.accepts_background_pan([75.0, 75.0]),
+            "hidden canvases cannot capture background drag"
+        );
+    }
     #[test]
     fn generic_shell_without_feature_panels_builds() {
         let _guard = crate::IMGUI_TEST_LOCK.lock().unwrap();
-        struct Client(DesktopState);
-        impl DesktopClient for Client {
-            fn state(&self) -> &DesktopState {
-                &self.0
-            }
-            fn poll(&mut self) {}
-            fn command(&mut self, _: DesktopCommand) {}
-            fn request_preview(&mut self, _: PreviewKey) {}
-            fn cancel_preview(&mut self) {}
-            fn take_preview(&mut self) -> Option<PreviewResult> {
-                None
-            }
-        }
         let mut context = dear_imgui_rs::Context::create();
         context.set_ini_filename(None::<String>).unwrap();
         context

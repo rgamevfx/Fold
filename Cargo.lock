@@ -549,6 +549,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "dear-node-editor"
+version = "0.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "71d5609ff06aa23aad932add85b006e32efd08a8cbd8aaf3d5156480c37157ea"
+dependencies = [
+ "bitflags 2.13.2",
+ "dear-imgui-rs",
+ "dear-node-editor-sys",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "dear-node-editor-sys"
+version = "0.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5683d79783c9324bbe42a15a2eda38a1a8a717af51beb7bbc591daf71c1d7794"
+dependencies = [
+ "cc",
+ "dear-imgui-build-support",
+ "dear-imgui-sys",
+]
+
+[[package]]
 name = "digest"
 version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -643,6 +666,8 @@ dependencies = [
  "fold-timeline",
  "fold-ui",
  "rtrb",
+ "serde",
+ "serde_json",
  "tempfile",
 ]
 
@@ -655,6 +680,9 @@ dependencies = [
  "fold-platform",
  "fold-project",
  "fold-render",
+ "fold-ui",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -738,6 +766,7 @@ dependencies = [
  "dear-imgui-rs",
  "dear-imgui-wgpu",
  "dear-imgui-winit",
+ "dear-node-editor",
  "fold-foundation",
  "fold-platform",
  "pollster",

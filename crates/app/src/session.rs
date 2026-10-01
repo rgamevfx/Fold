@@ -10,6 +10,9 @@ use std::sync::{
     mpsc::{self, Receiver},
 };
 
+#[path = "session_view.rs"]
+mod view;
+
 type Request = (Snapshot, PreviewKey, Cancel);
 struct Mailbox {
     pending: Option<Request>,
@@ -90,7 +93,7 @@ impl Drop for PreviewWorker {
 
 enum Completed {
     Imported(EditBatch),
-    Opened(Project, fold_project::Revision),
+    Opened(Project, fold_project::Revision, Option<String>),
     Message(String),
 }
 struct Background {
@@ -110,6 +113,7 @@ impl Drop for Background {
 pub struct Session {
     project: Project,
     state: DesktopState,
+    overlay: Option<Snapshot>,
     preview: PreviewWorker,
     background: Option<Background>,
     #[cfg(feature = "desktop")]
@@ -125,6 +129,7 @@ impl Session {
         let mut session = Self {
             project,
             state: DesktopState::default(),
+            overlay: None,
             preview: PreviewWorker::new(),
             background: None,
             #[cfg(feature = "desktop")]
@@ -134,8 +139,22 @@ impl Session {
         session
     }
     fn refresh(&mut self) {
-        let snapshot = self.project.snapshot();
-        let content = workflow::content(&snapshot).ok();
+        let committed = self.project.snapshot();
+        if self
+            .state
+            .navigation
+            .iter()
+            .any(|v| !committed.state().documents.contains_key(&v.document))
+        {
+            self.state.navigation.clear();
+        }
+        let snapshot = self.preview_snapshot();
+        let content = if let Some(location) = self.state.navigation.last() {
+            workflow::content_for(&snapshot, location.document).ok()
+        } else {
+            workflow::content(&snapshot).ok()
+        };
+        self.state.transient = self.overlay.is_some();
         if self.state.content != content {
             self.stop_playback();
             self.preview.cancel();
@@ -149,7 +168,12 @@ impl Session {
         {
             self.state.selection = Default::default();
         }
-        if let Ok((_, info)) = workflow::output(&snapshot) {
+        let info = if let Some(location) = self.state.navigation.last() {
+            crate::packages::builtins().output(&snapshot, location.document)
+        } else {
+            workflow::output(&snapshot).map(|(_, info)| info)
+        };
+        if let Ok(info) = info {
             self.state.frames = info.frames;
             self.state.dimensions = [info.width, info.height];
             self.state.rate = info.rate;
@@ -169,6 +193,10 @@ impl Session {
         self.state.priming = false;
     }
     fn start_playback(&mut self) {
+        if self.state.navigation.len() > 1 || self.overlay.is_some() {
+            self.state.status = "Return to the sequence and finish the edit to play audio; source view supports exact scrubbing.".into();
+            return;
+        }
         #[cfg(feature = "desktop")]
         {
             self.playback
@@ -204,7 +232,15 @@ impl Session {
                     .map(|_| Completed::Message("Project saved".into()))
                     .map_err(|e| e.to_string()),
                 DesktopCommand::Open(path) => fold_project::load(&path, 32)
-                    .map(|project| Completed::Opened(project, snapshot.revision()))
+                    .map(|project| Completed::Opened(project, snapshot.revision(), None))
+                    .map_err(|e| e.to_string()),
+                DesktopCommand::OpenInWorkspace {
+                    path,
+                    document_type,
+                } => fold_project::load(&path, 32)
+                    .map(|project| {
+                        Completed::Opened(project, snapshot.revision(), Some(document_type))
+                    })
                     .map_err(|e| e.to_string()),
                 DesktopCommand::Export { path, start, end } => {
                     workflow::export(&snapshot, &path, start, end, &token)
@@ -228,6 +264,12 @@ impl DesktopClient for Session {
     fn snapshot(&self) -> Option<Snapshot> {
         Some(self.project.snapshot())
     }
+    fn video_info(
+        &self,
+        document: fold_foundation::DocumentId,
+    ) -> Result<fold_media::VideoInfo, String> {
+        crate::packages::builtins().output(&self.project.snapshot(), document)
+    }
     fn poll(&mut self) {
         #[cfg(feature = "desktop")]
         {
@@ -241,6 +283,13 @@ impl DesktopClient for Session {
                     .unwrap_or(0)
                     .max(0) as u32;
                 self.state.frame = self.state.frame.min(self.state.frames - 1);
+                if let Some(location) = self.state.navigation.last_mut() {
+                    location.time = Time::new(
+                        i64::from(self.state.frame) * i64::from(self.state.rate[1]),
+                        self.state.rate[0],
+                    )
+                    .unwrap();
+                }
             }
             self.state.playing = self.playback.playing();
             self.state.priming = self.playback.priming();
@@ -277,18 +326,39 @@ impl DesktopClient for Session {
             match result {
                 Ok(Completed::Imported(batch)) => match self.project.commit(batch) {
                     Ok(_) => {
+                        self.overlay = None;
                         self.refresh();
                         self.state.status = "Import committed".into();
                     }
                     Err(e) => self.state.status = e.to_string(),
                 },
-                Ok(Completed::Opened(project, base)) => {
+                Ok(Completed::Opened(project, base, workspace)) => {
                     if self.project.snapshot().revision() != base {
                         self.state.status = "Project changed while opening; retry open".into();
                     } else {
                         self.project = project;
+                        self.overlay = None;
+                        self.state.navigation.clear();
                         self.refresh();
                         self.state.status = "Project opened".into();
+                        if let Some(kind) = workspace {
+                            let snapshot = self.project.snapshot();
+                            if let Some(document) = snapshot
+                                .state()
+                                .documents
+                                .values()
+                                .find(|d| d.type_id == kind)
+                            {
+                                self.navigate(fold_platform::desktop::ViewLocation {
+                                    document: document.id,
+                                    time: fold_foundation::Time::ZERO,
+                                    label: kind.rsplit('.').next().unwrap_or("Document").into(),
+                                });
+                            } else {
+                                self.state.status =
+                                    format!("Project opened; no document for workspace {kind}");
+                            }
+                        }
                     }
                 }
                 Ok(Completed::Message(message)) => self.state.status = message,
@@ -298,6 +368,23 @@ impl DesktopClient for Session {
     }
     fn command(&mut self, command: DesktopCommand) {
         let result = match command {
+            DesktopCommand::PreviewExtension(request) => {
+                self.preview_edit(request);
+                return;
+            }
+            DesktopCommand::CancelPreviewEdit => {
+                self.overlay = None;
+                self.refresh();
+                return;
+            }
+            DesktopCommand::Navigate(location) => {
+                self.navigate(location);
+                return;
+            }
+            DesktopCommand::NavigateBack => {
+                self.back();
+                return;
+            }
             DesktopCommand::Play => {
                 self.start_playback();
                 return;
@@ -308,6 +395,13 @@ impl DesktopClient for Session {
             }
             DesktopCommand::Seek(frame) => {
                 self.state.frame = frame.min(self.state.frames - 1);
+                if let Some(location) = self.state.navigation.last_mut() {
+                    location.time = fold_foundation::Time::new(
+                        i64::from(self.state.frame) * i64::from(self.state.rate[1]),
+                        self.state.rate[0],
+                    )
+                    .unwrap();
+                }
                 if self.state.playing {
                     self.start_playback();
                 }
@@ -372,15 +466,20 @@ impl DesktopClient for Session {
         };
         match result {
             Ok(()) => {
+                self.overlay = None;
                 self.refresh();
                 self.state.status = "Edit committed".into();
             }
-            Err(error) => self.state.status = error,
+            Err(error) => {
+                self.overlay = None;
+                self.refresh();
+                self.state.status = error;
+            }
         }
     }
     fn request_preview(&mut self, key: PreviewKey) {
         if self.state.content.as_ref() == Some(&key.content) {
-            self.preview.request(self.project.snapshot(), key);
+            self.preview.request(self.preview_snapshot(), key);
         }
     }
     fn cancel_preview(&mut self) {

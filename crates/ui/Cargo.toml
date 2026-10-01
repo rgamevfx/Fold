@@ -8,6 +8,7 @@ publish.workspace = true
 fold-foundation.workspace = true
 fold-platform.workspace = true
 dear-imgui-rs = "0.18"
+dear-node-editor = "0.18"
 dear-imgui-winit = "0.18"
 dear-imgui-wgpu = { version = "0.18", default-features = false, features = ["wgpu-27"] }
 winit = "0.30"

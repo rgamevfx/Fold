@@ -79,6 +79,26 @@ pub enum ImageOp {
         input: ImageId,
         opacity: f32,
     },
+    /// Half-open pixel rectangle; pixels outside become transparent.
+    Crop {
+        input: ImageId,
+        rect: [u32; 4],
+    },
+    /// Box blur with transparent borders and a fixed full-kernel divisor.
+    Blur {
+        input: ImageId,
+        radius: u32,
+    },
+    /// Linear RGB gain, clamped to alpha (the supported SDR working range).
+    Grade {
+        input: ImageId,
+        gain: [f32; 3],
+    },
+    /// Multiply premultiplied RGBA by the mask image's alpha.
+    Mask {
+        input: ImageId,
+        mask: ImageId,
+    },
     /// Porter-Duff foreground over background; ordering is explicit.
     Over {
         foreground: ImageId,
@@ -90,7 +110,12 @@ impl ImageOp {
     fn inputs(&self) -> impl Iterator<Item = ImageId> {
         let inputs = match *self {
             Self::Solid { .. } | Self::Media(_) | Self::Video { .. } => [None, None],
-            Self::Transform { input, .. } | Self::Opacity { input, .. } => [Some(input), None],
+            Self::Transform { input, .. }
+            | Self::Opacity { input, .. }
+            | Self::Crop { input, .. }
+            | Self::Blur { input, .. }
+            | Self::Grade { input, .. } => [Some(input), None],
+            Self::Mask { input, mask } => [Some(input), Some(mask)],
             Self::Over {
                 foreground,
                 background,
@@ -108,6 +133,46 @@ pub struct RenderGraph {
     pub height: u32,
     pub nodes: Vec<ImageOp>,
     pub output: ImageId,
+}
+
+impl RenderGraph {
+    /// Append a compiled capability fragment without evaluating an intermediate frame.
+    pub fn append(&mut self, mut fragment: Self) -> Result<ImageId, String> {
+        if self.width != fragment.width
+            || self.height != fragment.height
+            || fragment.output >= fragment.nodes.len()
+            || self.nodes.len() + fragment.nodes.len() > MAX_NODES
+        {
+            return Err("invalid or oversized nested graph".into());
+        }
+        let offset = self.nodes.len();
+        for (id, op) in fragment.nodes.iter_mut().enumerate() {
+            if op.inputs().any(|input| input >= id) {
+                return Err("invalid nested graph ordering".into());
+            }
+            match op {
+                ImageOp::Transform { input, .. }
+                | ImageOp::Opacity { input, .. }
+                | ImageOp::Crop { input, .. }
+                | ImageOp::Blur { input, .. }
+                | ImageOp::Grade { input, .. } => *input += offset,
+                ImageOp::Mask { input, mask } => {
+                    *input += offset;
+                    *mask += offset;
+                }
+                ImageOp::Over {
+                    foreground,
+                    background,
+                } => {
+                    *foreground += offset;
+                    *background += offset;
+                }
+                _ => {}
+            }
+        }
+        self.nodes.extend(fragment.nodes);
+        Ok(offset + fragment.output)
+    }
 }
 
 impl From<SolidPlan> for RenderGraph {
@@ -168,6 +233,28 @@ pub(crate) fn evaluate(
                     return Err("opacity must be finite and in 0..=1".into());
                 }
             }
+            ImageOp::Crop {
+                rect: [x, y, right, bottom],
+                ..
+            } => {
+                if x > right || y > bottom {
+                    return Err("invalid crop rectangle".into());
+                }
+            }
+            ImageOp::Blur { radius, .. } => {
+                if radius > 64 {
+                    return Err("blur radius exceeds 64 pixels".into());
+                }
+            }
+            ImageOp::Grade { gain, .. } => {
+                if gain
+                    .iter()
+                    .any(|g| !g.is_finite() || !(0.0..=16.0).contains(g))
+                {
+                    return Err("grade gain must be finite and in 0..=16".into());
+                }
+            }
+            ImageOp::Mask { .. } => {}
             ImageOp::Video { ref source, time } => {
                 source.info.frame_at(time)?;
             }
@@ -230,6 +317,104 @@ pub(crate) fn evaluate(
                         .zip(&input(background).pixels)
                         .map(|(fg, bg)| std::array::from_fn(|c| fg[c] + bg[c] * (1.0 - fg[3]))),
                 );
+            }
+            ImageOp::Crop {
+                input: source,
+                rect: [left, top, right, bottom],
+            } => {
+                for y in 0..graph.height {
+                    cancel.check()?;
+                    for x in 0..graph.width {
+                        pixels.push(if x >= left && x < right && y >= top && y < bottom {
+                            input(source).pixels[(y * graph.width + x) as usize]
+                        } else {
+                            [0.0; 4]
+                        });
+                    }
+                }
+            }
+            ImageOp::Grade {
+                input: source,
+                gain,
+            } => {
+                pixels.extend(input(source).pixels.iter().map(|p| {
+                    [
+                        (p[0] * gain[0]).min(p[3]),
+                        (p[1] * gain[1]).min(p[3]),
+                        (p[2] * gain[2]).min(p[3]),
+                        p[3],
+                    ]
+                }));
+            }
+            ImageOp::Mask {
+                input: source,
+                mask,
+            } => {
+                pixels.extend(
+                    input(source)
+                        .pixels
+                        .iter()
+                        .zip(&input(mask).pixels)
+                        .map(|(p, m)| p.map(|v| v * m[3])),
+                );
+            }
+            ImageOp::Blur {
+                input: source,
+                radius,
+            } => {
+                // Sliding vertical column sums plus a horizontal sliding window:
+                // O(pixels + width * radius), no full-frame scratch allocation.
+                let w = graph.width as usize;
+                let h = graph.height as usize;
+                let r = radius as usize;
+                let scratch_bytes = w * std::mem::size_of::<[f64; 4]>();
+                if live_bytes + bytes + scratch_bytes > budget {
+                    return Err("blur scratch exceeds working memory budget".into());
+                }
+                let mut columns = Vec::new();
+                columns
+                    .try_reserve_exact(w)
+                    .map_err(|_| "blur scratch allocation failed")?;
+                columns.resize(w, [0.0f64; 4]);
+                let data = &input(source).pixels;
+                for y in 0..=r.min(h - 1) {
+                    for x in 0..w {
+                        for c in 0..4 {
+                            columns[x][c] += f64::from(data[y * w + x][c]);
+                        }
+                    }
+                }
+                let divisor = ((2 * r + 1) * (2 * r + 1)) as f64;
+                for y in 0..h {
+                    cancel.check()?;
+                    let mut sum = [0.0; 4];
+                    for column in columns.iter().take(r + 1) {
+                        for c in 0..4 {
+                            sum[c] += column[c];
+                        }
+                    }
+                    for x in 0..w {
+                        pixels.push(sum.map(|v| (v / divisor).clamp(0.0, 1.0) as f32));
+                        for c in 0..4 {
+                            if x >= r {
+                                sum[c] -= columns[x - r][c];
+                            }
+                            if x + r + 1 < w {
+                                sum[c] += columns[x + r + 1][c];
+                            }
+                        }
+                    }
+                    for x in 0..w {
+                        for c in 0..4 {
+                            if y >= r {
+                                columns[x][c] -= f64::from(data[(y - r) * w + x][c]);
+                            }
+                            if y + r + 1 < h {
+                                columns[x][c] += f64::from(data[(y + r + 1) * w + x][c]);
+                            }
+                        }
+                    }
+                }
             }
             ImageOp::Transform {
                 input: source,

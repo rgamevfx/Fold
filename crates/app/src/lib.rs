@@ -1,4 +1,5 @@
 //! Application assembly shared by desktop, headless delivery, and tests.
+pub mod composition;
 pub mod media_workflow;
 pub mod packages;
 #[cfg(feature = "desktop")]

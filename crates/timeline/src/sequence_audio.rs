@@ -39,6 +39,9 @@ impl Sequence {
                 .get(&clip.asset)
                 .ok_or("missing audio asset")?;
             let source = match &clip.info {
+                SourceMedia::Document { .. } => {
+                    return Err("nested audio is unsupported; retain audio in the sequence".into());
+                }
                 SourceMedia::Video(info) => AudioSource::Video(VideoSource {
                     path: asset.location.clone().into(),
                     fingerprint: asset.fingerprint.clone(),

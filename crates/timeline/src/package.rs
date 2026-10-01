@@ -48,6 +48,9 @@ impl DocumentProvider for Documents {
     fn schema(&self) -> u32 {
         SEQUENCE_SCHEMA
     }
+    fn supports_schema(&self, schema: u32) -> bool {
+        [2, SEQUENCE_SCHEMA].contains(&schema)
+    }
     fn validate(&self, document: &Document) -> Result<(), String> {
         Sequence::from_document(document).map(|_| ())
     }
@@ -79,7 +82,7 @@ pub fn register(registry: &mut PackageRegistry) -> Result<(), String> {
             host_api: HOST_API,
             dependencies: &[],
             panels: PANELS,
-            build: concat!(env!("CARGO_PKG_VERSION"), ":timeline-schema2-evaluator2"),
+            build: concat!(env!("CARGO_PKG_VERSION"), ":timeline-schema3-evaluator3"),
         },
         documents: vec![Box::new(Documents)],
         commands: vec![

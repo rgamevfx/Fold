@@ -9,7 +9,28 @@ use fold_render::RenderGraph;
 // Presentation contract, not access to engine resources or GPU implementation.
 pub use fold_render::DisplayFrame;
 
+/// Nested outputs compile into the caller's IR, never into rendered frames.
+pub type VideoResolver<'a> = dyn Fn(&DocumentRef, Time) -> Result<RenderGraph, String> + 'a;
+
 pub trait VideoProvider: Send + Sync {
+    fn compile_resolved(
+        &self,
+        snapshot: &Snapshot,
+        document: &Document,
+        output: &str,
+        time: Time,
+        dimensions: [u32; 2],
+        _resolve: &VideoResolver<'_>,
+    ) -> Result<RenderGraph, String> {
+        self.compile_snapshot(
+            snapshot,
+            document,
+            output,
+            time,
+            dimensions[0],
+            dimensions[1],
+        )
+    }
     fn package_id(&self) -> &'static str;
     fn type_id(&self) -> &'static str;
     fn compile_snapshot(
@@ -62,6 +83,24 @@ impl VideoRegistry {
         width: u32,
         height: u32,
     ) -> Result<RenderGraph, String> {
+        self.compile_nested(snapshot, source, time, width, height, &[])
+    }
+
+    fn compile_nested(
+        &self,
+        snapshot: &Snapshot,
+        source: &DocumentRef,
+        time: Time,
+        width: u32,
+        height: u32,
+        ancestors: &[fold_foundation::DocumentId],
+    ) -> Result<RenderGraph, String> {
+        if ancestors.contains(&source.document) || ancestors.len() >= 64 {
+            return Err(format!(
+                "recursive or excessively deep document reference: {:?}",
+                source.document
+            ));
+        }
         let document = snapshot
             .state()
             .documents
@@ -77,6 +116,24 @@ impl VideoRegistry {
                     document.package_id, document.type_id, document.id
                 )
             })?;
-        provider.compile_snapshot(snapshot, document, &source.output, time, width, height)
+        let mut path = ancestors.to_vec();
+        path.push(source.document);
+        let resolve = |nested: &DocumentRef, local_time: Time| {
+            if !document.dependencies.contains(nested) {
+                return Err(format!(
+                    "undeclared document dependency: {:?}",
+                    nested.document
+                ));
+            }
+            self.compile_nested(snapshot, nested, local_time, width, height, &path)
+        };
+        provider.compile_resolved(
+            snapshot,
+            document,
+            &source.output,
+            time,
+            [width, height],
+            &resolve,
+        )
     }
 }

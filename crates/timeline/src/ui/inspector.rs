@@ -16,6 +16,9 @@ pub(super) struct Inspector {
     message: String,
 }
 impl Panel for Inspector {
+    fn document_type(&self) -> Option<&'static str> {
+        Some(crate::SEQUENCE)
+    }
     fn id(&self) -> &'static str {
         package::INSPECTOR
     }
@@ -116,13 +119,15 @@ impl Panel for Inspector {
             self.end = interaction::frame(clip.end().unwrap(), sequence.rate).round() as i32;
             self.level = clip.level;
         }
-        let location = snapshot
-            .state()
-            .assets
-            .get(&clip.asset)
-            .map(|a| a.location.as_str())
-            .unwrap_or("Unavailable asset");
-        ui.text_wrapped(location);
+        if !matches!(clip.info, SourceMedia::Document { .. }) {
+            let location = snapshot
+                .state()
+                .assets
+                .get(&clip.asset)
+                .map(|a| a.location.as_str())
+                .unwrap_or("Unavailable asset");
+            ui.text_wrapped(location);
+        }
         ui.text(format!(
             "{}  |  {}",
             track.name,
@@ -133,6 +138,29 @@ impl Panel for Inspector {
             }
         ));
         match &clip.info {
+            SourceMedia::Document { source, .. } => {
+                ui.text(format!(
+                    "Nested video: {:?} / {}",
+                    source.document, source.output
+                ));
+                if let Ok(time) = interaction::time(i64::from(state.frame), sequence.rate)
+                    && let Ok(Some(local)) = clip.source_time(time)
+                {
+                    ui.text(format!("Sequence {time:?} → source {local:?}"));
+                }
+                if ui.button("Open Source in Compositor")
+                    && let Ok(time) = interaction::time(i64::from(state.frame), sequence.rate)
+                    && let Ok(Some(local)) = clip.source_time(time)
+                {
+                    host.command(DesktopCommand::Navigate(
+                        fold_platform::desktop::ViewLocation {
+                            document: source.document,
+                            time: local,
+                            label: "Composite".into(),
+                        },
+                    ));
+                }
+            }
             SourceMedia::Video(info) => ui.text(format!(
                 "{}×{} • {}/{} fps",
                 info.width, info.height, info.rate[0], info.rate[1]

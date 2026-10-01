@@ -566,11 +566,17 @@ impl Canvas {
                     true,
                 );
                 let x = rect.min[0].max(row.min[0]) + 8.0 * layout.scale;
-                let name = model
-                    .labels
-                    .get(&clip.asset)
-                    .map(String::as_str)
-                    .unwrap_or("Unavailable media");
+                let nested_name;
+                let name = if let crate::SourceMedia::Document { source, .. } = &clip.info {
+                    nested_name = format!("Composite {:?}", source.document);
+                    nested_name.as_str()
+                } else {
+                    model
+                        .labels
+                        .get(&clip.asset)
+                        .map(String::as_str)
+                        .unwrap_or("Unavailable media")
+                };
                 draw.add_text([x, rect.min[1] + 6.0 * layout.scale], colors.text, name);
                 draw.add_text(
                     [x, rect.min[1] + 25.0 * layout.scale],
