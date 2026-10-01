@@ -7,6 +7,11 @@ publish.workspace = true
 [dependencies]
 fold-foundation.workspace = true
 fold-platform.workspace = true
+dear-imgui-rs = "0.18"
+dear-imgui-winit = "0.18"
+dear-imgui-wgpu = { version = "0.18", default-features = false, features = ["wgpu-27"] }
+winit = "0.30"
+pollster = "0.4"
 
 [lints]
 workspace = true

@@ -7,7 +7,9 @@ feature-neutral document/asset records, immutable snapshots, transactions,
 bounded undo/redo, preview sessions, and versioned persistence. The foundation
 checkpoint adds a motion-owned solid source, static video-provider registry, and
 bounded CPU solid rendering with explicit linear-sRGB to RGB8 PPM delivery.
-No UI API exists yet.
+The phase 3 shell adds a private Dear ImGui/winit/wgpu presentation backend in
+`fold-ui`, exposed to app through `run_desktop()`. Its viewer, inspector, and
+timeline are docked placeholders, not creative package models.
 
 | Crate | Responsibility | Allowed Fold dependencies |
 | --- | --- | --- |
@@ -44,13 +46,16 @@ cargo test --workspace --all-features --locked
 
 The default workspace member is app, with no default features. `desktop` opts
 into `fold-ui`; the desktop target cannot build without that feature. Both
-use separate entry points: the desktop remains a scaffold; the CLI supports
+use separate entry points: the desktop opens a single docked native window; the CLI supports
 `checkpoint` (create/edit/undo/save/reopen/render) and `render` (reopen/render).
 The initial CLI requires exactly one document, uses its `video` output at exact
 time zero and 64×64 resolution, and refuses to overwrite image outputs. Checkpoint
-also refuses an existing project path. No Dear ImGui, GPU, window, or codec
-dependency is selected yet. Phase 3 will choose compatible UI backends. If feature
-packages later contribute UI, add explicitly optional UI dependencies and update
+also refuses an existing project path. Desktop uses dear-imgui-rs, dear-imgui-winit,
+and dear-imgui-wgpu 0.18 with winit 0.30 and wgpu 27. UI GPU resources are currently
+presentation-only; engine texture/resource integration belongs to phase 4. Layouts
+are session-only and never written to project content or a working-directory ini.
+No codec is selected. If feature packages later contribute UI, add explicitly
+optional UI dependencies and update
 the policy deliberately, preserving the headless graph check.
 
 `scripts/check_boundaries.py` checks Cargo metadata for all features and for no

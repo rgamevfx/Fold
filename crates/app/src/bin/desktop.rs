@@ -1,4 +1,10 @@
-//! Desktop composition root; the native window and UI arrive in phase 3.
-fn main() {
-    println!("Fold desktop scaffold — native window and Dear ImGui are not implemented yet.");
+//! Desktop composition root. Backend details stay inside the shared UI SDK.
+fn main() -> std::process::ExitCode {
+    match fold_ui::run_desktop() {
+        Ok(()) => std::process::ExitCode::SUCCESS,
+        Err(error) => {
+            eprintln!("Fold desktop failed: {error}");
+            std::process::ExitCode::FAILURE
+        }
+    }
 }

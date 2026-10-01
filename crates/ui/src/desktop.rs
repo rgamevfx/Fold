@@ -1,0 +1,207 @@
+use crate::shell::Shell;
+use dear_imgui_rs::{ConfigFlags, Context};
+use dear_imgui_wgpu::{FramebufferExtent, WgpuInitInfo, WgpuRenderer, wgpu};
+use dear_imgui_winit::{HiDpiMode, WinitPlatform};
+use std::{error::Error, sync::Arc};
+use winit::{
+    application::ApplicationHandler,
+    dpi::LogicalSize,
+    event::WindowEvent,
+    event_loop::{ActiveEventLoop, EventLoop},
+    window::{Window, WindowId},
+};
+
+type Result<T> = std::result::Result<T, Box<dyn Error>>;
+
+pub(crate) fn run() -> Result<()> {
+    let mut app = App::default();
+    EventLoop::new()?.run_app(&mut app)?;
+    match app.error {
+        Some(error) => Err(error),
+        None => Ok(()),
+    }
+}
+
+#[derive(Default)]
+struct App {
+    desktop: Option<Desktop>,
+    error: Option<Box<dyn Error>>,
+}
+
+impl App {
+    fn stop(&mut self, event_loop: &ActiveEventLoop, error: Box<dyn Error>) {
+        self.error = Some(error);
+        event_loop.exit();
+    }
+}
+
+impl ApplicationHandler for App {
+    fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        if self.desktop.is_none() {
+            match Desktop::new(event_loop) {
+                Ok(desktop) => self.desktop = Some(desktop),
+                Err(error) => self.stop(event_loop, error),
+            }
+        }
+    }
+
+    fn window_event(&mut self, event_loop: &ActiveEventLoop, id: WindowId, event: WindowEvent) {
+        let Some(desktop) = self.desktop.as_mut() else {
+            return;
+        };
+        if id != desktop.window.id() {
+            return;
+        }
+        if let Err(error) =
+            desktop
+                .platform
+                .handle_window_event(&mut desktop.context, &desktop.window, &event)
+        {
+            self.stop(event_loop, error.into());
+            return;
+        }
+        match event {
+            WindowEvent::CloseRequested => event_loop.exit(),
+            WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged { .. } => desktop.resize(),
+            WindowEvent::RedrawRequested => {
+                if let Err(error) = desktop.draw() {
+                    self.stop(event_loop, error);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn about_to_wait(&mut self, _: &ActiveEventLoop) {
+        if let Some(desktop) = &self.desktop {
+            let size = desktop.window.inner_size();
+            if size.width > 0 && size.height > 0 {
+                desktop.window.request_redraw();
+            }
+        }
+    }
+}
+
+struct Desktop {
+    // Context tears down backend attachments while their resources are still alive.
+    context: Context,
+    platform: WinitPlatform,
+    renderer: WgpuRenderer,
+    surface: wgpu::Surface<'static>,
+    device: wgpu::Device,
+    queue: wgpu::Queue,
+    config: wgpu::SurfaceConfiguration,
+    window: Arc<Window>,
+    shell: Shell,
+}
+
+impl Desktop {
+    fn new(event_loop: &ActiveEventLoop) -> Result<Self> {
+        let window = Arc::new(
+            event_loop.create_window(
+                Window::default_attributes()
+                    .with_title("Fold")
+                    .with_inner_size(LogicalSize::new(1280.0, 800.0)),
+            )?,
+        );
+        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
+        let surface = instance.create_surface(window.clone())?;
+        let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+            compatible_surface: Some(&surface),
+            ..Default::default()
+        }))?;
+        let (device, queue) =
+            pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor::default()))?;
+        let size = window.inner_size();
+        let mut config = surface
+            .get_default_config(&adapter, size.width.max(1), size.height.max(1))
+            .ok_or("GPU has no compatible surface configuration")?;
+        config.present_mode = wgpu::PresentMode::Fifo;
+        surface.configure(&device, &config);
+        let mut context = Context::create();
+        // Workspace state must never leak into the current project directory.
+        context.set_ini_filename(None::<String>)?;
+        context
+            .io_mut()
+            .set_config_flags(ConfigFlags::DOCKING_ENABLE | ConfigFlags::NAV_ENABLE_KEYBOARD);
+        let mut platform = WinitPlatform::new(&mut context)?;
+        platform.attach_window(window.clone(), HiDpiMode::Default, &mut context)?;
+        let renderer = WgpuRenderer::new(
+            WgpuInitInfo::new(device.clone(), queue.clone(), config.format),
+            &mut context,
+        )?;
+        Ok(Self {
+            context,
+            platform,
+            renderer,
+            surface,
+            device,
+            queue,
+            config,
+            window,
+            shell: Shell::new(),
+        })
+    }
+
+    fn resize(&mut self) {
+        let size = self.window.inner_size();
+        if size.width > 0 && size.height > 0 {
+            self.config.width = size.width;
+            self.config.height = size.height;
+            self.surface.configure(&self.device, &self.config);
+            self.window.request_redraw();
+        }
+    }
+
+    fn draw(&mut self) -> Result<()> {
+        let size = self.window.inner_size();
+        if size.width == 0 || size.height == 0 {
+            return Ok(());
+        }
+        let surface_frame = match self.surface.get_current_texture() {
+            Ok(frame) => frame,
+            Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
+                self.resize();
+                return Ok(());
+            }
+            Err(wgpu::SurfaceError::Timeout) => return Ok(()),
+            Err(error) => return Err(error.into()),
+        };
+        self.platform
+            .prepare_frame(&mut self.context, &self.window)?;
+        let ui = self.context.frame();
+        self.shell.draw(ui)?;
+        self.platform.prepare_render(ui, &self.window)?;
+        let frame = self.context.render(self.renderer.renderer_consumer()?);
+        let view = surface_frame
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
+        {
+            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Fold UI"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &view,
+                    depth_slice: None,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                ..Default::default()
+            });
+            self.renderer.render(
+                frame,
+                &mut pass,
+                FramebufferExtent::from_texture(&surface_frame.texture),
+            )?;
+        }
+        self.queue.submit([encoder.finish()]);
+        self.window.pre_present_notify();
+        surface_frame.present();
+        Ok(())
+    }
+}

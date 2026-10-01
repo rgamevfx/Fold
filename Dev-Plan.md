@@ -13,7 +13,7 @@
 
 ## Media slice
 
-- [ ] 3. Build a thin Dear ImGui shell with docking, viewer, inspector, and timeline placeholders.
+- [ ] 3. Build a thin Dear ImGui shell with docking, viewer, inspector, and timeline placeholders. Implemented; native interaction acceptance pending (see `docs/phase-3.md`).
 - [ ] 4. Display an engine-rendered texture in the viewer.
 - [ ] 5. Build the shared render graph with transforms, opacity, and compositing.
 - [ ] 6. Connect media import, decoding, scrubbing, and export through the shared engine.
