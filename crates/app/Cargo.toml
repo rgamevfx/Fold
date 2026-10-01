@@ -10,6 +10,8 @@ default = []
 desktop = ["dep:fold-ui"]
 
 [dependencies]
+fold-foundation.workspace = true
+tempfile.workspace = true
 fold-project.workspace = true
 fold-media.workspace = true
 fold-render.workspace = true

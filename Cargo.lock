@@ -41,6 +41,7 @@ name = "fold-app"
 version = "0.1.0"
 dependencies = [
  "fold-compositor",
+ "fold-foundation",
  "fold-media",
  "fold-motion",
  "fold-platform",
@@ -48,6 +49,7 @@ dependencies = [
  "fold-render",
  "fold-timeline",
  "fold-ui",
+ "tempfile",
 ]
 
 [[package]]
@@ -85,6 +87,8 @@ dependencies = [
  "fold-platform",
  "fold-project",
  "fold-render",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

@@ -4,8 +4,10 @@ The workspace follows sections 3, 16, and 17 of
 `Fold_Application_Product_Architecture.docx`. All crates are statically linked.
 Foundation implements stable IDs and exact rational time. Project implements
 feature-neutral document/asset records, immutable snapshots, transactions,
-bounded undo/redo, preview sessions, and versioned persistence. Other libraries
-still contain ownership documentation only; no renderer or UI API exists yet.
+bounded undo/redo, preview sessions, and versioned persistence. The foundation
+checkpoint adds a motion-owned solid source, static video-provider registry, and
+bounded CPU solid rendering with explicit linear-sRGB to RGB8 PPM delivery.
+No UI API exists yet.
 
 | Crate | Responsibility | Allowed Fold dependencies |
 | --- | --- | --- |
@@ -30,7 +32,8 @@ edit sessions through the platform. Render workers use immutable snapshots.
 ## Build and validation
 
 ```sh
-cargo run -p fold-app --bin fold-cli --no-default-features --locked
+cargo run -p fold-app --bin fold-cli --no-default-features --locked -- checkpoint demo.fold demo.ppm
+cargo run -p fold-app --bin fold-cli --no-default-features --locked -- render demo.fold rerender.ppm
 cargo run -p fold-app --bin fold-desktop --features desktop --locked
 python3 scripts/check_boundaries.py
 python3 -m unittest discover -s scripts -p 'test_*.py'
@@ -41,7 +44,11 @@ cargo test --workspace --all-features --locked
 
 The default workspace member is app, with no default features. `desktop` opts
 into `fold-ui`; the desktop target cannot build without that feature. Both
-binaries only announce scaffold status. No Dear ImGui, GPU, window, or codec
+use separate entry points: the desktop remains a scaffold; the CLI supports
+`checkpoint` (create/edit/undo/save/reopen/render) and `render` (reopen/render).
+The initial CLI requires exactly one document, uses its `video` output at exact
+time zero and 64×64 resolution, and refuses to overwrite image outputs. Checkpoint
+also refuses an existing project path. No Dear ImGui, GPU, window, or codec
 dependency is selected yet. Phase 3 will choose compatible UI backends. If feature
 packages later contribute UI, add explicitly optional UI dependencies and update
 the policy deliberately, preserving the headless graph check.
@@ -58,7 +65,9 @@ alongside the workspace build/test checkpoint.
 This enforces crate dependency boundaries, not runtime semantics. Foundation and
 project behavioral tests cover exact time, transaction atomicity, immutable
 snapshots, history, preview isolation, and unknown-data preservation (phase 2).
-Render evaluation and resource ownership need tests in subsequent phases. Keep
+Checkpoint tests cover solid pixels, output color conversion, CPU allocation
+limits, provider errors, snapshot isolation, and CLI persistence/render equivalence.
+Graph evaluation and GPU resource ownership need tests in subsequent phases. Keep
 future public contracts separate from service implementations; do not create a
 universal creative model in infrastructure.
 

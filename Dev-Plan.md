@@ -9,7 +9,7 @@
 
 - [x] 1. Scaffold the Rust workspace and enforce package boundaries.
 - [x] 2. Implement project state, exact time, transactions, undo, and save/load.
-- [ ] Checkpoint: create, edit, undo, save/reopen, and render a generated image headlessly.
+- [x] Checkpoint: create, edit, undo, save/reopen, and render a generated image headlessly. See `docs/phase-2-checkpoint.md`.
 
 ## Media slice
 
