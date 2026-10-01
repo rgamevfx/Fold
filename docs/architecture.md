@@ -8,8 +8,11 @@ bounded undo/redo, preview sessions, and versioned persistence. The foundation
 checkpoint adds a motion-owned solid source, static video-provider registry, and
 bounded CPU solid rendering with explicit linear-sRGB to RGB8 PPM delivery.
 The phase 3 shell adds a private Dear ImGui/winit/wgpu presentation backend in
-`fold-ui`, exposed to app through `run_desktop()`. Its viewer, inspector, and
-timeline are docked placeholders, not creative package models.
+`fold-ui`, exposed to app through `run_desktop(preview)`. Phase 4 adds a one-shot
+worker-rendered solid demo in the viewer; inspector and timeline remain docked
+placeholders, not creative package models. App assembles the committed source and
+provider; render produces owned opaque sRGB display bytes, re-exported by platform.
+UI polls a bounded result channel and owns only the uploaded presentation copy.
 
 | Crate | Responsibility | Allowed Fold dependencies |
 | --- | --- | --- |
@@ -52,7 +55,10 @@ The initial CLI requires exactly one document, uses its `video` output at exact
 time zero and 64×64 resolution, and refuses to overwrite image outputs. Checkpoint
 also refuses an existing project path. Desktop uses dear-imgui-rs, dear-imgui-winit,
 and dear-imgui-wgpu 0.18 with winit 0.30 and wgpu 27. UI GPU resources are currently
-presentation-only; engine texture/resource integration belongs to phase 4. Layouts
+presentation-only: phase 4 uploads a CPU engine result once into a host-registered
+texture, with no engine GPU pool or zero-copy claim. The opaque SDR path requires a
+non-sRGB RGBA8/BGRA8 surface to preserve the engine's exact output transform and
+avoid the UI backend's approximate gamma correction. Layouts
 are session-only and never written to project content or a working-directory ini.
 No codec is selected. If feature packages later contribute UI, add explicitly
 optional UI dependencies and update

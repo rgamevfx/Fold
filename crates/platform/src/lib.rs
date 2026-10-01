@@ -3,6 +3,9 @@ use fold_foundation::Time;
 use fold_project::{Document, DocumentRef, Snapshot};
 use fold_render::SolidPlan;
 
+// Presentation contract, not access to engine resources or GPU implementation.
+pub use fold_render::DisplayFrame;
+
 pub trait VideoProvider: Send + Sync {
     fn package_id(&self) -> &'static str;
     fn type_id(&self) -> &'static str;

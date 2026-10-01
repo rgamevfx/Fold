@@ -1,7 +1,9 @@
-use crate::shell::Shell;
+use crate::{preview::PreviewHost, shell::Shell};
 use dear_imgui_rs::{ConfigFlags, Context};
 use dear_imgui_wgpu::{FramebufferExtent, WgpuInitInfo, WgpuRenderer, wgpu};
 use dear_imgui_winit::{HiDpiMode, WinitPlatform};
+use fold_platform::DisplayFrame;
+use std::sync::mpsc::Receiver;
 use std::{error::Error, sync::Arc};
 use winit::{
     application::ApplicationHandler,
@@ -13,8 +15,12 @@ use winit::{
 
 type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
-pub(crate) fn run() -> Result<()> {
-    let mut app = App::default();
+pub(crate) fn run(preview: Receiver<std::result::Result<DisplayFrame, String>>) -> Result<()> {
+    let mut app = App {
+        preview: Some(preview),
+        desktop: None,
+        error: None,
+    };
     EventLoop::new()?.run_app(&mut app)?;
     match app.error {
         Some(error) => Err(error),
@@ -22,8 +28,8 @@ pub(crate) fn run() -> Result<()> {
     }
 }
 
-#[derive(Default)]
 struct App {
+    preview: Option<Receiver<std::result::Result<DisplayFrame, String>>>,
     desktop: Option<Desktop>,
     error: Option<Box<dyn Error>>,
 }
@@ -38,7 +44,10 @@ impl App {
 impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         if self.desktop.is_none() {
-            match Desktop::new(event_loop) {
+            match Desktop::new(
+                event_loop,
+                self.preview.take().expect("single desktop initialization"),
+            ) {
                 Ok(desktop) => self.desktop = Some(desktop),
                 Err(error) => self.stop(event_loop, error),
             }
@@ -93,10 +102,20 @@ struct Desktop {
     config: wgpu::SurfaceConfiguration,
     window: Arc<Window>,
     shell: Shell,
+    preview: PreviewHost,
+}
+
+impl Drop for Desktop {
+    fn drop(&mut self) {
+        let _ = self.preview.release(&mut self.renderer);
+    }
 }
 
 impl Desktop {
-    fn new(event_loop: &ActiveEventLoop) -> Result<Self> {
+    fn new(
+        event_loop: &ActiveEventLoop,
+        preview: Receiver<std::result::Result<DisplayFrame, String>>,
+    ) -> Result<Self> {
         let window = Arc::new(
             event_loop.create_window(
                 Window::default_attributes()
@@ -116,6 +135,19 @@ impl Desktop {
         let mut config = surface
             .get_default_config(&adapter, size.width.max(1), size.height.max(1))
             .ok_or("GPU has no compatible surface configuration")?;
+        // Display frames already carry the engine's exact sRGB output transform.
+        // Avoid the ImGui backend's approximate pow(2.2) sRGB-target correction.
+        config.format = surface
+            .get_capabilities(&adapter)
+            .formats
+            .into_iter()
+            .find(|format| {
+                matches!(
+                    format,
+                    wgpu::TextureFormat::Bgra8Unorm | wgpu::TextureFormat::Rgba8Unorm
+                )
+            })
+            .ok_or("GPU has no supported non-sRGB SDR surface")?;
         config.present_mode = wgpu::PresentMode::Fifo;
         surface.configure(&device, &config);
         let mut context = Context::create();
@@ -140,6 +172,7 @@ impl Desktop {
             config,
             window,
             shell: Shell::new(),
+            preview: PreviewHost::new(preview),
         })
     }
 
@@ -167,10 +200,12 @@ impl Desktop {
             Err(wgpu::SurfaceError::Timeout) => return Ok(()),
             Err(error) => return Err(error.into()),
         };
+        self.preview
+            .poll(&self.device, &self.queue, &mut self.renderer)?;
         self.platform
             .prepare_frame(&mut self.context, &self.window)?;
         let ui = self.context.frame();
-        self.shell.draw(ui)?;
+        self.shell.draw(ui, &self.preview.state)?;
         self.platform.prepare_render(ui, &self.window)?;
         let frame = self.context.render(self.renderer.renderer_consumer()?);
         let view = surface_frame

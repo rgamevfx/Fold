@@ -17,7 +17,44 @@ pub struct Frame {
     height: u32,
     pixels: Vec<[f32; 4]>,
 }
+/// Display-ready opaque SDR sRGB RGBA8, tightly packed with square pixels.
+/// Constructed only by the engine output transform; dimensions and bytes agree.
+#[derive(Debug)]
+pub struct DisplayFrame {
+    width: u32,
+    height: u32,
+    rgba: Vec<u8>,
+}
+
+impl DisplayFrame {
+    pub fn dimensions(&self) -> [u32; 2] {
+        [self.width, self.height]
+    }
+
+    pub fn rgba(&self) -> &[u8] {
+        &self.rgba
+    }
+}
+
 impl Frame {
+    /// CPU presentation fallback. Reject alpha rather than silently flattening it.
+    pub fn to_display(&self) -> Result<DisplayFrame, &'static str> {
+        if self.pixels.iter().any(|p| p[3] != 1.0) {
+            return Err("display output requires opaque pixels");
+        }
+        let mut rgba = Vec::new();
+        rgba.try_reserve_exact(self.pixels.len() * 4)
+            .map_err(|_| "display allocation failed")?;
+        for pixel in &self.pixels {
+            rgba.extend_from_slice(&[encode(pixel[0]), encode(pixel[1]), encode(pixel[2]), 255]);
+        }
+        Ok(DisplayFrame {
+            width: self.width,
+            height: self.height,
+            rgba,
+        })
+    }
+
     pub fn pixels(&self) -> &[[f32; 4]] {
         &self.pixels
     }
@@ -80,6 +117,38 @@ pub fn render(plan: SolidPlan) -> Result<Frame, &'static str> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn display_matches_headless_output_without_mutating_scene_pixels() {
+        let frame = render(SolidPlan {
+            width: 2,
+            height: 1,
+            rgba: [0.0, 0.5, 1.0, 1.0],
+        })
+        .unwrap();
+        let display = frame.to_display().unwrap();
+        assert_eq!(display.dimensions(), [2, 1]);
+        assert_eq!(display.rgba(), &[0, 188, 255, 255, 0, 188, 255, 255]);
+        let mut ppm = Vec::new();
+        frame.write_ppm(&mut ppm).unwrap();
+        let rgb: Vec<_> = display
+            .rgba()
+            .chunks_exact(4)
+            .flat_map(|p| p[..3].iter().copied())
+            .collect();
+        assert_eq!(&ppm[b"P6\n2 1\n255\n".len()..], rgb);
+        assert_eq!(frame.pixels(), &[[0.0, 0.5, 1.0, 1.0]; 2]);
+        assert!(
+            render(SolidPlan {
+                width: 1,
+                height: 1,
+                rgba: [0.0; 4]
+            })
+            .unwrap()
+            .to_display()
+            .is_err()
+        );
+    }
+
     #[test]
     fn output_transform_and_limits() {
         let plan = SolidPlan {

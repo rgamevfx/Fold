@@ -2,9 +2,13 @@
 //! Native backend types stay private; headless applications do not load this crate.
 
 mod desktop;
+mod preview;
 mod shell;
 
 /// Run the single-window desktop shell on the calling (main) thread.
-pub fn run_desktop() -> Result<(), Box<dyn std::error::Error>> {
-    desktop::run()
+/// Consume one asynchronous display result; the host never evaluates the source.
+pub fn run_desktop(
+    preview: std::sync::mpsc::Receiver<Result<fold_platform::DisplayFrame, String>>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    desktop::run(preview)
 }

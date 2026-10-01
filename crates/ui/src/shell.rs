@@ -1,4 +1,19 @@
-use dear_imgui_rs::{DockLayout, DockLayoutApply, DockSplit, Ui, WindowKey};
+use dear_imgui_rs::{DockLayout, DockLayoutApply, DockSplit, TextureId, Ui, WindowKey};
+
+pub(crate) enum Preview {
+    Pending,
+    Failed(String),
+    Ready {
+        texture: TextureId,
+        dimensions: [u32; 2],
+    },
+}
+
+fn fitted_size(dimensions: [u32; 2], available: [f32; 2]) -> [f32; 2] {
+    let [width, height] = dimensions.map(|v| v as f32);
+    let scale = (available[0].max(0.0) / width).min(available[1].max(0.0) / height);
+    [width * scale, height * scale]
+}
 
 pub(crate) struct Shell {
     viewer: WindowKey,
@@ -33,7 +48,11 @@ impl Shell {
         }
     }
 
-    pub(crate) fn draw(&mut self, ui: &Ui) -> Result<(), Box<dyn std::error::Error>> {
+    pub(crate) fn draw(
+        &mut self,
+        ui: &Ui,
+        preview: &Preview,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         ui.main_menu_bar(|| {
             ui.text("Fold | Editing shell");
             ui.same_line();
@@ -48,12 +67,26 @@ impl Shell {
         };
         ui.dockspace().layout(&self.layout, policy).build()?;
         self.reset_layout = false;
-        ui.window(&self.viewer).build(|| {
-            ui.text("No preview — viewer placeholder");
-            ui.separator();
-            ui.text_wrapped(
-                "Engine-rendered images arrive in phase 4. No frame is being evaluated.",
-            );
+        ui.window(&self.viewer).build(|| match preview {
+            Preview::Pending => ui.text("Rendering generated demo…"),
+            Preview::Failed(error) => {
+                ui.text("Preview failed");
+                ui.text_wrapped(error);
+            }
+            Preview::Ready {
+                texture,
+                dimensions,
+            } => {
+                ui.text(format!(
+                    "Generated demo | {}×{} | t = 0 | SDR sRGB",
+                    dimensions[0], dimensions[1]
+                ));
+                ui.separator();
+                let size = fitted_size(*dimensions, ui.content_region_avail());
+                if size[0] > 0.0 && size[1] > 0.0 {
+                    ui.image(*texture, size);
+                }
+            }
         });
         ui.window(&self.inspector).build(|| {
             ui.text("No selection");
@@ -77,6 +110,13 @@ mod tests {
     use dear_imgui_rs::{ConfigFlags, Context};
 
     #[test]
+    fn image_fit_preserves_aspect_and_handles_collapsed_panels() {
+        assert_eq!(fitted_size([640, 360], [800.0, 600.0]), [800.0, 450.0]);
+        assert_eq!(fitted_size([640, 360], [320.0, 90.0]), [160.0, 90.0]);
+        assert_eq!(fitted_size([640, 360], [-1.0, 90.0]), [0.0, 0.0]);
+    }
+
+    #[test]
     fn docked_shell_builds_frames_and_resets_at_multiple_sizes() {
         let mut shell = Shell::new();
         shell.layout.validate().unwrap();
@@ -94,8 +134,17 @@ mod tests {
             context.io_mut().set_display_size(size);
             context.io_mut().set_delta_time(1.0 / 60.0);
             shell.reset_layout = true;
-            shell.draw(context.frame()).unwrap();
-            context.end_frame();
+            for preview in [
+                Preview::Pending,
+                Preview::Failed("test failure".into()),
+                Preview::Ready {
+                    texture: TextureId::new(1),
+                    dimensions: [640, 360],
+                },
+            ] {
+                shell.draw(context.frame(), &preview).unwrap();
+                context.end_frame();
+            }
             assert!(!shell.reset_layout);
         }
     }
