@@ -16,6 +16,7 @@ use fold_project::{Revision, Snapshot};
 use fold_ui::sdk::{
     ExtensionUi, Panel, PanelRegistry,
     imgui::{Key, Ui},
+    toolbar::{ToolbarIcon, icon_button, menu_button, tooltip},
 };
 use std::collections::BTreeMap;
 
@@ -105,9 +106,7 @@ impl Panel for TimelinePanel {
                 });
         }
         let Some((revision, document, sequence, labels)) = &self.cached else {
-            ui.text_wrapped("Import MP4 footage or PCM16 WAVE audio from Media / Selection. The timeline package creates video and audio tracks with linked A/V clips.");
-            ui.separator();
-            ui.text_wrapped(&state.status);
+            ui.text_wrapped("Import media to start a sequence.");
             return;
         };
         if self.document != Some(*document) {
@@ -115,7 +114,73 @@ impl Panel for TimelinePanel {
             self.document = Some(*document);
         }
         let keyboard = ui.is_window_focused() && !ui.io().want_text_input();
-        if (ui.button("Split")
+        let wide = ui.content_region_avail()[0] >= ui.current_font_size() * 42.;
+        let mut split = false;
+        let mut lift = false;
+        let mut unlink = false;
+        if let Some(_menu) = menu_button(ui, "Edit", "Clip editing actions") {
+            let _disabled =
+                ui.begin_disabled_with_cond(selected_clip(sequence, &state.selection).is_none());
+            split = ui.menu_item_with_shortcut("Split", "S / Ctrl+K");
+            lift = ui.menu_item_with_shortcut("Lift", "Delete");
+            unlink = ui.menu_item("Unlink audio and video");
+        }
+        ui.same_line();
+        if let Some(_menu) = menu_button(ui, "Tracks", "Add a track") {
+            for (label, kind) in [
+                ("Add video track", TrackKind::Video),
+                ("Add audio track", TrackKind::Audio),
+            ] {
+                if ui.menu_item(label) {
+                    submit(host, *revision, *document, SequenceEdit::AddTrack { kind });
+                }
+            }
+        }
+        ui.same_line();
+        if let Some(_menu) = menu_button(ui, "View", "Timeline view and editing options") {
+            if ui.menu_item("Fit sequence") {
+                self.canvas.fit = true;
+            }
+            if ui.menu_item("Zoom in") {
+                self.canvas.view.zoom(1.3, 0.0, 0.0);
+            }
+            if ui.menu_item("Zoom out") {
+                self.canvas.view.zoom(1.0 / 1.3, 0.0, 0.0);
+            }
+            ui.separator();
+            ui.menu_item_toggle_no_shortcut("Snapping", &mut self.canvas.snapping, true);
+            ui.menu_item_toggle_no_shortcut("Linked selection", &mut self.canvas.linked, true);
+        }
+        if wide {
+            ui.same_line();
+            {
+                let _disabled = ui
+                    .begin_disabled_with_cond(selected_clip(sequence, &state.selection).is_none());
+                split |= ui.button("Split");
+                tooltip(ui, "Split at playhead (S / Ctrl+K)");
+                ui.same_line();
+                lift |= ui.button("Lift");
+                tooltip(ui, "Remove selected clips without closing the gap (Delete)");
+            }
+            ui.same_line();
+            ui.checkbox("Snap", &mut self.canvas.snapping);
+            tooltip(ui, "Snap to clip edges and playhead");
+            ui.same_line();
+            ui.checkbox("Linked", &mut self.canvas.linked);
+            tooltip(ui, "Edit linked audio and video together");
+        }
+        ui.same_line();
+        if icon_button(ui, "fit-sequence", ToolbarIcon::FrameAll, "Fit sequence") {
+            self.canvas.fit = true;
+        }
+        ui.same_line();
+        icon_button(
+            ui,
+            "timeline-help",
+            ToolbarIcon::Help,
+            "Drag clips or trim edges; click the ruler to seek.\nCtrl+wheel: zoom; Shift+wheel: pan; wheel: scroll tracks.\nTrack controls: E visibility, M mute, S solo, L lock.",
+        );
+        if (split
             || (keyboard
                 && (ui.is_key_pressed(Key::S)
                     || (ui.io().key_ctrl() && ui.is_key_pressed(Key::K)))))
@@ -136,8 +201,7 @@ impl Panel for TimelinePanel {
                 },
             );
         }
-        ui.same_line();
-        if (ui.button("Lift") || (keyboard && ui.is_key_pressed(Key::Delete)))
+        if (lift || (keyboard && ui.is_key_pressed(Key::Delete)))
             && let Some(id) = selected_clip(sequence, &state.selection)
         {
             submit(
@@ -151,10 +215,7 @@ impl Panel for TimelinePanel {
                 },
             );
         }
-        ui.same_line();
-        if ui.button("Unlink")
-            && let Some(id) = selected_clip(sequence, &state.selection)
-        {
+        if unlink && let Some(id) = selected_clip(sequence, &state.selection) {
             submit(
                 host,
                 *revision,
@@ -166,32 +227,8 @@ impl Panel for TimelinePanel {
                 },
             );
         }
-        for (label, kind) in [("+ Video", TrackKind::Video), ("+ Audio", TrackKind::Audio)] {
-            ui.same_line();
-            if ui.button(label) {
-                submit(host, *revision, *document, SequenceEdit::AddTrack { kind });
-            }
-        }
-        ui.same_line();
-        ui.checkbox("Snap", &mut self.canvas.snapping);
-        ui.same_line();
-        ui.checkbox("Linked", &mut self.canvas.linked);
-        ui.same_line();
-        if ui.button("Fit") {
-            self.canvas.fit = true;
-        }
-        ui.same_line();
-        if ui.button("-") {
-            self.canvas.view.zoom(1.0 / 1.3, 0.0, 0.0);
-        }
-        ui.same_line();
-        if ui.button("+") {
-            self.canvas.view.zoom(1.3, 0.0, 0.0);
-        }
         if !self.canvas.message.is_empty() {
-            ui.text(&self.canvas.message);
-        } else {
-            ui.text("Drag clips / trim edges • ruler seeks • Ctrl+wheel zooms • Shift+wheel pans • wheel scrolls tracks • E visibility, M mute, S solo, L lock");
+            ui.text_wrapped(&self.canvas.message);
         }
         ui.separator();
         for action in self.canvas.draw(

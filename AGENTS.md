@@ -1,5 +1,7 @@
 We are building Fold, a modular VFX, Editing, and Graphics engine and application.
 
+Before creating or changing UI, read and apply the [fold-ui skill](.agents/skills/fold-ui/SKILL.md), including UI work within larger features.
+
 
 
 \# Development rules

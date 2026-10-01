@@ -94,16 +94,28 @@ fn compositor_graph_and_inspector_draw_without_authoring() {
     let mut canvas = canvas::Canvas::new(state.clone());
     canvas.initialize(&context);
     let mut inspector = inspector::Inspector(state);
-    for _ in 0..20 {
+    for frame in 0..20 {
+        let width = if frame >= 10 { 320. } else { 850. };
+        context.io_mut().add_mouse_pos_event([width - 20., 700.]);
         let ui = context.frame();
         ui.window("graph")
             .position([0.; 2], imgui::Condition::Always)
-            .size([850., 800.], imgui::Condition::Always)
+            .size([width, 800.], imgui::Condition::Always)
             .build(|| {
+                let top = ui.cursor_screen_pos()[1];
                 canvas.draw(ExtensionUi {
                     ui,
                     host: &mut host,
-                })
+                });
+                if frame % 10 >= 3 {
+                    assert_eq!(ui.scroll_max_x(), 0., "toolbar must fit the panel");
+                    let y = top + ui.frame_height_with_spacing() * 2. + 8.;
+                    assert!(
+                        (10..width as i32 - 10)
+                            .any(|x| canvas.accepts_background_pan([x as f32, y])),
+                        "graph must start below at most two toolbar rows"
+                    );
+                }
             });
         ui.window("inspector")
             .position([850., 0.], imgui::Condition::Always)

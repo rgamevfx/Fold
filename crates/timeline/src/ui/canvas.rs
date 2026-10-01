@@ -566,10 +566,8 @@ impl Canvas {
                     true,
                 );
                 let x = rect.min[0].max(row.min[0]) + 8.0 * layout.scale;
-                let nested_name;
-                let name = if let crate::SourceMedia::Document { source, .. } = &clip.info {
-                    nested_name = format!("Composite {:?}", source.document);
-                    nested_name.as_str()
+                let name = if let crate::SourceMedia::Document { .. } = &clip.info {
+                    "Nested source"
                 } else {
                     model
                         .labels

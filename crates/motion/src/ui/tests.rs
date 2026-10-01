@@ -150,8 +150,13 @@ fn drawing_motion_graph_inspector_and_handles_does_not_mutate_project() {
         state: state.clone(),
         curves: Default::default(),
     };
-    for frame in 0..16 {
+    for frame in 0..24 {
         let maximized = frame >= 8;
+        let narrow = frame >= 16;
+        let graph_width = if narrow { 320. } else { 850. };
+        context
+            .io_mut()
+            .add_mouse_pos_event([graph_width - 20., 800.]);
         context.io_mut().set_display_size(if maximized {
             [1920., 1080.]
         } else {
@@ -160,12 +165,15 @@ fn drawing_motion_graph_inspector_and_handles_does_not_mutate_project() {
         let ui = context.frame();
         ui.window("Motion graph")
             .position([0., 300.], imgui::Condition::Always)
-            .size([850., 600.], imgui::Condition::Always)
+            .size([graph_width, 600.], imgui::Condition::Always)
             .build(|| {
                 canvas.draw(ExtensionUi {
                     ui,
                     host: &mut host,
-                })
+                });
+                if frame % 8 >= 3 {
+                    assert_eq!(ui.scroll_max_x(), 0., "toolbar must fit the panel");
+                }
             });
         ui.window("Motion properties")
             .position([850., 0.], imgui::Condition::Always)
@@ -212,6 +220,48 @@ fn drawing_motion_graph_inspector_and_handles_does_not_mutate_project() {
     assert_eq!(host.project.snapshot().revision(), revision);
     assert_eq!(host.project.snapshot().state().documents.len(), 1);
     let _: DocumentId = state.borrow().document.unwrap();
+
+    // A popup may disappear before its custom numeric field can report
+    // deactivation. Its preview still commits once, without quantizing a
+    // continuous alignment to the three named presets.
+    let before = host.project.snapshot();
+    {
+        let mut state = state.borrow_mut();
+        let selected = state.selected[0];
+        let mut motion = state.view_motion().unwrap();
+        a::node(&mut motion, selected)
+            .unwrap()
+            .set("alignment", Datum::Scalar(0.375));
+        state.replace_view(motion);
+        state.preview(&mut host);
+    }
+    assert_eq!(host.project.snapshot().revision(), before.revision());
+    let ui = context.frame();
+    ui.window("Motion properties").build(|| {
+        inspector.draw(ExtensionUi {
+            ui,
+            host: &mut host,
+        })
+    });
+    drop(context.render_legacy());
+    assert_eq!(
+        host.project.snapshot().revision().0,
+        before.revision().0 + 1
+    );
+    assert!(!state.borrow().editing);
+    let saved = Motion::from_document(
+        &host.project.snapshot().state().documents[&state.borrow().document.unwrap()],
+    )
+    .unwrap();
+    assert_eq!(
+        saved.graph.node(state.borrow().selected[0]).unwrap().inputs["alignment"],
+        crate::graph::Input::Value(Datum::Scalar(0.375))
+    );
+    host.project.undo().unwrap();
+    assert_eq!(
+        host.project.snapshot().state().documents,
+        before.state().documents
+    );
 }
 
 #[test]

@@ -10,6 +10,8 @@ mod canvas_pan;
 pub use canvas_pan::CanvasPan;
 #[path = "property_edit.rs"]
 mod property_edit;
+#[path = "toolbar.rs"]
+pub mod toolbar;
 pub use property_edit::{EditResponse, NumericProperty, UiId};
 #[path = "graph_canvas/mod.rs"]
 pub mod graph_canvas;

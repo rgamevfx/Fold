@@ -5,6 +5,7 @@ use super::{
 use crate::sdk::{
     GRAPH_COLORS,
     imgui::{self, Key, MouseButton},
+    toolbar::{ToolbarIcon, icon_button, icon_menu},
 };
 use dear_node_editor::{self as nodes, NodeEditorUiExt};
 use std::collections::BTreeMap;
@@ -146,7 +147,7 @@ impl GraphCanvas {
         }
         let mut actions = Vec::new();
         if graph.has_parent {
-            if ui.button("Return to parent graph") {
+            if icon_button(ui, "parent", ToolbarIcon::Back, "Return to parent graph") {
                 self.error = context
                     .event(GraphEvent::Navigate(None))
                     .err()
@@ -161,7 +162,7 @@ impl GraphCanvas {
                 .iter()
                 .any(|n| n.id == graph.selected[0] && n.can_open)
         {
-            if ui.button("Open group graph") {
+            if ui.button("Open group") {
                 self.error = context
                     .event(GraphEvent::Navigate(Some(graph.selected[0])))
                     .err()
@@ -170,17 +171,22 @@ impl GraphCanvas {
             }
             ui.same_line();
         }
-        let mut open_search = ui.button("+ Add node  [Tab]");
+        let mut open_search = icon_button(ui, "add-node", ToolbarIcon::Add, "Add node (Tab)");
         ui.same_line();
-        if ui.button("Frame all  [F]") {
+        if icon_button(ui, "frame-all", ToolbarIcon::FrameAll, "Frame all (F)") {
             self.fit = 1;
         }
         ui.same_line();
-        if ui.button("Arrange") {
-            actions.push(GraphChange::Positions(arrange(ui, &graph)));
+        if let Some(_menu) = icon_menu(ui, "graph-actions", "Graph actions and navigation help") {
+            if ui.menu_item("Arrange nodes") {
+                actions.push(GraphChange::Positions(arrange(ui, &graph)));
+            }
+            ui.separator();
+            ui.text_disabled("Drag background: pan");
+            ui.text_disabled("Shift+drag: box select");
+            ui.text_disabled("Scroll: zoom");
+            ui.text_disabled("Delete: remove selection");
         }
-        ui.same_line();
-        ui.text_disabled("Drag background: pan | Shift+drag: select | Scroll: zoom");
         if !graph.error.is_empty() {
             ui.text_colored(GRAPH_COLORS.invalid, &graph.error);
         }

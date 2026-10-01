@@ -5,6 +5,7 @@ use fold_platform::desktop::{DesktopCommand, ViewLocation};
 use fold_ui::sdk::{
     EditResponse as Response, ExtensionUi, NumericProperty, Panel, UiId,
     imgui::{Drag, Ui},
+    toolbar::tooltip,
 };
 pub(super) struct Inspector(pub Shared);
 impl Panel for Inspector {
@@ -18,12 +19,8 @@ impl Panel for Inspector {
         let ExtensionUi { ui, host } = context;
         let mut state = self.0.borrow_mut();
         state.sync(host);
-        ui.text("NODE PROPERTIES");
-        ui.separator();
         let Some(id) = state.selected.first().copied() else {
-            ui.text_wrapped("Select a node on the graph to edit its properties. Drag wires between matching sockets to connect nodes.");
-            ui.separator();
-            ui.text_wrapped(&host.state().status);
+            ui.text_wrapped("Select a node to edit its properties.");
             return;
         };
         if state.selected.len() > 1 {
@@ -45,11 +42,9 @@ impl Panel for Inspector {
             return;
         };
         ui.text(node.parameters.operator().id);
-        ui.text_disabled(format!("{id:?}"));
         ui.separator();
         let mut response = Response::default();
         let mut navigate = None;
-        ui.text_disabled("Drag values • Ctrl-click to type • Escape cancels");
         match &mut node.parameters {
             P::Solid { rgba } => {
                 ui.text("Scene-linear premultiplied color");
@@ -71,16 +66,16 @@ impl Panel for Inspector {
             }
             P::Crop { rect } | P::Mask { rect } => {
                 for (i,label) in ["Left", "Top", "Right", "Bottom"].iter().enumerate() { let changed = Drag::new(label).speed(1.0).range(0,16384).build(ui,&mut rect[i]); response.item(ui,changed); }
-                ui.text_wrapped("Half-open rectangle in document pixels. Outside is transparent.");
+                tooltip(ui, "Bounds in document pixels; right and bottom edges are exclusive. Outside is transparent.");
             }
-            P::Blur { radius } => { let changed = Drag::new("Radius (pixels)").speed(0.1).range(0,64).build(ui,radius); response.item(ui,changed); ui.text_wrapped("Box filter in linear light. Transparent borders expand the image support."); }
-            P::Grade { gain } => { for (i,label) in ["Red gain", "Green gain", "Blue gain"].iter().enumerate() { let changed = Drag::new(label).speed(0.01).range(0.0,16.0).build(ui,&mut gain[i]); response.item(ui,changed); } ui.text_wrapped("Scene-linear gain, clamped to the supported SDR range."); }
+            P::Blur { radius } => { let changed = Drag::new("Radius (pixels)").speed(0.1).range(0,64).build(ui,radius); response.item(ui,changed); tooltip(ui, "Box filter in linear light. Transparent borders expand the image support."); }
+            P::Grade { gain } => { for (i,label) in ["Red gain", "Green gain", "Blue gain"].iter().enumerate() { let changed = Drag::new(label).speed(0.01).range(0.0,16.0).build(ui,&mut gain[i]); response.item(ui,changed); } tooltip(ui, "Scene-linear gain, clamped to the supported SDR range."); }
             P::Read { source, start, source_start, duration } => {
                 rational(ui,"Start",start,&mut response); rational(ui,"Source in",source_start,&mut response); rational(ui,"Duration",duration,&mut response);
                 ui.separator();
                 match source {
                     Source::Document { source, .. } => {
-                        ui.text_wrapped(format!("Document {:?} / {}", source.document, source.output));
+                        ui.text("Nested source");
                         let time = host.state().navigation.last().map(|v| v.time).unwrap_or_else(|| Time::new(i64::from(host.state().frame)*i64::from(host.state().rate[1]),host.state().rate[0]).unwrap());
                         let local = if time >= *start && start.checked_add(*duration).is_ok_and(|end| time < end) { time.checked_sub(*start).and_then(|t| t.checked_add(*source_start)).ok() } else { None };
                         if let Some(local) = local {
@@ -122,7 +117,6 @@ impl Panel for Inspector {
         if !state.error.is_empty() {
             ui.text_wrapped(&state.error);
         }
-        ui.text_wrapped(&host.state().status);
     }
 }
 fn rational(ui: &Ui, label: &str, value: &mut Time, response: &mut Response) {

@@ -139,16 +139,19 @@ impl Panel for Inspector {
         ));
         match &clip.info {
             SourceMedia::Document { source, .. } => {
-                ui.text(format!(
-                    "Nested video: {:?} / {}",
-                    source.document, source.output
-                ));
+                ui.text("Nested source");
                 if let Ok(time) = interaction::time(i64::from(state.frame), sequence.rate)
                     && let Ok(Some(local)) = clip.source_time(time)
                 {
-                    ui.text(format!("Sequence {time:?} → source {local:?}"));
+                    ui.text(format!(
+                        "Sequence {}/{} s → source {}/{} s",
+                        time.numerator(),
+                        time.denominator(),
+                        local.numerator(),
+                        local.denominator()
+                    ));
                 }
-                if ui.button("Open Source in Compositor")
+                if ui.button("Open Source")
                     && let Ok(time) = interaction::time(i64::from(state.frame), sequence.rate)
                     && let Ok(Some(local)) = clip.source_time(time)
                 {
@@ -156,7 +159,7 @@ impl Panel for Inspector {
                         fold_platform::desktop::ViewLocation {
                             document: source.document,
                             time: local,
-                            label: "Composite".into(),
+                            label: "Source".into(),
                         },
                     ));
                 }

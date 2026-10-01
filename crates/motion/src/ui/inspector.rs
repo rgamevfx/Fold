@@ -7,6 +7,7 @@ use crate::{
 use fold_ui::sdk::{
     EditResponse as Response, ExtensionUi, NumericProperty, Panel, UiId,
     imgui::{Drag, Ui},
+    toolbar::{icon_menu, tooltip},
 };
 pub struct Inspector {
     pub state: Shared,
@@ -24,9 +25,7 @@ impl Panel for Inspector {
         let mut state = self.state.borrow_mut();
         state.sync(host);
         let Some(&selected) = state.selected.first().filter(|_| state.selected.len() == 1) else {
-            ui.text_wrapped(
-                "Select a motion node. Inspector controls edit the same inputs as graph wiring.",
-            );
+            ui.text_wrapped("Select a node to edit its properties.");
             return;
         };
         let _scope = state.document.map(|document| {
@@ -55,6 +54,20 @@ impl Panel for Inspector {
             .iter()
             .map(|(id, g)| (*id, g.name.clone()))
             .collect();
+        let names: std::collections::BTreeMap<_, _> = motion
+            .graph
+            .nodes
+            .iter()
+            .map(|n| {
+                (
+                    n.id,
+                    registry::find(&n.kind)
+                        .map(|d| d.name)
+                        .unwrap_or(&n.kind)
+                        .to_owned(),
+                )
+            })
+            .collect();
         let info = motion.info.clone();
         let Some(node) = motion.graph.nodes.iter_mut().find(|n| n.id == selected) else {
             return;
@@ -64,7 +77,6 @@ impl Panel for Inspector {
                 .map(|d| d.name)
                 .unwrap_or(&node.kind),
         );
-        ui.text_disabled(format!("{selected:?}"));
         ui.separator();
         let mut response = Response::default();
         let mut animate = None;
@@ -112,10 +124,39 @@ impl Panel for Inspector {
             for socket in sockets {
                 let key = socket.id;
                 let _id = ui.push_id(&key);
-                ui.text(format!("{}  {}", key, socket.unit));
+                ui.text(property_label(&key));
+                let animatable = matches!(
+                    node.inputs.get(&key),
+                    Some(Input::Value(
+                        Datum::Scalar(_) | Datum::Vector(_) | Datum::Color(_)
+                    ))
+                );
+                if animatable {
+                    ui.same_line();
+                    if let Some(_menu) =
+                        icon_menu(ui, "property-actions", "Animation and published controls")
+                    {
+                        if ui.menu_item("Animate") {
+                            animate = Some(key.clone());
+                        }
+                        if ui.menu_item("Publish control") {
+                            publish = Some(key.clone());
+                        }
+                    }
+                }
+                if !socket.unit.is_empty() && key != "alignment" {
+                    ui.same_line();
+                    ui.text_disabled(&socket.unit);
+                }
                 match node.inputs.get_mut(&key) {
                     Some(Input::Link(link)) => {
-                        ui.text_disabled(format!("Driven: {:?} / {}", link.node, link.socket));
+                        ui.text_disabled(format!(
+                            "Driven by {}",
+                            names
+                                .get(&link.node)
+                                .map(String::as_str)
+                                .unwrap_or("missing node")
+                        ));
                         if ui.small_button("Open driver") {
                             focus = Some(link.node);
                         }
@@ -127,15 +168,10 @@ impl Panel for Inspector {
                         }
                     }
                     Some(Input::Value(value)) => {
-                        datum(ui, value, &mut response);
-                        if matches!(value, Datum::Scalar(_) | Datum::Vector(_) | Datum::Color(_)) {
-                            if ui.small_button("Animate input") {
-                                animate = Some(key.clone());
-                            }
-                            ui.same_line();
-                            if ui.small_button("Publish control") {
-                                publish = Some(key.clone());
-                            }
+                        if node.kind == "fold.motion.text" && key == "alignment" {
+                            alignment(ui, value, &mut response);
+                        } else {
+                            datum(ui, value, &mut response);
                         }
                     }
                     None => {
@@ -152,13 +188,17 @@ impl Panel for Inspector {
                 }
             }
         }
-        ui.separator();
-        ui.text("Node settings");
         if node.kind == "fold.motion.text" {
-            if let Some(_tree) = ui.tree_node("Bundled font license") {
-                ui.text_wrapped(crate::document::FONT_LICENSE);
-            }
-            if let Some(_combo) = ui.begin_combo("Font", "Embedded font resource") {
+            let current = node
+                .settings
+                .get("font")
+                .and_then(|v| serde_json::from_value::<fold_foundation::ObjectId>(v.clone()).ok());
+            let font_name = fonts
+                .iter()
+                .find(|(id, _)| Some(*id) == current)
+                .map(|(_, name)| name.as_str())
+                .unwrap_or("Missing font");
+            if let Some(_combo) = ui.begin_combo("Font", font_name) {
                 for (id, name) in fonts {
                     if ui.selectable(name) {
                         node.settings["font"] = serde_json::to_value(id).unwrap();
@@ -315,15 +355,68 @@ impl Panel for Inspector {
                 state.replace_view(motion);
                 state.preview(host);
             }
-            if response.finished && state.editing {
+            // Closing a popup can remove its numeric control before it reports
+            // deactivation. Finish that preview once no control owns the edit.
+            if state.editing && (response.finished || !ui.is_any_item_active()) {
                 state.commit(host);
             }
         }
-        ui.separator();
         if !state.error.is_empty() {
             ui.text_wrapped(&state.error);
         }
-        ui.text_wrapped(&host.state().status);
+    }
+}
+fn property_label(key: &str) -> String {
+    if key == "domain" {
+        return "Scope".into();
+    }
+    key.split('_')
+        .map(|word| {
+            let mut chars = word.chars();
+            chars
+                .next()
+                .map(|first| first.to_uppercase().collect::<String>() + chars.as_str())
+                .unwrap_or_default()
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+fn alignment(ui: &Ui, value: &mut Datum, response: &mut Response) {
+    let Datum::Scalar(v) = value else {
+        datum(ui, value, response);
+        return;
+    };
+    let name = if *v == 0. {
+        "Left"
+    } else if *v == 0.5 {
+        "Center"
+    } else if *v == 1. {
+        "Right"
+    } else {
+        "Custom"
+    };
+    if let Some(_combo) = ui.begin_combo("##alignment", name) {
+        for (label, next) in [("Left", 0.), ("Center", 0.5), ("Right", 1.)] {
+            if ui.selectable(label) && *v != next {
+                *v = next;
+                response.changed = true;
+                response.finished = true;
+            }
+        }
+        ui.separator();
+        NumericProperty {
+            id: "custom",
+            label: "Custom",
+            unit: "",
+            speed: 0.01,
+            range: None,
+            default: None,
+        }
+        .draw(ui, v, response);
+        tooltip(
+            ui,
+            "Continuous alignment: 0 is left, 0.5 is centered, 1 is right",
+        );
     }
 }
 fn datum(ui: &Ui, value: &mut Datum, response: &mut Response) {
@@ -331,7 +424,7 @@ fn datum(ui: &Ui, value: &mut Datum, response: &mut Response) {
         Datum::Scalar(v) => {
             NumericProperty {
                 id: "value",
-                label: "Value",
+                label: "",
                 unit: "",
                 speed: 0.1,
                 range: None,
@@ -366,14 +459,23 @@ fn datum(ui: &Ui, value: &mut Datum, response: &mut Response) {
             }
         }
         Datum::Bool(v) => {
-            let changed = ui.checkbox("Value", v);
+            let changed = ui.checkbox("##value", v);
             response.item(ui, changed);
         }
         Datum::Text(v) => {
-            let changed = ui.input_text("Text", v).build();
+            let changed = ui.input_text("##text", v).build();
             response.item(ui, changed);
         }
         Datum::Id(v) => ui.text_disabled(format!("Stable identity: {v}")),
+    }
+}
+fn setting_label(value: &str) -> &str {
+    match value {
+        "Points" => "Each path point",
+        "Instances" => "Each copy",
+        "Glyphs" => "Each glyph",
+        "Children" => "Each child",
+        _ => value,
     }
 }
 fn settings(ui: &Ui, value: &mut serde_json::Value, response: &mut Response, depth: usize) {
@@ -387,7 +489,7 @@ fn settings(ui: &Ui, value: &mut serde_json::Value, response: &mut Response, dep
                     continue;
                 }
                 let _id = ui.push_id(key.as_str());
-                ui.text(key);
+                ui.text(property_label(key));
                 if key == "combine" {
                     if let Some(text) = value.as_str()
                         && let Some(_combo) = ui.begin_combo("Mode", text)
@@ -440,9 +542,9 @@ fn settings(ui: &Ui, value: &mut serde_json::Value, response: &mut Response, dep
             if choices.is_empty() {
                 let changed = ui.input_text("##text", text).build();
                 response.item(ui, changed);
-            } else if let Some(_combo) = ui.begin_combo("##choice", text.as_str()) {
+            } else if let Some(_combo) = ui.begin_combo("##choice", setting_label(text)) {
                 for choice in choices {
-                    if ui.selectable(choice) {
+                    if ui.selectable(setting_label(choice)) {
                         *text = (*choice).into();
                         response.changed = true;
                         response.finished = true;
