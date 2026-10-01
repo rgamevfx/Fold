@@ -111,13 +111,16 @@ fn stale_preview_cannot_replace_newer_committed_state() {
 #[test]
 fn navigation_preserves_exact_local_time_and_returns_to_parent_time() {
     let (mut host, id, graph) = fixture();
-    let other = DocumentId::new();
-    host.command(C::Extension(request(&host, other, graph)));
+    // Establish the parent while it is the sole output. With two independent
+    // composites, UUID ordering can otherwise make `other` the implicit root;
+    // navigating to it would correctly return to an ancestor, not open a child.
     host.command(C::Navigate(ViewLocation {
         document: id,
         time: Time::new(1, 1).unwrap(),
         label: "Parent".into(),
     }));
+    let other = DocumentId::new();
+    host.command(C::Extension(request(&host, other, graph)));
     let exact = Time::new(1001, 24000).unwrap();
     host.command(C::Navigate(ViewLocation {
         document: other,

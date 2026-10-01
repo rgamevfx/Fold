@@ -23,7 +23,7 @@
 
 - [x] 7. Add timeline move/trim/split and synchronized audio playback. Complete: registered first-party multi-track NLE package, direct canvas editing, linked A/V transactions, shared compositing/mixing and export, and synchronized transport. Workspace tests and checks pass; native interaction acceptance is user-verified. Scope, evidence, and hardening limits: `docs/phase-7.md`.
 - [x] 8. Add basic compositor nodes, a static operator registry, and nested document references. User accepted the corrected spatial node canvas after native inspection and laptop navigation refinements. Includes typed sockets/wires, selected-node inspector, live gesture previews/undo, independently ordered authoring graphs, and exact nested-source navigation. Backend nesting and atomic Create Composition retain audio. Final workspace tests, Clippy, formatting, and boundary checks pass. Scope and remaining verification limits: `docs/phase-8.md` and `docs/phase-8-correction.md`.
-- [ ] Checkpoint: edit a short sequence with audio and a nested composite; verify cross-document undo. Automated nesting/audio/export and cross-document undo checks pass; native acceptance pending (inspection project and recipe in `docs/phase-8.md`).
+- [x] Checkpoint: edit a short sequence with audio and a nested composite; verify cross-document undo. Complete by user acceptance. Workspace and focused nesting/audio/export/undo-redo checks pass; native audio-clock playback observed. Evidence and verification limits in `docs/phase-8-checkpoint.md`.
 
 ## Motion slice
 

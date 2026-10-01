@@ -227,4 +227,25 @@ fn create_composition_keeps_linked_audio_and_exports_the_same_video() {
         media_workflow::content(&project.snapshot()).unwrap(),
         media_workflow::content(&before).unwrap()
     );
+    assert_eq!(
+        project.snapshot().state().documents,
+        before.state().documents
+    );
+    assert_eq!(project.snapshot().state().assets, before.state().assets);
+    // Redo must restore both documents as one batch, then the graph edit.
+    project.redo().unwrap();
+    assert_eq!(
+        project.snapshot().state().documents,
+        after.state().documents
+    );
+    assert_eq!(project.snapshot().state().assets, after.state().assets);
+    project.redo().unwrap();
+    assert_eq!(
+        project.snapshot().state().documents,
+        reopened.snapshot().state().documents
+    );
+    assert_eq!(
+        project.snapshot().state().assets,
+        reopened.snapshot().state().assets
+    );
 }
