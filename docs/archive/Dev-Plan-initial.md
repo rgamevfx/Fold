@@ -27,9 +27,9 @@
 
 ## Motion slice
 
-- [ ] 9. Add procedural shapes/text, repetition, keyframes, wave/falloff, and exposed controls.
-- [ ] Checkpoint: create an animated title through direct controls; verify out-of-order frame evaluation.
-
+- [x] 9. Add procedural shapes/text, repetition, keyframes, wave/falloff, and exposed controls.
+- [x] Checkpoint: create an animated title through direct controls; verify out-of-order frame evaluation.
+s
 ## Hardening slice
 
 - [ ] 10. Fix correctness, crashes, recovery, and performance before expanding scope.
