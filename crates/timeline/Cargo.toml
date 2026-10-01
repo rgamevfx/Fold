@@ -10,6 +10,8 @@ fold-project.workspace = true
 fold-media.workspace = true
 fold-render.workspace = true
 fold-platform.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 
 [lints]
 workspace = true

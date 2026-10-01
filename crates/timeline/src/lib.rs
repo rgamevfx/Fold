@@ -1,3 +1,134 @@
-//! Timeline-owned sequences, tracks, clips, edit commands, and plan compilation.
-//! Reference other documents through shared IDs and capabilities, not peer models.
-//! Mutations go through project transactions; evaluation uses immutable snapshots.
+//! Timeline-owned source timing and embedded image-sequence documents.
+mod video;
+use fold_foundation::{DocumentId, Rounding, Time};
+use fold_media::RgbImage;
+use fold_platform::VideoProvider;
+use fold_project::{Document, Revision};
+use fold_render::{ImageOp, RenderGraph};
+pub use video::{VIDEO_LAYERS, VideoLayers, VideoLayersProvider};
+
+pub const PACKAGE: &str = "fold.timeline";
+pub const IMAGE_SEQUENCE: &str = "fold.timeline.image-sequence";
+const MAX_PAYLOAD: usize = 16 * 1024 * 1024;
+const MAX_FRAMES: usize = 4096;
+
+/// Stage an import; the caller commits this document via the project coordinator.
+/// Frames are embedded, so later changes to source files cannot alter a snapshot.
+/// Schema 1: LE u32 rate numerator, denominator, count, then length-prefixed PPMs.
+pub fn import_sequence(
+    id: DocumentId,
+    rate: [u32; 2],
+    frames: &[Vec<u8>],
+) -> Result<Document, String> {
+    if rate.contains(&0) || frames.is_empty() || frames.len() > MAX_FRAMES {
+        return Err("sequence requires a positive rate and 1..=4096 frames".into());
+    }
+    let mut size = 12usize;
+    let mut dimensions = None;
+    for bytes in frames {
+        size = size
+            .checked_add(4)
+            .and_then(|n| n.checked_add(bytes.len()))
+            .ok_or("sequence size overflow")?;
+        if size > MAX_PAYLOAD {
+            return Err("sequence exceeds 16 MiB payload budget".into());
+        }
+        let frame = RgbImage::decode_ppm(bytes)?;
+        if dimensions.is_some_and(|d| d != frame.dimensions()) {
+            return Err("sequence dimensions must be constant".into());
+        }
+        dimensions = Some(frame.dimensions());
+    }
+    let mut payload = Vec::with_capacity(size);
+    for value in [rate[0], rate[1], frames.len() as u32] {
+        payload.extend_from_slice(&value.to_le_bytes());
+    }
+    for frame in frames {
+        payload.extend_from_slice(&(frame.len() as u32).to_le_bytes());
+        payload.extend_from_slice(frame);
+    }
+    Ok(Document {
+        id,
+        type_id: IMAGE_SEQUENCE.into(),
+        package_id: PACKAGE.into(),
+        schema_version: 1,
+        revision: Revision::default(),
+        dependencies: vec![],
+        assets: vec![],
+        payload,
+        extensions: Default::default(),
+    })
+}
+
+pub struct ImageSequenceProvider;
+impl VideoProvider for ImageSequenceProvider {
+    fn package_id(&self) -> &'static str {
+        PACKAGE
+    }
+    fn type_id(&self) -> &'static str {
+        IMAGE_SEQUENCE
+    }
+    fn compile(
+        &self,
+        document: &Document,
+        output: &str,
+        time: Time,
+        width: u32,
+        height: u32,
+    ) -> Result<RenderGraph, String> {
+        if document.package_id != PACKAGE
+            || document.type_id != IMAGE_SEQUENCE
+            || document.schema_version != 1
+            || output != "video"
+            || !document.dependencies.is_empty()
+            || !document.assets.is_empty()
+        {
+            return Err("unsupported image-sequence document or output".into());
+        }
+        if document.payload.len() > MAX_PAYLOAD {
+            return Err("sequence exceeds 16 MiB payload budget".into());
+        }
+        let mut data = document.payload.as_slice();
+        fn word(data: &mut &[u8]) -> Result<u32, String> {
+            let bytes = data.get(..4).ok_or("truncated sequence header")?;
+            let value = u32::from_le_bytes(bytes.try_into().unwrap());
+            *data = &data[4..];
+            Ok(value)
+        }
+        let numerator = word(&mut data)?;
+        let denominator = word(&mut data)?;
+        let count = word(&mut data)? as usize;
+        if count == 0 || count > MAX_FRAMES {
+            return Err("invalid sequence frame count".into());
+        }
+        let index = time
+            .to_ticks(numerator, denominator, Rounding::Floor)
+            .map_err(|e| e.to_string())?;
+        if index < 0 || index as u64 >= count as u64 {
+            return Err("time outside half-open sequence range".into());
+        }
+        let mut selected = None;
+        for i in 0..count {
+            let length = word(&mut data)? as usize;
+            let bytes = data.get(..length).ok_or("truncated sequence frame")?;
+            data = &data[length..];
+            // Validate the whole document, including non-selected frames.
+            let frame = RgbImage::decode_ppm(bytes).map_err(|e| format!("frame {i}: {e}"))?;
+            if frame.dimensions() != [width, height] {
+                return Err("sequence dimensions must match output".into());
+            }
+            if i == index as usize {
+                selected = Some(frame);
+            }
+        }
+        if !data.is_empty() {
+            return Err("trailing sequence payload".into());
+        }
+        Ok(RenderGraph {
+            width,
+            height,
+            nodes: vec![ImageOp::Media(selected.unwrap())],
+            output: 0,
+        })
+    }
+}

@@ -1,14 +1,11 @@
-//! Application-owned Dear ImGui presentation. No project mutations or evaluation.
-//! Native backend types stay private; headless applications do not load this crate.
-
+//! Shared Dear ImGui presentation. Project mutations and jobs belong to the host.
+mod cache;
 mod desktop;
 mod preview;
 mod shell;
 
-/// Run the single-window desktop shell on the calling (main) thread.
-/// Consume one asynchronous display result; the host never evaluates the source.
 pub fn run_desktop(
-    preview: std::sync::mpsc::Receiver<Result<fold_platform::DisplayFrame, String>>,
+    client: Box<dyn fold_platform::desktop::DesktopClient>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    desktop::run(preview)
+    desktop::run(client)
 }

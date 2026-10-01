@@ -89,8 +89,24 @@ fn encode(linear: f32) -> u8 {
 }
 
 /// Executes the shared image graph. SolidPlan is a one-node convenience adapter.
-pub fn render(plan: impl Into<RenderGraph>) -> Result<Frame, &'static str> {
-    graph::evaluate(plan.into())
+pub fn render(plan: impl Into<RenderGraph>) -> Result<Frame, String> {
+    graph::evaluate(
+        plan.into(),
+        &mut fold_media::Decoder::default(),
+        &fold_media::Cancel::default(),
+        64 * 1024 * 1024,
+    )
+}
+
+/// Worker entry point with retained source handles and cooperative cancellation.
+/// 128 MiB working pixels accommodates two 1080p layers plus opacity/merge.
+/// Caller-retained outputs, source bytes and display copies have separate budgets.
+pub fn render_with(
+    plan: RenderGraph,
+    decoder: &mut fold_media::Decoder,
+    cancel: &fold_media::Cancel,
+) -> Result<Frame, String> {
+    graph::evaluate(plan, decoder, cancel, 128 * 1024 * 1024)
 }
 
 #[cfg(test)]

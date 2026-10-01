@@ -2,8 +2,7 @@ use crate::{preview::PreviewHost, shell::Shell};
 use dear_imgui_rs::{ConfigFlags, Context};
 use dear_imgui_wgpu::{FramebufferExtent, WgpuInitInfo, WgpuRenderer, wgpu};
 use dear_imgui_winit::{HiDpiMode, WinitPlatform};
-use fold_platform::DisplayFrame;
-use std::sync::mpsc::Receiver;
+use fold_platform::desktop::DesktopClient;
 use std::{error::Error, sync::Arc};
 use winit::{
     application::ApplicationHandler,
@@ -15,7 +14,7 @@ use winit::{
 
 type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
-pub(crate) fn run(preview: Receiver<std::result::Result<DisplayFrame, String>>) -> Result<()> {
+pub(crate) fn run(preview: Box<dyn DesktopClient>) -> Result<()> {
     let mut app = App {
         preview: Some(preview),
         desktop: None,
@@ -29,7 +28,7 @@ pub(crate) fn run(preview: Receiver<std::result::Result<DisplayFrame, String>>) 
 }
 
 struct App {
-    preview: Option<Receiver<std::result::Result<DisplayFrame, String>>>,
+    preview: Option<Box<dyn DesktopClient>>,
     desktop: Option<Desktop>,
     error: Option<Box<dyn Error>>,
 }
@@ -103,6 +102,7 @@ struct Desktop {
     window: Arc<Window>,
     shell: Shell,
     preview: PreviewHost,
+    client: Box<dyn DesktopClient>,
 }
 
 impl Drop for Desktop {
@@ -112,10 +112,7 @@ impl Drop for Desktop {
 }
 
 impl Desktop {
-    fn new(
-        event_loop: &ActiveEventLoop,
-        preview: Receiver<std::result::Result<DisplayFrame, String>>,
-    ) -> Result<Self> {
+    fn new(event_loop: &ActiveEventLoop, preview: Box<dyn DesktopClient>) -> Result<Self> {
         let window = Arc::new(
             event_loop.create_window(
                 Window::default_attributes()
@@ -129,6 +126,7 @@ impl Desktop {
             compatible_surface: Some(&surface),
             ..Default::default()
         }))?;
+        eprintln!("Fold presentation adapter: {:?}", adapter.get_info());
         let (device, queue) =
             pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor::default()))?;
         let size = window.inner_size();
@@ -172,7 +170,8 @@ impl Desktop {
             config,
             window,
             shell: Shell::new(),
-            preview: PreviewHost::new(preview),
+            preview: PreviewHost::new(),
+            client: preview,
         })
     }
 
@@ -200,12 +199,21 @@ impl Desktop {
             Err(wgpu::SurfaceError::Timeout) => return Ok(()),
             Err(error) => return Err(error.into()),
         };
-        self.preview
-            .poll(&self.device, &self.queue, &mut self.renderer)?;
+        self.client.poll();
         self.platform
             .prepare_frame(&mut self.context, &self.window)?;
         let ui = self.context.frame();
-        self.shell.draw(ui, &self.preview.state)?;
+        self.shell.controls(ui, self.client.as_mut())?;
+        self.preview
+            .select(self.shell.key(self.client.as_ref()), self.client.as_mut());
+        self.preview.poll(
+            self.client.as_mut(),
+            &self.device,
+            &self.queue,
+            &mut self.renderer,
+        )?;
+        self.shell
+            .viewer(ui, &self.preview.state, &self.preview.statistics());
         self.platform.prepare_render(ui, &self.window)?;
         let frame = self.context.render(self.renderer.renderer_consumer()?);
         let view = surface_frame
@@ -235,6 +243,7 @@ impl Desktop {
             )?;
         }
         self.queue.submit([encoder.finish()]);
+        self.preview.submitted(&self.queue);
         self.window.pre_present_notify();
         surface_frame.present();
         Ok(())

@@ -60,6 +60,13 @@ impl Affine {
 /// Every port is a full-resolution scene-linear sRGB premultiplied RGBA image.
 #[derive(Clone, Debug)]
 pub enum ImageOp {
+    /// Validated opaque SDR source. Decoded storage is caller-owned; its RGB8
+    /// byte count across all source nodes is separately capped at 64 MiB.
+    Media(fold_media::RgbImage),
+    Video {
+        source: fold_media::VideoSource,
+        time: fold_foundation::Time,
+    },
     Solid {
         rgba: [f32; 4],
     },
@@ -82,7 +89,7 @@ pub enum ImageOp {
 impl ImageOp {
     fn inputs(&self) -> impl Iterator<Item = ImageId> {
         let inputs = match *self {
-            Self::Solid { .. } => [None, None],
+            Self::Solid { .. } | Self::Media(_) | Self::Video { .. } => [None, None],
             Self::Transform { input, .. } | Self::Opacity { input, .. } => [Some(input), None],
             Self::Over {
                 foreground,
@@ -114,17 +121,32 @@ impl From<SolidPlan> for RenderGraph {
     }
 }
 
-pub(crate) fn evaluate(graph: RenderGraph) -> Result<Frame, &'static str> {
+pub(crate) fn evaluate(
+    graph: RenderGraph,
+    decoder: &mut fold_media::Decoder,
+    cancel: &fold_media::Cancel,
+    budget: usize,
+) -> Result<Frame, String> {
     let count = u64::from(graph.width) * u64::from(graph.height);
     if count == 0 || count > MAX_PIXELS {
-        return Err("resolution must contain 1..=4194304 pixels");
+        return Err("resolution must contain 1..=4194304 pixels".into());
     }
     if graph.nodes.len() > MAX_NODES || graph.output >= graph.nodes.len() {
-        return Err("graph requires a valid output and at most 4096 nodes");
+        return Err("graph requires a valid output and at most 4096 nodes".into());
     }
+    let mut source_bytes = 0u64;
     for (id, op) in graph.nodes.iter().enumerate() {
+        if let ImageOp::Media(source) = op {
+            if source.dimensions() != [graph.width, graph.height] {
+                return Err("media dimensions must match graph resolution".into());
+            }
+            source_bytes += count * 3;
+            if source_bytes > PIXEL_BUDGET as u64 {
+                return Err("render graph exceeds 64 MiB RGB8 source budget".into());
+            }
+        }
         if op.inputs().any(|input| input >= id) {
-            return Err("image inputs must precede their consumer");
+            return Err("image inputs must precede their consumer".into());
         }
         match *op {
             ImageOp::Solid { rgba: [r, g, b, a] } => {
@@ -135,7 +157,7 @@ pub(crate) fn evaluate(graph: RenderGraph) -> Result<Frame, &'static str> {
                     || g > a
                     || b > a
                 {
-                    return Err("expected finite SDR premultiplied linear RGBA");
+                    return Err("expected finite SDR premultiplied linear RGBA".into());
                 }
             }
             ImageOp::Transform { transform, .. } => {
@@ -143,10 +165,13 @@ pub(crate) fn evaluate(graph: RenderGraph) -> Result<Frame, &'static str> {
             }
             ImageOp::Opacity { opacity, .. } => {
                 if !opacity.is_finite() || !(0.0..=1.0).contains(&opacity) {
-                    return Err("opacity must be finite and in 0..=1");
+                    return Err("opacity must be finite and in 0..=1".into());
                 }
             }
-            ImageOp::Over { .. } => {}
+            ImageOp::Video { ref source, time } => {
+                source.info.frame_at(time)?;
+            }
+            ImageOp::Over { .. } | ImageOp::Media(_) => {}
         }
     }
 
@@ -169,8 +194,12 @@ pub(crate) fn evaluate(graph: RenderGraph) -> Result<Frame, &'static str> {
         if !needed[id] {
             continue;
         }
-        if live_bytes + bytes > PIXEL_BUDGET {
-            return Err("render graph exceeds 64 MiB live pixel budget");
+        cancel.check()?;
+        if live_bytes + bytes > budget {
+            return Err(format!(
+                "render graph exceeds {} MiB live pixel budget",
+                budget / (1024 * 1024)
+            ));
         }
         let mut pixels = Vec::new();
         pixels
@@ -178,6 +207,11 @@ pub(crate) fn evaluate(graph: RenderGraph) -> Result<Frame, &'static str> {
             .map_err(|_| "frame allocation failed")?;
         let input = |id: ImageId| frames[id].as_ref().expect("validated live input");
         match *op {
+            ImageOp::Media(ref source) => pixels.extend(source.linear_pixels()),
+            ImageOp::Video { ref source, time } => {
+                let frame = decoder.decode(source, time, [graph.width, graph.height], cancel)?;
+                pixels.extend(frame.linear_pixels());
+            }
             ImageOp::Solid { rgba } => pixels.resize(count, rgba),
             ImageOp::Opacity {
                 input: source,
@@ -203,6 +237,7 @@ pub(crate) fn evaluate(graph: RenderGraph) -> Result<Frame, &'static str> {
             } => {
                 let m = transform.inverse()?;
                 for y in 0..graph.height {
+                    cancel.check()?;
                     for x in 0..graph.width {
                         let x = f64::from(x) + 0.5;
                         let y = f64::from(y) + 0.5;

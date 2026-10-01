@@ -1,4 +1,5 @@
 //! Static capability contracts. Only the application assembles implementations.
+pub mod desktop;
 use fold_foundation::Time;
 use fold_project::{Document, DocumentRef, Snapshot};
 use fold_render::RenderGraph;
@@ -9,6 +10,18 @@ pub use fold_render::DisplayFrame;
 pub trait VideoProvider: Send + Sync {
     fn package_id(&self) -> &'static str;
     fn type_id(&self) -> &'static str;
+    fn compile_snapshot(
+        &self,
+        snapshot: &Snapshot,
+        document: &Document,
+        output: &str,
+        time: Time,
+        width: u32,
+        height: u32,
+    ) -> Result<RenderGraph, String> {
+        let _ = snapshot;
+        self.compile(document, output, time, width, height)
+    }
     fn compile(
         &self,
         document: &Document,
@@ -59,6 +72,6 @@ impl VideoRegistry {
                     document.package_id, document.type_id, document.id
                 )
             })?;
-        provider.compile(document, &source.output, time, width, height)
+        provider.compile_snapshot(snapshot, document, &source.output, time, width, height)
     }
 }

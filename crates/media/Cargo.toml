@@ -6,6 +6,10 @@ publish.workspace = true
 
 [dependencies]
 fold-foundation.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tempfile.workspace = true
+sha2 = "0.10"
 
 [lints]
 workspace = true
