@@ -13,6 +13,29 @@ pub use fold_render::DisplayFrame;
 pub type VideoResolver<'a> = dyn Fn(&DocumentRef, Time) -> Result<RenderGraph, String> + 'a;
 
 pub trait VideoProvider: Send + Sync {
+    /// Reference-local provider settings (such as exposed controls) do not mutate
+    /// the source document. Providers explicitly opt into interpreting them.
+    fn compile_reference(
+        &self,
+        snapshot: &Snapshot,
+        document: &Document,
+        reference: &DocumentRef,
+        time: Time,
+        dimensions: [u32; 2],
+        resolve: &VideoResolver<'_>,
+    ) -> Result<RenderGraph, String> {
+        if reference.extensions.contains_key("fold.controls") {
+            return Err("referenced provider does not support control overrides".into());
+        }
+        self.compile_resolved(
+            snapshot,
+            document,
+            &reference.output,
+            time,
+            dimensions,
+            resolve,
+        )
+    }
     fn compile_resolved(
         &self,
         snapshot: &Snapshot,
@@ -127,13 +150,6 @@ impl VideoRegistry {
             }
             self.compile_nested(snapshot, nested, local_time, width, height, &path)
         };
-        provider.compile_resolved(
-            snapshot,
-            document,
-            &source.output,
-            time,
-            [width, height],
-            &resolve,
-        )
+        provider.compile_reference(snapshot, document, source, time, [width, height], &resolve)
     }
 }

@@ -3,6 +3,71 @@ use crate::sdk::*;
 use fold_platform::{ProjectRevision, desktop::*, packages::*};
 
 #[test]
+fn node_property_contributions_share_one_inspector_window() {
+    let mut packages = PackageRegistry::default();
+    packages
+        .register(Contributions {
+            manifest: Manifest {
+                id: "test.nodes",
+                version: "1",
+                host_api: HOST_API,
+                dependencies: &[],
+                build: "test",
+                panels: &[
+                    PanelDescriptor {
+                        id: "test.nodes.first",
+                        title: "First properties",
+                        placement: PanelPlacement::Inspector,
+                    },
+                    PanelDescriptor {
+                        id: "test.nodes.second",
+                        title: "Second properties",
+                        placement: PanelPlacement::Inspector,
+                    },
+                ],
+            },
+            documents: vec![],
+            commands: vec![],
+            video: vec![],
+            audio: vec![],
+        })
+        .unwrap();
+    struct Properties(&'static str, &'static str);
+    impl Panel for Properties {
+        fn id(&self) -> &'static str {
+            self.0
+        }
+        fn document_type(&self) -> Option<&'static str> {
+            Some(self.1)
+        }
+        fn draw(&mut self, _: ExtensionUi<'_>) {}
+    }
+    let mut registry = PanelRegistry::new(&packages);
+    assert!(
+        registry
+            .register_node_inspector("foreign", Properties("test.nodes.first", "first"))
+            .is_err()
+    );
+    registry
+        .register_node_inspector("test.nodes", Properties("test.nodes.first", "first"))
+        .unwrap();
+    assert!(
+        registry
+            .register_node_inspector("test.nodes", Properties("test.nodes.second", "first"))
+            .is_err()
+    );
+    registry
+        .register_node_inspector("test.nodes", Properties("test.nodes.second", "second"))
+        .unwrap();
+    let panels = registry.finish().unwrap();
+    assert_eq!(panels.len(), 1);
+    assert_eq!(panels[0].descriptor.title, "Node Inspector");
+    assert!(panels[0].panel.supports_document_type("first"));
+    assert!(panels[0].panel.supports_document_type("second"));
+    assert!(!panels[0].panel.supports_document_type("unavailable"));
+}
+
+#[test]
 fn independent_package_panel_dispatches_a_registered_command() {
     let _guard = crate::IMGUI_TEST_LOCK.lock().unwrap();
     let mut packages = PackageRegistry::default();

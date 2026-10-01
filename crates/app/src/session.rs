@@ -10,6 +10,8 @@ use std::sync::{
     mpsc::{self, Receiver},
 };
 
+#[path = "session_transport.rs"]
+mod transport;
 #[path = "session_view.rs"]
 mod view;
 
@@ -116,6 +118,10 @@ pub struct Session {
     overlay: Option<Snapshot>,
     preview: PreviewWorker,
     background: Option<Background>,
+    playback_ranges: std::collections::BTreeMap<
+        fold_foundation::DocumentId,
+        fold_platform::desktop::PlaybackRange,
+    >,
     #[cfg(feature = "desktop")]
     playback: crate::playback::Playback,
 }
@@ -132,6 +138,7 @@ impl Session {
             overlay: None,
             preview: PreviewWorker::new(),
             background: None,
+            playback_ranges: Default::default(),
             #[cfg(feature = "desktop")]
             playback: crate::playback::Playback::default(),
         };
@@ -168,11 +175,22 @@ impl Session {
         {
             self.state.selection = Default::default();
         }
-        let info = if let Some(location) = self.state.navigation.last() {
-            crate::packages::builtins().output(&snapshot, location.document)
+        let output = if let Some(location) = self.state.navigation.last() {
+            crate::packages::builtins()
+                .output(&snapshot, location.document)
+                .map(|info| (location.document, info))
         } else {
-            workflow::output(&snapshot).map(|(_, info)| info)
+            workflow::output(&snapshot).map(|(source, info)| (source.document, info))
         };
+        self.playback_ranges
+            .retain(|id, _| committed.state().documents.contains_key(id));
+        self.state.viewer_document = output.as_ref().ok().map(|(id, _)| *id);
+        self.state.playback_range = self
+            .state
+            .viewer_document
+            .and_then(|id| self.playback_ranges.get(&id).copied())
+            .unwrap_or_default();
+        let info = output.map(|(_, info)| info);
         if let Ok(info) = info {
             self.state.frames = info.frames;
             self.state.dimensions = [info.width, info.height];
@@ -184,29 +202,6 @@ impl Session {
         }
         if let Ok((_, layers)) = workflow::active(&snapshot) {
             self.state.foreground_opacity = layers.foreground_opacity;
-        }
-    }
-    fn stop_playback(&mut self) {
-        #[cfg(feature = "desktop")]
-        self.playback.pause();
-        self.state.playing = false;
-        self.state.priming = false;
-    }
-    fn start_playback(&mut self) {
-        if self.state.navigation.len() > 1 || self.overlay.is_some() {
-            self.state.status = "Return to the sequence and finish the edit to play audio; source view supports exact scrubbing.".into();
-            return;
-        }
-        #[cfg(feature = "desktop")]
-        {
-            self.playback
-                .play(self.project.snapshot(), self.state.frame);
-            self.state.playing = true;
-            self.state.priming = true;
-        }
-        #[cfg(not(feature = "desktop"))]
-        {
-            self.state.status = "Playback requires the desktop feature".into();
         }
     }
     fn background(&mut self, command: DesktopCommand) {
@@ -277,19 +272,12 @@ impl DesktopClient for Session {
             if let Some(sample) = self.playback.sample()
                 && self.state.playing
             {
-                self.state.frame = Time::new(sample as i64, fold_media::audio::AUDIO_RATE)
+                let frame = Time::new(sample as i64, fold_media::audio::AUDIO_RATE)
                     .unwrap()
                     .to_ticks(self.state.rate[0], self.state.rate[1], Rounding::Floor)
                     .unwrap_or(0)
                     .max(0) as u32;
-                self.state.frame = self.state.frame.min(self.state.frames - 1);
-                if let Some(location) = self.state.navigation.last_mut() {
-                    location.time = Time::new(
-                        i64::from(self.state.frame) * i64::from(self.state.rate[1]),
-                        self.state.rate[0],
-                    )
-                    .unwrap();
-                }
+                self.seek(frame.min(self.state.playback_range.bounds(self.state.frames).1));
             }
             self.state.playing = self.playback.playing();
             self.state.priming = self.playback.priming();
@@ -337,6 +325,7 @@ impl DesktopClient for Session {
                         self.state.status = "Project changed while opening; retry open".into();
                     } else {
                         self.project = project;
+                        self.playback_ranges.clear();
                         self.overlay = None;
                         self.state.navigation.clear();
                         self.refresh();
@@ -389,6 +378,10 @@ impl DesktopClient for Session {
                 self.activate_workspace(&kind);
                 return;
             }
+            DesktopCommand::Transport(action) => {
+                self.transport(action);
+                return;
+            }
             DesktopCommand::Play => {
                 self.start_playback();
                 return;
@@ -398,14 +391,7 @@ impl DesktopClient for Session {
                 return;
             }
             DesktopCommand::Seek(frame) => {
-                self.state.frame = frame.min(self.state.frames - 1);
-                if let Some(location) = self.state.navigation.last_mut() {
-                    location.time = fold_foundation::Time::new(
-                        i64::from(self.state.frame) * i64::from(self.state.rate[1]),
-                        self.state.rate[0],
-                    )
-                    .unwrap();
-                }
+                self.seek(frame);
                 if self.state.playing {
                     self.start_playback();
                 }

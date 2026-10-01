@@ -7,7 +7,7 @@ default-run = "fold-cli"
 
 [features]
 default = []
-desktop = ["dep:fold-ui", "dep:cpal", "dep:rtrb", "fold-timeline/ui", "fold-compositor/ui"]
+desktop = ["dep:fold-ui", "dep:cpal", "dep:rtrb", "fold-timeline/ui", "fold-compositor/ui", "fold-motion/ui"]
 
 [dependencies]
 serde.workspace = true

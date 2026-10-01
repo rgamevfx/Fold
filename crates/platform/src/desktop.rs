@@ -24,12 +24,39 @@ pub struct ViewLocation {
     pub time: fold_foundation::Time,
     pub label: String,
 }
+/// Inclusive review boundaries. These do not trim a document or change export.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct PlaybackRange {
+    pub start: Option<u32>,
+    pub end: Option<u32>,
+}
+impl PlaybackRange {
+    pub fn bounds(self, frames: u32) -> (u32, u32) {
+        let last = frames.saturating_sub(1);
+        let start = self.start.unwrap_or(0).min(last);
+        (start, self.end.unwrap_or(last).min(last).max(start))
+    }
+}
+#[derive(Clone, Copy, Debug)]
+pub enum TransportAction {
+    TogglePlay,
+    Stop,
+    PreviousFrame,
+    NextFrame,
+    GoToIn,
+    GoToOut,
+    MarkIn,
+    MarkOut,
+    Jump(u32),
+}
 #[derive(Clone, Debug)]
 pub struct DesktopState {
     pub selection: Selection,
     pub navigation: Vec<ViewLocation>,
     pub transient: bool,
     pub frame: u32,
+    pub viewer_document: Option<fold_foundation::DocumentId>,
+    pub playback_range: PlaybackRange,
     pub playing: bool,
     pub priming: bool,
     pub audio_clock: bool,
@@ -49,6 +76,8 @@ impl Default for DesktopState {
             navigation: vec![],
             transient: false,
             frame: 0,
+            viewer_document: None,
+            playback_range: PlaybackRange::default(),
             playing: false,
             priming: false,
             audio_clock: false,
@@ -101,6 +130,7 @@ pub enum DesktopCommand {
     /// Restore the viewer context for the selected editor workspace.
     ActivateWorkspace(String),
     Select(Selection),
+    Transport(TransportAction),
     Play,
     Pause,
     Seek(u32),

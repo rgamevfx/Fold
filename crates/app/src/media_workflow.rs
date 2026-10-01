@@ -179,7 +179,7 @@ pub fn evaluate(
     let mut registry = VideoRegistry::default();
     registry.register(VideoLayersProvider)?;
     let packages = crate::packages::builtins();
-    let mut plan = if packages.supports(&snapshot.state().documents[&source.document]) {
+    let plan = if packages.supports(&snapshot.state().documents[&source.document]) {
         packages.video(
             snapshot,
             &source,
@@ -197,20 +197,8 @@ pub fn evaluate(
         )?
     };
     // The current desktop/MP4 delivery profile is opaque black-backed SDR.
-    // Nested composites retain alpha; only the selected root is flattened.
-    if snapshot.state().documents[&source.document].type_id == fold_compositor::COMPOSITE {
-        let foreground = plan.output;
-        let background = plan.nodes.len();
-        plan.nodes.push(fold_render::ImageOp::Solid {
-            rgba: [0.0, 0.0, 0.0, 1.0],
-        });
-        plan.nodes.push(fold_render::ImageOp::Over {
-            foreground,
-            background,
-        });
-        plan.output = plan.nodes.len() - 1;
-    }
-    fold_render::render_with(plan, decoder, cancel)
+    // All providers retain alpha when nested; only delivery is flattened.
+    fold_render::render_with(plan, decoder, cancel).map(fold_render::Frame::over_black)
 }
 
 pub fn output(snapshot: &Snapshot) -> Result<(DocumentRef, VideoInfo), String> {
@@ -226,7 +214,12 @@ pub fn output(snapshot: &Snapshot) -> Result<(DocumentRef, VideoInfo), String> {
             .state()
             .documents
             .values()
-            .find(|d| d.type_id == fold_compositor::COMPOSITE)
+            .find(|d| {
+                matches!(
+                    d.type_id.as_str(),
+                    fold_compositor::COMPOSITE | fold_motion::MOTION
+                )
+            })
             .ok_or("no supported video document")?;
         let info = crate::packages::builtins().output(snapshot, document.id)?;
         Ok((

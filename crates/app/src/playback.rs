@@ -21,7 +21,9 @@ use std::{
 
 struct Request {
     snapshot: Snapshot,
+    document: fold_foundation::DocumentId,
     frame: u32,
+    end: u32,
     generation: u64,
     cancel: Cancel,
 }
@@ -107,7 +109,13 @@ impl Default for Playback {
     }
 }
 impl Playback {
-    pub fn play(&mut self, snapshot: Snapshot, frame: u32) {
+    pub fn play(
+        &mut self,
+        snapshot: Snapshot,
+        document: fold_foundation::DocumentId,
+        frame: u32,
+        end: u32,
+    ) {
         self.pause();
         self.last_sample.store(0, Ordering::Release);
         self.cancel = Cancel::default();
@@ -116,7 +124,9 @@ impl Playback {
         queue.error = None;
         queue.pending = Some(Request {
             snapshot,
+            document,
             frame,
+            end,
             generation,
             cancel: self.cancel.clone(),
         });
@@ -224,18 +234,27 @@ fn silent_transport(
 }
 
 fn run(shared: &Arc<Shared>, request: &Request) -> Result<(), String> {
-    let (reference, sequence) = crate::timeline_workflow::active(&request.snapshot)?;
-    let info = sequence.info()?;
-    if request.frame >= info.frames {
-        return Err("play position outside sequence".into());
+    let registry = crate::packages::builtins();
+    let info = registry.output(&request.snapshot, request.document)?;
+    let end_frame = request.end.min(info.frames);
+    if request.frame >= end_frame {
+        return Err("play position outside marked range".into());
     }
-    let plan = crate::packages::builtins().audio(&request.snapshot, reference.document)?;
-    let start = info
-        .time(request.frame)?
-        .to_ticks(AUDIO_RATE, 1, Rounding::Ceil)
-        .map_err(|e| e.to_string())? as u64;
+    let sample = |frame| {
+        info.time(frame)?
+            .to_ticks(AUDIO_RATE, 1, Rounding::Ceil)
+            .map(|v| v as u64)
+            .map_err(|e| e.to_string())
+    };
+    let start = sample(request.frame)?;
+    let end = sample(end_frame)?;
+    if !registry.supports_audio(&request.snapshot, request.document) {
+        return silent_transport(shared, request, start, end);
+    }
+    let mut plan = registry.audio(&request.snapshot, request.document)?;
+    plan.end = end;
     if plan.regions.is_empty() {
-        return silent_transport(shared, request, start, plan.end);
+        return silent_transport(shared, request, start, end);
     }
     shared.audio_clock.store(true, Ordering::Release);
     let mut decoder = AudioDecoder::default();

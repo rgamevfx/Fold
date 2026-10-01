@@ -4,6 +4,7 @@ mod desktop;
 mod preview;
 pub mod sdk;
 mod shell;
+mod transport;
 
 // Dear ImGui permits only one owning thread at a time, including headless tests.
 #[cfg(test)]

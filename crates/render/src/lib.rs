@@ -3,6 +3,7 @@ use std::io::{self, Write};
 
 pub mod audio;
 mod graph;
+pub mod vector;
 pub use graph::{Affine, ImageId, ImageOp, RenderGraph};
 
 /// One full-frame operation; colors are scene-linear sRGB, premultiplied RGBA.
@@ -41,6 +42,15 @@ impl DisplayFrame {
 }
 
 impl Frame {
+    /// Explicit opaque-black delivery matte, consuming this owned frame without
+    /// allocating another full-size image. Premultiplied RGB is unchanged over black.
+    pub fn over_black(mut self) -> Self {
+        for pixel in &mut self.pixels {
+            pixel[3] = 1.0;
+        }
+        self
+    }
+
     /// CPU presentation fallback. Reject alpha rather than silently flattening it.
     pub fn to_display(&self) -> Result<DisplayFrame, &'static str> {
         if self.pixels.iter().any(|p| p[3] != 1.0) {

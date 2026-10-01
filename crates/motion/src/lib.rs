@@ -1,4 +1,16 @@
 //! Motion-owned authoring payloads and immutable plan compilation.
+pub mod animation;
+pub mod authoring;
+pub mod document;
+pub mod evaluation;
+pub mod fields;
+pub mod geometry;
+pub mod graph;
+pub mod nodes;
+pub mod package;
+#[cfg(feature = "ui")]
+pub mod ui;
+pub use document::{MOTION, Motion};
 use fold_foundation::{DocumentId, Time};
 use fold_platform::VideoProvider;
 use fold_project::{Document, Revision};

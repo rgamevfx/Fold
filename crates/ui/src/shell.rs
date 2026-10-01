@@ -29,7 +29,7 @@ pub(crate) struct Shell {
     reset_layout: bool,
     project_path: String,
     export_path: String,
-    frame: u32,
+    transport: crate::transport::Transport,
     divisor: u32,
     start: i32,
     end: i32,
@@ -39,6 +39,7 @@ pub(crate) struct Shell {
     pending_workspace: Option<String>,
     focused_editor: Option<String>,
     visible_panels: Vec<usize>,
+    image_rect: Option<crate::sdk::ViewerRect>,
 }
 impl Shell {
     pub fn new(panels: Vec<RegisteredPanel>) -> Self {
@@ -79,7 +80,7 @@ impl Shell {
             reset_layout: false,
             project_path: "/tmp/fold-project.fold".into(),
             export_path: "/tmp/fold-export.mp4".into(),
-            frame: 0,
+            transport: Default::default(),
             divisor: 2,
             start: 0,
             end: 1,
@@ -89,6 +90,7 @@ impl Shell {
             pending_workspace: None,
             focused_editor: None,
             visible_panels: Vec::new(),
+            image_rect: None,
         }
     }
     pub fn accepts_background_pan(&self, position: [f32; 2]) -> bool {
@@ -107,7 +109,6 @@ impl Shell {
         client: &mut dyn DesktopClient,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let state = client.state().clone();
-        self.frame = state.frame;
         if self.content != state.content {
             self.end = state.frames as i32;
             self.content = state.content.clone();
@@ -123,6 +124,7 @@ impl Shell {
             && !ui.is_mouse_down(dear_imgui_rs::MouseButton::Left)
         {
             self.focused_document = state.selection.document;
+            self.image_rect = None;
             self.pending_workspace = client.snapshot().and_then(|s| {
                 state
                     .selection
@@ -202,7 +204,7 @@ impl Shell {
             let visible = ui
                 .window(&registered.key)
                 .focused(self.focus_workspace.as_ref().is_some_and(|(kind, stage)| {
-                    registered.panel.document_type() == Some(kind.as_str())
+                    registered.panel.supports_document_type(kind)
                         && matches!(
                             (stage, registered.descriptor.placement),
                             (1, PanelPlacement::Inspector) | (2, PanelPlacement::Editor)
@@ -223,6 +225,11 @@ impl Shell {
                         }
                     }
                     registered.panel.draw(ExtensionUi { ui, host: client });
+                    if registered.descriptor.placement == PanelPlacement::Editor
+                        && ui.is_window_focused()
+                    {
+                        crate::transport::shortcuts(ui, client);
+                    }
                 })
                 .is_some();
             if visible {
@@ -284,20 +291,53 @@ impl Shell {
         });
         Ok(())
     }
-    pub fn viewer(&mut self, ui: &Ui, preview: &Preview, statistics: &str) {
+    pub fn viewer_overlays(&mut self, ui: &Ui, client: &mut dyn DesktopClient) {
+        let Some(rect) = self.image_rect else {
+            return;
+        };
+        let Some(snapshot) = client.snapshot() else {
+            return;
+        };
+        let active = client.state().viewer_document;
+        let Some(document) = active.and_then(|id| snapshot.state().documents.get(&id)) else {
+            return;
+        };
         ui.window(&self.viewer).build(|| {
-            ui.text(format!(
-                "Frame {}  |  SDR sRGB  |  Preview 1/{}",
-                self.frame, self.divisor
-            ));
-            for (label, divisor) in [("Full", 1), ("Half", 2), ("Quarter", 4)] {
-                ui.same_line();
-                if ui.button(label) {
-                    self.divisor = divisor;
+            for registered in &mut self.panels {
+                if registered.descriptor.placement == PanelPlacement::Editor
+                    && registered.panel.document_type() == Some(document.type_id.as_str())
+                {
+                    registered
+                        .panel
+                        .draw_viewer_overlay(ExtensionUi { ui, host: client }, rect);
                 }
             }
-            ui.text(statistics);
-            ui.separator();
+        });
+    }
+    pub fn viewer(
+        &mut self,
+        ui: &Ui,
+        preview: &Preview,
+        statistics: &str,
+        client: &mut dyn DesktopClient,
+    ) {
+        self.image_rect = None;
+        ui.window(&self.viewer).build(|| {
+            if ui.is_window_focused() {
+                crate::transport::shortcuts(ui, client);
+            }
+            // Quality and diagnostics stay in the context menu, not the transport.
+            if let Some(_popup) = ui.begin_popup_context_window() {
+                for (label, divisor) in [("Full", 1), ("Half", 2), ("Quarter", 4)] {
+                    if ui.selectable(label) {
+                        self.divisor = divisor;
+                    }
+                }
+                ui.text_disabled(statistics);
+            }
+            let origin = ui.cursor_pos();
+            let available = ui.content_region_avail();
+            let image_height = (available[1] - crate::transport::Transport::height(ui)).max(0.);
             match preview {
                 Preview::Pending => ui.text("Waiting for the current frame…"),
                 Preview::Failed(error) => {
@@ -308,12 +348,19 @@ impl Shell {
                     texture,
                     dimensions,
                 } => {
-                    let size = fitted_size(*dimensions, ui.content_region_avail());
+                    let size = fitted_size(*dimensions, [available[0], image_height]);
                     if size[0] > 0.0 && size[1] > 0.0 {
+                        self.image_rect = Some(crate::sdk::ViewerRect {
+                            origin: ui.cursor_screen_pos(),
+                            size,
+                            dimensions: *dimensions,
+                        });
                         ui.image(*texture, size);
                     }
                 }
             }
+            ui.set_cursor_pos([origin[0], origin[1] + image_height]);
+            self.transport.draw(ui, client);
         });
     }
 }
@@ -426,7 +473,7 @@ mod tests {
             inspector.set(false);
             let ui = context.frame();
             shell.controls(ui, &mut client).unwrap();
-            shell.viewer(ui, &Preview::Pending, "test");
+            shell.viewer(ui, &Preview::Pending, "test", &mut client);
             context.end_frame();
         }
         assert!(
@@ -447,7 +494,7 @@ mod tests {
         for _ in 0..12 {
             let ui = context.frame();
             shell.controls(ui, &mut client).unwrap();
-            shell.viewer(ui, &Preview::Pending, "test");
+            shell.viewer(ui, &Preview::Pending, "test", &mut client);
             context.end_frame();
         }
         assert!(
@@ -469,7 +516,7 @@ mod tests {
             if frame == 0 {
                 ui.window(&shell.panels[2].key).focused(true).build(|| {});
             }
-            shell.viewer(ui, &Preview::Pending, "test");
+            shell.viewer(ui, &Preview::Pending, "test", &mut client);
             context.end_frame();
         }
         assert_eq!(client.1.len(), 1);
@@ -495,8 +542,53 @@ mod tests {
             context.io_mut().set_delta_time(1.0 / 60.0);
             let ui = context.frame();
             shell.controls(ui, &mut client).unwrap();
-            shell.viewer(ui, &Preview::Pending, "cache test");
+            shell.viewer(ui, &Preview::Pending, "cache test", &mut client);
             context.end_frame();
+        }
+    }
+    #[test]
+    fn viewer_reserves_both_transport_rows_when_resized() {
+        let _guard = crate::IMGUI_TEST_LOCK.lock().unwrap();
+        let mut context = dear_imgui_rs::Context::create();
+        context.set_ini_filename(None::<String>).unwrap();
+        context
+            .font_atlas()
+            .try_claim_legacy_renderer()
+            .unwrap()
+            .build();
+        context.io_mut().set_delta_time(1. / 60.);
+        let mut shell = Shell::new(vec![]);
+        let mut client = Client(DesktopState::default(), vec![]);
+        for size in [[850., 400.], [400., 200.], [1920., 1080.]] {
+            context.io_mut().set_display_size(size);
+            for _ in 0..3 {
+                let ui = context.frame();
+                // Explicit floating Viewer dimensions isolate transport layout
+                // from unrelated dock-node minimum sizes and tab visibility.
+                ui.window(&shell.viewer)
+                    .position([0.; 2], dear_imgui_rs::Condition::Always)
+                    .size(size, dear_imgui_rs::Condition::Always)
+                    .build(|| {});
+                shell.viewer(
+                    ui,
+                    &Preview::Ready {
+                        texture: TextureId::new(1),
+                        dimensions: [640, 360],
+                    },
+                    "test",
+                    &mut client,
+                );
+                let rect = shell.image_rect.expect("visible image");
+                ui.window(&shell.viewer).build(|| {
+                    let bottom = ui.cursor_screen_pos()[1];
+                    assert!(
+                        rect.origin[1] + rect.size[1]
+                            <= bottom - crate::transport::Transport::height(ui) + 1.
+                    );
+                    assert!(bottom <= ui.window_pos()[1] + ui.window_size()[1]);
+                });
+                context.end_frame();
+            }
         }
     }
 }

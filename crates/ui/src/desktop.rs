@@ -265,8 +265,13 @@ impl Desktop {
             &self.queue,
             &mut self.renderer,
         )?;
-        self.shell
-            .viewer(ui, &self.preview.state, &self.preview.statistics());
+        self.shell.viewer(
+            ui,
+            &self.preview.state,
+            &self.preview.statistics(),
+            self.client.as_mut(),
+        );
+        self.shell.viewer_overlays(ui, self.client.as_mut());
         self.platform.prepare_render(ui, &self.window)?;
         let frame = self.context.render(self.renderer.renderer_consumer()?);
         let view = surface_frame

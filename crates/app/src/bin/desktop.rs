@@ -11,6 +11,11 @@ fn main() -> std::process::ExitCode {
                 path: args[1].clone().into(),
                 document_type: fold_compositor::COMPOSITE.into(),
             });
+        } else if args[0] == "--motion" && args.len() == 2 {
+            session.command(DesktopCommand::OpenInWorkspace {
+                path: args[1].clone().into(),
+                document_type: fold_motion::MOTION.into(),
+            });
         } else if args[0] == "--layers" {
             session.command(DesktopCommand::Import(
                 args[1..].iter().map(Into::into).collect(),
@@ -39,6 +44,7 @@ fn main() -> std::process::ExitCode {
     let mut panels = fold_ui::sdk::PanelRegistry::new(&fold_app::packages::builtins());
     if let Err(error) = fold_timeline::ui::register(&mut panels)
         .and_then(|()| fold_compositor::ui::register(&mut panels))
+        .and_then(|()| fold_motion::ui::register(&mut panels))
     {
         eprintln!("Fold panel registration failed: {error}");
         return std::process::ExitCode::FAILURE;

@@ -10,6 +10,8 @@ pub fn builtins() -> Arc<PackageRegistry> {
                 .expect("valid built-in package registration");
             fold_compositor::package::register(&mut registry)
                 .expect("valid compositor package registration");
+            fold_motion::package::register(&mut registry)
+                .expect("valid motion package registration");
             use fold_platform::packages::*;
             registry
                 .register(Contributions {
@@ -24,12 +26,20 @@ pub fn builtins() -> Arc<PackageRegistry> {
                     documents: vec![],
                     video: vec![],
                     audio: vec![],
-                    commands: vec![CommandRegistration {
-                        id: crate::composition::CREATE,
-                        title: "Create Composition (keep audio)",
-                        execution: Execution::Immediate,
-                        handler: crate::composition::create,
-                    }],
+                    commands: vec![
+                        CommandRegistration {
+                            id: crate::composition::CREATE,
+                            title: "Create Composition (keep audio)",
+                            execution: Execution::Immediate,
+                            handler: crate::composition::create,
+                        },
+                        CommandRegistration {
+                            id: crate::document_placement::INSERT,
+                            title: "Insert document into sequence",
+                            execution: Execution::Immediate,
+                            handler: crate::document_placement::insert,
+                        },
+                    ],
                 })
                 .expect("valid application commands");
             Arc::new(registry)

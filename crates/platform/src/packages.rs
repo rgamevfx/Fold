@@ -282,6 +282,15 @@ impl PackageRegistry {
         done.insert(source.document);
         Ok(())
     }
+    /// A video-only document uses a silent clock; a failing audio provider must
+    /// still report its error rather than silently falling back to that clock.
+    pub fn supports_audio(&self, snapshot: &Snapshot, id: DocumentId) -> bool {
+        snapshot.state().documents.get(&id).is_some_and(|document| {
+            self.audio
+                .iter()
+                .any(|p| p.package_id() == document.package_id && p.type_id() == document.type_id)
+        })
+    }
     pub fn audio(&self, snapshot: &Snapshot, id: DocumentId) -> Result<AudioPlan, String> {
         let document = snapshot
             .state()

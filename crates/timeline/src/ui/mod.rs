@@ -115,19 +115,6 @@ impl Panel for TimelinePanel {
             self.document = Some(*document);
         }
         let keyboard = ui.is_window_focused() && !ui.io().want_text_input();
-        if ui.button(if state.playing { "Pause" } else { "Play" })
-            || (keyboard && ui.is_key_pressed(Key::Space))
-        {
-            if state.playing {
-                host.command(DesktopCommand::Pause);
-            } else {
-                // Transport belongs to this workspace even if a source-view
-                // tab-focus transition has not reached the shell yet.
-                host.command(DesktopCommand::ActivateWorkspace(crate::SEQUENCE.into()));
-                host.command(DesktopCommand::Play);
-            }
-        }
-        ui.same_line();
         if (ui.button("Split")
             || (keyboard
                 && (ui.is_key_pressed(Key::S)
@@ -201,36 +188,6 @@ impl Panel for TimelinePanel {
         if ui.button("+") {
             self.canvas.view.zoom(1.3, 0.0, 0.0);
         }
-        if keyboard {
-            if ui.is_key_pressed(Key::LeftArrow) {
-                host.command(DesktopCommand::Seek(state.frame.saturating_sub(1)));
-            }
-            if ui.is_key_pressed(Key::RightArrow) {
-                host.command(DesktopCommand::Seek(state.frame.saturating_add(1)));
-            }
-            if ui.is_key_pressed(Key::Home) {
-                host.command(DesktopCommand::Seek(0));
-            }
-            if ui.is_key_pressed(Key::End) {
-                host.command(DesktopCommand::Seek(state.frames - 1));
-            }
-        }
-        ui.text(format!(
-            "Frame {}  |  {}/{} fps  |  {}  |  underruns {}",
-            state.frame,
-            sequence.rate[0],
-            sequence.rate[1],
-            if state.priming {
-                "Priming"
-            } else if state.playing && state.audio_clock {
-                "Audio clock"
-            } else if state.playing {
-                "Monotonic clock"
-            } else {
-                "Paused"
-            },
-            state.underruns
-        ));
         if !self.canvas.message.is_empty() {
             ui.text(&self.canvas.message);
         } else {

@@ -67,7 +67,7 @@ fn native_device_clock_seek_and_drift() {
         .commit(timeline_workflow::import(&project.snapshot(), &paths, &Cancel::default()).unwrap())
         .unwrap();
     let snapshot = project.snapshot();
-    let (_, info) = media_workflow::output(&snapshot).unwrap();
+    let (source, info) = media_workflow::output(&snapshot).unwrap();
     let mut playback = Playback::default();
     let content = media_workflow::content(&snapshot).unwrap();
     let mut decoder = Decoder::default();
@@ -79,7 +79,7 @@ fn native_device_clock_seek_and_drift() {
         view: 1,
     };
     media_workflow::evaluate(&snapshot, &key, &mut decoder, &Cancel::default()).unwrap();
-    playback.play(snapshot.clone(), 0);
+    playback.play(snapshot.clone(), source.document, 0, info.frames);
     let deadline = Instant::now() + Duration::from_secs(u64::from(seconds) + 120);
     let mut anchor = None;
     let mut last_sample = 0;
@@ -134,8 +134,13 @@ fn native_device_clock_seek_and_drift() {
         "accumulating device-clock drift exceeds one output frame"
     );
     // A seek replaces a live stream, with a fresh primed ring and clock origin.
-    playback.play(snapshot.clone(), 0);
-    playback.play(snapshot.clone(), info.frames - 30);
+    playback.play(snapshot.clone(), source.document, 0, info.frames);
+    playback.play(
+        snapshot.clone(),
+        source.document,
+        info.frames - 30,
+        info.frames,
+    );
     let deadline = Instant::now() + Duration::from_secs(15);
     loop {
         assert!(Instant::now() < deadline);

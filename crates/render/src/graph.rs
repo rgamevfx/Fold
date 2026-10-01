@@ -63,6 +63,8 @@ pub enum ImageOp {
     /// Validated opaque SDR source. Decoded storage is caller-owned; its RGB8
     /// byte count across all source nodes is separately capped at 64 MiB.
     Media(fold_media::RgbImage),
+    /// Immutable native paths in output-pixel coordinates, ordered back to front.
+    Vector(std::sync::Arc<Vec<crate::vector::Drawing>>),
     Video {
         source: fold_media::VideoSource,
         time: fold_foundation::Time,
@@ -109,7 +111,9 @@ pub enum ImageOp {
 impl ImageOp {
     fn inputs(&self) -> impl Iterator<Item = ImageId> {
         let inputs = match *self {
-            Self::Solid { .. } | Self::Media(_) | Self::Video { .. } => [None, None],
+            Self::Solid { .. } | Self::Media(_) | Self::Video { .. } | Self::Vector(_) => {
+                [None, None]
+            }
             Self::Transform { input, .. }
             | Self::Opacity { input, .. }
             | Self::Crop { input, .. }
@@ -258,6 +262,7 @@ pub(crate) fn evaluate(
             ImageOp::Video { ref source, time } => {
                 source.info.frame_at(time)?;
             }
+            ImageOp::Vector(ref drawings) => crate::vector::validate(drawings)?,
             ImageOp::Over { .. } | ImageOp::Media(_) => {}
         }
     }
@@ -294,6 +299,15 @@ pub(crate) fn evaluate(
             .map_err(|_| "frame allocation failed")?;
         let input = |id: ImageId| frames[id].as_ref().expect("validated live input");
         match *op {
+            ImageOp::Vector(ref drawings) => {
+                // Raster surface + resulting float pixels coexist; do not reserve
+                // another float frame before entering the vector adapter.
+                if live_bytes + bytes + count * 4 > budget {
+                    return Err("vector scratch exceeds working memory budget".into());
+                }
+                drop(pixels);
+                pixels = crate::vector::rasterize(drawings, graph.width, graph.height, cancel)?;
+            }
             ImageOp::Media(ref source) => pixels.extend(source.linear_pixels()),
             ImageOp::Video { ref source, time } => {
                 let frame = decoder.decode(source, time, [graph.width, graph.height], cancel)?;
