@@ -47,16 +47,44 @@ Implemented on Linux with Rust 1.95.0:
 - Touched Rust files formatted with rustfmt. No existing locked dependency
   versions were upgraded; lockfile growth is the native UI backend graph.
 
-Phase 3 remains unchecked until native interaction acceptance is observed.
-The desktop inspection tool could not run: `orca-ide: command not found`.
-Manual verification still required:
+Initial native inspection retry:
 
-1. Run `cargo run -p fold-app --bin fold-desktop --features desktop --locked`.
-2. Confirm exactly one window, with viewer upper-left, inspector upper-right,
-   and timeline below; all content must clearly indicate placeholder status.
-3. Drag panel tabs to rearrange/undock inside the native window. Use **Reset
-   layout** to restore the initial arrangement; verify keyboard focus/navigation.
-4. Resize, minimize/restore, and close normally; confirm no backend errors.
+- The locked desktop build passed again; the launched `fold-desktop` process
+  remained running with no stderr diagnostics.
+- `orca-ide` is now available and its runtime was started successfully. However,
+  `computer capabilities` reports no screenshot, window-focus, or move/resize
+  support on this Linux session. `get-app-state` for the running desktop PID
+  returned `app_not_found`; `list-apps` did not expose Fold. Native input and
+  visual acceptance therefore remain blocked by the inspection provider, not
+  established by the successful startup. The test process was terminated after
+  inspection; this does not verify graceful window close.
+
+A subsequent retry with the machine-specific desktop tools established partial
+native acceptance:
+
+- Screenshots confirmed one visible Fold window with viewer upper-left,
+  inspector upper-right, and timeline below, all explicitly placeholder-only.
+- Pointer input visibly focused Inspector; Ctrl+Tab moved focus to Timeline.
+- Maximizing and restoring the window resized/reflowed the panels correctly.
+- No application diagnostics were emitted during these checks.
+- Input automation remained intermittent: several calls timed out after 15
+  seconds. Screenshots were inspected after each timeout before further input.
+  A press/move/release sequence focused Inspector but did not rearrange it, so
+  automated docking/reset acceptance was not established. Minimize attempts did
+  not change the visible window.
+- The user subsequently confirmed that dragging and moving panels works manually.
+  The failed automated drag is not evidence of an application defect: separate
+  input sessions were used for press, movement, and release, without verifying
+  that the held button persisted.
+
+## Completion and deferred verification
+
+Phase 3 is marked complete at the user's explicit request following the native
+checks and manual docking confirmation above. This is user acceptance with
+recorded verification exceptions, not a claim that every native check passed.
+Native reset-layout interaction, minimize/restore, and normal close remain
+unverified and should be exercised at the media slice checkpoint. Reset-layout
+frame construction is covered by the focused test described above.
 
 Persistent layouts, IME and accessibility qualification, physical 100/150/200%
 DPI checks, engine GPU ownership/texture display, and property edit transactions
