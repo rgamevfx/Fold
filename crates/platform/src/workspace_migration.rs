@@ -5,7 +5,11 @@ use std::collections::BTreeMap;
 
 pub(super) fn upgrade(mut value: Value) -> Result<Value, String> {
     match value.get("version").and_then(Value::as_u64) {
-        Some(2) => return Ok(value),
+        Some(3) => return Ok(value),
+        Some(2) => {
+            value["version"] = json!(3);
+            return Ok(value); // Missing playback overrides follow provider defaults.
+        }
         Some(1) => {}
         _ => return Err("incompatible workspace version".into()),
     }
@@ -73,6 +77,6 @@ pub(super) fn upgrade(mut value: Value) -> Result<Value, String> {
     value["viewers"] = Value::Object(viewers);
     value["group_sources"] = Value::Object(groups);
     value["inspector_group"] = json!(inspector_group);
-    value["version"] = json!(2);
+    value["version"] = json!(3);
     Ok(value)
 }

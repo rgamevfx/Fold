@@ -73,6 +73,9 @@ impl DocumentProvider for Documents {
 #[derive(Default)]
 pub struct Provider(Arc<prepared::Cache>);
 impl VideoProvider for Provider {
+    fn playback_mode(&self) -> fold_platform::desktop::PlaybackMode {
+        fold_platform::desktop::PlaybackMode::EveryFrame
+    }
     fn package_id(&self) -> &'static str {
         crate::PACKAGE
     }

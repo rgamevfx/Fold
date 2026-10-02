@@ -1,5 +1,9 @@
 # Phase 11 — reference evidence and cross-cutting contracts
 
+## Subsequent playback refinement
+
+The agreed [phase-15A plan](phase-15A.md) and playback decisions in [the active tracker](../dev-plan.md) supersede universal clock-driven viewer playback and ordinary pending-state image replacement: viewers will support Real-time and Every-frame policies with uninterrupted held-image presentation. Monitored audio/monotonic clock rules apply to Real-time; Every-frame advances with presentation and mutes audio. Historical baseline observations, contracts, and acceptance evidence below remain unchanged; they do not certify the new behavior. Phase 19 owns bounded cached-range preview.
+
 ## Goal, boundaries, tasks and acceptance
 
 Establish reference evidence and explicit contracts **before** changing schemas,

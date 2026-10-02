@@ -293,6 +293,20 @@ impl Session {
     }
 }
 impl DesktopClient for Session {
+    fn viewer_request(
+        &self,
+        viewer: fold_platform::workspace::PanelInstanceId,
+    ) -> Option<(u64, fold_foundation::Time)> {
+        self.viewer_request_state(viewer)
+    }
+    fn present_viewer(
+        &mut self,
+        viewer: fold_platform::workspace::PanelInstanceId,
+        generation: u64,
+        key: &PreviewKey,
+    ) -> bool {
+        self.present_viewer_frame(viewer, generation, key)
+    }
     fn viewer_audio_error(
         &self,
         viewer: fold_platform::workspace::PanelInstanceId,

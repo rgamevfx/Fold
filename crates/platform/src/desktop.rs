@@ -124,9 +124,17 @@ impl DesktopState {
         })
     }
 }
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum PlaybackMode {
+    #[default]
+    RealTime,
+    EveryFrame,
+}
+
 /// Workspace transport intent/status, never authoritative project content.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ViewerTransport {
+    pub mode: PlaybackMode,
     pub output: fold_project::DocumentRef,
     pub time: fold_foundation::Time,
     pub range: PlaybackRange,
@@ -187,6 +195,22 @@ pub trait DesktopClient {
         _viewer: crate::workspace::PanelInstanceId,
     ) -> Option<ViewerTransport> {
         None
+    }
+    /// Generation and next requested time; distinct from the presented playhead.
+    fn viewer_request(
+        &self,
+        _viewer: crate::workspace::PanelInstanceId,
+    ) -> Option<(u64, fold_foundation::Time)> {
+        None
+    }
+    /// Admit a ready image for this generation. False means retain the old image.
+    fn present_viewer(
+        &mut self,
+        _viewer: crate::workspace::PanelInstanceId,
+        _generation: u64,
+        _key: &PreviewKey,
+    ) -> bool {
+        true
     }
     /// Monitoring errors are scoped to the explicitly monitored viewer.
     fn viewer_audio_error(&self, _viewer: crate::workspace::PanelInstanceId) -> Option<String> {
@@ -249,6 +273,7 @@ pub trait DesktopClient {
             },
             label: "Video".into(),
             info: self.video_info(document),
+            playback_mode: PlaybackMode::RealTime,
         }]
     }
     /// Set only after a successful open/save; Save As gets a distinct association.

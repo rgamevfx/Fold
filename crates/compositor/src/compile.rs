@@ -6,6 +6,9 @@ use std::collections::BTreeMap;
 
 pub struct Provider;
 impl VideoProvider for Provider {
+    fn playback_mode(&self) -> fold_platform::desktop::PlaybackMode {
+        fold_platform::desktop::PlaybackMode::EveryFrame
+    }
     fn package_id(&self) -> &'static str {
         crate::PACKAGE
     }

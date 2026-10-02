@@ -357,7 +357,14 @@ impl Desktop {
             &self.queue,
             &mut self.renderer,
         )?;
+        self.preview.present_viewers(self.client.as_mut());
         for (id, _) in demands {
+            self.shell.presentation(
+                id,
+                self.preview.presented_key(id).cloned(),
+                self.preview.viewer_error(id).map(str::to_owned),
+                self.client.as_ref(),
+            );
             let preview = self.preview.state_for_viewer(id);
             self.shell.viewer_instance(
                 ui,
@@ -445,7 +452,7 @@ impl Desktop {
                 probe.finish(true)?;
                 self.probe_done = true;
             } else {
-                self.shell.probe_time(self.client.as_ref());
+                self.shell.probe_time(self.client.as_mut());
             }
         }
         Ok(())

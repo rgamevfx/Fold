@@ -8,6 +8,88 @@ use std::{
 };
 
 #[test]
+fn playback_menu_selects_both_modes_and_source_default_at_narrow_widths() {
+    use dear_imgui_rs::{Condition, MouseButton};
+    use fold_platform::desktop::PlaybackMode;
+    let _guard = crate::IMGUI_TEST_LOCK.lock().unwrap();
+    for width in [440., 170.] {
+        for (row, expected) in [
+            (2, Some(PlaybackMode::EveryFrame)),
+            (1, Some(PlaybackMode::RealTime)),
+            (0, None),
+        ] {
+            let mut context = Context::create();
+            context.set_ini_filename(None::<String>).unwrap();
+            context
+                .font_atlas()
+                .try_claim_legacy_renderer()
+                .unwrap()
+                .build();
+            context.io_mut().set_display_size([500., 320.]);
+            context.io_mut().set_delta_time(1. / 60.);
+            let docs = [DocumentId::new(), DocumentId::new()];
+            let mut host = Host {
+                documents: docs,
+                state: Default::default(),
+                delivery: docs[0],
+                commands: vec![],
+            };
+            let mut shell = Shell::new(vec![]);
+            let id = *shell.workspace.viewers.keys().next().unwrap();
+            let viewer = shell.workspace.viewers.get_mut(&id).unwrap();
+            viewer.binding = ViewerBinding::Pinned(workspace::DocumentRef {
+                document: docs[0],
+                output: "video".into(),
+                extensions: Default::default(),
+            });
+            viewer.playback_mode = Some(PlaybackMode::RealTime);
+            {
+                let mut frame = |context: &mut Context| {
+                    let mut point = [0.; 2];
+                    let ui = context.frame();
+                    ui.window("Playback menu test")
+                        .position([0.; 2], Condition::Always)
+                        .size([width, 280.], Condition::Always)
+                        .build(|| {
+                            ui.open_popup("Mode choices");
+                            if let Some(_popup) = ui.begin_popup("Mode choices") {
+                                shell.playback_mode_items(ui, id, &mut host);
+                                let min = ui.item_rect_min();
+                                let size = ui.item_rect_size();
+                                point = [
+                                    min[0] + size[0] / 2.,
+                                    min[1] + size[1] / 2.
+                                        - (2 - row) as f32 * ui.text_line_height_with_spacing(),
+                                ];
+                            }
+                        });
+                    context.end_frame();
+                    point
+                };
+                for _ in 0..4 {
+                    frame(&mut context);
+                }
+                let point = frame(&mut context);
+                context.io_mut().add_mouse_pos_event(point);
+                frame(&mut context);
+                context
+                    .io_mut()
+                    .add_mouse_button_event(MouseButton::Left, true);
+                frame(&mut context);
+                context
+                    .io_mut()
+                    .add_mouse_button_event(MouseButton::Left, false);
+                frame(&mut context);
+            }
+            assert_eq!(shell.workspace.viewers[&id].playback_mode, expected);
+            assert!(
+                matches!(host.commands.last(), Some(DesktopCommand::ViewerTransport { viewer, .. }) if *viewer == id)
+            );
+        }
+    }
+}
+
+#[test]
 fn image_fit() {
     assert_eq!(fitted_size([640, 360], [800., 600.]), [800., 450.]);
     assert_eq!(fitted_size([640, 360], [-1., 90.]), [0., 0.]);
@@ -91,6 +173,50 @@ impl DesktopClient for Host {
     fn take_preview(&mut self) -> Option<PreviewResult> {
         None
     }
+}
+
+#[test]
+fn restored_viewers_initialize_host_transports_and_keep_explicit_mode_on_retarget() {
+    use fold_platform::desktop::PlaybackMode;
+    let docs = [DocumentId::new(), DocumentId::new()];
+    let mut host = Host {
+        documents: docs,
+        state: Default::default(),
+        delivery: docs[0],
+        commands: vec![],
+    };
+    let mut shell = Shell::new(vec![]);
+    shell.workspace.viewers.clear();
+    let output = workspace::DocumentRef {
+        document: docs[0],
+        output: "video".into(),
+        extensions: Default::default(),
+    };
+    let id = shell.workspace.add_viewer(ViewerInstance {
+        binding: ViewerBinding::Pinned(output.clone()),
+        last_output: Some(output),
+        playback_mode: Some(PlaybackMode::EveryFrame),
+        time: Time::new(7, 48).unwrap(),
+        ..Default::default()
+    });
+    shell.refresh_viewer_targets(&mut host);
+    let Some(DesktopCommand::ViewerTransport { viewer, transport }) = host.commands.last() else {
+        panic!("restored output needs a host transport before any frame can be admitted");
+    };
+    assert_eq!(*viewer, id);
+    assert_eq!(transport.mode, PlaybackMode::EveryFrame);
+    assert_eq!(transport.time, Time::new(7, 48).unwrap());
+    assert!(!transport.playing);
+    shell.workspace.viewers.get_mut(&id).unwrap().binding =
+        ViewerBinding::Pinned(workspace::DocumentRef {
+            document: docs[1],
+            output: "video".into(),
+            extensions: Default::default(),
+        });
+    shell.refresh_viewer_targets(&mut host);
+    assert_eq!(shell.playback_mode(id, &host), PlaybackMode::EveryFrame);
+    shell.workspace.viewers.get_mut(&id).unwrap().playback_mode = None;
+    assert_eq!(shell.playback_mode(id, &host), PlaybackMode::RealTime);
 }
 
 #[test]

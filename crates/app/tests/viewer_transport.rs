@@ -66,6 +66,77 @@ fn fixture() -> (Session, [DocumentId; 3]) {
     (Session::new(project), ids)
 }
 #[test]
+fn playback_defaults_and_presentation_generations_preserve_exact_edit_context() {
+    use fold_platform::{
+        desktop::{PlaybackMode, ViewerTransport},
+        workspace::PanelInstanceId,
+    };
+    let (mut session, ids) = fixture();
+    assert_eq!(
+        session.outputs(ids[0])[0].playback_mode,
+        PlaybackMode::EveryFrame
+    );
+    assert_eq!(
+        session.outputs(ids[1])[0].playback_mode,
+        PlaybackMode::EveryFrame
+    );
+    assert_eq!(
+        session.outputs(ids[2])[0].playback_mode,
+        PlaybackMode::RealTime
+    );
+    let viewer = PanelInstanceId(10);
+    let mut transport = ViewerTransport {
+        mode: PlaybackMode::EveryFrame,
+        output: DocumentRef {
+            document: ids[0],
+            output: "video".into(),
+            extensions: Default::default(),
+        },
+        time: Time::ZERO,
+        range: Default::default(),
+        looping: true,
+        playing: true,
+    };
+    session.command(Command::ViewerTransport {
+        viewer,
+        transport: transport.clone(),
+    });
+    let (generation, time) = session.viewer_request(viewer).unwrap();
+    let state = session.preview_state(&transport.output, time);
+    let key = state.preview_key(state.frame, 4).unwrap();
+    assert!(session.present_viewer(viewer, generation, &key));
+    assert_eq!(
+        session.viewer_request(viewer).unwrap().1,
+        Time::new(1, 48).unwrap()
+    );
+    assert_eq!(session.viewer_transport(viewer).unwrap().time, Time::ZERO);
+    transport.playing = false;
+    transport.time = Time::new(7, 96).unwrap();
+    session.command(Command::ViewerTransport {
+        viewer,
+        transport: transport.clone(),
+    });
+    let (next_generation, time) = session.viewer_request(viewer).unwrap();
+    assert_ne!(generation, next_generation);
+    assert_eq!(time, transport.time);
+    assert!(!session.present_viewer(viewer, generation, &key));
+    let state = session.preview_state(&transport.output, time);
+    let exact = state.preview_key(state.frame, 4).unwrap();
+    assert!(session.present_viewer(viewer, next_generation, &exact));
+    assert_eq!(session.viewer_transport(viewer).unwrap().time, time);
+    transport.mode = PlaybackMode::RealTime;
+    session.command(Command::ViewerTransport {
+        viewer,
+        transport: transport.clone(),
+    });
+    assert_eq!(session.viewer_transport(viewer).unwrap().time, time);
+    assert!(!session.present_viewer(viewer, next_generation, &exact));
+    session.command(Command::CloseViewer(viewer));
+    assert!(session.viewer_request(viewer).is_none());
+    assert!(!session.present_viewer(viewer, generation, &key));
+}
+
+#[test]
 fn instance_play_seek_retarget_and_close_never_change_another_clock_or_project() {
     use fold_platform::{desktop::ViewerTransport, workspace::PanelInstanceId};
     use std::time::{Duration, Instant};
@@ -82,6 +153,7 @@ fn instance_play_seek_retarget_and_close_never_change_another_clock_or_project()
     let a = PanelInstanceId(10);
     let b = PanelInstanceId(11);
     let intent = |document, time, playing| ViewerTransport {
+        mode: Default::default(),
         output: DocumentRef {
             document,
             output: "video".into(),

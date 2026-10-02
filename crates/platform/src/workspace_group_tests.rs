@@ -144,7 +144,7 @@ fn legacy_follow_bindings_migrate_to_separate_groups_without_changing_time_or_pi
             .remove("group");
     }
     let restored = Workspace::decode(&serde_json::to_vec(&json).unwrap(), &w.project).unwrap();
-    assert_eq!(restored.version, 2);
+    assert_eq!(restored.version, 3);
     for viewer in [x, y] {
         assert_eq!(restored.resolve(viewer), w.resolve(viewer));
         assert_eq!(restored.viewers[&viewer].time, w.viewers[&viewer].time);

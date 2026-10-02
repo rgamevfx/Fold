@@ -35,6 +35,7 @@ impl VideoProvider for Provider {
                     extensions: Default::default(),
                 },
                 label: port.into(),
+                playback_mode: Default::default(),
                 info: Ok(VideoInfo {
                     width: 2,
                     height: 2,

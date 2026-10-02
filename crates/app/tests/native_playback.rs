@@ -168,6 +168,7 @@ fn native_device_clock_seek_and_drift() {
     let a = PanelInstanceId(1);
     let b = PanelInstanceId(2);
     let intent = |time| ViewerTransport {
+        mode: Default::default(),
         output: source.clone(),
         time,
         range: Default::default(),
@@ -209,6 +210,43 @@ fn native_device_clock_seek_and_drift() {
         }
         assert!(session.viewer_transport(a).unwrap().playing);
         assert!(session.viewer_transport(b).unwrap().playing);
+    }
+    // Switching the monitored transport to Every-frame retires the audio clock;
+    // readiness, not elapsed/device time, now controls this viewer alone.
+    let mut every = session.viewer_transport(b).unwrap();
+    every.mode = fold_platform::desktop::PlaybackMode::EveryFrame;
+    session.command(C::ViewerTransport {
+        viewer: b,
+        transport: every.clone(),
+    });
+    let (generation, requested) = session.viewer_request(b).unwrap();
+    let state = session.preview_state(&source, requested);
+    let image = state.preview_key(state.frame, 4).unwrap();
+    assert!(session.present_viewer(b, generation, &image));
+    let held_time = session.viewer_transport(b).unwrap().time;
+    let until = Instant::now() + Duration::from_millis(150);
+    while Instant::now() < until {
+        session.poll();
+        assert_eq!(session.viewer_transport(b).unwrap().time, held_time);
+        assert!(session.viewer_audio_error(b).is_none());
+        std::thread::sleep(Duration::from_millis(2));
+    }
+    every.time = held_time;
+    every.mode = fold_platform::desktop::PlaybackMode::RealTime;
+    session.command(C::ViewerTransport {
+        viewer: b,
+        transport: every,
+    });
+    assert!(!session.present_viewer(b, generation, &image));
+    let deadline = Instant::now() + Duration::from_secs(15);
+    while session.viewer_transport(b).unwrap().time == held_time {
+        assert!(
+            Instant::now() < deadline,
+            "Real-time audio did not resume after mode switch"
+        );
+        session.poll();
+        assert!(session.viewer_audio_error(b).is_none());
+        std::thread::sleep(Duration::from_millis(2));
     }
     let outgoing = session.viewer_transport(a).unwrap();
     let closed = Instant::now();

@@ -53,6 +53,7 @@ pub(crate) struct Shell {
     visible_panels: Vec<usize>,
     visible_editors: Vec<PanelInstanceId>,
     image_rects: BTreeMap<PanelInstanceId, crate::sdk::ViewerRect>,
+    presentation: BTreeMap<PanelInstanceId, (Option<PreviewKey>, Option<String>)>,
     last_host_navigation: u64,
     bootstrap: bool,
     focus: Option<PanelInstanceId>,
@@ -99,6 +100,7 @@ impl Shell {
             visible_panels: vec![],
             visible_editors: vec![],
             image_rects: Default::default(),
+            presentation: Default::default(),
             last_host_navigation: 0,
             bootstrap: true,
             focus: None,
@@ -407,15 +409,36 @@ impl Shell {
         }
     }
     #[cfg(feature = "native-probe")]
-    pub fn probe_time(&mut self, client: &dyn DesktopClient) {
+    pub fn probe_time(&mut self, client: &mut dyn DesktopClient) {
         if self.workspace.viewers.len() == 1
-            && let Some(viewer) = self.workspace.viewers.values_mut().next()
+            && let Some((&id, viewer)) = self.workspace.viewers.iter_mut().next()
         {
-            viewer.time = Time::new(
+            let time = Time::new(
                 i64::from(client.state().frame) * i64::from(client.state().rate[1]),
                 client.state().rate[0],
             )
             .unwrap_or(Time::ZERO);
+            if viewer.time != time {
+                viewer.time = time;
+                self.submit_viewer(id, client);
+            }
+        }
+    }
+    pub fn presentation(
+        &mut self,
+        id: PanelInstanceId,
+        key: Option<PreviewKey>,
+        error: Option<String>,
+        client: &dyn DesktopClient,
+    ) {
+        self.presentation
+            .retain(|id, _| self.workspace.viewers.contains_key(id));
+        self.presentation.insert(id, (key, error));
+        if let Some(transport) = client.viewer_transport(id)
+            && let Some(viewer) = self.workspace.viewers.get_mut(&id)
+        {
+            viewer.time = transport.time;
+            viewer.playing = transport.playing;
         }
     }
     pub fn keys(&self, client: &dyn DesktopClient) -> Vec<(PanelInstanceId, Option<PreviewKey>)> {
@@ -424,7 +447,10 @@ impl Shell {
             .iter()
             .map(|(&id, viewer)| {
                 let key = self.workspace.resolve(id).and_then(|output| {
-                    let state = client.preview_state(&output, viewer.time);
+                    let time = client
+                        .viewer_request(id)
+                        .map_or(viewer.time, |request| request.1);
+                    let state = client.preview_state(&output, time);
                     let mut key = state.preview_key(state.frame, viewer.divisor)?;
                     key.output = output.output;
                     Some(key)
@@ -936,6 +962,9 @@ impl Shell {
             let same_editor = source_editor.is_some() && source_editor == viewer.last_editor;
             viewer.last_editor = source_editor;
             if output == viewer.last_output {
+                if output.is_some() && client.viewer_transport(id).is_none() {
+                    self.submit_viewer(id, client);
+                }
                 continue;
             }
             viewer.playing = false;
@@ -966,12 +995,52 @@ impl Shell {
         }
         self.workspace.reconcile();
     }
+    fn playback_mode(
+        &self,
+        id: PanelInstanceId,
+        client: &dyn DesktopClient,
+    ) -> fold_platform::desktop::PlaybackMode {
+        self.workspace.viewers[&id]
+            .playback_mode
+            .unwrap_or_else(|| {
+                self.workspace
+                    .resolve(id)
+                    .and_then(|output| {
+                        client
+                            .outputs(output.document)
+                            .into_iter()
+                            .find(|descriptor| descriptor.reference.output == output.output)
+                            .map(|descriptor| descriptor.playback_mode)
+                    })
+                    .unwrap_or_default()
+            })
+    }
+    fn playback_mode_items(
+        &mut self,
+        ui: &Ui,
+        id: PanelInstanceId,
+        client: &mut dyn DesktopClient,
+    ) {
+        use fold_platform::desktop::PlaybackMode;
+        let selected = self.workspace.viewers[&id].playback_mode;
+        for (label, mode) in [
+            ("Use source default", None),
+            ("Real-time", Some(PlaybackMode::RealTime)),
+            ("Every-frame (muted)", Some(PlaybackMode::EveryFrame)),
+        ] {
+            if ui.menu_item_enabled_selected_no_shortcut(label, selected == mode, true) {
+                self.workspace.viewers.get_mut(&id).unwrap().playback_mode = mode;
+                self.submit_viewer(id, client);
+            }
+        }
+    }
     fn submit_viewer(&self, id: PanelInstanceId, client: &mut dyn DesktopClient) {
         if let Some(output) = self.workspace.resolve(id) {
             let viewer = &self.workspace.viewers[&id];
             client.command(DesktopCommand::ViewerTransport {
                 viewer: id,
                 transport: fold_platform::desktop::ViewerTransport {
+                    mode: self.playback_mode(id, client),
                     output,
                     time: viewer.time,
                     range: viewer.range,
@@ -999,18 +1068,10 @@ impl Shell {
             Err(error) => client.command(DesktopCommand::Notify(error)),
         }
     }
-    fn viewer_header(
-        &mut self,
-        ui: &Ui,
-        id: PanelInstanceId,
-        client: &mut dyn DesktopClient,
-        pending: bool,
-    ) -> bool {
-        let mut changed = false;
+    fn viewer_header(&mut self, ui: &Ui, id: PanelInstanceId, client: &mut dyn DesktopClient) {
         let group = self.workspace.viewers[&id].group;
         if let Some(group) = group_selector::draw(ui, group, false) {
             self.workspace.set_viewer_group(id, group);
-            changed = true;
             self.refresh_viewer_targets(client);
         }
         let viewer = &self.workspace.viewers[&id];
@@ -1030,29 +1091,48 @@ impl Shell {
             _ => "Quarter",
         };
         let pinned = matches!(viewer.binding, ViewerBinding::Pinned(_));
-        if self.workspace.monitored_viewer == Some(id) {
+        let mode = client.viewer_transport(id).map_or_else(
+            || self.playback_mode(id, client),
+            |transport| transport.mode,
+        );
+        ui.same_line();
+        ui.text_disabled(match mode {
+            fold_platform::desktop::PlaybackMode::RealTime => "Real-time",
+            fold_platform::desktop::PlaybackMode::EveryFrame => "Every-frame",
+        });
+        if self.workspace.monitored_viewer == Some(id)
+            && mode == fold_platform::desktop::PlaybackMode::RealTime
+        {
             ui.same_line();
             ui.text_disabled("Audio");
             crate::sdk::toolbar::tooltip(ui, "Audio monitor — change in the viewer context menu");
         }
-        if (pending || changed) && output.is_some() {
-            ui.same_line();
-            ui.text_disabled("...");
-            crate::sdk::toolbar::tooltip(ui, "Rendering current frame");
-        }
+        let image_time = self
+            .presentation
+            .get(&id)
+            .and_then(|(key, _)| key.as_ref())
+            .and_then(|key| key.target.map(|target| target.1))
+            .unwrap_or(viewer.time);
         ui.same_line();
         ui.text_disabled(format!(
-            "{}{} · {}/{}s · {source}",
+            "{}{} · Image {}/{}s · {source}",
             if pinned { "Pinned · " } else { "" },
             quality,
-            viewer.time.numerator(),
-            viewer.time.denominator()
+            image_time.numerator(),
+            image_time.denominator()
         ));
+        crate::sdk::toolbar::tooltip(
+            ui,
+            "Displayed image time; the transport below shows the requested playhead.",
+        );
         if let Some(output) = &output
             && output.output != "video"
         {
             ui.same_line();
             ui.text_disabled(&output.output);
+        }
+        if let Some((_, Some(error))) = self.presentation.get(&id) {
+            ui.text_wrapped(error);
         }
         if let Some(error) = client.viewer_audio_error(id) {
             ui.text_wrapped(error);
@@ -1065,7 +1145,6 @@ impl Shell {
                 ui.text_colored([0.95, 0.75, 0.35, 1.], "Uncommitted edit preview");
             }
         }
-        changed
     }
     #[cfg(test)]
     pub fn viewer(
@@ -1093,8 +1172,15 @@ impl Shell {
         };
         let mut close = false;
         ui.window(&key).build(|| {
-            let mut changed =
-                self.viewer_header(ui, id, client, matches!(preview, Preview::Pending));
+            self.viewer_header(ui, id, client);
+            if let Preview::Failed(error) = preview
+                && self
+                    .presentation
+                    .get(&id)
+                    .is_none_or(|(_, error)| error.is_none())
+            {
+                ui.text_wrapped(error);
+            }
             if ui.is_window_focused() {
                 self.workspace.inspector_viewer = Some(id);
                 if let Some(editor) = self.workspace.editor_for_viewer(id) {
@@ -1105,7 +1191,6 @@ impl Shell {
                 for (label, divisor) in [("Full", 1), ("Half", 2), ("Quarter", 4)] {
                     if ui.selectable(label) {
                         self.workspace.viewers.get_mut(&id).unwrap().divisor = divisor;
-                        changed = true;
                     }
                 }
                 if let Some(output) = self.workspace.resolve(id) {
@@ -1122,7 +1207,6 @@ impl Shell {
                                 self.workspace.viewers.get_mut(&id).unwrap().binding =
                                     ViewerBinding::Pinned(descriptor.reference);
                                 self.refresh_viewer_targets(client);
-                                changed = true;
                             }
                         }
                     }
@@ -1133,7 +1217,9 @@ impl Shell {
                     let group = self.workspace.viewers[&id].group;
                     self.workspace.set_viewer_group(id, group);
                     self.refresh_viewer_targets(client);
-                    changed = true;
+                }
+                if let Some(_menu) = ui.begin_menu("Playback mode") {
+                    self.playback_mode_items(ui, id, client);
                 }
                 let viewer = self.workspace.viewers.get_mut(&id).unwrap();
                 if ui.checkbox("Loop playback", &mut viewer.looping) {
@@ -1154,17 +1240,25 @@ impl Shell {
             let origin = ui.cursor_pos();
             let available = ui.content_region_avail();
             let image_height = (available[1] - crate::transport::Transport::height(ui)).max(0.);
-            let preview = if changed || self.workspace.resolve(id).is_none() {
+            let output = self.workspace.resolve(id);
+            let wrong_source = self
+                .presentation
+                .get(&id)
+                .and_then(|(key, _)| key.as_ref())
+                .is_some_and(|key| {
+                    output.as_ref().is_none_or(|output| {
+                        key.target.map(|t| t.0) != Some(output.document)
+                            || key.output != output.output
+                    })
+                });
+            let preview = if output.is_none() || wrong_source {
                 &Preview::Pending
             } else {
                 preview
             };
             match preview {
                 Preview::Pending => {}
-                Preview::Failed(error) => {
-                    ui.text("Preview unavailable");
-                    ui.text_wrapped(error);
-                }
+                Preview::Failed(_) => {}
                 Preview::Ready {
                     texture,
                     dimensions,
@@ -1261,6 +1355,21 @@ impl Shell {
             let Some(output) = self.workspace.resolve(id) else {
                 continue;
             };
+            if viewer.playing {
+                continue;
+            }
+            if let Some((presented, _)) = self.presentation.get(&id) {
+                let state = client.preview_state(&output, viewer.time);
+                let expected = state
+                    .preview_key(state.frame, viewer.divisor)
+                    .map(|mut key| {
+                        key.output = output.output.clone();
+                        key
+                    });
+                if presented.is_none() || *presented != expected {
+                    continue;
+                }
+            }
             let Some(binding) = self.workspace.editors.get(&editor_id) else {
                 continue;
             };

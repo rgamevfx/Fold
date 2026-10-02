@@ -1,5 +1,9 @@
 # Phase 15 — Independent viewer transport and request lifetimes
 
+## Subsequent playback refinement
+
+Phase 15 remains historically accepted. The newly agreed [phase 15A](phase-15A.md) extends it with Real-time/Every-frame playback and uninterrupted held-image presentation. It supersedes universal clock-driven playback and exact-current-key-only presentation as the sole policy, not generation-safe rejection of obsolete results. A deliberately held image is separate from the current requested frame; audio is muted in Every-frame mode. The implementation/evidence below describes phase 15, not acceptance of these new requirements. Phase 19 separately adds bounded cached-range preview.
+
 ## Goal and boundaries
 Each viewer owns playback, exact local time, review marks and looping. Source navigation, another viewer and pinned export must remain independent. Reuse the shared preview/cache path and one audio device worker; do not duplicate decoder budgets or move evaluation into panels. Follow phase-11 monitoring and source-switch policies and the Fold UI skill.
 

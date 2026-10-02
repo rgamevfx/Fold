@@ -9,6 +9,9 @@ impl DesktopClient for Client {
     fn state(&self) -> &DesktopState {
         &self.state
     }
+    fn viewer_request(&self, _: PanelInstanceId) -> Option<(u64, fold_foundation::Time)> {
+        Some((u64::from(self.state.frame), fold_foundation::Time::ZERO))
+    }
     fn poll(&mut self) {}
     fn command(&mut self, _: DesktopCommand) {}
     fn request_preview(&mut self, key: PreviewKey) {
@@ -21,6 +24,66 @@ impl DesktopClient for Client {
         None
     }
 }
+#[test]
+fn held_images_survive_waiting_but_retired_completions_and_other_sources_do_not() {
+    use fold_foundation::{DocumentId, Time};
+    let id = PanelInstanceId(1);
+    let doc = DocumentId::new();
+    let first = PreviewKey {
+        target: Some((doc, Time::ZERO)),
+        output: "video".into(),
+        content: "a".into(),
+        frame: 0,
+        dimensions: [16, 16],
+        view: 1,
+    };
+    let next = PreviewKey {
+        target: Some((doc, Time::new(1, 24).unwrap())),
+        frame: 1,
+        ..first.clone()
+    };
+    let mut host = PreviewHost::new();
+    let mut client = Client {
+        state: Default::default(),
+        requests: vec![],
+        cancellations: 0,
+    };
+    host.select_viewers(&[(id, Some(first.clone()))], &mut client);
+    host.held.insert(id, first.clone()); // Simulate an already presented GPU image.
+    host.select_viewers(&[(id, Some(next.clone()))], &mut client);
+    assert_eq!(host.presented_key(id), Some(&first));
+    host.completed_frame(&first);
+    assert_eq!(
+        host.completed.get(&id),
+        Some(&first),
+        "late completion is offered to the playback policy"
+    );
+    client.state.frame = 1; // Explicit seek/mode/edit generation, not clock progression.
+    host.select_viewers(&[(id, Some(next.clone()))], &mut client);
+    host.completed_frame(&first);
+    assert!(!host.completed.contains_key(&id));
+    assert_eq!(
+        host.presented_key(id),
+        Some(&first),
+        "seek holds the picture but cannot publish the retired request"
+    );
+    host.failures.push((next.clone(), "Decode failed".into()));
+    assert_eq!(host.viewer_error(id), Some("Decode failed"));
+    assert_eq!(host.presented_key(id), Some(&first));
+    let other = PreviewKey {
+        target: Some((DocumentId::new(), Time::ZERO)),
+        ..next
+    };
+    host.select_viewers(&[(id, Some(other))], &mut client);
+    assert!(
+        host.presented_key(id).is_none(),
+        "never show the previous source as the new one"
+    );
+    host.select_viewers(&[], &mut client);
+    assert!(host.held.is_empty());
+    assert!(host.completed.is_empty());
+}
+
 #[test]
 fn seeking_and_closing_consumers_do_not_cancel_other_demands_or_publish_obsolete_results() {
     use fold_platform::workspace::PanelInstanceId;

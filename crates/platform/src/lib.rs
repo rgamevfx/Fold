@@ -37,6 +37,9 @@ pub trait VideoProvider: Send + Sync {
     fn video_info(&self, _document: &Document) -> Result<fold_media::VideoInfo, String> {
         Err("video provider has no timed output metadata".into())
     }
+    fn playback_mode(&self) -> desktop::PlaybackMode {
+        desktop::PlaybackMode::RealTime
+    }
     /// Stable selectable video ports; providers with multiple ports override this.
     fn outputs(&self, document: &Document) -> Vec<workspace::OutputDescriptor> {
         vec![workspace::OutputDescriptor {
@@ -47,6 +50,7 @@ pub trait VideoProvider: Send + Sync {
             },
             label: "Video".into(),
             info: self.video_info(document),
+            playback_mode: self.playback_mode(),
         }]
     }
     /// Reference-local controls must be explicitly supported, never silently ignored.
@@ -90,6 +94,7 @@ impl VideoRegistry {
                     },
                     label: "Video".into(),
                     info: Err("Unavailable video provider".into()),
+                    playback_mode: desktop::PlaybackMode::RealTime,
                 }]
             })
     }

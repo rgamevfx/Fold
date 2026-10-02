@@ -1,8 +1,8 @@
 //! Instance clocks share one monitored audio device. No worker is created for
 //! an unmonitored viewer. Clock arithmetic is integer/rational, independent of UI cadence.
-#[cfg(feature = "desktop")]
 use fold_foundation::Rounding;
 use fold_foundation::Time;
+use fold_platform::desktop::{PlaybackMode, PreviewKey};
 use fold_platform::{desktop::ViewerTransport, workspace::PanelInstanceId};
 use std::{collections::BTreeMap, time::Instant};
 
@@ -13,11 +13,97 @@ pub(super) struct Clock {
     rate: [u32; 2],
     frames: u32,
     content: Option<String>,
+    generation: u64,
+    presented: Option<u32>,
+    /// Rational deadlines avoid rounding a fractional frame period on each tick.
+    pacing: Option<(Instant, u64)>,
 }
 impl Clock {
+    fn frame(&self) -> u32 {
+        self.transport
+            .time
+            .to_ticks(self.rate[0], self.rate[1], Rounding::Floor)
+            .unwrap_or(0)
+            .max(0) as u32
+    }
+    fn request_frame(&self) -> u32 {
+        let current = self.frame();
+        if self.transport.mode != PlaybackMode::EveryFrame
+            || !self.transport.playing
+            || self.presented.is_none()
+        {
+            return current;
+        }
+        let (start, end) = self.transport.range.bounds(self.frames);
+        if current >= end {
+            if self.transport.looping { start } else { end }
+        } else {
+            current + 1
+        }
+    }
+    fn interval_elapsed(&self, now: Instant) -> bool {
+        self.pacing.is_none_or(|(anchor, intervals)| {
+            now.duration_since(anchor).as_nanos() * u128::from(self.rate[0])
+                >= u128::from(intervals) * 1_000_000_000 * u128::from(self.rate[1])
+        })
+    }
+    fn present(&mut self, generation: u64, key: &PreviewKey, now: Instant) -> bool {
+        if generation != self.generation
+            || key.target.map(|target| target.0) != Some(self.transport.output.document)
+            || key.output != self.transport.output.output
+            || Some(&key.content) != self.content.as_ref()
+        {
+            return false;
+        }
+        if self.transport.mode == PlaybackMode::EveryFrame && self.transport.playing {
+            if key.frame != self.request_frame()
+                || !self.interval_elapsed(now)
+                || (!self.transport.looping
+                    && self.presented.is_some()
+                    && self.frame() == self.transport.range.bounds(self.frames).1)
+            {
+                return false;
+            }
+            self.transport.time =
+                Time::new(i64::from(key.frame) * i64::from(self.rate[1]), self.rate[0]).unwrap();
+        } else if key.frame != self.frame()
+            && (!self.transport.playing
+                || key.frame > self.frame()
+                || self.presented.is_some_and(|frame| key.frame < frame))
+        {
+            return false;
+        }
+        if !self.transport.playing && key.target.map(|target| target.1) != Some(self.transport.time)
+        {
+            return false;
+        }
+        if self.transport.mode == PlaybackMode::EveryFrame && self.transport.playing {
+            self.pacing = Some(match self.pacing {
+                Some((anchor, intervals))
+                    if now.duration_since(anchor).as_nanos() * u128::from(self.rate[0])
+                        < u128::from(intervals + 1) * 1_000_000_000 * u128::from(self.rate[1]) =>
+                {
+                    (anchor, intervals + 1)
+                }
+                _ => (now, 1), // Slow render: discard clock debt, never race to catch up.
+            });
+        }
+        self.presented = Some(key.frame);
+        true
+    }
     fn advance(&mut self, now: Instant, sample: Option<u64>) -> bool {
         if !self.transport.playing {
             return false;
+        }
+        if self.transport.mode == PlaybackMode::EveryFrame {
+            let ended = !self.transport.looping
+                && self.frame() == self.transport.range.bounds(self.frames).1
+                && self.presented.is_some()
+                && self.interval_elapsed(now);
+            if ended {
+                self.transport.playing = false;
+            }
+            return ended;
         }
         let frame = if let Some(sample) = sample {
             u128::from(sample) * u128::from(self.rate[0]) / (48_000 * u128::from(self.rate[1]))
@@ -35,6 +121,9 @@ impl Clock {
         } else {
             frame.min(u128::from(end))
         } as u32;
+        if frame < self.frame() {
+            self.presented = None;
+        }
         self.transport.time =
             Time::new(i64::from(frame) * i64::from(self.rate[1]), self.rate[0]).unwrap();
         if ended {
@@ -52,8 +141,33 @@ pub(super) struct Viewers {
     pub clocks: BTreeMap<PanelInstanceId, Clock>,
     pub monitor: Option<PanelInstanceId>,
     pub audio_error: Option<String>,
+    next_generation: u64,
 }
 impl super::Session {
+    pub(super) fn viewer_request_state(&self, id: PanelInstanceId) -> Option<(u64, Time)> {
+        let clock = self.viewers.clocks.get(&id)?;
+        let time = if clock.transport.mode == PlaybackMode::EveryFrame && clock.transport.playing {
+            Time::new(
+                i64::from(clock.request_frame()) * i64::from(clock.rate[1]),
+                clock.rate[0],
+            )
+            .ok()?
+        } else {
+            clock.transport.time
+        };
+        Some((clock.generation, time))
+    }
+    pub(super) fn present_viewer_frame(
+        &mut self,
+        id: PanelInstanceId,
+        generation: u64,
+        key: &PreviewKey,
+    ) -> bool {
+        self.viewers
+            .clocks
+            .get_mut(&id)
+            .is_some_and(|clock| clock.present(generation, key, Instant::now()))
+    }
     pub(super) fn configure_viewer(&mut self, id: PanelInstanceId, mut transport: ViewerTransport) {
         if self.viewers.clocks.len() >= 64 && !self.viewers.clocks.contains_key(&id) {
             self.state.status = "Viewer limit reached (64)".into();
@@ -92,6 +206,7 @@ impl super::Session {
                 Time::new(i64::from(start) * i64::from(state.rate[1]), state.rate[0]).unwrap();
         }
         let origin = transport.time;
+        self.viewers.next_generation += 1;
         self.viewers.clocks.insert(
             id,
             Clock {
@@ -101,6 +216,9 @@ impl super::Session {
                 rate: state.rate,
                 frames: state.frames,
                 content: state.content,
+                generation: self.viewers.next_generation,
+                presented: None,
+                pacing: None,
             },
         );
         if self.viewers.monitor == Some(id) {
@@ -138,6 +256,7 @@ impl super::Session {
                 .monitor
                 .and_then(|id| self.viewers.clocks.get(&id))
                 && clock.transport.playing
+                && clock.transport.mode == PlaybackMode::RealTime
                 && clock.transport.output.output == "video"
             {
                 let frame = clock
@@ -209,8 +328,9 @@ impl super::Session {
                 restart |= self.viewers.monitor == Some(id);
                 continue;
             }
-            let monitored =
-                self.viewers.monitor == Some(id) && clock.transport.output.output == "video";
+            let monitored = self.viewers.monitor == Some(id)
+                && clock.transport.output.output == "video"
+                && clock.transport.mode == PlaybackMode::RealTime;
             #[cfg(feature = "desktop")]
             if monitored && self.playback.priming() {
                 continue;
@@ -231,6 +351,7 @@ mod tests {
     fn clock(now: Instant, start: u32, looping: bool) -> Clock {
         Clock {
             transport: ViewerTransport {
+                mode: PlaybackMode::RealTime,
                 output: fold_project::DocumentRef {
                     document: fold_foundation::DocumentId::new(),
                     output: "video".into(),
@@ -246,7 +367,115 @@ mod tests {
             rate: [24, 1],
             frames: 48,
             content: None,
+            generation: 1,
+            presented: None,
+            pacing: None,
         }
+    }
+    fn key(c: &Clock, frame: u32) -> PreviewKey {
+        PreviewKey {
+            target: Some((
+                c.transport.output.document,
+                Time::new(i64::from(frame) * i64::from(c.rate[1]), c.rate[0]).unwrap(),
+            )),
+            output: "video".into(),
+            content: "test".into(),
+            frame,
+            dimensions: [16, 16],
+            view: 1,
+        }
+    }
+    fn every(now: Instant, looping: bool) -> Clock {
+        let mut c = clock(now, 0, looping);
+        c.transport.mode = PlaybackMode::EveryFrame;
+        c.content = Some("test".into());
+        c
+    }
+    #[cfg(feature = "desktop")]
+    #[test]
+    fn every_frame_monitor_never_starts_or_primes_the_audio_device() {
+        let mut session = crate::session::Session::default();
+        let id = PanelInstanceId(1);
+        session
+            .viewers
+            .clocks
+            .insert(id, every(Instant::now(), true));
+        session.monitor_viewer(Some(id));
+        assert!(!session.playback.playing());
+        assert!(!session.playback.priming());
+        assert!(session.playback.sample().is_none());
+        assert!(session.viewers.clocks[&id].transport.playing);
+        assert_eq!(session.viewers.clocks[&id].transport.time, Time::ZERO);
+    }
+    #[test]
+    fn slow_every_frame_advances_only_on_presentation_and_does_not_catch_up() {
+        let now = Instant::now();
+        let mut c = every(now, false);
+        let mut realtime = clock(now, 0, false);
+        for frame in 0..10 {
+            let ready = now + Duration::from_millis(u64::from(frame + 1) * 200);
+            let before = c.transport.time;
+            c.advance(ready, Some(48_000)); // Audio cannot advance this policy.
+            assert_eq!(c.transport.time, before);
+            assert_eq!(c.request_frame(), frame);
+            assert!(c.present(1, &key(&c, frame), ready));
+            assert_eq!(c.frame(), frame);
+            assert!(!c.present(1, &key(&c, frame + 1), ready));
+            realtime.advance(ready, None);
+        }
+        assert_eq!(realtime.frame(), 47);
+        assert_eq!(c.frame(), 9);
+    }
+    #[test]
+    fn fractional_deadlines_and_loops_remain_exact_with_fast_frames() {
+        let now = Instant::now();
+        let mut c = every(now, true);
+        c.rate = [30_000, 1001];
+        c.transport.range.start = Some(0);
+        c.transport.range.end = Some(2);
+        assert!(c.present(1, &key(&c, 0), now));
+        for n in 1..=18_000u64 {
+            let nanos = (u128::from(n) * 1001 * 1_000_000_000).div_ceil(30_000) as u64;
+            let due = now + Duration::from_nanos(nanos);
+            let next = c.request_frame();
+            assert_eq!(next, (n % 3) as u32);
+            assert!(!c.present(1, &key(&c, next), due - Duration::from_nanos(1)));
+            assert!(c.present(1, &key(&c, next), due));
+        }
+        assert_eq!(c.frame(), 0);
+    }
+    #[test]
+    fn every_frame_last_frame_dwells_then_stops_and_stale_results_are_rejected() {
+        let now = Instant::now();
+        let mut c = every(now, false);
+        c.transport.range.end = Some(1);
+        assert!(!c.present(0, &key(&c, 0), now));
+        let mut wrong = key(&c, 0);
+        wrong.content = "retired edit".into();
+        assert!(!c.present(1, &wrong, now));
+        assert!(c.present(1, &key(&c, 0), now));
+        assert!(!c.present(1, &key(&c, 2), now + Duration::from_secs(1)));
+        assert!(c.present(1, &key(&c, 1), now + Duration::from_secs(1)));
+        assert!(!c.advance(now + Duration::from_millis(1020), None));
+        assert!(c.advance(now + Duration::from_millis(1050), None));
+        assert!(!c.transport.playing);
+        assert_eq!(c.frame(), 1);
+        c.generation = 2;
+        assert!(!c.present(1, &key(&c, 1), now + Duration::from_secs(2)));
+    }
+    #[test]
+    fn realtime_accepts_late_frames_without_moving_playhead_or_regressing_picture() {
+        let now = Instant::now();
+        let mut c = clock(now, 0, false);
+        c.content = Some("test".into());
+        c.advance(now + Duration::from_millis(500), None);
+        assert!(c.present(1, &key(&c, 4), now));
+        assert_eq!(c.frame(), 12);
+        assert!(!c.present(1, &key(&c, 3), now));
+        assert!(!c.present(1, &key(&c, 13), now));
+        c.transport.playing = false;
+        assert!(!c.present(1, &key(&c, 5), now));
+        assert!(c.present(1, &key(&c, 12), now));
     }
     #[test]
     fn independent_clocks_pause_loop_and_device_mapping() {

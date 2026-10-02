@@ -63,6 +63,7 @@ pub struct OutputDescriptor {
     pub reference: DocumentRef,
     pub label: String,
     pub info: Result<fold_media::VideoInfo, String>,
+    pub playback_mode: crate::desktop::PlaybackMode,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -149,6 +150,9 @@ pub enum ViewerBinding {
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ViewerInstance {
+    /// None follows the output provider's default, including on source changes.
+    #[serde(default)]
+    pub playback_mode: Option<crate::desktop::PlaybackMode>,
     #[serde(default)]
     pub group: LinkGroup,
     pub binding: ViewerBinding,
@@ -172,6 +176,7 @@ pub struct ViewerInstance {
 impl Default for ViewerInstance {
     fn default() -> Self {
         Self {
+            playback_mode: None,
             group: LinkGroup::A,
             binding: ViewerBinding::Linked,
             last_output: None,
@@ -211,7 +216,7 @@ pub struct Workspace {
 impl Default for Workspace {
     fn default() -> Self {
         Self {
-            version: 2,
+            version: 3,
             project: String::new(),
             panels: Default::default(),
             editors: Default::default(),
@@ -420,7 +425,7 @@ impl Workspace {
         let json = serde_json::from_slice(bytes).map_err(|e| e.to_string())?;
         let mut value: Self =
             serde_json::from_value(migration::upgrade(json)?).map_err(|e| e.to_string())?;
-        if value.version != 2 || value.project != project {
+        if value.version != 3 || value.project != project {
             return Err("incompatible workspace or project association".into());
         }
         if value.panels.len() + value.editors.len() + value.viewers.len() > 64
@@ -479,6 +484,7 @@ mod tests {
         let mut w = Workspace::default();
         let a = w.add_viewer(ViewerInstance {
             playing: true,
+            playback_mode: Some(crate::desktop::PlaybackMode::EveryFrame),
             looping: true,
             range: crate::desktop::PlaybackRange {
                 start: Some(4),
@@ -491,6 +497,24 @@ mod tests {
         let restored = Workspace::decode(&serde_json::to_vec(&w).unwrap(), "").unwrap();
         assert!(!restored.viewers[&a].playing);
         assert!(restored.viewers[&a].looping);
+        assert_eq!(
+            restored.viewers[&a].playback_mode,
+            Some(crate::desktop::PlaybackMode::EveryFrame)
+        );
+        assert_eq!(restored.viewers[&b].playback_mode, None);
+        let mut legacy = serde_json::to_value(&w).unwrap();
+        legacy["version"] = serde_json::json!(2);
+        for viewer in legacy["viewers"].as_object_mut().unwrap().values_mut() {
+            viewer.as_object_mut().unwrap().remove("playback_mode");
+        }
+        let migrated = Workspace::decode(&serde_json::to_vec(&legacy).unwrap(), "").unwrap();
+        assert_eq!(migrated.version, 3);
+        assert!(
+            migrated
+                .viewers
+                .values()
+                .all(|v| v.playback_mode.is_none() && !v.playing)
+        );
         assert_eq!(restored.viewers[&a].range, w.viewers[&a].range);
         assert_eq!(restored.monitored_viewer, Some(a));
         w.viewers.remove(&a);

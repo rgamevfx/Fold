@@ -55,6 +55,9 @@ impl Solid {
 
 pub struct SolidProvider;
 impl VideoProvider for SolidProvider {
+    fn playback_mode(&self) -> fold_platform::desktop::PlaybackMode {
+        fold_platform::desktop::PlaybackMode::EveryFrame
+    }
     fn package_id(&self) -> &'static str {
         PACKAGE
     }

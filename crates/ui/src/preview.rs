@@ -2,14 +2,19 @@
 //! frame retention, no export reuse. Submitted textures are protected until done.
 use crate::{cache::Cache, shell::Preview};
 use dear_imgui_wgpu::{ExternalTextureId, WgpuRenderer, wgpu};
+use fold_platform::workspace::PanelInstanceId;
 use fold_platform::{
     DisplayFrame,
     desktop::{DesktopClient, PreviewKey},
 };
+use std::collections::BTreeMap;
 use std::sync::{
     Arc,
     atomic::{AtomicUsize, Ordering},
 };
+#[cfg(test)]
+#[path = "preview_gpu_tests.rs"]
+mod gpu_tests;
 #[cfg(test)]
 #[path = "preview_tests.rs"]
 mod tests;
@@ -33,6 +38,10 @@ pub(crate) struct PreviewHost {
     /// key intentionally reuses identical content, independent of request age.
     demands: std::collections::BTreeMap<fold_platform::workspace::PanelInstanceId, PreviewKey>,
     next_consumer: usize,
+    generations: BTreeMap<PanelInstanceId, u64>,
+    admitted: BTreeMap<PanelInstanceId, u64>,
+    completed: BTreeMap<PanelInstanceId, PreviewKey>,
+    held: BTreeMap<PanelInstanceId, PreviewKey>,
     failures: Vec<(PreviewKey, String)>,
     #[cfg(feature = "native-probe")]
     pub probe_upload: Option<(std::time::Instant, std::time::Instant, usize)>,
@@ -49,6 +58,10 @@ impl PreviewHost {
             consumers: vec![],
             demands: Default::default(),
             next_consumer: 0,
+            generations: BTreeMap::new(),
+            admitted: BTreeMap::new(),
+            completed: BTreeMap::new(),
+            held: BTreeMap::new(),
             failures: vec![],
             #[cfg(feature = "native-probe")]
             probe_upload: None,
@@ -56,10 +69,12 @@ impl PreviewHost {
     }
     #[cfg(feature = "native-probe")]
     pub fn probe_frame(&self) -> (Option<u32>, bool) {
-        (
-            self.displayed.as_ref().map(|key| key.frame),
-            matches!(self.state, Preview::Ready { .. }),
-        )
+        // The diagnostic's ready flag means the requested image is presented,
+        // not that the canvas is empty while a retained older image is visible.
+        let Some((&id, key)) = self.held.first_key_value() else {
+            return (None, false);
+        };
+        (Some(key.frame), self.demands.get(&id) == Some(key))
     }
     pub fn statistics(&self) -> String {
         format!(
@@ -78,20 +93,96 @@ impl PreviewHost {
         )],
         client: &mut dyn DesktopClient,
     ) {
+        let generations: BTreeMap<_, _> = demands
+            .iter()
+            .filter_map(|(id, key)| {
+                key.as_ref()
+                    .map(|_| (*id, client.viewer_request(*id).map_or(0, |r| r.0)))
+            })
+            .collect();
+        self.completed
+            .retain(|id, _| generations.get(id) == self.generations.get(id));
+        self.generations = generations;
+        self.held.retain(|id, held| {
+            demands.iter().any(|(wanted_id, key)| {
+                wanted_id == id
+                    && key.as_ref().is_some_and(|key| {
+                        key.target.map(|t| t.0) == held.target.map(|t| t.0)
+                            && key.output == held.output
+                    })
+            })
+        });
         self.demands = demands
             .iter()
             .filter_map(|(id, key)| key.clone().map(|key| (*id, key)))
             .collect();
+        let previous = self.wanted.clone();
+        let was_requested = self.requested;
         self.select_many(self.demands.values().cloned().collect(), client);
+        if self.wanted != previous || (!was_requested && self.requested) {
+            self.admitted = self
+                .demands
+                .iter()
+                .filter(|(_, key)| Some(*key) == self.wanted.as_ref())
+                .map(|(id, _)| (*id, self.generations[id]))
+                .collect();
+        }
     }
-    pub fn state_for_viewer(&self, id: fold_platform::workspace::PanelInstanceId) -> Preview {
-        self.state_for(self.demands.get(&id))
+    pub fn state_for_viewer(&self, id: PanelInstanceId) -> Preview {
+        if let Some(key) = self.held.get(&id) {
+            self.state_for(Some(key))
+        } else if let Some(error) = self.viewer_error(id) {
+            Preview::Failed(error.into())
+        } else {
+            Preview::Pending
+        }
+    }
+    fn completed_frame(&mut self, key: &PreviewKey) {
+        for (&id, generation) in &self.admitted {
+            if self.generations.get(&id) == Some(generation) {
+                self.completed.insert(id, key.clone());
+            }
+        }
+    }
+    pub fn presented_key(&self, id: PanelInstanceId) -> Option<&PreviewKey> {
+        self.held.get(&id)
+    }
+    pub fn viewer_error(&self, id: PanelInstanceId) -> Option<&str> {
+        let demand = self.demands.get(&id)?;
+        self.failures
+            .iter()
+            .find(|(key, _)| key == demand)
+            .map(|(_, error)| error.as_str())
+    }
+    /// Admission happens only with an uploaded/cache-resident image. The app owns
+    /// pacing and playhead advancement; the host owns retained texture lifetimes.
+    pub fn present_viewers(&mut self, client: &mut dyn DesktopClient) {
+        for (&id, demand) in &self.demands {
+            let candidate = if self.cache.peek(demand).is_some() {
+                Some(demand)
+            } else {
+                self.completed.get(&id).filter(|key| {
+                    self.cache.peek(key).is_some()
+                        && key.content == demand.content
+                        && key.dimensions == demand.dimensions
+                        && key.view == demand.view
+                        && key.output == demand.output
+                        && key.target.map(|t| t.0) == demand.target.map(|t| t.0)
+                })
+            };
+            if let Some(key) = candidate
+                && client.present_viewer(id, self.generations[&id], key)
+            {
+                self.held.insert(id, key.clone());
+                self.completed.remove(&id);
+            }
+        }
     }
     /// Bounded shared content scheduler: one in-flight render, latest demand per
     /// visible consumer, deduplicated by immutable content identity. Finish work
     /// already admitted rather than letting a continuously seeking consumer cancel
-    /// another's work. Presentation always resolves the consumer's exact current
-    /// key; obsolete results may populate the shared cache but cannot be displayed.
+    /// another's work. Generation-tagged completions may be admitted by the app's
+    /// playback policy; holding an image never authorizes a retired completion.
     pub fn select_many(&mut self, keys: Vec<PreviewKey>, client: &mut dyn DesktopClient) {
         let previous = std::mem::take(&mut self.consumers);
         for key in keys {
@@ -176,6 +267,14 @@ impl PreviewHost {
             self.displayed = None;
         }
     }
+    fn evict_unused(&mut self) -> Option<Texture> {
+        self.cache.evict(|key, texture| {
+            (self.consumers.is_empty() && Some(key) != self.displayed.as_ref()
+                || !self.consumers.is_empty() && !self.consumers.contains(key))
+                && !self.held.values().any(|held| held == key)
+                && texture.in_flight.load(Ordering::Acquire) == 0
+        })
+    }
     pub fn poll(
         &mut self,
         client: &mut dyn DesktopClient,
@@ -218,11 +317,7 @@ impl PreviewHost {
             return Ok(());
         }
         while self.cache.needs_room(bytes) {
-            let old = self.cache.evict(|key, texture| {
-                (self.consumers.is_empty() && Some(key) != self.displayed.as_ref()
-                    || !self.consumers.is_empty() && !self.consumers.contains(key))
-                    && texture.in_flight.load(Ordering::Acquire) == 0
-            });
+            let old = self.evict_unused();
             let Some(old) = old else {
                 return Ok(());
             }; // Retry after GPU completion, never wait on UI.
@@ -284,6 +379,7 @@ impl PreviewHost {
             },
             bytes,
         );
+        self.completed_frame(&key);
         self.displayed = Some(key);
         Ok(())
     }
@@ -291,6 +387,11 @@ impl PreviewHost {
     /// cache eviction while the GPU is reading them. No explicit texture destroy.
     pub fn submitted(&self, queue: &wgpu::Queue) {
         let mut keys = self.consumers.clone();
+        for key in self.held.values() {
+            if !keys.contains(key) {
+                keys.push(key.clone());
+            }
+        }
         if matches!(self.state, Preview::Ready { .. })
             && let Some(key) = &self.displayed
             && !keys.contains(key)
