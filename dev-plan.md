@@ -70,7 +70,7 @@ The following is a code/document inspection baseline, not a fresh test or perfor
 
 ## Baseline and contract slice
 
-- [ ] 11. Establish reference evidence and resolve cross-cutting contracts before schema or renderer changes.
+- [x] 11. Establish reference evidence and resolve cross-cutting contracts before schema or renderer changes.
   - Inventory supported media/effects, frame/color assumptions, source ownership, per-module budgets, panel targeting, output selection, and deferred acceptance. Map each required change to existing owners; preserve current tests as regression fixtures.
   - Capture a reproducible release-build baseline on the GTX 1070 machine: cold/warm decode, compile/evaluation, display conversion, upload/presentation, encode, process-tree memory, scratch usage, and cancellation latency. Separate headless from native evidence.
   - Select the bundled ACES/config/OCIO versions, default display/view, authored-color and legacy-project policy, and runtime packaging strategy. Prove OCIO CPU processing and GPU shader/LUT integration with the wgpu backend; do not assume generated shaders are directly compatible.
@@ -78,7 +78,8 @@ The following is a code/document inspection baseline, not a fresh test or perfor
   - Decide audio monitoring/clock ownership, editor-to-viewer association, source-switch time policy, and follow-editor closure behavior. Decide initial duplicate-import, bin-delete, referenced-item-delete, and relink policies before UI implementation.
   - Reconcile phase-9 acceptance discrepancies and list each unresolved item with an owning phase or an explicitly approved deferral. Archive status must not erase obligations.
   - Acceptance: an actionable phase document records selected dependencies/policies, runnable baseline fixtures/results, migration risks, and remaining decisions with owners. No later phase starts by silently inventing conflicting semantics.
-- [ ] Checkpoint: demonstrate an OCIO-transformed reference image through CPU and GPU paths on the reference machine, record packaging/interop feasibility, and approve the project/viewer contracts. This is integration evidence, not a claim that the production renderer is complete.
+  - Evidence: [phase-11 contracts and acceptance](docs/phase-11.md) and [native release baseline](docs/phase-11-native.md) record headless/native measurements, pinned OCIO 2.4.2 / ACES 1.3 Studio 2.2.0 CPU–Vulkan shader/LUT comparisons on the GTX 1070, approved policies and inherited phase-9 owners. Checkpoint: 127 tests passed serially, 1 native-audio test ignored; inherited parallel ImGui test conflict and 10 motion Clippy warnings are recorded, not hidden.
+- [x] Checkpoint: demonstrate an OCIO-transformed reference image through CPU and GPU paths on the reference machine, record packaging/interop feasibility, and approve the project/viewer contracts. This is integration evidence, not a claim that the production renderer is complete.
 
 ## Project organization and ingest slice
 

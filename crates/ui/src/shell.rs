@@ -98,6 +98,10 @@ impl Shell {
             .iter()
             .any(|&index| self.panels[index].panel.accepts_background_pan(position))
     }
+    #[cfg(feature = "native-probe")]
+    pub fn probe_full_quality(&mut self) {
+        self.divisor = 1;
+    }
     pub fn key(&self, client: &dyn DesktopClient) -> Option<PreviewKey> {
         client
             .state()

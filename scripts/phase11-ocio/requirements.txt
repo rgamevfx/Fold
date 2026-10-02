@@ -1,0 +1,2 @@
+opencolorio==2.4.2
+numpy==2.2.6

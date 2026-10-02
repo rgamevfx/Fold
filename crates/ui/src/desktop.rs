@@ -115,6 +115,11 @@ impl ApplicationHandler for App {
             WindowEvent::RedrawRequested => {
                 if let Err(error) = desktop.draw() {
                     self.stop(event_loop, error);
+                    return;
+                }
+                #[cfg(feature = "native-probe")]
+                if desktop.probe_done {
+                    event_loop.exit();
                 }
             }
             _ => {}
@@ -147,6 +152,10 @@ struct Desktop {
     window: Arc<Window>,
     preview: PreviewHost,
     client: Box<dyn DesktopClient>,
+    #[cfg(feature = "native-probe")]
+    probe: Option<crate::native_probe::Probe>,
+    #[cfg(feature = "native-probe")]
+    probe_done: bool,
 }
 
 impl Drop for Desktop {
@@ -161,6 +170,8 @@ impl Desktop {
         preview: Box<dyn DesktopClient>,
         mut panels: Vec<crate::sdk::RegisteredPanel>,
     ) -> Result<Self> {
+        #[cfg(feature = "native-probe")]
+        let probe = crate::native_probe::Probe::from_env()?;
         let window = Arc::new(
             event_loop.create_window(
                 Window::default_attributes()
@@ -195,6 +206,13 @@ impl Desktop {
             })
             .ok_or("GPU has no supported non-sRGB SDR surface")?;
         config.present_mode = wgpu::PresentMode::Fifo;
+        #[cfg(feature = "native-probe")]
+        if probe.is_some() {
+            eprintln!(
+                "Fold native probe surface: {config:?}; scale: {}",
+                window.scale_factor()
+            );
+        }
         surface.configure(&device, &config);
         let mut context = Context::create();
         // Workspace state must never leak into the current project directory.
@@ -211,6 +229,15 @@ impl Desktop {
         for registered in &mut panels {
             registered.panel.initialize(&context);
         }
+        let shell = Shell::new(panels);
+        #[cfg(feature = "native-probe")]
+        let shell = {
+            let mut shell = shell;
+            if probe.is_some() {
+                shell.probe_full_quality();
+            }
+            shell
+        };
         Ok(Self {
             context,
             platform,
@@ -220,11 +247,15 @@ impl Desktop {
             queue,
             config,
             window,
-            shell: Shell::new(panels),
+            shell,
             canvas_pan: crate::sdk::CanvasPan::default(),
             pointer: [-1.0; 2],
             preview: PreviewHost::new(),
             client: preview,
+            #[cfg(feature = "native-probe")]
+            probe,
+            #[cfg(feature = "native-probe")]
+            probe_done: false,
         })
     }
 
@@ -243,6 +274,8 @@ impl Desktop {
         if size.width == 0 || size.height == 0 {
             return Ok(());
         }
+        #[cfg(feature = "native-probe")]
+        let draw_start = std::time::Instant::now();
         let surface_frame = match self.surface.get_current_texture() {
             Ok(frame) => frame,
             Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
@@ -252,6 +285,8 @@ impl Desktop {
             Err(wgpu::SurfaceError::Timeout) => return Ok(()),
             Err(error) => return Err(error.into()),
         };
+        #[cfg(feature = "native-probe")]
+        let acquired = std::time::Instant::now();
         self.client.poll();
         self.platform
             .prepare_frame(&mut self.context, &self.window)?;
@@ -300,10 +335,56 @@ impl Desktop {
                 FramebufferExtent::from_texture(&surface_frame.texture),
             )?;
         }
+        #[cfg(feature = "native-probe")]
+        let submit_start = std::time::Instant::now();
         self.queue.submit([encoder.finish()]);
+        #[cfg(feature = "native-probe")]
+        let submitted = std::time::Instant::now();
         self.preview.submitted(&self.queue);
+        #[cfg(feature = "native-probe")]
+        let completion = self.probe.as_ref().map(|probe| {
+            let value = Arc::new(std::sync::atomic::AtomicU64::new(0));
+            let result = value.clone();
+            let start = probe.start;
+            self.queue.on_submitted_work_done(move || {
+                result.store(
+                    start.elapsed().as_nanos() as u64,
+                    std::sync::atomic::Ordering::Release,
+                );
+            });
+            value
+        });
+        #[cfg(feature = "native-probe")]
+        let present_start = std::time::Instant::now();
         self.window.pre_present_notify();
         surface_frame.present();
+        #[cfg(feature = "native-probe")]
+        if let Some(probe) = &mut self.probe {
+            let end = std::time::Instant::now();
+            let (frame, ready) = self.preview.probe_frame();
+            probe.push(crate::native_probe::Sample {
+                frame,
+                ready,
+                start_ms: probe.ms(draw_start),
+                acquire_ms: (acquired - draw_start).as_secs_f64() * 1000.,
+                draw_ms: (end - draw_start).as_secs_f64() * 1000.,
+                submit_ms: (submitted - submit_start).as_secs_f64() * 1000.,
+                submitted_ms: probe.ms(submitted),
+                present_ms: (end - present_start).as_secs_f64() * 1000.,
+                upload: self
+                    .preview
+                    .probe_upload
+                    .map(|(a, b, bytes)| (probe.ms(a), probe.ms(b), bytes)),
+                completion_ns: completion.unwrap(),
+            });
+            if probe.advance(self.client.as_mut(), frame, ready)? {
+                // One nonblocking poll may observe the last completion; missing
+                // callbacks remain null in the report, never fabricated as zero.
+                let _ = self.device.poll(wgpu::PollType::Poll);
+                probe.finish(true)?;
+                self.probe_done = true;
+            }
+        }
         Ok(())
     }
 }

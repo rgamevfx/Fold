@@ -784,6 +784,7 @@ dependencies = [
  "fold-foundation",
  "fold-platform",
  "pollster",
+ "serde_json",
  "winit",
 ]
 

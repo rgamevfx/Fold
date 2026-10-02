@@ -24,6 +24,8 @@ pub(crate) struct PreviewHost {
     cache: Cache<PreviewKey, Texture>,
     pending: Option<DisplayFrame>,
     requested: bool,
+    #[cfg(feature = "native-probe")]
+    pub probe_upload: Option<(std::time::Instant, std::time::Instant, usize)>,
 }
 impl PreviewHost {
     pub fn new() -> Self {
@@ -34,7 +36,16 @@ impl PreviewHost {
             cache: Cache::new(256 * 1024 * 1024),
             pending: None,
             requested: false,
+            #[cfg(feature = "native-probe")]
+            probe_upload: None,
         }
+    }
+    #[cfg(feature = "native-probe")]
+    pub fn probe_frame(&self) -> (Option<u32>, bool) {
+        (
+            self.displayed.as_ref().map(|key| key.frame),
+            matches!(self.state, Preview::Ready { .. }),
+        )
     }
     pub fn statistics(&self) -> String {
         format!(
@@ -88,6 +99,10 @@ impl PreviewHost {
         queue: &wgpu::Queue,
         renderer: &mut WgpuRenderer,
     ) -> Result<()> {
+        #[cfg(feature = "native-probe")]
+        {
+            self.probe_upload = None;
+        }
         let _ = device.poll(wgpu::PollType::Poll);
         if let Some(result) = client.take_preview()
             && self.wanted.as_ref() == Some(&result.key)
@@ -127,6 +142,8 @@ impl PreviewHost {
             height,
             depth_or_array_layers: 1,
         };
+        #[cfg(feature = "native-probe")]
+        let upload_start = std::time::Instant::now();
         let texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("Fold cached SDR sRGB bytes"),
             size,
@@ -156,6 +173,10 @@ impl PreviewHost {
         let registration = renderer.register_external_texture(
             &texture.create_view(&wgpu::TextureViewDescriptor::default()),
         )?;
+        #[cfg(feature = "native-probe")]
+        {
+            self.probe_upload = Some((upload_start, std::time::Instant::now(), bytes));
+        }
         self.state = Preview::Ready {
             texture: registration.texture_id(),
             dimensions: [width, height],
