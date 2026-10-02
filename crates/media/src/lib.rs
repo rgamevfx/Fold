@@ -2,7 +2,9 @@
 use std::sync::Arc;
 
 pub mod audio;
+pub mod ingest;
 mod process;
+pub mod thumbnail;
 mod video;
 mod wave;
 pub use process::Cancel;

@@ -87,7 +87,7 @@ impl Default for DesktopState {
             frames: 1,
             rate: [24, 1],
             foreground_opacity: 0.5,
-            status: "Import media in a registered editor panel to begin.".into(),
+            status: String::new(),
             busy: false,
         }
     }
@@ -121,6 +121,8 @@ impl DesktopState {
 }
 #[derive(Clone, Debug)]
 pub enum DesktopCommand {
+    Notify(String),
+    Browser(crate::browser::BrowserCommand),
     Import(Vec<PathBuf>),
     Extension(crate::packages::CommandRequest),
     PreviewExtension(crate::packages::CommandRequest),
@@ -173,6 +175,15 @@ pub trait DesktopClient {
         _document: fold_foundation::DocumentId,
     ) -> Result<fold_media::VideoInfo, String> {
         Err("document metadata unavailable".into())
+    }
+    fn take_imported_items(&mut self) -> Vec<fold_project::ItemId> {
+        vec![]
+    }
+    fn document_kinds(&self) -> Vec<crate::browser::DocumentKind> {
+        vec![]
+    }
+    fn supports_document(&self, _document: &fold_project::Document) -> bool {
+        false
     }
     fn poll(&mut self);
     fn command(&mut self, command: DesktopCommand);

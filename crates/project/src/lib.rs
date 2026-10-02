@@ -3,7 +3,9 @@
 
 mod coordinator;
 mod model;
+mod organization;
 mod persistence;
+pub use organization::{Bin, Item, ItemId, Organization, Parent};
 
 pub use coordinator::{EditBatch, EditSession, Mutation, Project, ProjectError};
 pub use model::{

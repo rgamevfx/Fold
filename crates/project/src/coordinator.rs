@@ -12,6 +12,9 @@ pub enum Mutation {
     RemoveDocument(DocumentId),
     PutAsset(Asset),
     RemoveAsset(AssetId),
+    PutBin(crate::Bin),
+    RemoveBin(fold_foundation::BinId),
+    PutItem(crate::Item),
     SetSettings(Metadata),
     SetEnvironment(Metadata),
 }
@@ -35,6 +38,9 @@ pub enum ProjectError {
     InvalidAsset(AssetId),
     Cycle,
     EmptyEdit,
+    InvalidOrganization,
+    NonemptyBin,
+    MissingBin,
     NoUndo,
     NoRedo,
 }
@@ -129,6 +135,10 @@ impl Project {
                         .documents
                         .remove(id)
                         .ok_or(ProjectError::MissingDocument(*id))?;
+                    state
+                        .organization
+                        .items
+                        .retain(|i| i.id != crate::ItemId::Document(*id));
                 }
                 Mutation::PutAsset(asset) => {
                     state.assets.insert(asset.id, Arc::new(asset.clone()));
@@ -138,11 +148,44 @@ impl Project {
                         .assets
                         .remove(id)
                         .ok_or(ProjectError::MissingAsset(*id))?;
+                    state
+                        .organization
+                        .items
+                        .retain(|i| i.id != crate::ItemId::Asset(*id));
+                }
+                Mutation::PutBin(bin) => {
+                    state.organization.bins.insert(bin.id, bin.clone());
+                }
+                Mutation::RemoveBin(id) => {
+                    let parent = crate::Parent::Bin(*id);
+                    if state.organization.bins.values().any(|b| b.parent == parent)
+                        || state.organization.items.iter().any(|i| i.parent == parent)
+                    {
+                        return Err(ProjectError::NonemptyBin);
+                    }
+                    state
+                        .organization
+                        .bins
+                        .remove(id)
+                        .ok_or(ProjectError::MissingBin)?;
+                }
+                Mutation::PutItem(item) => {
+                    if let Some(previous) = state
+                        .organization
+                        .items
+                        .iter_mut()
+                        .find(|i| i.id == item.id)
+                    {
+                        *previous = item.clone();
+                    } else {
+                        state.organization.items.push(item.clone());
+                    }
                 }
                 Mutation::SetSettings(settings) => state.settings = settings.clone(),
                 Mutation::SetEnvironment(environment) => state.environment = environment.clone(),
             }
         }
+        state.discover_items();
         validate(&state)?;
         Ok(Arc::new(state))
     }
@@ -222,6 +265,20 @@ fn has_reserved_key(metadata: &Metadata, reserved: &[&str]) -> bool {
 }
 
 pub(crate) fn validate(state: &ProjectState) -> Result<(), ProjectError> {
+    crate::organization::validate(state)?;
+    if has_reserved_key(
+        &state.extensions,
+        &[
+            "revision",
+            "documents",
+            "assets",
+            "organization",
+            "settings",
+            "environment",
+        ],
+    ) {
+        return Err(ProjectError::InvalidOrganization);
+    }
     for (id, asset) in &state.assets {
         if *id != asset.id
             || has_reserved_key(&asset.extensions, &["id", "location", "fingerprint"])

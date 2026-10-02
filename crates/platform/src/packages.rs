@@ -10,6 +10,7 @@ use std::collections::{BTreeMap, BTreeSet};
 pub const HOST_API: u32 = 1;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PanelPlacement {
+    Browser,
     Editor,
     Inspector,
 }
@@ -55,6 +56,29 @@ pub trait DocumentProvider: Send + Sync {
         schema == self.schema()
     }
     fn validate(&self, document: &Document) -> Result<(), String>;
+    fn browser_kind(&self) -> Option<crate::browser::DocumentKind> {
+        None
+    }
+    fn create(&self, _id: DocumentId) -> Result<Document, String> {
+        Err("provider does not support document creation".into())
+    }
+    fn place(
+        &self,
+        _snapshot: &Snapshot,
+        _placement: &crate::browser::Placement,
+        _info: Option<VideoInfo>,
+    ) -> Result<Document, String> {
+        Err("this editor does not support this Project item".into())
+    }
+    /// Validate every authored use before relinking. Unknown providers fail closed.
+    fn validate_relink(
+        &self,
+        _document: &Document,
+        _asset: fold_foundation::AssetId,
+        _metadata: &fold_media::ingest::SourceMetadata,
+    ) -> Result<(), String> {
+        Err("provider does not support asset relinking".into())
+    }
     /// Semantic evaluation identity, excluding provider-owned presentation data.
     fn evaluation_identity(&self, document: &Document) -> Result<Vec<u8>, String> {
         self.validate(document)?;
@@ -158,6 +182,78 @@ impl PackageRegistry {
         self.manifests.insert(package.manifest.id, package.manifest);
         Ok(())
     }
+    pub fn document_kinds(&self) -> Vec<crate::browser::DocumentKind> {
+        self.documents
+            .iter()
+            .filter_map(|p| p.browser_kind())
+            .collect()
+    }
+    pub fn create(&self, kind: &str, id: DocumentId) -> Result<Document, String> {
+        let provider = self
+            .documents
+            .iter()
+            .find(|p| p.type_id() == kind)
+            .ok_or("unavailable document provider")?;
+        let document = provider.create(id)?;
+        if document.id != id
+            || document.type_id != provider.type_id()
+            || document.package_id != provider.package_id()
+        {
+            return Err("creation changed the requested document identity or provider".into());
+        }
+        provider.validate(&document)?;
+        Ok(document)
+    }
+    pub fn place(
+        &self,
+        snapshot: &Snapshot,
+        placement: &crate::browser::Placement,
+    ) -> Result<EditBatch, String> {
+        use crate::browser::PlacementSource;
+        let target = snapshot
+            .state()
+            .documents
+            .get(&placement.target)
+            .ok_or("missing placement target")?;
+        let provider = self
+            .documents
+            .iter()
+            .find(|p| p.type_id() == target.type_id && p.package_id() == target.package_id)
+            .ok_or("unavailable destination provider")?;
+        let info = match &placement.source {
+            PlacementSource::Asset(id) => {
+                if !snapshot.state().assets.contains_key(id) {
+                    return Err("missing source asset".into());
+                }
+                None
+            }
+            PlacementSource::Output(source) => {
+                if source.output != "video" {
+                    return Err("unsupported document output".into());
+                }
+                // Reuse evaluation's capability/dependency validation. Seeding
+                // the path with the destination also rejects new placement cycles.
+                self.validate_video_dependencies(
+                    snapshot,
+                    source,
+                    &mut vec![placement.target],
+                    &mut BTreeSet::new(),
+                    &Cancel::default(),
+                )
+                .map_err(|e| format!("invalid placement dependency/cycle: {e}"))?;
+                Some(self.output(snapshot, source.document)?)
+            }
+        };
+        let document = provider.place(snapshot, placement, info)?;
+        provider.validate(&document)?;
+        if document.id != placement.target {
+            return Err("placement changed destination identity".into());
+        }
+        Ok(EditBatch {
+            base: snapshot.revision(),
+            mutations: vec![Mutation::PutDocument(document)],
+        })
+    }
     pub fn manifests(&self) -> impl Iterator<Item = &Manifest> {
         self.manifests.values()
     }
@@ -197,6 +293,34 @@ impl PackageRegistry {
             }
         }
         Ok(batch)
+    }
+    pub fn validate_document(&self, document: &Document) -> Result<(), String> {
+        self.documents
+            .iter()
+            .find(|p| {
+                p.package_id() == document.package_id
+                    && p.type_id() == document.type_id
+                    && p.supports_schema(document.schema_version)
+            })
+            .ok_or("missing document provider")?
+            .validate(document)
+    }
+    pub fn validate_relink(
+        &self,
+        document: &Document,
+        asset: fold_foundation::AssetId,
+        metadata: &fold_media::ingest::SourceMetadata,
+    ) -> Result<(), String> {
+        let provider = self
+            .documents
+            .iter()
+            .find(|p| {
+                p.package_id() == document.package_id
+                    && p.type_id() == document.type_id
+                    && p.supports_schema(document.schema_version)
+            })
+            .ok_or("missing relink document provider")?;
+        provider.validate_relink(document, asset, metadata)
     }
     pub fn supports(&self, document: &Document) -> bool {
         self.documents.iter().any(|p| {

@@ -1,4 +1,5 @@
 //! Static capability contracts. Only the application assembles implementations.
+pub mod browser;
 pub mod desktop;
 pub mod packages;
 use fold_foundation::Time;

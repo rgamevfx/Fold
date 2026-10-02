@@ -94,21 +94,27 @@ impl Drop for PreviewWorker {
 }
 
 enum Completed {
+    Ingested(Option<crate::ingest::IngestProposal>),
     Imported(EditBatch),
     Opened(Project, fold_project::Revision, Option<String>),
     Message(String),
 }
 struct Background {
+    completed: bool,
     cancel: Cancel,
     result: Receiver<Result<Completed, String>>,
     thread: Option<std::thread::JoinHandle<()>>,
 }
 impl Drop for Background {
     fn drop(&mut self) {
-        self.cancel.cancel();
-        if let Some(t) = self.thread.take() {
+        if !self.completed {
+            self.cancel.cancel();
+        }
+        if let Some(t) = self.thread.take().filter(|t| t.is_finished()) {
             let _ = t.join();
         }
+        // A portal dialog may still await the user. Detached workers own only
+        // immutable snapshots and cannot publish after their receiver is gone.
     }
 }
 
@@ -118,6 +124,7 @@ pub struct Session {
     overlay: Option<fold_project::EditSession>,
     preview: PreviewWorker,
     background: Option<Background>,
+    imported_items: Vec<fold_project::ItemId>,
     playback_ranges: std::collections::BTreeMap<
         fold_foundation::DocumentId,
         fold_platform::desktop::PlaybackRange,
@@ -138,6 +145,7 @@ impl Session {
             overlay: None,
             preview: PreviewWorker::new(),
             background: None,
+            imported_items: Vec::new(),
             playback_ranges: Default::default(),
             #[cfg(feature = "desktop")]
             playback: crate::playback::Playback::default(),
@@ -217,6 +225,9 @@ impl Session {
         self.state.status = "Background job running…".into();
         let thread = std::thread::spawn(move || {
             let result = token.check().and_then(|()| match command {
+                DesktopCommand::Browser(command) => {
+                    crate::browser_ingest::run(&snapshot, command, &token).map(Completed::Ingested)
+                }
                 DesktopCommand::Extension(request) => crate::packages::builtins()
                     .stage(&snapshot, &request, &token)
                     .map(Completed::Imported),
@@ -246,6 +257,7 @@ impl Session {
             let _ = sender.send(result);
         });
         self.background = Some(Background {
+            completed: false,
             cancel,
             result,
             thread: Some(thread),
@@ -267,6 +279,15 @@ impl DesktopClient for Session {
         document: fold_foundation::DocumentId,
     ) -> Result<fold_media::VideoInfo, String> {
         crate::packages::builtins().output(&self.project.snapshot(), document)
+    }
+    fn take_imported_items(&mut self) -> Vec<fold_project::ItemId> {
+        std::mem::take(&mut self.imported_items)
+    }
+    fn document_kinds(&self) -> Vec<fold_platform::browser::DocumentKind> {
+        crate::packages::builtins().document_kinds()
+    }
+    fn supports_document(&self, document: &fold_project::Document) -> bool {
+        crate::packages::builtins().supports(document)
     }
     fn poll(&mut self) {
         #[cfg(feature = "desktop")]
@@ -302,19 +323,43 @@ impl DesktopClient for Session {
             });
         if let Some(result) = result {
             let cancelled = self.background.as_ref().unwrap().cancel.check().is_err();
-            // Worker has sent its final result, so joining performs no media work.
+            // Publication retains its cancellation token through commit. Dropping
+            // a completed worker must not cancel its own ingest proposal.
+            self.background.as_mut().unwrap().completed = true;
             self.background.take();
             self.state.busy = false;
             // Discard cancelled proposals, but never claim that an already
             // finalized save/export was rolled back by a late cancel click.
             let result = if cancelled
-                && matches!(&result, Ok(Completed::Imported(_) | Completed::Opened(..)))
-            {
+                && matches!(
+                    &result,
+                    Ok(Completed::Imported(_) | Completed::Ingested(_) | Completed::Opened(..))
+                ) {
                 Err("job cancelled".into())
             } else {
                 result
             };
             match result {
+                Ok(Completed::Ingested(proposal)) => {
+                    if self.overlay.is_some() {
+                        self.state.status =
+                            "Finish the current edit, then retry import or relink".into();
+                        return;
+                    }
+                    if let Some(proposal) = proposal {
+                        let items = proposal.items.clone();
+                        match proposal.commit(&mut self.project) {
+                            Ok(_) => {
+                                self.refresh();
+                                self.state.status.clear();
+                                self.imported_items = items;
+                            }
+                            Err(error) => self.state.status = error,
+                        }
+                    } else {
+                        self.state.status.clear();
+                    }
+                }
                 Ok(Completed::Imported(batch)) => match self.project.commit(batch) {
                     Ok(_) => {
                         self.overlay = None;
@@ -328,6 +373,7 @@ impl DesktopClient for Session {
                         self.state.status = "Project changed while opening; retry open".into();
                     } else {
                         self.project = project;
+                        self.imported_items.clear();
                         self.playback_ranges.clear();
                         self.overlay = None;
                         self.state.navigation.clear();
@@ -360,6 +406,47 @@ impl DesktopClient for Session {
     }
     fn command(&mut self, command: DesktopCommand) {
         let result = match command {
+            DesktopCommand::Notify(message) => {
+                self.state.status = message;
+                return;
+            }
+            DesktopCommand::Browser(command) => {
+                use fold_platform::browser::BrowserCommand;
+                if matches!(
+                    command,
+                    BrowserCommand::Import { .. }
+                        | BrowserCommand::ChooseImport(_)
+                        | BrowserCommand::Relink(_)
+                ) {
+                    self.background(DesktopCommand::Browser(command));
+                    return;
+                }
+                let creating = matches!(command, BrowserCommand::Create { .. });
+                crate::browser::edit(&self.project.snapshot(), command).and_then(|batch| {
+                    let location = if creating {
+                        batch.mutations.iter().find_map(|m| match m {
+                            Mutation::PutItem(item) => match item.id {
+                                fold_project::ItemId::Document(document) => {
+                                    Some(fold_platform::desktop::ViewLocation {
+                                        document,
+                                        time: fold_foundation::Time::ZERO,
+                                        label: item.name.clone(),
+                                    })
+                                }
+                                _ => None,
+                            },
+                            _ => None,
+                        })
+                    } else {
+                        None
+                    };
+                    self.project.commit(batch).map_err(|e| e.to_string())?;
+                    if let Some(location) = location {
+                        self.navigate(location);
+                    }
+                    Ok(())
+                })
+            }
             DesktopCommand::PreviewExtension(request) => {
                 self.preview_edit(request);
                 return;

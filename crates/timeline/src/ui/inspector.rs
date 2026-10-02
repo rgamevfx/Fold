@@ -1,5 +1,5 @@
 use super::{current, frame_input, interaction, selected_clip, submit};
-use crate::{ClipEdit, ImportArgs, SequenceEdit, SourceMedia, TrackKind, package};
+use crate::{ClipEdit, SequenceEdit, SourceMedia, TrackKind, package};
 use fold_foundation::ObjectId;
 use fold_platform::desktop::DesktopCommand;
 use fold_project::Revision;
@@ -7,13 +7,10 @@ use fold_ui::sdk::{ExtensionUi, Panel};
 
 #[derive(Default)]
 pub(super) struct Inspector {
-    path: String,
-    audio_only: bool,
     selection: Option<(ObjectId, Revision)>,
     start: i32,
     end: i32,
     level: f32,
-    message: String,
 }
 impl Panel for Inspector {
     fn document_type(&self) -> Option<&'static str> {
@@ -30,61 +27,8 @@ impl Panel for Inspector {
         };
         let state = host.state().clone();
         let active = current(&snapshot, &state.selection).ok();
-        ui.text("MEDIA");
-        ui.text_wrapped(
-            "MP4 / H.264 SDR BT.709 or PCM16 WAVE. Select a track header to target an import.",
-        );
-        ui.input_text("Path", &mut self.path).build();
-        ui.checkbox("Audio only (from video)", &mut self.audio_only);
-        let append = ui.button("Append media");
-        ui.same_line();
-        let at_playhead = ui.button("Place at playhead");
-        if append || at_playhead {
-            let selected_track = active.as_ref().and_then(|(_, seq)| {
-                state
-                    .selection
-                    .objects
-                    .iter()
-                    .find_map(|id| seq.tracks.iter().find(|t| t.id == *id))
-            });
-            let rate = active.as_ref().map(|(_, s)| s.rate).unwrap_or([24, 1]);
-            let args = ImportArgs {
-                document: active.as_ref().map(|(id, _)| *id),
-                paths: vec![self.path.trim().into()],
-                at: if at_playhead {
-                    interaction::time(i64::from(state.frame), rate).ok()
-                } else {
-                    None
-                },
-                video_track: selected_track
-                    .filter(|t| t.kind == TrackKind::Video)
-                    .map(|t| t.id),
-                audio_track: selected_track
-                    .filter(|t| t.kind == TrackKind::Audio)
-                    .map(|t| t.id),
-                audio_only: self.audio_only,
-            };
-            match package::request(&snapshot, package::IMPORT, &args) {
-                Ok(request) => {
-                    self.message.clear();
-                    host.command(DesktopCommand::Extension(request));
-                }
-                Err(error) => self.message = error,
-            }
-        }
-        ui.text(if state.busy {
-            "Import/export worker busy"
-        } else {
-            "Worker idle"
-        });
-        ui.text_wrapped(&state.status);
-        if !self.message.is_empty() {
-            ui.text_wrapped(&self.message);
-        }
-        ui.separator();
-        ui.text("SELECTION");
         let Some((document, sequence)) = active else {
-            ui.text_wrapped("Import media to create a multi-track sequence.");
+            ui.text_disabled("No sequence selected.");
             return;
         };
         if let Some(track) = state

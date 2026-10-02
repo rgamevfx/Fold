@@ -2,6 +2,7 @@
 mod authoring;
 mod editing;
 pub mod package;
+mod placement;
 mod sequence;
 #[cfg(feature = "ui")]
 pub mod ui;

@@ -21,10 +21,18 @@ pub struct CanvasModel<'a> {
     pub labels: &'a BTreeMap<AssetId, String>,
 }
 pub enum Action {
+    Place {
+        entry: fold_platform::browser::Entry,
+        track: ObjectId,
+        at: Time,
+    },
     Select(Vec<ObjectId>),
     Seek(u32),
     Pause,
-    Commit { base: Revision, edit: SequenceEdit },
+    Commit {
+        base: Revision,
+        edit: SequenceEdit,
+    },
 }
 pub struct Canvas {
     pub view: View,
@@ -225,6 +233,24 @@ impl Canvas {
                 && point[1] >= layout.body.min[1]
                 && point[1] < layout.body.max[1]
         });
+        if let Some(entry) = fold_ui::sdk::project_drop::target(ui) {
+            if let Some((_, track)) = hovered_row {
+                let frame = self
+                    .view
+                    .frame_at(point[0], layout.body.min[0])
+                    .round()
+                    .max(0.) as i64;
+                if let Ok(at) = interaction::time(frame, sequence.rate) {
+                    actions.push(Action::Place {
+                        entry,
+                        track: track.id,
+                        at,
+                    });
+                }
+            } else {
+                self.message = "Drop onto a destination track".into();
+            }
+        }
         if hovered && ui.is_mouse_clicked(MouseButton::Left) {
             self.message.clear();
             if layout.ruler.contains(point) {

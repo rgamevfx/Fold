@@ -44,7 +44,7 @@ pub(crate) struct Shell {
 impl Shell {
     pub fn new(panels: Vec<RegisteredPanel>) -> Self {
         let viewer = WindowKey::new("fold.viewer.main", "Viewer").unwrap();
-        let delivery = WindowKey::new("fold.delivery.main", "Project / Delivery").unwrap();
+        let delivery = WindowKey::new("fold.delivery.main", "Delivery").unwrap();
         let empty = WindowKey::new("fold.editors.empty", "Editors").unwrap();
         let mut editors: Vec<_> = panels
             .iter()
@@ -71,6 +71,16 @@ impl Shell {
                 DockLayout::tabs([&viewer]),
             ),
         );
+        let browsers: Vec<_> = panels
+            .iter()
+            .filter(|p| p.descriptor.placement == PanelPlacement::Browser)
+            .map(|p| &p.key)
+            .collect();
+        let layout = if browsers.is_empty() {
+            layout
+        } else {
+            DockLayout::split(DockSplit::Left, 0.23, DockLayout::tabs(browsers), layout)
+        };
         Self {
             viewer,
             delivery,
@@ -92,6 +102,34 @@ impl Shell {
             visible_panels: Vec::new(),
             image_rect: None,
         }
+    }
+    pub fn prepare_frame(&mut self, context: &mut dear_imgui_rs::Context) {
+        for panel in &mut self.panels {
+            panel.panel.prepare_frame(context);
+        }
+    }
+    pub fn external_drag(&mut self, position: Option<[f32; 2]>) {
+        for panel in &mut self.panels {
+            panel.panel.external_drag(position);
+        }
+    }
+    pub fn files_dropped(
+        &mut self,
+        position: [f32; 2],
+        paths: &[std::path::PathBuf],
+        host: &mut dyn DesktopClient,
+    ) {
+        for &index in &self.visible_panels {
+            if self.panels[index]
+                .panel
+                .files_dropped(position, paths, host)
+            {
+                return;
+            }
+        }
+        host.command(DesktopCommand::Notify(
+            "Import files into a Project bin before placing them in an editor".into(),
+        ));
     }
     pub fn accepts_background_pan(&self, position: [f32; 2]) -> bool {
         self.visible_panels
@@ -383,6 +421,9 @@ impl Shell {
         });
     }
 }
+#[cfg(test)]
+#[path = "docking_tests.rs"]
+mod docking_tests;
 #[cfg(test)]
 mod tests {
     use super::*;

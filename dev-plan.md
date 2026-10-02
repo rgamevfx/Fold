@@ -83,7 +83,7 @@ The following is a code/document inspection baseline, not a fresh test or perfor
 
 ## Project organization and ingest slice
 
-- [ ] 12. Add persistent project organization and asset-only ingest.
+- [x] 12. Add persistent project organization and asset-only ingest.
   - Extend the generic project model with stable bin/item identities, display names, and references to assets/documents. Start with a simple tree and one organizational location per item; aliases and smart bins are not required.
   - Validate parentage, cycles, dangling memberships, and deletion policies transactionally. Moving or renaming an item must not change its asset/document identity or render meaning. Do not infer render dependencies from bin membership.
   - Persist reusable source/stream metadata and input-color interpretation through media-owned contracts without leaking timeline/compositor models into project core. Distinguish an imported asset from each use of that asset.
@@ -91,6 +91,7 @@ The following is a code/document inspection baseline, not a fresh test or perfor
   - Implement the chosen duplicate/relink policies. Relinking preserves references, updates verified content identity and metadata atomically, validates affected uses, and invalidates dependent results without silently changing an export's pinned sources.
   - Add explicit format/schema compatibility and migrations for old projects: existing assets/documents remain discoverable even without bin records. Preserve unknown payload bytes, metadata, dependency records, and conservatively retained resources.
   - Acceptance: asset-only import, bin create/rename/move/delete, relink, undo/redo, cancellation/stale proposals, legacy load, and save/reopen pass focused tests. Import leaves timelines, compositions, viewer bindings, and delivery selection unchanged.
+  - Evidence: [phase-12 implementation and acceptance](docs/phase-12.md): archive-v2 organization with deterministic v1 migration, bounded cancellable asset-only import/relink services, media-owned metadata and provider validation; 46 focused/regression tests passed, plus headless/desktop checks. Conservative legacy-metadata/provider safety rejections are documented. Project UI and placement replacement remain phase 13.
 
 - [ ] 13. Replace import scaffolding with the Project panel and reference-based placement.
   - Build a shared-SDK Project browser with bins, media/document items, readable names/type indicators, search, import, and contextual organization actions. Keep selection properties in appropriate inspectors; remove redundant path-entry/import scaffolding once replacement workflows pass.
@@ -100,6 +101,7 @@ The following is a code/document inspection baseline, not a fresh test or perfor
   - Adapt existing timeline import/placement and cross-document commands to reuse already imported AssetIds/DocumentRefs. Handle explicit target track, insertion time, duration, streams, output selection, and dependency cycles; one placement gesture is one undo entry.
   - Keep authored project changes separate from browser selection/expansion state. A bin move or name edit must not flush reusable render content.
   - Acceptance: import → organize → drag into two different documents → rename/move → undo/redo → save/reopen preserves sources and references. Test invalid drops, locked tracks, referenced deletion, missing providers, and narrow-panel/keyboard behavior.
+  - Implementation/evidence: [phase-13 implementation and remaining acceptance](docs/phase-13.md). Project grid/tree browser, bounded source previews, asset-only desktop ingest, typed bin/editor drops, provider-owned creation/placement, and reference/history/persistence tests are implemented. Checkpoint: 141 tests passed, 1 native-audio test ignored. **Not complete:** native import/drop acceptance is unverified after desktop-input tool failures; Motion media-input and still-image placement limitations remain explicit, not approved deferrals.
 - [ ] Checkpoint: build a short sequence and composite using only the Project workflow, reuse a motion document without flattening it, and verify cross-document undo plus persistence. Run slice checks and native workflow acceptance; no dependency on the retired import UI remains.
 
 ## Panel navigation and viewer-instance slice

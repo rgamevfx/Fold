@@ -20,7 +20,8 @@ fn main() -> std::process::ExitCode {
             session.command(DesktopCommand::Import(
                 args[1..].iter().map(Into::into).collect(),
             ));
-        } else {
+        } else if args[0] == "--timeline" {
+            // Explicit legacy fixture path; ordinary file arguments are asset-only.
             let snapshot = session.snapshot().unwrap();
             let request = fold_timeline::package::request(
                 &snapshot,
@@ -39,10 +40,18 @@ fn main() -> std::process::ExitCode {
             )
             .expect("serializable import arguments");
             session.command(DesktopCommand::Extension(request));
+        } else {
+            session.command(DesktopCommand::Browser(
+                fold_platform::browser::BrowserCommand::Import {
+                    paths: args.iter().map(Into::into).collect(),
+                    destination: fold_project::Parent::Root,
+                },
+            ));
         }
     }
     let mut panels = fold_ui::sdk::PanelRegistry::new(&fold_app::packages::builtins());
-    if let Err(error) = fold_timeline::ui::register(&mut panels)
+    if let Err(error) = fold_app::project_panel::register(&mut panels)
+        .and_then(|()| fold_timeline::ui::register(&mut panels))
         .and_then(|()| fold_compositor::ui::register(&mut panels))
         .and_then(|()| fold_motion::ui::register(&mut panels))
     {

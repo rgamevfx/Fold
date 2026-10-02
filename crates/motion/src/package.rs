@@ -45,6 +45,15 @@ fn edit(snapshot: &Snapshot, args: &[u8], _: &Cancel) -> Result<EditBatch, Strin
 }
 struct Documents(Arc<prepared::Cache>);
 impl DocumentProvider for Documents {
+    fn browser_kind(&self) -> Option<fold_platform::browser::DocumentKind> {
+        Some(fold_platform::browser::DocumentKind {
+            type_id: crate::document::MOTION,
+            title: "Motion",
+        })
+    }
+    fn create(&self, id: fold_foundation::DocumentId) -> Result<Document, String> {
+        crate::document::Motion::empty().document(id)
+    }
     fn package_id(&self) -> &'static str {
         crate::PACKAGE
     }

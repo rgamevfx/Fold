@@ -12,6 +12,10 @@ use winit::{
     window::{Window, WindowId},
 };
 
+#[cfg(target_os = "linux")]
+#[path = "native_drop.rs"]
+mod native_drop;
+
 type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
 pub(crate) fn run(
@@ -24,7 +28,15 @@ pub(crate) fn run(
         desktop: None,
         error: None,
     };
-    EventLoop::new()?.run_app(&mut app)?;
+    let mut builder = EventLoop::builder();
+    // The pinned winit release has no Wayland data-device/file-drop support.
+    // Use XWayland on the reference Linux desktop until that backend supports it.
+    #[cfg(target_os = "linux")]
+    {
+        use winit::platform::x11::EventLoopBuilderExtX11;
+        builder.with_x11();
+    }
+    builder.build()?.run_app(&mut app)?;
     match app.error {
         Some(error) => Err(error),
         None => Ok(()),
@@ -112,7 +124,40 @@ impl ApplicationHandler for App {
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
             WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged { .. } => desktop.resize(),
+            WindowEvent::HoveredFile(_) => desktop.external_drag = true,
+            WindowEvent::HoveredFileCancelled => desktop.external_drag = false,
+            WindowEvent::DroppedFile(path) => {
+                desktop.external_drag = false;
+                #[cfg(target_os = "linux")]
+                {
+                    desktop.pointer = desktop
+                        .drop_pointer
+                        .as_ref()
+                        .and_then(|p| p.position(desktop.platform.hidpi_factor()))
+                        .unwrap_or([-1.; 2]);
+                }
+                if desktop.dropped_files.len() < 33 {
+                    desktop.dropped_files.push(path);
+                }
+            }
             WindowEvent::RedrawRequested => {
+                #[cfg(target_os = "linux")]
+                if desktop.external_drag {
+                    desktop.pointer = desktop
+                        .drop_pointer
+                        .as_ref()
+                        .and_then(|p| p.position(desktop.platform.hidpi_factor()))
+                        .unwrap_or([-1.; 2]);
+                }
+                desktop
+                    .shell
+                    .external_drag(desktop.external_drag.then_some(desktop.pointer));
+                if !desktop.dropped_files.is_empty() {
+                    let paths = std::mem::take(&mut desktop.dropped_files);
+                    desktop
+                        .shell
+                        .files_dropped(desktop.pointer, &paths, desktop.client.as_mut());
+                }
                 if let Err(error) = desktop.draw() {
                     self.stop(event_loop, error);
                     return;
@@ -141,6 +186,10 @@ struct Desktop {
     shell: Shell,
     canvas_pan: crate::sdk::CanvasPan,
     pointer: [f32; 2],
+    dropped_files: Vec<std::path::PathBuf>,
+    external_drag: bool,
+    #[cfg(target_os = "linux")]
+    drop_pointer: Option<native_drop::DropPointer>,
     // Context tears down backend attachments while their resources are still alive.
     context: Context,
     platform: WinitPlatform,
@@ -246,10 +295,14 @@ impl Desktop {
             device,
             queue,
             config,
-            window,
+            window: window.clone(),
             shell,
             canvas_pan: crate::sdk::CanvasPan::default(),
             pointer: [-1.0; 2],
+            dropped_files: Vec::new(),
+            external_drag: false,
+            #[cfg(target_os = "linux")]
+            drop_pointer: native_drop::DropPointer::new(&window),
             preview: PreviewHost::new(),
             client: preview,
             #[cfg(feature = "native-probe")]
@@ -290,6 +343,7 @@ impl Desktop {
         self.client.poll();
         self.platform
             .prepare_frame(&mut self.context, &self.window)?;
+        self.shell.prepare_frame(&mut self.context);
         let ui = self.context.frame();
         self.shell.controls(ui, self.client.as_mut())?;
         self.preview

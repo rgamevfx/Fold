@@ -8,6 +8,8 @@ pub use dear_imgui_rs as imgui;
 #[path = "canvas_pan.rs"]
 mod canvas_pan;
 pub use canvas_pan::CanvasPan;
+#[path = "project_drop.rs"]
+pub mod project_drop;
 #[path = "property_edit.rs"]
 mod property_edit;
 #[path = "toolbar.rs"]
@@ -39,6 +41,17 @@ pub trait Panel {
     fn draw_viewer_overlay(&mut self, _context: ExtensionUi<'_>, _rect: ViewerRect) {}
     /// Called once after ImGui initialization. Panels are dropped before ImGui.
     fn initialize(&mut self, _context: &imgui::Context) {}
+    /// CPU thumbnail publication before NewFrame; renderer/device remain private.
+    fn prepare_frame(&mut self, _context: &mut imgui::Context) {}
+    fn external_drag(&mut self, _position: Option<[f32; 2]>) {}
+    fn files_dropped(
+        &mut self,
+        _position: [f32; 2],
+        _paths: &[std::path::PathBuf],
+        _host: &mut dyn DesktopClient,
+    ) -> bool {
+        false
+    }
     /// Used by workspace navigation to reveal matching editor/inspector tabs.
     fn document_type(&self) -> Option<&'static str> {
         None

@@ -3,6 +3,7 @@ mod compile;
 mod graph;
 mod model;
 pub mod package;
+mod placement;
 #[cfg(feature = "ui")]
 pub mod ui;
 pub use model::*;

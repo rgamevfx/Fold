@@ -40,6 +40,23 @@ fn edit(snapshot: &Snapshot, args: &[u8], _: &Cancel) -> Result<EditBatch, Strin
 }
 struct Documents;
 impl DocumentProvider for Documents {
+    fn browser_kind(&self) -> Option<fold_platform::browser::DocumentKind> {
+        Some(fold_platform::browser::DocumentKind {
+            type_id: crate::COMPOSITE,
+            title: "Composition",
+        })
+    }
+    fn create(&self, id: fold_foundation::DocumentId) -> Result<Document, String> {
+        crate::placement::create(id)
+    }
+    fn place(
+        &self,
+        snapshot: &Snapshot,
+        placement: &fold_platform::browser::Placement,
+        info: Option<fold_media::VideoInfo>,
+    ) -> Result<Document, String> {
+        crate::placement::place(snapshot, placement, info)
+    }
     fn package_id(&self) -> &'static str {
         crate::PACKAGE
     }
@@ -54,6 +71,26 @@ impl DocumentProvider for Documents {
     }
     fn validate(&self, document: &Document) -> Result<(), String> {
         Composite::from_document(document).map(|_| ())
+    }
+    fn validate_relink(
+        &self,
+        document: &Document,
+        asset: fold_foundation::AssetId,
+        metadata: &fold_media::ingest::SourceMetadata,
+    ) -> Result<(), String> {
+        for node in Composite::from_document(document)?.nodes {
+            if let crate::Parameters::Read {
+                source: crate::Source::Asset { asset: id, info },
+                ..
+            } = node.parameters
+            {
+                if id == asset && metadata.profile != fold_media::ingest::SourceProfile::Video(info)
+                {
+                    return Err("relink changes compositor source duration/streams".into());
+                }
+            }
+        }
+        Ok(())
     }
     fn evaluation_identity(&self, document: &Document) -> Result<Vec<u8>, String> {
         let mut graph = Composite::from_document(document)?;

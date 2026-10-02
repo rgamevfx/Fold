@@ -49,6 +49,8 @@ pub struct ProjectState {
     pub revision: Revision,
     pub documents: BTreeMap<DocumentId, Arc<Document>>,
     pub assets: BTreeMap<AssetId, Arc<Asset>>,
+    #[serde(default)]
+    pub organization: crate::Organization,
     pub settings: Metadata,
     pub environment: Metadata,
     #[serde(flatten)]

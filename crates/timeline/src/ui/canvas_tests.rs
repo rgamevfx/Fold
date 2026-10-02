@@ -157,6 +157,7 @@ impl Harness {
                 Action::Select(ids) => self.selected = ids,
                 Action::Seek(frame) => self.playhead = frame,
                 Action::Pause => {}
+                Action::Place { .. } => panic!("unexpected Project placement in clip gesture test"),
             }
         }
     }

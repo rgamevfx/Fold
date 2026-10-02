@@ -106,7 +106,7 @@ impl Panel for TimelinePanel {
                 });
         }
         let Some((revision, document, sequence, labels)) = &self.cached else {
-            ui.text_wrapped("Import media to start a sequence.");
+            ui.text_disabled("Create or open a sequence in Project.");
             return;
         };
         if self.document != Some(*document) {
@@ -242,6 +242,9 @@ impl Panel for TimelinePanel {
             },
         ) {
             match action {
+                Action::Place { entry, track, at } => {
+                    fold_ui::sdk::project_drop::place(host, entry, *document, Some(track), at)
+                }
                 Action::Select(objects) => host.command(DesktopCommand::Select(Selection {
                     document: Some(*document),
                     objects,

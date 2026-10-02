@@ -31,3 +31,4 @@ macro_rules! stable_id {
 stable_id!(DocumentId);
 stable_id!(AssetId);
 stable_id!(ObjectId);
+stable_id!(BinId);

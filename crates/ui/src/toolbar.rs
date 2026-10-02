@@ -10,6 +10,8 @@ pub enum ToolbarIcon {
     Help,
     Back,
     View,
+    Grid,
+    List,
 }
 
 pub fn tooltip(ui: &Ui, text: &str) {
@@ -67,6 +69,19 @@ pub fn icon_button(ui: &Ui, id: &str, icon: ToolbarIcon, tip: &str) -> bool {
             line([-1., 0.], [1., 0.]);
             line([-1., 0.], [0., -1.]);
             line([-1., 0.], [0., 1.]);
+        }
+        ToolbarIcon::Grid => {
+            for x in [-1., 0.3] {
+                for y in [-1., 0.3] {
+                    draw.add_rect(point(x, y), point(x + 0.7, y + 0.7), color)
+                        .build();
+                }
+            }
+        }
+        ToolbarIcon::List => {
+            for y in [-0.8, 0., 0.8] {
+                line([-1., y], [1., y]);
+            }
         }
         ToolbarIcon::View => {
             draw.add_rect(point(-1.2, -0.8), point(1.2, 0.8), color)

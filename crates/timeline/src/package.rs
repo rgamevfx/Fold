@@ -19,7 +19,7 @@ pub const PANELS: &[PanelDescriptor] = &[
     },
     PanelDescriptor {
         id: INSPECTOR,
-        title: "Media / Selection",
+        title: "Selection",
         placement: PanelPlacement::Inspector,
     },
 ];
@@ -39,6 +39,23 @@ fn import(snapshot: &Snapshot, args: &[u8], cancel: &Cancel) -> Result<EditBatch
 }
 struct Documents;
 impl DocumentProvider for Documents {
+    fn browser_kind(&self) -> Option<fold_platform::browser::DocumentKind> {
+        Some(fold_platform::browser::DocumentKind {
+            type_id: SEQUENCE,
+            title: "Sequence",
+        })
+    }
+    fn create(&self, id: fold_foundation::DocumentId) -> Result<Document, String> {
+        crate::placement::create(id)
+    }
+    fn place(
+        &self,
+        snapshot: &Snapshot,
+        placement: &fold_platform::browser::Placement,
+        info: Option<fold_media::VideoInfo>,
+    ) -> Result<Document, String> {
+        crate::placement::place(snapshot, placement, info)
+    }
     fn package_id(&self) -> &'static str {
         crate::PACKAGE
     }
@@ -53,6 +70,35 @@ impl DocumentProvider for Documents {
     }
     fn validate(&self, document: &Document) -> Result<(), String> {
         Sequence::from_document(document).map(|_| ())
+    }
+    fn validate_relink(
+        &self,
+        document: &Document,
+        asset: fold_foundation::AssetId,
+        metadata: &fold_media::ingest::SourceMetadata,
+    ) -> Result<(), String> {
+        use fold_media::ingest::SourceProfile;
+        let sequence = Sequence::from_document(document)?;
+        for clip in sequence
+            .clips
+            .iter()
+            .filter(|c| c.asset == asset && !matches!(c.info, crate::SourceMedia::Document { .. }))
+        {
+            let compatible = match (&clip.info, &metadata.profile) {
+                (crate::SourceMedia::Video(a), SourceProfile::Video(b)) => a == b,
+                (crate::SourceMedia::Audio(a), SourceProfile::Wave(b)) => a == b,
+                _ => false,
+            };
+            let kind = if sequence.track(clip.track)?.kind == crate::TrackKind::Audio {
+                "audio"
+            } else {
+                "video"
+            };
+            if !compatible || !metadata.streams.iter().any(|stream| stream.kind == kind) {
+                return Err("relink changes timeline source duration/streams".into());
+            }
+        }
+        Ok(())
     }
 }
 /// Read-only compatibility registration for the original two-layer media slice.
@@ -70,6 +116,18 @@ impl DocumentProvider for LegacyLayers {
     }
     fn validate(&self, document: &Document) -> Result<(), String> {
         crate::VideoLayers::from_document(document).map(|_| ())
+    }
+    fn validate_relink(
+        &self,
+        document: &Document,
+        _: fold_foundation::AssetId,
+        metadata: &fold_media::ingest::SourceMetadata,
+    ) -> Result<(), String> {
+        let layers = crate::VideoLayers::from_document(document)?;
+        if metadata.profile != fold_media::ingest::SourceProfile::Video(layers.info) {
+            return Err("relink changes legacy layer source profile".into());
+        }
+        Ok(())
     }
 }
 struct Audio;

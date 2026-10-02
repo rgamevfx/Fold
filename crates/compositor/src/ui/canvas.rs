@@ -132,6 +132,8 @@ impl Panel for Canvas {
             }
             return;
         }
+        let drop_origin = ui.cursor_screen_pos();
+        let drop_size = ui.content_region_avail();
         self.canvas.draw(
             ui,
             &mut Context {
@@ -139,5 +141,10 @@ impl Panel for Canvas {
                 host,
             },
         );
+        if let Some(entry) = fold_ui::sdk::project_drop::canvas_target(ui, drop_origin, drop_size)
+            && let Some(document) = state.document
+        {
+            fold_ui::sdk::project_drop::place(host, entry, document, None, Time::ZERO);
+        }
     }
 }

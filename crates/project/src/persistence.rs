@@ -10,7 +10,7 @@ use std::{
 };
 
 const FORMAT: &str = "fold-project";
-const VERSION: u32 = 1;
+const VERSION: u32 = 2;
 
 #[derive(Serialize, Deserialize)]
 struct Archive {
@@ -56,11 +56,14 @@ pub fn load(path: impl AsRef<Path>, history_limit: usize) -> Result<Project, Loa
     let file = File::open(path).map_err(LoadError::Io)?;
     let mut archive: Archive =
         serde_json::from_reader(BufReader::new(file)).map_err(LoadError::Json)?;
-    if archive.format != FORMAT || archive.version != VERSION {
+    if archive.format != FORMAT || !(1..=VERSION).contains(&archive.version) {
         return Err(LoadError::UnsupportedFormat {
             format: archive.format,
             version: archive.version,
         });
+    }
+    if archive.version == 1 {
+        archive.project.discover_items();
     }
     validate(&archive.project).map_err(LoadError::InvalidProject)?;
     archive.project.archive_extensions = archive.extensions;

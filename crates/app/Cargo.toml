@@ -8,7 +8,7 @@ default-run = "fold-cli"
 [features]
 default = []
 native-probe = ["desktop", "fold-ui/native-probe"]
-desktop = ["dep:fold-ui", "dep:cpal", "dep:rtrb", "fold-timeline/ui", "fold-compositor/ui", "fold-motion/ui"]
+desktop = ["dep:rfd", "dep:fold-ui", "dep:cpal", "dep:rtrb", "fold-timeline/ui", "fold-compositor/ui", "fold-motion/ui"]
 
 [dependencies]
 serde.workspace = true
@@ -25,6 +25,7 @@ fold-motion.workspace = true
 fold-ui = { workspace = true, optional = true }
 cpal = { version = "0.15.3", optional = true }
 rtrb = { version = "0.3", optional = true }
+rfd = { version = "0.15", optional = true, default-features = false, features = ["xdg-portal", "async-std"] }
 
 [[bin]]
 name = "fold-cli"

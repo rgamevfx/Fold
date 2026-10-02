@@ -20,7 +20,11 @@ pub fn builtins() -> Arc<PackageRegistry> {
                         version: env!("CARGO_PKG_VERSION"),
                         host_api: HOST_API,
                         dependencies: &["fold.timeline", "fold.compositor"],
-                        panels: &[],
+                        panels: &[PanelDescriptor {
+                            id: "fold.app.project",
+                            title: "Project",
+                            placement: PanelPlacement::Browser,
+                        }],
                         build: "composition-v1",
                     },
                     documents: vec![],
