@@ -313,6 +313,12 @@ fn scoped_seeks_and_marks_do_not_use_global_selection_or_time() {
     context.command(DesktopCommand::Transport(A::MarkIn));
     assert_eq!(context.state().frame, 4);
     assert_eq!(context.state().playback_range.start, Some(4));
+    context.command(DesktopCommand::Play);
+    assert!(context.state().playing);
+    assert_eq!(context.playback_requested(), Some(true));
+    context.command(DesktopCommand::Pause);
+    assert_eq!(context.playback_requested(), Some(false));
+    assert_eq!(context.state().frame, 4);
     context.command(DesktopCommand::Navigate(location(
         ids[0],
         Time::new(-1, 24).unwrap(),
@@ -324,4 +330,6 @@ fn scoped_seeks_and_marks_do_not_use_global_selection_or_time() {
         global.selection.document
     );
     assert_eq!(session.state().frame, global.frame);
+    assert_eq!(session.state().navigation, global.navigation);
+    assert!(!session.state().playing);
 }

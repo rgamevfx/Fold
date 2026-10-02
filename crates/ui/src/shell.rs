@@ -47,7 +47,6 @@ pub(crate) struct Shell {
     project_path: String,
     export_path: String,
     transports: BTreeMap<PanelInstanceId, crate::transport::Transport>,
-    playback_viewer: Option<PanelInstanceId>,
     start: i32,
     end: i32,
     delivery_output: Option<(DocumentId, u32)>,
@@ -94,7 +93,6 @@ impl Shell {
             project_path: "/tmp/fold-project.fold".into(),
             export_path: "/tmp/fold-export.mp4".into(),
             transports: Default::default(),
-            playback_viewer: None,
             start: 0,
             end: 1,
             delivery_output: None,
@@ -299,8 +297,9 @@ impl Shell {
             }
             match result {
                 Ok(Some(workspace)) => {
-                    client.command(DesktopCommand::Pause);
-                    self.playback_viewer = None;
+                    for &id in self.workspace.viewers.keys() {
+                        client.command(DesktopCommand::CloseViewer(id));
+                    }
                     self.workspace = workspace;
                     self.bootstrap = false;
                     self.last_host_navigation = client.state().navigation_event;
@@ -487,26 +486,17 @@ impl Shell {
         client: &mut dyn DesktopClient,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let state = client.state().clone();
-        if let Some(id) = self.playback_viewer {
-            if self
-                .workspace
-                .resolve(id)
-                .is_some_and(|o| Some(o.document) == state.viewer_document)
+        for (&id, viewer) in &mut self.workspace.viewers {
+            if let Some(transport) = client.viewer_transport(id)
+                && viewer.last_output.as_ref() == Some(&transport.output)
             {
-                if let Some(viewer) = self.workspace.viewers.get_mut(&id) {
-                    viewer.time = state.navigation.last().map(|v| v.time).unwrap_or_else(|| {
-                        Time::new(
-                            i64::from(state.frame) * i64::from(state.rate[1]),
-                            state.rate[0],
-                        )
-                        .unwrap_or(Time::ZERO)
-                    });
-                }
-            } else {
-                client.command(DesktopCommand::Pause);
-                self.playback_viewer = None;
+                viewer.time = transport.time;
+                viewer.playing = transport.playing;
             }
         }
+        client.command(DesktopCommand::MonitorViewer(
+            self.workspace.monitored_viewer,
+        ));
         let output = client
             .output_info()
             .ok()
@@ -948,10 +938,7 @@ impl Shell {
             if output == viewer.last_output {
                 continue;
             }
-            if self.playback_viewer == Some(id) {
-                client.command(DesktopCommand::Pause);
-                self.playback_viewer = None;
-            }
+            viewer.playing = false;
             viewer.range = Default::default();
             if same_editor
                 && viewer.binding == ViewerBinding::Linked
@@ -975,8 +962,26 @@ impl Shell {
                     .unwrap_or(Time::ZERO);
             }
             viewer.last_output = output;
+            self.submit_viewer(id, client);
         }
         self.workspace.reconcile();
+    }
+    fn submit_viewer(&self, id: PanelInstanceId, client: &mut dyn DesktopClient) {
+        if let Some(output) = self.workspace.resolve(id) {
+            let viewer = &self.workspace.viewers[&id];
+            client.command(DesktopCommand::ViewerTransport {
+                viewer: id,
+                transport: fold_platform::desktop::ViewerTransport {
+                    output,
+                    time: viewer.time,
+                    range: viewer.range,
+                    looping: viewer.looping,
+                    playing: viewer.playing,
+                },
+            });
+        } else {
+            client.command(DesktopCommand::CloseViewer(id));
+        }
     }
     fn seek_from_editor(
         &mut self,
@@ -986,11 +991,10 @@ impl Shell {
     ) {
         match self.workspace.viewer_for_editor(editor) {
             Ok(viewer) => {
-                if self.playback_viewer == Some(viewer) {
-                    client.command(DesktopCommand::Pause);
-                    self.playback_viewer = None;
-                }
-                self.workspace.viewers.get_mut(&viewer).unwrap().time = time;
+                let binding = self.workspace.viewers.get_mut(&viewer).unwrap();
+                binding.playing = false;
+                binding.time = time;
+                self.submit_viewer(viewer, client);
             }
             Err(error) => client.command(DesktopCommand::Notify(error)),
         }
@@ -1026,6 +1030,11 @@ impl Shell {
             _ => "Quarter",
         };
         let pinned = matches!(viewer.binding, ViewerBinding::Pinned(_));
+        if self.workspace.monitored_viewer == Some(id) {
+            ui.same_line();
+            ui.text_disabled("Audio");
+            crate::sdk::toolbar::tooltip(ui, "Audio monitor — change in the viewer context menu");
+        }
         if (pending || changed) && output.is_some() {
             ui.same_line();
             ui.text_disabled("...");
@@ -1044,6 +1053,9 @@ impl Shell {
         {
             ui.same_line();
             ui.text_disabled(&output.output);
+        }
+        if let Some(error) = client.viewer_audio_error(id) {
+            ui.text_wrapped(error);
         }
         if let Some(output) = self.workspace.resolve(id) {
             let state = client.preview_state(&output, self.workspace.viewers[&id].time);
@@ -1123,6 +1135,17 @@ impl Shell {
                     self.refresh_viewer_targets(client);
                     changed = true;
                 }
+                let viewer = self.workspace.viewers.get_mut(&id).unwrap();
+                if ui.checkbox("Loop playback", &mut viewer.looping) {
+                    self.submit_viewer(id, client);
+                }
+                let mut monitored = self.workspace.monitored_viewer == Some(id);
+                if ui.checkbox("Monitor audio", &mut monitored) {
+                    self.workspace.monitored_viewer = monitored.then_some(id);
+                    client.command(DesktopCommand::MonitorViewer(
+                        self.workspace.monitored_viewer,
+                    ));
+                }
                 if ui.menu_item("Close viewer") {
                     close = true;
                 }
@@ -1184,7 +1207,9 @@ impl Shell {
                 let mut context = PanelContext::new(client, &mut binding)
                     .instance(id)
                     .with_output(&output);
-                context.transport_context(self.playback_viewer == Some(id), viewer.range);
+                let before_time = viewer.time;
+                let before_range = viewer.range;
+                context.transport_context(viewer.playing, viewer.range);
                 if ui.is_window_focused() {
                     crate::transport::shortcuts(ui, &mut context);
                 }
@@ -1199,10 +1224,10 @@ impl Shell {
                 viewer.time = binding.navigation[0].time;
                 viewer.range = range;
                 if let Some(playing) = requested {
-                    if playing || self.playback_viewer == Some(id) {
-                        self.playback_viewer = playing.then_some(id);
-                    }
-                    self.last_host_navigation = client.state().navigation_event;
+                    viewer.playing = playing;
+                }
+                if requested.is_some() || viewer.time != before_time || range != before_range {
+                    self.submit_viewer(id, client);
                 }
             } else {
                 ui.dummy([0., 0.]);
@@ -1216,9 +1241,9 @@ impl Shell {
                 let mut context = PanelContext::new(client, binding).instance(id);
                 editor.panels.editor.cancel_interaction(&mut context);
             }
-            if self.playback_viewer == Some(id) {
-                client.command(DesktopCommand::Pause);
-                self.playback_viewer = None;
+            client.command(DesktopCommand::CloseViewer(id));
+            if self.workspace.monitored_viewer == Some(id) {
+                self.workspace.monitored_viewer = None;
             }
             self.workspace.viewers.remove(&id);
             self.sync_instances();

@@ -129,11 +129,14 @@ fn editor_seeks_choose_one_explicit_viewer_and_leave_others_and_delivery_untouch
         }),
         ..Default::default()
     });
-    shell.playback_viewer = Some(other);
+    shell.workspace.viewers.get_mut(&other).unwrap().playing = true;
     shell.seek_from_editor(editor, Time::new(7, 48).unwrap(), &mut host);
     assert_eq!(shell.workspace.viewers[&a].time, Time::new(7, 48).unwrap());
     assert_eq!(shell.workspace.viewers[&other].time, Time::ZERO);
-    assert!(host.commands.is_empty());
+    assert!(
+        matches!(host.commands.last(), Some(DesktopCommand::ViewerTransport { viewer, .. }) if *viewer == a)
+    );
+    assert!(shell.workspace.viewers[&other].playing);
     let b = shell.workspace.add_viewer(ViewerInstance {
         binding: ViewerBinding::Linked,
         editor: Some(editor),

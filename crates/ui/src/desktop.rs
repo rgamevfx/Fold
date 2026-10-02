@@ -350,18 +350,15 @@ impl Desktop {
         let ui = self.context.frame();
         self.shell.controls(ui, self.client.as_mut())?;
         let demands = self.shell.keys(self.client.as_ref());
-        self.preview.select_many(
-            demands.iter().filter_map(|(_, key)| key.clone()).collect(),
-            self.client.as_mut(),
-        );
+        self.preview.select_viewers(&demands, self.client.as_mut());
         self.preview.poll(
             self.client.as_mut(),
             &self.device,
             &self.queue,
             &mut self.renderer,
         )?;
-        for (id, key) in demands {
-            let preview = self.preview.state_for(key.as_ref());
+        for (id, _) in demands {
+            let preview = self.preview.state_for_viewer(id);
             self.shell.viewer_instance(
                 ui,
                 id,

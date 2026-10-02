@@ -157,4 +157,72 @@ fn native_device_clock_seek_and_drift() {
     playback.pause();
     assert!(!playback.playing());
     assert!(playback.sample().is_none());
+    drop(playback);
+
+    // Exercise the application monitor service, not just the device wrapper.
+    use fold_platform::{
+        desktop::{DesktopClient, DesktopCommand as C, ViewerTransport},
+        workspace::PanelInstanceId,
+    };
+    let mut session = fold_app::session::Session::new(project);
+    let a = PanelInstanceId(1);
+    let b = PanelInstanceId(2);
+    let intent = |time| ViewerTransport {
+        output: source.clone(),
+        time,
+        range: Default::default(),
+        looping: true,
+        playing: true,
+    };
+    session.command(C::ViewerTransport {
+        viewer: a,
+        transport: intent(Time::ZERO),
+    });
+    session.command(C::ViewerTransport {
+        viewer: b,
+        transport: intent(Time::new(1, 1).unwrap()),
+    });
+    session.command(C::MonitorViewer(Some(a)));
+    for id in [a, b] {
+        let before_a = session.viewer_transport(a).unwrap();
+        let before_b = session.viewer_transport(b).unwrap();
+        session.command(C::MonitorViewer(Some(id)));
+        assert_eq!(session.viewer_transport(a).unwrap(), before_a);
+        assert_eq!(session.viewer_transport(b).unwrap(), before_b);
+        let initial = session.viewer_transport(id).unwrap().time;
+        let deadline = Instant::now() + Duration::from_secs(15);
+        loop {
+            session.poll();
+            assert!(
+                session.viewer_audio_error(id).is_none(),
+                "{:?}",
+                session.viewer_audio_error(id)
+            );
+            if session.viewer_transport(id).unwrap().time > initial {
+                break;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "monitor did not advance after handover"
+            );
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        assert!(session.viewer_transport(a).unwrap().playing);
+        assert!(session.viewer_transport(b).unwrap().playing);
+    }
+    let outgoing = session.viewer_transport(a).unwrap();
+    let closed = Instant::now();
+    session.command(C::CloseViewer(b));
+    assert!(
+        closed.elapsed() < Duration::from_millis(100),
+        "close must not join device workers on UI"
+    );
+    assert!(session.viewer_transport(b).is_none());
+    assert_eq!(session.viewer_transport(a).unwrap(), outgoing);
+    let teardown = Instant::now();
+    drop(session);
+    assert!(
+        teardown.elapsed() < Duration::from_secs(2),
+        "bounded worker teardown"
+    );
 }

@@ -1,5 +1,5 @@
-//! Shared viewer transport. Review marks are session-local, per document;
-//! commands never mutate authored data or the export range.
+//! Legacy non-instance command adapter for headless clients and fixtures.
+//! Native panels use `viewer_transport`; this adapter cannot take their audio device.
 use super::Session;
 use fold_foundation::Time;
 use fold_platform::desktop::TransportAction;
@@ -7,11 +7,17 @@ use fold_platform::desktop::TransportAction;
 impl Session {
     pub(super) fn stop_playback(&mut self) {
         #[cfg(feature = "desktop")]
-        self.playback.pause();
+        if self.viewers.monitor.is_none() {
+            self.playback.pause();
+        }
         self.state.playing = false;
         self.state.priming = false;
     }
     pub(super) fn start_playback(&mut self) {
+        if !self.viewers.clocks.is_empty() {
+            self.state.status = "Choose a viewer for playback".into();
+            return;
+        }
         if self.overlay.is_some() {
             self.state.status = "Finish the current edit before playing.".into();
             return;

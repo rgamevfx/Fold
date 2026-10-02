@@ -29,6 +29,9 @@ pub(crate) struct PreviewHost {
     pending: Option<DisplayFrame>,
     requested: bool,
     consumers: Vec<PreviewKey>,
+    /// Exact immutable key is the consumer's presentation generation. A repeated
+    /// key intentionally reuses identical content, independent of request age.
+    demands: std::collections::BTreeMap<fold_platform::workspace::PanelInstanceId, PreviewKey>,
     next_consumer: usize,
     failures: Vec<(PreviewKey, String)>,
     #[cfg(feature = "native-probe")]
@@ -44,6 +47,7 @@ impl PreviewHost {
             pending: None,
             requested: false,
             consumers: vec![],
+            demands: Default::default(),
             next_consumer: 0,
             failures: vec![],
             #[cfg(feature = "native-probe")]
@@ -66,9 +70,28 @@ impl PreviewHost {
             self.displayed.as_ref().map(|key| key.frame)
         )
     }
-    /// Phase 14 serial demand adapter over the existing single render worker.
-    /// One cache/budget serves all visible consumers. Per-consumer request/audio
-    /// lifetimes are introduced in phase 15, not by cloning decoders here.
+    pub fn select_viewers(
+        &mut self,
+        demands: &[(
+            fold_platform::workspace::PanelInstanceId,
+            Option<PreviewKey>,
+        )],
+        client: &mut dyn DesktopClient,
+    ) {
+        self.demands = demands
+            .iter()
+            .filter_map(|(id, key)| key.clone().map(|key| (*id, key)))
+            .collect();
+        self.select_many(self.demands.values().cloned().collect(), client);
+    }
+    pub fn state_for_viewer(&self, id: fold_platform::workspace::PanelInstanceId) -> Preview {
+        self.state_for(self.demands.get(&id))
+    }
+    /// Bounded shared content scheduler: one in-flight render, latest demand per
+    /// visible consumer, deduplicated by immutable content identity. Finish work
+    /// already admitted rather than letting a continuously seeking consumer cancel
+    /// another's work. Presentation always resolves the consumer's exact current
+    /// key; obsolete results may populate the shared cache but cannot be displayed.
     pub fn select_many(&mut self, keys: Vec<PreviewKey>, client: &mut dyn DesktopClient) {
         let previous = std::mem::take(&mut self.consumers);
         for key in keys {
@@ -81,12 +104,7 @@ impl PreviewHost {
         }
         self.failures
             .retain(|(key, _)| self.consumers.contains(key));
-        if (self.requested || self.pending.is_some())
-            && self
-                .wanted
-                .as_ref()
-                .is_some_and(|key| self.consumers.contains(key))
-        {
+        if (self.requested || self.pending.is_some()) && !self.consumers.is_empty() {
             return;
         }
         let mut missing = None;

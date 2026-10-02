@@ -10,9 +10,7 @@ pub struct PanelContext<'a> {
     editor: Option<&'a mut EditorInstance>,
     state: DesktopState,
     playback_requested: Option<bool>,
-    playback_owner: bool,
     instance: Option<crate::workspace::PanelInstanceId>,
-    output: Option<DocumentRef>,
     seek_request: Option<Time>,
 }
 impl<'a> PanelContext<'a> {
@@ -42,9 +40,7 @@ impl<'a> PanelContext<'a> {
             editor: Some(editor),
             state,
             playback_requested: None,
-            playback_owner: false,
             instance: None,
-            output: None,
             seek_request: None,
         }
     }
@@ -59,9 +55,7 @@ impl<'a> PanelContext<'a> {
             editor: None,
             state,
             playback_requested: None,
-            playback_owner: false,
             instance: Some(id),
-            output: None,
             seek_request: None,
         }
     }
@@ -76,19 +70,14 @@ impl<'a> PanelContext<'a> {
             self.state = self.host.preview_state(output, location.time);
             self.state.selection = editor.selection.clone();
             self.state.navigation = editor.navigation.clone();
-            self.output = Some(output.clone());
         }
         self
     }
-    /// Phase 14 retains one playback service, explicitly owned by one viewer.
-    /// Other viewers remain independently targetable/seekable, not independently playing.
-    pub fn transport_context(&mut self, owner: bool, range: PlaybackRange) {
-        self.playback_owner = owner;
+    /// Transport intent is returned to the shell and addressed to this viewer only.
+    pub fn transport_context(&mut self, playing: bool, range: PlaybackRange) {
         self.state.playback_range = range;
-        if owner {
-            self.state.playing = self.host.state().playing;
-            self.state.priming = self.host.state().priming;
-        }
+        self.state.playing = playing;
+        self.state.priming = false;
     }
     pub fn seek_request(&self) -> Option<Time> {
         self.seek_request
@@ -97,54 +86,32 @@ impl<'a> PanelContext<'a> {
         self.playback_requested
     }
     fn play(&mut self) {
-        if self.output.as_ref().is_some_and(|o| o.output != "video") {
-            self.state.status =
-                "Playback of alternate output ports requires the phase-15 transport service".into();
-            self.host
-                .command(DesktopCommand::Notify(self.state.status.clone()));
-            return;
-        }
         if let Some(location) = self
             .editor
             .as_ref()
             .and_then(|e| e.navigation.last())
             .cloned()
         {
-            let valid = self
-                .host
-                .video_info(location.document)
-                .and_then(|info| info.time(info.frames))
-                .is_ok_and(|end| {
-                    self.state.frames > 0 && location.time >= Time::ZERO && location.time < end
-                });
+            let valid = Time::new(
+                i64::from(self.state.frames) * i64::from(self.state.rate[1]),
+                self.state.rate[0],
+            )
+            .is_ok_and(|end| {
+                self.state.frames > 0 && location.time >= Time::ZERO && location.time < end
+            });
             if !valid {
                 self.state.status = "No available output at this local time".into();
                 self.host
                     .command(DesktopCommand::Notify(self.state.status.clone()));
                 return;
             }
-            self.host.command(DesktopCommand::Navigate(location));
-            let frame = self.state.frame;
-            let (start, end) = self.state.playback_range.bounds(self.state.frames);
-            self.host.command(DesktopCommand::Seek(start));
-            self.host
-                .command(DesktopCommand::Transport(TransportAction::MarkIn));
-            self.host.command(DesktopCommand::Seek(end));
-            self.host
-                .command(DesktopCommand::Transport(TransportAction::MarkOut));
-            self.host.command(DesktopCommand::Seek(frame));
-            self.host.command(DesktopCommand::Play);
-            self.state.playing = self.host.state().playing;
+            self.state.playing = true;
             self.playback_requested = Some(true);
-            self.playback_owner = true;
         }
     }
     fn seek(&mut self, frame: u32) {
         let frame = frame.min(self.state.frames.saturating_sub(1));
-        if self.playback_owner {
-            self.host.command(DesktopCommand::Pause);
-            self.playback_requested = Some(false);
-        }
+        self.playback_requested = Some(false);
         self.state.playing = false;
         self.state.frame = frame;
         if let Some(location) = self.editor.as_mut().and_then(|e| e.navigation.last_mut()) {
@@ -280,9 +247,6 @@ impl DesktopClient for PanelContext<'_> {
             DesktopCommand::Seek(frame) => self.seek(frame),
             DesktopCommand::Play => self.play(),
             DesktopCommand::Pause => {
-                if self.playback_owner {
-                    self.host.command(DesktopCommand::Pause);
-                }
                 self.state.playing = false;
                 self.playback_requested = Some(false);
             }

@@ -65,6 +65,102 @@ fn fixture() -> (Session, [DocumentId; 3]) {
         .unwrap();
     (Session::new(project), ids)
 }
+#[test]
+fn instance_play_seek_retarget_and_close_never_change_another_clock_or_project() {
+    use fold_platform::{desktop::ViewerTransport, workspace::PanelInstanceId};
+    use std::time::{Duration, Instant};
+    let (mut session, ids) = fixture();
+    session.command(Command::SetOutput(ids[1]));
+    let before = session.snapshot().unwrap();
+    let directory = tempfile::tempdir().unwrap();
+    let export = directory.path().join("pinned.mp4");
+    session.command(Command::Export {
+        path: export.clone(),
+        start: 0,
+        end: 2,
+    });
+    let a = PanelInstanceId(10);
+    let b = PanelInstanceId(11);
+    let intent = |document, time, playing| ViewerTransport {
+        output: DocumentRef {
+            document,
+            output: "video".into(),
+            extensions: Default::default(),
+        },
+        time,
+        range: PlaybackRange {
+            start: Some(0),
+            end: Some(47),
+        },
+        looping: true,
+        playing,
+    };
+    session.command(Command::ViewerTransport {
+        viewer: a,
+        transport: intent(ids[0], Time::ZERO, true),
+    });
+    session.command(Command::ViewerTransport {
+        viewer: b,
+        transport: intent(ids[0], Time::new(1, 2).unwrap(), true),
+    });
+    let deadline = Instant::now() + Duration::from_secs(2);
+    while session.viewer_transport(a).unwrap().time == Time::ZERO {
+        assert!(Instant::now() < deadline);
+        std::thread::sleep(Duration::from_millis(2));
+        session.poll();
+    }
+    let other = session.viewer_transport(b).unwrap();
+    assert!(other.playing);
+    assert!(other.time >= Time::new(1, 2).unwrap());
+    let mut seek = session.viewer_transport(a).unwrap();
+    seek.playing = false;
+    seek.time = Time::new(7, 96).unwrap(); // Keep subframe edit context exact while paused.
+    seek.range = PlaybackRange {
+        start: Some(2),
+        end: Some(8),
+    };
+    session.command(Command::ViewerTransport {
+        viewer: a,
+        transport: seek.clone(),
+    });
+    assert_eq!(session.viewer_transport(a).unwrap(), seek);
+    assert_eq!(session.viewer_transport(b).unwrap(), other);
+    session.command(Command::ViewerTransport {
+        viewer: a,
+        transport: intent(ids[1], seek.time, false),
+    });
+    assert_eq!(session.viewer_transport(b).unwrap(), other);
+    session.command(Command::MonitorViewer(Some(a)));
+    session.command(Command::MonitorViewer(Some(b)));
+    assert_eq!(session.viewer_transport(a).unwrap().time, seek.time);
+    assert_eq!(session.viewer_transport(b).unwrap(), other);
+    session.command(Command::CloseViewer(a));
+    assert!(session.viewer_transport(a).is_none());
+    assert_eq!(session.viewer_transport(b).unwrap(), other);
+    session.command(Command::CloseViewer(b));
+    let deadline = Instant::now() + Duration::from_secs(15);
+    while session.state().busy {
+        assert!(
+            Instant::now() < deadline,
+            "export did not complete independently"
+        );
+        session.poll();
+        std::thread::sleep(Duration::from_millis(2));
+    }
+    assert!(
+        session.state().status.starts_with("Export complete:"),
+        "{}",
+        session.state().status
+    );
+    assert!(std::fs::metadata(export).unwrap().len() > 0);
+    assert_eq!(session.output_info().unwrap().0, ids[1]);
+    assert_eq!(session.snapshot().unwrap().revision(), before.revision());
+    assert_eq!(
+        session.snapshot().unwrap().state().documents,
+        before.state().documents
+    );
+}
+
 fn navigate(session: &mut Session, document: DocumentId) {
     session.command(Command::Navigate(ViewLocation {
         document,

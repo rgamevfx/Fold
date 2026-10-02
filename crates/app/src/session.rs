@@ -14,6 +14,8 @@ use std::sync::{
 mod transport;
 #[path = "session_view.rs"]
 mod view;
+#[path = "viewer_transport.rs"]
+mod viewer_transport;
 
 type Request = (Snapshot, PreviewKey, Cancel);
 struct Mailbox {
@@ -129,6 +131,7 @@ pub struct Session {
     workspace_project: Option<String>,
     workspace_epoch: u64,
     workspace_restore: bool,
+    viewers: viewer_transport::Viewers,
     playback_ranges: std::collections::BTreeMap<
         fold_foundation::DocumentId,
         fold_platform::desktop::PlaybackRange,
@@ -153,6 +156,7 @@ impl Session {
             workspace_project: None,
             workspace_epoch: 0,
             workspace_restore: false,
+            viewers: Default::default(),
             playback_ranges: Default::default(),
             #[cfg(feature = "desktop")]
             playback: crate::playback::Playback::default(),
@@ -161,6 +165,7 @@ impl Session {
         session
     }
     fn refresh(&mut self) {
+        self.refresh_viewers();
         let committed = self.project.snapshot();
         if self
             .state
@@ -288,6 +293,23 @@ impl Session {
     }
 }
 impl DesktopClient for Session {
+    fn viewer_audio_error(
+        &self,
+        viewer: fold_platform::workspace::PanelInstanceId,
+    ) -> Option<String> {
+        (self.viewers.monitor == Some(viewer))
+            .then(|| self.viewers.audio_error.clone())
+            .flatten()
+    }
+    fn viewer_transport(
+        &self,
+        viewer: fold_platform::workspace::PanelInstanceId,
+    ) -> Option<fold_platform::desktop::ViewerTransport> {
+        self.viewers
+            .clocks
+            .get(&viewer)
+            .map(|c| c.transport.clone())
+    }
     fn state(&self) -> &DesktopState {
         &self.state
     }
@@ -377,8 +399,9 @@ impl DesktopClient for Session {
         crate::packages::builtins().supports(document)
     }
     fn poll(&mut self) {
+        self.poll_viewers();
         #[cfg(feature = "desktop")]
-        {
+        if self.viewers.monitor.is_none() {
             use fold_foundation::{Rounding, Time};
             if let Some(sample) = self.playback.sample()
                 && self.state.playing
@@ -465,6 +488,8 @@ impl DesktopClient for Session {
                     if self.project.snapshot().revision() != base {
                         self.state.status = "Project changed while opening; retry open".into();
                     } else {
+                        self.monitor_viewer(None);
+                        self.viewers.clocks.clear();
                         self.project = project;
                         self.workspace_project = Some(path);
                         self.workspace_epoch += 1;
@@ -502,6 +527,21 @@ impl DesktopClient for Session {
     }
     fn command(&mut self, command: DesktopCommand) {
         let result = match command {
+            DesktopCommand::ViewerTransport { viewer, transport } => {
+                self.configure_viewer(viewer, transport);
+                return;
+            }
+            DesktopCommand::MonitorViewer(viewer) => {
+                self.monitor_viewer(viewer);
+                return;
+            }
+            DesktopCommand::CloseViewer(viewer) => {
+                if self.viewers.monitor == Some(viewer) {
+                    self.monitor_viewer(None);
+                }
+                self.viewers.clocks.remove(&viewer);
+                return;
+            }
             DesktopCommand::Notify(message) => {
                 self.state.status = message;
                 return;

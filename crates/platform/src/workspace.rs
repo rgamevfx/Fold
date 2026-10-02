@@ -164,6 +164,10 @@ pub struct ViewerInstance {
     pub divisor: u32,
     #[serde(default)]
     pub range: crate::desktop::PlaybackRange,
+    #[serde(default)]
+    pub looping: bool,
+    #[serde(skip)]
+    pub playing: bool,
 }
 impl Default for ViewerInstance {
     fn default() -> Self {
@@ -176,6 +180,8 @@ impl Default for ViewerInstance {
             time: Time::ZERO,
             divisor: 2,
             range: Default::default(),
+            looping: false,
+            playing: false,
         }
     }
 }
@@ -195,6 +201,10 @@ pub struct Workspace {
     pub inspector_group: LinkGroup,
     #[serde(default)]
     pub inspector_viewer: Option<PanelInstanceId>,
+    #[serde(default)]
+    pub monitored_viewer: Option<PanelInstanceId>,
+    #[serde(default)]
+    monitor_initialized: bool,
     pub layout: String,
     next_id: u64,
 }
@@ -210,6 +220,8 @@ impl Default for Workspace {
             group_sources: Default::default(),
             inspector_group: LinkGroup::A,
             inspector_viewer: None,
+            monitored_viewer: None,
+            monitor_initialized: false,
             layout: String::new(),
             next_id: 1,
         }
@@ -250,6 +262,10 @@ impl Workspace {
     }
     pub fn add_viewer(&mut self, viewer: ViewerInstance) -> PanelInstanceId {
         let id = self.allocate();
+        if !self.monitor_initialized {
+            self.monitored_viewer = Some(id);
+            self.monitor_initialized = true;
+        }
         self.viewers.insert(id, viewer);
         id
     }
@@ -352,6 +368,12 @@ impl Workspace {
         Some((editor, self.viewers[&viewer].time))
     }
     pub fn reconcile(&mut self) {
+        if self
+            .monitored_viewer
+            .is_some_and(|id| !self.viewers.contains_key(&id))
+        {
+            self.monitored_viewer = None;
+        }
         let resolved: Vec<_> = self
             .viewers
             .keys()
@@ -430,6 +452,7 @@ impl Workspace {
             .max()
             .unwrap_or(0);
         value.next_id = max.checked_add(1).ok_or("workspace identity exhausted")?;
+        value.monitor_initialized = true;
         value.reconcile();
         Ok(value)
     }
@@ -450,6 +473,35 @@ mod tests {
             time,
             label: "Same name".into(),
         }
+    }
+    #[test]
+    fn loop_monitor_and_marks_restore_but_playback_does_not() {
+        let mut w = Workspace::default();
+        let a = w.add_viewer(ViewerInstance {
+            playing: true,
+            looping: true,
+            range: crate::desktop::PlaybackRange {
+                start: Some(4),
+                end: Some(9),
+            },
+            ..Default::default()
+        });
+        let b = w.add_viewer(Default::default());
+        assert_eq!(w.monitored_viewer, Some(a));
+        let restored = Workspace::decode(&serde_json::to_vec(&w).unwrap(), "").unwrap();
+        assert!(!restored.viewers[&a].playing);
+        assert!(restored.viewers[&a].looping);
+        assert_eq!(restored.viewers[&a].range, w.viewers[&a].range);
+        assert_eq!(restored.monitored_viewer, Some(a));
+        w.viewers.remove(&a);
+        w.reconcile();
+        assert_eq!(w.monitored_viewer, None);
+        w.viewers.remove(&b);
+        w.add_viewer(Default::default());
+        assert_eq!(
+            w.monitored_viewer, None,
+            "creating a viewer does not silently resume monitoring"
+        );
     }
     #[test]
     fn contribution_instances_restore_without_reusing_editor_or_viewer_identities() {

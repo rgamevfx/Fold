@@ -124,8 +124,24 @@ impl DesktopState {
         })
     }
 }
+/// Workspace transport intent/status, never authoritative project content.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ViewerTransport {
+    pub output: fold_project::DocumentRef,
+    pub time: fold_foundation::Time,
+    pub range: PlaybackRange,
+    pub looping: bool,
+    pub playing: bool,
+}
+
 #[derive(Clone, Debug)]
 pub enum DesktopCommand {
+    ViewerTransport {
+        viewer: crate::workspace::PanelInstanceId,
+        transport: ViewerTransport,
+    },
+    CloseViewer(crate::workspace::PanelInstanceId),
+    MonitorViewer(Option<crate::workspace::PanelInstanceId>),
     Notify(String),
     Browser(crate::browser::BrowserCommand),
     Import(Vec<PathBuf>),
@@ -166,6 +182,16 @@ pub struct PreviewResult {
 }
 pub trait DesktopClient {
     fn state(&self) -> &DesktopState;
+    fn viewer_transport(
+        &self,
+        _viewer: crate::workspace::PanelInstanceId,
+    ) -> Option<ViewerTransport> {
+        None
+    }
+    /// Monitoring errors are scoped to the explicitly monitored viewer.
+    fn viewer_audio_error(&self, _viewer: crate::workspace::PanelInstanceId) -> Option<String> {
+        None
+    }
     /// Immutable committed state, never a mutable project or device handle.
     fn snapshot(&self) -> Option<fold_project::CommittedSnapshot> {
         None

@@ -22,6 +22,56 @@ impl DesktopClient for Client {
     }
 }
 #[test]
+fn seeking_and_closing_consumers_do_not_cancel_other_demands_or_publish_obsolete_results() {
+    use fold_platform::workspace::PanelInstanceId;
+    let a = PanelInstanceId(1);
+    let b = PanelInstanceId(2);
+    let key = PreviewKey {
+        target: None,
+        output: "video".into(),
+        content: "same".into(),
+        frame: 0,
+        dimensions: [64, 64],
+        view: 1,
+    };
+    let next = PreviewKey {
+        frame: 12,
+        ..key.clone()
+    };
+    let mut host = PreviewHost::new();
+    let mut client = Client {
+        state: Default::default(),
+        requests: vec![],
+        cancellations: 0,
+    };
+    host.select_viewers(
+        &[(a, Some(key.clone())), (b, Some(key.clone()))],
+        &mut client,
+    );
+    host.select_viewers(
+        &[(a, Some(next.clone())), (b, Some(key.clone()))],
+        &mut client,
+    );
+    assert_eq!(client.requests.len(), 1);
+    assert_eq!(client.cancellations, 1);
+    assert_eq!(host.demands[&b], key);
+    host.select_viewers(&[(a, Some(next.clone()))], &mut client);
+    assert_eq!(
+        client.cancellations, 1,
+        "finish shared in-flight content rather than canceling on consumer churn"
+    );
+    host.requested = false;
+    host.failures.push((key, "Obsolete result".into()));
+    host.select_viewers(&[(a, Some(next.clone()))], &mut client);
+    assert!(matches!(host.state_for_viewer(a), Preview::Pending));
+    assert_eq!(client.requests.last(), Some(&next));
+    assert!(!host.demands.contains_key(&b));
+    host.select_viewers(&[], &mut client);
+    assert!(host.wanted.is_none());
+    assert!(host.pending.is_none());
+}
+
+#[test]
 fn bounded_serial_adapter_does_not_replace_one_viewer_demand_every_redraw() {
     let key = PreviewKey {
         target: None,
