@@ -172,6 +172,6 @@ pub fn drawings_with(
         0,
         &mut traversal,
     )?;
-    fold_render::vector::validate(&traversal.drawings)?;
+    fold_render::vector::validate_working(&traversal.drawings, true)?;
     Ok(traversal.drawings)
 }

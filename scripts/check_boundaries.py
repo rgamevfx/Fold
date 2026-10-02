@@ -6,13 +6,14 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-SHARED = {"fold-foundation", "fold-project", "fold-media", "fold-render", "fold-platform"}
+SHARED = {"fold-foundation", "fold-color", "fold-project", "fold-media", "fold-render", "fold-platform"}
 CREATIVE = {"fold-timeline", "fold-compositor", "fold-motion"}
 ALLOWED = {
     "fold-foundation": set(),
+    "fold-color": set(),
     "fold-project": {"fold-foundation"},
     "fold-media": {"fold-foundation"},
-    "fold-render": {"fold-foundation", "fold-media"},
+    "fold-render": {"fold-foundation", "fold-color", "fold-media"},
     "fold-platform": SHARED - {"fold-platform"},
     "fold-ui": {"fold-foundation", "fold-platform"},
     **{name: SHARED | {"fold-ui"} for name in CREATIVE},

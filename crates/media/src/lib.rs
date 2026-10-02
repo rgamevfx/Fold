@@ -19,17 +19,19 @@ pub fn content_hash(bytes: &[u8]) -> String {
 pub const MAX_PIXELS: usize = 4_194_304;
 pub const MAX_SOURCE_BYTES: usize = MAX_PIXELS * 3 + 4096;
 
-/// Validated immutable tightly packed RGB8 pixels with sRGB transfer.
-/// This is a decoded image, not an encoded file or a viewer-cache entry.
+/// Validated immutable RGB: sRGB RGB8 fixtures/legacy decode, or native BT.709
+/// encoded float RGB after YUV reconstruction (`is_signal`). This is not a
+/// working image or viewer cache entry; OCIO consumes `encoded_pixels` for ACES.
 #[derive(Clone, Debug)]
 pub struct RgbImage {
     dimensions: [u32; 2],
     rgb: Arc<[u8]>,
+    signal: Option<Arc<[[f32; 4]]>>,
 }
 
 impl RgbImage {
     /// P6 fixtures/image sequences are one adapter, not the viewer cache format.
-    pub fn decode_ppm(bytes: &[u8]) -> Result<Self, &'static str> {
+    fn ppm(bytes: &[u8]) -> Result<([u32; 2], &[u8]), &'static str> {
         if bytes.len() > MAX_SOURCE_BYTES {
             return Err("PPM exceeds source byte budget");
         }
@@ -88,9 +90,19 @@ impl RgbImage {
         if rgb.len() != count as usize * 3 {
             return Err("PPM raster length mismatch");
         }
+        Ok(([width, height], rgb))
+    }
+
+    /// Header/length validation only: no decoded storage allocation or processing.
+    pub fn ppm_dimensions(bytes: &[u8]) -> Result<[u32; 2], &'static str> {
+        Self::ppm(bytes).map(|(size, _)| size)
+    }
+    pub fn decode_ppm(bytes: &[u8]) -> Result<Self, &'static str> {
+        let (dimensions, rgb) = Self::ppm(bytes)?;
         Ok(Self {
-            dimensions: [width, height],
+            dimensions,
             rgb: rgb.into(),
+            signal: None,
         })
     }
 
@@ -102,14 +114,66 @@ impl RgbImage {
         Ok(Self {
             dimensions,
             rgb: rgb.into(),
+            signal: None,
         })
+    }
+
+    pub(crate) fn from_gbr(dimensions: [u32; 2], bytes: &[u8]) -> Result<Self, String> {
+        let count = dimensions[0] as usize * dimensions[1] as usize;
+        if count == 0 || count > MAX_PIXELS || bytes.len() != count * 12 {
+            return Err("Invalid float decode planes".into());
+        }
+        let sample = |plane: usize, pixel: usize| {
+            let start = (plane * count + pixel) * 4;
+            f32::from_le_bytes(bytes[start..start + 4].try_into().unwrap())
+        };
+        let mut pixels = Vec::new();
+        pixels
+            .try_reserve_exact(count)
+            .map_err(|_| "Float decode allocation failed")?;
+        for i in 0..count {
+            let p = [sample(2, i), sample(0, i), sample(1, i), 1.];
+            if p.iter().any(|v| !v.is_finite()) {
+                return Err("Nonfinite decoder output".into());
+            }
+            pixels.push(p);
+        }
+        Ok(Self {
+            dimensions,
+            rgb: Arc::from([]),
+            signal: Some(pixels.into()),
+        })
+    }
+    pub fn encoded_pixels(&self) -> impl Iterator<Item = [f32; 4]> + '_ {
+        (0..self.dimensions[0] as usize * self.dimensions[1] as usize).map(|i| {
+            self.signal.as_ref().map_or_else(
+                || {
+                    [
+                        self.rgb[i * 3] as f32 / 255.,
+                        self.rgb[i * 3 + 1] as f32 / 255.,
+                        self.rgb[i * 3 + 2] as f32 / 255.,
+                        1.,
+                    ]
+                },
+                |p| p[i],
+            )
+        })
+    }
+    pub fn is_signal(&self) -> bool {
+        self.signal.is_some()
+    }
+    pub fn storage_bytes(&self) -> u64 {
+        self.signal
+            .as_ref()
+            .map_or(self.rgb.len() as u64, |p| p.len() as u64 * 16)
     }
 
     pub fn dimensions(&self) -> [u32; 2] {
         self.dimensions
     }
 
-    /// Input transfer conversion. Output is opaque premultiplied linear sRGB.
+    /// Legacy/reference input transfer conversion to linear Rec.709 primaries.
+    /// ACES evaluation uses encoded pixels and an explicit OCIO input assignment.
     pub fn linear_pixels(&self) -> impl Iterator<Item = [f32; 4]> + '_ {
         // RGB8 has only 256 possible inputs. Cache the exact reference transfer
         // values rather than recomputing three powf calls per pixel per frame.
@@ -124,13 +188,29 @@ impl RgbImage {
                 }
             })
         });
-        self.rgb.chunks_exact(3).map(|rgb| {
-            [
-                linear[rgb[0] as usize],
-                linear[rgb[1] as usize],
-                linear[rgb[2] as usize],
-                1.0,
-            ]
+        (0..self.dimensions[0] as usize * self.dimensions[1] as usize).map(|i| {
+            if let Some(signal) = &self.signal {
+                let decode = |v: f32| {
+                    if v < 0.081 {
+                        v / 4.5
+                    } else {
+                        ((v + 0.099) / 1.099).powf(1. / 0.45)
+                    }
+                };
+                [
+                    decode(signal[i][0]),
+                    decode(signal[i][1]),
+                    decode(signal[i][2]),
+                    1.,
+                ]
+            } else {
+                [
+                    linear[self.rgb[i * 3] as usize],
+                    linear[self.rgb[i * 3 + 1] as usize],
+                    linear[self.rgb[i * 3 + 2] as usize],
+                    1.,
+                ]
+            }
         })
     }
 }

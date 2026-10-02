@@ -23,7 +23,7 @@ pub fn vector(id: &'static str, value: [f64; 2], unit: &'static str) -> Socket {
     Socket::value(id, Datum::Vector(value), unit)
 }
 pub fn color(id: &'static str, value: [f64; 4]) -> Socket {
-    Socket::value(id, Datum::Color(value), "linear sRGB")
+    Socket::value(id, Datum::Color(value), "")
 }
 pub fn boolean(id: &'static str, value: bool) -> Socket {
     Socket::value(id, Datum::Bool(value), "")

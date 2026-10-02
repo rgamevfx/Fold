@@ -156,7 +156,11 @@ pub fn register(registry: &mut PackageRegistry) -> Result<(), String> {
             panels: PANELS,
             build: concat!(env!("CARGO_PKG_VERSION"), ":timeline-schema3-evaluator3"),
         },
-        documents: vec![Box::new(Documents), Box::new(LegacyLayers)],
+        documents: vec![
+            Box::new(Documents),
+            Box::new(LegacyLayers),
+            Box::new(crate::ImageSequenceProvider),
+        ],
         commands: vec![
             CommandRegistration {
                 id: EDIT,
@@ -174,6 +178,7 @@ pub fn register(registry: &mut PackageRegistry) -> Result<(), String> {
         video: vec![
             Box::new(crate::SequenceProvider),
             Box::new(crate::VideoLayersProvider),
+            Box::new(crate::ImageSequenceProvider),
         ],
         audio: vec![Box::new(Audio)],
     })

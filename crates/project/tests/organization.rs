@@ -158,7 +158,7 @@ fn legacy_migration_is_deterministic_and_preserves_unknown_bytes_and_resources()
     );
     let mut archive: serde_json::Value =
         serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
-    assert_eq!(archive["version"], 2);
+    assert_eq!(archive["version"], 3);
     let item = archive["project"]["organization"]["items"][0].clone();
     archive["project"]["organization"]["items"]
         .as_array_mut()

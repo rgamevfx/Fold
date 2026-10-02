@@ -159,8 +159,8 @@ fn color_response(e: &mut Element, value: Datum, w: f64, mode: Combine) -> Resul
         Combine::Add => base[i] + v[i] * w,
         Combine::Multiply => base[i] * (1. + (v[i] - 1.) * w),
     });
-    if color.iter().any(|v| !(0. ..=1.).contains(v)) {
-        return Err("response color outside linear SDR range".into());
+    if color.iter().any(|v| !v.is_finite()) || !(0. ..=1.).contains(&color[3]) {
+        return Err("response requires finite color and alpha in 0..1".into());
     }
     e.fill = Some(color);
     Ok(())

@@ -924,6 +924,28 @@ impl Shell {
             {
                 client.command(DesktopCommand::SetOutput(output.document));
             }
+            if let (Some(snapshot), Some((document, _))) = (client.snapshot(), self.delivery_output)
+                && fold_platform::color::project(&snapshot)
+                    .ok()
+                    .flatten()
+                    .is_some()
+            {
+                match fold_platform::color::output(&snapshot, document) {
+                    Ok(mut transform) => {
+                        if crate::sdk::color_controls::output(
+                            ui,
+                            &state.color_choices,
+                            &mut transform,
+                        ) {
+                            client.command(DesktopCommand::SetOutputColor {
+                                document,
+                                transform,
+                            });
+                        }
+                    }
+                    Err(error) => ui.text_wrapped(error),
+                }
+            }
             ui.input_text("New MP4 output", &mut self.export_path)
                 .build();
             ui.input_int("Start frame", &mut self.start);
@@ -940,7 +962,6 @@ impl Shell {
                 client.command(DesktopCommand::Cancel);
             }
             ui.text_wrapped(&state.status);
-            ui.text_disabled("Export uses committed delivery settings, never panel navigation.");
         });
         Ok(())
     }

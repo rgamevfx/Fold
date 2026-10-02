@@ -88,14 +88,18 @@ impl VideoProvider for Provider {
                                     .assets
                                     .get(asset)
                                     .ok_or("missing Read asset")?;
-                                Op::Video {
-                                    source: fold_media::VideoSource {
+                                Op::video(
+                                    fold_media::VideoSource {
                                         path: asset.location.clone().into(),
                                         fingerprint: asset.fingerprint.clone(),
                                         info: info.clone(),
                                     },
-                                    time: local,
-                                }
+                                    local,
+                                    match fold_platform::color::input(&node.extensions)? {
+                                        Some(space) => Some(space),
+                                        None => fold_platform::color::input(&asset.extensions)?,
+                                    },
+                                )
                             }
                         }
                     }

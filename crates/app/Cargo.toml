@@ -14,6 +14,7 @@ desktop = ["dep:rfd", "dep:fold-ui", "dep:cpal", "dep:rtrb", "fold-timeline/ui",
 serde.workspace = true
 serde_json.workspace = true
 fold-foundation.workspace = true
+fold-color.workspace = true
 tempfile.workspace = true
 fold-project.workspace = true
 fold-media.workspace = true

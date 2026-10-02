@@ -21,6 +21,7 @@ type Request = (Snapshot, PreviewKey, Cancel);
 struct Mailbox {
     pending: Option<Request>,
     result: Option<PreviewResult>,
+    colors: Option<fold_platform::color::Choices>,
     stop: bool,
 }
 struct PreviewWorker {
@@ -34,6 +35,7 @@ impl PreviewWorker {
             Mutex::new(Mailbox {
                 pending: None,
                 result: None,
+                colors: None,
                 stop: false,
             }),
             Condvar::new(),
@@ -41,6 +43,7 @@ impl PreviewWorker {
         let state = shared.clone();
         let thread = std::thread::spawn(move || {
             let mut decoder = Decoder::default();
+            let mut color_identity = None;
             loop {
                 let (snapshot, key, cancel) = {
                     let (lock, ready) = &*state;
@@ -53,8 +56,22 @@ impl PreviewWorker {
                     }
                     queue.pending.take().unwrap()
                 };
+                let identity = snapshot
+                    .state()
+                    .settings
+                    .get(fold_platform::color::PROJECT_KEY)
+                    .cloned();
+                if identity != color_identity {
+                    let choices = crate::color::choices(&snapshot);
+                    if cancel.check().is_ok() {
+                        if choices.error.is_none() {
+                            color_identity = identity;
+                        }
+                        state.0.lock().unwrap().colors = Some(choices);
+                    }
+                }
                 let frame = workflow::evaluate(&snapshot, &key, &mut decoder, &cancel)
-                    .and_then(|f| f.to_display().map_err(str::to_owned));
+                    .and_then(|f| crate::color::preview(&snapshot, &f));
                 let mut queue = state.0.lock().unwrap();
                 // Request replacement/cancellation and publication serialize here.
                 if cancel.check().is_ok() && !queue.stop {
@@ -141,7 +158,7 @@ pub struct Session {
 }
 impl Default for Session {
     fn default() -> Self {
-        Self::new(Project::new(32))
+        Self::new(crate::color::new_project(32))
     }
 }
 impl Session {
@@ -413,6 +430,9 @@ impl DesktopClient for Session {
         crate::packages::builtins().supports(document)
     }
     fn poll(&mut self) {
+        if let Some(choices) = self.preview.shared.0.lock().unwrap().colors.take() {
+            self.state.color_choices = choices;
+        }
         self.poll_viewers();
         #[cfg(feature = "desktop")]
         if self.viewers.monitor.is_none() {
@@ -668,6 +688,54 @@ impl DesktopClient for Session {
                 self.state.status = "Cancellation requested".into();
                 return;
             }
+            DesktopCommand::SetOutputColor {
+                document,
+                transform,
+            } => {
+                if !self.state.color_choices.outputs.iter().any(|choice| {
+                    choice.display == transform.display
+                        && choice.view == transform.view
+                        && choice.look == transform.look
+                }) {
+                    self.state.status = "Unavailable output color transform".into();
+                    return;
+                }
+                crate::color::set_output(&self.project.snapshot(), document, transform).and_then(
+                    |batch| {
+                        self.project
+                            .commit(batch)
+                            .map(|_| ())
+                            .map_err(|e| e.to_string())
+                    },
+                )
+            }
+            DesktopCommand::SetInputColor { asset, space } => (|| {
+                if !self.state.color_choices.inputs.contains(&space) {
+                    return Err("Unavailable input color space".into());
+                }
+                let snapshot = self.project.snapshot();
+                if fold_platform::color::project(&snapshot)?.is_none() {
+                    return Err("Legacy project retains its original input interpretation".into());
+                }
+                let mut asset = snapshot
+                    .state()
+                    .assets
+                    .get(&asset)
+                    .ok_or("Missing input asset")?
+                    .as_ref()
+                    .clone();
+                asset.extensions.insert(
+                    fold_platform::color::INPUT_KEY.into(),
+                    serde_json::Value::String(space),
+                );
+                self.project
+                    .commit(EditBatch {
+                        base: snapshot.revision(),
+                        mutations: vec![Mutation::PutAsset(asset)],
+                    })
+                    .map(|_| ())
+                    .map_err(|e| e.to_string())
+            })(),
             DesktopCommand::SetOutput(document) => {
                 workflow::select_output(&self.project.snapshot(), document).and_then(|batch| {
                     self.project

@@ -2,11 +2,13 @@
 use std::io::{self, Write};
 
 pub mod audio;
+pub mod frame;
 mod graph;
 pub mod vector;
 pub use graph::{Affine, ImageId, ImageOp, RenderGraph};
 
-/// One full-frame operation; colors are scene-linear sRGB, premultiplied RGBA.
+/// One full-frame operation; colors are premultiplied scene-linear RGBA.
+/// Legacy entry points interpret RGB as linear-sRGB; the ACES entry point as ACEScg.
 #[derive(Clone, Copy, Debug)]
 pub struct SolidPlan {
     pub width: u32,
@@ -14,24 +16,60 @@ pub struct SolidPlan {
     pub rgba: [f32; 4],
 }
 
-/// Owned, tightly packed, row-major CPU pixels. Metadata is fixed for this path:
-/// square pixels, scene-linear sRGB primaries, premultiplied RGBA32F.
+/// The interpretation is explicit; legacy frames are never relabelled ACEScg.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WorkingSpace {
+    LegacyLinearSrgb,
+    AcesCg,
+}
+
+/// Owned, ready, tightly packed, row-major CPU pixels: square pixels and
+/// premultiplied RGBA32F in the declared scene-linear working space.
 #[derive(Debug)]
 pub struct Frame {
     width: u32,
     height: u32,
     pixels: Vec<[f32; 4]>,
+    working_space: WorkingSpace,
+    config_identity: Option<String>,
+    timing: Option<frame::Timing>,
 }
-/// Display-ready opaque SDR sRGB RGBA8, tightly packed with square pixels.
-/// Constructed only by the engine output transform; dimensions and bytes agree.
+/// Output-transformed opaque RGBA8, tightly packed with square pixels.
+/// Legacy `to_display` produces sRGB; `to_output` uses the explicit OCIO
+/// processor. Consumers must retain that processor's identity/settings.
 #[derive(Debug)]
 pub struct DisplayFrame {
     width: u32,
     height: u32,
     rgba: Vec<u8>,
+    transform_identity: String,
+    timing: Option<frame::Timing>,
 }
 
 impl DisplayFrame {
+    pub fn descriptor(&self) -> frame::Descriptor {
+        frame::Descriptor {
+            dimensions: self.dimensions(),
+            pixel_aspect: [1, 1],
+            planes: vec![frame::Plane {
+                offset: 0,
+                row_stride: self.width as u64 * 4,
+                channels: 4,
+                component: frame::Component::Unorm8,
+            }],
+            alpha: frame::Alpha::Opaque,
+            color: frame::ColorEncoding::Output {
+                processor_identity: self.transform_identity.clone(),
+            },
+            timing: self.timing,
+            storage: frame::Storage::CpuOwned,
+            readiness: frame::Readiness::Ready,
+        }
+    }
+    pub fn transform_identity(&self) -> &str {
+        &self.transform_identity
+    }
+
     pub fn dimensions(&self) -> [u32; 2] {
         [self.width, self.height]
     }
@@ -42,6 +80,101 @@ impl DisplayFrame {
 }
 
 impl Frame {
+    pub fn with_timing(
+        mut self,
+        timestamp: fold_foundation::Time,
+        duration: fold_foundation::Time,
+    ) -> Result<Self, String> {
+        if duration <= fold_foundation::Time::ZERO {
+            return Err("Frame duration must be positive".into());
+        }
+        self.timing = Some(frame::Timing {
+            timestamp,
+            duration,
+        });
+        Ok(self)
+    }
+    pub fn descriptor(&self) -> frame::Descriptor {
+        frame::Descriptor {
+            dimensions: self.dimensions(),
+            pixel_aspect: [1, 1],
+            planes: vec![frame::Plane {
+                offset: 0,
+                row_stride: self.width as u64 * 16,
+                channels: 4,
+                component: frame::Component::Float32,
+            }],
+            alpha: frame::Alpha::Premultiplied,
+            color: frame::ColorEncoding::Scene {
+                working: self.working_space,
+                config_identity: self.config_identity.clone(),
+            },
+            timing: self.timing,
+            storage: frame::Storage::CpuOwned,
+            readiness: frame::Readiness::Ready,
+        }
+    }
+    pub fn working_space(&self) -> WorkingSpace {
+        self.working_space
+    }
+
+    pub fn config_identity(&self) -> Option<&str> {
+        self.config_identity.as_deref()
+    }
+
+    pub fn dimensions(&self) -> [u32; 2] {
+        [self.width, self.height]
+    }
+
+    /// Explicit OCIO output boundary shared by preview and delivery. The
+    /// processor must originate from this frame's declared working space.
+    /// Only here are signed/HDR scene values quantized/clamped to RGBA8.
+    /// This allocates a float transform buffer and encoded output; callers own
+    /// those allocations separately from the evaluator's live-pixel budget.
+    pub fn to_output(&self, processor: &fold_color::Processor) -> Result<DisplayFrame, String> {
+        let source = match self.working_space {
+            WorkingSpace::LegacyLinearSrgb => fold_color::LINEAR_SRGB,
+            WorkingSpace::AcesCg => fold_color::WORKING_SPACE,
+        };
+        if processor.source() != source {
+            return Err("output processor source does not match frame working space".into());
+        }
+        if self
+            .config_identity
+            .as_deref()
+            .is_some_and(|identity| identity != processor.config_identity())
+        {
+            return Err("output processor config does not match scene config".into());
+        }
+        if self.pixels.iter().any(|p| p[3] != 1.0) {
+            return Err("output requires an explicit opaque matte".into());
+        }
+        let mut pixels = Vec::new();
+        pixels
+            .try_reserve_exact(self.pixels.len())
+            .map_err(|_| "output transform allocation failed")?;
+        pixels.extend_from_slice(&self.pixels);
+        processor.apply(&mut pixels)?;
+        let mut rgba = Vec::new();
+        rgba.try_reserve_exact(pixels.len() * 4)
+            .map_err(|_| "output allocation failed")?;
+        for pixel in pixels {
+            rgba.extend_from_slice(&[
+                (pixel[0] * 255.).round() as u8,
+                (pixel[1] * 255.).round() as u8,
+                (pixel[2] * 255.).round() as u8,
+                255,
+            ]);
+        }
+        Ok(DisplayFrame {
+            width: self.width,
+            height: self.height,
+            rgba,
+            transform_identity: processor.identity().into(),
+            timing: self.timing,
+        })
+    }
+
     /// Explicit opaque-black delivery matte, consuming this owned frame without
     /// allocating another full-size image. Premultiplied RGB is unchanged over black.
     pub fn over_black(mut self) -> Self {
@@ -53,6 +186,9 @@ impl Frame {
 
     /// CPU presentation fallback. Reject alpha rather than silently flattening it.
     pub fn to_display(&self) -> Result<DisplayFrame, &'static str> {
+        if self.working_space != WorkingSpace::LegacyLinearSrgb {
+            return Err("ACEScg requires an explicit OCIO output transform");
+        }
         if self.pixels.iter().any(|p| p[3] != 1.0) {
             return Err("display output requires opaque pixels");
         }
@@ -66,6 +202,8 @@ impl Frame {
             width: self.width,
             height: self.height,
             rgba,
+            transform_identity: "fold.legacy-linear-srgb-to-srgb.v1".into(),
+            timing: self.timing,
         })
     }
 
@@ -75,6 +213,12 @@ impl Frame {
 
     /// Explicit linear-to-sRGB transform, RGB8 PPM. Alpha is never silently lost.
     pub fn write_ppm(&self, mut output: impl Write) -> io::Result<()> {
+        if self.working_space != WorkingSpace::LegacyLinearSrgb {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "ACEScg requires an explicit OCIO output transform",
+            ));
+        }
         if self.pixels.iter().any(|p| p[3] != 1.0) {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
@@ -129,6 +273,7 @@ pub fn render(plan: impl Into<RenderGraph>) -> Result<Frame, String> {
         &mut fold_media::Decoder::default(),
         &fold_media::Cancel::default(),
         64 * 1024 * 1024,
+        None,
     )
 }
 
@@ -140,7 +285,20 @@ pub fn render_with(
     decoder: &mut fold_media::Decoder,
     cancel: &fold_media::Cancel,
 ) -> Result<Frame, String> {
-    graph::evaluate(plan, decoder, cancel, 128 * 1024 * 1024)
+    graph::evaluate(plan, decoder, cancel, 128 * 1024 * 1024, None)
+}
+
+/// Explicit ACEScg CPU path. Authored colors are already ACEScg. Video arrives
+/// as reconstructed float BT.709 RGB with its signal transfer intact; OCIO applies
+/// the input assignment once. RGB8 image fixtures default to sRGB input.
+/// Decoder replacement/native GPU-plane interop remain phase 18.
+pub fn render_aces_with(
+    plan: RenderGraph,
+    config: &fold_color::Config,
+    decoder: &mut fold_media::Decoder,
+    cancel: &fold_media::Cancel,
+) -> Result<Frame, String> {
+    graph::evaluate(plan, decoder, cancel, 128 * 1024 * 1024, Some(config))
 }
 
 #[cfg(test)]

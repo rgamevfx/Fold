@@ -29,6 +29,7 @@ impl Node {
             parameters,
             inputs,
             position: None,
+            extensions: Default::default(),
         }
     }
 }

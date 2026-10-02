@@ -98,14 +98,15 @@ impl VideoProvider for VideoLayersProvider {
                 .assets
                 .get(id)
                 .ok_or("missing video asset")?;
-            nodes.push(ImageOp::Video {
-                source: VideoSource {
+            nodes.push(ImageOp::video(
+                VideoSource {
                     path: asset.location.clone().into(),
                     fingerprint: asset.fingerprint.clone(),
                     info: layers.info.clone(),
                 },
                 time,
-            });
+                fold_platform::color::input(&asset.extensions)?,
+            ));
         }
         if nodes.len() == 2 {
             nodes.push(ImageOp::Opacity {

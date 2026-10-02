@@ -370,7 +370,9 @@ fn latest_requests_cancel_export_and_nonblocking_commands() {
     let dir = tempfile::tempdir().unwrap();
     let input = dir.path().join("input.mp4");
     fixture(&input, &[0, 64, 128, 192, 255]);
-    let mut session = fold_app::session::Session::default();
+    // This fixture exercises the legacy transport/export contract without a
+    // native OCIO installation; ACES worker routing has its own integration test.
+    let mut session = fold_app::session::Session::new(Project::new(32));
     let start = Instant::now();
     session.command(DesktopCommand::Import(vec![input]));
     assert!(start.elapsed() < Duration::from_millis(100));

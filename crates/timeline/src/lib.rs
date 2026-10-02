@@ -74,12 +74,78 @@ pub fn import_sequence(
 }
 
 pub struct ImageSequenceProvider;
+impl fold_platform::packages::DocumentProvider for ImageSequenceProvider {
+    fn package_id(&self) -> &'static str {
+        PACKAGE
+    }
+    fn type_id(&self) -> &'static str {
+        IMAGE_SEQUENCE
+    }
+    fn schema(&self) -> u32 {
+        1
+    }
+    fn validate(&self, document: &Document) -> Result<(), String> {
+        self.video_info(document).map(|_| ())
+    }
+}
 impl VideoProvider for ImageSequenceProvider {
     fn package_id(&self) -> &'static str {
         PACKAGE
     }
     fn type_id(&self) -> &'static str {
         IMAGE_SEQUENCE
+    }
+    fn video_info(&self, document: &Document) -> Result<fold_media::VideoInfo, String> {
+        if document.schema_version != 1
+            || document.payload.len() > MAX_PAYLOAD
+            || document.payload.len() < 16
+            || !document.assets.is_empty()
+            || !document.dependencies.is_empty()
+        {
+            return Err("Invalid image sequence".into());
+        }
+        let word =
+            |offset| u32::from_le_bytes(document.payload[offset..offset + 4].try_into().unwrap());
+        let rate = [word(0), word(4)];
+        let frames = word(8);
+        if frames == 0 || frames as usize > MAX_FRAMES {
+            return Err("Invalid image sequence count".into());
+        }
+        let mut offset = 12usize;
+        let mut dimensions = None;
+        for _ in 0..frames {
+            let length = document
+                .payload
+                .get(offset..offset + 4)
+                .ok_or("Truncated image sequence")?;
+            offset += 4;
+            let end = offset
+                .checked_add(u32::from_le_bytes(length.try_into().unwrap()) as usize)
+                .ok_or("Image sequence overflow")?;
+            let size = RgbImage::ppm_dimensions(
+                document
+                    .payload
+                    .get(offset..end)
+                    .ok_or("Truncated image sequence")?,
+            )?;
+            if dimensions.is_some_and(|previous| previous != size) {
+                return Err("Image sequence dimensions differ".into());
+            }
+            dimensions = Some(size);
+            offset = end;
+        }
+        if offset != document.payload.len() {
+            return Err("Trailing image sequence payload".into());
+        }
+        let [width, height] = dimensions.unwrap();
+        let info = fold_media::VideoInfo {
+            width,
+            height,
+            rate,
+            frames,
+        };
+        info.validate()?;
+        Ok(info)
     }
     fn compile(&self, request: fold_platform::VideoCompile<'_>) -> Result<RenderGraph, String> {
         let fold_platform::VideoCompile {
@@ -130,12 +196,12 @@ impl VideoProvider for ImageSequenceProvider {
             let bytes = data.get(..length).ok_or("truncated sequence frame")?;
             data = &data[length..];
             // Validate the whole document, including non-selected frames.
-            let frame = RgbImage::decode_ppm(bytes).map_err(|e| format!("frame {i}: {e}"))?;
-            if frame.dimensions() != [width, height] {
+            let size = RgbImage::ppm_dimensions(bytes).map_err(|e| format!("frame {i}: {e}"))?;
+            if size != [width, height] {
                 return Err("sequence dimensions must match output".into());
             }
             if i == index as usize {
-                selected = Some(frame);
+                selected = Some(RgbImage::decode_ppm(bytes)?);
             }
         }
         if !data.is_empty() {

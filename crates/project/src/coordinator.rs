@@ -89,6 +89,17 @@ impl Project {
         Self::from_state(ProjectState::default(), history_limit)
     }
 
+    /// Initialize application defaults without manufacturing an undo entry.
+    pub fn with_settings(history_limit: usize, settings: Metadata) -> Self {
+        Self::from_state(
+            ProjectState {
+                settings,
+                ..Default::default()
+            },
+            history_limit,
+        )
+    }
+
     pub(crate) fn from_state(state: ProjectState, history_limit: usize) -> Self {
         Self {
             current: Arc::new(state),

@@ -932,6 +932,7 @@ name = "fold-app"
 version = "0.1.0"
 dependencies = [
  "cpal",
+ "fold-color",
  "fold-compositor",
  "fold-foundation",
  "fold-media",
@@ -945,6 +946,17 @@ dependencies = [
  "rtrb",
  "serde",
  "serde_json",
+ "tempfile",
+]
+
+[[package]]
+name = "fold-color"
+version = "0.1.0"
+dependencies = [
+ "libloading",
+ "serde",
+ "serde_json",
+ "sha2",
  "tempfile",
 ]
 
@@ -1001,6 +1013,7 @@ dependencies = [
 name = "fold-platform"
 version = "0.1.0"
 dependencies = [
+ "fold-color",
  "fold-foundation",
  "fold-media",
  "fold-project",
@@ -1023,6 +1036,7 @@ dependencies = [
 name = "fold-render"
 version = "0.1.0"
 dependencies = [
+ "fold-color",
  "fold-foundation",
  "fold-media",
  "serde",

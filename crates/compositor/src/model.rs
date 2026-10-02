@@ -179,12 +179,9 @@ impl Parameters {
                 }
             }
             Self::Solid { rgba }
-                if rgba
-                    .iter()
-                    .any(|v| !v.is_finite() || !(0.0..=1.0).contains(v))
-                    || rgba[..3].iter().any(|v| *v > rgba[3]) =>
+                if rgba.iter().any(|v| !v.is_finite()) || !(0.0..=1.0).contains(&rgba[3]) =>
             {
-                return Err("Solid requires SDR premultiplied RGBA".into());
+                return Err("Solid requires finite RGB and alpha in 0..1".into());
             }
             Self::Transform {
                 translate,
@@ -225,6 +222,8 @@ pub struct Node {
     pub inputs: Vec<Option<ObjectId>>,
     #[serde(default)]
     pub position: Option<[f32; 2]>,
+    #[serde(default)]
+    pub extensions: Metadata,
 }
 impl Node {
     pub fn new(parameters: Parameters, inputs: Vec<ObjectId>) -> Self {
@@ -233,6 +232,7 @@ impl Node {
             parameters,
             inputs: inputs.into_iter().map(Some).collect(),
             position: None,
+            extensions: Default::default(),
         }
     }
 }

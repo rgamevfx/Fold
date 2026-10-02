@@ -57,7 +57,8 @@ impl Affine {
     }
 }
 
-/// Every port is a full-resolution scene-linear sRGB premultiplied RGBA image.
+/// Every port is a full-resolution premultiplied RGBA image in the evaluator's
+/// declared scene-linear working space (legacy linear-sRGB or explicit ACEScg).
 #[derive(Clone, Debug)]
 pub enum ImageOp {
     /// Validated opaque SDR source. Decoded storage is caller-owned; its RGB8
@@ -68,6 +69,12 @@ pub enum ImageOp {
     Video {
         source: fold_media::VideoSource,
         time: fold_foundation::Time,
+    },
+    /// Per-use input assignment over the reconstructed encoded RGB signal.
+    VideoInput {
+        source: fold_media::VideoSource,
+        time: fold_foundation::Time,
+        space: String,
     },
     Solid {
         rgba: [f32; 4],
@@ -91,7 +98,8 @@ pub enum ImageOp {
         input: ImageId,
         radius: u32,
     },
-    /// Linear RGB gain, clamped to alpha (the supported SDR working range).
+    /// Linear RGB gain. Legacy SDR evaluation clamps to alpha; ACES preserves
+    /// finite negative and above-one RGB.
     Grade {
         input: ImageId,
         gain: [f32; 3],
@@ -109,11 +117,27 @@ pub enum ImageOp {
 }
 
 impl ImageOp {
+    pub fn video(
+        source: fold_media::VideoSource,
+        time: fold_foundation::Time,
+        space: Option<String>,
+    ) -> Self {
+        match space {
+            Some(space) => Self::VideoInput {
+                source,
+                time,
+                space,
+            },
+            None => Self::Video { source, time },
+        }
+    }
     fn inputs(&self) -> impl Iterator<Item = ImageId> {
         let inputs = match *self {
-            Self::Solid { .. } | Self::Media(_) | Self::Video { .. } | Self::Vector(_) => {
-                [None, None]
-            }
+            Self::Solid { .. }
+            | Self::Media(_)
+            | Self::Video { .. }
+            | Self::VideoInput { .. }
+            | Self::Vector(_) => [None, None],
             Self::Transform { input, .. }
             | Self::Opacity { input, .. }
             | Self::Crop { input, .. }
@@ -195,7 +219,31 @@ pub(crate) fn evaluate(
     decoder: &mut fold_media::Decoder,
     cancel: &fold_media::Cancel,
     budget: usize,
+    config: Option<&fold_color::Config>,
 ) -> Result<Frame, String> {
+    let aces = config.is_some();
+    let mut processors = std::collections::BTreeMap::new();
+    if let Some(config) = config {
+        for space in [
+            fold_color::settings::SRGB_INPUT,
+            fold_color::settings::VIDEO_INPUT,
+        ]
+        .into_iter()
+        .chain(graph.nodes.iter().filter_map(|op| {
+            if let ImageOp::VideoInput { space, .. } = op {
+                Some(space.as_str())
+            } else {
+                None
+            }
+        })) {
+            if !processors.contains_key(space) {
+                processors.insert(
+                    space.to_owned(),
+                    config.conversion(space, fold_color::WORKING_SPACE)?,
+                );
+            }
+        }
+    }
     let count = u64::from(graph.width) * u64::from(graph.height);
     if count == 0 || count > MAX_PIXELS {
         return Err("resolution must contain 1..=4194304 pixels".into());
@@ -209,9 +257,9 @@ pub(crate) fn evaluate(
             if source.dimensions() != [graph.width, graph.height] {
                 return Err("media dimensions must match graph resolution".into());
             }
-            source_bytes += count * 3;
+            source_bytes += source.storage_bytes();
             if source_bytes > PIXEL_BUDGET as u64 {
-                return Err("render graph exceeds 64 MiB RGB8 source budget".into());
+                return Err("render graph exceeds 64 MiB source image budget".into());
             }
         }
         if op.inputs().any(|input| input >= id) {
@@ -219,12 +267,11 @@ pub(crate) fn evaluate(
         }
         match *op {
             ImageOp::Solid { rgba: [r, g, b, a] } => {
-                if ![r, g, b, a]
-                    .iter()
-                    .all(|v| v.is_finite() && (0.0..=1.0).contains(v))
-                    || r > a
-                    || g > a
-                    || b > a
+                fold_color::validate_pixel([r, g, b, a])?;
+                if !aces
+                    && (!(0.0..=a).contains(&r)
+                        || !(0.0..=a).contains(&g)
+                        || !(0.0..=a).contains(&b))
                 {
                     return Err("expected finite SDR premultiplied linear RGBA".into());
                 }
@@ -259,10 +306,16 @@ pub(crate) fn evaluate(
                 }
             }
             ImageOp::Mask { .. } => {}
-            ImageOp::Video { ref source, time } => {
+            ImageOp::Video { ref source, time }
+            | ImageOp::VideoInput {
+                ref source, time, ..
+            } => {
+                if !aces && matches!(op, ImageOp::VideoInput { .. }) {
+                    return Err("Input color assignment requires an ACES project".into());
+                }
                 source.info.frame_at(time)?;
             }
-            ImageOp::Vector(ref drawings) => crate::vector::validate(drawings)?,
+            ImageOp::Vector(ref drawings) => crate::vector::validate_working(drawings, aces)?,
             ImageOp::Over { .. } | ImageOp::Media(_) => {}
         }
     }
@@ -306,14 +359,45 @@ pub(crate) fn evaluate(
                     return Err("vector scratch exceeds working memory budget".into());
                 }
                 drop(pixels);
-                pixels = crate::vector::rasterize(drawings, graph.width, graph.height, cancel)?;
+                pixels =
+                    crate::vector::rasterize(drawings, graph.width, graph.height, cancel, aces)?;
             }
-            ImageOp::Media(ref source) => pixels.extend(source.linear_pixels()),
-            ImageOp::Video { ref source, time } => {
-                let frame = decoder.decode(source, time, [graph.width, graph.height], cancel)?;
-                pixels.extend(frame.linear_pixels());
+            ImageOp::Media(ref source) => {
+                if aces {
+                    pixels.extend(source.encoded_pixels());
+                    let space = if source.is_signal() {
+                        fold_color::settings::VIDEO_INPUT
+                    } else {
+                        fold_color::settings::SRGB_INPUT
+                    };
+                    processors[space].apply(&mut pixels)?;
+                } else {
+                    pixels.extend(source.linear_pixels());
+                }
             }
-            ImageOp::Solid { rgba } => pixels.resize(count, rgba),
+            ImageOp::Video { ref source, time }
+            | ImageOp::VideoInput {
+                ref source, time, ..
+            } => {
+                if aces {
+                    let frame =
+                        decoder.decode_signal(source, time, [graph.width, graph.height], cancel)?;
+                    pixels.extend(frame.encoded_pixels());
+                    let space = if let ImageOp::VideoInput { space, .. } = op {
+                        space.as_str()
+                    } else {
+                        fold_color::settings::VIDEO_INPUT
+                    };
+                    processors[space].apply(&mut pixels)?;
+                } else {
+                    let frame =
+                        decoder.decode(source, time, [graph.width, graph.height], cancel)?;
+                    pixels.extend(frame.linear_pixels());
+                }
+            }
+            ImageOp::Solid { rgba } => {
+                pixels.resize(count, if aces && rgba[3] == 0. { [0.; 4] } else { rgba })
+            }
             ImageOp::Opacity {
                 input: source,
                 opacity,
@@ -352,12 +436,11 @@ pub(crate) fn evaluate(
                 gain,
             } => {
                 pixels.extend(input(source).pixels.iter().map(|p| {
-                    [
-                        (p[0] * gain[0]).min(p[3]),
-                        (p[1] * gain[1]).min(p[3]),
-                        (p[2] * gain[2]).min(p[3]),
-                        p[3],
-                    ]
+                    let channel = |c: usize| {
+                        let value = p[c] * gain[c];
+                        if aces { value } else { value.min(p[3]) }
+                    };
+                    [channel(0), channel(1), channel(2), p[3]]
                 }));
             }
             ImageOp::Mask {
@@ -408,7 +491,14 @@ pub(crate) fn evaluate(
                         }
                     }
                     for x in 0..w {
-                        pixels.push(sum.map(|v| (v / divisor).clamp(0.0, 1.0) as f32));
+                        pixels.push(std::array::from_fn(|c| {
+                            let value = sum[c] / divisor;
+                            if aces && c < 3 {
+                                value as f32
+                            } else {
+                                value.clamp(0.0, 1.0) as f32
+                            }
+                        }));
                         for c in 0..4 {
                             if x >= r {
                                 sum[c] -= columns[x - r][c];
@@ -456,7 +546,19 @@ pub(crate) fn evaluate(
                 }
             }
         }
+        if aces {
+            for pixel in &pixels {
+                fold_color::validate_pixel(*pixel)?;
+            }
+        }
         frames[id] = Some(Frame {
+            timing: None,
+            config_identity: config.map(|config| config.identity().content_sha256.clone()),
+            working_space: if aces {
+                crate::WorkingSpace::AcesCg
+            } else {
+                crate::WorkingSpace::LegacyLinearSrgb
+            },
             width: graph.width,
             height: graph.height,
             pixels,

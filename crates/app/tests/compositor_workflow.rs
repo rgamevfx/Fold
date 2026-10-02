@@ -93,6 +93,7 @@ fn registry_rejects_bad_types_cycles_ports_and_dependency_declarations() {
             parameters: P::Output,
             inputs: vec![Some(read.id)],
             position: None,
+            extensions: Default::default(),
         },
     ];
     let mut document = c.document(DocumentId::new()).unwrap();

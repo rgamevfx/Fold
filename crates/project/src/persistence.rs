@@ -10,7 +10,10 @@ use std::{
 };
 
 const FORMAT: &str = "fold-project";
-const VERSION: u32 = 2;
+// Version 3 requires explicit color-aware application interpretation. Older
+// applications must reject new ACES archives, not silently render them as sRGB.
+// V1/V2 retain their settings and provider payloads without color migration.
+const VERSION: u32 = 3;
 
 #[derive(Serialize, Deserialize)]
 struct Archive {

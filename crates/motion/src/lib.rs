@@ -27,14 +27,10 @@ pub struct Solid {
 }
 impl Solid {
     fn validate(self) -> Result<(), String> {
-        if self
-            .rgb
-            .iter()
-            .all(|v| v.is_finite() && (0.0..=1.0).contains(v))
-        {
+        if self.rgb.iter().all(|v| v.is_finite()) {
             Ok(())
         } else {
-            Err("solid RGB must be finite and in 0..=1".into())
+            Err("solid RGB must be finite".into())
         }
     }
     pub fn document(self, id: DocumentId) -> Result<Document, String> {
@@ -54,6 +50,27 @@ impl Solid {
 }
 
 pub struct SolidProvider;
+impl fold_platform::packages::DocumentProvider for SolidProvider {
+    fn package_id(&self) -> &'static str {
+        PACKAGE
+    }
+    fn type_id(&self) -> &'static str {
+        SOLID
+    }
+    fn schema(&self) -> u32 {
+        1
+    }
+    fn validate(&self, document: &Document) -> Result<(), String> {
+        if document.schema_version != 1
+            || !document.dependencies.is_empty()
+            || !document.assets.is_empty()
+        {
+            return Err("Invalid solid document".into());
+        }
+        let solid: Solid = serde_json::from_slice(&document.payload).map_err(|e| e.to_string())?;
+        solid.validate()
+    }
+}
 impl VideoProvider for SolidProvider {
     fn playback_mode(&self) -> fold_platform::desktop::PlaybackMode {
         fold_platform::desktop::PlaybackMode::EveryFrame
@@ -64,8 +81,18 @@ impl VideoProvider for SolidProvider {
     fn type_id(&self) -> &'static str {
         SOLID
     }
+    fn video_info(&self, document: &Document) -> Result<fold_media::VideoInfo, String> {
+        <Self as fold_platform::packages::DocumentProvider>::validate(self, document)?;
+        Ok(fold_media::VideoInfo {
+            width: 64,
+            height: 64,
+            rate: [24, 1],
+            frames: 240,
+        })
+    }
     fn compile(&self, request: fold_platform::VideoCompile<'_>) -> Result<RenderGraph, String> {
         let fold_platform::VideoCompile {
+            snapshot,
             document,
             reference,
             dimensions: [width, height],
@@ -89,6 +116,11 @@ impl VideoProvider for SolidProvider {
         let solid: Solid = serde_json::from_slice(&document.payload)
             .map_err(|e| format!("invalid solid payload: {e}"))?;
         solid.validate()?;
+        if fold_platform::color::project(snapshot)?.is_none()
+            && solid.rgb.iter().any(|v| !(0.0..=1.0).contains(v))
+        {
+            return Err("Legacy solid requires SDR RGB".into());
+        }
         let [r, g, b] = solid.rgb;
         Ok(SolidPlan {
             width,

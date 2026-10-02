@@ -67,14 +67,15 @@ impl VideoProvider for SequenceProvider {
                                 .get(&clip.asset)
                                 .ok_or("missing sequence asset")?;
                             let id = graph.nodes.len();
-                            graph.nodes.push(ImageOp::Video {
-                                source: VideoSource {
+                            graph.nodes.push(ImageOp::video(
+                                VideoSource {
                                     path: asset.location.clone().into(),
                                     fingerprint: asset.fingerprint.clone(),
                                     info: info.clone(),
                                 },
                                 time,
-                            });
+                                fold_platform::color::input(&asset.extensions)?,
+                            ));
                             (id, true)
                         }
                         SourceMedia::Audio(_) => return Err("non-video clip on video track".into()),

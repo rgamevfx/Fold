@@ -1,5 +1,6 @@
 //! Static capability contracts. Only the application assembles implementations.
 pub mod browser;
+pub mod color;
 pub mod desktop;
 pub mod packages;
 pub mod panel_context;

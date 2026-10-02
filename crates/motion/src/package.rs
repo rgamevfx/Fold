@@ -142,14 +142,17 @@ pub fn register(registry: &mut PackageRegistry) -> Result<(), String> {
             panels: PANELS,
             build: BUILD,
         },
-        documents: vec![Box::new(Documents(prepared.clone()))],
+        documents: vec![
+            Box::new(Documents(prepared.clone())),
+            Box::new(crate::SolidProvider),
+        ],
         commands: vec![CommandRegistration {
             id: EDIT,
             title: "Edit motion",
             execution: Execution::Immediate,
             handler: edit,
         }],
-        video: vec![Box::new(Provider(prepared))],
+        video: vec![Box::new(Provider(prepared)), Box::new(crate::SolidProvider)],
         audio: vec![],
     })
 }

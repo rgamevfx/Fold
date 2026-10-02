@@ -11,7 +11,8 @@ pub struct PreviewKey {
     pub content: String,
     pub frame: u32,
     pub dimensions: [u32; 2],
-    /// Fixed SDR sRGB output transform version; never a project revision.
+    /// Fixed sRGB viewer-policy version; working/config resource identity is
+    /// included in content. Delivery transforms never enter presentation keys.
     pub view: u32,
 }
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
@@ -52,6 +53,7 @@ pub enum TransportAction {
 }
 #[derive(Clone, Debug)]
 pub struct DesktopState {
+    pub color_choices: crate::color::Choices,
     pub selection: Selection,
     pub navigation: Vec<ViewLocation>,
     /// Explicit Project/open navigation, not focus or selection notification.
@@ -75,6 +77,7 @@ pub struct DesktopState {
 impl Default for DesktopState {
     fn default() -> Self {
         Self {
+            color_choices: Default::default(),
             selection: Selection::default(),
             navigation: vec![],
             navigation_event: 0,
@@ -163,6 +166,14 @@ pub enum DesktopCommand {
     Select(Selection),
     /// Undoable persisted delivery output; independent of source navigation.
     SetOutput(fold_foundation::DocumentId),
+    SetOutputColor {
+        document: fold_foundation::DocumentId,
+        transform: crate::color::OutputTransform,
+    },
+    SetInputColor {
+        asset: fold_foundation::AssetId,
+        space: String,
+    },
     Transport(TransportAction),
     Play,
     Pause,

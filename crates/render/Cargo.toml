@@ -6,6 +6,7 @@ publish.workspace = true
 
 [dependencies]
 fold-foundation.workspace = true
+fold-color.workspace = true
 fold-media.workspace = true
 serde.workspace = true
 tiny-skia = { version = "0.11", default-features = false, features = ["std", "simd"] }

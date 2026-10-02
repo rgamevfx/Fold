@@ -22,6 +22,9 @@ impl Panel for Inspector {
     }
     fn draw(&mut self, context: ExtensionUi<'_>) {
         let ExtensionUi { ui, host } = context;
+        let aces = host
+            .snapshot()
+            .is_some_and(|s| fold_platform::color::project(&s).ok().flatten().is_some());
         let mut state = self.state.borrow_mut();
         state.sync(host);
         let Some(&selected) = state.selected.first().filter(|_| state.selected.len() == 1) else {
@@ -78,6 +81,29 @@ impl Panel for Inspector {
                 .unwrap_or(&node.kind),
         );
         ui.separator();
+        if node.kind == "fold.motion.output"
+            && aces
+            && let (Some(snapshot), Some(document)) = (host.snapshot(), state.document)
+        {
+            match fold_platform::color::output(&snapshot, document) {
+                Ok(mut transform) => {
+                    if fold_ui::sdk::color_controls::output(
+                        ui,
+                        &host.state().color_choices,
+                        &mut transform,
+                    ) {
+                        state.cancel(host);
+                        host.command(fold_platform::desktop::DesktopCommand::SetOutputColor {
+                            document,
+                            transform,
+                        });
+                        state.sync(host);
+                        return;
+                    }
+                }
+                Err(error) => ui.text_wrapped(error),
+            }
+        }
         let mut response = Response::default();
         let mut animate = None;
         let mut publish = None;
@@ -169,9 +195,9 @@ impl Panel for Inspector {
                     }
                     Some(Input::Value(value)) => {
                         if node.kind == "fold.motion.text" && key == "alignment" {
-                            alignment(ui, value, &mut response);
+                            alignment(ui, value, aces, &mut response);
                         } else {
-                            datum(ui, value, &mut response);
+                            datum(ui, value, aces, &mut response);
                         }
                     }
                     None => {
@@ -262,7 +288,7 @@ impl Panel for Inspector {
                     {
                         key.time = t;
                     }
-                    datum(ui, &mut key.value, &mut response);
+                    datum(ui, &mut key.value, aces, &mut response);
                     if let Some(_combo) =
                         ui.begin_combo("Interpolation", format!("{:?}", key.interpolation))
                     {
@@ -381,9 +407,9 @@ fn property_label(key: &str) -> String {
         .collect::<Vec<_>>()
         .join(" ")
 }
-fn alignment(ui: &Ui, value: &mut Datum, response: &mut Response) {
+fn alignment(ui: &Ui, value: &mut Datum, aces: bool, response: &mut Response) {
     let Datum::Scalar(v) = value else {
-        datum(ui, value, response);
+        datum(ui, value, aces, response);
         return;
     };
     let name = if *v == 0. {
@@ -419,7 +445,7 @@ fn alignment(ui: &Ui, value: &mut Datum, response: &mut Response) {
         );
     }
 }
-fn datum(ui: &Ui, value: &mut Datum, response: &mut Response) {
+fn datum(ui: &Ui, value: &mut Datum, aces: bool, response: &mut Response) {
     match value {
         Datum::Scalar(v) => {
             NumericProperty {
@@ -446,17 +472,7 @@ fn datum(ui: &Ui, value: &mut Datum, response: &mut Response) {
             }
         }
         Datum::Color(v) => {
-            for (i, label) in ["Red", "Green", "Blue", "Alpha"].iter().enumerate() {
-                NumericProperty {
-                    id: ["r", "g", "b", "a"][i],
-                    label,
-                    unit: "",
-                    speed: 0.005,
-                    range: Some([0., 1.]),
-                    default: None,
-                }
-                .draw(ui, &mut v[i], response);
-            }
+            fold_ui::sdk::color_controls::authored(ui, v, aces, response);
         }
         Datum::Bool(v) => {
             let changed = ui.checkbox("##value", v);

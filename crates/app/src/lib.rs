@@ -1,6 +1,7 @@
 //! Application assembly shared by desktop, headless delivery, and tests.
 pub mod browser;
 mod browser_ingest;
+pub mod color;
 pub mod composition;
 pub mod document_placement;
 pub mod ingest;

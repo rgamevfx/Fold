@@ -103,7 +103,10 @@ pub fn content_for(
     document: fold_foundation::DocumentId,
 ) -> Result<String, String> {
     let mut data =
-        b"fold-video-evaluator-v3;compositor-v2;ffmpeg-zscale-bt709-srgb-v1;nearest;".to_vec();
+        b"fold-video-evaluator-v4;ocio-2.4.2;aces-srgb-view-v1;native709-float;nearest;".to_vec();
+    if let Some(color) = fold_platform::color::project(snapshot)? {
+        data.extend(serde_json::to_vec(&color).map_err(|e| e.to_string())?);
+    }
     let mut pending = vec![document];
     let mut seen = std::collections::BTreeSet::new();
     while let Some(id) = pending.pop() {
@@ -136,6 +139,10 @@ pub fn content_for(
                 .assets
                 .get(id)
                 .ok_or("missing video asset")?;
+            if let Some(space) = fold_platform::color::input(&asset.extensions)? {
+                data.extend_from_slice(&(space.len() as u64).to_le_bytes());
+                data.extend_from_slice(space.as_bytes());
+            }
             for bytes in [asset.location.as_bytes(), asset.fingerprint.as_bytes()] {
                 data.extend_from_slice(&(bytes.len() as u64).to_le_bytes());
                 data.extend_from_slice(bytes);
@@ -156,39 +163,71 @@ pub fn evaluate(
     cancel: &Cancel,
 ) -> Result<fold_render::Frame, String> {
     cancel.check()?;
-    let (source, info, time) = if let Some((document, time)) = key.target {
+    let (source, time) = if let Some((document, time)) = key.target {
         (
             DocumentRef {
                 document,
                 output: key.output.clone(),
                 extensions: Default::default(),
             },
-            crate::packages::builtins().output_ref(
-                snapshot,
-                &DocumentRef {
-                    document,
-                    output: key.output.clone(),
-                    extensions: Default::default(),
-                },
-            )?,
             time,
         )
     } else {
         let (source, info) = output(snapshot)?;
         let time = info.time(key.frame)?;
-        (source, info, time)
+        (source, time)
     };
     if key.content != content_for(snapshot, source.document)? || key.view != 1 {
         return Err("preview identity/settings mismatch".into());
     }
-    if time < fold_foundation::Time::ZERO || time >= info.time(info.frames)? {
+    evaluate_scene(
+        snapshot,
+        &SceneRequest {
+            source,
+            time,
+            dimensions: key.dimensions,
+        },
+        decoder,
+        cancel,
+    )
+    .map(fold_render::Frame::over_black)
+}
+
+/// Logical scene demand. Viewer generation/cache identity is consumer routing,
+/// not render authority. Delivery supplies a committed snapshot separately.
+#[derive(Clone, Debug)]
+pub struct SceneRequest {
+    pub source: DocumentRef,
+    pub time: fold_foundation::Time,
+    pub dimensions: [u32; 2],
+}
+
+/// Return scene-linear pixels with alpha intact. Presentation/output transforms
+/// and an optional delivery matte are separate operations owned by the caller.
+pub fn evaluate_scene(
+    snapshot: &Snapshot,
+    request: &SceneRequest,
+    decoder: &mut Decoder,
+    cancel: &Cancel,
+) -> Result<fold_render::Frame, String> {
+    cancel.check()?;
+    let registry = crate::packages::builtins();
+    let info = registry.output_ref(snapshot, &request.source)?;
+    if request.time < fold_foundation::Time::ZERO || request.time >= info.time(info.frames)? {
         return Err("frame outside sequence".into());
     }
-    let plan =
-        crate::packages::builtins().video_with(snapshot, &source, time, key.dimensions, cancel)?;
-    // The current desktop/MP4 delivery profile is opaque black-backed SDR.
-    // All providers retain alpha when nested; only delivery is flattened.
-    fold_render::render_with(plan, decoder, cancel).map(fold_render::Frame::over_black)
+    let plan = registry.video_with(
+        snapshot,
+        &request.source,
+        request.time,
+        request.dimensions,
+        cancel,
+    )?;
+    crate::color::with_config(snapshot, |config| match config {
+        Some(config) => fold_render::render_aces_with(plan, config, decoder, cancel),
+        None => fold_render::render_with(plan, decoder, cancel),
+    })?
+    .with_timing(request.time, info.time(1)?)
 }
 
 const OUTPUT_SETTING: &str = "fold.output";
@@ -327,30 +366,44 @@ fn export_video(
     end: u32,
     cancel: &Cancel,
 ) -> Result<(), String> {
-    let (_, info) = output(snapshot)?;
+    let (source, info) = output(snapshot)?;
     if start >= end || end > info.frames {
         return Err("export requires nonempty half-open [start,end) within the sequence".into());
     }
     let mut decoder = Decoder::default();
-    let mut key = PreviewKey {
-        output: "video".into(),
-        target: None,
-        content: content(snapshot)?,
-        frame: start,
+    let mut request = SceneRequest {
+        source,
+        time: info.time(start)?,
         dimensions: [info.width, info.height],
-        view: 1,
     };
     // Preflight decode of both dependencies before starting the encoder.
-    let mut first = Some(evaluate(snapshot, &key, &mut decoder, cancel)?);
-    let mut encoder = Encoder::new(path, &info, end - start, cancel.clone())?;
+    let mut first = Some(evaluate_scene(snapshot, &request, &mut decoder, cancel)?);
+    let output_color = fold_platform::color::project(snapshot)?
+        .map(|_| fold_platform::color::output(snapshot, request.source.document))
+        .transpose()?;
+    // Preflight the explicit transform before creating an encoder destination.
+    crate::color::with_config(snapshot, |config| {
+        if let (Some(config), Some(output)) = (config, output_color.as_ref()) {
+            config.display(fold_color::WORKING_SPACE, &output.display_transform())?;
+        }
+        Ok(())
+    })?;
+    let mut encoder = match output_color.as_ref().map(|c| c.display.as_str()) {
+        Some("Rec.1886 Rec.709 - Display") => {
+            Encoder::new_rec709(path, &info, end - start, cancel.clone())?
+        }
+        Some("sRGB - Display") | None => Encoder::new(path, &info, end - start, cancel.clone())?,
+        _ => return Err("MP4 requires an sRGB or Rec.1886 Rec.709 output transform".into()),
+    };
     for frame in start..end {
         cancel.check()?;
-        key.frame = frame;
+        request.time = info.time(frame)?;
         let scene = match first.take() {
             Some(scene) => scene,
-            None => evaluate(snapshot, &key, &mut decoder, cancel)?,
-        };
-        let display = scene.to_display().map_err(str::to_owned)?;
+            None => evaluate_scene(snapshot, &request, &mut decoder, cancel)?,
+        }
+        .over_black();
+        let display = crate::color::delivery(snapshot, request.source.document, &scene)?;
         drop(scene); // Do not retain a linear frame across encode or later frames.
         let rgb: Vec<u8> = display
             .rgba()

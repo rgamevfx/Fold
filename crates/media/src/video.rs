@@ -230,7 +230,8 @@ struct Pinned {
 pub struct Decoder {
     pinned: VecDeque<Pinned>,
     // Bounded sequential read-ahead avoids launching a codec for every playback
-    // frame. Shared across sources/resolutions, at most 32 MiB / 512 frames.
+    // frame. Shared across sources/resolutions: 32 MiB legacy RGB8, 64 MiB when
+    // retaining float signal RGB, at most 512 frames. Both paths share one LRU.
     read_ahead: VecDeque<(String, VideoInfo, u32, RgbImage)>,
 }
 impl Decoder {
@@ -293,6 +294,32 @@ impl Decoder {
         dimensions: [u32; 2],
         cancel: &Cancel,
     ) -> Result<RgbImage, String> {
+        self.decode_mode(source, time, dimensions, cancel, false)
+    }
+
+    /// Reconstruct BT.709 YUV as float RGB with its camera transfer intact.
+    /// OCIO input assignment, not the decoder, chooses the working conversion.
+    pub fn decode_signal(
+        &mut self,
+        source: &VideoSource,
+        time: Time,
+        dimensions: [u32; 2],
+        cancel: &Cancel,
+    ) -> Result<RgbImage, String> {
+        self.decode_mode(source, time, dimensions, cancel, true)
+    }
+
+    fn decode_mode(
+        &mut self,
+        source: &VideoSource,
+        time: Time,
+        dimensions: [u32; 2],
+        cancel: &Cancel,
+        signal: bool,
+    ) -> Result<RgbImage, String> {
+        let disk_pixel = if signal { 12 } else { 3 };
+        let stored_pixel = if signal { 16 } else { 3 };
+        let budget = if signal { 64 } else { 32 } * 1024 * 1024;
         let frame = source.info.frame_at(time)?;
         let count = u64::from(dimensions[0]) * u64::from(dimensions[1]);
         if count == 0 || count > crate::MAX_PIXELS as u64 {
@@ -307,28 +334,27 @@ impl Decoder {
                         && info == &source.info
                         && *index == frame
                         && image.dimensions() == dimensions
+                        && image.is_signal() == signal
                 })
         {
             return Ok(image.clone());
         }
         let path = self.pin(source, cancel)?;
         let batch = u64::from((source.info.frames - frame).min(32))
-            .min((16 * 1024 * 1024 / (count * 3)).max(1));
+            .min((16 * 1024 * 1024 / (count * stored_pixel)).max(1));
         let mut retained: u64 = self
             .read_ahead
             .iter()
-            .map(|(_, _, _, image)| {
-                u64::from(image.dimensions()[0]) * u64::from(image.dimensions()[1]) * 3
-            })
+            .map(|(_, _, _, image)| image.storage_bytes())
             .sum();
-        while retained + count * 3 * batch > 32 * 1024 * 1024
+        while retained + count * stored_pixel * batch > budget
             || self.read_ahead.len() + batch as usize > 512
         {
             let (_, _, _, image) = self
                 .read_ahead
                 .pop_front()
                 .ok_or("read-ahead budget exceeded")?;
-            retained -= u64::from(image.dimensions()[0]) * u64::from(image.dimensions()[1]) * 3;
+            retained -= image.storage_bytes();
         }
         let output = tempfile::NamedTempFile::new().map_err(|e| e.to_string())?;
         // Seek to a whole second at/before the requested frame. Accurate input
@@ -341,8 +367,10 @@ impl Decoder {
             .to_ticks(source.info.rate[0], source.info.rate[1], Rounding::Ceil)
             .map_err(|e| e.to_string())?;
         let offset = i64::from(frame) - first;
+        let transfer = if signal { "709" } else { "iec61966-2-1" };
+        let pixel_format = if signal { "gbrpf32le" } else { "rgb24" };
         let filter = format!(
-            "select=gte(n\\,{offset}),scale={}:{}:flags=neighbor,zscale=matrixin=709:transferin=709:primariesin=709:rangein=limited:matrix=gbr:transfer=iec61966-2-1:primaries=709:range=full,format=gbrpf32le,format=rgb24",
+            "select=gte(n\\,{offset}),scale={}:{}:flags=neighbor,zscale=matrixin=709:transferin=709:primariesin=709:rangein=limited:matrix=gbr:transfer={transfer}:primaries=709:range=full,format=gbrpf32le,format={pixel_format}",
             dimensions[0], dimensions[1]
         );
         let mut cmd = base("ffmpeg");
@@ -371,14 +399,14 @@ impl Decoder {
             "-f",
             "rawvideo",
             "-pix_fmt",
-            "rgb24",
+            pixel_format,
             "pipe:1",
         ])
         .stdout(Stdio::from(output.reopen().map_err(|e| e.to_string())?));
         Process::spawn(
             cmd,
             cancel.clone(),
-            Some((output.path().into(), count * 3 * batch)),
+            Some((output.path().into(), count * disk_pixel * batch)),
         )?
         .finish()?;
         cancel.check()?;
@@ -386,18 +414,25 @@ impl Decoder {
         output
             .reopen()
             .map_err(|e| e.to_string())?
-            .take(count * 3 * batch + 1)
+            .take(count * disk_pixel * batch + 1)
             .read_to_end(&mut bytes)
             .map_err(|e| e.to_string())?;
-        if bytes.len() as u64 != count * 3 * batch {
+        if bytes.len() as u64 != count * disk_pixel * batch {
             return Err("incomplete video read-ahead decode".into());
         }
-        for (offset, bytes) in bytes.chunks_exact((count * 3) as usize).enumerate() {
+        for (offset, bytes) in bytes
+            .chunks_exact((count * disk_pixel) as usize)
+            .enumerate()
+        {
             self.read_ahead.push_back((
                 source.fingerprint.clone(),
                 source.info.clone(),
                 frame + offset as u32,
-                RgbImage::from_rgb(dimensions, bytes.to_vec()).map_err(str::to_owned)?,
+                if signal {
+                    RgbImage::from_gbr(dimensions, bytes)?
+                } else {
+                    RgbImage::from_rgb(dimensions, bytes.to_vec()).map_err(str::to_owned)?
+                },
             ));
         }
         Ok(self.read_ahead[self.read_ahead.len() - batch as usize]
@@ -424,6 +459,25 @@ impl Encoder {
         frames: u32,
         cancel: Cancel,
     ) -> Result<Self, String> {
+        Self::new_with_signal(destination, info, frames, cancel, false)
+    }
+    /// Display-rendered Rec.709 RGB: only RGB-to-YUV reconstruction is applied,
+    /// never a second sRGB/scene transfer. Rec.1886 display signal is retained.
+    pub fn new_rec709(
+        destination: &Path,
+        info: &VideoInfo,
+        frames: u32,
+        cancel: Cancel,
+    ) -> Result<Self, String> {
+        Self::new_with_signal(destination, info, frames, cancel, true)
+    }
+    fn new_with_signal(
+        destination: &Path,
+        info: &VideoInfo,
+        frames: u32,
+        cancel: Cancel,
+        rec709: bool,
+    ) -> Result<Self, String> {
         info.validate()?;
         let mut delivery = info.clone();
         delivery.frames = frames;
@@ -436,9 +490,53 @@ impl Encoder {
             .filter(|p| !p.as_os_str().is_empty())
             .unwrap_or(Path::new("."));
         let output = tempfile::NamedTempFile::new_in(parent).map_err(|e| e.to_string())?;
+        let transfer = if rec709 { "709" } else { "iec61966-2-1" };
+        let filter = format!(
+            "format=gbrpf32le,zscale=matrixin=gbr:transferin={transfer}:primariesin=709:rangein=full:matrix=709:transfer=709:primaries=709:range=limited,format=yuv420p,setsar=1"
+        );
         let mut cmd = base("ffmpeg");
-        cmd.args(["-y", "-threads", "1", "-filter_threads", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-video_size", &format!("{}x{}", info.width, info.height), "-framerate", &format!("{}/{}", info.rate[0], info.rate[1]), "-i", "pipe:0", "-an", "-vf", "format=gbrpf32le,zscale=matrixin=gbr:transferin=iec61966-2-1:primariesin=709:rangein=full:matrix=709:transfer=709:primaries=709:range=limited,format=yuv420p,setsar=1", "-c:v", "libx264", "-threads", "1", "-preset", "veryfast", "-crf", "18", "-color_range", "tv", "-colorspace", "bt709", "-color_trc", "bt709", "-color_primaries", "bt709", "-movflags", "+faststart", "-f", "mp4"])
-            .arg(output.path()).stdin(Stdio::piped());
+        cmd.args([
+            "-y",
+            "-threads",
+            "1",
+            "-filter_threads",
+            "1",
+            "-f",
+            "rawvideo",
+            "-pix_fmt",
+            "rgb24",
+            "-video_size",
+            &format!("{}x{}", info.width, info.height),
+            "-framerate",
+            &format!("{}/{}", info.rate[0], info.rate[1]),
+            "-i",
+            "pipe:0",
+            "-an",
+            "-vf",
+            &filter,
+            "-c:v",
+            "libx264",
+            "-threads",
+            "1",
+            "-preset",
+            "veryfast",
+            "-crf",
+            "18",
+            "-color_range",
+            "tv",
+            "-colorspace",
+            "bt709",
+            "-color_trc",
+            "bt709",
+            "-color_primaries",
+            "bt709",
+            "-movflags",
+            "+faststart",
+            "-f",
+            "mp4",
+        ])
+        .arg(output.path())
+        .stdin(Stdio::piped());
         let process = Process::spawn(cmd, cancel.clone(), Some((output.path().into(), MAX_FILE)))?;
         Ok(Self {
             process: Some(process),

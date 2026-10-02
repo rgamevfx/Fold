@@ -57,6 +57,32 @@ impl Panel for Inspector {
         };
         let clip = sequence.clips.iter().find(|c| c.id == id).unwrap();
         let track = sequence.track(clip.track).unwrap();
+        if matches!(clip.info, SourceMedia::Video(_))
+            && fold_platform::color::project(&snapshot)
+                .ok()
+                .flatten()
+                .is_some()
+        {
+            let assignment = snapshot
+                .state()
+                .assets
+                .get(&clip.asset)
+                .ok_or_else(|| "Missing input asset".to_owned())
+                .and_then(|asset| fold_platform::color::input(&asset.extensions));
+            let mut space = match assignment {
+                Ok(space) => space.unwrap_or_else(|| fold_platform::color::VIDEO_INPUT.into()),
+                Err(error) => {
+                    ui.text_wrapped(error);
+                    "Invalid input".into()
+                }
+            };
+            if fold_ui::sdk::color_controls::input(ui, &state.color_choices, &mut space) {
+                host.command(fold_platform::desktop::DesktopCommand::SetInputColor {
+                    asset: clip.asset,
+                    space,
+                });
+            }
+        }
         if self.selection != Some((id, snapshot.revision())) {
             self.selection = Some((id, snapshot.revision()));
             self.start = interaction::frame(clip.start, sequence.rate).round() as i32;

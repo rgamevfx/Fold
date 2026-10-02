@@ -1,6 +1,7 @@
 //! Immutable native 2D drawing contract. No authoring graph or feature models.
-//! The reference adapter rasterizes linear-SDR colors with 8-bit coverage/color
-//! precision, then expands to the engine's premultiplied RGBA32F working frame.
+//! The legacy adapter retains 8-bit SDR rasterization for appearance compatibility.
+//! The ACES path rasterizes coverage only, then composites float authored colors
+//! in RGBA32F. Coverage remains 8-bit; working RGB/alpha are not quantized.
 use fold_media::Cancel;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -37,7 +38,8 @@ pub struct Drawing {
     pub path: Arc<Vec<Segment>>,
     /// Column-vector affine: [a, b, c, d, tx, ty].
     pub transform: [f64; 6],
-    /// Straight scene-linear sRGB; the adapter premultiplies once.
+    /// Straight scene-linear working RGB (legacy sRGB or explicit ACEScg);
+    /// the adapter premultiplies once.
     pub fill: Option<[f64; 4]>,
     pub even_odd: bool,
     pub stroke: Option<Stroke>,
@@ -46,6 +48,10 @@ pub const MAX_DRAWINGS: usize = 16_384;
 pub const MAX_SEGMENTS: usize = 262_144;
 
 pub fn validate(drawings: &[Drawing]) -> Result<(), String> {
+    validate_working(drawings, false)
+}
+
+pub fn validate_working(drawings: &[Drawing], aces: bool) -> Result<(), String> {
     if drawings.len() > MAX_DRAWINGS {
         return Err("vector drawing budget exceeded".into());
     }
@@ -60,7 +66,11 @@ pub fn validate(drawings: &[Drawing]) -> Result<(), String> {
         if !d.transform.iter().all(|v| v.is_finite() && v.abs() <= 1e9) {
             return Err("nonfinite or excessive vector transform".into());
         }
-        let color_valid = |c: &[f64; 4]| c.iter().all(|v| v.is_finite() && (0. ..=1.).contains(v));
+        let color_valid = |c: &[f64; 4]| {
+            c.iter().all(|v| v.is_finite() && (*v as f32).is_finite())
+                && (0. ..=1.).contains(&c[3])
+                && (aces || c[..3].iter().all(|v| (0. ..=1.).contains(v)))
+        };
         if d.fill.as_ref().is_some_and(|c| !color_valid(c)) {
             return Err("invalid linear fill color".into());
         }
@@ -102,10 +112,19 @@ pub(crate) fn rasterize(
     width: u32,
     height: u32,
     cancel: &Cancel,
+    aces: bool,
 ) -> Result<Vec<[f32; 4]>, String> {
-    validate(drawings)?;
+    validate_working(drawings, aces)?;
     let mut pixmap =
         tiny_skia::Pixmap::new(width, height).ok_or("vector surface allocation failed")?;
+    let mut working = Vec::new();
+    if aces {
+        let count = width as usize * height as usize;
+        working
+            .try_reserve_exact(count)
+            .map_err(|_| "vector working allocation failed")?;
+        working.resize(count, [0.; 4]);
+    }
     for drawing in drawings {
         cancel.check()?;
         let mut path = tiny_skia::PathBuilder::new();
@@ -133,7 +152,11 @@ pub(crate) fn rasterize(
         }
         let paint = |color: [f64; 4]| {
             let mut paint = tiny_skia::Paint::default();
-            let [r, g, b, a] = color.map(|v| v as f32);
+            let [r, g, b, a] = if aces {
+                [1.; 4]
+            } else {
+                color.map(|v| v as f32)
+            };
             paint.set_color(tiny_skia::Color::from_rgba(r, g, b, a).expect("validated SDR color"));
             paint.anti_alias = true;
             paint
@@ -150,6 +173,9 @@ pub(crate) fn rasterize(
                 transform,
                 None,
             );
+            if aces {
+                composite_coverage(&mut pixmap, &mut working, color, cancel)?;
+            }
         }
         if let Some(stroke) = &drawing.stroke
             && stroke.width > 0.
@@ -174,9 +200,15 @@ pub(crate) fn rasterize(
                 transform,
                 None,
             );
+            if aces {
+                composite_coverage(&mut pixmap, &mut working, stroke.color, cancel)?;
+            }
         }
     }
     cancel.check()?;
+    if aces {
+        return Ok(working);
+    }
     Ok(pixmap
         .data()
         .chunks_exact(4)
@@ -189,4 +221,75 @@ pub(crate) fn rasterize(
             ]
         })
         .collect())
+}
+
+fn composite_coverage(
+    coverage: &mut tiny_skia::Pixmap,
+    pixels: &mut [[f32; 4]],
+    color: [f64; 4],
+    cancel: &Cancel,
+) -> Result<(), String> {
+    let color = color.map(|v| v as f32);
+    for (index, (pixel, mask)) in pixels
+        .iter_mut()
+        .zip(coverage.data().chunks_exact(4))
+        .enumerate()
+    {
+        if index % 4096 == 0 {
+            cancel.check()?;
+        }
+        let alpha = color[3] * (f32::from(mask[3]) / 255.);
+        for c in 0..3 {
+            pixel[c] = color[c] * alpha + pixel[c] * (1. - alpha);
+        }
+        pixel[3] = alpha + pixel[3] * (1. - alpha);
+    }
+    coverage.fill(tiny_skia::Color::TRANSPARENT);
+    Ok(())
+}
+
+#[cfg(test)]
+mod color_tests {
+    use super::*;
+
+    #[test]
+    fn float_color_is_not_quantized_with_coverage_or_clamped() {
+        let drawing = Drawing {
+            path: Arc::new(vec![
+                Segment::Move([0., 0.]),
+                Segment::Line([1., 0.]),
+                Segment::Line([1., 1.]),
+                Segment::Line([0., 1.]),
+                Segment::Close,
+            ]),
+            transform: [1., 0., 0., 1., 0., 0.],
+            fill: Some([-0.123456, 2.34567, 0.333333, 0.123456]),
+            even_odd: false,
+            stroke: None,
+        };
+        assert!(validate(std::slice::from_ref(&drawing)).is_err());
+        let pixels = rasterize(
+            std::slice::from_ref(&drawing),
+            1,
+            1,
+            &Cancel::default(),
+            true,
+        )
+        .unwrap();
+        let color = drawing.fill.unwrap().map(|v| v as f32);
+        assert_eq!(
+            pixels,
+            vec![[
+                color[0] * color[3],
+                color[1] * color[3],
+                color[2] * color[3],
+                color[3]
+            ]]
+        );
+        let pixels =
+            rasterize(&[drawing.clone(), drawing], 1, 1, &Cancel::default(), true).unwrap();
+        let alpha = color[3] + color[3] * (1. - color[3]);
+        assert!((pixels[0][1] - color[1] * alpha).abs() < 1e-6);
+        assert_eq!(pixels[0][3], alpha);
+    }
 }

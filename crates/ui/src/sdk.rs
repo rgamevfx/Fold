@@ -7,6 +7,8 @@ mod tests;
 pub use dear_imgui_rs as imgui;
 #[path = "canvas_pan.rs"]
 mod canvas_pan;
+#[path = "color_controls.rs"]
+pub mod color_controls;
 pub use canvas_pan::CanvasPan;
 #[path = "project_drop.rs"]
 pub mod project_drop;
