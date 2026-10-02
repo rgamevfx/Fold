@@ -25,6 +25,19 @@ impl Canvas {
     }
 }
 impl Panel for Canvas {
+    fn new_instance(&self) -> Option<fold_ui::sdk::EditorPanels> {
+        let state = std::rc::Rc::new(std::cell::RefCell::new(super::state::State::default()));
+        Some(fold_ui::sdk::EditorPanels {
+            editor: Box::new(Self::new(state.clone())),
+            inspector: Box::new(super::inspector::Inspector(state)),
+        })
+    }
+    fn cancel_interaction(&mut self, host: &mut dyn fold_platform::desktop::DesktopClient) {
+        let mut state = self.state.borrow_mut();
+        if state.editing {
+            state.cancel(host);
+        }
+    }
     fn id(&self) -> &'static str {
         package::PANEL
     }
@@ -134,7 +147,7 @@ impl Panel for Canvas {
         }
         let drop_origin = ui.cursor_screen_pos();
         let drop_size = ui.content_region_avail();
-        self.canvas.draw(
+        self.canvas.draw_inline(
             ui,
             &mut Context {
                 state: &mut state,

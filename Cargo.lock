@@ -1005,6 +1005,7 @@ dependencies = [
  "fold-media",
  "fold-project",
  "fold-render",
+ "serde",
  "serde_json",
 ]
 

@@ -209,6 +209,7 @@ struct Desktop {
 
 impl Drop for Desktop {
     fn drop(&mut self) {
+        self.shell.save_workspace(&mut self.context);
         let _ = self.preview.release(&mut self.renderer);
     }
 }
@@ -343,23 +344,32 @@ impl Desktop {
         self.client.poll();
         self.platform
             .prepare_frame(&mut self.context, &self.window)?;
+        self.shell
+            .workspace_frame(&mut self.context, self.client.as_mut());
         self.shell.prepare_frame(&mut self.context);
         let ui = self.context.frame();
         self.shell.controls(ui, self.client.as_mut())?;
-        self.preview
-            .select(self.shell.key(self.client.as_ref()), self.client.as_mut());
+        let demands = self.shell.keys(self.client.as_ref());
+        self.preview.select_many(
+            demands.iter().filter_map(|(_, key)| key.clone()).collect(),
+            self.client.as_mut(),
+        );
         self.preview.poll(
             self.client.as_mut(),
             &self.device,
             &self.queue,
             &mut self.renderer,
         )?;
-        self.shell.viewer(
-            ui,
-            &self.preview.state,
-            &self.preview.statistics(),
-            self.client.as_mut(),
-        );
+        for (id, key) in demands {
+            let preview = self.preview.state_for(key.as_ref());
+            self.shell.viewer_instance(
+                ui,
+                id,
+                &preview,
+                &self.preview.statistics(),
+                self.client.as_mut(),
+            );
+        }
         self.shell.viewer_overlays(ui, self.client.as_mut());
         self.platform.prepare_render(ui, &self.window)?;
         let frame = self.context.render(self.renderer.renderer_consumer()?);
@@ -437,6 +447,8 @@ impl Desktop {
                 let _ = self.device.poll(wgpu::PollType::Poll);
                 probe.finish(true)?;
                 self.probe_done = true;
+            } else {
+                self.shell.probe_time(self.client.as_ref());
             }
         }
         Ok(())

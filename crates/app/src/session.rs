@@ -96,7 +96,8 @@ impl Drop for PreviewWorker {
 enum Completed {
     Ingested(Option<crate::ingest::IngestProposal>),
     Imported(EditBatch),
-    Opened(Project, fold_project::Revision, Option<String>),
+    Opened(Project, fold_project::Revision, Option<String>, String),
+    Saved(String),
     Message(String),
 }
 struct Background {
@@ -125,6 +126,9 @@ pub struct Session {
     preview: PreviewWorker,
     background: Option<Background>,
     imported_items: Vec<fold_project::ItemId>,
+    workspace_project: Option<String>,
+    workspace_epoch: u64,
+    workspace_restore: bool,
     playback_ranges: std::collections::BTreeMap<
         fold_foundation::DocumentId,
         fold_platform::desktop::PlaybackRange,
@@ -146,6 +150,9 @@ impl Session {
             preview: PreviewWorker::new(),
             background: None,
             imported_items: Vec::new(),
+            workspace_project: None,
+            workspace_epoch: 0,
+            workspace_restore: false,
             playback_ranges: Default::default(),
             #[cfg(feature = "desktop")]
             playback: crate::playback::Playback::default(),
@@ -172,7 +179,8 @@ impl Session {
         self.state.transient = self.overlay.is_some();
         if self.state.content != content {
             self.stop_playback();
-            self.preview.cancel();
+            // The shared preview host retires obsolete content demands. A global
+            // navigation change must not cancel a different panel's valid request.
         }
         self.state.content = content;
         if self
@@ -235,19 +243,34 @@ impl Session {
                     workflow::import(&snapshot, &paths, &token).map(Completed::Imported)
                 }
                 DesktopCommand::Save(path) => fold_project::save(&snapshot, &path)
-                    .map(|_| Completed::Message("Project saved".into()))
-                    .map_err(|e| e.to_string()),
+                    .map_err(|e| e.to_string())
+                    .and_then(|_| std::fs::canonicalize(path).map_err(|e| e.to_string()))
+                    .map(|path| Completed::Saved(path.to_string_lossy().into_owned())),
                 DesktopCommand::Open(path) => fold_project::load(&path, 32)
-                    .map(|project| Completed::Opened(project, snapshot.revision(), None))
-                    .map_err(|e| e.to_string()),
+                    .map_err(|e| e.to_string())
+                    .and_then(|project| {
+                        let path = std::fs::canonicalize(path).map_err(|e| e.to_string())?;
+                        Ok(Completed::Opened(
+                            project,
+                            snapshot.revision(),
+                            None,
+                            path.to_string_lossy().into_owned(),
+                        ))
+                    }),
                 DesktopCommand::OpenInWorkspace {
                     path,
                     document_type,
                 } => fold_project::load(&path, 32)
-                    .map(|project| {
-                        Completed::Opened(project, snapshot.revision(), Some(document_type))
-                    })
-                    .map_err(|e| e.to_string()),
+                    .map_err(|e| e.to_string())
+                    .and_then(|project| {
+                        let path = std::fs::canonicalize(path).map_err(|e| e.to_string())?;
+                        Ok(Completed::Opened(
+                            project,
+                            snapshot.revision(),
+                            Some(document_type),
+                            path.to_string_lossy().into_owned(),
+                        ))
+                    }),
                 DesktopCommand::Export { path, start, end } => {
                     workflow::export(&snapshot, &path, start, end, &token)
                         .map(|_| Completed::Message(format!("Export complete: {}", path.display())))
@@ -279,6 +302,70 @@ impl DesktopClient for Session {
         document: fold_foundation::DocumentId,
     ) -> Result<fold_media::VideoInfo, String> {
         crate::packages::builtins().output(&self.project.snapshot(), document)
+    }
+    fn workspace_project(&self) -> Option<String> {
+        self.workspace_project.clone()
+    }
+    fn workspace_epoch(&self) -> u64 {
+        self.workspace_epoch
+    }
+    fn workspace_restore(&self) -> bool {
+        self.workspace_restore
+    }
+    fn outputs(
+        &self,
+        document: fold_foundation::DocumentId,
+    ) -> Vec<fold_platform::workspace::OutputDescriptor> {
+        crate::packages::builtins().outputs(&self.project.snapshot(), document)
+    }
+    fn preview_state(
+        &self,
+        output: &fold_project::DocumentRef,
+        time: fold_foundation::Time,
+    ) -> DesktopState {
+        let mut state = self.state.clone();
+        state.playing = false;
+        state.priming = false;
+        state.audio_clock = false;
+        state.navigation = vec![fold_platform::desktop::ViewLocation {
+            document: output.document,
+            time,
+            label: String::new(),
+        }];
+        state.selection = fold_platform::desktop::Selection {
+            document: Some(output.document),
+            objects: vec![],
+        };
+        state.viewer_document = Some(output.document);
+        let snapshot = self.preview_snapshot();
+        let info = crate::packages::builtins().output_ref(&snapshot, output);
+        state.content = None;
+        match info {
+            Ok(info) => {
+                state.frames = info.frames;
+                state.dimensions = [info.width, info.height];
+                state.rate = info.rate;
+                state.frame = time
+                    .to_ticks(info.rate[0], info.rate[1], fold_foundation::Rounding::Floor)
+                    .unwrap_or(0)
+                    .max(0) as u32;
+                state.frame = state.frame.min(info.frames.saturating_sub(1));
+                match workflow::content_for(&snapshot, output.document) {
+                    Ok(content) => state.content = Some(content),
+                    Err(error) => state.status = error,
+                }
+                state.transient = self.overlay.is_some()
+                    && state.content
+                        != workflow::content_for(&self.project.snapshot(), output.document).ok();
+            }
+            Err(error) => {
+                state.frames = 0;
+                state.frame = 0;
+                state.transient = false;
+                state.status = error;
+            }
+        }
+        state
     }
     fn take_imported_items(&mut self) -> Vec<fold_project::ItemId> {
         std::mem::take(&mut self.imported_items)
@@ -368,11 +455,20 @@ impl DesktopClient for Session {
                     }
                     Err(e) => self.state.status = e.to_string(),
                 },
-                Ok(Completed::Opened(project, base, workspace)) => {
+                Ok(Completed::Saved(path)) => {
+                    self.workspace_project = Some(path);
+                    self.workspace_epoch += 1;
+                    self.workspace_restore = false;
+                    self.state.status = "Project saved".into();
+                }
+                Ok(Completed::Opened(project, base, workspace, path)) => {
                     if self.project.snapshot().revision() != base {
                         self.state.status = "Project changed while opening; retry open".into();
                     } else {
                         self.project = project;
+                        self.workspace_project = Some(path);
+                        self.workspace_epoch += 1;
+                        self.workspace_restore = true;
                         self.imported_items.clear();
                         self.playback_ranges.clear();
                         self.overlay = None;
@@ -566,8 +662,13 @@ impl DesktopClient for Session {
         }
     }
     fn request_preview(&mut self, key: PreviewKey) {
-        if self.state.content.as_ref() == Some(&key.content) {
-            self.preview.request(self.preview_snapshot(), key);
+        let snapshot = self.preview_snapshot();
+        let content = key
+            .target
+            .map(|(id, _)| workflow::content_for(&snapshot, id))
+            .unwrap_or_else(|| workflow::content(&snapshot));
+        if content.as_ref().ok() == Some(&key.content) {
+            self.preview.request(snapshot, key);
         }
     }
     fn cancel_preview(&mut self) {

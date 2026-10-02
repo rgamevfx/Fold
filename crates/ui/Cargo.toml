@@ -6,10 +6,10 @@ publish.workspace = true
 
 [features]
 # Opt-in baseline instrumentation; absent from normal desktop builds.
-native-probe = ["dep:serde_json"]
+native-probe = []
 
 [dependencies]
-serde_json = { workspace = true, optional = true }
+serde_json.workspace = true
 fold-foundation.workspace = true
 fold-platform.workspace = true
 dear-imgui-rs = "0.18"

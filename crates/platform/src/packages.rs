@@ -329,6 +329,42 @@ impl PackageRegistry {
                 && p.supports_schema(document.schema_version)
         })
     }
+    pub fn outputs(
+        &self,
+        snapshot: &Snapshot,
+        id: DocumentId,
+    ) -> Vec<crate::workspace::OutputDescriptor> {
+        let Some(document) = snapshot.state().documents.get(&id) else {
+            return vec![];
+        };
+        let mut outputs = self.video.outputs(document);
+        let validation = self
+            .documents
+            .iter()
+            .find(|p| p.package_id() == document.package_id && p.type_id() == document.type_id)
+            .ok_or_else(|| "Unavailable document provider".to_owned())
+            .and_then(|p| p.validate(document));
+        if let Err(error) = validation {
+            for output in &mut outputs {
+                output.info = Err(error.clone());
+            }
+        }
+        outputs
+    }
+    pub fn output_ref(
+        &self,
+        snapshot: &Snapshot,
+        source: &DocumentRef,
+    ) -> Result<VideoInfo, String> {
+        if !snapshot.state().documents.contains_key(&source.document) {
+            return Err("missing document".into());
+        }
+        self.outputs(snapshot, source.document)
+            .into_iter()
+            .find(|o| o.reference.output == source.output)
+            .ok_or_else(|| format!("missing output port {}", source.output))?
+            .info
+    }
     pub fn output(&self, snapshot: &Snapshot, id: DocumentId) -> Result<VideoInfo, String> {
         let document = snapshot
             .state()
@@ -392,21 +428,18 @@ impl PackageRegistry {
         cancel: &Cancel,
     ) -> Result<(), String> {
         cancel.check()?;
-        if source.output != "video" {
-            return Err(format!("unsupported video port: {}", source.output));
-        }
         if path.contains(&source.document) || path.len() >= 64 {
             return Err("recursive or excessively deep document references".into());
         }
-        if done.contains(&source.document) {
-            return Ok(());
-        }
-        self.output(snapshot, source.document).map_err(|error| {
+        self.output_ref(snapshot, source).map_err(|error| {
             format!(
                 "video dependency {:?} / {}: {error}",
                 source.document, source.output
             )
         })?;
+        if done.contains(&source.document) {
+            return Ok(());
+        }
         let document = &snapshot.state().documents[&source.document];
         if !self
             .video

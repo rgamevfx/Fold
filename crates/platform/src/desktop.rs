@@ -7,25 +7,26 @@ use std::path::PathBuf;
 pub struct PreviewKey {
     /// Explicit nested output and exact local time; None selects project root.
     pub target: Option<(fold_foundation::DocumentId, fold_foundation::Time)>,
+    pub output: String,
     pub content: String,
     pub frame: u32,
     pub dimensions: [u32; 2],
     /// Fixed SDR sRGB output transform version; never a project revision.
     pub view: u32,
 }
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Selection {
     pub document: Option<fold_foundation::DocumentId>,
     pub objects: Vec<fold_foundation::ObjectId>,
 }
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ViewLocation {
     pub document: fold_foundation::DocumentId,
     pub time: fold_foundation::Time,
     pub label: String,
 }
 /// Inclusive review boundaries. These do not trim a document or change export.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct PlaybackRange {
     pub start: Option<u32>,
     pub end: Option<u32>,
@@ -53,6 +54,8 @@ pub enum TransportAction {
 pub struct DesktopState {
     pub selection: Selection,
     pub navigation: Vec<ViewLocation>,
+    /// Explicit Project/open navigation, not focus or selection notification.
+    pub navigation_event: u64,
     pub transient: bool,
     pub frame: u32,
     pub viewer_document: Option<fold_foundation::DocumentId>,
@@ -74,6 +77,7 @@ impl Default for DesktopState {
         Self {
             selection: Selection::default(),
             navigation: vec![],
+            navigation_event: 0,
             transient: false,
             frame: 0,
             viewer_document: None,
@@ -112,6 +116,7 @@ impl DesktopState {
                     },
                 )
             }),
+            output: "video".into(),
             content: self.content.clone()?,
             frame,
             dimensions: self.dimensions.map(|n| (n / divisor).max(1)),
@@ -175,6 +180,67 @@ pub trait DesktopClient {
         _document: fold_foundation::DocumentId,
     ) -> Result<fold_media::VideoInfo, String> {
         Err("document metadata unavailable".into())
+    }
+    /// Explicit output metadata and identity without retargeting global state.
+    fn preview_state(
+        &self,
+        output: &fold_project::DocumentRef,
+        time: fold_foundation::Time,
+    ) -> DesktopState {
+        let mut state = self.state().clone();
+        state.navigation = vec![ViewLocation {
+            document: output.document,
+            time,
+            label: String::new(),
+        }];
+        state.selection = Selection {
+            document: Some(output.document),
+            objects: vec![],
+        };
+        state.viewer_document = Some(output.document);
+        state.content = None;
+        state.playing = false;
+        if let Ok(info) = self.video_info(output.document) {
+            state.frames = info.frames;
+            state.dimensions = [info.width, info.height];
+            state.rate = info.rate;
+            state.frame = time
+                .to_ticks(info.rate[0], info.rate[1], fold_foundation::Rounding::Floor)
+                .unwrap_or(0)
+                .max(0) as u32;
+        }
+        state
+    }
+    fn outputs(
+        &self,
+        document: fold_foundation::DocumentId,
+    ) -> Vec<crate::workspace::OutputDescriptor> {
+        vec![crate::workspace::OutputDescriptor {
+            reference: fold_project::DocumentRef {
+                document,
+                output: "video".into(),
+                extensions: Default::default(),
+            },
+            label: "Video".into(),
+            info: self.video_info(document),
+        }]
+    }
+    /// Set only after a successful open/save; Save As gets a distinct association.
+    fn workspace_project(&self) -> Option<String> {
+        None
+    }
+    fn workspace_epoch(&self) -> u64 {
+        0
+    }
+    fn workspace_restore(&self) -> bool {
+        false
+    }
+    /// Instance contexts prohibit first-document fallbacks in provider editors.
+    fn explicit_target(&self) -> bool {
+        false
+    }
+    fn panel_instance(&self) -> Option<crate::workspace::PanelInstanceId> {
+        None
     }
     fn take_imported_items(&mut self) -> Vec<fold_project::ItemId> {
         vec![]

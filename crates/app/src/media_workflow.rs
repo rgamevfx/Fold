@@ -160,10 +160,17 @@ pub fn evaluate(
         (
             DocumentRef {
                 document,
-                output: "video".into(),
+                output: key.output.clone(),
                 extensions: Default::default(),
             },
-            crate::packages::builtins().output(snapshot, document)?,
+            crate::packages::builtins().output_ref(
+                snapshot,
+                &DocumentRef {
+                    document,
+                    output: key.output.clone(),
+                    extensions: Default::default(),
+                },
+            )?,
             time,
         )
     } else {
@@ -326,6 +333,7 @@ fn export_video(
     }
     let mut decoder = Decoder::default();
     let mut key = PreviewKey {
+        output: "video".into(),
         target: None,
         content: content(snapshot)?,
         frame: start,

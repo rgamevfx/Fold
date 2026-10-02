@@ -2,8 +2,11 @@
 pub mod browser;
 pub mod desktop;
 pub mod packages;
+pub mod panel_context;
+pub mod workspace;
 use fold_foundation::Time;
 use fold_media::Cancel;
+pub use fold_media::VideoInfo;
 use fold_project::{Document, DocumentRef, Snapshot};
 pub use fold_project::{Revision as ProjectRevision, Snapshot as ProjectSnapshot};
 use fold_render::RenderGraph;
@@ -34,6 +37,18 @@ pub trait VideoProvider: Send + Sync {
     fn video_info(&self, _document: &Document) -> Result<fold_media::VideoInfo, String> {
         Err("video provider has no timed output metadata".into())
     }
+    /// Stable selectable video ports; providers with multiple ports override this.
+    fn outputs(&self, document: &Document) -> Vec<workspace::OutputDescriptor> {
+        vec![workspace::OutputDescriptor {
+            reference: DocumentRef {
+                document: document.id,
+                output: "video".into(),
+                extensions: Default::default(),
+            },
+            label: "Video".into(),
+            info: self.video_info(document),
+        }]
+    }
     /// Reference-local controls must be explicitly supported, never silently ignored.
     fn supports_controls(&self) -> bool {
         false
@@ -59,6 +74,24 @@ impl VideoRegistry {
         }
         self.providers.push(provider);
         Ok(())
+    }
+
+    pub fn outputs(&self, document: &Document) -> Vec<workspace::OutputDescriptor> {
+        self.providers
+            .iter()
+            .find(|p| p.package_id() == document.package_id && p.type_id() == document.type_id)
+            .map(|p| p.outputs(document))
+            .unwrap_or_else(|| {
+                vec![workspace::OutputDescriptor {
+                    reference: DocumentRef {
+                        document: document.id,
+                        output: "video".into(),
+                        extensions: Default::default(),
+                    },
+                    label: "Video".into(),
+                    info: Err("Unavailable video provider".into()),
+                }]
+            })
     }
 
     /// Convenience entry for synchronous callers without a cancellable job.
@@ -115,6 +148,13 @@ impl VideoRegistry {
                     document.package_id, document.type_id, document.id
                 )
             })?;
+        if !provider
+            .outputs(document)
+            .iter()
+            .any(|o| o.reference.output == source.output)
+        {
+            return Err(format!("unavailable video output {}", source.output));
+        }
         if source.extensions.contains_key("fold.controls") && !provider.supports_controls() {
             return Err("referenced provider does not support control overrides".into());
         }

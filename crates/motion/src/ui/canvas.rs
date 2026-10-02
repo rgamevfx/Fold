@@ -14,6 +14,27 @@ pub struct Canvas {
     pub overlay: super::overlay::Overlay,
 }
 impl Panel for Canvas {
+    fn new_instance(&self) -> Option<fold_ui::sdk::EditorPanels> {
+        let state = std::rc::Rc::new(std::cell::RefCell::new(super::state::State::default()));
+        Some(fold_ui::sdk::EditorPanels {
+            editor: Box::new(Self {
+                state: state.clone(),
+                canvas: Default::default(),
+                overlay: Default::default(),
+            }),
+            inspector: Box::new(super::inspector::Inspector {
+                state,
+                curves: Default::default(),
+            }),
+        })
+    }
+    fn cancel_interaction(&mut self, host: &mut dyn fold_platform::desktop::DesktopClient) {
+        self.overlay.cancel();
+        let mut state = self.state.borrow_mut();
+        if state.editing {
+            state.cancel(host);
+        }
+    }
     fn draw_viewer_overlay(&mut self, context: ExtensionUi<'_>, rect: fold_ui::sdk::ViewerRect) {
         self.overlay.draw(&self.state, context, rect);
     }
@@ -167,7 +188,7 @@ impl Panel for Canvas {
         }
         let drop_origin = ui.cursor_screen_pos();
         let drop_size = ui.content_region_avail();
-        self.canvas.draw(
+        self.canvas.draw_inline(
             ui,
             &mut Context {
                 state: &mut state,

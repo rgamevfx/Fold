@@ -326,7 +326,14 @@ clips, motion nodes, or compositor payload schemas.
 
 - Distinguish registered contribution ID from stable workspace `PanelInstanceId`.
   Editor instance binds an explicit document plus nested source-context/time map;
-  viewer instance binds `Pinned(DocumentRef)` or `Follow(EditorInstanceId)`.
+  viewer instance binds a stable output reference or an explicitly owned source.
+  **User-approved phase-14 refinement:** normal viewer/editor/inspector linking
+  uses groups A–D via a small letter dropdown (A by default), not an exhaustive
+  viewer target list. One explicitly chosen editor supplies each group's source;
+  window focus never changes that owner. Pinned outputs and source-port choice
+  remain secondary context actions. Group linking does not link playback clocks;
+  closing/moving a source freezes old followers rather than guessing a replacement.
+  Earlier `Follow(EditorInstanceId)` sidecars migrate to groups or stable pins.
 - A viewer request/result carries viewer ID and monotonically increasing consumer
   generation. Retarget, seek and close retire that consumer's old generation;
   accept a result only if binding/content/time/quality still match. Shared work

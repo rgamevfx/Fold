@@ -6,6 +6,7 @@ publish.workspace = true
 
 [dependencies]
 serde_json.workspace = true
+serde.workspace = true
 fold-foundation.workspace = true
 fold-project.workspace = true
 fold-media.workspace = true

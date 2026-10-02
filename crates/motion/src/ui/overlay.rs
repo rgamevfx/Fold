@@ -11,6 +11,10 @@ use fold_ui::sdk::{
     ExtensionUi, GRAPH_COLORS, ViewerRect,
     imgui::{self, MouseButton},
 };
+#[cfg(test)]
+#[path = "overlay_tests.rs"]
+mod tests;
+
 #[derive(Clone)]
 enum Target {
     Vector(String),
@@ -30,6 +34,8 @@ struct Gesture {
     start: [f32; 2],
     base: Motion,
     generation: u64,
+    viewer: Option<fold_platform::workspace::PanelInstanceId>,
+    time: fold_foundation::Time,
 }
 #[derive(Default)]
 pub struct Overlay {
@@ -169,10 +175,30 @@ fn handles(m: &Motion, selected: ObjectId) -> Vec<Handle> {
     result
 }
 impl Overlay {
+    pub fn cancel(&mut self) {
+        self.gesture = None;
+    }
     pub fn draw(&mut self, state: &Shared, context: ExtensionUi<'_>, rect: ViewerRect) {
         let ExtensionUi { ui, host } = context;
+        if self
+            .gesture
+            .as_ref()
+            .is_some_and(|g| g.viewer != host.panel_instance())
+        {
+            return;
+        }
         let mut state = state.borrow_mut();
         state.sync(host);
+        let time = host
+            .state()
+            .navigation
+            .last()
+            .map(|v| v.time)
+            .unwrap_or(fold_foundation::Time::ZERO);
+        if self.gesture.as_ref().is_some_and(|g| g.time != time) {
+            self.gesture = None;
+            state.cancel(host);
+        }
         if self
             .gesture
             .as_ref()
@@ -225,6 +251,8 @@ impl Overlay {
                     start: ui.io().mouse_pos(),
                     base: motion.clone(),
                     generation: state.generation,
+                    viewer: host.panel_instance(),
+                    time,
                 });
             }
         }

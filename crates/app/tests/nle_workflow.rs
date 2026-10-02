@@ -304,6 +304,7 @@ fn multitrack_nle_edit_mix_render_save_reopen_and_export() {
     assert_eq!(split.state().documents, reopened.state().documents);
     let content = media_workflow::content(&reopened).unwrap();
     let key = PreviewKey {
+        output: "video".into(),
         target: None,
         content,
         frame: 72,

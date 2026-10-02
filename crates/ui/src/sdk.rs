@@ -29,13 +29,29 @@ pub struct ExtensionUi<'a> {
     pub ui: &'a imgui::Ui,
     pub host: &'a mut dyn DesktopClient,
 }
+impl ExtensionUi<'_> {
+    pub fn instance(&self) -> Option<fold_platform::workspace::PanelInstanceId> {
+        self.host.panel_instance()
+    }
+}
 #[derive(Clone, Copy)]
 pub struct ViewerRect {
     pub origin: [f32; 2],
     pub size: [f32; 2],
     pub dimensions: [u32; 2],
 }
+/// Provider-created UI bundle: independent gesture state with a matching inspector.
+pub struct EditorPanels {
+    pub editor: Box<dyn Panel>,
+    pub inspector: Box<dyn Panel>,
+}
 pub trait Panel {
+    /// Reuse this contribution's implementation with fresh instance-local state.
+    fn new_instance(&self) -> Option<EditorPanels> {
+        None
+    }
+    /// Release this instance's transient authoring gesture before closure.
+    fn cancel_interaction(&mut self, _host: &mut dyn DesktopClient) {}
     /// Optional direct-authoring overlay, restricted to the active document's editor.
     /// Coordinates describe the displayed image; no render/device ownership is exposed.
     fn draw_viewer_overlay(&mut self, _context: ExtensionUi<'_>, _rect: ViewerRect) {}

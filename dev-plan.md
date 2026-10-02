@@ -46,7 +46,7 @@
 ### Panel targeting and independent viewers
 
 - Each editor instance has an explicit document target selected through a compact shared breadcrumb/dropdown. List compatible project documents, not only currently open ones. Nested breadcrumbs additionally identify source context and exact mapped local time.
-- Each viewer supports **Pinned output** and **Follow editor**. Pinning resolves a stable document/output reference; following resolves a particular editor instance's preview target. Open outputs are convenient menu shortcuts, not the complete set of viewable project outputs.
+- Each viewer normally follows a **panel link group** (A–D), selected with one small letter dropdown shared by editors, viewers and inspectors. A is the default. One explicitly designated editor supplies each group's source; focus alone never changes it. Editors retain compatible-document pickers. **Pin this output** and output-port selection remain secondary context-menu actions. This user-approved refinement replaces the exhaustive viewer source dropdown; stable document/output references remain the underlying identities.
 - Each viewer owns its transport at the bottom of its panel: play/pause, playhead, review range, and loop state. Two viewers can seek and play independently, including when they show the same document. Following an editor chooses a source; it does not imply a shared playback clock.
 - Separate viewer binding, transport, editor selection, and persisted delivery output. Focusing a panel or choosing a viewer source must not silently change export output or another viewer's time.
 - Route keyframing, timeline seeks, Open Source, shortcuts, and direct overlays through an explicit editor/viewer context. Do not resolve time from whichever viewer updated last.
@@ -106,14 +106,15 @@ The following is a code/document inspection baseline, not a fresh test or perfor
 
 ## Panel navigation and viewer-instance slice
 
-- [ ] 14. Introduce explicit panel instances and document/output targeting.
+- [x] 14. Introduce explicit panel instances and document/output targeting.
   - Separate contribution IDs from runtime panel-instance IDs in the shared SDK/shell. Support multiple viewer instances and the editor-instance context needed to follow a specific editor; do not duplicate feature logic to create instances.
   - Replace first-document/global-selection fallbacks for normal editor targeting with explicit per-instance document bindings. Retain intentional legacy-load behavior only at clearly defined boundaries.
-  - Implement one shared compact breadcrumb/dropdown component. Editor menus list compatible project documents; viewer menus offer pinned outputs, follow-editor choices, open-output shortcuts, and all compatible project outputs.
+  - Implement a shared small A–D letter dropdown for panel link groups. Editors retain compact breadcrumbs/compatible-document pickers and explicitly supply their group's source. Viewers follow their group by default; pinning and output-port selection are secondary context actions. Inspectors follow their chosen group, not global focus. Migrate earlier explicit-follow workspace bindings without changing targets.
   - Preserve nested navigation and rational local-time mappings. Keep inspectors and overlays associated with the correct editor/document/viewer context; switching focus alone must not retarget unrelated panels.
   - Handle duplicate names, rename, deletion, missing providers, closed editors, and multiple outputs predictably using stable IDs. Keep persisted delivery output independent of all navigation.
   - Store versioned layout/binding state outside project content and tolerate unavailable panels/documents on restore. Browsing or changing panel targets does not create project undo entries.
   - Acceptance: two editor contexts and two viewers can show distinct targets, including two views of the same document. Pin/follow, nested Open Source/back, rename/delete, focus changes, and workspace restore do not cross-wire targets or delivery output.
+  - Implementation/evidence: [phase-14 implementation and verification](docs/phase-14.md). Stable instances and scoped contexts now use the approved minimal A–D link-group controls, explicit group sources, secondary pin/port actions, and version-2 workspace migration; the exhaustive viewer dropdown and artwork-area loading sentence are removed. The group refinement has 51 focused passing tests plus headless/build/boundary checks. Native linked A/B restore/render is verified. **Accepted by the user** after reviewing the completed result and requesting phase completion. Recorded limit: automated native input stalled; the full click-through navigation/closure workflow is not independently certified. Phase 15 still owns independent playback and request/audio lifecycles.
 
 - [ ] 15. Give each viewer an independent transport and request lifecycle.
   - Replace the global viewer playhead/navigation/range state with viewer-instance state. Review ranges are per viewer, not merely per DocumentId. Retain transport controls at the bottom of each viewer, including loop behavior.

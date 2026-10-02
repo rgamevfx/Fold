@@ -22,14 +22,21 @@ use std::collections::BTreeMap;
 
 pub fn register(registry: &mut PanelRegistry) -> Result<(), String> {
     registry.register(crate::PACKAGE, TimelinePanel::default())?;
-    registry.register(crate::PACKAGE, inspector::Inspector::default())
+    registry.register_node_inspector(crate::PACKAGE, inspector::Inspector::default())
 }
-fn current(snapshot: &Snapshot, selection: &Selection) -> Result<(DocumentId, Sequence), String> {
+fn current(
+    snapshot: &Snapshot,
+    selection: &Selection,
+    explicit: bool,
+) -> Result<(DocumentId, Sequence), String> {
     if let Some(id) = selection.document
         && let Some(document) = snapshot.state().documents.get(&id)
         && document.type_id == crate::SEQUENCE
     {
         return Ok((id, Sequence::from_document(document)?));
+    }
+    if explicit {
+        return Err("Select a sequence for this editor".into());
     }
     let (reference, sequence) = crate::active(snapshot)?;
     Ok((reference.document, sequence))
@@ -64,6 +71,12 @@ struct TimelinePanel {
     )>,
 }
 impl Panel for TimelinePanel {
+    fn new_instance(&self) -> Option<fold_ui::sdk::EditorPanels> {
+        Some(fold_ui::sdk::EditorPanels {
+            editor: Box::new(Self::default()),
+            inspector: Box::new(inspector::Inspector::default()),
+        })
+    }
     fn document_type(&self) -> Option<&'static str> {
         Some(crate::SEQUENCE)
     }
@@ -78,13 +91,9 @@ impl Panel for TimelinePanel {
         };
         let state = host.state().clone();
         if self.cached.as_ref().is_none_or(|(revision, id, _, _)| {
-            *revision != snapshot.revision()
-                || state
-                    .selection
-                    .document
-                    .is_some_and(|selected| selected != *id)
+            *revision != snapshot.revision() || state.selection.document != Some(*id)
         }) {
-            self.cached = current(&snapshot, &state.selection)
+            self.cached = current(&snapshot, &state.selection, host.explicit_target())
                 .ok()
                 .map(|(id, sequence)| {
                     let labels = snapshot

@@ -146,7 +146,7 @@ impl Session {
             .unwrap_or(0)
             .max(0) as u32;
         self.state.navigation.push(location);
-        self.preview.cancel();
+        self.state.navigation_event += 1;
         self.refresh();
     }
     pub(super) fn back(&mut self) {
@@ -156,6 +156,7 @@ impl Session {
         self.stop_playback();
         self.overlay = None;
         self.state.navigation.pop();
+        self.state.navigation_event += 1;
         let location = self.state.navigation.last().unwrap().clone();
         self.state.selection = Selection {
             document: Some(location.document),
@@ -170,7 +171,6 @@ impl Session {
                 .unwrap_or(0)
                 .max(0) as u32;
         }
-        self.preview.cancel();
         self.refresh();
     }
 }

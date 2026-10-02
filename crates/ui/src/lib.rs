@@ -1,12 +1,15 @@
 //! Shared Dear ImGui presentation. Project mutations and jobs belong to the host.
 mod cache;
 mod desktop;
+mod group_selector;
 #[cfg(feature = "native-probe")]
 mod native_probe;
 mod preview;
 pub mod sdk;
 mod shell;
+mod target_selector;
 mod transport;
+mod workspace_store;
 
 // Dear ImGui permits only one owning thread at a time, including headless tests.
 #[cfg(test)]

@@ -123,6 +123,13 @@ impl GraphCanvas {
         self.hit_map.background(position)
     }
     pub fn draw(&mut self, ui: &imgui::Ui, context: &mut impl GraphContext) {
+        self.draw_with(ui, context, false);
+    }
+    /// Join provider actions on one toolbar row; narrow panels use overflow.
+    pub fn draw_inline(&mut self, ui: &imgui::Ui, context: &mut impl GraphContext) {
+        self.draw_with(ui, context, true);
+    }
+    fn draw_with(&mut self, ui: &imgui::Ui, context: &mut impl GraphContext, inline: bool) {
         self.hit_map.clear();
         let mut graph = context.graph();
         let changed = self.key != Some(graph.key);
@@ -146,7 +153,27 @@ impl GraphCanvas {
             self.cancel_move = true;
         }
         let mut actions = Vec::new();
-        if graph.has_parent {
+        if inline {
+            ui.same_line();
+        }
+        let can_open = graph.selected.len() == 1
+            && graph
+                .nodes
+                .iter()
+                .any(|n| n.id == graph.selected[0] && n.can_open);
+        let required = 3. * ui.frame_height_with_spacing()
+            + if graph.has_parent {
+                ui.frame_height_with_spacing()
+            } else {
+                0.
+            }
+            + if can_open {
+                ui.calc_text_size("Open group")[0] + 16.
+            } else {
+                0.
+            };
+        let compact = inline && ui.content_region_avail()[0] < required;
+        if graph.has_parent && !compact {
             if icon_button(ui, "parent", ToolbarIcon::Back, "Return to parent graph") {
                 self.error = context
                     .event(GraphEvent::Navigate(None))
@@ -156,12 +183,7 @@ impl GraphCanvas {
             }
             ui.same_line();
         }
-        if graph.selected.len() == 1
-            && graph
-                .nodes
-                .iter()
-                .any(|n| n.id == graph.selected[0] && n.can_open)
-        {
+        if can_open && !compact {
             if ui.button("Open group") {
                 self.error = context
                     .event(GraphEvent::Navigate(Some(graph.selected[0])))
@@ -171,13 +193,39 @@ impl GraphCanvas {
             }
             ui.same_line();
         }
-        let mut open_search = icon_button(ui, "add-node", ToolbarIcon::Add, "Add node (Tab)");
-        ui.same_line();
-        if icon_button(ui, "frame-all", ToolbarIcon::FrameAll, "Frame all (F)") {
-            self.fit = 1;
+        let mut open_search = false;
+        if !compact {
+            open_search = icon_button(ui, "add-node", ToolbarIcon::Add, "Add node (Tab)");
+            ui.same_line();
+            if icon_button(ui, "frame-all", ToolbarIcon::FrameAll, "Frame all (F)") {
+                self.fit = 1;
+            }
+            ui.same_line();
         }
-        ui.same_line();
         if let Some(_menu) = icon_menu(ui, "graph-actions", "Graph actions and navigation help") {
+            if compact {
+                if graph.has_parent && ui.menu_item("Return to parent graph") {
+                    self.error = context
+                        .event(GraphEvent::Navigate(None))
+                        .err()
+                        .unwrap_or_default();
+                    return;
+                }
+                if can_open && ui.menu_item("Open group") {
+                    self.error = context
+                        .event(GraphEvent::Navigate(Some(graph.selected[0])))
+                        .err()
+                        .unwrap_or_default();
+                    return;
+                }
+                if ui.menu_item("Add node (Tab)") {
+                    open_search = true;
+                }
+                if ui.menu_item("Frame all (F)") {
+                    self.fit = 1;
+                }
+                ui.separator();
+            }
             if ui.menu_item("Arrange nodes") {
                 actions.push(GraphChange::Positions(arrange(ui, &graph)));
             }

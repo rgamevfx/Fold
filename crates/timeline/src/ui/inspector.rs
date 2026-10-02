@@ -26,7 +26,7 @@ impl Panel for Inspector {
             return;
         };
         let state = host.state().clone();
-        let active = current(&snapshot, &state.selection).ok();
+        let active = current(&snapshot, &state.selection, host.explicit_target()).ok();
         let Some((document, sequence)) = active else {
             ui.text_disabled("No sequence selected.");
             return;
@@ -84,7 +84,13 @@ impl Panel for Inspector {
         match &clip.info {
             SourceMedia::Document { source, .. } => {
                 ui.text("Nested source");
-                if let Ok(time) = interaction::time(i64::from(state.frame), sequence.rate)
+                let time = state
+                    .navigation
+                    .last()
+                    .filter(|v| v.document == document)
+                    .map(|v| v.time)
+                    .or_else(|| interaction::time(i64::from(state.frame), sequence.rate).ok());
+                if let Some(time) = time
                     && let Ok(Some(local)) = clip.source_time(time)
                 {
                     ui.text(format!(
@@ -96,7 +102,7 @@ impl Panel for Inspector {
                     ));
                 }
                 if ui.button("Open Source")
-                    && let Ok(time) = interaction::time(i64::from(state.frame), sequence.rate)
+                    && let Some(time) = time
                     && let Ok(Some(local)) = clip.source_time(time)
                 {
                     host.command(DesktopCommand::Navigate(

@@ -124,6 +124,7 @@ fn direct_ui_edits_are_one_transaction_and_group_edits_preserve_root_output() {
 }
 #[test]
 fn drawing_motion_graph_inspector_and_handles_does_not_mutate_project() {
+    let _guard = super::IMGUI_TEST_LOCK.lock().unwrap();
     let mut host = Host::new();
     let state = std::rc::Rc::new(std::cell::RefCell::new(state::State::default()));
     state.borrow_mut().create(&mut host);

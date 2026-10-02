@@ -72,6 +72,7 @@ fn native_device_clock_seek_and_drift() {
     let content = media_workflow::content(&snapshot).unwrap();
     let mut decoder = Decoder::default();
     let mut key = PreviewKey {
+        output: "video".into(),
         target: None,
         content,
         frame: 0,

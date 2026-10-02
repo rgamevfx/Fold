@@ -7,6 +7,8 @@ mod overlay;
 mod state;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+static IMGUI_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 use fold_ui::sdk::PanelRegistry;
 pub fn register(registry: &mut PanelRegistry) -> Result<(), String> {
     let state = std::rc::Rc::new(std::cell::RefCell::new(state::State::default()));

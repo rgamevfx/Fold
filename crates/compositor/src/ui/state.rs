@@ -43,10 +43,13 @@ impl State {
                     .get(id)
                     .is_some_and(|d| d.type_id == crate::COMPOSITE)
             })
-            .or(self
-                .document
-                .filter(|id| snapshot.state().documents.contains_key(id)))
+            .or(self.document.filter(|id| {
+                !host.explicit_target() && snapshot.state().documents.contains_key(id)
+            }))
             .or_else(|| {
+                if host.explicit_target() {
+                    return None;
+                }
                 snapshot
                     .state()
                     .documents

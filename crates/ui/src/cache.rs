@@ -65,6 +65,7 @@ mod tests {
     fn content_time_resolution_and_view_are_distinct() {
         use fold_platform::desktop::PreviewKey;
         let key = PreviewKey {
+            output: "video".into(),
             target: None,
             content: "content-a".into(),
             frame: 7,

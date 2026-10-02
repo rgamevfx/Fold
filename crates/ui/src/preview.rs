@@ -10,6 +10,10 @@ use std::sync::{
     Arc,
     atomic::{AtomicUsize, Ordering},
 };
+#[cfg(test)]
+#[path = "preview_tests.rs"]
+mod tests;
+
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 struct Texture {
     registration: ExternalTextureId,
@@ -24,6 +28,9 @@ pub(crate) struct PreviewHost {
     cache: Cache<PreviewKey, Texture>,
     pending: Option<DisplayFrame>,
     requested: bool,
+    consumers: Vec<PreviewKey>,
+    next_consumer: usize,
+    failures: Vec<(PreviewKey, String)>,
     #[cfg(feature = "native-probe")]
     pub probe_upload: Option<(std::time::Instant, std::time::Instant, usize)>,
 }
@@ -36,6 +43,9 @@ impl PreviewHost {
             cache: Cache::new(256 * 1024 * 1024),
             pending: None,
             requested: false,
+            consumers: vec![],
+            next_consumer: 0,
+            failures: vec![],
             #[cfg(feature = "native-probe")]
             probe_upload: None,
         }
@@ -55,6 +65,62 @@ impl PreviewHost {
             self.cache.misses,
             self.displayed.as_ref().map(|key| key.frame)
         )
+    }
+    /// Phase 14 serial demand adapter over the existing single render worker.
+    /// One cache/budget serves all visible consumers. Per-consumer request/audio
+    /// lifetimes are introduced in phase 15, not by cloning decoders here.
+    pub fn select_many(&mut self, keys: Vec<PreviewKey>, client: &mut dyn DesktopClient) {
+        let previous = std::mem::take(&mut self.consumers);
+        for key in keys {
+            if !self.consumers.contains(&key) {
+                if !previous.contains(&key) && self.cache.peek(&key).is_some() {
+                    let _ = self.cache.get(&key);
+                }
+                self.consumers.push(key);
+            }
+        }
+        self.failures
+            .retain(|(key, _)| self.consumers.contains(key));
+        if (self.requested || self.pending.is_some())
+            && self
+                .wanted
+                .as_ref()
+                .is_some_and(|key| self.consumers.contains(key))
+        {
+            return;
+        }
+        let mut missing = None;
+        for offset in 0..self.consumers.len() {
+            let index = (self.next_consumer + offset) % self.consumers.len();
+            let key = &self.consumers[index];
+            if self.cache.peek(key).is_none()
+                && !self.failures.iter().any(|(failed, _)| failed == key)
+            {
+                missing = Some(key.clone());
+                self.next_consumer = index + 1;
+                break;
+            }
+        }
+        if missing.is_some() {
+            self.select(missing, client);
+        } else if self.requested || self.consumers.is_empty() {
+            self.select(None, client);
+        }
+    }
+    pub fn state_for(&self, key: Option<&PreviewKey>) -> Preview {
+        let Some(key) = key else {
+            return Preview::Failed("Choose an available document output".into());
+        };
+        if let Some(texture) = self.cache.peek(key) {
+            Preview::Ready {
+                texture: texture.registration.texture_id(),
+                dimensions: texture.dimensions,
+            }
+        } else if let Some((_, error)) = self.failures.iter().find(|(failed, _)| failed == key) {
+            Preview::Failed(error.clone())
+        } else {
+            Preview::Pending
+        }
     }
     pub fn select(&mut self, wanted: Option<PreviewKey>, client: &mut dyn DesktopClient) {
         let playing = client.state().playing && !client.state().priming;
@@ -110,7 +176,10 @@ impl PreviewHost {
             self.requested = false;
             match result.frame {
                 Ok(frame) => self.pending = Some(frame),
-                Err(error) => self.state = Preview::Failed(error),
+                Err(error) => {
+                    self.failures.push((result.key, error.clone()));
+                    self.state = Preview::Failed(error);
+                }
             }
         }
         let Some(frame) = self.pending.as_ref() else {
@@ -123,12 +192,17 @@ impl PreviewHost {
             || height > device.limits().max_texture_dimension_2d
         {
             self.pending = None;
-            self.state = Preview::Failed("Preview exceeds GPU texture/cache budget".into());
+            let error = "Preview exceeds GPU texture/cache budget".to_owned();
+            if let Some(key) = &self.wanted {
+                self.failures.push((key.clone(), error.clone()));
+            }
+            self.state = Preview::Failed(error);
             return Ok(());
         }
         while self.cache.needs_room(bytes) {
             let old = self.cache.evict(|key, texture| {
-                Some(key) != self.displayed.as_ref()
+                (self.consumers.is_empty() && Some(key) != self.displayed.as_ref()
+                    || !self.consumers.is_empty() && !self.consumers.contains(key))
                     && texture.in_flight.load(Ordering::Acquire) == 0
             });
             let Some(old) = old else {
@@ -198,15 +272,21 @@ impl PreviewHost {
     /// Call immediately after submission; callbacks protect resources against
     /// cache eviction while the GPU is reading them. No explicit texture destroy.
     pub fn submitted(&self, queue: &wgpu::Queue) {
-        if !matches!(self.state, Preview::Ready { .. }) {
-            return;
+        let mut keys = self.consumers.clone();
+        if matches!(self.state, Preview::Ready { .. })
+            && let Some(key) = &self.displayed
+            && !keys.contains(key)
+        {
+            keys.push(key.clone());
         }
-        if let Some(texture) = self.displayed.as_ref().and_then(|key| self.cache.peek(key)) {
-            let in_flight = texture.in_flight.clone();
-            in_flight.fetch_add(1, Ordering::AcqRel);
-            queue.on_submitted_work_done(move || {
-                in_flight.fetch_sub(1, Ordering::AcqRel);
-            });
+        for key in keys {
+            if let Some(texture) = self.cache.peek(&key) {
+                let in_flight = texture.in_flight.clone();
+                in_flight.fetch_add(1, Ordering::AcqRel);
+                queue.on_submitted_work_done(move || {
+                    in_flight.fetch_sub(1, Ordering::AcqRel);
+                });
+            }
         }
     }
     pub fn release(&mut self, renderer: &mut WgpuRenderer) -> Result<()> {

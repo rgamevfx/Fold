@@ -248,6 +248,7 @@ fn nested_timing_alpha_cache_persistence_and_atomic_cross_document_undo() {
         media_workflow::content(&project.snapshot()).unwrap()
     );
     let key = PreviewKey {
+        output: "video".into(),
         target: None,
         content: media_workflow::content(&reopened.snapshot()).unwrap(),
         frame: 24,

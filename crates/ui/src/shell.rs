@@ -1,11 +1,19 @@
-//! Generic workspace shell. Creative panels arrive through the shared SDK;
-//! this module knows no clips, tracks, nodes, or package command arguments.
-use crate::sdk::{ExtensionUi, RegisteredPanel};
-use dear_imgui_rs::{DockLayout, DockLayoutApply, DockSplit, Key, TextureId, Ui, WindowKey};
-use fold_platform::{
-    desktop::{DesktopClient, DesktopCommand, PreviewKey},
-    packages::PanelPlacement,
+//! Generic instance-aware workspace shell. Feature models stay in providers.
+use crate::{
+    group_selector,
+    sdk::{EditorPanels, ExtensionUi, RegisteredPanel},
+    target_selector::{self, Action, Choice},
+    workspace_store::WorkspaceStore,
 };
+use dear_imgui_rs::{DockLayout, DockLayoutApply, DockSplit, Key, TextureId, Ui, WindowKey};
+use fold_foundation::{DocumentId, Time};
+use fold_platform::{
+    desktop::{DesktopClient, DesktopCommand, PreviewKey, ViewLocation},
+    packages::PanelPlacement,
+    panel_context::PanelContext,
+    workspace::{self, EditorInstance, PanelInstanceId, ViewerBinding, ViewerInstance, Workspace},
+};
+use std::collections::BTreeMap;
 
 pub(crate) enum Preview {
     Pending,
@@ -20,46 +28,215 @@ fn fitted_size(dimensions: [u32; 2], available: [f32; 2]) -> [f32; 2] {
     let scale = (available[0].max(0.0) / width).min(available[1].max(0.0) / height);
     [width * scale, height * scale]
 }
+struct RuntimeEditor {
+    contribution: String,
+    key: WindowKey,
+    panels: EditorPanels,
+    initialized: bool,
+}
 pub(crate) struct Shell {
     viewer: WindowKey,
     delivery: WindowKey,
     empty: WindowKey,
     panels: Vec<RegisteredPanel>,
+    editors: BTreeMap<PanelInstanceId, RuntimeEditor>,
+    viewers: BTreeMap<PanelInstanceId, WindowKey>,
+    pub(crate) workspace: Workspace,
     layout: DockLayout,
     reset_layout: bool,
     project_path: String,
     export_path: String,
-    transport: crate::transport::Transport,
-    divisor: u32,
+    transports: BTreeMap<PanelInstanceId, crate::transport::Transport>,
+    playback_viewer: Option<PanelInstanceId>,
     start: i32,
     end: i32,
-    delivery_output: Option<(fold_foundation::DocumentId, u32)>,
-    focused_document: Option<fold_foundation::DocumentId>,
-    focus_workspace: Option<(String, u8)>,
-    pending_workspace: Option<String>,
-    focused_editor: Option<String>,
+    delivery_output: Option<(DocumentId, u32)>,
     visible_panels: Vec<usize>,
-    image_rect: Option<crate::sdk::ViewerRect>,
+    visible_editors: Vec<PanelInstanceId>,
+    image_rects: BTreeMap<PanelInstanceId, crate::sdk::ViewerRect>,
+    last_host_navigation: u64,
+    bootstrap: bool,
+    focus: Option<PanelInstanceId>,
+    store: WorkspaceStore,
+    epoch: u64,
+    restoring: bool,
+    saved: String,
+    last_save: std::time::Instant,
 }
 impl Shell {
     pub fn new(panels: Vec<RegisteredPanel>) -> Self {
+        let mut workspace = Workspace::default();
+        for panel in &panels {
+            if panel.descriptor.placement == PanelPlacement::Editor
+                && let Some(kind) = panel.panel.document_type()
+            {
+                workspace.add_editor(panel.descriptor.id, kind);
+            }
+        }
+        let first = workspace.editors.keys().next().copied();
+        if let Some(first) = first {
+            workspace.publish(first);
+        }
+        workspace.add_viewer(ViewerInstance::default());
         let viewer = WindowKey::new("fold.viewer.main", "Viewer").unwrap();
         let delivery = WindowKey::new("fold.delivery.main", "Delivery").unwrap();
         let empty = WindowKey::new("fold.editors.empty", "Editors").unwrap();
-        let mut editors: Vec<_> = panels
-            .iter()
-            .filter(|p| p.descriptor.placement == PanelPlacement::Editor)
-            .map(|p| &p.key)
-            .collect();
-        if editors.is_empty() {
-            editors.push(&empty);
+        let mut shell = Self {
+            viewer,
+            delivery,
+            empty,
+            panels,
+            workspace,
+            editors: Default::default(),
+            viewers: Default::default(),
+            layout: DockLayout::tabs(std::iter::empty::<&WindowKey>()),
+            reset_layout: false,
+            project_path: "/tmp/fold-project.fold".into(),
+            export_path: "/tmp/fold-export.mp4".into(),
+            transports: Default::default(),
+            playback_viewer: None,
+            start: 0,
+            end: 1,
+            delivery_output: None,
+            visible_panels: vec![],
+            visible_editors: vec![],
+            image_rects: Default::default(),
+            last_host_navigation: 0,
+            bootstrap: true,
+            focus: None,
+            store: WorkspaceStore::new(),
+            epoch: 0,
+            restoring: false,
+            saved: String::new(),
+            last_save: std::time::Instant::now(),
+        };
+        shell.sync_instances();
+        shell.rebuild_layout();
+        shell
+    }
+    fn sync_instances(&mut self) {
+        for panel in &mut self.panels {
+            if panel.descriptor.placement == PanelPlacement::Editor
+                && panel.panel.document_type().is_some()
+            {
+                continue;
+            }
+            let id = self.workspace.panel(panel.descriptor.id);
+            let name = format!("fold.panel.{}", id.0);
+            self.workspace.layout = self.workspace.layout.replace(
+                &format!("[Window][{}]", panel.descriptor.id),
+                &format!("[Window][{name}]"),
+            );
+            panel.key = WindowKey::new(name, panel.descriptor.title).unwrap();
         }
-        let mut inspectors: Vec<_> = panels
+        let delivery = self.workspace.panel("fold.ui.delivery");
+        let empty = self.workspace.panel("fold.ui.empty-editors");
+        let delivery_name = format!("fold.panel.{}", delivery.0);
+        let empty_name = format!("fold.panel.{}", empty.0);
+        self.workspace.layout = self.workspace.layout.replace(
+            "[Window][fold.delivery.main]",
+            &format!("[Window][{delivery_name}]"),
+        );
+        self.workspace.layout = self.workspace.layout.replace(
+            "[Window][fold.editors.empty]",
+            &format!("[Window][{empty_name}]"),
+        );
+        self.delivery = WindowKey::new(delivery_name, "Delivery").unwrap();
+        self.empty = WindowKey::new(empty_name, "Editors").unwrap();
+        self.editors
+            .retain(|id, _| self.workspace.editors.contains_key(id));
+        for (&id, editor) in &mut self.workspace.editors {
+            let original = self
+                .panels
+                .iter()
+                .find(|p| p.descriptor.id == editor.contribution);
+            let template = original.and_then(|p| {
+                if p.panel.document_type() == Some(editor.document_type.as_str()) {
+                    Some(p)
+                } else {
+                    self.panels.iter().find(|p| {
+                        p.descriptor.placement == PanelPlacement::Editor
+                            && p.panel.document_type() == Some(editor.document_type.as_str())
+                    })
+                }
+            });
+            // Unavailable contributions are retained as placeholders, not rebound.
+            let Some(template) = template else {
+                self.editors.remove(&id);
+                continue;
+            };
+            if self
+                .editors
+                .get(&id)
+                .is_some_and(|p| p.contribution == template.descriptor.id)
+            {
+                continue;
+            }
+            if let Some(panels) = template.panel.new_instance() {
+                editor.contribution = template.descriptor.id.into();
+                self.editors.insert(
+                    id,
+                    RuntimeEditor {
+                        contribution: editor.contribution.clone(),
+                        key: WindowKey::new(
+                            format!("fold.editor.{}", id.0),
+                            format!("{} {}", template.descriptor.title, id.0),
+                        )
+                        .unwrap(),
+                        panels,
+                        initialized: false,
+                    },
+                );
+            }
+        }
+        self.viewers
+            .retain(|id, _| self.workspace.viewers.contains_key(id));
+        self.transports
+            .retain(|id, _| self.workspace.viewers.contains_key(id));
+        for &id in self.workspace.viewers.keys() {
+            self.viewers.entry(id).or_insert_with(|| {
+                WindowKey::new(format!("fold.viewer.{}", id.0), format!("Viewer {}", id.0)).unwrap()
+            });
+        }
+        if let Some(key) = self.viewers.values().next() {
+            self.viewer = key.clone();
+        }
+    }
+    fn rebuild_layout(&mut self) {
+        let keys: Vec<_> = self
+            .workspace
+            .editors
+            .keys()
+            .map(|&id| {
+                self.editors
+                    .get(&id)
+                    .map(|e| e.key.clone())
+                    .unwrap_or_else(|| {
+                        WindowKey::new(format!("fold.editor.{}", id.0), "Unavailable editor")
+                            .unwrap()
+                    })
+            })
+            .collect();
+        let mut editors: Vec<_> = keys.iter().collect();
+        editors.extend(
+            self.panels
+                .iter()
+                .filter(|p| {
+                    p.descriptor.placement == PanelPlacement::Editor
+                        && p.panel.document_type().is_none()
+                })
+                .map(|p| &p.key),
+        );
+        if editors.is_empty() {
+            editors.push(&self.empty);
+        }
+        let mut inspectors: Vec<_> = self
+            .panels
             .iter()
             .filter(|p| p.descriptor.placement == PanelPlacement::Inspector)
             .map(|p| &p.key)
             .collect();
-        inspectors.push(&delivery);
+        inspectors.push(&self.delivery);
         let layout = DockLayout::split(
             DockSplit::Right,
             0.27,
@@ -68,42 +245,102 @@ impl Shell {
                 DockSplit::Down,
                 0.52,
                 DockLayout::tabs(editors),
-                DockLayout::tabs([&viewer]),
+                DockLayout::tabs(self.viewers.values()),
             ),
         );
-        let browsers: Vec<_> = panels
+        let browsers: Vec<_> = self
+            .panels
             .iter()
             .filter(|p| p.descriptor.placement == PanelPlacement::Browser)
             .map(|p| &p.key)
             .collect();
-        let layout = if browsers.is_empty() {
+        self.layout = if browsers.is_empty() {
             layout
         } else {
             DockLayout::split(DockSplit::Left, 0.23, DockLayout::tabs(browsers), layout)
         };
-        Self {
-            viewer,
-            delivery,
-            empty,
-            panels,
-            layout,
-            reset_layout: false,
-            project_path: "/tmp/fold-project.fold".into(),
-            export_path: "/tmp/fold-export.mp4".into(),
-            transport: Default::default(),
-            divisor: 2,
-            start: 0,
-            end: 1,
-            delivery_output: None,
-            focused_document: None,
-            focus_workspace: None,
-            pending_workspace: None,
-            focused_editor: None,
-            visible_panels: Vec::new(),
-            image_rect: None,
+    }
+    pub fn save_workspace(&mut self, context: &mut dear_imgui_rs::Context) {
+        if self.restoring || self.workspace.project.is_empty() {
+            return;
+        }
+        self.workspace.layout.clear();
+        context.save_ini_settings(&mut self.workspace.layout);
+        self.store.save(self.workspace.clone());
+    }
+    pub fn workspace_frame(
+        &mut self,
+        context: &mut dear_imgui_rs::Context,
+        client: &mut dyn DesktopClient,
+    ) {
+        if self.epoch != client.workspace_epoch() {
+            self.epoch = client.workspace_epoch();
+            if let Some(project) = client.workspace_project() {
+                if !self.workspace.project.is_empty() && self.workspace.project != project {
+                    self.store.save(self.workspace.clone());
+                }
+                self.workspace.project = project.clone();
+                self.saved.clear();
+                self.restoring = client.workspace_restore();
+                if self.restoring {
+                    self.store.load(project);
+                    self.bootstrap = true;
+                    self.last_host_navigation = 0;
+                    for editor in self.workspace.editors.values_mut() {
+                        editor.navigation.clear();
+                        editor.selection = Default::default();
+                    }
+                }
+            }
+        }
+        while let Some((project, result)) = self.store.take() {
+            if project != self.workspace.project {
+                continue;
+            }
+            match result {
+                Ok(Some(workspace)) => {
+                    client.command(DesktopCommand::Pause);
+                    self.playback_viewer = None;
+                    self.workspace = workspace;
+                    self.bootstrap = false;
+                    self.last_host_navigation = client.state().navigation_event;
+                    self.editors.clear();
+                    self.viewers.clear();
+                    self.sync_instances();
+                    self.rebuild_layout();
+                    context.load_ini_settings(&self.workspace.layout);
+                }
+                Ok(None) => {}
+                Err(error) => client.command(DesktopCommand::Notify(format!("Workspace: {error}"))),
+            }
+            self.restoring = false;
+        }
+        if !self.restoring
+            && !self.workspace.project.is_empty()
+            && self.last_save.elapsed().as_millis() >= 500
+        {
+            self.last_save = std::time::Instant::now();
+            self.workspace.layout.clear();
+            context.save_ini_settings(&mut self.workspace.layout);
+            if let Ok(value) = serde_json::to_string(&self.workspace)
+                && value != self.saved
+            {
+                self.saved = value;
+                self.store.save(self.workspace.clone());
+            }
         }
     }
     pub fn prepare_frame(&mut self, context: &mut dear_imgui_rs::Context) {
+        self.sync_instances();
+        for editor in self.editors.values_mut() {
+            if !editor.initialized {
+                editor.panels.editor.initialize(context);
+                editor.panels.inspector.initialize(context);
+                editor.initialized = true;
+            }
+            editor.panels.editor.prepare_frame(context);
+            editor.panels.inspector.prepare_frame(context);
+        }
         for panel in &mut self.panels {
             panel.panel.prepare_frame(context);
         }
@@ -111,6 +348,9 @@ impl Shell {
     pub fn external_drag(&mut self, position: Option<[f32; 2]>) {
         for panel in &mut self.panels {
             panel.panel.external_drag(position);
+        }
+        for editor in self.editors.values_mut() {
+            editor.panels.editor.external_drag(position);
         }
     }
     pub fn files_dropped(
@@ -120,11 +360,31 @@ impl Shell {
         host: &mut dyn DesktopClient,
     ) {
         for &index in &self.visible_panels {
-            if self.panels[index]
-                .panel
-                .files_dropped(position, paths, host)
-            {
+            let panel = &mut self.panels[index];
+            let id = self
+                .workspace
+                .panels
+                .iter()
+                .find(|(_, contribution)| contribution.as_str() == panel.descriptor.id)
+                .map(|(&id, _)| id)
+                .unwrap();
+            let mut context = PanelContext::for_panel(host, id);
+            if panel.panel.files_dropped(position, paths, &mut context) {
                 return;
+            }
+        }
+        for &id in &self.visible_editors {
+            if let Some(editor) = self.editors.get_mut(&id) {
+                let mut context =
+                    PanelContext::new(host, self.workspace.editors.get_mut(&id).unwrap())
+                        .instance(id);
+                if editor
+                    .panels
+                    .editor
+                    .files_dropped(position, paths, &mut context)
+                {
+                    return;
+                }
             }
         }
         host.command(DesktopCommand::Notify(
@@ -134,16 +394,92 @@ impl Shell {
     pub fn accepts_background_pan(&self, position: [f32; 2]) -> bool {
         self.visible_panels
             .iter()
-            .any(|&index| self.panels[index].panel.accepts_background_pan(position))
+            .any(|&i| self.panels[i].panel.accepts_background_pan(position))
+            || self.visible_editors.iter().any(|id| {
+                self.editors
+                    .get(id)
+                    .is_some_and(|e| e.panels.editor.accepts_background_pan(position))
+            })
     }
     #[cfg(feature = "native-probe")]
     pub fn probe_full_quality(&mut self) {
-        self.divisor = 1;
+        for viewer in self.workspace.viewers.values_mut() {
+            viewer.divisor = 1;
+        }
     }
-    pub fn key(&self, client: &dyn DesktopClient) -> Option<PreviewKey> {
-        client
-            .state()
-            .preview_key(client.state().frame, self.divisor)
+    #[cfg(feature = "native-probe")]
+    pub fn probe_time(&mut self, client: &dyn DesktopClient) {
+        if self.workspace.viewers.len() == 1
+            && let Some(viewer) = self.workspace.viewers.values_mut().next()
+        {
+            viewer.time = Time::new(
+                i64::from(client.state().frame) * i64::from(client.state().rate[1]),
+                client.state().rate[0],
+            )
+            .unwrap_or(Time::ZERO);
+        }
+    }
+    pub fn keys(&self, client: &dyn DesktopClient) -> Vec<(PanelInstanceId, Option<PreviewKey>)> {
+        self.workspace
+            .viewers
+            .iter()
+            .map(|(&id, viewer)| {
+                let key = self.workspace.resolve(id).and_then(|output| {
+                    let state = client.preview_state(&output, viewer.time);
+                    let mut key = state.preview_key(state.frame, viewer.divisor)?;
+                    key.output = output.output;
+                    Some(key)
+                });
+                (id, key)
+            })
+            .collect()
+    }
+    fn open_host_target(&mut self, client: &dyn DesktopClient) {
+        let state = client.state();
+        let target = state
+            .navigation
+            .last()
+            .map(|v| v.document)
+            .or(state.selection.document);
+        if state.navigation_event == self.last_host_navigation || target.is_none() {
+            return;
+        }
+        self.last_host_navigation = state.navigation_event;
+        let Some(snapshot) = client.snapshot() else {
+            return;
+        };
+        let Some(document) = target.and_then(|id| snapshot.state().documents.get(&id)) else {
+            return;
+        };
+        let instance = self
+            .workspace
+            .focused_editor
+            .filter(|id| {
+                self.workspace
+                    .editors
+                    .get(id)
+                    .is_some_and(|e| e.document_type == document.type_id)
+            })
+            .or_else(|| {
+                self.workspace
+                    .editors
+                    .iter()
+                    .find(|(_, e)| e.document_type == document.type_id)
+                    .map(|(&id, _)| id)
+            });
+        if let Some(id) = instance {
+            let editor = self.workspace.editors.get_mut(&id).unwrap();
+            editor.bind(state.navigation.last().cloned().unwrap_or(ViewLocation {
+                document: document.id,
+                time: Time::ZERO,
+                label: String::new(),
+            }));
+            editor.selection = state.selection.clone();
+            editor.selection.document = Some(document.id);
+            self.focus = Some(id);
+            self.workspace.focused_editor = Some(id);
+            self.workspace.publish(id);
+        }
     }
     pub fn controls(
         &mut self,
@@ -151,6 +487,26 @@ impl Shell {
         client: &mut dyn DesktopClient,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let state = client.state().clone();
+        if let Some(id) = self.playback_viewer {
+            if self
+                .workspace
+                .resolve(id)
+                .is_some_and(|o| Some(o.document) == state.viewer_document)
+            {
+                if let Some(viewer) = self.workspace.viewers.get_mut(&id) {
+                    viewer.time = state.navigation.last().map(|v| v.time).unwrap_or_else(|| {
+                        Time::new(
+                            i64::from(state.frame) * i64::from(state.rate[1]),
+                            state.rate[0],
+                        )
+                        .unwrap_or(Time::ZERO)
+                    });
+                }
+            } else {
+                client.command(DesktopCommand::Pause);
+                self.playback_viewer = None;
+            }
+        }
         let output = client
             .output_info()
             .ok()
@@ -167,28 +523,93 @@ impl Shell {
                 DesktopCommand::Undo
             });
         }
-        if self.focused_document != state.selection.document
-            && !ui.is_mouse_down(dear_imgui_rs::MouseButton::Left)
-        {
-            self.focused_document = state.selection.document;
-            self.image_rect = None;
-            self.pending_workspace = client.snapshot().and_then(|s| {
-                state
-                    .selection
-                    .document
-                    .and_then(|id| s.state().documents.get(&id).map(|d| d.type_id.clone()))
-            });
+        let initial = self.bootstrap && !self.restoring;
+        if !self.restoring {
+            // The only automatic first-document boundary is initial/legacy workspace
+            // creation. Once bound, deletion never picks a replacement document.
+            if self.bootstrap
+                && let Some(snapshot) = client.snapshot()
+                && !snapshot.state().documents.is_empty()
+            {
+                for editor in self.workspace.editors.values_mut() {
+                    if editor.navigation.is_empty()
+                        && let Some(document) = snapshot
+                            .state()
+                            .documents
+                            .values()
+                            .find(|d| d.type_id == editor.document_type)
+                    {
+                        editor.bind(ViewLocation {
+                            document: document.id,
+                            time: Time::ZERO,
+                            label: String::new(),
+                        });
+                    }
+                }
+                self.bootstrap = false;
+            }
+            self.open_host_target(client);
+            if initial && !self.bootstrap {
+                let target = state
+                    .navigation
+                    .last()
+                    .map(|v| v.document)
+                    .or_else(|| self.delivery_output.map(|(document, _)| document));
+                let editor = target.and_then(|document| {
+                    self.workspace
+                        .editors
+                        .iter()
+                        .find(|(_, e)| e.document() == Some(document))
+                        .map(|(&id, _)| id)
+                });
+                if let Some(editor) = editor {
+                    self.workspace.publish(editor);
+                } else if let Some(document) = target
+                    && let Some(viewer) = self.workspace.viewers.values_mut().next()
+                {
+                    viewer.binding = ViewerBinding::Pinned(workspace::DocumentRef {
+                        document,
+                        output: "video".into(),
+                        extensions: Default::default(),
+                    });
+                    viewer.editor = None;
+                }
+            }
         }
+        let mut duplicate = None;
+        let mut new_editor = None;
+        let mut add_viewer = false;
         ui.main_menu_bar(|| {
             ui.text("Fold");
-            for panel in self
-                .panels
-                .iter()
-                .filter(|p| p.descriptor.placement == PanelPlacement::Editor)
-            {
-                ui.same_line();
-                if ui.button(panel.descriptor.title) {
-                    self.pending_workspace = panel.panel.document_type().map(str::to_owned);
+            if let Some(_menu) = ui.begin_menu("Panels") {
+                for panel in self
+                    .panels
+                    .iter()
+                    .filter(|p| p.descriptor.placement == PanelPlacement::Editor)
+                {
+                    if ui.menu_item(format!("New {} editor", panel.descriptor.title)) {
+                        new_editor = panel
+                            .panel
+                            .document_type()
+                            .map(|kind| (panel.descriptor.id, kind));
+                    }
+                }
+                for (&id, editor) in &self.workspace.editors {
+                    let title = self
+                        .panels
+                        .iter()
+                        .find(|p| p.descriptor.id == editor.contribution)
+                        .map(|p| p.descriptor.title)
+                        .unwrap_or("Unavailable editor");
+                    if ui.menu_item(format!("Duplicate {title} ({})", id.0)) {
+                        duplicate = Some(id);
+                    }
+                }
+                if ui.menu_item("New viewer") {
+                    add_viewer = true;
+                }
+                if ui.menu_item("Reset layout") {
+                    self.reset_layout = true;
                 }
             }
             ui.same_line();
@@ -199,14 +620,31 @@ impl Shell {
             if ui.button("Redo") {
                 client.command(DesktopCommand::Redo);
             }
-            ui.same_line();
-            if ui.button("Reset layout") {
-                self.reset_layout = true;
-            }
         });
-        if let Some(kind) = self.pending_workspace.take() {
-            client.command(DesktopCommand::ActivateWorkspace(kind.clone()));
-            self.focus_workspace = Some((kind, 0));
+        if self.workspace.panels.len() + self.workspace.editors.len() + self.workspace.viewers.len()
+            < 64
+        {
+            if let Some((contribution, kind)) = new_editor {
+                let id = self.workspace.add_editor(contribution, kind);
+                self.focus = Some(id);
+                self.sync_instances();
+                self.rebuild_layout();
+            }
+            if let Some(id) = duplicate {
+                let editor = self.workspace.editors[&id].clone();
+                let new = self
+                    .workspace
+                    .add_editor(&editor.contribution, &editor.document_type);
+                self.workspace.editors.insert(new, editor);
+                self.focus = Some(new);
+                self.sync_instances();
+                self.rebuild_layout();
+            }
+            if add_viewer {
+                self.workspace.add_viewer(ViewerInstance::default());
+                self.sync_instances();
+                self.rebuild_layout();
+            }
         }
         ui.dockspace()
             .layout(
@@ -219,63 +657,191 @@ impl Shell {
             )
             .build()?;
         self.reset_layout = false;
-        ui.window(&self.viewer).build(|| {
-            if state.navigation.len() > 1 && ui.button("< Back to parent") {
-                client.command(DesktopCommand::NavigateBack);
-            }
-            if !state.navigation.is_empty() {
-                ui.same_line();
-                ui.text(
-                    state
-                        .navigation
-                        .iter()
-                        .map(|v| v.label.as_str())
+        let labels = client
+            .snapshot()
+            .map(|s| workspace::document_labels(&s))
+            .unwrap_or_default();
+        self.visible_editors.clear();
+        let edit_times: BTreeMap<_, _> = self
+            .workspace
+            .editors
+            .keys()
+            .filter_map(|&id| {
+                self.workspace
+                    .viewer_for_editor(id)
+                    .ok()
+                    .map(|viewer| (id, self.workspace.viewers[&viewer].time))
+            })
+            .collect();
+        let mut seeks = Vec::new();
+        let mut close_editor = None;
+        let mut group_changes = Vec::new();
+        let mut publish = Vec::new();
+        for (&id, binding) in &mut self.workspace.editors {
+            let choices = client
+                .snapshot()
+                .map(|s| {
+                    s.state()
+                        .documents
+                        .values()
+                        .filter(|d| d.type_id == binding.document_type)
+                        .map(|d| Choice {
+                            target: d.id,
+                            label: labels[&d.id].clone(),
+                            error: (!client.supports_document(d))
+                                .then(|| "Unavailable provider".into()),
+                        })
                         .collect::<Vec<_>>()
-                        .join(" / "),
-                );
-                if let Some(location) = state.navigation.last() {
-                    ui.text(format!(
-                        "Local time {}/{} s",
-                        location.time.numerator(),
-                        location.time.denominator()
-                    ));
-                }
-            }
-            if state.transient {
-                ui.text_colored([0.95, 0.75, 0.35, 1.0], "LIVE EDIT PREVIEW — not committed");
-            }
-        });
-        let activate_focused_editor = !self.visible_panels.is_empty();
-        self.visible_panels.clear();
-        for (index, registered) in self.panels.iter_mut().enumerate() {
-            let visible = ui
-                .window(&registered.key)
-                .focused(self.focus_workspace.as_ref().is_some_and(|(kind, stage)| {
-                    registered.panel.supports_document_type(kind)
-                        && matches!(
-                            (stage, registered.descriptor.placement),
-                            (1, PanelPlacement::Inspector) | (2, PanelPlacement::Editor)
-                        )
-                }))
-                .build(|| {
-                    // Direct dock-tab clicks bypass the workspace toolbar.
-                    // React to a focus transition, not every frame: otherwise
-                    // the old editor would undo Open Source while tabs settle.
-                    if registered.descriptor.placement == PanelPlacement::Editor
-                        && ui.is_window_focused()
-                        && let Some(kind) = registered.panel.document_type()
-                        && self.focused_editor.as_deref() != Some(kind)
-                    {
-                        self.focused_editor = Some(kind.into());
-                        if activate_focused_editor && self.focus_workspace.is_none() {
-                            client.command(DesktopCommand::ActivateWorkspace(kind.into()));
+                })
+                .unwrap_or_default();
+            let label = breadcrumb_at(
+                binding,
+                &labels,
+                edit_times
+                    .get(&id)
+                    .copied()
+                    .or_else(|| binding.navigation.last().map(|v| v.time))
+                    .unwrap_or(Time::ZERO),
+            );
+            let key = self
+                .editors
+                .get(&id)
+                .map(|e| e.key.clone())
+                .unwrap_or_else(|| {
+                    WindowKey::new(format!("fold.editor.{}", id.0), "Unavailable editor").unwrap()
+                });
+            let visible = ui.window(&key).focused(self.focus == Some(id)).build(|| {
+                if ui.is_window_focused() { self.workspace.focused_editor = Some(id); }
+                if let Some(group) = group_selector::draw(ui, binding.group, self.workspace.group_sources.get(&binding.group) == Some(&id)) { group_changes.push((id, group)); }
+                ui.same_line();
+                if let Some(action) = target_selector::draw(ui, &label, binding.navigation.len() > 1, &choices) {
+                    client.command(DesktopCommand::CancelPreviewEdit);
+                    publish.push(id);
+                    match action {
+                        Action::Choose(document) => binding.bind(ViewLocation { document, time: Time::ZERO, label: String::new() }),
+                        Action::Back => {
+                            binding.back();
+                            if let Some(snapshot) = client.snapshot() && let Some(document) = binding.document().and_then(|d| snapshot.state().documents.get(&d)) { binding.document_type = document.type_id.clone(); }
                         }
                     }
-                    registered.panel.draw(ExtensionUi { ui, host: client });
-                    if registered.descriptor.placement == PanelPlacement::Editor
-                        && ui.is_window_focused()
-                    {
-                        crate::transport::shortcuts(ui, client);
+                }
+                if let Some(_popup) = ui.begin_popup_context_window() {
+                    if ui.menu_item("Use as group source") { publish.push(id); }
+                    if ui.menu_item("Close editor") { close_editor = Some(id); }
+                }
+                if let Some(editor) = self.editors.get_mut(&id)
+                    && editor.panels.editor.document_type() == Some(binding.document_type.as_str())
+                {
+                    let mut scoped = binding.clone();
+                    if let Some(time) = edit_times.get(&id) && let Some(location) = scoped.navigation.last_mut() { location.time = *time; }
+                    let navigation = scoped.navigation.clone();
+                    let mut context = PanelContext::new(client, &mut scoped).instance(id);
+                    editor.panels.editor.draw(ExtensionUi { ui, host: &mut context });
+                    if let Some(time) = context.seek_request() { seeks.push((id, time)); }
+                    drop(context);
+                    binding.selection = scoped.selection.clone();
+                    if scoped.navigation != navigation { publish.push(id); binding.navigation = scoped.navigation; binding.document_type = scoped.document_type; binding.mapped_navigation = scoped.mapped_navigation; }
+                } else { ui.text_wrapped("This editor contribution is unavailable. Its binding has been retained."); }
+            }).is_some();
+            if visible {
+                self.visible_editors.push(id);
+            }
+        }
+        for (id, group) in group_changes {
+            self.workspace.set_editor_group(id, group);
+        }
+        for id in publish {
+            self.workspace.publish(id);
+        }
+        for (editor, time) in seeks {
+            self.seek_from_editor(editor, time, client);
+        }
+        self.focus = None;
+        if let Some(id) = close_editor {
+            if let Some(editor) = self.editors.get_mut(&id) {
+                let mut context =
+                    PanelContext::new(client, self.workspace.editors.get_mut(&id).unwrap())
+                        .instance(id);
+                editor.panels.editor.cancel_interaction(&mut context);
+            }
+            self.workspace.close_editor(id);
+            self.sync_instances();
+            self.rebuild_layout();
+        }
+        self.refresh_viewer_targets(client);
+        self.visible_panels.clear();
+        let mut publish = Vec::new();
+        let mut seeks = Vec::new();
+        for (index, registered) in self.panels.iter_mut().enumerate() {
+            if registered.descriptor.placement == PanelPlacement::Editor
+                && registered.panel.document_type().is_some()
+            {
+                continue;
+            }
+            let visible = ui
+                .window(&registered.key)
+                .build(|| {
+                    if registered.descriptor.placement == PanelPlacement::Inspector {
+                        if let Some(group) =
+                            group_selector::draw(ui, self.workspace.inspector_group, false)
+                        {
+                            self.workspace.inspector_group = group;
+                        }
+                        let inspector_context = self.workspace.inspector_context();
+                        if let Some(id) = self.workspace.inspector_editor()
+                            && let Some(binding) = self.workspace.editors.get_mut(&id)
+                            && registered
+                                .panel
+                                .supports_document_type(&binding.document_type)
+                            && let Some(editor) = self.editors.get_mut(&id)
+                        {
+                            let scope = format!(
+                                "editor-{}-viewer-{:?}",
+                                id.0, self.workspace.inspector_viewer
+                            );
+                            let _scope = ui.push_id(&scope);
+                            let mut scoped = binding.clone();
+                            if let Some((owner, time)) = inspector_context
+                                && owner == id
+                                && let Some(location) = scoped.navigation.last_mut()
+                            {
+                                location.time = time;
+                            }
+                            let navigation = scoped.navigation.clone();
+                            let mut context = PanelContext::new(client, &mut scoped).instance(id);
+                            editor.panels.inspector.draw(ExtensionUi {
+                                ui,
+                                host: &mut context,
+                            });
+                            if let Some(time) = context.seek_request() {
+                                seeks.push((id, time));
+                            }
+                            drop(context);
+                            binding.selection = scoped.selection.clone();
+                            if scoped.navigation != navigation {
+                                binding.navigation = scoped.navigation;
+                                binding.document_type = scoped.document_type;
+                                binding.mapped_navigation = scoped.mapped_navigation;
+                                publish.push(id);
+                            }
+                        } else {
+                            ui.text_disabled("Choose a source editor for this group.");
+                        }
+                    } else {
+                        let id = self
+                            .workspace
+                            .panels
+                            .iter()
+                            .find(|(_, contribution)| {
+                                contribution.as_str() == registered.descriptor.id
+                            })
+                            .map(|(&id, _)| id)
+                            .unwrap();
+                        let mut context = PanelContext::for_panel(client, id);
+                        registered.panel.draw(ExtensionUi {
+                            ui,
+                            host: &mut context,
+                        });
                     }
                 })
                 .is_some();
@@ -283,22 +849,30 @@ impl Shell {
                 self.visible_panels.push(index);
             }
         }
-        // Let newly docked windows appear first (otherwise Delivery's initial
-        // focus wins), then select the inspector and editor on separate frames.
-        if let Some((_, stage)) = &mut self.focus_workspace {
-            if *stage == 2 {
-                self.focus_workspace = None;
-            } else {
-                *stage += 1;
-            }
+        for id in publish {
+            self.workspace.publish(id);
         }
-        if !self
-            .panels
-            .iter()
-            .any(|p| p.descriptor.placement == PanelPlacement::Editor)
-        {
+        for (editor, time) in seeks {
+            self.seek_from_editor(editor, time, client);
+        }
+        self.refresh_viewer_targets(client);
+        for (&id, contribution) in &self.workspace.panels {
+            if matches!(
+                contribution.as_str(),
+                "fold.ui.delivery" | "fold.ui.empty-editors"
+            ) || self.panels.iter().any(|p| p.descriptor.id == contribution)
+            {
+                continue;
+            }
+            let key = WindowKey::new(format!("fold.panel.{}", id.0), "Unavailable panel").unwrap();
+            ui.window(&key).build(|| {
+                ui.text_wrapped("This panel contribution is unavailable. Its workspace identity has been retained.");
+                if ui.is_window_hovered() { ui.tooltip_text(contribution); }
+            });
+        }
+        if self.workspace.editors.is_empty() {
             ui.window(&self.empty)
-                .build(|| ui.text_wrapped("No editor contribution is installed."));
+                .build(|| ui.text_wrapped("Open or create a document in Project."));
         }
         ui.window(&self.delivery).build(|| {
             ui.input_text("Project path", &mut self.project_path)
@@ -312,14 +886,27 @@ impl Shell {
             }
             ui.separator();
             if let Some((document, frames)) = self.delivery_output {
-                ui.text_wrapped(format!("Delivery: {document:?} • {frames} frames"));
+                ui.text_wrapped(format!(
+                    "Delivery: {} · {frames} frames",
+                    labels
+                        .get(&document)
+                        .map(String::as_str)
+                        .unwrap_or("Missing output")
+                ));
             } else {
                 ui.text_disabled("No valid delivery output selected");
             }
-            if let Some(document) = state.viewer_document
-                && ui.button("Use viewed document as delivery output")
+            let viewed = self
+                .workspace
+                .viewers
+                .keys()
+                .next()
+                .and_then(|&id| self.workspace.resolve(id));
+            if let Some(output) = viewed
+                && output.output == "video"
+                && ui.button("Use first viewer as delivery output")
             {
-                client.command(DesktopCommand::SetOutput(document));
+                client.command(DesktopCommand::SetOutput(output.document));
             }
             ui.input_text("New MP4 output", &mut self.export_path)
                 .build();
@@ -336,41 +923,139 @@ impl Shell {
             if ui.button("Cancel job") {
                 client.command(DesktopCommand::Cancel);
             }
-            ui.text(if state.busy {
-                "Background job active"
-            } else {
-                "Worker idle"
-            });
             ui.text_wrapped(&state.status);
-            ui.text_disabled(
-                "Export uses the committed project output, not a source-view or live edit.",
-            );
+            ui.text_disabled("Export uses committed delivery settings, never panel navigation.");
         });
         Ok(())
     }
-    pub fn viewer_overlays(&mut self, ui: &Ui, client: &mut dyn DesktopClient) {
-        let Some(rect) = self.image_rect else {
-            return;
-        };
-        let Some(snapshot) = client.snapshot() else {
-            return;
-        };
-        let active = client.state().viewer_document;
-        let Some(document) = active.and_then(|id| snapshot.state().documents.get(&id)) else {
-            return;
-        };
-        ui.window(&self.viewer).build(|| {
-            for registered in &mut self.panels {
-                if registered.descriptor.placement == PanelPlacement::Editor
-                    && registered.panel.document_type() == Some(document.type_id.as_str())
-                {
-                    registered
-                        .panel
-                        .draw_viewer_overlay(ExtensionUi { ui, host: client }, rect);
-                }
+    fn refresh_viewer_targets(&mut self, client: &mut dyn DesktopClient) {
+        let targets: Vec<_> = self
+            .workspace
+            .viewers
+            .keys()
+            .map(|&id| {
+                (
+                    id,
+                    self.workspace.resolve(id),
+                    self.workspace.editor_for_viewer(id),
+                )
+            })
+            .collect();
+        for (id, output, source_editor) in targets {
+            let viewer = self.workspace.viewers.get_mut(&id).unwrap();
+            let same_editor = source_editor.is_some() && source_editor == viewer.last_editor;
+            viewer.last_editor = source_editor;
+            if output == viewer.last_output {
+                continue;
             }
-        });
+            if self.playback_viewer == Some(id) {
+                client.command(DesktopCommand::Pause);
+                self.playback_viewer = None;
+            }
+            viewer.range = Default::default();
+            if same_editor
+                && viewer.binding == ViewerBinding::Linked
+                && let Some(location) = source_editor
+                    .and_then(|id| self.workspace.editors.get(&id))
+                    .filter(|e| e.mapped_navigation)
+                    .and_then(|e| e.navigation.last())
+            {
+                viewer.time = location.time;
+            }
+            if let Some(output) = &output
+                && let Some(info) = client
+                    .outputs(output.document)
+                    .into_iter()
+                    .find(|o| o.reference.output == output.output)
+                    .and_then(|o| o.info.ok())
+                && viewer.time >= info.time(info.frames).unwrap_or(Time::ZERO)
+            {
+                viewer.time = info
+                    .time(info.frames.saturating_sub(1))
+                    .unwrap_or(Time::ZERO);
+            }
+            viewer.last_output = output;
+        }
+        self.workspace.reconcile();
     }
+    fn seek_from_editor(
+        &mut self,
+        editor: PanelInstanceId,
+        time: Time,
+        client: &mut dyn DesktopClient,
+    ) {
+        match self.workspace.viewer_for_editor(editor) {
+            Ok(viewer) => {
+                if self.playback_viewer == Some(viewer) {
+                    client.command(DesktopCommand::Pause);
+                    self.playback_viewer = None;
+                }
+                self.workspace.viewers.get_mut(&viewer).unwrap().time = time;
+            }
+            Err(error) => client.command(DesktopCommand::Notify(error)),
+        }
+    }
+    fn viewer_header(
+        &mut self,
+        ui: &Ui,
+        id: PanelInstanceId,
+        client: &mut dyn DesktopClient,
+        pending: bool,
+    ) -> bool {
+        let mut changed = false;
+        let group = self.workspace.viewers[&id].group;
+        if let Some(group) = group_selector::draw(ui, group, false) {
+            self.workspace.set_viewer_group(id, group);
+            changed = true;
+            self.refresh_viewer_targets(client);
+        }
+        let viewer = &self.workspace.viewers[&id];
+        let output = self.workspace.resolve(id);
+        let labels = client
+            .snapshot()
+            .map(|s| workspace::document_labels(&s))
+            .unwrap_or_default();
+        let source = output
+            .as_ref()
+            .and_then(|o| labels.get(&o.document))
+            .map(String::as_str)
+            .unwrap_or("No source");
+        let quality = match viewer.divisor {
+            1 => "Full",
+            2 => "Half",
+            _ => "Quarter",
+        };
+        let pinned = matches!(viewer.binding, ViewerBinding::Pinned(_));
+        if (pending || changed) && output.is_some() {
+            ui.same_line();
+            ui.text_disabled("...");
+            crate::sdk::toolbar::tooltip(ui, "Rendering current frame");
+        }
+        ui.same_line();
+        ui.text_disabled(format!(
+            "{}{} · {}/{}s · {source}",
+            if pinned { "Pinned · " } else { "" },
+            quality,
+            viewer.time.numerator(),
+            viewer.time.denominator()
+        ));
+        if let Some(output) = &output
+            && output.output != "video"
+        {
+            ui.same_line();
+            ui.text_disabled(&output.output);
+        }
+        if let Some(output) = self.workspace.resolve(id) {
+            let state = client.preview_state(&output, self.workspace.viewers[&id].time);
+            if state.content.is_none() {
+                ui.text_colored([0.95, 0.55, 0.35, 1.], &state.status);
+            } else if state.transient {
+                ui.text_colored([0.95, 0.75, 0.35, 1.], "Uncommitted edit preview");
+            }
+        }
+        changed
+    }
+    #[cfg(test)]
     pub fn viewer(
         &mut self,
         ui: &Ui,
@@ -378,27 +1063,83 @@ impl Shell {
         statistics: &str,
         client: &mut dyn DesktopClient,
     ) {
-        self.image_rect = None;
-        ui.window(&self.viewer).build(|| {
+        if let Some(&id) = self.workspace.viewers.keys().next() {
+            self.viewer_instance(ui, id, preview, statistics, client);
+        }
+    }
+    pub fn viewer_instance(
+        &mut self,
+        ui: &Ui,
+        id: PanelInstanceId,
+        preview: &Preview,
+        statistics: &str,
+        client: &mut dyn DesktopClient,
+    ) {
+        self.image_rects.remove(&id);
+        let Some(key) = self.viewers.get(&id).cloned() else {
+            return;
+        };
+        let mut close = false;
+        ui.window(&key).build(|| {
+            let mut changed =
+                self.viewer_header(ui, id, client, matches!(preview, Preview::Pending));
             if ui.is_window_focused() {
-                crate::transport::shortcuts(ui, client);
+                self.workspace.inspector_viewer = Some(id);
+                if let Some(editor) = self.workspace.editor_for_viewer(id) {
+                    self.workspace.focused_editor = Some(editor);
+                }
             }
-            // Quality and diagnostics stay in the context menu, not the transport.
             if let Some(_popup) = ui.begin_popup_context_window() {
                 for (label, divisor) in [("Full", 1), ("Half", 2), ("Quarter", 4)] {
                     if ui.selectable(label) {
-                        self.divisor = divisor;
+                        self.workspace.viewers.get_mut(&id).unwrap().divisor = divisor;
+                        changed = true;
                     }
+                }
+                if let Some(output) = self.workspace.resolve(id) {
+                    if ui.menu_item("Pin this output") {
+                        let editor = self.workspace.editor_for_viewer(id);
+                        let viewer = self.workspace.viewers.get_mut(&id).unwrap();
+                        viewer.binding = ViewerBinding::Pinned(output.clone());
+                        viewer.editor = editor;
+                    }
+                    if let Some(_menu) = ui.begin_menu("Output") {
+                        for descriptor in client.outputs(output.document) {
+                            let _disabled = ui.begin_disabled_with_cond(descriptor.info.is_err());
+                            if ui.menu_item(descriptor.label) {
+                                self.workspace.viewers.get_mut(&id).unwrap().binding =
+                                    ViewerBinding::Pinned(descriptor.reference);
+                                self.refresh_viewer_targets(client);
+                                changed = true;
+                            }
+                        }
+                    }
+                }
+                if self.workspace.viewers[&id].binding != ViewerBinding::Linked
+                    && ui.menu_item("Follow group")
+                {
+                    let group = self.workspace.viewers[&id].group;
+                    self.workspace.set_viewer_group(id, group);
+                    self.refresh_viewer_targets(client);
+                    changed = true;
+                }
+                if ui.menu_item("Close viewer") {
+                    close = true;
                 }
                 ui.text_disabled(statistics);
             }
             let origin = ui.cursor_pos();
             let available = ui.content_region_avail();
             let image_height = (available[1] - crate::transport::Transport::height(ui)).max(0.);
+            let preview = if changed || self.workspace.resolve(id).is_none() {
+                &Preview::Pending
+            } else {
+                preview
+            };
             match preview {
-                Preview::Pending => ui.text("Waiting for the current frame…"),
+                Preview::Pending => {}
                 Preview::Failed(error) => {
-                    ui.text("Preview failed");
+                    ui.text("Preview unavailable");
                     ui.text_wrapped(error);
                 }
                 Preview::Ready {
@@ -406,249 +1147,150 @@ impl Shell {
                     dimensions,
                 } => {
                     let size = fitted_size(*dimensions, [available[0], image_height]);
-                    if size[0] > 0.0 && size[1] > 0.0 {
-                        self.image_rect = Some(crate::sdk::ViewerRect {
-                            origin: ui.cursor_screen_pos(),
-                            size,
-                            dimensions: *dimensions,
-                        });
+                    if size[0] > 0. && size[1] > 0. {
+                        self.image_rects.insert(
+                            id,
+                            crate::sdk::ViewerRect {
+                                origin: ui.cursor_screen_pos(),
+                                size,
+                                dimensions: *dimensions,
+                            },
+                        );
                         ui.image(*texture, size);
                     }
                 }
             }
             ui.set_cursor_pos([origin[0], origin[1] + image_height]);
-            self.transport.draw(ui, client);
+            if let Some(output) = self.workspace.resolve(id) {
+                let viewer = &self.workspace.viewers[&id];
+                let mut binding = self
+                    .workspace
+                    .editor_for_viewer(id)
+                    .and_then(|e| self.workspace.editors.get(&e).cloned())
+                    .unwrap_or(EditorInstance {
+                        group: viewer.group,
+                        contribution: String::new(),
+                        document_type: String::new(),
+                        navigation: vec![],
+                        selection: Default::default(),
+                        mapped_navigation: false,
+                    });
+                binding.navigation = vec![ViewLocation {
+                    document: output.document,
+                    time: viewer.time,
+                    label: String::new(),
+                }];
+                binding.selection.document = Some(output.document);
+                let mut context = PanelContext::new(client, &mut binding)
+                    .instance(id)
+                    .with_output(&output);
+                context.transport_context(self.playback_viewer == Some(id), viewer.range);
+                if ui.is_window_focused() {
+                    crate::transport::shortcuts(ui, &mut context);
+                }
+                self.transports
+                    .entry(id)
+                    .or_default()
+                    .draw(ui, &mut context);
+                let requested = context.playback_requested();
+                let range = context.state().playback_range;
+                drop(context);
+                let viewer = self.workspace.viewers.get_mut(&id).unwrap();
+                viewer.time = binding.navigation[0].time;
+                viewer.range = range;
+                if let Some(playing) = requested {
+                    if playing || self.playback_viewer == Some(id) {
+                        self.playback_viewer = playing.then_some(id);
+                    }
+                    self.last_host_navigation = client.state().navigation_event;
+                }
+            } else {
+                ui.dummy([0., 0.]);
+            }
         });
+        if close {
+            if let Some(editor_id) = self.workspace.editor_for_viewer(id)
+                && let Some(editor) = self.editors.get_mut(&editor_id)
+                && let Some(binding) = self.workspace.editors.get_mut(&editor_id)
+            {
+                let mut context = PanelContext::new(client, binding).instance(id);
+                editor.panels.editor.cancel_interaction(&mut context);
+            }
+            if self.playback_viewer == Some(id) {
+                client.command(DesktopCommand::Pause);
+                self.playback_viewer = None;
+            }
+            self.workspace.viewers.remove(&id);
+            self.sync_instances();
+            self.rebuild_layout();
+        }
     }
+    pub fn viewer_overlays(&mut self, ui: &Ui, client: &mut dyn DesktopClient) {
+        for (&id, rect) in &self.image_rects {
+            let Some(viewer) = self.workspace.viewers.get(&id) else {
+                continue;
+            };
+            let Some(editor_id) = self.workspace.editor_for_viewer(id) else {
+                continue;
+            };
+            let Some(output) = self.workspace.resolve(id) else {
+                continue;
+            };
+            let Some(binding) = self.workspace.editors.get(&editor_id) else {
+                continue;
+            };
+            if binding.output().as_ref() != Some(&output) {
+                continue;
+            }
+            let Some(editor) = self.editors.get_mut(&editor_id) else {
+                continue;
+            };
+            let mut binding = binding.clone();
+            if let Some(location) = binding.navigation.last_mut() {
+                location.time = viewer.time;
+            }
+            ui.window(&self.viewers[&id]).build(|| {
+                let mut context = PanelContext::new(client, &mut binding).instance(id);
+                editor.panels.editor.draw_viewer_overlay(
+                    ExtensionUi {
+                        ui,
+                        host: &mut context,
+                    },
+                    *rect,
+                );
+            });
+            self.workspace
+                .editors
+                .get_mut(&editor_id)
+                .unwrap()
+                .selection = binding.selection;
+        }
+    }
+}
+fn breadcrumb_at(
+    editor: &EditorInstance,
+    labels: &BTreeMap<DocumentId, String>,
+    time: Time,
+) -> String {
+    if editor.navigation.is_empty() {
+        return "Choose a document".into();
+    }
+    let path = editor
+        .navigation
+        .iter()
+        .map(|v| {
+            labels
+                .get(&v.document)
+                .map(String::as_str)
+                .unwrap_or("Missing document")
+        })
+        .collect::<Vec<_>>()
+        .join(" › ");
+    format!("{path} · {}/{} s", time.numerator(), time.denominator())
 }
 #[cfg(test)]
 #[path = "docking_tests.rs"]
 mod docking_tests;
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use fold_platform::desktop::{DesktopState, PreviewResult};
-    #[test]
-    fn image_fit() {
-        assert_eq!(fitted_size([640, 360], [800.0, 600.0]), [800.0, 450.0]);
-        assert_eq!(fitted_size([640, 360], [-1.0, 90.0]), [0.0, 0.0]);
-    }
-    struct Client(DesktopState, Vec<DesktopCommand>);
-    impl DesktopClient for Client {
-        fn state(&self) -> &DesktopState {
-            &self.0
-        }
-        fn poll(&mut self) {}
-        fn command(&mut self, command: DesktopCommand) {
-            self.1.push(command);
-        }
-        fn request_preview(&mut self, _: PreviewKey) {}
-        fn cancel_preview(&mut self) {}
-        fn take_preview(&mut self) -> Option<PreviewResult> {
-            None
-        }
-    }
-    #[test]
-    fn initial_workspace_request_reveals_both_editor_and_inspector_tabs() {
-        let _guard = crate::IMGUI_TEST_LOCK.lock().unwrap();
-        use std::{cell::Cell, rc::Rc};
-        struct Probe {
-            id: &'static str,
-            kind: &'static str,
-            drawn: Rc<Cell<bool>>,
-        }
-        impl crate::sdk::Panel for Probe {
-            fn id(&self) -> &'static str {
-                self.id
-            }
-            fn document_type(&self) -> Option<&'static str> {
-                Some(self.kind)
-            }
-            fn accepts_background_pan(&self, p: [f32; 2]) -> bool {
-                self.id == "graph.editor"
-                    && (50.0..100.0).contains(&p[0])
-                    && (60.0..110.0).contains(&p[1])
-            }
-            fn draw(&mut self, context: ExtensionUi<'_>) {
-                self.drawn.set(true);
-                context.ui.text(self.id);
-            }
-        }
-        let editor = Rc::new(Cell::new(false));
-        let inspector = Rc::new(Cell::new(false));
-        let mut panels = Vec::new();
-        for (id, kind, placement, drawn) in [
-            (
-                "other.editor",
-                "other",
-                PanelPlacement::Editor,
-                Rc::new(Cell::new(false)),
-            ),
-            (
-                "other.inspector",
-                "other",
-                PanelPlacement::Inspector,
-                Rc::new(Cell::new(false)),
-            ),
-            (
-                "graph.editor",
-                "graph",
-                PanelPlacement::Editor,
-                editor.clone(),
-            ),
-            (
-                "graph.inspector",
-                "graph",
-                PanelPlacement::Inspector,
-                inspector.clone(),
-            ),
-        ] {
-            panels.push(RegisteredPanel {
-                descriptor: fold_platform::packages::PanelDescriptor {
-                    id,
-                    title: id,
-                    placement,
-                },
-                panel: Box::new(Probe { id, kind, drawn }),
-                key: WindowKey::new(id, id).unwrap(),
-            });
-        }
-        let mut context = dear_imgui_rs::Context::create();
-        context.set_ini_filename(None::<String>).unwrap();
-        context
-            .io_mut()
-            .set_config_flags(dear_imgui_rs::ConfigFlags::DOCKING_ENABLE);
-        context
-            .font_atlas()
-            .try_claim_legacy_renderer()
-            .unwrap()
-            .build();
-        context.io_mut().set_display_size([1280.0, 800.0]);
-        context.io_mut().set_delta_time(1.0 / 60.0);
-        let mut shell = Shell::new(panels);
-        shell.pending_workspace = Some("graph".into());
-        let mut client = Client(DesktopState::default(), vec![]);
-        for _ in 0..12 {
-            editor.set(false);
-            inspector.set(false);
-            let ui = context.frame();
-            shell.controls(ui, &mut client).unwrap();
-            shell.viewer(ui, &Preview::Pending, "test", &mut client);
-            context.end_frame();
-        }
-        assert!(
-            client
-                .1
-                .iter()
-                .any(|c| matches!(c, DesktopCommand::ActivateWorkspace(kind) if kind == "graph")),
-            "switching workspace must restore host playback context"
-        );
-        assert!(editor.get(), "requested graph tab must be visible");
-        assert!(
-            inspector.get(),
-            "requested node inspector must not stay behind Delivery"
-        );
-        assert!(shell.accepts_background_pan([75.0, 75.0]));
-        assert!(!shell.accepts_background_pan([10.0, 10.0]));
-        shell.pending_workspace = Some("other".into());
-        for _ in 0..12 {
-            let ui = context.frame();
-            shell.controls(ui, &mut client).unwrap();
-            shell.viewer(ui, &Preview::Pending, "test", &mut client);
-            context.end_frame();
-        }
-        assert!(
-            !shell.accepts_background_pan([75.0, 75.0]),
-            "hidden canvases cannot capture background drag"
-        );
-        assert!(
-            client
-                .1
-                .iter()
-                .any(|c| matches!(c, DesktopCommand::ActivateWorkspace(kind) if kind == "other"))
-        );
-        // A dock-tab focus change must notify the host too, without a toolbar
-        // request. Merely drawing both registered editors must not switch back.
-        client.1.clear();
-        for frame in 0..5 {
-            let ui = context.frame();
-            shell.controls(ui, &mut client).unwrap();
-            if frame == 0 {
-                ui.window(&shell.panels[2].key).focused(true).build(|| {});
-            }
-            shell.viewer(ui, &Preview::Pending, "test", &mut client);
-            context.end_frame();
-        }
-        assert_eq!(client.1.len(), 1);
-        assert!(matches!(&client.1[0], DesktopCommand::ActivateWorkspace(kind) if kind == "graph"));
-    }
-    #[test]
-    fn generic_shell_without_feature_panels_builds() {
-        let _guard = crate::IMGUI_TEST_LOCK.lock().unwrap();
-        let mut context = dear_imgui_rs::Context::create();
-        context.set_ini_filename(None::<String>).unwrap();
-        context
-            .io_mut()
-            .set_config_flags(dear_imgui_rs::ConfigFlags::DOCKING_ENABLE);
-        context
-            .font_atlas()
-            .try_claim_legacy_renderer()
-            .unwrap()
-            .build();
-        let mut shell = Shell::new(vec![]);
-        let mut client = Client(DesktopState::default(), vec![]);
-        for size in [[1280.0, 800.0], [640.0, 480.0], [1920.0, 1080.0]] {
-            context.io_mut().set_display_size(size);
-            context.io_mut().set_delta_time(1.0 / 60.0);
-            let ui = context.frame();
-            shell.controls(ui, &mut client).unwrap();
-            shell.viewer(ui, &Preview::Pending, "cache test", &mut client);
-            context.end_frame();
-        }
-    }
-    #[test]
-    fn viewer_reserves_both_transport_rows_when_resized() {
-        let _guard = crate::IMGUI_TEST_LOCK.lock().unwrap();
-        let mut context = dear_imgui_rs::Context::create();
-        context.set_ini_filename(None::<String>).unwrap();
-        context
-            .font_atlas()
-            .try_claim_legacy_renderer()
-            .unwrap()
-            .build();
-        context.io_mut().set_delta_time(1. / 60.);
-        let mut shell = Shell::new(vec![]);
-        let mut client = Client(DesktopState::default(), vec![]);
-        for size in [[850., 400.], [400., 200.], [1920., 1080.]] {
-            context.io_mut().set_display_size(size);
-            for _ in 0..3 {
-                let ui = context.frame();
-                // Explicit floating Viewer dimensions isolate transport layout
-                // from unrelated dock-node minimum sizes and tab visibility.
-                ui.window(&shell.viewer)
-                    .position([0.; 2], dear_imgui_rs::Condition::Always)
-                    .size(size, dear_imgui_rs::Condition::Always)
-                    .build(|| {});
-                shell.viewer(
-                    ui,
-                    &Preview::Ready {
-                        texture: TextureId::new(1),
-                        dimensions: [640, 360],
-                    },
-                    "test",
-                    &mut client,
-                );
-                let rect = shell.image_rect.expect("visible image");
-                ui.window(&shell.viewer).build(|| {
-                    let bottom = ui.cursor_screen_pos()[1];
-                    assert!(
-                        rect.origin[1] + rect.size[1]
-                            <= bottom - crate::transport::Transport::height(ui) + 1.
-                    );
-                    assert!(bottom <= ui.window_pos()[1] + ui.window_size()[1]);
-                });
-                context.end_frame();
-            }
-        }
-    }
-}
+#[path = "shell_tests.rs"]
+mod tests;
