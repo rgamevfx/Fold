@@ -1,14 +1,11 @@
 //! Nonblocking project coordinator and bounded jobs. UI calls never perform I/O.
 use crate::media_workflow as workflow;
-use fold_media::{Cancel, Decoder};
+use fold_media::Cancel;
 use fold_platform::desktop::{
     DesktopClient, DesktopCommand, DesktopState, PreviewKey, PreviewResult,
 };
 use fold_project::{EditBatch, Mutation, Project, Snapshot};
-use std::sync::{
-    Arc, Condvar, Mutex,
-    mpsc::{self, Receiver},
-};
+use std::sync::mpsc::{self, Receiver};
 
 #[path = "session_transport.rs"]
 mod transport;
@@ -17,148 +14,9 @@ mod view;
 #[path = "viewer_transport.rs"]
 mod viewer_transport;
 
-type Request = (Snapshot, PreviewKey, Cancel);
-struct Mailbox {
-    pending: Option<Request>,
-    result: Option<PreviewResult>,
-    #[cfg(feature = "gpu")]
-    gpu_result: Option<fold_platform::desktop::GpuPreviewResult>,
-    #[cfg(feature = "gpu")]
-    render_host: Option<fold_render::gpu::Host>,
-    colors: Option<fold_platform::color::Choices>,
-    stop: bool,
-}
-struct PreviewWorker {
-    shared: Arc<(Mutex<Mailbox>, Condvar)>,
-    cancel: Cancel,
-    thread: Option<std::thread::JoinHandle<()>>,
-}
-impl PreviewWorker {
-    fn new() -> Self {
-        let shared = Arc::new((
-            Mutex::new(Mailbox {
-                pending: None,
-                result: None,
-                #[cfg(feature = "gpu")]
-                gpu_result: None,
-                #[cfg(feature = "gpu")]
-                render_host: None,
-                colors: None,
-                stop: false,
-            }),
-            Condvar::new(),
-        ));
-        let state = shared.clone();
-        let thread = std::thread::spawn(move || {
-            let mut decoder = Decoder::from_environment();
-            let mut color_identity = None;
-            #[cfg(feature = "gpu")]
-            let mut gpu: Option<(u64, Result<fold_render::gpu::Renderer, String>)> = None;
-            loop {
-                let (snapshot, key, cancel) = {
-                    let (lock, ready) = &*state;
-                    let mut queue = lock.lock().unwrap();
-                    while queue.pending.is_none() && !queue.stop {
-                        queue = ready.wait(queue).unwrap();
-                    }
-                    if queue.stop {
-                        break;
-                    }
-                    queue.pending.take().unwrap()
-                };
-                let identity = snapshot
-                    .state()
-                    .settings
-                    .get(fold_platform::color::PROJECT_KEY)
-                    .cloned();
-                if identity != color_identity {
-                    let choices = crate::color::choices(&snapshot);
-                    if cancel.check().is_ok() {
-                        if choices.error.is_none() {
-                            color_identity = identity;
-                        }
-                        state.0.lock().unwrap().colors = Some(choices);
-                    }
-                }
-                #[cfg(feature = "gpu")]
-                let render_host = state.0.lock().unwrap().render_host.clone();
-                #[cfg(feature = "gpu")]
-                if let Some(host) = render_host {
-                    if gpu.as_ref().is_none_or(|(id, _)| *id != host.id()) {
-                        gpu = Some((host.id(), fold_render::gpu::Renderer::new(host)));
-                    }
-                    let frame = (|| {
-                        let renderer = gpu.as_mut().unwrap().1.as_mut().map_err(|e| e.clone())?;
-                        let request = workflow::preview_request(&snapshot, &key)?;
-                        let scene = workflow::evaluate_scene_gpu(
-                            &snapshot,
-                            &request,
-                            renderer,
-                            decoder.as_mut().map_err(|e| e.clone())?,
-                            &cancel,
-                        )?;
-                        crate::color::with_config(&snapshot, |config| {
-                            let processor = config
-                                .map(|c| c.display(fold_color::WORKING_SPACE, &Default::default()))
-                                .transpose()?;
-                            renderer.output(&scene, processor.as_ref(), &cancel)
-                        })
-                    })();
-                    let mut queue = state.0.lock().unwrap();
-                    if cancel.check().is_ok() && !queue.stop {
-                        queue.gpu_result =
-                            Some(fold_platform::desktop::GpuPreviewResult { key, frame });
-                    }
-                    continue;
-                }
-                let frame = decoder
-                    .as_mut()
-                    .map_err(|e| e.clone())
-                    .and_then(|decoder| workflow::evaluate(&snapshot, &key, decoder, &cancel))
-                    .and_then(|f| crate::color::preview(&snapshot, &f));
-                let mut queue = state.0.lock().unwrap();
-                // Request replacement/cancellation and publication serialize here.
-                if cancel.check().is_ok() && !queue.stop {
-                    queue.result = Some(PreviewResult { key, frame });
-                }
-            }
-        });
-        Self {
-            shared,
-            cancel: Cancel::default(),
-            thread: Some(thread),
-        }
-    }
-    fn cancel(&mut self) {
-        let mut queue = self.shared.0.lock().unwrap();
-        self.cancel.cancel();
-        queue.pending = None;
-        queue.result = None;
-        #[cfg(feature = "gpu")]
-        {
-            queue.gpu_result = None;
-        }
-    }
-    fn request(&mut self, snapshot: Snapshot, key: PreviewKey) {
-        self.cancel();
-        self.cancel = Cancel::default();
-        self.shared.0.lock().unwrap().pending = Some((snapshot, key, self.cancel.clone()));
-        self.shared.1.notify_one();
-    }
-    fn take(&self) -> Option<PreviewResult> {
-        self.shared.0.lock().unwrap().result.take()
-    }
-}
-impl Drop for PreviewWorker {
-    fn drop(&mut self) {
-        self.cancel();
-        self.shared.0.lock().unwrap().stop = true;
-        self.shared.1.notify_one();
-        if let Some(thread) = self.thread.take() {
-            let _ = thread.join();
-        }
-    }
-}
+#[path = "preview_worker.rs"]
+mod preview_worker;
+use preview_worker::PreviewWorker;
 
 enum Completed {
     Ingested(Option<crate::ingest::IngestProposal>),
@@ -168,6 +26,7 @@ enum Completed {
     Message(String),
 }
 struct Background {
+    export: bool,
     completed: bool,
     cancel: Cancel,
     result: Receiver<Result<Completed, String>>,
@@ -191,7 +50,7 @@ pub struct Session {
     state: DesktopState,
     overlay: Option<fold_project::EditSession>,
     preview: PreviewWorker,
-    background: Option<Background>,
+    background: Vec<Background>,
     imported_items: Vec<fold_project::ItemId>,
     workspace_project: Option<String>,
     workspace_epoch: u64,
@@ -216,7 +75,7 @@ impl Session {
             state: DesktopState::default(),
             overlay: None,
             preview: PreviewWorker::new(),
-            background: None,
+            background: vec![],
             imported_items: Vec::new(),
             workspace_project: None,
             workspace_epoch: 0,
@@ -291,8 +150,9 @@ impl Session {
         }
     }
     fn background(&mut self, command: DesktopCommand) {
-        if self.background.is_some() {
-            self.state.status = "A background job is already running; cancel or wait.".into();
+        let export = matches!(command, DesktopCommand::Export { .. });
+        if self.background.iter().any(|job| job.export == export) {
+            self.state.status = "A job of this kind is already running; cancel or wait.".into();
             return;
         }
         let snapshot = self.project.snapshot();
@@ -301,6 +161,8 @@ impl Session {
         let (sender, result) = mpsc::sync_channel(1);
         self.state.busy = true;
         self.state.status = "Background job running…".into();
+        #[cfg(feature = "gpu")]
+        let render_host = self.preview.shared.0.lock().unwrap().render_host.clone();
         let thread = std::thread::spawn(move || {
             let result = token.check().and_then(|()| match command {
                 DesktopCommand::Browser(command) => {
@@ -342,14 +204,26 @@ impl Session {
                         ))
                     }),
                 DesktopCommand::Export { path, start, end } => {
-                    workflow::export(&snapshot, &path, start, end, &token)
+                    #[cfg(feature = "gpu")]
+                    let result = workflow::export_with_host(
+                        &snapshot,
+                        &path,
+                        start,
+                        end,
+                        &token,
+                        render_host,
+                    );
+                    #[cfg(not(feature = "gpu"))]
+                    let result = workflow::export(&snapshot, &path, start, end, &token);
+                    result
                         .map(|_| Completed::Message(format!("Export complete: {}", path.display())))
                 }
                 _ => unreachable!(),
             });
             let _ = sender.send(result);
         });
-        self.background = Some(Background {
+        self.background.push(Background {
+            export,
             completed: false,
             cancel,
             result,
@@ -358,6 +232,56 @@ impl Session {
     }
 }
 impl DesktopClient for Session {
+    fn viewer_audio_underruns(
+        &self,
+        viewer: fold_platform::workspace::PanelInstanceId,
+    ) -> Option<u64> {
+        #[cfg(feature = "desktop")]
+        if self.viewers.monitor == Some(viewer) {
+            return Some(self.playback.underruns());
+        }
+        let _ = viewer;
+        None
+    }
+    fn resource_statistics(&self) -> String {
+        let mib = |bytes: u64| bytes as f64 / 1048576.;
+        let decoded = fold_media::budget::decoded_usage();
+        let pipe = fold_media::budget::pipe_usage();
+        let pcm = fold_media::budget::pcm_disk_usage();
+        let wave = fold_media::budget::wave_copy_usage();
+        let retention = self.project.retention();
+        let (depth, peak) = fold_render::scheduling::Scheduler::shared().queue_depth();
+        let queue = self.preview.shared.0.lock().unwrap();
+        let mut report = format!(
+            "Demand {}/128 · execution queue {depth} (peak {peak}) · jobs {}/2 · pressure retries {}\nDecoded CPU {:.1}/256 MiB (peak {:.1}) · pipe {:.1}/64 MiB\nSource copies {:.1}/4096 MiB · PCM disk {:.1}/512 MiB · WAVE scratch {:.1}/512 MiB\nHistory {} roots · {} external handles · {:.1} MiB unique payload (excludes metadata/allocator)",
+            queue.depth(),
+            self.background.len(),
+            queue.pressure_retries(),
+            mib(decoded.bytes),
+            mib(decoded.peak),
+            mib(pipe.bytes),
+            mib(fold_media::pinned_source_bytes()),
+            mib(pcm.bytes),
+            mib(wave.bytes),
+            retention.roots,
+            retention.external_handles,
+            mib(retention.payload_bytes as u64)
+        );
+        #[cfg(feature = "gpu")]
+        if let Some(host) = &queue.render_host {
+            let memory = host.memory();
+            report.push_str(&format!("\nShared GPU {:.1}/{:.1} MiB (peak {:.1}) · working {:.1} · presentation {:.1} · decoded {:.1} · geometry {:.1} · scratch {:.1}",
+                mib(memory.allocated), mib(memory.budget), mib(memory.peak), mib(memory.working),
+                mib(memory.presentation), mib(memory.decoded), mib(memory.geometry), mib(memory.scratch)));
+        }
+        let working = fold_media::budget::working_usage();
+        let output = fold_media::budget::output_usage();
+        let delivery = fold_media::budget::delivery_disk_usage();
+        let delivery_pcm = fold_media::budget::delivery_pcm_usage();
+        report.push_str(&format!("\nCPU working {:.1}/512 MiB · output {:.1}/64 MiB · delivery scratch {:.1}/4096 MiB + PCM {:.1}/256 MiB",
+            mib(working.bytes), mib(output.bytes), mib(delivery.bytes), mib(delivery_pcm.bytes)));
+        report
+    }
     fn viewer_request(
         &self,
         viewer: fold_platform::workspace::PanelInstanceId,
@@ -503,23 +427,23 @@ impl DesktopClient for Session {
                 self.state.status = error;
             }
         }
-        let result = self
-            .background
-            .as_ref()
-            .and_then(|job| match job.result.try_recv() {
-                Ok(result) => Some(result),
-                Err(mpsc::TryRecvError::Empty) => None,
+        let completed = self.background.iter().enumerate().find_map(|(index, job)| {
+            match job.result.try_recv() {
+                Ok(result) => Some((index, result)),
                 Err(mpsc::TryRecvError::Disconnected) => {
-                    Some(Err("background worker stopped".into()))
+                    Some((index, Err("background worker stopped".into())))
                 }
-            });
-        if let Some(result) = result {
-            let cancelled = self.background.as_ref().unwrap().cancel.check().is_err();
-            // Publication retains its cancellation token through commit. Dropping
-            // a completed worker must not cancel its own ingest proposal.
-            self.background.as_mut().unwrap().completed = true;
-            self.background.take();
-            self.state.busy = false;
+                Err(mpsc::TryRecvError::Empty) => None,
+            }
+        });
+        if let Some((index, result)) = completed {
+            let mut job = self.background.remove(index);
+            let cancelled = job.cancel.check().is_err();
+            // Mark completion before dropping: successful ingest proposals retain
+            // their token and must not cancel themselves on worker teardown.
+            job.completed = true;
+            drop(job);
+            self.state.busy = !self.background.is_empty();
             // Discard cancelled proposals, but never claim that an already
             // finalized save/export was rolled back by a late cancel click.
             let result = if cancelled
@@ -730,7 +654,7 @@ impl DesktopClient for Session {
                 }
             }
             DesktopCommand::Cancel => {
-                if let Some(job) = &self.background {
+                for job in &self.background {
                     job.cancel.cancel();
                 }
                 self.state.status = "Cancellation requested".into();
@@ -841,6 +765,19 @@ impl DesktopClient for Session {
             self.preview.request(snapshot, key);
         }
     }
+    fn preview_demands(&mut self, demands: Vec<fold_platform::desktop::PreviewDemand>) {
+        let snapshot = self.preview_snapshot();
+        let valid = demands
+            .into_iter()
+            .take(128)
+            .filter(|demand| {
+                demand.key.target.is_some_and(|(id, _)| {
+                    workflow::content_for(&snapshot, id).ok().as_ref() == Some(&demand.key.content)
+                })
+            })
+            .collect();
+        self.preview.demands(snapshot, valid);
+    }
     fn cancel_preview(&mut self) {
         self.preview.cancel();
     }
@@ -851,7 +788,7 @@ impl DesktopClient for Session {
     }
     #[cfg(feature = "gpu")]
     fn take_gpu_preview(&mut self) -> Option<fold_platform::desktop::GpuPreviewResult> {
-        self.preview.shared.0.lock().unwrap().gpu_result.take()
+        self.preview.take_gpu()
     }
     fn take_preview(&mut self) -> Option<PreviewResult> {
         self.preview.take()

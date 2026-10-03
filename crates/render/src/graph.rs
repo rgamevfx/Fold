@@ -369,6 +369,7 @@ pub(crate) fn evaluate(
                 budget / (1024 * 1024)
             ));
         }
+        let storage = fold_media::budget::reserve_working(bytes as u64)?;
         let mut pixels = Vec::new();
         pixels
             .try_reserve_exact(count)
@@ -491,6 +492,7 @@ pub(crate) fn evaluate(
                 if live_bytes + bytes + scratch_bytes > budget {
                     return Err("blur scratch exceeds working memory budget".into());
                 }
+                let _scratch_storage = fold_media::budget::reserve_working(scratch_bytes as u64)?;
                 let mut columns = Vec::new();
                 columns
                     .try_reserve_exact(w)
@@ -575,6 +577,7 @@ pub(crate) fn evaluate(
             }
         }
         frames[id] = Some(Frame {
+            _storage: storage,
             timing: None,
             config_identity: config.map(|config| config.identity().content_sha256.clone()),
             working_space: if aces {

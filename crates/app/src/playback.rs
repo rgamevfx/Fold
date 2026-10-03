@@ -75,7 +75,7 @@ impl Default for Playback {
         let thread = std::thread::spawn(move || {
             // Prepared PCM survives seeks/restarts; only the device stream and
             // presentation ring are generation-local.
-            let mut decoder = AudioDecoder::default();
+            let mut decoder = AudioDecoder::for_playback();
             loop {
                 let request = {
                     let mut queue = state.queue.lock().unwrap();
@@ -255,12 +255,16 @@ fn run(shared: &Arc<Shared>, request: &Request, decoder: &mut AudioDecoder) -> R
         return silent_transport(shared, request, start, end);
     }
     let mut plan = registry.audio(&request.snapshot, request.document)?;
-    plan.end = end;
+    plan.clip_end(end)?;
     if plan.regions.is_empty() {
         return silent_transport(shared, request, start, end);
     }
     shared.audio_clock.store(true, Ordering::Release);
-    plan.preflight(decoder, &request.cancel)?;
+    {
+        let _permit = fold_render::scheduling::Scheduler::shared()
+            .enter(fold_render::scheduling::Class::Audio, &request.cancel)?;
+        plan.preflight(decoder, &request.cancel)?;
+    }
     request.cancel.check()?;
     let device = cpal::default_host()
         .default_output_device()
@@ -285,7 +289,12 @@ fn run(shared: &Arc<Shared>, request: &Request, decoder: &mut AudioDecoder) -> R
     let (mut producer, consumer) = rtrb::RingBuffer::<(u64, [f32; 2])>::new(AUDIO_RATE as usize);
     let mut next = start;
     let count = (plan.end - next).min(24_000) as usize;
-    for frame in plan.evaluate(next, count, decoder, &request.cancel)? {
+    let prime = {
+        let _permit = fold_render::scheduling::Scheduler::shared()
+            .enter(fold_render::scheduling::Class::Audio, &request.cancel)?;
+        plan.evaluate(next, count, decoder, &request.cancel)?
+    };
+    for frame in prime {
         producer
             .push((next, frame))
             .map_err(|_| "audio prime ring full")?;
@@ -373,7 +382,12 @@ fn run(shared: &Arc<Shared>, request: &Request, decoder: &mut AudioDecoder) -> R
         next = next.max(needed.load(Ordering::Acquire)).min(plan.end);
         let count = (plan.end - next).min(4096) as usize;
         if count > 0 && producer.slots() >= count {
-            for frame in plan.evaluate(next, count, decoder, &request.cancel)? {
+            let block = {
+                let _permit = fold_render::scheduling::Scheduler::shared()
+                    .enter(fold_render::scheduling::Class::Audio, &request.cancel)?;
+                plan.evaluate(next, count, decoder, &request.cancel)?
+            };
+            for frame in block {
                 producer
                     .push((next, frame))
                     .map_err(|_| "audio ring unexpectedly full")?;

@@ -5,7 +5,7 @@ use dear_imgui_wgpu::{ExternalTextureId, WgpuRenderer, wgpu};
 use fold_platform::workspace::PanelInstanceId;
 use fold_platform::{
     DisplayFrame,
-    desktop::{DesktopClient, PreviewKey},
+    desktop::{DesktopClient, PreviewDemand, PreviewKey},
 };
 use std::collections::BTreeMap;
 use std::sync::{
@@ -48,7 +48,7 @@ pub(crate) struct PreviewHost {
     render_host: Option<u64>,
     compression: Option<compression::Compression>,
     compression_error: Option<String>,
-    wanted: Option<PreviewKey>,
+    result_key: Option<PreviewKey>,
     displayed: Option<PreviewKey>,
     cache: Cache<PreviewKey, Texture>,
     pending: Option<Prepared>,
@@ -57,7 +57,8 @@ pub(crate) struct PreviewHost {
     /// Exact immutable key is the consumer's presentation generation. A repeated
     /// key intentionally reuses identical content, independent of request age.
     demands: std::collections::BTreeMap<fold_platform::workspace::PanelInstanceId, PreviewKey>,
-    next_consumer: usize,
+    submitted_demands: Vec<PreviewDemand>,
+    reviews: BTreeMap<PanelInstanceId, crate::review::Plan>,
     generations: BTreeMap<PanelInstanceId, u64>,
     admitted: BTreeMap<PanelInstanceId, u64>,
     completed: BTreeMap<PanelInstanceId, PreviewKey>,
@@ -73,14 +74,15 @@ impl PreviewHost {
             render_host: None,
             compression: None,
             compression_error: None,
-            wanted: None,
+            result_key: None,
             displayed: None,
             cache: Cache::new(256 * 1024 * 1024),
             pending: None,
             requested: false,
             consumers: vec![],
             demands: Default::default(),
-            next_consumer: 0,
+            submitted_demands: vec![],
+            reviews: Default::default(),
             generations: BTreeMap::new(),
             admitted: BTreeMap::new(),
             completed: BTreeMap::new(),
@@ -156,16 +158,188 @@ impl PreviewHost {
             .iter()
             .filter_map(|(id, key)| key.clone().map(|key| (*id, key)))
             .collect();
-        let previous = self.wanted.clone();
-        let was_requested = self.requested;
-        self.select_many(self.demands.values().cloned().collect(), client);
-        if self.wanted != previous || (!was_requested && self.requested) {
-            self.admitted = self
-                .demands
-                .iter()
-                .filter(|(_, key)| Some(*key) == self.wanted.as_ref())
-                .map(|(id, _)| (*id, self.generations[id]))
-                .collect();
+        let previous = std::mem::take(&mut self.consumers);
+        for key in self.demands.values() {
+            if !self.consumers.contains(key) {
+                if !previous.contains(key) {
+                    let _ = self.cache.get(key);
+                }
+                self.consumers.push(key.clone());
+            }
+        }
+        self.failures.retain(|(key, _)| {
+            self.consumers.contains(key)
+                || self
+                    .reviews
+                    .values()
+                    .any(|p| (0..p.count).any(|n| p.key(n) == *key))
+        });
+        self.update_reviews(client);
+        self.send_demands(client);
+    }
+    fn send_demands(&mut self, client: &mut dyn DesktopClient) {
+        let mut missing: Vec<_> = self
+            .demands
+            .iter()
+            .filter(|(id, key)| {
+                !self.reviews.get(id).is_some_and(|plan| plan.cached_playing)
+                    && self.cache.peek(key).is_none()
+                    && !self.failures.iter().any(|(failed, _)| failed == *key)
+            })
+            .map(|(&id, key)| PreviewDemand {
+                consumer: id,
+                generation: self.generations[&id],
+                key: key.clone(),
+                background: false,
+            })
+            .collect();
+        for (&id, plan) in &mut self.reviews {
+            if let Some(key) = plan.next(|key| self.cache.peek(key).is_some()) {
+                if let Some((_, error)) = self.failures.iter().find(|(failed, _)| failed == &key) {
+                    plan.message = Some(format!("Review preparation failed: {error}"));
+                } else {
+                    missing.push(PreviewDemand {
+                        consumer: id,
+                        generation: plan.generation,
+                        key,
+                        background: true,
+                    });
+                }
+            }
+        }
+        self.requested = !missing.is_empty();
+        if missing != self.submitted_demands {
+            client.preview_demands(missing.clone());
+            self.submitted_demands = missing;
+        }
+    }
+
+    pub fn review_state(&self, id: PanelInstanceId) -> (Option<String>, bool) {
+        self.reviews.get(&id).map_or((None, false), |plan| {
+            let resident = plan.resident(|key| self.cache.peek(key).is_some());
+            (Some(plan.status(resident)), plan.can_replay(resident))
+        })
+    }
+    pub fn review_action(
+        &mut self,
+        id: PanelInstanceId,
+        action: crate::review::Action,
+        client: &mut dyn DesktopClient,
+    ) {
+        use crate::review::{Action, Plan};
+        let Some(mut transport) = client.viewer_transport(id) else {
+            return;
+        };
+        match action {
+            Action::Cancel => {
+                if self
+                    .reviews
+                    .get(&id)
+                    .is_some_and(|plan| plan.cached_playing)
+                    && transport.playing
+                {
+                    transport.playing = false;
+                    client.command(fold_platform::desktop::DesktopCommand::ViewerTransport {
+                        viewer: id,
+                        transport,
+                    });
+                }
+                self.reviews.remove(&id);
+            }
+            Action::Prepare => {
+                if transport.playing {
+                    return;
+                }
+                let Some(template) = self.demands.get(&id).cloned() else {
+                    return;
+                };
+                let state = client.preview_state(&transport.output, transport.time);
+                if state.transient {
+                    return;
+                }
+                let generation = client.viewer_request(id).map_or(0, |r| r.0);
+                self.reviews.insert(
+                    id,
+                    Plan::new(
+                        generation,
+                        template,
+                        state.rate,
+                        transport.range,
+                        state.frames,
+                        self.cache.budget,
+                    ),
+                );
+                let available = self.cache.budget / self.reviews.len();
+                for plan in self.reviews.values_mut() {
+                    let bounded = Plan::new(
+                        plan.generation,
+                        plan.template.clone(),
+                        plan.rate,
+                        plan.range,
+                        plan.start + plan.total,
+                        available,
+                    );
+                    plan.count = plan.count.min(bounded.count);
+                }
+            }
+            Action::PlayCached => {
+                if transport.mode != fold_platform::desktop::PlaybackMode::RealTime {
+                    return;
+                }
+                let Some(plan) = self.reviews.get_mut(&id) else {
+                    return;
+                };
+                if !plan.can_replay(plan.resident(|key| self.cache.peek(key).is_some())) {
+                    return;
+                }
+                transport.time = plan.key(0).target.unwrap().1;
+                transport.playing = true;
+                client.command(fold_platform::desktop::DesktopCommand::ViewerTransport {
+                    viewer: id,
+                    transport,
+                });
+                plan.generation = client.viewer_request(id).map_or(0, |r| r.0);
+                plan.cached_playing = true;
+            }
+        }
+    }
+    fn update_reviews(&mut self, client: &mut dyn DesktopClient) {
+        self.reviews.retain(|id, _| self.demands.contains_key(id));
+        for (&id, plan) in &mut self.reviews {
+            if plan.message.is_some() {
+                continue;
+            }
+            let Some(mut transport) = client.viewer_transport(id) else {
+                continue;
+            };
+            let key = &self.demands[&id];
+            let valid = plan.compatible(self.generations[&id], key, transport.range);
+            let miss = plan.cached_playing && transport.playing && self.cache.peek(key).is_none();
+            if plan.cached_playing && !transport.playing {
+                plan.cached_playing = false;
+            }
+            if !valid || miss {
+                if plan.cached_playing && transport.playing {
+                    transport.playing = false;
+                    client.command(fold_platform::desktop::DesktopCommand::ViewerTransport {
+                        viewer: id,
+                        transport,
+                    });
+                    if let Some((generation, _)) = client.viewer_request(id) {
+                        self.generations.insert(id, generation);
+                    }
+                    self.completed.remove(&id);
+                }
+                plan.cached_playing = false;
+                plan.message = Some(
+                    if miss {
+                        "Cached preview stopped: frame evicted"
+                    } else {
+                        "Review preparation interrupted"
+                    }
+                    .into(),
+                );
+            }
         }
     }
     pub fn state_for_viewer(&self, id: PanelInstanceId) -> Preview {
@@ -218,44 +392,6 @@ impl PreviewHost {
             }
         }
     }
-    /// Bounded shared content scheduler: one in-flight render, latest demand per
-    /// visible consumer, deduplicated by immutable content identity. Finish work
-    /// already admitted rather than letting a continuously seeking consumer cancel
-    /// another's work. Generation-tagged completions may be admitted by the app's
-    /// playback policy; holding an image never authorizes a retired completion.
-    pub fn select_many(&mut self, keys: Vec<PreviewKey>, client: &mut dyn DesktopClient) {
-        let previous = std::mem::take(&mut self.consumers);
-        for key in keys {
-            if !self.consumers.contains(&key) {
-                if !previous.contains(&key) && self.cache.peek(&key).is_some() {
-                    let _ = self.cache.get(&key);
-                }
-                self.consumers.push(key);
-            }
-        }
-        self.failures
-            .retain(|(key, _)| self.consumers.contains(key));
-        if (self.requested || self.pending.is_some()) && !self.consumers.is_empty() {
-            return;
-        }
-        let mut missing = None;
-        for offset in 0..self.consumers.len() {
-            let index = (self.next_consumer + offset) % self.consumers.len();
-            let key = &self.consumers[index];
-            if self.cache.peek(key).is_none()
-                && !self.failures.iter().any(|(failed, _)| failed == key)
-            {
-                missing = Some(key.clone());
-                self.next_consumer = index + 1;
-                break;
-            }
-        }
-        if missing.is_some() {
-            self.select(missing, client);
-        } else if self.requested || self.consumers.is_empty() {
-            self.select(None, client);
-        }
-    }
     pub fn state_for(&self, key: Option<&PreviewKey>) -> Preview {
         let Some(key) = key else {
             return Preview::Failed("Choose an available document output".into());
@@ -273,46 +409,6 @@ impl PreviewHost {
             Preview::Failed(error.clone())
         } else {
             Preview::Pending
-        }
-    }
-    pub fn select(&mut self, wanted: Option<PreviewKey>, client: &mut dyn DesktopClient) {
-        let playing = client.state().playing && !client.state().priming;
-        if playing
-            && self.requested
-            && wanted
-                .as_ref()
-                .zip(self.wanted.as_ref())
-                .is_some_and(|(a, b)| a.content == b.content && a.dimensions == b.dimensions)
-        {
-            return; // Finish current decode; drop intervening video demands, never stall audio.
-        }
-        if wanted == self.wanted {
-            return;
-        }
-        client.cancel_preview();
-        self.pending = None;
-        self.wanted = wanted.clone();
-        self.requested = false;
-        if !playing {
-            self.state = Preview::Pending;
-        }
-        if let Some(key) = wanted {
-            if let Some(texture) = self.cache.get(&key) {
-                self.state = Preview::Ready {
-                    texture: texture.registration.texture_id(),
-                    dimensions: texture.dimensions,
-                    uv_max: texture
-                        .gpu_lease
-                        .as_ref()
-                        .map_or([1., 1.], |frame| frame.uv_max()),
-                };
-                self.displayed = Some(key);
-            } else {
-                self.requested = true;
-                client.request_preview(key);
-            }
-        } else {
-            self.displayed = None;
         }
     }
     fn evict_unused(&mut self) -> Option<Texture> {
@@ -336,27 +432,27 @@ impl PreviewHost {
         }
         let _ = device.poll(wgpu::PollType::Poll);
         self.poll_compression(renderer)?;
-        if let Some(result) = client.take_preview()
-            && self.wanted.as_ref() == Some(&result.key)
-        {
-            self.requested = false;
-            match result.frame {
-                Ok(frame) => self.pending = Some(Prepared::Cpu(frame)),
-                Err(error) => {
-                    self.failures.push((result.key, error.clone()));
-                    self.state = Preview::Failed(error);
+        if self.pending.is_none() {
+            if let Some(result) = client.take_preview() {
+                self.admitted = result.consumers.into_iter().collect();
+                self.result_key = Some(result.key.clone());
+                match result.frame {
+                    Ok(frame) => self.pending = Some(Prepared::Cpu(frame)),
+                    Err(error) => {
+                        self.failures.push((result.key, error.clone()));
+                        self.state = Preview::Failed(error);
+                    }
                 }
             }
-        }
-        if let Some(result) = client.take_gpu_preview()
-            && self.wanted.as_ref() == Some(&result.key)
-        {
-            self.requested = false;
-            match result.frame {
-                Ok(frame) => self.pending = Some(Prepared::Gpu(Box::new(frame))),
-                Err(error) => {
-                    self.failures.push((result.key, error.clone()));
-                    self.state = Preview::Failed(error);
+            if let Some(result) = client.take_gpu_preview() {
+                self.admitted = result.consumers.into_iter().collect();
+                self.result_key = Some(result.key.clone());
+                match result.frame {
+                    Ok(frame) => self.pending = Some(Prepared::Gpu(Box::new(frame))),
+                    Err(error) => {
+                        self.failures.push((result.key, error.clone()));
+                        self.state = Preview::Failed(error);
+                    }
                 }
             }
         }
@@ -370,7 +466,7 @@ impl PreviewHost {
                 Ok(false) => return Ok(()),
                 Ok(true) => {}
                 Err(error) => {
-                    if let Some(key) = &self.wanted {
+                    if let Some(key) = &self.result_key {
                         self.failures.push((key.clone(), error.clone()));
                     }
                     self.pending = None;
@@ -378,6 +474,13 @@ impl PreviewHost {
                     return Ok(());
                 }
             }
+        }
+        if let Some(key) = self.result_key.clone()
+            && self.pending.is_some()
+            && self.cache.peek(&key).is_some()
+        {
+            self.pending = None;
+            self.completed_frame(&key);
         }
         let Some(frame) = self.pending.as_ref() else {
             return Ok(());
@@ -390,7 +493,7 @@ impl PreviewHost {
         {
             self.pending = None;
             let error = "Preview exceeds GPU texture/cache budget".to_owned();
-            if let Some(key) = &self.wanted {
+            if let Some(key) = &self.result_key {
                 self.failures.push((key.clone(), error.clone()));
             }
             self.state = Preview::Failed(error);
@@ -399,8 +502,15 @@ impl PreviewHost {
         while self.cache.needs_room(bytes) {
             let old = self.evict_unused();
             let Some(old) = old else {
+                if self.admitted.is_empty() {
+                    for plan in self.reviews.values_mut() {
+                        plan.message =
+                            Some("Review preparation paused: cache capacity in use".into());
+                    }
+                    self.pending = None;
+                }
                 return Ok(());
-            }; // Retry after GPU completion, never wait on UI.
+            }; // Retry foreground after GPU completion, never wait on UI.
             renderer.unregister_external_texture(old.registration)?;
         }
         let frame = self.pending.take().unwrap();
@@ -467,7 +577,7 @@ impl PreviewHost {
             dimensions: [width, height],
             uv_max: [1., 1.],
         };
-        let key = self.wanted.clone().unwrap();
+        let key = self.result_key.clone().unwrap();
         self.cache.insert(
             key.clone(),
             Texture {

@@ -80,6 +80,8 @@ pub fn import(
     request: &ImportRequest,
     cancel: &Cancel,
 ) -> Result<IngestProposal, String> {
+    let _permit = fold_render::scheduling::Scheduler::shared()
+        .enter(fold_render::scheduling::Class::Background, cancel)?;
     check_base(snapshot, request.base, cancel)?;
     if request.paths.is_empty() || request.paths.len() > 32 {
         return Err("import requires 1–32 files".into());
@@ -167,6 +169,8 @@ pub fn relink(
     request: &RelinkRequest,
     cancel: &Cancel,
 ) -> Result<IngestProposal, String> {
+    let _permit = fold_render::scheduling::Scheduler::shared()
+        .enter(fold_render::scheduling::Class::Background, cancel)?;
     check_base(snapshot, request.base, cancel)?;
     let previous = snapshot
         .state()

@@ -144,6 +144,7 @@ impl Display {
             std::thread::sleep(std::time::Duration::from_millis(1));
         }
         let mapped = buffer.slice(..).get_mapped_range();
+        let storage = fold_media::budget::reserve_output(u64::from(width) * u64::from(height) * 4)?;
         let mut rgba = Vec::new();
         rgba.try_reserve_exact(width as usize * height as usize * 4)
             .map_err(|_| "output CPU allocation failed")?;
@@ -153,6 +154,7 @@ impl Display {
         drop(mapped);
         buffer.unmap();
         Ok(crate::DisplayFrame {
+            _storage: storage,
             width,
             height,
             rgba,

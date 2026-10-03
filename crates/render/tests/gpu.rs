@@ -115,6 +115,11 @@ fn native_operators_lifetimes_and_budgets() {
     }
     assert_eq!(held.readback(&cancel).unwrap().pixels(), original.pixels());
     assert!(host.memory().peak <= host.memory().budget);
+    let memory = host.memory();
+    assert_eq!(
+        memory.allocated,
+        memory.working + memory.presentation + memory.decoded + memory.geometry + memory.scratch
+    );
     // A mapped timestamp remains exact across the explicit readback boundary.
     let timestamp = fold_foundation::Time::new(1001, 24000).unwrap();
     let mut timed = gpu

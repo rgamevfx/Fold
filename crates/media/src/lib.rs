@@ -2,6 +2,7 @@
 use std::sync::Arc;
 
 pub mod audio;
+pub mod budget;
 mod decoded;
 pub use decoded::{PlaneLayout, YuvEncoding, YuvFrame};
 pub mod ingest;
@@ -35,9 +36,10 @@ pub const MAX_SOURCE_BYTES: usize = MAX_PIXELS * 3 + 4096;
 #[derive(Clone, Debug)]
 pub struct RgbImage {
     dimensions: [u32; 2],
-    rgb: Arc<[u8]>,
+    rgb: Arc<Vec<u8>>,
     /// Tightly packed reconstructed G, B, R float planes (not working color).
-    signal: Option<Arc<[f32]>>,
+    signal: Option<Arc<Vec<f32>>>,
+    _storage: Arc<budget::Lease>,
 }
 
 impl RgbImage {
@@ -110,10 +112,12 @@ impl RgbImage {
     }
     pub fn decode_ppm(bytes: &[u8]) -> Result<Self, &'static str> {
         let (dimensions, rgb) = Self::ppm(bytes)?;
+        let storage = budget::DECODED.reserve(rgb.len() as u64)?;
         Ok(Self {
             dimensions,
-            rgb: rgb.into(),
+            rgb: Arc::new(rgb.to_vec()),
             signal: None,
+            _storage: storage,
         })
     }
 
@@ -122,10 +126,12 @@ impl RgbImage {
         if count == 0 || count > MAX_PIXELS as u64 || rgb.len() as u64 != count * 3 {
             return Err("invalid RGB8 frame dimensions or storage");
         }
+        let storage = budget::DECODED.reserve(rgb.capacity() as u64)?;
         Ok(Self {
             dimensions,
-            rgb: rgb.into(),
+            rgb: Arc::new(rgb),
             signal: None,
+            _storage: storage,
         })
     }
 
@@ -134,6 +140,7 @@ impl RgbImage {
         if count == 0 || count > MAX_PIXELS || bytes.len() != count * 12 {
             return Err("Invalid float decode planes".into());
         }
+        let storage = budget::DECODED.reserve((count * 12) as u64)?;
         let mut pixels = Vec::new();
         pixels
             .try_reserve_exact(count * 3)
@@ -147,15 +154,16 @@ impl RgbImage {
         }
         Ok(Self {
             dimensions,
-            rgb: Arc::from([]),
-            signal: Some(pixels.into()),
+            rgb: Arc::new(Vec::new()),
+            signal: Some(Arc::new(pixels)),
+            _storage: storage,
         })
     }
     /// Borrowed G/B/R float planes after explicit BT.709 reconstruction.
     /// Native codec samples are exposed separately through `YuvFrame`.
     /// Ownership remains with this immutable decoded image; alpha is opaque.
     pub fn native_gbr_planes(&self) -> Option<&[f32]> {
-        self.signal.as_deref()
+        self.signal.as_ref().map(|planes| planes.as_slice())
     }
     pub fn encoded_pixels(&self) -> impl Iterator<Item = [f32; 4]> + '_ {
         let count = self.dimensions[0] as usize * self.dimensions[1] as usize;

@@ -96,12 +96,16 @@ impl VectorPipeline {
             let old = self.cache.pop_front().unwrap();
             self.bytes -= old.bytes;
         }
-        let reservation = match self.host.reserve(upload) {
+        let reservation = match self
+            .host
+            .reserve_as(upload, super::host::AllocationKind::Geometry)
+        {
             Ok(r) => r,
             Err(_) => {
                 self.cache.clear();
                 self.bytes = 0;
-                self.host.reserve(upload)?
+                self.host
+                    .reserve_as(upload, super::host::AllocationKind::Geometry)?
             }
         };
         let buffers = contents

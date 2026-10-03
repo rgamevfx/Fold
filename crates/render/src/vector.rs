@@ -159,6 +159,8 @@ pub(crate) fn rasterize(
         return crate::vector_geometry::rasterize(drawings, width, height, cancel);
     }
     validate_working(drawings, false)?;
+    let _surface_storage =
+        fold_media::budget::reserve_working(u64::from(width) * u64::from(height) * 4)?;
     let mut pixmap =
         tiny_skia::Pixmap::new(width, height).ok_or("vector surface allocation failed")?;
     for drawing in drawings {

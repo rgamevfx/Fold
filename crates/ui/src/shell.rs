@@ -66,6 +66,8 @@ pub(crate) struct Shell {
     #[cfg(feature = "native-probe")]
     probe_full_resolution: bool,
     presentation: BTreeMap<PanelInstanceId, (Option<PreviewKey>, Option<String>)>,
+    review_actions: Vec<(PanelInstanceId, crate::review::Action)>,
+    review_states: BTreeMap<PanelInstanceId, (Option<String>, bool)>,
     last_host_navigation: u64,
     bootstrap: bool,
     focus: Option<PanelInstanceId>,
@@ -116,6 +118,8 @@ impl Shell {
             #[cfg(feature = "native-probe")]
             probe_full_resolution: false,
             presentation: Default::default(),
+            review_actions: vec![],
+            review_states: Default::default(),
             last_host_navigation: 0,
             bootstrap: true,
             focus: None,
@@ -418,6 +422,21 @@ impl Shell {
             })
     }
     #[cfg(feature = "native-probe")]
+    pub fn probe_add_viewer(
+        &mut self,
+        output: fold_platform::workspace::DocumentRef,
+    ) -> PanelInstanceId {
+        let id = self.workspace.add_viewer(ViewerInstance {
+            binding: ViewerBinding::Pinned(output.clone()),
+            last_output: Some(output),
+            divisor: 1,
+            ..Default::default()
+        });
+        self.sync_instances();
+        self.rebuild_layout();
+        id
+    }
+    #[cfg(feature = "native-probe")]
     pub fn probe_full_quality(&mut self) {
         // Diagnostic only: sustained 1080p checkpoints must not accidentally
         // measure a smaller viewport after automatic preview sizing.
@@ -458,6 +477,14 @@ impl Shell {
             viewer.time = transport.time;
             viewer.playing = transport.playing;
         }
+    }
+    pub fn take_review_actions(&mut self) -> Vec<(PanelInstanceId, crate::review::Action)> {
+        std::mem::take(&mut self.review_actions)
+    }
+    pub fn review_state(&mut self, id: PanelInstanceId, state: (Option<String>, bool)) {
+        self.review_states
+            .retain(|id, _| self.workspace.viewers.contains_key(id));
+        self.review_states.insert(id, state);
     }
     fn sized_dimensions(
         &self,
@@ -1091,6 +1118,32 @@ impl Shell {
             }
         }
     }
+    fn review_menu_items(&mut self, ui: &Ui, id: PanelInstanceId, client: &dyn DesktopClient) {
+        let viewer = &self.workspace.viewers[&id];
+        if ui.menu_item_enabled_selected_no_shortcut("Prepare marked range", false, !viewer.playing)
+        {
+            self.review_actions
+                .push((id, crate::review::Action::Prepare));
+        }
+        let ready = self.review_states.get(&id).is_some_and(|state| state.1);
+        let realtime =
+            self.playback_mode(id, client) == fold_platform::desktop::PlaybackMode::RealTime;
+        if ui.menu_item_enabled_selected_no_shortcut(
+            "Play cached Real-time preview",
+            false,
+            ready && realtime,
+        ) {
+            self.review_actions
+                .push((id, crate::review::Action::PlayCached));
+        }
+        if !realtime {
+            ui.text_disabled("Choose Real-time playback to replay cached frames");
+        }
+        if ui.menu_item("Cancel preparation") {
+            self.review_actions
+                .push((id, crate::review::Action::Cancel));
+        }
+    }
     fn submit_viewer(&self, id: PanelInstanceId, client: &mut dyn DesktopClient) {
         if let Some(output) = self.workspace.resolve(id) {
             let viewer = &self.workspace.viewers[&id];
@@ -1281,6 +1334,9 @@ impl Shell {
                 if let Some(_menu) = ui.begin_menu("Playback mode") {
                     self.playback_mode_items(ui, id, client);
                 }
+                if let Some(_menu) = ui.begin_menu("Review cache") {
+                    self.review_menu_items(ui, id, client);
+                }
                 let viewer = self.workspace.viewers.get_mut(&id).unwrap();
                 if ui.checkbox("Loop playback", &mut viewer.looping) {
                     self.submit_viewer(id, client);
@@ -1295,10 +1351,14 @@ impl Shell {
                 if ui.menu_item("Close viewer") {
                     close = true;
                 }
-                ui.text_disabled(statistics);
+                if let Some(_menu) = ui.begin_menu("Diagnostics") {
+                    ui.text_disabled(statistics);
+                    ui.text_wrapped(client.resource_statistics());
+                }
             }
             let origin = ui.cursor_pos();
             let available = ui.content_region_avail();
+            let review_status = self.review_states.get(&id).and_then(|s| s.0.clone());
             let image_height = (available[1] - crate::transport::Transport::height(ui)).max(0.);
             let scale = ui.io().display_framebuffer_scale();
             self.viewport_pixels.insert(
@@ -1345,6 +1405,16 @@ impl Shell {
                         ui.image_config(*texture, size).uv1(*uv_max).build();
                     }
                 }
+            }
+            if let Some(status) = review_status {
+                let height = ui.calc_text_size_with_opts(&status, false, available[0].max(1.))[1]
+                    + ui.clone_style().item_spacing()[1];
+                ui.set_cursor_pos([origin[0], origin[1] + (image_height - height).max(0.)]);
+                let left = ui.cursor_screen_pos();
+                ui.get_window_draw_list().add_rect(left, [left[0] + available[0], left[1] + height],
+                    ui.style_color(dear_imgui_rs::StyleColor::WindowBg)).filled(true).build();
+                ui.text_wrapped(&status);
+                if ui.is_item_hovered() { ui.tooltip_text(status); }
             }
             ui.set_cursor_pos([origin[0], origin[1] + image_height]);
             if let Some(output) = self.workspace.resolve(id) {

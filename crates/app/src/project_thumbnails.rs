@@ -43,6 +43,13 @@ impl Thumbnails {
             }
         };
         self.pending = None;
+        // Capacity pressure is temporary: allow a later browser request to retry
+        // instead of retaining it as a permanent source/codec failure.
+        if pixels.as_ref().is_err_and(|error| {
+            error.contains("budget exhausted") || error.contains("capacity exhausted")
+        }) {
+            return;
+        }
         if let Some(old) = self.cache.remove(&key.id)
             && let Ok(id) = old.value
         {
@@ -98,20 +105,24 @@ impl Thumbnails {
             if std::thread::Builder::new()
                 .name("fold-thumbnail".into())
                 .spawn(move || {
-                    let result = metadata
-                        .ok_or("Source metadata unavailable".to_owned())
-                        .and_then(|value| {
-                            serde_json::from_value::<fold_media::ingest::SourceMetadata>(value)
-                                .map_err(|e| e.to_string())
-                        })
-                        .and_then(|metadata| {
-                            fold_media::thumbnail::thumbnail(
-                                std::path::Path::new(&key.location),
-                                &key.fingerprint,
-                                &metadata.profile,
-                                &cancel,
-                            )
-                        });
+                    let admission = fold_render::scheduling::Scheduler::shared()
+                        .enter(fold_render::scheduling::Class::Background, &cancel);
+                    let result = admission.and_then(|_permit| {
+                        metadata
+                            .ok_or("Source metadata unavailable".to_owned())
+                            .and_then(|value| {
+                                serde_json::from_value::<fold_media::ingest::SourceMetadata>(value)
+                                    .map_err(|e| e.to_string())
+                            })
+                            .and_then(|metadata| {
+                                fold_media::thumbnail::thumbnail(
+                                    std::path::Path::new(&key.location),
+                                    &key.fingerprint,
+                                    &metadata.profile,
+                                    &cancel,
+                                )
+                            })
+                    });
                     let _ = sender.send((key, result));
                 })
                 .is_ok()

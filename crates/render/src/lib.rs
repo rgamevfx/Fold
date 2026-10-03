@@ -6,6 +6,7 @@ pub mod frame;
 #[cfg(feature = "gpu")]
 pub mod gpu;
 mod graph;
+pub mod scheduling;
 pub mod vector;
 mod vector_geometry;
 pub use graph::{Affine, ImageId, ImageOp, RenderGraph};
@@ -33,6 +34,7 @@ pub struct Frame {
     width: u32,
     height: u32,
     pixels: Vec<[f32; 4]>,
+    _storage: std::sync::Arc<fold_media::budget::Lease>,
     working_space: WorkingSpace,
     config_identity: Option<String>,
     timing: Option<frame::Timing>,
@@ -45,6 +47,7 @@ pub struct DisplayFrame {
     width: u32,
     height: u32,
     rgba: Vec<u8>,
+    _storage: std::sync::Arc<fold_media::budget::Lease>,
     transform_identity: String,
     timing: Option<frame::Timing>,
 }
@@ -152,12 +155,15 @@ impl Frame {
         if self.pixels.iter().any(|p| p[3] != 1.0) {
             return Err("output requires an explicit opaque matte".into());
         }
+        let _transform_storage =
+            fold_media::budget::reserve_working(self.pixels.len() as u64 * 16)?;
         let mut pixels = Vec::new();
         pixels
             .try_reserve_exact(self.pixels.len())
             .map_err(|_| "output transform allocation failed")?;
         pixels.extend_from_slice(&self.pixels);
         processor.apply(&mut pixels)?;
+        let storage = fold_media::budget::reserve_output(self.pixels.len() as u64 * 4)?;
         let mut rgba = Vec::new();
         rgba.try_reserve_exact(pixels.len() * 4)
             .map_err(|_| "output allocation failed")?;
@@ -170,6 +176,7 @@ impl Frame {
             ]);
         }
         Ok(DisplayFrame {
+            _storage: storage,
             width: self.width,
             height: self.height,
             rgba,
@@ -195,6 +202,7 @@ impl Frame {
         if self.pixels.iter().any(|p| p[3] != 1.0) {
             return Err("display output requires opaque pixels");
         }
+        let storage = fold_media::budget::reserve_output(self.pixels.len() as u64 * 4)?;
         let mut rgba = Vec::new();
         rgba.try_reserve_exact(self.pixels.len() * 4)
             .map_err(|_| "display allocation failed")?;
@@ -202,6 +210,7 @@ impl Frame {
             rgba.extend_from_slice(&[encode(pixel[0]), encode(pixel[1]), encode(pixel[2]), 255]);
         }
         Ok(DisplayFrame {
+            _storage: storage,
             width: self.width,
             height: self.height,
             rgba,
@@ -307,6 +316,23 @@ pub fn render_aces_with(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn cpu_frame_and_display_leases_follow_caller_ownership() {
+        let frame = render(SolidPlan {
+            width: 2,
+            height: 2,
+            rgba: [0., 0., 0., 1.],
+        })
+        .unwrap();
+        let working = std::sync::Arc::downgrade(&frame._storage);
+        let display = frame.to_display().unwrap();
+        let output = std::sync::Arc::downgrade(&display._storage);
+        drop(frame);
+        assert!(working.upgrade().is_none());
+        assert!(output.upgrade().is_some());
+        drop(display);
+        assert!(output.upgrade().is_none());
+    }
     #[test]
     fn fast_transfer_matches_reference_including_quantization_boundaries() {
         let mut bits = 1u32;

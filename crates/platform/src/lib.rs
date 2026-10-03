@@ -11,6 +11,7 @@ pub use fold_media::VideoInfo;
 use fold_project::{Document, DocumentRef, Snapshot};
 pub use fold_project::{Revision as ProjectRevision, Snapshot as ProjectSnapshot};
 use fold_render::RenderGraph;
+pub use fold_render::scheduling;
 
 // Presentation contract, not access to engine resources or GPU implementation.
 pub use fold_render::DisplayFrame;

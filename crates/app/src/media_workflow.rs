@@ -103,7 +103,7 @@ pub fn content_for(
     document: fold_foundation::DocumentId,
 ) -> Result<String, String> {
     let mut data =
-        b"fold-video-evaluator-v5;gpu-operators-v1;rgba32f;ocio-2.4.2;aces-srgb-view-v1;native709-float;nearest;".to_vec();
+        b"fold-video-evaluator-v6;gpu-operators-v1;rgba32f;ocio-2.4.2;aces-srgb-view-v1;native709-float;nearest;".to_vec();
     if let Some(color) = fold_platform::color::project(snapshot)? {
         data.extend(serde_json::to_vec(&color).map_err(|e| e.to_string())?);
     }
@@ -133,7 +133,12 @@ pub fn content_for(
             data.extend_from_slice(bytes);
         }
         data.extend_from_slice(&document.schema_version.to_le_bytes());
+        let references = serde_json::to_vec(&document.dependencies).map_err(|e| e.to_string())?;
+        data.extend_from_slice(&(references.len() as u64).to_le_bytes());
+        data.extend_from_slice(&references);
+        data.extend_from_slice(&(document.assets.len() as u64).to_le_bytes());
         for id in &document.assets {
+            data.extend_from_slice(&serde_json::to_vec(id).map_err(|e| e.to_string())?);
             let asset = snapshot
                 .state()
                 .assets
@@ -343,13 +348,52 @@ pub fn export(
     end: u32,
     cancel: &Cancel,
 ) -> Result<(), String> {
+    export_inner(
+        snapshot,
+        path,
+        start,
+        end,
+        cancel,
+        #[cfg(feature = "gpu")]
+        None,
+    )
+}
+
+#[cfg(feature = "gpu")]
+pub(crate) fn export_with_host(
+    snapshot: &fold_project::CommittedSnapshot,
+    path: &Path,
+    start: u32,
+    end: u32,
+    cancel: &Cancel,
+    host: Option<fold_render::gpu::Host>,
+) -> Result<(), String> {
+    export_inner(snapshot, path, start, end, cancel, host)
+}
+
+fn export_inner(
+    snapshot: &fold_project::CommittedSnapshot,
+    path: &Path,
+    start: u32,
+    end: u32,
+    cancel: &Cancel,
+    #[cfg(feature = "gpu")] host: Option<fold_render::gpu::Host>,
+) -> Result<(), String> {
     use fold_foundation::Rounding;
     use fold_media::audio::{AUDIO_RATE, AudioDecoder};
     use std::io::Write;
     let (reference, info) = output(snapshot)?;
     let registry = crate::packages::builtins();
     if !registry.supports_audio(snapshot, reference.document) {
-        return export_video(snapshot, path, start, end, cancel);
+        return export_video(
+            snapshot,
+            path,
+            start,
+            end,
+            cancel,
+            #[cfg(feature = "gpu")]
+            host,
+        );
     }
     if path.exists() || start >= end || end > info.frames {
         return Err("invalid export range or destination exists".into());
@@ -357,6 +401,7 @@ pub fn export(
     let plan = registry.audio(snapshot, reference.document)?;
     let mut decoder = AudioDecoder::default();
     plan.preflight(&mut decoder, cancel)?;
+    let _video_scratch = fold_media::budget::reserve_delivery(2 * 1024 * 1024 * 1024)?;
     let temporary = tempfile::tempdir().map_err(|e| e.to_string())?;
     let video = temporary.path().join("video.mp4");
     let pcm = temporary.path().join("audio.f32");
@@ -369,6 +414,7 @@ pub fn export(
         .time(end)?
         .to_ticks(AUDIO_RATE, 1, Rounding::Ceil)
         .map_err(|e| e.to_string())? as u64;
+    let _pcm_scratch = fold_media::budget::reserve_delivery_pcm((end_sample - sample) * 8)?;
     while sample < end_sample {
         let count = (end_sample - sample).min(4096) as usize;
         let block = plan.evaluate(sample, count, &mut decoder, cancel)?;
@@ -381,7 +427,18 @@ pub fn export(
         sample += count as u64;
     }
     drop(file);
-    export_video(snapshot, &video, start, end, cancel)?;
+    // Delivery PCM is complete. Release prepared PCM files while the decoder
+    // still retains immutable video-source pins for the pinned export.
+    decoder.retain_sources([]);
+    export_video(
+        snapshot,
+        &video,
+        start,
+        end,
+        cancel,
+        #[cfg(feature = "gpu")]
+        host,
+    )?;
     fold_media::audio::mux_audio(&video, &pcm, path, cancel)
 }
 
@@ -391,11 +448,15 @@ fn export_video(
     start: u32,
     end: u32,
     cancel: &Cancel,
+    #[cfg(feature = "gpu")] host: Option<fold_render::gpu::Host>,
 ) -> Result<(), String> {
     let (source, info) = output(snapshot)?;
     if start >= end || end > info.frames {
         return Err("export requires nonempty half-open [start,end) within the sequence".into());
     }
+    #[cfg(feature = "gpu")]
+    let mut evaluator = crate::output::OutputRenderer::with_shared_host(host)?;
+    #[cfg(not(feature = "gpu"))]
     let mut evaluator = crate::output::OutputRenderer::from_environment()?;
     let mut request = SceneRequest {
         source,

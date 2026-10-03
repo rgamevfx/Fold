@@ -84,7 +84,43 @@ pub struct Project {
     history_limit: usize,
 }
 
+/// Logical retained authoring data. Payloads are counted once across history;
+/// metadata, allocator overhead and external retired snapshots require RSS too.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Retention {
+    pub roots: usize,
+    pub external_handles: usize,
+    pub payload_bytes: usize,
+}
 impl Project {
+    pub fn retention(&self) -> Retention {
+        let mut roots = BTreeMap::new();
+        for root in std::iter::once(&self.current).chain(
+            self.undo
+                .iter()
+                .chain(&self.redo)
+                .flat_map(|entry| [&entry.before, &entry.after]),
+        ) {
+            let entry = roots
+                .entry(Arc::as_ptr(root) as usize)
+                .or_insert((root, 0usize));
+            entry.1 += 1;
+        }
+        let mut result = Retention {
+            roots: roots.len(),
+            ..Default::default()
+        };
+        let mut documents = std::collections::BTreeSet::new();
+        for (root, owned) in roots.values() {
+            result.external_handles += Arc::strong_count(root).saturating_sub(*owned);
+            for document in root.documents.values() {
+                if documents.insert(Arc::as_ptr(document) as usize) {
+                    result.payload_bytes += document.payload.capacity();
+                }
+            }
+        }
+        result
+    }
     pub fn new(history_limit: usize) -> Self {
         Self::from_state(ProjectState::default(), history_limit)
     }

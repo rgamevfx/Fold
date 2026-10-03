@@ -184,6 +184,8 @@ impl GpuFrame {
             std::thread::sleep(std::time::Duration::from_millis(1));
         }
         let mapped = buffer.slice(..).get_mapped_range();
+        let storage =
+            fold_media::budget::reserve_working(u64::from(width) * u64::from(height) * 16)?;
         let mut pixels = Vec::new();
         pixels
             .try_reserve_exact((width * height) as usize)
@@ -200,6 +202,7 @@ impl GpuFrame {
         drop(mapped);
         buffer.unmap();
         Ok(Frame {
+            _storage: storage,
             width,
             height,
             pixels,

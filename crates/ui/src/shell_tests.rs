@@ -539,3 +539,106 @@ fn runtime_editors_and_inspectors_are_isolated_at_normal_and_narrow_widths() {
             | DesktopCommand::SetOutput(_)
     )));
 }
+
+#[test]
+fn review_menu_is_explicit_and_preserves_playback_mode_at_normal_and_narrow_widths() {
+    use dear_imgui_rs::{Condition, MouseButton};
+    use fold_platform::desktop::PlaybackMode;
+    let _guard = crate::IMGUI_TEST_LOCK.lock().unwrap();
+    for width in [440., 170.] {
+        for (mode, row, playing, ready, expected) in [
+            (
+                PlaybackMode::RealTime,
+                0,
+                false,
+                false,
+                Some(crate::review::Action::Prepare),
+            ),
+            (PlaybackMode::RealTime, 0, true, false, None),
+            (
+                PlaybackMode::RealTime,
+                1,
+                false,
+                true,
+                Some(crate::review::Action::PlayCached),
+            ),
+            (PlaybackMode::RealTime, 1, false, false, None),
+            (PlaybackMode::EveryFrame, 1, false, true, None),
+        ] {
+            let mut context = Context::create();
+            context.set_ini_filename(None::<String>).unwrap();
+            context
+                .font_atlas()
+                .try_claim_legacy_renderer()
+                .unwrap()
+                .build();
+            context.io_mut().set_display_size([600., 320.]);
+            context.io_mut().set_delta_time(1. / 60.);
+            let docs = [DocumentId::new(), DocumentId::new()];
+            let host = Host {
+                documents: docs,
+                state: Default::default(),
+                delivery: docs[0],
+                commands: vec![],
+            };
+            let mut shell = Shell::new(vec![]);
+            let id = *shell.workspace.viewers.keys().next().unwrap();
+            let viewer = shell.workspace.viewers.get_mut(&id).unwrap();
+            viewer.playback_mode = Some(mode);
+            viewer.playing = playing;
+            shell.review_states.insert(id, (None, ready));
+            let mut frame = |context: &mut Context| {
+                let mut point = [0.; 2];
+                let ui = context.frame();
+                ui.window("Review menu test")
+                    .position([0.; 2], Condition::Always)
+                    .size([width, 280.], Condition::Always)
+                    .build(|| {
+                        ui.open_popup("Review choices");
+                        if let Some(_popup) = ui.begin_popup("Review choices") {
+                            shell.review_menu_items(ui, id, &host);
+                            let min = ui.item_rect_min();
+                            let size = ui.item_rect_size();
+                            let last = if mode == PlaybackMode::EveryFrame {
+                                3
+                            } else {
+                                2
+                            };
+                            point = [
+                                min[0] + 20.,
+                                min[1] + size[1] / 2.
+                                    - (last - row) as f32 * ui.text_line_height_with_spacing(),
+                            ];
+                        }
+                    });
+                context.end_frame();
+                point
+            };
+            for _ in 0..4 {
+                frame(&mut context);
+            }
+            let point = frame(&mut context);
+            context.io_mut().add_mouse_pos_event(point);
+            frame(&mut context);
+            context
+                .io_mut()
+                .add_mouse_button_event(MouseButton::Left, true);
+            frame(&mut context);
+            context
+                .io_mut()
+                .add_mouse_button_event(MouseButton::Left, false);
+            frame(&mut context);
+            match expected {
+                Some(crate::review::Action::Prepare) => assert!(
+                    matches!(shell.take_review_actions().as_slice(),[(owner,crate::review::Action::Prepare)] if *owner == id)
+                ),
+                Some(crate::review::Action::PlayCached) => assert!(
+                    matches!(shell.take_review_actions().as_slice(),[(owner,crate::review::Action::PlayCached)] if *owner == id)
+                ),
+                _ => assert!(shell.take_review_actions().is_empty()),
+            }
+            assert_eq!(shell.workspace.viewers[&id].playback_mode, Some(mode));
+            assert!(host.commands.is_empty());
+        }
+    }
+}

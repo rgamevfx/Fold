@@ -75,11 +75,11 @@ impl NativeVideo {
         }
         let (mut pending, reservation) =
             fold_native_video::PendingBuffer::new_reserved(host.device(), layout.bytes, |bytes| {
-                match host.reserve(bytes) {
+                match host.reserve_as(bytes, super::host::AllocationKind::Decoded) {
                     Ok(reservation) => Ok(reservation),
                     Err(_) => {
                         self.clear();
-                        host.reserve(bytes)
+                        host.reserve_as(bytes, super::host::AllocationKind::Decoded)
                     }
                 }
             })?;

@@ -16,7 +16,7 @@ mod tests;
 pub(crate) struct Stream {
     process: Option<Process>,
     demand: Option<SyncSender<()>>,
-    frames: Receiver<Result<Vec<u8>, String>>,
+    frames: Receiver<Result<(Vec<u8>, std::sync::Arc<crate::budget::Lease>), String>>,
     reader: Option<JoinHandle<()>>,
 }
 impl Stream {
@@ -30,16 +30,23 @@ impl Stream {
         let reader = std::thread::spawn(move || {
             while requests.recv().is_ok() {
                 let mut bytes = Vec::new();
-                let result = bytes
-                    .try_reserve_exact(frame_bytes)
-                    .map_err(|_| "decoder frame allocation failed".to_owned())
-                    .and_then(|()| {
-                        bytes.resize(frame_bytes, 0);
-                        stdout
-                            .read_exact(&mut bytes)
-                            .map(|()| bytes)
-                            .map_err(|error| format!("incomplete retained video decode: {error}"))
-                    });
+                let reservation = crate::budget::PIPE
+                    .reserve(frame_bytes as u64)
+                    .map_err(str::to_owned);
+                let result = reservation.and_then(|reservation| {
+                    bytes
+                        .try_reserve_exact(frame_bytes)
+                        .map_err(|_| "decoder frame allocation failed".to_owned())
+                        .and_then(|()| {
+                            bytes.resize(frame_bytes, 0);
+                            stdout
+                                .read_exact(&mut bytes)
+                                .map(|()| (bytes, reservation))
+                                .map_err(|error| {
+                                    format!("incomplete retained video decode: {error}")
+                                })
+                        })
+                });
                 let failed = result.is_err();
                 if send.send(result).is_err() || failed {
                     break;
@@ -53,7 +60,10 @@ impl Stream {
             reader: Some(reader),
         })
     }
-    pub fn read(&mut self, cancel: &Cancel) -> Result<Vec<u8>, String> {
+    pub fn read(
+        &mut self,
+        cancel: &Cancel,
+    ) -> Result<(Vec<u8>, std::sync::Arc<crate::budget::Lease>), String> {
         let result = self.read_next(cancel);
         if result.is_err() {
             self.demand.take();
@@ -61,7 +71,10 @@ impl Stream {
         }
         result
     }
-    fn read_next(&mut self, cancel: &Cancel) -> Result<Vec<u8>, String> {
+    fn read_next(
+        &mut self,
+        cancel: &Cancel,
+    ) -> Result<(Vec<u8>, std::sync::Arc<crate::budget::Lease>), String> {
         cancel.check()?;
         self.demand
             .as_ref()

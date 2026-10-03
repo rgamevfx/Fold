@@ -19,6 +19,19 @@ pub struct AudioPlan {
     pub end: u64,
 }
 impl AudioPlan {
+    /// Shorten a half-open playback range without rebasing source offsets.
+    pub fn clip_end(&mut self, end: u64) -> Result<(), String> {
+        self.validate()?;
+        if end > self.end {
+            return Err("audio review range exceeds plan".into());
+        }
+        self.regions.retain(|region| region.start < end);
+        for region in &mut self.regions {
+            region.end = region.end.min(end);
+        }
+        self.end = end;
+        Ok(())
+    }
     pub fn validate(&self) -> Result<(), String> {
         if self.end > MAX_AUDIO_SAMPLES || self.regions.len() > 4096 {
             return Err("audio plan exceeds budget".into());
@@ -89,5 +102,49 @@ impl AudioPlan {
             }
         }
         Ok(output)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn shortened_review_clips_regions_and_preserves_source_mapping() {
+        let source = AudioSource::Wave(fold_media::WaveSource {
+            path: "fixture.wav".into(),
+            fingerprint: "fixture".into(),
+            info: fold_media::WaveInfo {
+                rate: 48_000,
+                channels: 2,
+                frames: 96_000,
+            },
+        });
+        let mut plan = AudioPlan {
+            end: 96_000,
+            regions: vec![
+                AudioRegion {
+                    start: 0,
+                    end: 48_000,
+                    source_offset: 400,
+                    source: source.clone(),
+                    gain: 1.,
+                },
+                AudioRegion {
+                    start: 48_000,
+                    end: 96_000,
+                    source_offset: -48_000,
+                    source,
+                    gain: 1.,
+                },
+            ],
+        };
+        plan.clip_end(1200).unwrap();
+        plan.validate().unwrap();
+        assert_eq!(plan.regions.len(), 1);
+        assert_eq!(plan.regions[0].end, 1200);
+        assert_eq!(plan.regions[0].source_offset, 400);
+        assert!(plan.clip_end(1201).is_err());
+        plan.clip_end(0).unwrap();
+        assert!(plan.regions.is_empty());
     }
 }

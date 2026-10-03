@@ -7,7 +7,7 @@ mod organization;
 mod persistence;
 pub use organization::{Bin, Item, ItemId, Organization, Parent};
 
-pub use coordinator::{EditBatch, EditSession, Mutation, Project, ProjectError};
+pub use coordinator::{EditBatch, EditSession, Mutation, Project, ProjectError, Retention};
 pub use model::{
     Asset, CommittedSnapshot, Document, DocumentRef, Metadata, ProjectState, Revision, Snapshot,
 };

@@ -130,13 +130,14 @@ impl YuvPipeline {
                 let old = self.cache.pop_front().unwrap();
                 self.bytes -= old.bytes;
             }
-            let reservation = match host.reserve(bytes + 32) {
-                Ok(r) => r,
-                Err(_) => {
-                    self.clear();
-                    host.reserve(bytes + 32)?
-                }
-            };
+            let reservation =
+                match host.reserve_as(bytes + 32, super::host::AllocationKind::Decoded) {
+                    Ok(r) => r,
+                    Err(_) => {
+                        self.clear();
+                        host.reserve_as(bytes + 32, super::host::AllocationKind::Decoded)?
+                    }
+                };
             let buffer = host
                 .device()
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {

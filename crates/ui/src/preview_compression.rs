@@ -14,6 +14,7 @@ pub(super) struct Compression {
     worker: Option<std::thread::JoinHandle<()>>,
     results: mpsc::Receiver<Result<(PreviewKey, Display), String>>,
     stopped: Arc<AtomicBool>,
+    cancel: fold_platform::scheduling::Cancel,
     busy: bool,
     failed: bool,
 }
@@ -23,27 +24,33 @@ impl Compression {
         let (send, results) = mpsc::sync_channel(1);
         let stopped = Arc::new(AtomicBool::new(false));
         let stop = stopped.clone();
+        let cancel = fold_platform::scheduling::Cancel::default();
+        let token = cancel.clone();
         let worker = std::thread::spawn(move || {
             let mut compressor = PresentationCompressor::new(host.clone());
             while let Ok((key, frame)) = receive.recv() {
                 if stop.load(Ordering::Acquire) {
                     break;
                 }
-                let result = compressor
-                    .as_mut()
-                    .map_err(|e| e.clone())
-                    .and_then(|compressor| compressor.compress(&frame))
-                    .and_then(|result| {
-                        let start = std::time::Instant::now();
-                        while !result.is_ready()? {
-                            if stop.load(Ordering::Acquire) || start.elapsed().as_secs() >= 30 {
-                                return Err("BC7 cache task stopped or timed out".into());
+                let admission = fold_platform::scheduling::Scheduler::shared()
+                    .enter(fold_platform::scheduling::Class::Prepare, &token);
+                let result = admission.and_then(|_permit| {
+                    compressor
+                        .as_mut()
+                        .map_err(|e| e.clone())
+                        .and_then(|compressor| compressor.compress(&frame))
+                        .and_then(|result| {
+                            let start = std::time::Instant::now();
+                            while !result.is_ready()? {
+                                if stop.load(Ordering::Acquire) || start.elapsed().as_secs() >= 30 {
+                                    return Err("BC7 cache task stopped or timed out".into());
+                                }
+                                host.poll()?;
+                                std::thread::sleep(std::time::Duration::from_millis(1));
                             }
-                            host.poll()?;
-                            std::thread::sleep(std::time::Duration::from_millis(1));
-                        }
-                        Ok(result)
-                    });
+                            Ok(result)
+                        })
+                });
                 if send.send(result.map(|frame| (key, frame))).is_err() {
                     break;
                 }
@@ -54,6 +61,7 @@ impl Compression {
             worker: Some(worker),
             results,
             stopped,
+            cancel,
             busy: false,
             failed: false,
         }
@@ -94,6 +102,7 @@ impl Drop for Compression {
         // Shutdown only: stop accepting work and join before device/driver
         // teardown. A detached GPU worker can outlive the native runtime.
         // Ordinary request cancellation/polling never waits on this thread.
+        self.cancel.cancel();
         self.stopped.store(true, Ordering::Release);
         self.requests.take();
         if let Some(worker) = self.worker.take() {
@@ -115,6 +124,7 @@ mod tests {
             results,
             worker: None,
             stopped: Arc::new(AtomicBool::new(false)),
+            cancel: Default::default(),
             busy: true,
             failed: false,
         };

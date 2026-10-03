@@ -4,9 +4,15 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
+from measure_process import gpu_memory
 
 
 class MeasurementTests(unittest.TestCase):
+    def test_gpu_memory_counts_only_this_process_tree(self):
+        with patch('measure_process.subprocess.check_output', return_value='1, 12\n2, 8\n9, 100\n'):
+            self.assertEqual(gpu_memory({1, 2}), 20 * 1024 * 1024)
+
     def run_probe(self, root, code, timeout='5'):
         return subprocess.run([
             sys.executable, str(Path(__file__).with_name('measure_process.py')),

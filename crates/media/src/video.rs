@@ -539,11 +539,11 @@ impl Decoder {
             }
             self.open_stream(source, frame, dimensions, format, cancel)?
         };
-        let bytes = loop {
+        let (bytes, _pipe_storage) = loop {
             // On cancellation/error `active` drops and kills the blocked child.
             let bytes = active.stream.read(cancel)?;
             self.statistics.decoded_frames += 1;
-            self.statistics.pipe_bytes += bytes.len() as u64;
+            self.statistics.pipe_bytes += bytes.0.len() as u64;
             let index = active.next;
             active.next += 1;
             if index == frame {
@@ -710,6 +710,7 @@ pub struct Encoder {
     pixels: usize,
     expected: u32,
     written: u32,
+    _disk: Arc<crate::budget::Lease>,
     cancel: Cancel,
 }
 impl Encoder {
@@ -749,6 +750,7 @@ impl Encoder {
             .parent()
             .filter(|p| !p.as_os_str().is_empty())
             .unwrap_or(Path::new("."));
+        let disk = crate::budget::reserve_delivery(MAX_FILE)?;
         let output = tempfile::NamedTempFile::new_in(parent).map_err(|e| e.to_string())?;
         let transfer = if rec709 { "709" } else { "iec61966-2-1" };
         let filter = format!(
@@ -805,6 +807,7 @@ impl Encoder {
             pixels: info.width as usize * info.height as usize,
             expected: frames,
             written: 0,
+            _disk: disk,
             cancel,
         })
     }

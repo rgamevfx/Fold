@@ -32,6 +32,7 @@ pub struct YuvFrame {
     data: Arc<Vec<u8>>,
     timestamp: Time,
     duration: Time,
+    _storage: Arc<crate::budget::Lease>,
 }
 impl YuvFrame {
     pub fn from_420(
@@ -51,7 +52,9 @@ impl YuvFrame {
         if data.len() != y + 2 * c {
             return Err("invalid YUV plane storage".into());
         }
+        let storage = crate::budget::DECODED.reserve(data.capacity() as u64)?;
         Ok(Self {
+            _storage: storage,
             identity: NEXT_FRAME.fetch_add(1, Ordering::Relaxed),
             dimensions,
             planes: [
@@ -89,6 +92,7 @@ impl YuvFrame {
         if count == 0 || count > crate::MAX_PIXELS as u64 {
             return Err("invalid reconstruction dimensions".into());
         }
+        let storage = crate::budget::DECODED.reserve(count * 12)?;
         let mut planes = Vec::new();
         planes
             .try_reserve_exact(count as usize * 3)
@@ -151,8 +155,9 @@ impl YuvFrame {
         }
         Ok(crate::RgbImage {
             dimensions,
-            rgb: Arc::from([]),
-            signal: Some(planes.into()),
+            rgb: Arc::new(Vec::new()),
+            signal: Some(Arc::new(planes)),
+            _storage: storage,
         })
     }
     /// Process-local immutable allocation identity, shared by clones. Not a

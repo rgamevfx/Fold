@@ -24,6 +24,7 @@ pub(crate) struct Sample {
 }
 
 pub(crate) struct Probe {
+    pub shared: Option<crate::native_shared_probe::Shared>,
     pub start: Instant,
     epoch_ms: u128,
     report: File,
@@ -37,6 +38,17 @@ pub(crate) struct Probe {
 }
 impl Probe {
     pub fn from_env() -> Result<Option<Self>, Box<dyn std::error::Error>> {
+        if let Some(path) = std::env::var_os("FOLD_SHARED_PROBE") {
+            let path = std::path::Path::new(&path);
+            let mut probe = Self::create(path)?;
+            probe.shared = Some(crate::native_shared_probe::Shared::new(
+                path.parent()
+                    .ok_or("shared probe report needs a parent directory")?
+                    .into(),
+                probe.start,
+            ));
+            return Ok(Some(probe));
+        }
         let Some(path) = std::env::var_os("FOLD_NATIVE_PROBE") else {
             return Ok(None);
         };
@@ -46,6 +58,7 @@ impl Probe {
         let report = OpenOptions::new().write(true).create_new(true).open(path)?;
         let start = Instant::now();
         Ok(Self {
+            shared: None,
             start,
             epoch_ms: SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis(),
             report,
@@ -155,6 +168,9 @@ impl Probe {
             &serde_json::json!({
                 "success": success, "start_unix_ms": self.epoch_ms,
                 "events": self.events, "samples": samples,
+                "shared": self.shared.as_ref().map(|shared| serde_json::json!({
+                    "phases":shared.phases, "events":shared.events
+                })),
                 "limitations": "completion is callback observation after nonblocking device poll; upload shares submission with UI; present call is not compositor scanout; diagnostic overhead included"
             }),
         )?;

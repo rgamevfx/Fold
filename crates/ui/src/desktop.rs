@@ -375,6 +375,14 @@ impl Desktop {
         self.shell.controls(ui, self.client.as_mut())?;
         let demands = self.shell.keys(self.client.as_ref());
         self.preview.select_viewers(&demands, self.client.as_mut());
+        let actions = self.shell.take_review_actions();
+        if !actions.is_empty() {
+            for (id, action) in actions {
+                self.preview.review_action(id, action, self.client.as_mut());
+            }
+            let updated = self.shell.keys(self.client.as_ref());
+            self.preview.select_viewers(&updated, self.client.as_mut());
+        }
         self.preview.poll(
             self.client.as_mut(),
             &self.device,
@@ -383,6 +391,7 @@ impl Desktop {
         )?;
         self.preview.present_viewers(self.client.as_mut());
         for (id, _) in demands {
+            self.shell.review_state(id, self.preview.review_state(id));
             self.shell.presentation(
                 id,
                 self.preview.presented_key(id).cloned(),
@@ -469,13 +478,18 @@ impl Desktop {
                     .map(|(a, b, bytes)| (probe.ms(a), probe.ms(b), bytes)),
                 completion_ns: completion.unwrap(),
             });
-            if probe.advance(self.client.as_mut(), frame, ready)? {
+            let finished = if let Some(shared) = &mut probe.shared {
+                shared.advance(&mut self.shell, &mut self.preview, self.client.as_mut())?
+            } else {
+                probe.advance(self.client.as_mut(), frame, ready)?
+            };
+            if finished {
                 // One nonblocking poll may observe the last completion; missing
                 // callbacks remain null in the report, never fabricated as zero.
                 let _ = self.device.poll(wgpu::PollType::Poll);
                 probe.finish(true)?;
                 self.probe_done = true;
-            } else {
+            } else if probe.shared.is_none() {
                 self.shell.probe_time(self.client.as_mut());
             }
         }

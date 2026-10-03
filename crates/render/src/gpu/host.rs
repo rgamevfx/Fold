@@ -14,7 +14,23 @@ pub(crate) struct Image {
     pub dimensions: [u32; 2],
     pub bytes: u64,
 }
+#[derive(Clone, Copy)]
+pub(crate) enum AllocationKind {
+    Working = 0,
+    Presentation = 1,
+    Decoded = 2,
+    Geometry = 3,
+    Scratch = 4,
+}
+fn image_kind(image: &Image) -> AllocationKind {
+    if image.texture.format() == wgpu::TextureFormat::Rgba32Float {
+        AllocationKind::Working
+    } else {
+        AllocationKind::Presentation
+    }
+}
 struct Pool {
+    by_kind: [u64; 5],
     images: Vec<Arc<Image>>,
     bytes: u64,
     peak: u64,
@@ -38,11 +54,14 @@ pub struct Host(Arc<Shared>);
 pub(crate) struct Reservation {
     host: Weak<Shared>,
     bytes: u64,
+    kind: AllocationKind,
 }
 impl Drop for Reservation {
     fn drop(&mut self) {
         if let Some(host) = self.host.upgrade() {
-            host.pool.lock().unwrap().bytes -= self.bytes;
+            let mut pool = host.pool.lock().unwrap();
+            pool.bytes -= self.bytes;
+            pool.by_kind[self.kind as usize] -= self.bytes;
         }
     }
 }
@@ -61,12 +80,15 @@ impl Pool {
                     "GPU working budget exhausted; release completed frames or retry later".into(),
                 );
             };
-            self.bytes -= self.images.swap_remove(index).bytes;
+            let image = self.images.swap_remove(index);
+            self.bytes -= image.bytes;
+            self.by_kind[image_kind(&image) as usize] -= image.bytes;
         }
         Ok(())
     }
-    fn allocated(&mut self, bytes: u64) {
+    fn allocated(&mut self, bytes: u64, kind: AllocationKind) {
         self.bytes += bytes;
+        self.by_kind[kind as usize] += bytes;
         self.peak = self.peak.max(self.bytes);
     }
 }
@@ -76,6 +98,11 @@ pub struct Memory {
     pub allocated: u64,
     pub peak: u64,
     pub budget: u64,
+    pub working: u64,
+    pub presentation: u64,
+    pub decoded: u64,
+    pub geometry: u64,
+    pub scratch: u64,
 }
 
 impl Host {
@@ -133,6 +160,7 @@ impl Host {
             budget,
             pool: Mutex::new(Pool {
                 images: vec![],
+                by_kind: [0; 5],
                 bytes: 0,
                 peak: 0,
             }),
@@ -167,16 +195,29 @@ impl Host {
             allocated: pool.bytes,
             peak: pool.peak,
             budget: self.0.budget,
+            working: pool.by_kind[0],
+            presentation: pool.by_kind[1],
+            decoded: pool.by_kind[2],
+            geometry: pool.by_kind[3],
+            scratch: pool.by_kind[4],
         }
     }
     pub(crate) fn reserve(&self, bytes: u64) -> Result<Arc<Reservation>, String> {
+        self.reserve_as(bytes, AllocationKind::Scratch)
+    }
+    pub(crate) fn reserve_as(
+        &self,
+        bytes: u64,
+        kind: AllocationKind,
+    ) -> Result<Arc<Reservation>, String> {
         self.check()?;
         let mut pool = self.0.pool.lock().unwrap();
         pool.make_room(bytes, self.0.budget)?;
-        pool.allocated(bytes);
+        pool.allocated(bytes, kind);
         Ok(Arc::new(Reservation {
             host: Arc::downgrade(&self.0),
             bytes,
+            kind,
         }))
     }
     pub(crate) fn image(&self, dimensions: [u32; 2]) -> Result<Arc<Image>, String> {
@@ -222,7 +263,12 @@ impl Host {
         // Drop only leases not held by callers, recording encoders, or submitted
         // work. Completion callbacks own submitted leases independently of frames.
         pool.make_room(bytes, self.0.budget)?;
-        pool.allocated(bytes);
+        let kind = if format == wgpu::TextureFormat::Rgba32Float {
+            AllocationKind::Working
+        } else {
+            AllocationKind::Presentation
+        };
+        pool.allocated(bytes, kind);
         // Completion callbacks may run on the UI thread. Never hold the pool
         // accounting lock across a driver allocation they might otherwise await.
         drop(pool);
@@ -248,7 +294,9 @@ impl Host {
             view_formats: &[],
         });
         if let Err(error) = self.check() {
-            self.0.pool.lock().unwrap().bytes -= bytes;
+            let mut pool = self.0.pool.lock().unwrap();
+            pool.bytes -= bytes;
+            pool.by_kind[kind as usize] -= bytes;
             return Err(error);
         }
         let view = texture.create_view(&Default::default());

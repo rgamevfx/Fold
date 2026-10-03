@@ -33,6 +33,16 @@ impl OutputRenderer {
             gpu,
         })
     }
+    #[cfg(feature = "gpu")]
+    pub(crate) fn with_shared_host(host: Option<fold_render::gpu::Host>) -> Result<Self, String> {
+        match host {
+            Some(host) => Ok(Self {
+                decoder: Decoder::from_environment()?,
+                gpu: Some(fold_render::gpu::Renderer::new(host)?),
+            }),
+            None => Self::from_environment(),
+        }
+    }
     pub fn evaluate(
         &mut self,
         snapshot: &CommittedSnapshot,
@@ -40,6 +50,8 @@ impl OutputRenderer {
         cancel: &Cancel,
     ) -> Result<DisplayFrame, String> {
         cancel.check()?;
+        let _admission = fold_render::scheduling::Scheduler::shared()
+            .enter(fold_render::scheduling::Class::Export, cancel)?;
         #[cfg(feature = "gpu")]
         if let Some(renderer) = self.gpu.as_mut() {
             let scene = crate::media_workflow::evaluate_scene_gpu(

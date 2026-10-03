@@ -1,0 +1,296 @@
+{
+  "success": true,
+  "phases": [
+    {
+      "admissions": [
+        2,
+        1
+      ],
+      "audio_errors": [
+        null,
+        null
+      ],
+      "cache": "GPU RGBA8/BC7 cache: 23.7/256 MiB | hits 0 | misses 33 | displayed frame Some(22) | BC7 enabled",
+      "max_observed_underrun_callbacks": [
+        0,
+        null
+      ],
+      "phase": 0,
+      "resources": "Demand 0/128 \u00b7 execution queue 0 (peak 1) \u00b7 jobs 0/2 \u00b7 pressure retries 0\nDecoded CPU 0.0/256 MiB (peak 0.0) \u00b7 pipe 0.0/64 MiB\nSource copies 61.5/4096 MiB \u00b7 PCM disk 11.0/512 MiB \u00b7 WAVE scratch 0.0/512 MiB\nHistory 1 roots \u00b7 2 external handles \u00b7 0.0 MiB unique payload (excludes metadata/allocator)\nShared GPU 266.2/512.0 MiB (peak 266.2) \u00b7 working 221.5 \u00b7 presentation 23.7 \u00b7 decoded 20.8 \u00b7 geometry 0.2 \u00b7 scratch 0.0\nCPU working 0.0/512 MiB \u00b7 output 0.0/64 MiB \u00b7 delivery scratch 0.0/4096 MiB + PCM 0.0/256 MiB",
+      "seconds": 4.566977546,
+      "skipped_between_admissions": [
+        21,
+        0
+      ],
+      "draw_p95_ms": 8.512682,
+      "cpu_ui_no_acquire_p95_ms": 4.120797,
+      "frame_interval_p95_ms": 8.833585999999968,
+      "first_viewer_admissions_from_samples": 2,
+      "first_viewer_skips_including_wrap": null
+    },
+    {
+      "admissions": [
+        882,
+        1
+      ],
+      "audio_errors": [
+        null,
+        null
+      ],
+      "cache": "GPU RGBA8/BC7 cache: 253.1/256 MiB | hits 0 | misses 930 | displayed frame Some(33) | RGBA8 retained: BC7 quality threshold exceeded; retain RGBA8",
+      "max_observed_underrun_callbacks": [
+        0,
+        null
+      ],
+      "phase": 1,
+      "resources": "Demand 0/128 \u00b7 execution queue 0 (peak 2) \u00b7 jobs 0/2 \u00b7 pressure retries 0\nDecoded CPU 0.0/256 MiB (peak 0.0) \u00b7 pipe 0.0/64 MiB\nSource copies 61.5/4096 MiB \u00b7 PCM disk 11.0/512 MiB \u00b7 WAVE scratch 0.0/512 MiB\nHistory 1 roots \u00b7 1 external handles \u00b7 0.0 MiB unique payload (excludes metadata/allocator)\nShared GPU 498.4/512.0 MiB (peak 501.4) \u00b7 working 221.5 \u00b7 presentation 270.9 \u00b7 decoded 5.9 \u00b7 geometry 0.1 \u00b7 scratch 0.0\nCPU working 0.0/512 MiB \u00b7 output 0.0/64 MiB \u00b7 delivery scratch 0.0/4096 MiB + PCM 0.0/256 MiB",
+      "seconds": 30.002243672,
+      "skipped_between_admissions": [
+        30,
+        0
+      ],
+      "draw_p95_ms": 11.445259,
+      "cpu_ui_no_acquire_p95_ms": 8.754292,
+      "frame_interval_p95_ms": 11.615169999999125,
+      "first_viewer_admissions_from_samples": 882,
+      "first_viewer_skips_including_wrap": 30
+    },
+    {
+      "admissions": [
+        199,
+        131
+      ],
+      "audio_errors": [
+        null,
+        null
+      ],
+      "cache": "GPU RGBA8/BC7 cache: 253.1/256 MiB | hits 141 | misses 2627 | displayed frame Some(370) | RGBA8 retained: BC7 quality threshold exceeded; retain RGBA8",
+      "max_observed_underrun_callbacks": [
+        0,
+        null
+      ],
+      "phase": 2,
+      "resources": "Demand 0/128 \u00b7 execution queue 0 (peak 2) \u00b7 jobs 0/2 \u00b7 pressure retries 0\nDecoded CPU 0.0/256 MiB (peak 0.0) \u00b7 pipe 0.0/64 MiB\nSource copies 61.5/4096 MiB \u00b7 PCM disk 11.0/512 MiB \u00b7 WAVE scratch 0.0/512 MiB\nHistory 2 roots \u00b7 1 external handles \u00b7 0.0 MiB unique payload (excludes metadata/allocator)\nShared GPU 466.8/512.0 MiB (peak 507.4) \u00b7 working 189.8 \u00b7 presentation 270.9 \u00b7 decoded 5.9 \u00b7 geometry 0.1 \u00b7 scratch 0.0\nCPU working 0.0/512 MiB \u00b7 output 0.0/64 MiB \u00b7 delivery scratch 0.0/4096 MiB + PCM 0.0/256 MiB",
+      "seconds": 57.247046661,
+      "skipped_between_admissions": [
+        1520,
+        0
+      ],
+      "draw_p95_ms": 11.617228,
+      "cpu_ui_no_acquire_p95_ms": 7.767777000000001,
+      "frame_interval_p95_ms": 11.83367399997951,
+      "first_viewer_admissions_from_samples": 199,
+      "first_viewer_skips_including_wrap": 1520
+    },
+    {
+      "admissions": [
+        7,
+        2
+      ],
+      "audio_errors": [
+        null,
+        null
+      ],
+      "cache": "GPU RGBA8/BC7 cache: 253.1/256 MiB | hits 143 | misses 2630 | displayed frame Some(5) | RGBA8 retained: BC7 quality threshold exceeded; retain RGBA8",
+      "max_observed_underrun_callbacks": [
+        0,
+        null
+      ],
+      "phase": 3,
+      "resources": "Demand 0/128 \u00b7 execution queue 0 (peak 2) \u00b7 jobs 0/2 \u00b7 pressure retries 0\nDecoded CPU 0.0/256 MiB (peak 0.0) \u00b7 pipe 0.0/64 MiB\nSource copies 61.5/4096 MiB \u00b7 PCM disk 11.0/512 MiB \u00b7 WAVE scratch 0.0/512 MiB\nHistory 2 roots \u00b7 0 external handles \u00b7 0.0 MiB unique payload (excludes metadata/allocator)\nShared GPU 500.4/512.0 MiB (peak 507.4) \u00b7 working 221.5 \u00b7 presentation 270.9 \u00b7 decoded 5.9 \u00b7 geometry 0.1 \u00b7 scratch 2.0\nCPU working 0.0/512 MiB \u00b7 output 0.0/64 MiB \u00b7 delivery scratch 0.0/4096 MiB + PCM 0.0/256 MiB",
+      "seconds": 0.691833291,
+      "skipped_between_admissions": [
+        0,
+        0
+      ],
+      "draw_p95_ms": 11.432199,
+      "cpu_ui_no_acquire_p95_ms": 7.976966000000001,
+      "frame_interval_p95_ms": 11.602522999994108,
+      "first_viewer_admissions_from_samples": 7,
+      "first_viewer_skips_including_wrap": null
+    },
+    {
+      "admissions": [
+        2,
+        1
+      ],
+      "audio_errors": [
+        null,
+        null
+      ],
+      "cache": "GPU RGBA8/BC7 cache: 253.1/256 MiB | hits 143 | misses 2631 | displayed frame Some(29) | RGBA8 retained: BC7 quality threshold exceeded; retain RGBA8",
+      "max_observed_underrun_callbacks": [
+        0,
+        null
+      ],
+      "phase": 4,
+      "resources": "Demand 0/128 \u00b7 execution queue 0 (peak 2) \u00b7 jobs 0/2 \u00b7 pressure retries 0\nDecoded CPU 0.0/256 MiB (peak 0.0) \u00b7 pipe 0.0/64 MiB\nSource copies 61.5/4096 MiB \u00b7 PCM disk 11.0/512 MiB \u00b7 WAVE scratch 0.0/512 MiB\nHistory 2 roots \u00b7 0 external handles \u00b7 0.0 MiB unique payload (excludes metadata/allocator)\nShared GPU 498.4/512.0 MiB (peak 507.4) \u00b7 working 221.5 \u00b7 presentation 270.9 \u00b7 decoded 5.9 \u00b7 geometry 0.1 \u00b7 scratch 0.0\nCPU working 0.0/512 MiB \u00b7 output 0.0/64 MiB \u00b7 delivery scratch 0.0/4096 MiB + PCM 0.0/256 MiB",
+      "seconds": 1.411446972,
+      "skipped_between_admissions": [
+        0,
+        0
+      ],
+      "draw_p95_ms": 13.879795999999999,
+      "cpu_ui_no_acquire_p95_ms": 12.893782,
+      "frame_interval_p95_ms": 14.106625000014901,
+      "first_viewer_admissions_from_samples": 2,
+      "first_viewer_skips_including_wrap": null
+    },
+    {
+      "admissions": [
+        29,
+        1
+      ],
+      "audio_errors": [
+        null,
+        null
+      ],
+      "cache": "GPU RGBA8/BC7 cache: 253.1/256 MiB | hits 170 | misses 2631 | displayed frame Some(29) | RGBA8 retained: BC7 quality threshold exceeded; retain RGBA8",
+      "max_observed_underrun_callbacks": [
+        0,
+        null
+      ],
+      "phase": 5,
+      "resources": "Demand 0/128 \u00b7 execution queue 0 (peak 2) \u00b7 jobs 0/2 \u00b7 pressure retries 0\nDecoded CPU 0.0/256 MiB (peak 0.0) \u00b7 pipe 0.0/64 MiB\nSource copies 61.5/4096 MiB \u00b7 PCM disk 11.0/512 MiB \u00b7 WAVE scratch 0.0/512 MiB\nHistory 2 roots \u00b7 0 external handles \u00b7 0.0 MiB unique payload (excludes metadata/allocator)\nShared GPU 498.4/512.0 MiB (peak 507.4) \u00b7 working 221.5 \u00b7 presentation 270.9 \u00b7 decoded 5.9 \u00b7 geometry 0.1 \u00b7 scratch 0.0\nCPU working 0.0/512 MiB \u00b7 output 0.0/64 MiB \u00b7 delivery scratch 0.0/4096 MiB + PCM 0.0/256 MiB",
+      "seconds": 1.5005072799999999,
+      "skipped_between_admissions": [
+        1,
+        0
+      ],
+      "draw_p95_ms": 13.788910999999999,
+      "cpu_ui_no_acquire_p95_ms": 12.347935,
+      "frame_interval_p95_ms": 13.88668999998481,
+      "first_viewer_admissions_from_samples": 29,
+      "first_viewer_skips_including_wrap": null
+    }
+  ],
+  "events": [
+    {
+      "at_ms": 348.985761,
+      "kind": "phase",
+      "phase": 0
+    },
+    {
+      "at_ms": 4916.3236289999995,
+      "kind": "phase",
+      "phase": 1
+    },
+    {
+      "at_ms": 34919.137704,
+      "kind": "phase",
+      "phase": 2
+    },
+    {
+      "frames": 150,
+      "kind": "export",
+      "through_completion_observed_seconds": 57.247063476
+    },
+    {
+      "at_ms": 92166.52897900001,
+      "kind": "phase",
+      "phase": 3
+    },
+    {
+      "frame": 4,
+      "kind": "seek",
+      "through_present_call_ms": 398.968965,
+      "warm_repeat": false
+    },
+    {
+      "frame": 5,
+      "kind": "seek",
+      "through_present_call_ms": 259.101262,
+      "warm_repeat": false
+    },
+    {
+      "frame": 6,
+      "kind": "seek",
+      "through_present_call_ms": 11.552726,
+      "warm_repeat": false
+    },
+    {
+      "frame": 4,
+      "kind": "seek",
+      "through_present_call_ms": 5.697539,
+      "warm_repeat": true
+    },
+    {
+      "frame": 5,
+      "kind": "seek",
+      "through_present_call_ms": 4.738954,
+      "warm_repeat": true
+    },
+    {
+      "frame": 6,
+      "kind": "seek",
+      "through_present_call_ms": 11.753882,
+      "warm_repeat": true
+    },
+    {
+      "at_ms": 92858.933775,
+      "kind": "phase",
+      "phase": 4
+    },
+    {
+      "at_ms": 94270.51503,
+      "kind": "phase",
+      "phase": 5
+    },
+    {
+      "kind": "review_seek_interrupted"
+    }
+  ],
+  "process": {
+    "command": [
+      "target/release/fold-desktop",
+      "--project",
+      "/tmp/fold-phase19-final/fixture.fold"
+    ],
+    "exit_code": 0,
+    "timed_out": false,
+    "wall_seconds": 97.83462064201012,
+    "samples": 1106,
+    "sampled_tree_rss_bytes": 1299619840,
+    "sampled_scratch_bytes": 108380145,
+    "sampled_gpu_process_bytes": 1550843904,
+    "gpu_samples": 94,
+    "gpu_error": null,
+    "nominal_gpu_sample_interval_ms": 1000,
+    "nominal_sample_interval_ms": 50
+  },
+  "viewer_transfers": {
+    "upload_bytes": 92447008,
+    "lut_upload_bytes": 0,
+    "readback_bytes": 0,
+    "status_readback_bytes": 52608,
+    "vector_upload_bytes": 92447008,
+    "native_gpu_local_copy_bytes": 6817996800,
+    "native_pipe_bytes": 0,
+    "evaluations": 1096
+  },
+  "conditions": {
+    "build": "release native-probe",
+    "gpu": "GTX 1070 / NVIDIA 580.173.02 / Vulkan",
+    "source": "two verified 1080p30 videos, procedural title, stereo audio; 450-frame range; full 1080p requests",
+    "warmup_seconds": 4.566977546,
+    "limitations": "UI diagnostic/logging overhead included; other desktop/GPU applications remained active; callback observation is not physical scanout; RSS/driver counters may include shared pages; sampled peaks can miss short allocations; loop-drop counts reconstructed from captured first-viewer sample sequence."
+  },
+  "identities": {
+    "measured_desktop": {
+      "path": "target/release/fold-desktop",
+      "sha256": "f366c18e9b8b46e440415c62e567b53fa02ab5619abeb2ee2e9b6e52523f9603"
+    },
+    "fixture": {
+      "path": "/tmp/fold-phase19-final/fixture.fold",
+      "sha256": "498ed896bfb5343c16f702e41f19ff0280b3804772a6b2bf44d41bb21e7654a1"
+    },
+    "video_helper": {
+      "path": "/home/rgame/Documents/fold-native-pipeline/release-package/bin/fold-video-helper",
+      "sha256": "55e90bf7105100cf980ed2c7c8916fb47f54cff61a873b85529685c0471c2719"
+    },
+    "ocio_config": {
+      "path": "/home/rgame/Documents/fold-native-pipeline/release-package/share/fold/color/config.ocio",
+      "sha256": "d8b361f76750ebfbedf0ded0b5e4315b283eed5e095814486b9d7c416cfbbb4c"
+    }
+  }
+}

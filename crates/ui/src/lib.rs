@@ -4,7 +4,10 @@ mod desktop;
 mod group_selector;
 #[cfg(feature = "native-probe")]
 mod native_probe;
+#[cfg(feature = "native-probe")]
+mod native_shared_probe;
 mod preview;
+mod review;
 pub mod sdk;
 mod shell;
 mod target_selector;

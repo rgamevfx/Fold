@@ -13,11 +13,53 @@ use std::{
 
 // All media entry points share this hard ceiling, including browser and probe
 // jobs. No caller can accidentally create an unbounded fleet of codec children.
-static ACTIVE: AtomicUsize = AtomicUsize::new(0);
-struct Slot;
+struct Capacity {
+    active: AtomicUsize,
+    regular: AtomicUsize,
+}
+static CAPACITY: Capacity = Capacity {
+    active: AtomicUsize::new(0),
+    regular: AtomicUsize::new(0),
+};
+struct Slot {
+    capacity: &'static Capacity,
+    regular: bool,
+}
+impl Capacity {
+    fn reserve(&'static self, audio: bool) -> Result<Slot, String> {
+        if !audio {
+            self.regular
+                .fetch_update(Ordering::AcqRel, Ordering::Acquire, |n| {
+                    (n < 6).then_some(n + 1)
+                })
+                .map_err(
+                    |_| "media process capacity exhausted (6 regular; 2 reserved for audio)",
+                )?;
+        }
+        if self
+            .active
+            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |n| {
+                (n < 8).then_some(n + 1)
+            })
+            .is_err()
+        {
+            if !audio {
+                self.regular.fetch_sub(1, Ordering::AcqRel);
+            }
+            return Err("media process capacity exhausted (8 active jobs)".into());
+        }
+        Ok(Slot {
+            capacity: self,
+            regular: !audio,
+        })
+    }
+}
 impl Drop for Slot {
     fn drop(&mut self) {
-        ACTIVE.fetch_sub(1, Ordering::AcqRel);
+        self.capacity.active.fetch_sub(1, Ordering::AcqRel);
+        if self.regular {
+            self.capacity.regular.fetch_sub(1, Ordering::AcqRel);
+        }
     }
 }
 
@@ -48,28 +90,35 @@ impl Process {
         cancel: Cancel,
         limit: Option<(std::path::PathBuf, u64)>,
     ) -> Result<Self, String> {
-        Self::supervise(command, cancel, limit, Some(Duration::from_secs(600)))
+        Self::supervise(
+            command,
+            cancel,
+            limit,
+            Some(Duration::from_secs(600)),
+            false,
+        )
+    }
+    pub fn audio(
+        command: Command,
+        cancel: Cancel,
+        limit: Option<(std::path::PathBuf, u64)>,
+    ) -> Result<Self, String> {
+        Self::supervise(command, cancel, limit, Some(Duration::from_secs(600)), true)
     }
     pub fn retained(command: Command) -> Result<Self, String> {
         // Idle retained decoders are pipe-backpressured. Each demanded read has
         // its own cancellation/30s deadline, rather than a wall-lifetime limit.
-        Self::supervise(command, Cancel::default(), None, None)
+        Self::supervise(command, Cancel::default(), None, None, false)
     }
     fn supervise(
         mut command: Command,
         cancel: Cancel,
         limit: Option<(std::path::PathBuf, u64)>,
         timeout: Option<Duration>,
+        audio: bool,
     ) -> Result<Self, String> {
         cancel.check()?;
-        ACTIVE
-            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |n| {
-                (n < 8).then_some(n + 1)
-            })
-            .map_err(
-                |_| "media process capacity exhausted (8 active jobs); retry after completion",
-            )?;
-        let slot = Slot;
+        let slot = CAPACITY.reserve(audio)?;
         let log = tempfile::NamedTempFile::new().map_err(|e| e.to_string())?;
         command.stderr(Stdio::from(log.reopen().map_err(|e| e.to_string())?));
         let mut child = command
@@ -162,5 +211,26 @@ impl Drop for Process {
         if let Some(worker) = self.worker.take() {
             let _ = worker.join();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn monitored_audio_keeps_reserved_slots_and_capacity_recovers() {
+        static CAPACITY: Capacity = Capacity {
+            active: AtomicUsize::new(0),
+            regular: AtomicUsize::new(0),
+        };
+        let mut regular: Vec<_> = (0..6).map(|_| CAPACITY.reserve(false).unwrap()).collect();
+        assert!(CAPACITY.reserve(false).is_err());
+        let audio: Vec<_> = (0..2).map(|_| CAPACITY.reserve(true).unwrap()).collect();
+        assert!(CAPACITY.reserve(true).is_err());
+        drop(regular.pop());
+        let replacement = CAPACITY.reserve(false).unwrap();
+        drop((regular, audio, replacement));
+        assert_eq!(CAPACITY.active.load(Ordering::Acquire), 0);
+        assert_eq!(CAPACITY.regular.load(Ordering::Acquire), 0);
     }
 }

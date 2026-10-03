@@ -15,6 +15,15 @@ pub struct PreviewKey {
     /// included in content. Delivery transforms never enter presentation keys.
     pub view: u32,
 }
+/// One latest demand per viewer. Background preparation never replaces that
+/// viewer's foreground demand; it occupies a separate bounded demand slot.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PreviewDemand {
+    pub consumer: crate::workspace::PanelInstanceId,
+    pub generation: u64,
+    pub key: PreviewKey,
+    pub background: bool,
+}
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Selection {
     pub document: Option<fold_foundation::DocumentId>,
@@ -198,11 +207,13 @@ pub enum DesktopCommand {
 pub struct PreviewResult {
     pub key: PreviewKey,
     pub frame: Result<DisplayFrame, String>,
+    pub consumers: Vec<(crate::workspace::PanelInstanceId, u64)>,
 }
 #[cfg(feature = "gpu")]
 pub struct GpuPreviewResult {
     pub key: PreviewKey,
     pub frame: Result<crate::gpu::Display, String>,
+    pub consumers: Vec<(crate::workspace::PanelInstanceId, u64)>,
 }
 pub trait DesktopClient {
     #[cfg(feature = "gpu")]
@@ -212,6 +223,10 @@ pub trait DesktopClient {
         None
     }
     fn state(&self) -> &DesktopState;
+    /// On-demand diagnostics, not permanent artist-facing chrome.
+    fn resource_statistics(&self) -> String {
+        String::new()
+    }
     fn viewer_transport(
         &self,
         _viewer: crate::workspace::PanelInstanceId,
@@ -236,6 +251,9 @@ pub trait DesktopClient {
     }
     /// Monitoring errors are scoped to the explicitly monitored viewer.
     fn viewer_audio_error(&self, _viewer: crate::workspace::PanelInstanceId) -> Option<String> {
+        None
+    }
+    fn viewer_audio_underruns(&self, _viewer: crate::workspace::PanelInstanceId) -> Option<u64> {
         None
     }
     /// Immutable committed state, never a mutable project or device handle.
@@ -327,6 +345,16 @@ pub trait DesktopClient {
     fn poll(&mut self);
     fn command(&mut self, command: DesktopCommand);
     fn request_preview(&mut self, key: PreviewKey);
+    /// Atomically replace bounded per-consumer demand. Empty retires all demand.
+    /// The serial default keeps small clients compatible; the application owns
+    /// independent cancellation, fair selection and shared completion routing.
+    fn preview_demands(&mut self, demands: Vec<PreviewDemand>) {
+        if let Some(demand) = demands.first() {
+            self.request_preview(demand.key.clone());
+        } else {
+            self.cancel_preview();
+        }
+    }
     fn cancel_preview(&mut self);
     fn take_preview(&mut self) -> Option<PreviewResult>;
 }

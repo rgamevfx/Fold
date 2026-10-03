@@ -120,7 +120,7 @@ fn native_device_clock_seek_and_drift() {
         }
         std::thread::sleep(Duration::from_millis(2));
     }
-    assert!(playback.take_error().is_none());
+    assert_eq!(playback.take_error(), None);
     assert_eq!(
         playback.sample(),
         Some(u64::from(seconds) * u64::from(AUDIO_RATE))
@@ -157,6 +157,22 @@ fn native_device_clock_seek_and_drift() {
     playback.pause();
     assert!(!playback.playing());
     assert!(playback.sample().is_none());
+    // A marked review end must clip longer audio regions without invalidating
+    // their original source mapping or leaving the device clock at full length.
+    playback.play(snapshot.clone(), source.document, 5, 8);
+    let deadline = Instant::now() + Duration::from_secs(15);
+    while playback.playing() {
+        assert!(Instant::now() < deadline, "short review playback timeout");
+        std::thread::sleep(Duration::from_millis(2));
+    }
+    assert_eq!(playback.take_error(), None);
+    let short_end = info
+        .time(8)
+        .unwrap()
+        .to_ticks(AUDIO_RATE, 1, Rounding::Ceil)
+        .unwrap() as u64;
+    assert_eq!(playback.sample(), Some(short_end));
+    playback.pause();
     drop(playback);
 
     // Exercise the application monitor service, not just the device wrapper.
