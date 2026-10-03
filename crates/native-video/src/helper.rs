@@ -405,7 +405,7 @@ impl Decoder {
 }
 fn run() -> Result<(), String> {
     let a: Vec<String> = std::env::args().collect();
-    if a.len() != 11 {
+    if a.len() != 12 || a[11] != "2" {
         return Err("native helper requires private socket/source/profile/UUID arguments".into());
     }
     let socket = UnixDatagram::bind(&a[2]).map_err(|e| e.to_string())?;
@@ -421,7 +421,7 @@ fn run() -> Result<(), String> {
     for (i, b) in uuid.iter_mut().enumerate() {
         *b = u8::from_str_radix(&a[9][i * 2..i * 2 + 2], 16).map_err(|_| "invalid UUID")?;
     }
-    let mut decoder = unsafe {
+    let open = || unsafe {
         Decoder::open(
             &a[3],
             uuid,
@@ -429,8 +429,10 @@ fn run() -> Result<(), String> {
             parse(5)?,
             [parse(6)?, parse(7)?],
             parse(8)?,
-        )?
+        )
     };
+    let mut decoders = [Some(open()?), None];
+    let mut ranges = fold_native_video::Ranges::default();
     socket
         .send(fold_native_video::READY_MESSAGE)
         .map_err(|e| e.to_string())?;
@@ -446,6 +448,11 @@ fn run() -> Result<(), String> {
         // Wall-clock attribution, including blocking host/driver calls. No
         // physical NVDEC/copy-engine GPU timing is inferred from these values.
         let begin = std::time::Instant::now();
+        let index = ranges.select(frame);
+        if decoders[index].is_none() {
+            decoders[index] = Some(open()?);
+        }
+        let decoder = decoders[index].as_mut().unwrap();
         unsafe {
             decoder.decode(frame)?;
         }
@@ -455,6 +462,7 @@ fn run() -> Result<(), String> {
             decoder.copy(fd, value(8), value(16))?;
         }
         let copy_ready_nanoseconds = begin.elapsed().as_nanos().min(u128::from(u64::MAX)) as u64;
+        ranges.complete(index, frame);
         socket
             .send(&fold_native_video::acknowledgment(
                 frame,

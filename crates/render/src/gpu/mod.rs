@@ -6,7 +6,9 @@ mod cache;
 pub use cache::PresentationCompressor;
 mod color;
 mod display;
+mod fusion;
 mod host;
+mod preparation;
 pub use display::Display;
 #[cfg(all(feature = "native-video", target_os = "linux"))]
 mod native_video;
@@ -31,10 +33,12 @@ pub struct Statistics {
     pub cpu_adapter_nodes: u32,
     pub cpu_adapter_nanoseconds: u128,
     pub compute_passes: u32,
+    pub fused_opacity_passes: u32,
     pub graph_prepare_nanoseconds: u128,
     pub evaluate_cpu_nanoseconds: u128,
     pub output_cpu_nanoseconds: u128,
     pub queue_submit_nanoseconds: u128,
+    pub graphics_queue_nanoseconds: u128,
     pub native_video_nodes: u32,
     pub resident_video_nodes: u32,
     pub vector_prepare_nanoseconds: u128,
@@ -42,6 +46,10 @@ pub struct Statistics {
     pub native_decode_nanoseconds: u128,
     /// Inclusive helper call intervals, not isolated GPU codec/copy timestamps.
     pub native_codec_call_nanoseconds: u64,
+    pub native_allocate_nanoseconds: u128,
+    pub native_submit_nanoseconds: u128,
+    pub native_seeks: u64,
+    pub native_forward_reuses: u64,
     pub native_copy_ready_nanoseconds: u64,
     pub native_gpu_local_copy_bytes: u64,
     pub native_pipe_bytes: u64,
@@ -422,6 +430,30 @@ impl Renderer {
         decoder: &mut fold_media::Decoder,
         cancel: &fold_media::Cancel,
     ) -> Result<GpuFrame, String> {
+        self.evaluate_admitted(graph, config, decoder, cancel, None)
+    }
+
+    /// Source preparation holds no graphics permit. Admission covers recording
+    /// and submission only; queued/held inputs retain their allocation leases.
+    pub fn evaluate_scheduled(
+        &mut self,
+        graph: RenderGraph,
+        config: Option<&fold_color::Config>,
+        decoder: &mut fold_media::Decoder,
+        cancel: &fold_media::Cancel,
+        class: crate::scheduling::Class,
+    ) -> Result<GpuFrame, String> {
+        self.evaluate_admitted(graph, config, decoder, cancel, Some(class))
+    }
+
+    fn evaluate_admitted(
+        &mut self,
+        graph: RenderGraph,
+        config: Option<&fold_color::Config>,
+        decoder: &mut fold_media::Decoder,
+        cancel: &fold_media::Cancel,
+        class: Option<crate::scheduling::Class>,
+    ) -> Result<GpuFrame, String> {
         cancel.check()?;
         self.host.poll()?;
         // Retained inputs are expendable under host pressure; displayed and
@@ -439,8 +471,23 @@ impl Renderer {
         let aces = config.is_some();
         graph::validate(&graph, aces)?;
         let processors = graph::input_processors(&graph, config)?;
-        let (needed, mut uses) = graph::dependencies(&graph);
+        let (mut needed, mut uses) = graph::dependencies(&graph);
+        let fused = fusion::opacity_over(&graph, &mut needed, &mut uses);
         let prepare_nanoseconds = evaluate_begin.elapsed().as_nanos();
+        let mut stats = Statistics {
+            graph_prepare_nanoseconds: prepare_nanoseconds,
+            ..Default::default()
+        };
+        let mut video = if aces {
+            self.prepare_video(&graph, &needed, decoder, cancel, &mut stats)?
+        } else {
+            Vec::new()
+        };
+        let begin = std::time::Instant::now();
+        let _permit = class
+            .map(|class| crate::scheduling::Scheduler::shared().enter(class, cancel))
+            .transpose()?;
+        stats.graphics_queue_nanoseconds = begin.elapsed().as_nanos();
         let dimensions = [graph.width, graph.height];
         // At most two parameter buffers per reachable node (separable blur).
         // Reserve before recording so even a long graph is aggregate bounded.
@@ -460,11 +507,7 @@ impl Renderer {
             .create_command_encoder(&Default::default());
         let status = validation::Status::new(&self.host)?;
         status.start(&mut encoder);
-        let mut stats = Statistics {
-            graph_prepare_nanoseconds: prepare_nanoseconds,
-            status_readback_bytes: status.readback_bytes(),
-            ..Default::default()
-        };
+        stats.status_readback_bytes = status.readback_bytes();
         for (id, op) in graph.nodes.iter().enumerate() {
             if !needed[id] {
                 continue;
@@ -482,13 +525,13 @@ impl Renderer {
                 header: [0, graph.width, graph.height, u32::from(aces)],
                 ..Default::default()
             };
-            let mut inputs = op.inputs();
-            let first = inputs
-                .next()
-                .map_or(&dummy, |i| frames[i].as_ref().unwrap());
-            let second = inputs
-                .next()
-                .map_or(&dummy, |i| frames[i].as_ref().unwrap());
+            let mut logical_inputs = op.inputs();
+            let mut inputs = [logical_inputs.next(), logical_inputs.next()];
+            if let Some((input, _)) = fused[id] {
+                inputs[0] = Some(input);
+            }
+            let first = inputs[0].map_or(&dummy, |i| frames[i].as_ref().unwrap());
+            let second = inputs[1].map_or(&dummy, |i| frames[i].as_ref().unwrap());
             let mut compute = true;
             match op {
                 ImageOp::Solid { rgba } => {
@@ -502,7 +545,15 @@ impl Renderer {
                     params.header[0] = 1;
                     params.color[0] = *opacity;
                 }
-                ImageOp::Over { .. } => params.header[0] = 2,
+                ImageOp::Over { .. } => {
+                    if let Some((_, opacity)) = fused[id] {
+                        params.header[0] = 9;
+                        params.color[0] = opacity;
+                        stats.fused_opacity_passes += 1;
+                    } else {
+                        params.header[0] = 2;
+                    }
+                }
                 ImageOp::Crop { rect, .. } => {
                     params.header[0] = 3;
                     params.rect = *rect;
@@ -569,9 +620,7 @@ impl Renderer {
                     stats.compute_passes += 1;
                     compute = false;
                 }
-                ImageOp::Video { source, time } | ImageOp::VideoInput { source, time, .. }
-                    if aces =>
-                {
+                ImageOp::Video { .. } | ImageOp::VideoInput { .. } if aces => {
                     stats.native_video_nodes += 1;
                     let encoded = match scratch.pop() {
                         Some(image) => image,
@@ -581,27 +630,9 @@ impl Renderer {
                             image
                         }
                     };
-                    if decoder.backend() == fold_media::DecodeBackend::CudaNative {
+                    match video[id].take().ok_or("missing prepared video input")? {
                         #[cfg(all(feature = "native-video", target_os = "linux"))]
-                        {
-                            let begin = std::time::Instant::now();
-                            if self.native_video.is_none() {
-                                self.native_video = Some(native_video::NativeVideo::new()?);
-                            }
-                            let native = self.native_video.as_mut().unwrap();
-                            let before = native.statistics();
-                            let input = native.decode(&self.host, source, *time, cancel)?;
-                            let after = native.statistics();
-                            stats.native_codec_call_nanoseconds += after
-                                .codec_call_nanoseconds
-                                .saturating_sub(before.codec_call_nanoseconds);
-                            stats.native_copy_ready_nanoseconds += after
-                                .copy_ready_nanoseconds
-                                .saturating_sub(before.copy_ready_nanoseconds);
-                            stats.native_gpu_local_copy_bytes += after
-                                .gpu_local_copy_bytes
-                                .saturating_sub(before.gpu_local_copy_bytes);
-                            stats.native_decode_nanoseconds += begin.elapsed().as_nanos();
+                        preparation::Video::Native(input) => {
                             stats.resident_video_nodes += 1;
                             buffers.push(input.reservation.clone());
                             let begin = std::time::Instant::now();
@@ -615,25 +646,17 @@ impl Renderer {
                             )?;
                             stats.native_upload_encode_nanoseconds += begin.elapsed().as_nanos();
                         }
-                        #[cfg(not(all(feature = "native-video", target_os = "linux")))]
-                        return Err(
-                            "native NVDEC support is not enabled in this build/platform".into()
-                        );
-                    } else {
-                        let begin = std::time::Instant::now();
-                        let before = decoder.statistics().pipe_bytes;
-                        let frame = decoder.decode_native(source, *time, cancel)?;
-                        stats.native_decode_nanoseconds += begin.elapsed().as_nanos();
-                        stats.native_pipe_bytes += decoder.statistics().pipe_bytes - before;
-                        let begin = std::time::Instant::now();
-                        stats.upload_bytes += self.yuv.encode(
-                            &self.host,
-                            &mut encoder,
-                            &frame,
-                            &encoded,
-                            &mut buffers,
-                        )?;
-                        stats.native_upload_encode_nanoseconds += begin.elapsed().as_nanos();
+                        preparation::Video::Planes(frame) => {
+                            let begin = std::time::Instant::now();
+                            stats.upload_bytes += self.yuv.encode(
+                                &self.host,
+                                &mut encoder,
+                                &frame,
+                                &encoded,
+                                &mut buffers,
+                            )?;
+                            stats.native_upload_encode_nanoseconds += begin.elapsed().as_nanos();
+                        }
                     }
                     let space = match op {
                         ImageOp::VideoInput { space, .. } => space.as_str(),
@@ -829,7 +852,7 @@ impl Renderer {
                 stats.compute_passes += 1;
             }
             frames[id] = Some(output);
-            for input in op.inputs() {
+            for input in inputs.into_iter().flatten() {
                 uses[input] -= 1;
                 if uses[input] == 0 {
                     scratch.push(frames[input].take().unwrap());

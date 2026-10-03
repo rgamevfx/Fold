@@ -23,6 +23,38 @@ mod tests;
 mod compression;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+fn realtime_next(
+    key: &PreviewKey,
+    transport: &fold_platform::desktop::ViewerTransport,
+    rate: [u32; 2],
+    frames: u32,
+) -> Option<PreviewKey> {
+    if !transport.playing
+        || transport.mode != fold_platform::desktop::PlaybackMode::RealTime
+        || frames == 0
+    {
+        return None;
+    }
+    let (start, end) = transport.range.bounds(frames);
+    let frame = if key.frame >= end {
+        if transport.looping {
+            start
+        } else {
+            return None;
+        }
+    } else {
+        key.frame + 1
+    };
+    let (document, _) = key.target?;
+    Some(PreviewKey {
+        frame,
+        target: Some((
+            document,
+            fold_foundation::Time::new(i64::from(frame) * i64::from(rate[1]), rate[0]).ok()?,
+        )),
+        ..key.clone()
+    })
+}
 struct Texture {
     registration: ExternalTextureId,
     _texture: wgpu::Texture,
@@ -65,6 +97,8 @@ pub(crate) struct PreviewHost {
     held: BTreeMap<PanelInstanceId, PreviewKey>,
     failures: Vec<(PreviewKey, String)>,
     #[cfg(feature = "native-probe")]
+    pub probe_records: Vec<String>,
+    #[cfg(feature = "native-probe")]
     pub probe_upload: Option<(std::time::Instant, std::time::Instant, usize)>,
 }
 impl PreviewHost {
@@ -90,6 +124,8 @@ impl PreviewHost {
             failures: vec![],
             #[cfg(feature = "native-probe")]
             probe_upload: None,
+            #[cfg(feature = "native-probe")]
+            probe_records: Vec::new(),
         }
     }
     pub fn attach_host(&mut self, host: &fold_platform::gpu::Host) {
@@ -177,13 +213,17 @@ impl PreviewHost {
         self.update_reviews(client);
         self.send_demands(client);
     }
+    fn preparing_or_resident(&self, key: &PreviewKey) -> bool {
+        self.cache.peek(key).is_some()
+            || (self.pending.is_some() && self.result_key.as_ref() == Some(key))
+    }
     fn send_demands(&mut self, client: &mut dyn DesktopClient) {
         let mut missing: Vec<_> = self
             .demands
             .iter()
             .filter(|(id, key)| {
                 !self.reviews.get(id).is_some_and(|plan| plan.cached_playing)
-                    && self.cache.peek(key).is_none()
+                    && !self.preparing_or_resident(key)
                     && !self.failures.iter().any(|(failed, _)| failed == *key)
             })
             .map(|(&id, key)| PreviewDemand {
@@ -193,6 +233,44 @@ impl PreviewHost {
                 background: false,
             })
             .collect();
+        // Up to six fresh frames ahead of the clock, only after its current
+        // frame is resident or already submitted. This bounded pipeline is separate
+        // from explicit range review.
+        // Present_viewer still rejects early frames and retired generations.
+        for (&id, key) in &self.demands {
+            if !self.preparing_or_resident(key)
+                || self.reviews.get(&id).is_some_and(|p| p.cached_playing)
+            {
+                continue;
+            }
+            let Some(transport) = client.viewer_transport(id) else {
+                continue;
+            };
+            if !transport.playing
+                || transport.mode != fold_platform::desktop::PlaybackMode::RealTime
+            {
+                continue;
+            }
+            let state = client.preview_state(&transport.output, transport.time);
+            let mut ahead = key.clone();
+            for _ in 0..6 {
+                let Some(next) = realtime_next(&ahead, &transport, state.rate, state.frames) else {
+                    break;
+                };
+                if !self.preparing_or_resident(&next)
+                    && !self.failures.iter().any(|(failed, _)| failed == &next)
+                {
+                    missing.push(PreviewDemand {
+                        consumer: id,
+                        generation: self.generations[&id],
+                        key: next,
+                        background: false,
+                    });
+                    break;
+                }
+                ahead = next;
+            }
+        }
         for (&id, plan) in &mut self.reviews {
             if let Some(key) = plan.next(|key| self.cache.peek(key).is_some()) {
                 if let Some((_, error)) = self.failures.iter().find(|(failed, _)| failed == &key) {
@@ -412,11 +490,21 @@ impl PreviewHost {
         }
     }
     fn evict_unused(&mut self) -> Option<Texture> {
-        self.cache.evict(|key, texture| {
+        let unused = |key: &PreviewKey, texture: &Texture| {
             (self.consumers.is_empty() && Some(key) != self.displayed.as_ref()
                 || !self.consumers.is_empty() && !self.consumers.contains(key))
                 && !self.held.values().any(|held| held == key)
                 && texture.in_flight.load(Ordering::Acquire) == 0
+        };
+        let outside_review = self.cache.evict(|key, texture| {
+            unused(key, texture) && !self.reviews.values().any(|plan| plan.preparing_key(key))
+        });
+        // Preparation must not evict an earlier resident frame in its own range.
+        // Foreground pressure may interrupt that promise, never block interaction.
+        outside_review.or_else(|| {
+            (!self.admitted.is_empty())
+                .then(|| self.cache.evict(unused))
+                .flatten()
         })
     }
     pub fn poll(
@@ -429,9 +517,32 @@ impl PreviewHost {
         #[cfg(feature = "native-probe")]
         {
             self.probe_upload = None;
+            self.probe_records.clear();
         }
         let _ = device.poll(wgpu::PollType::Poll);
-        self.poll_compression(renderer)?;
+        let playing = self.demands.keys().any(|&id| {
+            client
+                .viewer_transport(id)
+                .is_some_and(|transport| transport.playing)
+        });
+        self.poll_compression(renderer, !playing)?;
+        // One host-pending frame and one worker result can already be ready.
+        // Drain both without imposing another UI refresh interval on the worker.
+        for _ in 0..2 {
+            if !self.poll_result(client, device, queue, renderer)? {
+                break;
+            }
+        }
+        Ok(())
+    }
+    fn poll_result(
+        &mut self,
+        client: &mut dyn DesktopClient,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        renderer: &mut WgpuRenderer,
+    ) -> Result<bool> {
+        client.begin_preview_update();
         if self.pending.is_none() {
             if let Some(result) = client.take_preview() {
                 self.admitted = result.consumers.into_iter().collect();
@@ -456,6 +567,10 @@ impl PreviewHost {
                 }
             }
         }
+        // A submitted result owns its leases while decode of the next demand
+        // runs. Readiness below remains mandatory before cache/presentation.
+        self.send_demands(client);
+        client.end_preview_update();
         if let Some(Prepared::Gpu(frame)) = self.pending.as_ref() {
             let readiness = if self.render_host == Some(frame.owner()) {
                 frame.is_ready()
@@ -463,7 +578,7 @@ impl PreviewHost {
                 Err("Preview texture belongs to a different GPU device".into())
             };
             match readiness {
-                Ok(false) => return Ok(()),
+                Ok(false) => return Ok(false),
                 Ok(true) => {}
                 Err(error) => {
                     if let Some(key) = &self.result_key {
@@ -471,7 +586,7 @@ impl PreviewHost {
                     }
                     self.pending = None;
                     self.state = Preview::Failed(error);
-                    return Ok(());
+                    return Ok(false);
                 }
             }
         }
@@ -483,7 +598,7 @@ impl PreviewHost {
             self.completed_frame(&key);
         }
         let Some(frame) = self.pending.as_ref() else {
-            return Ok(());
+            return Ok(false);
         };
         let [width, height] = frame.dimensions();
         let bytes = width as usize * height as usize * 4;
@@ -497,7 +612,7 @@ impl PreviewHost {
                 self.failures.push((key.clone(), error.clone()));
             }
             self.state = Preview::Failed(error);
-            return Ok(());
+            return Ok(false);
         }
         while self.cache.needs_room(bytes) {
             let old = self.evict_unused();
@@ -509,18 +624,24 @@ impl PreviewHost {
                     }
                     self.pending = None;
                 }
-                return Ok(());
+                return Ok(false);
             }; // Retry foreground after GPU completion, never wait on UI.
             renderer.unregister_external_texture(old.registration)?;
         }
         let frame = self.pending.take().unwrap();
         #[cfg(feature = "native-probe")]
         if let Prepared::Gpu(gpu) = &frame {
-            eprintln!(
-                "GPU preview: gpu_ms={:?} transfers={:?}",
+            self.probe_records.push(format!(
+                "GPU preview: frame={} owners={:?} unix_ms={} gpu_ms={:?} transfers={:?}",
+                self.result_key.as_ref().unwrap().frame,
+                self.admitted,
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_millis(),
                 gpu.gpu_nanoseconds()?.map(|v| v / 1e6),
                 gpu.statistics
-            );
+            ));
         }
         let size = wgpu::Extent3d {
             width,
@@ -592,9 +713,10 @@ impl PreviewHost {
         );
         self.completed_frame(&key);
         self.displayed = Some(key);
-        Ok(())
+        self.send_demands(client);
+        Ok(true)
     }
-    fn poll_compression(&mut self, renderer: &mut WgpuRenderer) -> Result<()> {
+    fn poll_compression(&mut self, renderer: &mut WgpuRenderer, idle: bool) -> Result<()> {
         let Some(compression) = &mut self.compression else {
             return Ok(());
         };
@@ -631,9 +753,9 @@ impl PreviewHost {
                 Err(error) => self.compression_error = Some(format!("RGBA8 retained: {error}")),
             }
         }
-        // Foreground misses/readiness get priority. Fill BC7 while paused or
-        // replaying resident frames, not ahead of an outstanding render demand.
-        if compression.can_accept() && !self.requested && self.pending.is_none() {
+        // A full lookahead is deadline headroom, not idle GPU time. Start cache
+        // compression only while paused; collect already submitted work above.
+        if idle && compression.can_accept() && !self.requested && self.pending.is_none() {
             for entry in self.cache.entries_mut() {
                 let texture = &mut entry.value;
                 if texture.compression_attempted

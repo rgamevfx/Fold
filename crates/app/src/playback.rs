@@ -24,6 +24,7 @@ struct Request {
     document: fold_foundation::DocumentId,
     frame: u32,
     end: u32,
+    loop_start: Option<u32>,
     generation: u64,
     cancel: Cancel,
 }
@@ -119,6 +120,26 @@ impl Playback {
         frame: u32,
         end: u32,
     ) {
+        self.play_range(snapshot, document, frame, end, None);
+    }
+    pub fn play_looping(
+        &mut self,
+        snapshot: CommittedSnapshot,
+        document: fold_foundation::DocumentId,
+        frame: u32,
+        loop_start: u32,
+        end: u32,
+    ) {
+        self.play_range(snapshot, document, frame, end, Some(loop_start));
+    }
+    fn play_range(
+        &mut self,
+        snapshot: CommittedSnapshot,
+        document: fold_foundation::DocumentId,
+        frame: u32,
+        end: u32,
+        loop_start: Option<u32>,
+    ) {
         self.pause();
         self.last_sample.store(0, Ordering::Release);
         self.cancel = Cancel::default();
@@ -130,6 +151,7 @@ impl Playback {
             document,
             frame,
             end,
+            loop_start,
             generation,
             cancel: self.cancel.clone(),
         });
@@ -221,7 +243,14 @@ fn silent_transport(
         }
         shared.audio_clock.store(false, Ordering::Release);
         shared.start.store(start, Ordering::Release);
-        shared.end.store(end, Ordering::Release);
+        shared.end.store(
+            if request.loop_start.is_some() {
+                i64::MAX as u64
+            } else {
+                end
+            },
+            Ordering::Release,
+        );
         shared.sample.store(start as i64, Ordering::Release);
         shared
             .stamp
@@ -229,18 +258,61 @@ fn silent_transport(
         shared.mode.store(2, Ordering::Release);
     }
     let duration = Duration::from_secs_f64((end - start) as f64 / f64::from(AUDIO_RATE));
-    while began.elapsed() < duration {
+    while request.loop_start.is_some() || began.elapsed() < duration {
         request.cancel.check()?;
         std::thread::sleep(Duration::from_millis(2));
     }
     Ok(())
 }
 
+// Derive every loop boundary from exact frame time rather than repeatedly
+// adding a rounded sample length (which would drift at 30000/1001 fps).
+#[derive(Clone, Copy)]
+struct LoopRange {
+    start: u64,
+    end: u64,
+    numerator: u128,
+    duration: u128,
+    denominator: u128,
+}
+impl LoopRange {
+    fn window(self, cursor: u64, limit: usize) -> (u64, usize) {
+        let cycle = (u128::from(cursor) * self.denominator - self.numerator) / self.duration;
+        let origin = (self.numerator + cycle * self.duration).div_ceil(self.denominator) as u64;
+        let boundary =
+            (self.numerator + (cycle + 1) * self.duration).div_ceil(self.denominator) as u64;
+        // Fractional boundaries can change a loop by one sample. Trim or repeat
+        // its final sample at the seam; never read outside the marked range.
+        let source = (self.start + cursor - origin).min(self.end - 1);
+        let count = (boundary - cursor).min(self.end - source).min(limit as u64);
+        (source, count as usize)
+    }
+}
+// The ring/device cursor remains monotonic. Only the source-plan position wraps.
+fn source_window(
+    cursor: u64,
+    end: u64,
+    loop_range: Option<LoopRange>,
+    limit: usize,
+) -> (u64, usize) {
+    match loop_range {
+        Some(range) => range.window(cursor, limit),
+        None => {
+            let source = cursor.min(end);
+            (source, (end - source).min(limit as u64) as usize)
+        }
+    }
+}
+
 fn run(shared: &Arc<Shared>, request: &Request, decoder: &mut AudioDecoder) -> Result<(), String> {
     let registry = crate::packages::builtins();
     let info = registry.output(&request.snapshot, request.document)?;
     let end_frame = request.end.min(info.frames);
-    if request.frame >= end_frame {
+    if request.frame >= end_frame
+        || request
+            .loop_start
+            .is_some_and(|start| start > request.frame || start >= end_frame)
+    {
         return Err("play position outside marked range".into());
     }
     let sample = |frame| {
@@ -251,6 +323,25 @@ fn run(shared: &Arc<Shared>, request: &Request, decoder: &mut AudioDecoder) -> R
     };
     let start = sample(request.frame)?;
     let end = sample(end_frame)?;
+    let loop_start = request.loop_start.map(sample).transpose()?;
+    if loop_start.is_some_and(|value| value >= end || value > start) {
+        return Err("invalid audio loop range".into());
+    }
+    let scale = u128::from(AUDIO_RATE) * u128::from(info.rate[1]);
+    let loop_range = loop_start
+        .zip(request.loop_start)
+        .map(|(start, frame)| LoopRange {
+            start,
+            end,
+            numerator: u128::from(frame) * scale,
+            duration: u128::from(end_frame - frame) * scale,
+            denominator: u128::from(info.rate[0]),
+        });
+    let clock_end = if loop_start.is_some() {
+        i64::MAX as u64
+    } else {
+        end
+    };
     if !registry.supports_audio(&request.snapshot, request.document) {
         return silent_transport(shared, request, start, end);
     }
@@ -288,20 +379,23 @@ fn run(shared: &Arc<Shared>, request: &Request, decoder: &mut AudioDecoder) -> R
     };
     let (mut producer, consumer) = rtrb::RingBuffer::<(u64, [f32; 2])>::new(AUDIO_RATE as usize);
     let mut next = start;
-    let count = (plan.end - next).min(24_000) as usize;
-    let prime = {
+    let mut remaining = (clock_end - start).min(24_000) as usize;
+    {
         let _permit = fold_render::scheduling::Scheduler::shared()
             .enter(fold_render::scheduling::Class::Audio, &request.cancel)?;
-        plan.evaluate(next, count, decoder, &request.cancel)?
-    };
-    for frame in prime {
-        producer
-            .push((next, frame))
-            .map_err(|_| "audio prime ring full")?;
-        next += 1;
+        while remaining > 0 {
+            let (source, count) = source_window(next, end, loop_range, remaining);
+            for frame in plan.evaluate(source, count, decoder, &request.cancel)? {
+                producer
+                    .push((next, frame))
+                    .map_err(|_| "audio prime ring full")?;
+                next += 1;
+            }
+            remaining -= count;
+        }
     }
     shared.start.store(start, Ordering::Release);
-    shared.end.store(plan.end, Ordering::Release);
+    shared.end.store(clock_end, Ordering::Release);
     shared.device_error.store(false, Ordering::Release);
     shared.sample.store(start as i64, Ordering::Release);
     shared
@@ -315,7 +409,7 @@ fn run(shared: &Arc<Shared>, request: &Request, decoder: &mut AudioDecoder) -> R
     let mut callback = output::AudioOutput {
         consumer,
         cursor: start,
-        end: plan.end,
+        end: clock_end,
     };
     let stream = device
         .build_output_stream(
@@ -375,17 +469,17 @@ fn run(shared: &Arc<Shared>, request: &Request, decoder: &mut AudioDecoder) -> R
             return Err("audio output device failed".into());
         }
         let audible = shared.sample.load(Ordering::Acquire);
-        if audible >= plan.end as i64 {
+        if audible >= clock_end as i64 {
             break;
         }
         // Don't enqueue audio whose presentation deadline has passed.
-        next = next.max(needed.load(Ordering::Acquire)).min(plan.end);
-        let count = (plan.end - next).min(4096) as usize;
+        next = next.max(needed.load(Ordering::Acquire)).min(clock_end);
+        let (source, count) = source_window(next, end, loop_range, 4096);
         if count > 0 && producer.slots() >= count {
             let block = {
                 let _permit = fold_render::scheduling::Scheduler::shared()
                     .enter(fold_render::scheduling::Class::Audio, &request.cancel)?;
-                plan.evaluate(next, count, decoder, &request.cancel)?
+                plan.evaluate(source, count, decoder, &request.cancel)?
             };
             for frame in block {
                 producer

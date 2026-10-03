@@ -3,7 +3,7 @@
 ## Goal
 
 Scaffold the Rust workspace described in sections 3, 16, and 17 of
-`Fold_Application_Product_Architecture.docx`, without implementing later phases.
+`Fold_Application_Product_Architecture.md`, without implementing later phases.
 
 ## Tasks
 

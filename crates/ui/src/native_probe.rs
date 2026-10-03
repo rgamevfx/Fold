@@ -11,11 +11,17 @@ use std::{
 };
 
 pub(crate) struct Sample {
+    pub gpu_records: Vec<String>,
     pub frame: Option<u32>,
     pub ready: bool,
     pub start_ms: f64,
     pub acquire_ms: f64,
     pub draw_ms: f64,
+    pub client_poll_ms: f64,
+    pub controls_ms: f64,
+    pub preview_ms: f64,
+    pub viewers_ms: f64,
+    pub ui_encode_ms: f64,
     pub submit_ms: f64,
     pub submitted_ms: f64,
     pub present_ms: f64,
@@ -152,8 +158,10 @@ impl Probe {
         }
         let samples: Vec<_> = self.samples.iter().map(|s| {
             let ns = s.completion_ns.load(Ordering::Acquire);
-            serde_json::json!({"frame": s.frame, "ready": s.ready,
+            serde_json::json!({"gpu_records": s.gpu_records, "frame": s.frame, "ready": s.ready,
                 "start_ms": s.start_ms, "acquire_ms": s.acquire_ms, "draw_ms": s.draw_ms,
+                "client_poll_ms":s.client_poll_ms, "controls_ms":s.controls_ms,
+                "preview_ms":s.preview_ms, "viewers_ms":s.viewers_ms, "ui_encode_ms":s.ui_encode_ms,
                 "submit_ms": s.submit_ms, "present_call_ms": s.present_ms,
                 "submitted_ms": s.submitted_ms,
                 "submit_to_completion_observed_ms": if ns == 0 { None } else { Some(ns as f64 / 1e6 - s.submitted_ms) },

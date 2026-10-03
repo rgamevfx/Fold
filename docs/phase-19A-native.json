@@ -1,0 +1,2069 @@
+{
+  "reference": "GTX 1070, full-quality 1920x1080 30 fps, two videos/title/stereo audio",
+  "gpu_logical_budget_bytes": 1073741824,
+  "presentation_cache_bytes": 268435456,
+  "limitations": [
+    "Admissions and present calls, not physical scanout.",
+    "Host timing includes waits; not isolated GPU codec execution.",
+    "RSS/driver/scratch are sampled peaks.",
+    "No ten-minute drift or clean-machine certification."
+  ],
+  "runs": [
+    {
+      "passed": true,
+      "failures": [],
+      "phases": [
+        {
+          "phase": 1,
+          "seconds": 30.003131699,
+          "admissions": [
+            900,
+            1
+          ],
+          "gaps": [
+            0,
+            0
+          ],
+          "ui_p95_ms": 6.541154000000001,
+          "real_time_fps": 29.99686862788383,
+          "redraws_per_second": 63.493371929020775,
+          "redraw_interval_p95_ms": 16.983869000003324,
+          "host_stage_p95_ms": {
+            "client_poll_ms": 0.002576,
+            "controls_ms": 0.767371,
+            "preview_ms": 2.373608,
+            "viewers_ms": 0.546133,
+            "ui_encode_ms": 0.245861,
+            "submit_ms": 0.563749
+          }
+        },
+        {
+          "phase": 2,
+          "seconds": 12.304762913,
+          "admissions": [
+            369,
+            180
+          ],
+          "gaps": [
+            0,
+            0
+          ],
+          "ui_p95_ms": 15.114158000000002,
+          "real_time_fps": 29.988387635665127,
+          "redraws_per_second": 69.6478271104743,
+          "redraw_interval_p95_ms": 16.994284999993397,
+          "host_stage_p95_ms": {
+            "client_poll_ms": 0.004406,
+            "controls_ms": 0.915839,
+            "preview_ms": 3.035353,
+            "viewers_ms": 0.595751,
+            "ui_encode_ms": 2.9705980000000003,
+            "submit_ms": 0.9019539999999999
+          }
+        }
+      ],
+      "warm_seeks_ms": [
+        8.456218999999999,
+        24.797983,
+        16.585292000000003
+      ],
+      "exports": [
+        {
+          "frames": 150,
+          "kind": "export",
+          "through_completion_observed_seconds": 12.304889673
+        }
+      ],
+      "raw_directory": "/tmp/fold-19a-final-1",
+      "files_sha256": {
+        "fixture.fold": "498ed896bfb5343c16f702e41f19ff0280b3804772a6b2bf44d41bb21e7654a1",
+        "run.log": "032524264fa1f83065dd53d21556cafa4c58b1acab10dfea5b374666061d9181",
+        "rss.json": "56bc8155f88e3490f4182e92dbd9d47e0909defaade1dc99822b516da4f4c2f0",
+        "report.json": "20f2103c3106585950d6d3f703350ee9a680f1a5fd5f05d2c53f4c8ce079122b"
+      },
+      "resources": {
+        "command": [
+          "target/release/fold-desktop",
+          "--project",
+          "/tmp/fold-19a-drain/fixture.fold"
+        ],
+        "exit_code": 0,
+        "timed_out": false,
+        "wall_seconds": 51.42527290401631,
+        "samples": 597,
+        "sampled_tree_rss_bytes": 1599447040,
+        "sampled_scratch_bytes": 102657619,
+        "sampled_gpu_process_bytes": 2139095040,
+        "gpu_samples": 50,
+        "gpu_error": null,
+        "nominal_gpu_sample_interval_ms": 1000,
+        "nominal_sample_interval_ms": 50
+      },
+      "phase_resources": [
+        {
+          "admissions": [
+            41,
+            1
+          ],
+          "audio_errors": [
+            null,
+            null
+          ],
+          "cache": "GPU RGBA8/BC7 cache: 253.1/256 MiB | hits 31 | misses 16 | displayed frame Some(51) | BC7 enabled",
+          "max_observed_underrun_callbacks": [
+            0,
+            null
+          ],
+          "phase": 0,
+          "resources": "Demand 0/128 \u00b7 execution queue 0 (peak 1) \u00b7 jobs 0/2 \u00b7 pressure retries 0\nDecoded CPU 0.0/256 MiB (peak 0.0) \u00b7 pipe 0.0/64 MiB\nSource copies 61.5/4096 MiB \u00b7 PCM disk 11.0/512 MiB \u00b7 WAVE scratch 0.0/512 MiB\nHistory 1 roots \u00b7 2 external handles \u00b7 0.0 MiB unique payload (excludes metadata/allocator)\nShared GPU 482.2/1024.0 MiB (peak 482.2) \u00b7 working 158.2 \u00b7 presentation 261.0 \u00b7 decoded 62.3 \u00b7 geometry 0.6 \u00b7 scratch 0.0\nCPU working 0.0/512 MiB \u00b7 output 0.0/64 MiB \u00b7 delivery scratch 0.0/4096 MiB + PCM 0.0/256 MiB",
+          "seconds": 5.003602516,
+          "skipped_between_admissions": [
+            6,
+            0
+          ]
+        },
+        {
+          "admissions": [
+            900,
+            1
+          ],
+          "audio_errors": [
+            null,
+            null
+          ],
+          "cache": "GPU RGBA8/BC7 cache: 253.1/256 MiB | hits 929 | misses 16 | displayed frame Some(51) | BC7 enabled",
+          "max_observed_underrun_callbacks": [
+            0,
+            null
+          ],
+          "phase": 1,
+          "resources": "Demand 0/128 \u00b7 execution queue 0 (peak 1) \u00b7 jobs 0/2 \u00b7 pressure retries 0\nDecoded CPU 0.0/256 MiB (peak 0.0) \u00b7 pipe 0.0/64 MiB\nSource copies 61.5/4096 MiB \u00b7 PCM disk 11.0/512 MiB \u00b7 WAVE scratch 0.0/512 MiB\nHistory 1 roots \u00b7 2 external handles \u00b7 0.0 MiB unique payload (excludes metadata/allocator)\nShared GPU 490.1/1024.0 MiB (peak 490.1) \u00b7 working 158.2 \u00b7 presentation 268.9 \u00b7 decoded 62.3 \u00b7 geometry 0.6 \u00b7 scratch 0.0\nCPU working 0.0/512 MiB \u00b7 output 0.0/64 MiB \u00b7 delivery scratch 0.0/4096 MiB + PCM 0.0/256 MiB",
+          "seconds": 30.003131699,
+          "skipped_between_admissions": [
+            0,
+            0
+          ]
+        },
+        {
+          "admissions": [
+            369,
+            180
+          ],
+          "audio_errors": [
+            null,
+            null
+          ],
+          "cache": "GPU RGBA8/BC7 cache: 253.1/256 MiB | hits 1379 | misses 115 | displayed frame Some(420) | BC7 enabled",
+          "max_observed_underrun_callbacks": [
+            0,
+            null
+          ],
+          "phase": 2,
+          "resources": "Demand 0/128 \u00b7 execution queue 0 (peak 2) \u00b7 jobs 0/2 \u00b7 pressure retries 0\nDecoded CPU 0.0/256 MiB (peak 0.0) \u00b7 pipe 0.0/64 MiB\nSource copies 61.5/4096 MiB \u00b7 PCM disk 11.0/512 MiB \u00b7 WAVE scratch 0.0/512 MiB\nHistory 2 roots \u00b7 3 external handles \u00b7 0.0 MiB unique payload (excludes metadata/allocator)\nShared GPU 656.2/1024.0 MiB (peak 727.1) \u00b7 working 316.4 \u00b7 presentation 276.9 \u00b7 decoded 62.3 \u00b7 geometry 0.6 \u00b7 scratch 0.0\nCPU working 0.0/512 MiB \u00b7 output 0.0/64 MiB \u00b7 delivery scratch 0.0/4096 MiB + PCM 0.0/256 MiB",
+          "seconds": 12.304762913,
+          "skipped_between_admissions": [
+            0,
+            0
+          ]
+        },
+        {
+          "admissions": [
+            7,
+            2
+          ],
+          "audio_errors": [
+            null,
+            null
+          ],
+          "cache": "GPU RGBA8/BC7 cache: 253.1/256 MiB | hits 1381 | misses 118 | displayed frame Some(5) | RGBA8 retained: BC7 quality threshold exceeded; retain RGBA8",
+          "max_observed_underrun_callbacks": [
+            0,
+            null
+          ],
+          "phase": 3,
+          "resources": "Demand 0/128 \u00b7 execution queue 0 (peak 2) \u00b7 jobs 0/2 \u00b7 pressure retries 0\nDecoded CPU 0.0/256 MiB (peak 0.0) \u00b7 pipe 0.0/64 MiB\nSource copies 61.5/4096 MiB \u00b7 PCM disk 11.0/512 MiB \u00b7 WAVE scratch 0.0/512 MiB\nHistory 2 roots \u00b7 2 external handles \u00b7 0.0 MiB unique payload (excludes metadata/allocator)\nShared GPU 660.2/1024.0 MiB (peak 727.1) \u00b7 working 316.4 \u00b7 presentation 278.8 \u00b7 decoded 62.3 \u00b7 geometry 0.6 \u00b7 scratch 2.0\nCPU working 0.0/512 MiB \u00b7 output 0.0/64 MiB \u00b7 delivery scratch 0.0/4096 MiB + PCM 0.0/256 MiB",
+          "seconds": 0.345537568,
+          "skipped_between_admissions": [
+            0,
+            0
+          ]
+        },
+        {
+          "admissions": [
+            2,
+            1
+          ],
+          "audio_errors": [
+            null,
+            null
+          ],
+          "cache": "GPU RGBA8/BC7 cache: 253.1/256 MiB | hits 1381 | misses 119 | displayed frame Some(29) | RGBA8 retained: BC7 quality threshold exceeded; retain RGBA8",
+          "max_observed_underrun_callbacks": [
+            0,
+            null
+          ],
+          "phase": 4,
+          "resources": "Demand 0/128 \u00b7 execution queue 0 (peak 2) \u00b7 jobs 0/2 \u00b7 pressure retries 0\nDecoded CPU 0.0/256 MiB (peak 0.0) \u00b7 pipe 0.0/64 MiB\nSource copies 61.5/4096 MiB \u00b7 PCM disk 11.0/512 MiB \u00b7 WAVE scratch 0.0/512 MiB\nHistory 2 roots \u00b7 2 external handles \u00b7 0.0 MiB unique payload (excludes metadata/allocator)\nShared GPU 658.2/1024.0 MiB (peak 727.1) \u00b7 working 316.4 \u00b7 presentation 278.8 \u00b7 decoded 62.3 \u00b7 geometry 0.6 \u00b7 scratch 0.0\nCPU working 0.0/512 MiB \u00b7 output 0.0/64 MiB \u00b7 delivery scratch 0.0/4096 MiB + PCM 0.0/256 MiB",
+          "seconds": 0.761529185,
+          "skipped_between_admissions": [
+            0,
+            0
+          ]
+        },
+        {
+          "admissions": [
+            29,
+            1
+          ],
+          "audio_errors": [
+            null,
+            null
+          ],
+          "cache": "GPU RGBA8/BC7 cache: 253.1/256 MiB | hits 1408 | misses 119 | displayed frame Some(29) | RGBA8 retained: BC7 quality threshold exceeded; retain RGBA8",
+          "max_observed_underrun_callbacks": [
+            0,
+            null
+          ],
+          "phase": 5,
+          "resources": "Demand 0/128 \u00b7 execution queue 0 (peak 2) \u00b7 jobs 0/2 \u00b7 pressure retries 0\nDecoded CPU 0.0/256 MiB (peak 0.0) \u00b7 pipe 0.0/64 MiB\nSource copies 61.5/4096 MiB \u00b7 PCM disk 11.0/512 MiB \u00b7 WAVE scratch 0.0/512 MiB\nHistory 2 roots \u00b7 2 external handles \u00b7 0.0 MiB unique payload (excludes metadata/allocator)\nShared GPU 660.2/1024.0 MiB (peak 727.1) \u00b7 working 316.4 \u00b7 presentation 278.8 \u00b7 decoded 62.3 \u00b7 geometry 0.6 \u00b7 scratch 2.0\nCPU working 0.0/512 MiB \u00b7 output 0.0/64 MiB \u00b7 delivery scratch 0.0/4096 MiB + PCM 0.0/256 MiB",
+          "seconds": 1.524347177,
+          "skipped_between_admissions": [
+            1,
+            0
+          ]
+        }
+      ],
+      "events": [
+        {
+          "at_ms": 380.242352,
+          "kind": "phase",
+          "phase": 0
+        },
+        {
+          "at_ms": 5384.012093,
+          "kind": "phase",
+          "phase": 1
+        },
+        {
+          "at_ms": 35387.477387,
+          "kind": "phase",
+          "phase": 2
+        },
+        {
+          "frames": 150,
+          "kind": "export",
+          "through_completion_observed_seconds": 12.304889673
+        },
+        {
+          "at_ms": 47692.413973,
+          "kind": "phase",
+          "phase": 3
+        },
+        {
+          "frame": 4,
+          "kind": "seek",
+          "through_present_call_ms": 233.014731,
+          "warm_repeat": false
+        },
+        {
+          "frame": 5,
+          "kind": "seek",
+          "through_present_call_ms": 38.860334,
+          "warm_repeat": false
+        },
+        {
+          "frame": 6,
+          "kind": "seek",
+          "through_present_call_ms": 23.806887999999997,
+          "warm_repeat": false
+        },
+        {
+          "frame": 4,
+          "kind": "seek",
+          "through_present_call_ms": 8.456218999999999,
+          "warm_repeat": true
+        },
+        {
+          "frame": 5,
+          "kind": "seek",
+          "through_present_call_ms": 24.797983,
+          "warm_repeat": true
+        },
+        {
+          "frame": 6,
+          "kind": "seek",
+          "through_present_call_ms": 16.585292000000003,
+          "warm_repeat": true
+        },
+        {
+          "at_ms": 48038.168952,
+          "kind": "phase",
+          "phase": 4
+        },
+        {
+          "at_ms": 48799.853513,
+          "kind": "phase",
+          "phase": 5
+        },
+        {
+          "kind": "review_seek_interrupted"
+        }
+      ],
+      "whole_run_transfer_and_host_timing_totals": {
+        "GPU export": {
+          "frames": 150,
+          "totals": {
+            "upload_bytes": 12652480,
+            "lut_upload_bytes": 0,
+            "readback_bytes": 1244160000,
+            "status_readback_bytes": 7200,
+            "cpu_adapter_nodes": 0,
+            "cpu_adapter_nanoseconds": 0,
+            "compute_passes": 1950,
+            "graph_prepare_nanoseconds": 22721667,
+            "evaluate_cpu_nanoseconds": 4411364172,
+            "output_cpu_nanoseconds": 229633949,
+            "queue_submit_nanoseconds": 102666854,
+            "graphics_queue_nanoseconds": 13117683,
+            "native_video_nodes": 300,
+            "resident_video_nodes": 300,
+            "vector_prepare_nanoseconds": 39576653,
+            "vector_upload_bytes": 12652480,
+            "native_decode_nanoseconds": 3129987877,
+            "native_codec_call_nanoseconds": 759721254,
+            "native_allocate_nanoseconds": 265990061,
+            "native_submit_nanoseconds": 527562964,
+            "native_seeks": 2,
+            "native_forward_reuses": 298,
+            "native_copy_ready_nanoseconds": 545434598,
+            "native_gpu_local_copy_bytes": 933120000,
+            "native_pipe_bytes": 0,
+            "native_upload_encode_nanoseconds": 4568005
+          }
+        },
+        "GPU preview": {
+          "frames": 1404,
+          "totals": {
+            "upload_bytes": 118089968,
+            "lut_upload_bytes": 0,
+            "readback_bytes": 0,
+            "status_readback_bytes": 67392,
+            "cpu_adapter_nodes": 0,
+            "cpu_adapter_nanoseconds": 0,
+            "compute_passes": 18252,
+            "graph_prepare_nanoseconds": 181814756,
+            "evaluate_cpu_nanoseconds": 27214976948,
+            "output_cpu_nanoseconds": 407160084,
+            "queue_submit_nanoseconds": 447219605,
+            "graphics_queue_nanoseconds": 34393958,
+            "native_video_nodes": 2808,
+            "resident_video_nodes": 2808,
+            "vector_prepare_nanoseconds": 319096576,
+            "vector_upload_bytes": 118089968,
+            "native_decode_nanoseconds": 19497186753,
+            "native_codec_call_nanoseconds": 6660651403,
+            "native_allocate_nanoseconds": 1855938599,
+            "native_submit_nanoseconds": 1751057033,
+            "native_seeks": 16,
+            "native_forward_reuses": 2792,
+            "native_copy_ready_nanoseconds": 3703356277,
+            "native_gpu_local_copy_bytes": 8734003200,
+            "native_pipe_bytes": 0,
+            "native_upload_encode_nanoseconds": 42537655
+          }
+        }
+      }
+    },
+    {
+      "passed": true,
+      "failures": [],
+      "phases": [
+        {
+          "phase": 1,
+          "seconds": 30.011147611,
+          "admissions": [
+            901,
+            1
+          ],
+          "gaps": [
+            0,
+            0
+          ],
+          "ui_p95_ms": 6.337985,
+          "real_time_fps": 30.022177481468788,
+          "redraws_per_second": 63.842943456708326,
+          "redraw_interval_p95_ms": 16.991229999999632,
+          "host_stage_p95_ms": {
+            "client_poll_ms": 0.00311,
+            "controls_ms": 0.928825,
+            "preview_ms": 2.465906,
+            "viewers_ms": 0.59528,
+            "ui_encode_ms": 0.306159,
+            "submit_ms": 0.577323
+          }
+        },
+        {
+          "phase": 2,
+          "seconds": 12.838208949,
+          "admissions": [
+            385,
+            201
+          ],
+          "gaps": [
+            1,
+            0
+          ],
+          "ui_p95_ms": 15.914284,
+          "real_time_fps": 29.988606785371616,
+          "redraws_per_second": 69.48009675987397,
+          "redraw_interval_p95_ms": 16.970530999999028,
+          "host_stage_p95_ms": {
+            "client_poll_ms": 0.004828,
+            "controls_ms": 0.929894,
+            "preview_ms": 3.5822089999999998,
+            "viewers_ms": 0.5842430000000001,
+            "ui_encode_ms": 7.248886000000001,
+            "submit_ms": 0.870588
+          }
+        }
+      ],
+      "warm_seeks_ms": [
+        9.013402000000001,
+        23.776622,
+        9.082889
+      ],
+      "exports": [
+        {
+          "frames": 150,
+          "kind": "export",
+          "through_completion_observed_seconds": 12.838370245
+        }
+      ],
+      "raw_directory": "/tmp/fold-19a-final-2",
+      "files_sha256": {
+        "fixture.fold": "498ed896bfb5343c16f702e41f19ff0280b3804772a6b2bf44d41bb21e7654a1",
+        "run.log": "5c70d46a6cb3128850cd53121a046969350701bfdf18ac603d2c4a9ed1920c35",
+        "rss.json": "a820ca10e30af0030a836d778fed75b3f62b480fdf2292eef8600d728ef249f6",
+        "report.json": "d2689117f7bf7036f3fa39a7ff798d9abf615647926072bd4b8f8253212f1083"
+      },
+      "resources": {
+        "command": [
+          "target/release/fold-desktop",
+          "--project",
+          "/tmp/fold-19a-drain/fixture.fold"
+        ],
+        "exit_code": 0,
+        "timed_out": false,
+        "wall_seconds": 52.12986447298317,
+        "samples": 601,
+        "sampled_tree_rss_bytes": 1593094144,
+        "sampled_scratch_bytes": 108382880,
+        "sampled_gpu_process_bytes": 2139095040,
+        "gpu_samples": 51,
+        "gpu_error": null,
+        "nominal_gpu_sample_interval_ms": 1000,
+        "nominal_sample_interval_ms": 50
+      },
+      "phase_resources": [
+        {
+          "admissions": [
+            38,
+            1
+          ],
+          "audio_errors": [
+            null,
+            null
+          ],
+          "cache": "GPU RGBA8/BC7 cache: 253.1/256 MiB | hits 28 | misses 23 | displayed frame Some(55) | BC7 enabled",
+          "max_observed_underrun_callbacks": [
+            0,
+            null
+          ],
+          "phase": 0,
+          "resources": "Demand 0/128 \u00b7 execution queue 0 (peak 1) \u00b7 jobs 0/2 \u00b7 pressure retries 0\nDecoded CPU 0.0/256 MiB (peak 0.0) \u00b7 pipe 0.0/64 MiB\nSource copies 61.5/4096 MiB \u00b7 PCM disk 11.0/512 MiB \u00b7 WAVE scratch 0.0/512 MiB\nHistory 1 roots \u00b7 2 external handles \u00b7 0.0 MiB unique payload (excludes metadata/allocator)\nShared GPU 482.2/1024.0 MiB (peak 482.2) \u00b7 working 158.2 \u00b7 presentation 261.0 \u00b7 decoded 62.3 \u00b7 geometry 0.6 \u00b7 scratch 0.0\nCPU working 0.0/512 MiB \u00b7 output 0.0/64 MiB \u00b7 delivery scratch 0.0/4096 MiB + PCM 0.0/256 MiB",
+          "seconds": 5.011294794,
+          "skipped_between_admissions": [
+            13,
+            0
+          ]
+        },
+        {
+          "admissions": [
+            901,
+            1
+          ],
+          "audio_errors": [
+            null,
+            null
+          ],
+          "cache": "GPU RGBA8/BC7 cache: 253.1/256 MiB | hits 927 | misses 23 | displayed frame Some(56) | BC7 enabled",
+          "max_observed_underrun_callbacks": [
+            0,
+            null
+          ],
+          "phase": 1,
+          "resources": "Demand 0/128 \u00b7 execution queue 0 (peak 1) \u00b7 jobs 0/2 \u00b7 pressure retries 0\nDecoded CPU 0.0/256 MiB (peak 0.0) \u00b7 pipe 0.0/64 MiB\nSource copies 61.5/4096 MiB \u00b7 PCM disk 11.0/512 MiB \u00b7 WAVE scratch 0.0/512 MiB\nHistory 1 roots \u00b7 3 external handles \u00b7 0.0 MiB unique payload (excludes metadata/allocator)\nShared GPU 490.1/1024.0 MiB (peak 490.1) \u00b7 working 158.2 \u00b7 presentation 268.9 \u00b7 decoded 62.3 \u00b7 geometry 0.6 \u00b7 scratch 0.0\nCPU working 0.0/512 MiB \u00b7 output 0.0/64 MiB \u00b7 delivery scratch 0.0/4096 MiB + PCM 0.0/256 MiB",
+          "seconds": 30.011147611,
+          "skipped_between_admissions": [
+            0,
+            0
+          ]
+        },
+        {
+          "admissions": [
+            385,
+            201
+          ],
+          "audio_errors": [
+            null,
+            null
+          ],
+          "cache": "GPU RGBA8/BC7 cache: 253.1/256 MiB | hits 1385 | misses 150 | displayed frame Some(441) | BC7 enabled",
+          "max_observed_underrun_callbacks": [
+            0,
+            null
+          ],
+          "phase": 2,
+          "resources": "Demand 0/128 \u00b7 execution queue 0 (peak 2) \u00b7 jobs 0/2 \u00b7 pressure retries 0\nDecoded CPU 0.0/256 MiB (peak 0.0) \u00b7 pipe 0.0/64 MiB\nSource copies 61.5/4096 MiB \u00b7 PCM disk 11.0/512 MiB \u00b7 WAVE scratch 0.0/512 MiB\nHistory 2 roots \u00b7 4 external handles \u00b7 0.0 MiB unique payload (excludes metadata/allocator)\nShared GPU 656.2/1024.0 MiB (peak 727.1) \u00b7 working 316.4 \u00b7 presentation 276.9 \u00b7 decoded 62.3 \u00b7 geometry 0.6 \u00b7 scratch 0.0\nCPU working 0.0/512 MiB \u00b7 output 0.0/64 MiB \u00b7 delivery scratch 0.0/4096 MiB + PCM 0.0/256 MiB",
+          "seconds": 12.838208949,
+          "skipped_between_admissions": [
+            1,
+            0
+          ]
+        },
+        {
+          "admissions": [
+            7,
+            2
+          ],
+          "audio_errors": [
+            null,
+            null
+          ],
+          "cache": "GPU RGBA8/BC7 cache: 253.1/256 MiB | hits 1387 | misses 153 | displayed frame Some(5) | RGBA8 retained: BC7 quality threshold exceeded; retain RGBA8",
+          "max_observed_underrun_callbacks": [
+            0,
+            null
+          ],
+          "phase": 3,
+          "resources": "Demand 0/128 \u00b7 execution queue 0 (peak 2) \u00b7 jobs 0/2 \u00b7 pressure retries 0\nDecoded CPU 0.0/256 MiB (peak 0.0) \u00b7 pipe 0.0/64 MiB\nSource copies 61.5/4096 MiB \u00b7 PCM disk 11.0/512 MiB \u00b7 WAVE scratch 0.0/512 MiB\nHistory 2 roots \u00b7 2 external handles \u00b7 0.0 MiB unique payload (excludes metadata/allocator)\nShared GPU 658.2/1024.0 MiB (peak 727.1) \u00b7 working 316.4 \u00b7 presentation 278.8 \u00b7 decoded 62.3 \u00b7 geometry 0.6 \u00b7 scratch 0.0\nCPU working 0.0/512 MiB \u00b7 output 0.0/64 MiB \u00b7 delivery scratch 0.0/4096 MiB + PCM 0.0/256 MiB",
+          "seconds": 0.398350245,
+          "skipped_between_admissions": [
+            0,
+            0
+          ]
+        },
+        {
+          "admissions": [
+            2,
+            1
+          ],
+          "audio_errors": [
+            null,
+            null
+          ],
+          "cache": "GPU RGBA8/BC7 cache: 253.1/256 MiB | hits 1387 | misses 154 | displayed frame Some(29) | RGBA8 retained: BC7 quality threshold exceeded; retain RGBA8",
+          "max_observed_underrun_callbacks": [
+            0,
+            null
+          ],
+          "phase": 4,
+          "resources": "Demand 0/128 \u00b7 execution queue 0 (peak 2) \u00b7 jobs 0/2 \u00b7 pressure retries 0\nDecoded CPU 0.0/256 MiB (peak 0.0) \u00b7 pipe 0.0/64 MiB\nSource copies 61.5/4096 MiB \u00b7 PCM disk 11.0/512 MiB \u00b7 WAVE scratch 0.0/512 MiB\nHistory 2 roots \u00b7 2 external handles \u00b7 0.0 MiB unique payload (excludes metadata/allocator)\nShared GPU 658.2/1024.0 MiB (peak 727.1) \u00b7 working 316.4 \u00b7 presentation 278.8 \u00b7 decoded 62.3 \u00b7 geometry 0.6 \u00b7 scratch 0.0\nCPU working 0.0/512 MiB \u00b7 output 0.0/64 MiB \u00b7 delivery scratch 0.0/4096 MiB + PCM 0.0/256 MiB",
+          "seconds": 0.793806525,
+          "skipped_between_admissions": [
+            0,
+            0
+          ]
+        },
+        {
+          "admissions": [
+            28,
+            1
+          ],
+          "audio_errors": [
+            null,
+            null
+          ],
+          "cache": "GPU RGBA8/BC7 cache: 253.1/256 MiB | hits 1413 | misses 154 | displayed frame Some(29) | RGBA8 retained: BC7 quality threshold exceeded; retain RGBA8",
+          "max_observed_underrun_callbacks": [
+            0,
+            null
+          ],
+          "phase": 5,
+          "resources": "Demand 0/128 \u00b7 execution queue 0 (peak 2) \u00b7 jobs 0/2 \u00b7 pressure retries 0\nDecoded CPU 0.0/256 MiB (peak 0.0) \u00b7 pipe 0.0/64 MiB\nSource copies 61.5/4096 MiB \u00b7 PCM disk 11.0/512 MiB \u00b7 WAVE scratch 0.0/512 MiB\nHistory 2 roots \u00b7 2 external handles \u00b7 0.0 MiB unique payload (excludes metadata/allocator)\nShared GPU 660.2/1024.0 MiB (peak 727.1) \u00b7 working 316.4 \u00b7 presentation 278.8 \u00b7 decoded 62.3 \u00b7 geometry 0.6 \u00b7 scratch 2.0\nCPU working 0.0/512 MiB \u00b7 output 0.0/64 MiB \u00b7 delivery scratch 0.0/4096 MiB + PCM 0.0/256 MiB",
+          "seconds": 1.5141766639999998,
+          "skipped_between_admissions": [
+            2,
+            0
+          ]
+        }
+      ],
+      "events": [
+        {
+          "at_ms": 349.921554,
+          "kind": "phase",
+          "phase": 0
+        },
+        {
+          "at_ms": 5361.328897,
+          "kind": "phase",
+          "phase": 1
+        },
+        {
+          "at_ms": 35372.792665,
+          "kind": "phase",
+          "phase": 2
+        },
+        {
+          "frames": 150,
+          "kind": "export",
+          "through_completion_observed_seconds": 12.838370245
+        },
+        {
+          "at_ms": 48211.357954,
+          "kind": "phase",
+          "phase": 3
+        },
+        {
+          "frame": 4,
+          "kind": "seek",
+          "through_present_call_ms": 290.177955,
+          "warm_repeat": false
+        },
+        {
+          "frame": 5,
+          "kind": "seek",
+          "through_present_call_ms": 43.356665,
+          "warm_repeat": false
+        },
+        {
+          "frame": 6,
+          "kind": "seek",
+          "through_present_call_ms": 22.928105000000002,
+          "warm_repeat": false
+        },
+        {
+          "frame": 4,
+          "kind": "seek",
+          "through_present_call_ms": 9.013402000000001,
+          "warm_repeat": true
+        },
+        {
+          "frame": 5,
+          "kind": "seek",
+          "through_present_call_ms": 23.776622,
+          "warm_repeat": true
+        },
+        {
+          "frame": 6,
+          "kind": "seek",
+          "through_present_call_ms": 9.082889,
+          "warm_repeat": true
+        },
+        {
+          "at_ms": 48609.883498999996,
+          "kind": "phase",
+          "phase": 4
+        },
+        {
+          "at_ms": 49403.843097,
+          "kind": "phase",
+          "phase": 5
+        },
+        {
+          "kind": "review_seek_interrupted"
+        }
+      ],
+      "whole_run_transfer_and_host_timing_totals": {
+        "GPU export": {
+          "frames": 150,
+          "totals": {
+            "upload_bytes": 12652480,
+            "lut_upload_bytes": 0,
+            "readback_bytes": 1244160000,
+            "status_readback_bytes": 7200,
+            "cpu_adapter_nodes": 0,
+            "cpu_adapter_nanoseconds": 0,
+            "compute_passes": 1950,
+            "graph_prepare_nanoseconds": 23032511,
+            "evaluate_cpu_nanoseconds": 4629137351,
+            "output_cpu_nanoseconds": 159375248,
+            "queue_submit_nanoseconds": 103490711,
+            "graphics_queue_nanoseconds": 25208775,
+            "native_video_nodes": 300,
+            "resident_video_nodes": 300,
+            "vector_prepare_nanoseconds": 61948862,
+            "vector_upload_bytes": 12652480,
+            "native_decode_nanoseconds": 3311127389,
+            "native_codec_call_nanoseconds": 773339764,
+            "native_allocate_nanoseconds": 283339593,
+            "native_submit_nanoseconds": 576655081,
+            "native_seeks": 2,
+            "native_forward_reuses": 298,
+            "native_copy_ready_nanoseconds": 637546111,
+            "native_gpu_local_copy_bytes": 933120000,
+            "native_pipe_bytes": 0,
+            "native_upload_encode_nanoseconds": 4478552
+          }
+        },
+        "GPU preview": {
+          "frames": 1414,
+          "totals": {
+            "upload_bytes": 118932372,
+            "lut_upload_bytes": 0,
+            "readback_bytes": 0,
+            "status_readback_bytes": 67872,
+            "cpu_adapter_nodes": 0,
+            "cpu_adapter_nanoseconds": 0,
+            "compute_passes": 18382,
+            "graph_prepare_nanoseconds": 185588275,
+            "evaluate_cpu_nanoseconds": 27907900822,
+            "output_cpu_nanoseconds": 452594121,
+            "queue_submit_nanoseconds": 452837118,
+            "graphics_queue_nanoseconds": 46652638,
+            "native_video_nodes": 2828,
+            "resident_video_nodes": 2828,
+            "vector_prepare_nanoseconds": 331383181,
+            "vector_upload_bytes": 118932372,
+            "native_decode_nanoseconds": 19626261436,
+            "native_codec_call_nanoseconds": 6396426800,
+            "native_allocate_nanoseconds": 1987129020,
+            "native_submit_nanoseconds": 1785441631,
+            "native_seeks": 16,
+            "native_forward_reuses": 2812,
+            "native_copy_ready_nanoseconds": 3787783752,
+            "native_gpu_local_copy_bytes": 8796211200,
+            "native_pipe_bytes": 0,
+            "native_upload_encode_nanoseconds": 42348926
+          }
+        }
+      }
+    }
+  ],
+  "corrective_history": [
+    {
+      "passed": false,
+      "failures": [
+        "native workload did not complete",
+        "phase 1: 895 admissions; need >= 898",
+        "phase 2: 224 admissions; need >= 382"
+      ],
+      "phases": [
+        {
+          "phase": 1,
+          "seconds": 30.006445096,
+          "admissions": [
+            895,
+            1
+          ],
+          "gaps": [
+            10,
+            0
+          ],
+          "ui_p95_ms": 9.889581999999999,
+          "real_time_fps": 29.82692542007609
+        },
+        {
+          "phase": 2,
+          "seconds": 12.824161426,
+          "admissions": [
+            224,
+            223
+          ],
+          "gaps": [
+            572,
+            0
+          ],
+          "ui_p95_ms": 16.351105,
+          "real_time_fps": 17.46702903675692
+        }
+      ],
+      "warm_seeks_ms": [
+        17.374738,
+        5.043897,
+        3.968173
+      ],
+      "exports": [
+        {
+          "frames": 150,
+          "kind": "export",
+          "through_completion_observed_seconds": 12.824278989
+        }
+      ],
+      "raw_directory": "/tmp/fold-19a-1g"
+    },
+    {
+      "passed": false,
+      "failures": [
+        "phase 1: 888 admissions; need >= 898",
+        "phase 2: 331 admissions; need >= 363"
+      ],
+      "phases": [
+        {
+          "phase": 1,
+          "seconds": 30.002828618,
+          "admissions": [
+            888,
+            1
+          ],
+          "gaps": [
+            19,
+            0
+          ],
+          "ui_p95_ms": 9.847724000000001,
+          "real_time_fps": 29.597209360028483
+        },
+        {
+          "phase": 2,
+          "seconds": 12.192190912,
+          "admissions": [
+            331,
+            132
+          ],
+          "gaps": [
+            448,
+            0
+          ],
+          "ui_p95_ms": 15.541984999999999,
+          "real_time_fps": 27.14852501810956
+        }
+      ],
+      "warm_seeks_ms": [
+        4.369883,
+        14.021639,
+        4.572668
+      ],
+      "exports": [
+        {
+          "frames": 150,
+          "kind": "export",
+          "through_completion_observed_seconds": 12.192339286
+        }
+      ],
+      "raw_directory": "/tmp/fold-19a-ahead3"
+    },
+    {
+      "passed": false,
+      "failures": [
+        "phase 1: 896 admissions; need >= 898",
+        "phase 2: 336 admissions; need >= 368"
+      ],
+      "phases": [
+        {
+          "phase": 1,
+          "seconds": 30.00767541,
+          "admissions": [
+            896,
+            1
+          ],
+          "gaps": [
+            6,
+            0
+          ],
+          "ui_p95_ms": 9.865475,
+          "real_time_fps": 29.859027324102875
+        },
+        {
+          "phase": 2,
+          "seconds": 12.345249754,
+          "admissions": [
+            336,
+            149
+          ],
+          "gaps": [
+            36,
+            0
+          ],
+          "ui_p95_ms": 16.658097,
+          "real_time_fps": 27.216946331209883
+        }
+      ],
+      "warm_seeks_ms": [
+        4.363006,
+        4.152847,
+        14.244632
+      ],
+      "exports": [
+        {
+          "frames": 150,
+          "kind": "export",
+          "through_completion_observed_seconds": 12.345382965
+        }
+      ],
+      "raw_directory": "/tmp/fold-19a-ahead6"
+    },
+    {
+      "passed": false,
+      "failures": [
+        "phase 2: 354 admissions; need >= 358"
+      ],
+      "phases": [
+        {
+          "phase": 1,
+          "seconds": 30.011689752,
+          "admissions": [
+            901,
+            1
+          ],
+          "gaps": [
+            0,
+            0
+          ],
+          "ui_p95_ms": 6.2481860000000005,
+          "real_time_fps": 30.021635151015005
+        },
+        {
+          "phase": 2,
+          "seconds": 12.01548669,
+          "admissions": [
+            354,
+            171
+          ],
+          "gaps": [
+            7,
+            0
+          ],
+          "ui_p95_ms": 15.916787000000001,
+          "real_time_fps": 29.461977623812757
+        }
+      ],
+      "warm_seeks_ms": [
+        16.901633999999998,
+        17.856337,
+        15.377401
+      ],
+      "exports": [
+        {
+          "frames": 150,
+          "kind": "export",
+          "through_completion_observed_seconds": 12.015620198
+        }
+      ],
+      "raw_directory": "/tmp/fold-19a-audio-loop"
+    },
+    {
+      "passed": false,
+      "failures": [
+        "phase 1: 890 admissions; need >= 898",
+        "phase 2: 199 admissions; need >= 1707"
+      ],
+      "phases": [
+        {
+          "phase": 1,
+          "seconds": 30.005389938,
+          "admissions": [
+            890,
+            1
+          ],
+          "gaps": [
+            21,
+            0
+          ],
+          "ui_p95_ms": 11.403732999999999,
+          "real_time_fps": 29.661337574315912
+        },
+        {
+          "phase": 2,
+          "seconds": 56.988339297,
+          "admissions": [
+            199,
+            122
+          ],
+          "gaps": [
+            1512,
+            0
+          ],
+          "ui_p95_ms": 10.865065,
+          "real_time_fps": 3.4919424298871578
+        }
+      ],
+      "warm_seeks_ms": [
+        6.1882839999999995,
+        3.791944,
+        10.866617999999999
+      ],
+      "exports": [
+        {
+          "frames": 150,
+          "kind": "export",
+          "through_completion_observed_seconds": 56.9883637
+        }
+      ],
+      "raw_directory": "/tmp/fold-19a-baseline"
+    },
+    {
+      "passed": false,
+      "failures": [
+        "phase 1: 891 admissions; need >= 898",
+        "phase 2: 353 admissions; need >= 362",
+        "phase 2: UI P95 17.435484000000002 ms"
+      ],
+      "phases": [
+        {
+          "phase": 1,
+          "seconds": 30.003680171,
+          "admissions": [
+            891,
+            1
+          ],
+          "gaps": [
+            11,
+            0
+          ],
+          "ui_p95_ms": 11.318010999999998,
+          "real_time_fps": 29.696357077595913
+        },
+        {
+          "phase": 2,
+          "seconds": 12.133800644,
+          "admissions": [
+            353,
+            177
+          ],
+          "gaps": [
+            12,
+            0
+          ],
+          "ui_p95_ms": 17.435484000000002,
+          "real_time_fps": 29.092286115196206
+        }
+      ],
+      "warm_seeks_ms": [
+        4.872646,
+        2.8599509999999997,
+        12.916861
+      ],
+      "exports": [
+        {
+          "frames": 150,
+          "kind": "export",
+          "through_completion_observed_seconds": 12.13390929
+        }
+      ],
+      "raw_directory": "/tmp/fold-19a-batch"
+    },
+    {
+      "passed": false,
+      "failures": [
+        "phase 1: 889 admissions; need >= 898"
+      ],
+      "phases": [
+        {
+          "phase": 1,
+          "seconds": 30.006360641,
+          "admissions": [
+            889,
+            1
+          ],
+          "gaps": [
+            11,
+            0
+          ],
+          "ui_p95_ms": 6.649641000000001,
+          "real_time_fps": 29.627051765327742
+        },
+        {
+          "phase": 2,
+          "seconds": 12.460050884,
+          "admissions": [
+            374,
+            180
+          ],
+          "gaps": [
+            0,
+            0
+          ],
+          "ui_p95_ms": 16.592235,
+          "real_time_fps": 30.01592878567253
+        }
+      ],
+      "warm_seeks_ms": [
+        8.498503,
+        24.647327999999998,
+        9.051002
+      ],
+      "exports": [
+        {
+          "frames": 150,
+          "kind": "export",
+          "through_completion_observed_seconds": 12.4604714
+        }
+      ],
+      "raw_directory": "/tmp/fold-19a-compression-stall"
+    },
+    {
+      "passed": false,
+      "failures": [
+        "phase 1: 866 admissions; need >= 898",
+        "phase 2: 333 admissions; need >= 346"
+      ],
+      "phases": [
+        {
+          "phase": 1,
+          "seconds": 30.00186895,
+          "admissions": [
+            866,
+            1
+          ],
+          "gaps": [
+            36,
+            0
+          ],
+          "ui_p95_ms": 5.328418,
+          "real_time_fps": 28.864868433471376
+        },
+        {
+          "phase": 2,
+          "seconds": 11.614381456,
+          "admissions": [
+            333,
+            165
+          ],
+          "gaps": [
+            16,
+            0
+          ],
+          "ui_p95_ms": 16.495545,
+          "real_time_fps": 28.671350365195032
+        }
+      ],
+      "warm_seeks_ms": [
+        15.659699999999999,
+        20.907492,
+        7.804183
+      ],
+      "exports": [
+        {
+          "frames": 150,
+          "kind": "export",
+          "through_completion_observed_seconds": 11.614484429
+        }
+      ],
+      "raw_directory": "/tmp/fold-19a-drain-before-timer-fix"
+    },
+    {
+      "passed": false,
+      "failures": [
+        "phase 2: 353 admissions; need >= 361"
+      ],
+      "phases": [
+        {
+          "phase": 1,
+          "seconds": 30.008475861,
+          "admissions": [
+            899,
+            1
+          ],
+          "gaps": [
+            2,
+            0
+          ],
+          "ui_p95_ms": 6.85121,
+          "real_time_fps": 29.95820261462762
+        },
+        {
+          "phase": 2,
+          "seconds": 12.117171011,
+          "admissions": [
+            353,
+            179
+          ],
+          "gaps": [
+            11,
+            0
+          ],
+          "ui_p95_ms": 16.447713,
+          "real_time_fps": 29.13221243469665
+        }
+      ],
+      "warm_seeks_ms": [
+        11.884259,
+        16.519962999999997,
+        16.552901
+      ],
+      "exports": [
+        {
+          "frames": 150,
+          "kind": "export",
+          "through_completion_observed_seconds": 12.117294063
+        }
+      ],
+      "raw_directory": "/tmp/fold-19a-drain-isolated"
+    },
+    {
+      "passed": false,
+      "failures": [
+        "phase 1: 1 admissions; need >= 898",
+        "phase 2: 1 admissions; need >= 326",
+        "Every-frame did not advance consecutively"
+      ],
+      "phases": [
+        {
+          "phase": 1,
+          "seconds": 30.003918608,
+          "admissions": [
+            1,
+            1
+          ],
+          "gaps": [
+            0,
+            0
+          ],
+          "ui_p95_ms": 3.4509100000000004,
+          "real_time_fps": 0.03332897989309197
+        },
+        {
+          "phase": 2,
+          "seconds": 10.950252694,
+          "admissions": [
+            1,
+            193
+          ],
+          "gaps": [
+            0,
+            233
+          ],
+          "ui_p95_ms": 14.687053,
+          "real_time_fps": 0.09132209346620217
+        }
+      ],
+      "warm_seeks_ms": [
+        6.182672999999999,
+        26.870139,
+        9.285269000000001
+      ],
+      "exports": [
+        {
+          "frames": 150,
+          "kind": "export",
+          "through_completion_observed_seconds": 10.950366478
+        }
+      ],
+      "raw_directory": "/tmp/fold-19a-drain-restoration-race"
+    },
+    {
+      "passed": false,
+      "failures": [
+        "native workload did not complete",
+        "phase 1: 883 admissions; need >= 898",
+        "phase 2: 156 admissions; need >= 1453"
+      ],
+      "phases": [
+        {
+          "phase": 1,
+          "seconds": 30.005832741,
+          "admissions": [
+            883,
+            1
+          ],
+          "gaps": [
+            20,
+            0
+          ],
+          "ui_p95_ms": 11.936081,
+          "real_time_fps": 29.427611878722097
+        },
+        {
+          "phase": 2,
+          "seconds": 48.515032207,
+          "admissions": [
+            156,
+            104
+          ],
+          "gaps": [
+            1280,
+            0
+          ],
+          "ui_p95_ms": 11.113032,
+          "real_time_fps": 3.2154982260836573
+        }
+      ],
+      "warm_seeks_ms": [
+        4.613766,
+        3.589573,
+        13.067542999999999
+      ],
+      "exports": [
+        {
+          "frames": 150,
+          "kind": "export",
+          "through_completion_observed_seconds": 48.515043772
+        }
+      ],
+      "raw_directory": "/tmp/fold-19a-isolated"
+    },
+    {
+      "passed": false,
+      "failures": [
+        "phase 1: 889 admissions; need >= 898",
+        "phase 2: 154 admissions; need >= 374"
+      ],
+      "phases": [
+        {
+          "phase": 1,
+          "seconds": 30.006266836,
+          "admissions": [
+            889,
+            1
+          ],
+          "gaps": [
+            17,
+            0
+          ],
+          "ui_p95_ms": 11.921807,
+          "real_time_fps": 29.627144384833063
+        },
+        {
+          "phase": 2,
+          "seconds": 12.552514159,
+          "admissions": [
+            154,
+            112
+          ],
+          "gaps": [
+            627,
+            0
+          ],
+          "ui_p95_ms": 13.316474999999999,
+          "real_time_fps": 12.268458577247163
+        }
+      ],
+      "warm_seeks_ms": [
+        5.343456,
+        11.450172,
+        4.422905
+      ],
+      "exports": [
+        {
+          "frames": 150,
+          "kind": "export",
+          "through_completion_observed_seconds": 12.552534274
+        }
+      ],
+      "raw_directory": "/tmp/fold-19a-locality"
+    },
+    {
+      "passed": false,
+      "failures": [
+        "phase 1: 896 admissions; need >= 898",
+        "phase 2: 374 admissions; need >= 385",
+        "phase 2: UI P95 16.890659999999997 ms"
+      ],
+      "phases": [
+        {
+          "phase": 1,
+          "seconds": 30.000153456,
+          "admissions": [
+            896,
+            1
+          ],
+          "gaps": [
+            14,
+            0
+          ],
+          "ui_p95_ms": 10.621507000000001,
+          "real_time_fps": 29.8665138934748
+        },
+        {
+          "phase": 2,
+          "seconds": 12.926090746,
+          "admissions": [
+            374,
+            161
+          ],
+          "gaps": [
+            14,
+            0
+          ],
+          "ui_p95_ms": 16.890659999999997,
+          "real_time_fps": 28.93372848366664
+        }
+      ],
+      "warm_seeks_ms": [
+        4.661971,
+        2.736733,
+        14.912870999999999
+      ],
+      "exports": [
+        {
+          "frames": 150,
+          "kind": "export",
+          "through_completion_observed_seconds": 12.92623698
+        }
+      ],
+      "raw_directory": "/tmp/fold-19a-metadata"
+    },
+    {
+      "passed": false,
+      "failures": [
+        "phase 2: 365 admissions; need >= 387"
+      ],
+      "phases": [
+        {
+          "phase": 1,
+          "seconds": 30.000694402,
+          "admissions": [
+            899,
+            1
+          ],
+          "gaps": [
+            2,
+            0
+          ],
+          "ui_p95_ms": 9.785898,
+          "real_time_fps": 29.965973052279352
+        },
+        {
+          "phase": 2,
+          "seconds": 12.982834837,
+          "admissions": [
+            365,
+            197
+          ],
+          "gaps": [
+            25,
+            0
+          ],
+          "ui_p95_ms": 16.047695,
+          "real_time_fps": 28.11404478163585
+        }
+      ],
+      "warm_seeks_ms": [
+        4.791085,
+        5.096894,
+        12.421344000000001
+      ],
+      "exports": [
+        {
+          "frames": 150,
+          "kind": "export",
+          "through_completion_observed_seconds": 12.982962257
+        }
+      ],
+      "raw_directory": "/tmp/fold-19a-overlap"
+    },
+    {
+      "passed": false,
+      "failures": [
+        "phase 2: 339 admissions; need >= 357"
+      ],
+      "phases": [
+        {
+          "phase": 1,
+          "seconds": 30.016233346,
+          "admissions": [
+            899,
+            1
+          ],
+          "gaps": [
+            3,
+            0
+          ],
+          "ui_p95_ms": 6.226274,
+          "real_time_fps": 29.950460127263163
+        },
+        {
+          "phase": 2,
+          "seconds": 11.967569716,
+          "admissions": [
+            339,
+            175
+          ],
+          "gaps": [
+            21,
+            0
+          ],
+          "ui_p95_ms": 16.194654999999997,
+          "real_time_fps": 28.32655318036503
+        }
+      ],
+      "warm_seeks_ms": [
+        8.074705,
+        24.309974,
+        10.772128
+      ],
+      "exports": [
+        {
+          "frames": 150,
+          "kind": "export",
+          "through_completion_observed_seconds": 11.967703006
+        }
+      ],
+      "raw_directory": "/tmp/fold-19a-paced"
+    },
+    {
+      "passed": false,
+      "failures": [
+        "phase 1: 862 admissions; need >= 898"
+      ],
+      "phases": [
+        {
+          "phase": 1,
+          "seconds": 30.012325135,
+          "admissions": [
+            862,
+            1
+          ],
+          "gaps": [
+            39,
+            0
+          ],
+          "ui_p95_ms": 5.8847689999999995,
+          "real_time_fps": 28.721533440764517
+        },
+        {
+          "phase": 2,
+          "seconds": 12.591941266,
+          "admissions": [
+            378,
+            183
+          ],
+          "gaps": [
+            0,
+            0
+          ],
+          "ui_p95_ms": 16.444119999999998,
+          "real_time_fps": 30.019199741715187
+        }
+      ],
+      "warm_seeks_ms": [
+        16.201751,
+        7.683217,
+        23.462733999999998
+      ],
+      "exports": [
+        {
+          "frames": 150,
+          "kind": "export",
+          "through_completion_observed_seconds": 12.592037777
+        }
+      ],
+      "raw_directory": "/tmp/fold-19a-paused-compression"
+    },
+    {
+      "passed": false,
+      "failures": [
+        "phase 2: 365 admissions; need >= 374"
+      ],
+      "phases": [
+        {
+          "phase": 1,
+          "seconds": 30.003452081,
+          "admissions": [
+            901,
+            1
+          ],
+          "gaps": [
+            2,
+            0
+          ],
+          "ui_p95_ms": 9.755633,
+          "real_time_fps": 30.029877814312165
+        },
+        {
+          "phase": 2,
+          "seconds": 12.561845383,
+          "admissions": [
+            365,
+            194
+          ],
+          "gaps": [
+            13,
+            0
+          ],
+          "ui_p95_ms": 16.137076999999998,
+          "real_time_fps": 29.056240454444385
+        }
+      ],
+      "warm_seeks_ms": [
+        5.159276,
+        15.822690999999999,
+        5.070515
+      ],
+      "exports": [
+        {
+          "frames": 150,
+          "kind": "export",
+          "through_completion_observed_seconds": 12.56195354
+        }
+      ],
+      "raw_directory": "/tmp/fold-19a-poll"
+    },
+    {
+      "passed": false,
+      "failures": [
+        "native workload did not complete",
+        "phase 2: 244 admissions; need >= 542"
+      ],
+      "phases": [
+        {
+          "phase": 1,
+          "seconds": 30.000500638,
+          "admissions": [
+            898,
+            1
+          ],
+          "gaps": [
+            6,
+            0
+          ],
+          "ui_p95_ms": 10.023817000000001,
+          "real_time_fps": 29.932833816198134
+        },
+        {
+          "phase": 2,
+          "seconds": 18.136059841,
+          "admissions": [
+            244,
+            226
+          ],
+          "gaps": [
+            299,
+            0
+          ],
+          "ui_p95_ms": 15.523818,
+          "real_time_fps": 13.453859445721045
+        }
+      ],
+      "warm_seeks_ms": [
+        5.107012,
+        13.116878999999999,
+        4.604194
+      ],
+      "exports": [
+        {
+          "frames": 150,
+          "kind": "export",
+          "through_completion_observed_seconds": 18.136084286
+        }
+      ],
+      "raw_directory": "/tmp/fold-19a-pressure"
+    },
+    {
+      "passed": true,
+      "failures": [],
+      "phases": [
+        {
+          "phase": 1,
+          "seconds": 30.012215678,
+          "admissions": [
+            900,
+            1
+          ],
+          "gaps": [
+            0,
+            0
+          ],
+          "ui_p95_ms": 6.696759,
+          "real_time_fps": 29.987789294068392
+        },
+        {
+          "phase": 2,
+          "seconds": 12.445118412,
+          "admissions": [
+            374,
+            178
+          ],
+          "gaps": [
+            0,
+            0
+          ],
+          "ui_p95_ms": 16.584145000000003,
+          "real_time_fps": 30.05194387217535
+        }
+      ],
+      "warm_seeks_ms": [
+        8.269076,
+        23.282225,
+        16.906273
+      ],
+      "exports": [
+        {
+          "frames": 150,
+          "kind": "export",
+          "through_completion_observed_seconds": 12.445267432
+        }
+      ],
+      "raw_directory": "/tmp/fold-19a-qualified-1"
+    },
+    {
+      "passed": false,
+      "failures": [
+        "phase 1: 858 admissions; need >= 898",
+        "phase 2: 347 admissions; need >= 379",
+        "phase 2: UI P95 16.908485000000002 ms"
+      ],
+      "phases": [
+        {
+          "phase": 1,
+          "seconds": 30.001307604,
+          "admissions": [
+            858,
+            1
+          ],
+          "gaps": [
+            43,
+            0
+          ],
+          "ui_p95_ms": 9.790445,
+          "real_time_fps": 28.598753471852174
+        },
+        {
+          "phase": 2,
+          "seconds": 12.721237009,
+          "admissions": [
+            347,
+            141
+          ],
+          "gaps": [
+            35,
+            0
+          ],
+          "ui_p95_ms": 16.908485000000002,
+          "real_time_fps": 27.27722152763171
+        }
+      ],
+      "warm_seeks_ms": [
+        4.495281,
+        4.354566,
+        13.915949000000001
+      ],
+      "exports": [
+        {
+          "frames": 150,
+          "kind": "export",
+          "through_completion_observed_seconds": 12.721345183
+        }
+      ],
+      "raw_directory": "/tmp/fold-19a-quiet"
+    },
+    {
+      "passed": false,
+      "failures": [
+        "phase 2: 378 admissions; need >= 379"
+      ],
+      "phases": [
+        {
+          "phase": 1,
+          "seconds": 30.001654649,
+          "admissions": [
+            901,
+            1
+          ],
+          "gaps": [
+            2,
+            0
+          ],
+          "ui_p95_ms": 9.787789,
+          "real_time_fps": 30.03167693719292
+        },
+        {
+          "phase": 2,
+          "seconds": 12.719605635,
+          "admissions": [
+            378,
+            193
+          ],
+          "gaps": [
+            4,
+            0
+          ],
+          "ui_p95_ms": 16.573318999999998,
+          "real_time_fps": 29.717902492186816
+        }
+      ],
+      "warm_seeks_ms": [
+        4.621632,
+        4.7906770000000005,
+        13.647716
+      ],
+      "exports": [
+        {
+          "frames": 150,
+          "kind": "export",
+          "through_completion_observed_seconds": 12.719752226
+        }
+      ],
+      "raw_directory": "/tmp/fold-19a-share8"
+    },
+    {
+      "passed": false,
+      "failures": [
+        "phase 2: UI P95 16.975464 ms"
+      ],
+      "phases": [
+        {
+          "phase": 1,
+          "seconds": 30.006653272,
+          "admissions": [
+            901,
+            1
+          ],
+          "gaps": [
+            0,
+            0
+          ],
+          "ui_p95_ms": 6.755254,
+          "real_time_fps": 30.026674145655118
+        },
+        {
+          "phase": 2,
+          "seconds": 12.470337038,
+          "admissions": [
+            375,
+            187
+          ],
+          "gaps": [
+            0,
+            0
+          ],
+          "ui_p95_ms": 16.975464,
+          "real_time_fps": 30.07136044978482
+        }
+      ],
+      "warm_seeks_ms": [
+        17.087888,
+        16.660268,
+        17.466171
+      ],
+      "exports": [
+        {
+          "frames": 150,
+          "kind": "export",
+          "through_completion_observed_seconds": 12.470436801
+        }
+      ],
+      "raw_directory": "/tmp/fold-19a-stage-timing"
+    },
+    {
+      "passed": false,
+      "failures": [
+        "native workload did not complete",
+        "phase 1: 897 admissions; need >= 898",
+        "missing phase 2",
+        "warm seek acceptance failed or missing",
+        "150-frame export did not finish within the existing mixed-phase deadline"
+      ],
+      "phases": [
+        {
+          "phase": 1,
+          "seconds": 30.004436837,
+          "admissions": [
+            897,
+            1
+          ],
+          "gaps": [
+            7,
+            0
+          ],
+          "ui_p95_ms": 9.884593,
+          "real_time_fps": 29.895578606356764
+        }
+      ],
+      "warm_seeks_ms": [],
+      "exports": [],
+      "raw_directory": "/tmp/fold-19a-staged"
+    },
+    {
+      "passed": false,
+      "failures": [
+        "phase 2: 348 admissions; need >= 389"
+      ],
+      "phases": [
+        {
+          "phase": 1,
+          "seconds": 30.001271937,
+          "admissions": [
+            899,
+            1
+          ],
+          "gaps": [
+            2,
+            0
+          ],
+          "ui_p95_ms": 9.674396999999999,
+          "real_time_fps": 29.965396196795258
+        },
+        {
+          "phase": 2,
+          "seconds": 13.057000136,
+          "admissions": [
+            348,
+            128
+          ],
+          "gaps": [
+            43,
+            0
+          ],
+          "ui_p95_ms": 16.222646,
+          "real_time_fps": 26.65237009843591
+        }
+      ],
+      "warm_seeks_ms": [
+        4.857189,
+        3.604964,
+        13.440995000000001
+      ],
+      "exports": [
+        {
+          "frames": 150,
+          "kind": "export",
+          "through_completion_observed_seconds": 13.057107149
+        }
+      ],
+      "raw_directory": "/tmp/fold-19a-timing"
+    },
+    {
+      "passed": false,
+      "failures": [
+        "native workload did not complete",
+        "phase 1: 812 admissions; need >= 898",
+        "phase 2: 315 admissions; need >= 367"
+      ],
+      "phases": [
+        {
+          "phase": 1,
+          "seconds": 30.014832635,
+          "admissions": [
+            812,
+            1
+          ],
+          "gaps": [
+            90,
+            0
+          ],
+          "ui_p95_ms": 6.98156,
+          "real_time_fps": 27.05329094699448
+        },
+        {
+          "phase": 2,
+          "seconds": 12.328421778,
+          "admissions": [
+            315,
+            66
+          ],
+          "gaps": [
+            56,
+            0
+          ],
+          "ui_p95_ms": 16.318645999999998,
+          "real_time_fps": 25.550715709784992
+        }
+      ],
+      "warm_seeks_ms": [
+        8.949049,
+        24.262750999999998,
+        23.028526
+      ],
+      "exports": [
+        {
+          "frames": 150,
+          "kind": "export",
+          "through_completion_observed_seconds": 12.328528063
+        }
+      ],
+      "raw_directory": "/tmp/fold-19a-update-incomplete"
+    },
+    {
+      "passed": false,
+      "failures": [
+        "phase 1: 897 admissions; need >= 898"
+      ],
+      "phases": [
+        {
+          "phase": 1,
+          "seconds": 30.012246034,
+          "admissions": [
+            897,
+            1
+          ],
+          "gaps": [
+            4,
+            0
+          ],
+          "ui_p95_ms": 6.613142,
+          "real_time_fps": 29.88779976626257
+        },
+        {
+          "phase": 2,
+          "seconds": 12.060044038,
+          "admissions": [
+            361,
+            179
+          ],
+          "gaps": [
+            2,
+            0
+          ],
+          "ui_p95_ms": 15.194675,
+          "real_time_fps": 29.933555703654555
+        }
+      ],
+      "warm_seeks_ms": [
+        16.63867,
+        17.411195,
+        17.309663
+      ],
+      "exports": [
+        {
+          "frames": 150,
+          "kind": "export",
+          "through_completion_observed_seconds": 12.060148772
+        }
+      ],
+      "raw_directory": "/tmp/fold-19a-wake"
+    }
+  ],
+  "probe_binary_sha256": "f57d44db0c4c5cd8194530109290ddbe46fb90e5a2cb808f786c1beaf9e1d6af",
+  "probe_binary": "/tmp/fold-19a-probe-desktop",
+  "native_helper_sha256": "35dce006d2617d628aa854614ccecb2311314ad29018caa6806cab04b1dc5c6a",
+  "qualification": {
+    "workspace_passed": 235,
+    "native_passed_with_documented_fixture_and_entrypoint": 32,
+    "python_passed": 16,
+    "headless_check": "passed",
+    "boundaries": "passed",
+    "clippy": "completed with inherited warnings",
+    "package": {
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "maximum_sdr_code_error": 1,
+      "verified_package_files": 45,
+      "runtime": "Reused and hash-verified pinned OCIO and FFmpeg libraries; rebuilt production binaries",
+      "package": "/tmp/fold-19a-package",
+      "production_binaries_sha256": {
+        "fold-cli": "045bfe7787fed626990e82249271a93ff68145df3104ad31c63dc6ad972b8bc5",
+        "fold-desktop": "185a919269aaddd84f9f0616f970563c018265888b84b04146622a205657d2bd",
+        "fold-video-helper": "35dce006d2617d628aa854614ccecb2311314ad29018caa6806cab04b1dc5c6a"
+      }
+    },
+    "native_failure_notes": [
+      "Two-second fake-helper supervision assertion failed with 31 MB fixture (includes debug hashing/copy); passed with existing 115 KB verified fixture.",
+      "Device-loss test moved from private decoder helper to public renderer entry point, where graph-level completion pumping now occurs; rerun passed."
+    ],
+    "visual_notes": [
+      "Normal/narrow viewer chrome inspected from direct X11 captures.",
+      "Existing transport row clips at ~230 px width; synthetic Alt-F4 unverified."
+    ],
+    "log_sha256": {
+      "/tmp/fold-19a-workspace.log": "1a4beae4bc77428f12d9e018c975a7ac46a89ad80bc04948592171fb40fee3dc",
+      "/tmp/fold-19a-native-tests.log": "5aa84c04c6682efe938dc558a5c6ba5d2187441f818da38f7d265f7371c9e563",
+      "/tmp/fold-19a-native-remaining.log": "af9309fc305672e834df3814c471d12c377c22e6ee04b16d9dbdab18b96a2a81",
+      "/tmp/fold-19a-supervision-repeat.log": "56ff093816e5e4ad5d84f55c5bee08020f1d2b74116322fc5d902a2e717fc5ca",
+      "/tmp/fold-19a-supervision-small.log": "59cbcd5401336cc1123af789b8870554450a560907868e11168ed5655840f357",
+      "/tmp/fold-19a-device-loss.log": "7507f7c1ed577c4756d1147e83c8085a8d4cecca6038373911e6810674eacf1e",
+      "/tmp/fold-19a-clippy.log": "2bad1e235cd97f96f1a5f123cb94cad4d95cbf269f29056a90a448b69873f7e7",
+      "/tmp/fold-19a-headless-check.log": "1ce34f7b52828dcc6a4a7f253a095ed8067fb53d4c5cca3ac01ce3bfa92725f3",
+      "/tmp/fold-19a-python-tests.log": "8ea3ad6fb2e54952365d083e91fc42dfce305f1a783b64376e0e80eff0ca43d3",
+      "/tmp/fold-19a-boundaries.log": "2fc88ce972ab0540d9994697018fb4c71d3402acc08f3c0da0a6dced3e542d2d",
+      "/tmp/fold-19a-production-final.log": "4406b7cbd0b8eb9310b279eaf6a6fba628d3443f57d8a181c3169184ab376d13"
+    },
+    "package_manifest_sha256": "df9078807f1659c24b0511e061f8a2ae4ed5cd5c550f0937b63101f9770877dd",
+    "visual_sha256": {
+      "/tmp/fold-19a-ui/narrow.png": "1bc7923e78b0767ec35a629aa0b1fb1fa3d31c67af2f94e36ba9baa60519ea42",
+      "/tmp/fold-19a-ui/normal.png": "772105ee0c690edd7dc373e3c015b4033f6a58822d85773d209b19e979cbb48b"
+    }
+  }
+}

@@ -3,12 +3,16 @@ use dear_imgui_rs::{ConfigFlags, Context};
 use dear_imgui_wgpu::{FramebufferExtent, WgpuInitInfo, WgpuRenderer, wgpu};
 use dear_imgui_winit::{HiDpiMode, WinitPlatform};
 use fold_platform::desktop::DesktopClient;
-use std::{error::Error, sync::Arc};
+use std::{
+    error::Error,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 use winit::{
     application::ApplicationHandler,
     dpi::LogicalSize,
     event::WindowEvent,
-    event_loop::{ActiveEventLoop, EventLoop},
+    event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
     window::{Window, WindowId},
 };
 
@@ -17,6 +21,16 @@ use winit::{
 mod native_drop;
 
 type Result<T> = std::result::Result<T, Box<dyn Error>>;
+
+// Automatic redraws need not redraw a 30 fps image at the monitor's 144 Hz.
+// Input still requests an immediate frame; faster content raises this cadence.
+fn redraw_interval(rates: impl IntoIterator<Item = [u32; 2]>) -> Duration {
+    rates
+        .into_iter()
+        .filter(|rate| rate[0] > 0 && rate[1] > 0)
+        .map(|rate| Duration::from_nanos(1_000_000_000 * u64::from(rate[1]) / u64::from(rate[0])))
+        .fold(Duration::from_nanos(1_000_000_000 / 60), Duration::min)
+}
 
 pub(crate) fn run(
     preview: Box<dyn DesktopClient>,
@@ -36,7 +50,15 @@ pub(crate) fn run(
         use winit::platform::x11::EventLoopBuilderExtX11;
         builder.with_x11();
     }
-    builder.build()?.run_app(&mut app)?;
+    let event_loop = builder.build()?;
+    let proxy = event_loop.create_proxy();
+    app.preview
+        .as_mut()
+        .unwrap()
+        .set_preview_wake(Arc::new(move || {
+            let _ = proxy.send_event(());
+        }));
+    event_loop.run_app(&mut app)?;
     match app.error {
         Some(error) => Err(error),
         None => Ok(()),
@@ -68,6 +90,12 @@ impl ApplicationHandler for App {
                 Ok(desktop) => self.desktop = Some(desktop),
                 Err(error) => self.stop(event_loop, error),
             }
+        }
+    }
+
+    fn user_event(&mut self, _: &ActiveEventLoop, _: ()) {
+        if let Some(desktop) = &self.desktop {
+            desktop.window.request_redraw();
         }
     }
 
@@ -121,6 +149,17 @@ impl ApplicationHandler for App {
                 .io_mut()
                 .add_key_event(dear_imgui_rs::Key::ModShift, shift);
         }
+        if matches!(
+            &event,
+            WindowEvent::KeyboardInput { .. }
+                | WindowEvent::MouseInput { .. }
+                | WindowEvent::CursorMoved { .. }
+                | WindowEvent::MouseWheel { .. }
+                | WindowEvent::ModifiersChanged(_)
+                | WindowEvent::Focused(_)
+        ) {
+            desktop.window.request_redraw();
+        }
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
             WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged { .. } => desktop.resize(),
@@ -159,6 +198,7 @@ impl ApplicationHandler for App {
                         .files_dropped(desktop.pointer, &paths, desktop.client.as_mut());
                 }
                 let result = desktop.draw();
+                event_loop.set_control_flow(ControlFlow::WaitUntil(desktop.next_redraw));
                 #[cfg(feature = "native-probe")]
                 if result.is_ok() && desktop.probe_done {
                     event_loop.exit();
@@ -171,17 +211,22 @@ impl ApplicationHandler for App {
         }
     }
 
-    fn about_to_wait(&mut self, _: &ActiveEventLoop) {
+    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        event_loop.set_control_flow(ControlFlow::Wait);
         if let Some(desktop) = &self.desktop {
             let size = desktop.window.inner_size();
             if size.width > 0 && size.height > 0 {
-                desktop.window.request_redraw();
+                if Instant::now() >= desktop.next_redraw {
+                    desktop.window.request_redraw();
+                }
+                event_loop.set_control_flow(ControlFlow::WaitUntil(desktop.next_redraw));
             }
         }
     }
 }
 
 struct Desktop {
+    next_redraw: Instant,
     // Native editor contexts must be destroyed before their owning ImGui context.
     shell: Shell,
     canvas_pan: crate::sdk::CanvasPan,
@@ -254,7 +299,7 @@ impl Desktop {
                 let host = fold_platform::gpu::Host::from_device(
                     device.clone(),
                     queue.clone(),
-                    512 * 1024 * 1024,
+                    fold_platform::gpu::Host::DEFAULT_BUDGET,
                 )?;
                 preview_host.attach_host(&host);
                 preview.set_render_host(host);
@@ -313,6 +358,7 @@ impl Desktop {
             shell
         };
         Ok(Self {
+            next_redraw: Instant::now(),
             context,
             platform,
             renderer,
@@ -352,8 +398,20 @@ impl Desktop {
         if size.width == 0 || size.height == 0 {
             return Ok(());
         }
+        let started = Instant::now();
+        let rates = self.shell.workspace.viewers.keys().filter_map(|&id| {
+            self.client
+                .viewer_transport(id)
+                .filter(|transport| transport.playing)
+                .map(|transport| {
+                    self.client
+                        .preview_state(&transport.output, transport.time)
+                        .rate
+                })
+        });
+        self.next_redraw = started + redraw_interval(rates);
         #[cfg(feature = "native-probe")]
-        let draw_start = std::time::Instant::now();
+        let draw_start = started;
         let surface_frame = match self.surface.get_current_texture() {
             Ok(frame) => frame,
             Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
@@ -366,6 +424,8 @@ impl Desktop {
         #[cfg(feature = "native-probe")]
         let acquired = std::time::Instant::now();
         self.client.poll();
+        #[cfg(feature = "native-probe")]
+        let polled = std::time::Instant::now();
         self.platform
             .prepare_frame(&mut self.context, &self.window)?;
         self.shell
@@ -373,6 +433,8 @@ impl Desktop {
         self.shell.prepare_frame(&mut self.context);
         let ui = self.context.frame();
         self.shell.controls(ui, self.client.as_mut())?;
+        #[cfg(feature = "native-probe")]
+        let controls_done = std::time::Instant::now();
         let demands = self.shell.keys(self.client.as_ref());
         self.preview.select_viewers(&demands, self.client.as_mut());
         let actions = self.shell.take_review_actions();
@@ -390,6 +452,8 @@ impl Desktop {
             &mut self.renderer,
         )?;
         self.preview.present_viewers(self.client.as_mut());
+        #[cfg(feature = "native-probe")]
+        let preview_done = std::time::Instant::now();
         for (id, _) in demands {
             self.shell.review_state(id, self.preview.review_state(id));
             self.shell.presentation(
@@ -408,6 +472,8 @@ impl Desktop {
             );
         }
         self.shell.viewer_overlays(ui, self.client.as_mut());
+        #[cfg(feature = "native-probe")]
+        let viewers_done = std::time::Instant::now();
         self.platform.prepare_render(ui, &self.window)?;
         let frame = self.context.render(self.renderer.renderer_consumer()?);
         let view = surface_frame
@@ -464,11 +530,17 @@ impl Desktop {
             let end = std::time::Instant::now();
             let (frame, ready) = self.preview.probe_frame();
             probe.push(crate::native_probe::Sample {
+                gpu_records: std::mem::take(&mut self.preview.probe_records),
                 frame,
                 ready,
                 start_ms: probe.ms(draw_start),
                 acquire_ms: (acquired - draw_start).as_secs_f64() * 1000.,
                 draw_ms: (end - draw_start).as_secs_f64() * 1000.,
+                client_poll_ms: (polled - acquired).as_secs_f64() * 1000.,
+                controls_ms: (controls_done - polled).as_secs_f64() * 1000.,
+                preview_ms: (preview_done - controls_done).as_secs_f64() * 1000.,
+                viewers_ms: (viewers_done - preview_done).as_secs_f64() * 1000.,
+                ui_encode_ms: (submit_start - viewers_done).as_secs_f64() * 1000.,
                 submit_ms: (submitted - submit_start).as_secs_f64() * 1000.,
                 submitted_ms: probe.ms(submitted),
                 present_ms: (end - present_start).as_secs_f64() * 1000.,
@@ -494,5 +566,21 @@ impl Desktop {
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod pacing_tests {
+    use super::*;
+    #[test]
+    fn automatic_redraw_keeps_sixty_hz_and_honors_faster_fractional_content() {
+        let base = Duration::from_nanos(1_000_000_000 / 60);
+        assert_eq!(redraw_interval([]), base);
+        assert_eq!(redraw_interval([[30, 1], [30_000, 1001]]), base);
+        assert_eq!(redraw_interval([[0, 1], [60, 0]]), base);
+        assert_eq!(
+            redraw_interval([[30, 1], [120_000, 1001]]),
+            Duration::from_nanos(1_000_000_000 * 1001 / 120_000)
+        );
     }
 }

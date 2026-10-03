@@ -16,6 +16,12 @@ fn sample_first(p: vec2<i32>) -> vec4<f32> {
     if any(p < vec2<i32>(0)) || any(p >= vec2<i32>(params.header.yz)) { return vec4<f32>(0.0); }
     return textureLoad(first, p, 0);
 }
+fn validate(value: vec4<f32>) {
+    let exponent = bitcast<vec4<u32>>(value) & vec4<u32>(0x7f800000u);
+    if any(exponent == vec4<u32>(0x7f800000u)) || value.a < 0.0 || value.a > 1.0 {
+        atomicOr(&invalid, 1u);
+    }
+}
 @compute @workgroup_size(8, 8)
 fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     if any(id.xy >= params.header.yz) { return; }
@@ -26,6 +32,11 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         case 1u: { value = textureLoad(first, p, 0) * params.color.x; }
         case 2u: {
             let fg = textureLoad(first, p, 0);
+            value = fg + textureLoad(second, p, 0) * (1.0 - fg.a);
+        }
+        case 9u: {
+            let fg = textureLoad(first, p, 0) * params.color.x;
+            validate(fg);
             value = fg + textureLoad(second, p, 0) * (1.0 - fg.a);
         }
         case 3u: {
@@ -63,9 +74,6 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         }
         default: {}
     }
-    let exponent = bitcast<vec4<u32>>(value) & vec4<u32>(0x7f800000u);
-    if any(exponent == vec4<u32>(0x7f800000u)) || value.a < 0.0 || value.a > 1.0 {
-        atomicOr(&invalid, 1u);
-    }
+    validate(value);
     textureStore(result, p, value);
 }

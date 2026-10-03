@@ -106,6 +106,10 @@ pub struct Memory {
 }
 
 impl Host {
+    /// Shared engine allocations on the reference 8 GiB GPU. Codec/driver
+    /// allocations are measured separately; this is not a physical VRAM cap.
+    pub const DEFAULT_BUDGET: u64 = 1024 * 1024 * 1024;
+
     /// Construct off the UI thread. No surface or Dear ImGui dependency.
     pub async fn headless(budget: u64) -> Result<(Self, wgpu::AdapterInfo), String> {
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {

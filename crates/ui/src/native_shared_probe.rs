@@ -100,6 +100,7 @@ impl Shared {
             "skipped_between_admissions":self.skips, "cache":preview.statistics(),
             "max_observed_underrun_callbacks":self.underruns,
             "resources":client.resource_statistics(), "audio_errors":self.ids.unwrap().map(|id| client.viewer_audio_error(id)) }));
+        eprintln!("Fold shared phase: {}", self.phases.last().unwrap());
     }
     pub fn advance(
         &mut self,
@@ -111,6 +112,9 @@ impl Shared {
             return Err("shared probe exceeded its total observation deadline".into());
         }
         if self.ids.is_none() {
+            if !shell.probe_workspace_ready() {
+                return Ok(false);
+            }
             let Ok((document, info)) = client.output_info() else {
                 return Ok(false);
             };
@@ -124,6 +128,18 @@ impl Shared {
             let Some(a) = shell.workspace.viewers.keys().next().copied() else {
                 return Ok(false);
             };
+            let retired: Vec<_> = shell
+                .workspace
+                .viewers
+                .keys()
+                .copied()
+                .filter(|id| *id != a)
+                .collect();
+            for id in retired {
+                client.command(C::CloseViewer(id));
+                shell.workspace.viewers.remove(&id);
+            }
+            shell.probe_full_quality();
             let output = DocumentRef {
                 document,
                 output: "video".into(),
@@ -190,23 +206,19 @@ impl Shared {
         }
         let elapsed = self.began.elapsed();
         match self.phase {
-            0 if client.viewer_transport(a).unwrap().time > Time::new(1, 2).unwrap()
-                && preview.presented_key(a).is_some_and(|key| key.frame > 12) =>
+            0 if elapsed >= Duration::from_secs(5)
+                && client.viewer_transport(a).is_some_and(|transport| {
+                    transport.playing && transport.time > Time::new(1, 2).unwrap()
+                })
+                && preview.probe_frame().1
+                && preview.presented_key(b).is_some() =>
             {
                 self.record(client, preview);
                 self.begin(1);
             }
             1 if elapsed >= Duration::from_secs(30) => {
                 self.record(client, preview);
-                self.transport(
-                    a,
-                    0,
-                    true,
-                    PlaybackMode::RealTime,
-                    Default::default(),
-                    shell,
-                    client,
-                );
+                // Add load to uninterrupted playback; seeks have their own phase.
                 self.transport(
                     b,
                     240,
@@ -340,7 +352,13 @@ impl Shared {
             _ => {}
         }
         if elapsed > Duration::from_secs(60) {
-            return Err(format!("shared probe phase {} timeout", self.phase).into());
+            self.record(client, preview);
+            return Err(format!(
+                "shared probe phase {} timeout; review {:?}",
+                self.phase,
+                preview.review_state(a)
+            )
+            .into());
         }
         Ok(false)
     }

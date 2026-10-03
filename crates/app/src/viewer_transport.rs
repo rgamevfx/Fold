@@ -265,17 +265,23 @@ impl super::Session {
                     .to_ticks(clock.rate[0], clock.rate[1], Rounding::Floor)
                     .unwrap_or(0)
                     .max(0) as u32;
-                self.playback.play(
-                    self.project.snapshot(),
-                    clock.transport.output.document,
-                    frame,
-                    clock
-                        .transport
-                        .range
-                        .bounds(clock.frames)
-                        .1
-                        .saturating_add(1),
-                );
+                let (start, end) = clock.transport.range.bounds(clock.frames);
+                if clock.transport.looping {
+                    self.playback.play_looping(
+                        self.project.snapshot(),
+                        clock.transport.output.document,
+                        frame,
+                        start,
+                        end.saturating_add(1),
+                    );
+                } else {
+                    self.playback.play(
+                        self.project.snapshot(),
+                        clock.transport.output.document,
+                        frame,
+                        end.saturating_add(1),
+                    );
+                }
             }
         }
     }
@@ -336,7 +342,7 @@ impl super::Session {
                 continue;
             }
             let ended = clock.advance(now, if monitored { sample } else { None });
-            restart |= monitored && ended && sample.is_some();
+            restart |= monitored && ended && sample.is_some() && !clock.transport.looping;
         }
         if restart {
             self.restart_monitor();
@@ -390,6 +396,19 @@ mod tests {
         c.transport.mode = PlaybackMode::EveryFrame;
         c.content = Some("test".into());
         c
+    }
+    #[test]
+    fn realtime_lookahead_waits_for_clock_and_rejects_retired_generation() {
+        let now = Instant::now();
+        let mut c = clock(now, 0, false);
+        c.content = Some("test".into());
+        let next = key(&c, 1);
+        assert!(!c.present(1, &next, now));
+        assert_eq!(c.frame(), 0);
+        c.advance(now + Duration::from_millis(42), None);
+        assert!(c.present(1, &next, now + Duration::from_millis(42)));
+        c.generation += 1;
+        assert!(!c.present(1, &next, now + Duration::from_millis(43)));
     }
     #[cfg(feature = "desktop")]
     #[test]

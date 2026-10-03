@@ -1,7 +1,9 @@
 //! Linux native-video transport. No codec libraries are linked into the application.
 //! Pixel bytes cross only GPU-local copies; Unix messages carry descriptors/readiness.
 #![cfg(target_os = "linux")]
+mod ranges;
 mod readiness;
+pub use ranges::Ranges;
 pub use readiness::{PendingWrite, WriteComplete, WriteTicket};
 #[cfg(feature = "gpu")]
 mod gpu;

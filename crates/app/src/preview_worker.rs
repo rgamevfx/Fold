@@ -5,7 +5,7 @@ use fold_platform::desktop::{PreviewDemand, PreviewKey, PreviewResult};
 use fold_platform::workspace::PanelInstanceId;
 use fold_project::Snapshot;
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     sync::{Arc, Condvar, Mutex},
 };
 
@@ -22,6 +22,8 @@ pub(super) struct Mailbox {
     active: Option<Active>,
     cursor: Option<(PanelInstanceId, bool)>,
     foreground_run: u8,
+    realtime: BTreeSet<PanelInstanceId>,
+    realtime_run: u8,
     pressure_since: Option<std::time::Instant>,
     pressure_retries: u64,
     pub result: Option<PreviewResult>,
@@ -30,6 +32,8 @@ pub(super) struct Mailbox {
     #[cfg(feature = "gpu")]
     pub render_host: Option<fold_render::gpu::Host>,
     pub colors: Option<fold_platform::color::Choices>,
+    wake: Option<Arc<dyn Fn() + Send + Sync>>,
+    updating: bool,
     stop: bool,
 }
 pub(super) struct PreviewWorker {
@@ -92,10 +96,21 @@ impl Mailbox {
     fn next(&mut self) -> Option<(Snapshot, PreviewKey, Cancel, bool)> {
         let background = self.pending.values().any(|(_, d)| d.background)
             && (self.foreground_run >= 4 || !self.pending.values().any(|(_, d)| !d.background));
+        let realtime = !background
+            && self
+                .pending
+                .values()
+                .any(|(_, d)| !d.background && self.realtime.contains(&d.consumer))
+            && (self.realtime_run < 8
+                || !self
+                    .pending
+                    .values()
+                    .any(|(_, d)| !d.background && !self.realtime.contains(&d.consumer)));
         let candidates: Vec<_> = self
             .pending
             .iter()
             .filter(|(_, (_, d))| d.background == background)
+            .filter(|(_, (_, d))| background || self.realtime.contains(&d.consumer) == realtime)
             .map(|(&id, _)| id)
             .collect();
         let id = candidates
@@ -106,6 +121,13 @@ impl Mailbox {
             .or_else(|| self.pending.keys().next().copied())?;
         self.cursor = Some(id);
         let (snapshot, demand) = self.pending.remove(&id).unwrap();
+        if !background {
+            self.realtime_run = if realtime {
+                self.realtime_run.saturating_add(1)
+            } else {
+                0
+            };
+        }
         self.foreground_run = if demand.background {
             0
         } else {
@@ -187,6 +209,15 @@ impl Mailbox {
         })
     }
 }
+// Release the mailbox before notifying: a host callback may immediately collect
+// the result. At most one published result is waiting, so notifications are bounded.
+fn notify(queue: std::sync::MutexGuard<'_, Mailbox>) {
+    let wake = queue.occupied().then(|| queue.wake.clone()).flatten();
+    drop(queue);
+    if let Some(wake) = wake {
+        wake();
+    }
+}
 impl PreviewWorker {
     pub fn new() -> Self {
         let shared = Arc::new((
@@ -196,6 +227,8 @@ impl PreviewWorker {
                 active: None,
                 cursor: None,
                 foreground_run: 0,
+                realtime: Default::default(),
+                realtime_run: 0,
                 pressure_since: None,
                 pressure_retries: 0,
                 result: None,
@@ -204,6 +237,8 @@ impl PreviewWorker {
                 #[cfg(feature = "gpu")]
                 render_host: None,
                 colors: None,
+                wake: None,
+                updating: false,
                 stop: false,
             }),
             Condvar::new(),
@@ -218,7 +253,9 @@ impl PreviewWorker {
                 let (snapshot, key, cancel, background) = {
                     let (lock, ready) = &*state;
                     let mut queue = lock.lock().unwrap();
-                    while (queue.pending.is_empty() || queue.occupied()) && !queue.stop {
+                    while (queue.pending.is_empty() || queue.occupied() || queue.updating)
+                        && !queue.stop
+                    {
                         queue = ready.wait(queue).unwrap();
                     }
                     if queue.stop {
@@ -230,22 +267,6 @@ impl PreviewWorker {
                     fold_render::scheduling::Class::Prepare
                 } else {
                     fold_render::scheduling::Class::Viewer
-                };
-                let admission = fold_render::scheduling::Scheduler::shared().enter(class, &cancel);
-                let _admission = match admission {
-                    Ok(permit) => permit,
-                    Err(error) => {
-                        let mut queue = state.0.lock().unwrap();
-                        let consumers = queue.finish();
-                        if cancel.check().is_ok() && !queue.stop {
-                            queue.result = Some(PreviewResult {
-                                key,
-                                frame: Err(error),
-                                consumers,
-                            });
-                        }
-                        continue;
-                    }
                 };
                 let identity = snapshot
                     .state()
@@ -271,13 +292,16 @@ impl PreviewWorker {
                     let frame = (|| {
                         let renderer = gpu.as_mut().unwrap().1.as_mut().map_err(|e| e.clone())?;
                         let request = workflow::preview_request(&snapshot, &key)?;
-                        let scene = workflow::evaluate_scene_gpu(
+                        let scene = workflow::evaluate_scene_gpu_admitted(
                             &snapshot,
                             &request,
                             renderer,
                             decoder.as_mut().map_err(|e| e.clone())?,
                             &cancel,
+                            Some(class),
                         )?;
+                        let _output_permit =
+                            fold_render::scheduling::Scheduler::shared().enter(class, &cancel)?;
                         crate::color::with_config(&snapshot, |config| {
                             let processor = config
                                 .map(|c| c.display(fold_color::WORKING_SPACE, &Default::default()))
@@ -305,8 +329,26 @@ impl PreviewWorker {
                             consumers,
                         });
                     }
+                    notify(queue);
                     continue;
                 }
+                let admission = fold_render::scheduling::Scheduler::shared().enter(class, &cancel);
+                let _admission = match admission {
+                    Ok(permit) => permit,
+                    Err(error) => {
+                        let mut queue = state.0.lock().unwrap();
+                        let consumers = queue.finish();
+                        if cancel.check().is_ok() && !queue.stop {
+                            queue.result = Some(PreviewResult {
+                                key,
+                                frame: Err(error),
+                                consumers,
+                            });
+                        }
+                        notify(queue);
+                        continue;
+                    }
+                };
                 let frame = decoder
                     .as_mut()
                     .map_err(|e| e.clone())
@@ -329,12 +371,16 @@ impl PreviewWorker {
                         consumers,
                     });
                 }
+                notify(queue);
             }
         });
         Self {
             shared,
             thread: Some(thread),
         }
+    }
+    pub fn set_wake(&mut self, wake: Arc<dyn Fn() + Send + Sync>) {
+        self.shared.0.lock().unwrap().wake = Some(wake);
     }
     pub fn cancel(&mut self) {
         let mut queue = self.shared.0.lock().unwrap();
@@ -351,9 +397,21 @@ impl PreviewWorker {
         }
         self.shared.1.notify_one();
     }
-    pub fn demands(&mut self, snapshot: Snapshot, demands: Vec<PreviewDemand>) {
-        self.shared.0.lock().unwrap().replace(snapshot, demands);
+    pub fn begin_update(&mut self) {
+        self.shared.0.lock().unwrap().updating = true;
+    }
+    pub fn end_update(&mut self) {
+        self.shared.0.lock().unwrap().updating = false;
         self.shared.1.notify_one();
+    }
+    pub fn demands(&mut self, snapshot: Snapshot, demands: Vec<PreviewDemand>) {
+        let mut queue = self.shared.0.lock().unwrap();
+        queue.replace(snapshot, demands);
+        drop(queue);
+        self.shared.1.notify_one();
+    }
+    pub fn realtime_consumers(&mut self, consumers: BTreeSet<PanelInstanceId>) {
+        self.shared.0.lock().unwrap().realtime = consumers;
     }
     pub fn request(&mut self, snapshot: Snapshot, key: PreviewKey) {
         self.cancel();
@@ -465,6 +523,24 @@ mod tests {
         }
         assert!(order.iter().filter(|r| r.1).count() >= 2);
         assert!(order.iter().any(|r| (100..200).contains(&r.0)));
+    }
+    #[test]
+    fn realtime_gets_capacity_without_starving_every_frame() {
+        let mut queue = Mailbox::default();
+        queue.realtime.insert(PanelInstanceId(1));
+        let mut order = Vec::new();
+        for step in 0..10 {
+            queue.replace(
+                snapshot(),
+                vec![demand(1, 1, step, false), demand(2, 1, 100 + step, false)],
+            );
+            order.push(queue.next().unwrap().1.frame < 100);
+            queue.finish();
+        }
+        assert_eq!(
+            order,
+            [true, true, true, true, true, true, true, true, false, true]
+        );
     }
     #[test]
     fn range_and_current_frame_deduplicate_without_moving_the_viewer() {

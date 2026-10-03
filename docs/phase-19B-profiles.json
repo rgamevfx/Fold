@@ -1,0 +1,5423 @@
+{
+  "reference": "GTX 1070, Vulkan, NVIDIA 580.173.02, 1920x1080 RGBA32F, pinned OCIO ACEScg, native software decode with CUDA-local copy",
+  "warmup_frames": 30,
+  "frames_per_condition": 180,
+  "runs": [
+    {
+      "directory": "/tmp/fold-19b-before-1",
+      "log_sha256": "f046a6c4df43968289744e68d9c93f4c296b68aad6be8de5bc5501ade1f5a580",
+      "process": {
+        "command": [
+          "/tmp/fold-19b-baseline-profile",
+          "--ignored",
+          "--nocapture",
+          "--test-threads=1"
+        ],
+        "exit_code": 0,
+        "timed_out": false,
+        "wall_seconds": 15.717719476990169,
+        "samples": 191,
+        "sampled_tree_rss_bytes": 924762112,
+        "sampled_scratch_bytes": 64568250,
+        "sampled_gpu_process_bytes": 822083584,
+        "gpu_samples": 16,
+        "gpu_error": null,
+        "nominal_gpu_sample_interval_ms": 1000,
+        "nominal_sample_interval_ms": 50
+      },
+      "workloads": {
+        "compositor/advancing/cold": {
+          "frames": 30,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 11.230797,
+              "p50": 10.4395,
+              "p95": 17.200222,
+              "maximum": 23.868016
+            },
+            "compile_ns": {
+              "mean": 0.009633,
+              "p50": 0.009257,
+              "p95": 0.015992,
+              "maximum": 0.020723
+            },
+            "gpu_ns": {
+              "mean": 4.858845,
+              "p50": 4.586496,
+              "p95": 5.66272,
+              "maximum": 5.666816
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.104333,
+              "p50": 0.090625,
+              "p95": 0.143732,
+              "maximum": 0.292472
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.873881,
+              "p50": 4.289351,
+              "p95": 10.384318,
+              "maximum": 13.677513
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 3.3e-05,
+              "p50": 3e-05,
+              "p95": 4.9e-05,
+              "maximum": 5.1e-05
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.164231,
+              "p50": 0.155897,
+              "p95": 0.206049,
+              "maximum": 0.311272
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 13.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 0
+          },
+          "logical_peak_bytes": 99534940.0,
+          "scratch_peak_bytes": 0.0
+        },
+        "compositor/advancing/warm": {
+          "frames": 150,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 10.550999,
+              "p50": 10.346045,
+              "p95": 11.65164,
+              "maximum": 15.846702
+            },
+            "compile_ns": {
+              "mean": 0.010263,
+              "p50": 0.00953,
+              "p95": 0.017853,
+              "maximum": 0.022359
+            },
+            "gpu_ns": {
+              "mean": 4.701846,
+              "p50": 4.528128,
+              "p95": 5.435392,
+              "maximum": 5.607424
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.103714,
+              "p50": 0.090257,
+              "p95": 0.153103,
+              "maximum": 0.210763
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.465159,
+              "p50": 4.316954,
+              "p95": 5.528916,
+              "maximum": 5.910317
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 3.8e-05,
+              "p50": 3.1e-05,
+              "p95": 7.3e-05,
+              "maximum": 9.2e-05
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.169471,
+              "p50": 0.153895,
+              "p95": 0.255647,
+              "maximum": 0.315979
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 13.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 0
+          },
+          "logical_peak_bytes": 99534940.0,
+          "scratch_peak_bytes": 0.0
+        },
+        "compositor/repeated/cold": {
+          "frames": 30,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 10.208572,
+              "p50": 9.998369,
+              "p95": 10.937104,
+              "maximum": 11.954606
+            },
+            "compile_ns": {
+              "mean": 0.007215,
+              "p50": 0.006196,
+              "p95": 0.013349,
+              "maximum": 0.018652
+            },
+            "gpu_ns": {
+              "mean": 4.700535,
+              "p50": 4.532224,
+              "p95": 5.398528,
+              "maximum": 5.399552
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.093528,
+              "p50": 0.087146,
+              "p95": 0.119857,
+              "maximum": 0.192628
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.226893,
+              "p50": 4.197668,
+              "p95": 4.37602,
+              "maximum": 5.347402
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 3.9e-05,
+              "p50": 3e-05,
+              "p95": 7.1e-05,
+              "maximum": 8.2e-05
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.148439,
+              "p50": 0.148467,
+              "p95": 0.160196,
+              "maximum": 0.179576
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 13.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 0
+          },
+          "logical_peak_bytes": 99534940.0,
+          "scratch_peak_bytes": 0.0
+        },
+        "compositor/repeated/warm": {
+          "frames": 150,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 10.54756,
+              "p50": 10.311047,
+              "p95": 11.952343,
+              "maximum": 18.581061
+            },
+            "compile_ns": {
+              "mean": 0.008055,
+              "p50": 0.007173,
+              "p95": 0.014047,
+              "maximum": 0.017154
+            },
+            "gpu_ns": {
+              "mean": 4.721254,
+              "p50": 4.5312,
+              "p95": 5.41184,
+              "maximum": 6.137856
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.100292,
+              "p50": 0.089321,
+              "p95": 0.155957,
+              "maximum": 0.193575
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.468567,
+              "p50": 4.258763,
+              "p95": 5.447501,
+              "maximum": 12.868725
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 3.8e-05,
+              "p50": 3e-05,
+              "p95": 7.6e-05,
+              "maximum": 0.000108
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.168755,
+              "p50": 0.152663,
+              "p95": 0.244004,
+              "maximum": 0.717219
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 13.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 0
+          },
+          "logical_peak_bytes": 99534940.0,
+          "scratch_peak_bytes": 0.0
+        },
+        "motion/advancing/cold": {
+          "frames": 30,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 7.863139,
+              "p50": 7.283514,
+              "p95": 8.980682,
+              "maximum": 20.766732
+            },
+            "compile_ns": {
+              "mean": 0.011116,
+              "p50": 0.009853,
+              "p95": 0.016506,
+              "maximum": 0.018756
+            },
+            "gpu_ns": {
+              "mean": 1.214396,
+              "p50": 1.193984,
+              "p95": 1.400832,
+              "maximum": 1.630208
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.106125,
+              "p50": 0.093333,
+              "p95": 0.159127,
+              "maximum": 0.167485
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 5.173338,
+              "p50": 4.708301,
+              "p95": 6.300584,
+              "maximum": 14.272827
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.409433,
+              "p50": 0.337524,
+              "p95": 0.63708,
+              "maximum": 0.642655
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 4.5e-05,
+              "p50": 4.1e-05,
+              "p95": 8.3e-05,
+              "maximum": 0.000131
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.110451,
+              "p50": 0.095773,
+              "p95": 0.162999,
+              "maximum": 0.255635
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 4.0,
+            "upload_bytes": 94718.93333333333,
+            "vector_upload_bytes": 94718.93333333333,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 0
+          },
+          "logical_peak_bytes": 100291388.0,
+          "scratch_peak_bytes": 0.0
+        },
+        "motion/advancing/warm": {
+          "frames": 150,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 7.329204,
+              "p50": 7.075623,
+              "p95": 8.725697,
+              "maximum": 9.739793
+            },
+            "compile_ns": {
+              "mean": 0.011622,
+              "p50": 0.010095,
+              "p95": 0.021224,
+              "maximum": 0.042218
+            },
+            "gpu_ns": {
+              "mean": 1.239375,
+              "p50": 1.190912,
+              "p95": 1.727488,
+              "maximum": 1.874944
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.105623,
+              "p50": 0.091351,
+              "p95": 0.153673,
+              "maximum": 0.185315
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.785606,
+              "p50": 4.537915,
+              "p95": 5.986363,
+              "maximum": 6.516279
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.379891,
+              "p50": 0.321584,
+              "p95": 0.587908,
+              "maximum": 0.687413
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 3.6e-05,
+              "p50": 3e-05,
+              "p95": 5.9e-05,
+              "maximum": 0.000103
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.100055,
+              "p50": 0.093078,
+              "p95": 0.138154,
+              "maximum": 0.153787
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 4.0,
+            "upload_bytes": 94739.41333333333,
+            "vector_upload_bytes": 94739.41333333333,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 0
+          },
+          "logical_peak_bytes": 100291388.0,
+          "scratch_peak_bytes": 0.0
+        },
+        "motion/repeated/cold": {
+          "frames": 30,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 6.533166,
+              "p50": 6.373512,
+              "p95": 7.298225,
+              "maximum": 7.368987
+            },
+            "compile_ns": {
+              "mean": 0.010979,
+              "p50": 0.009297,
+              "p95": 0.018474,
+              "maximum": 0.024342
+            },
+            "gpu_ns": {
+              "mean": 1.241532,
+              "p50": 1.189888,
+              "p95": 1.737728,
+              "maximum": 1.835008
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.091699,
+              "p50": 0.088453,
+              "p95": 0.126528,
+              "maximum": 0.134715
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.144194,
+              "p50": 4.05913,
+              "p95": 4.622604,
+              "maximum": 4.819308
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.021432,
+              "p50": 0.011342,
+              "p95": 0.015641,
+              "maximum": 0.29805
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 4e-05,
+              "p50": 3.1e-05,
+              "p95": 7.2e-05,
+              "maximum": 9.2e-05
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.089831,
+              "p50": 0.086895,
+              "p95": 0.115313,
+              "maximum": 0.116308
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 4.0,
+            "upload_bytes": 3132.266666666667,
+            "vector_upload_bytes": 3132.266666666667,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 0
+          },
+          "logical_peak_bytes": 100291388.0,
+          "scratch_peak_bytes": 0.0
+        },
+        "motion/repeated/warm": {
+          "frames": 150,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 6.696639,
+              "p50": 6.534646,
+              "p95": 7.5311,
+              "maximum": 8.645344
+            },
+            "compile_ns": {
+              "mean": 0.012694,
+              "p50": 0.011107,
+              "p95": 0.02094,
+              "maximum": 0.027045
+            },
+            "gpu_ns": {
+              "mean": 1.251505,
+              "p50": 1.185792,
+              "p95": 1.808384,
+              "maximum": 1.860608
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.100533,
+              "p50": 0.092221,
+              "p95": 0.147594,
+              "maximum": 0.166016
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.23096,
+              "p50": 4.127269,
+              "p95": 4.743732,
+              "maximum": 5.449201
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.012747,
+              "p50": 0.012002,
+              "p95": 0.017668,
+              "maximum": 0.023148
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 4.1e-05,
+              "p50": 3.1e-05,
+              "p95": 5.9e-05,
+              "maximum": 0.000356
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.101727,
+              "p50": 0.093588,
+              "p95": 0.137145,
+              "maximum": 0.636203
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 4.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 0
+          },
+          "logical_peak_bytes": 100291388.0,
+          "scratch_peak_bytes": 0.0
+        },
+        "video/advancing/cold": {
+          "frames": 30,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 36.528798,
+              "p50": 15.245451,
+              "p95": 29.496726,
+              "maximum": 636.508414
+            },
+            "compile_ns": {
+              "mean": 0.003565,
+              "p50": 0.002675,
+              "p95": 0.007528,
+              "maximum": 0.007811
+            },
+            "gpu_ns": {
+              "mean": 2.844809,
+              "p50": 2.781184,
+              "p95": 3.39456,
+              "maximum": 3.642368
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.105963,
+              "p50": 0.093225,
+              "p95": 0.189735,
+              "maximum": 0.19228
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 32.275818,
+              "p50": 11.154234,
+              "p95": 24.711888,
+              "maximum": 628.670738
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "native_decode_nanoseconds": {
+              "mean": 26.386765,
+              "p50": 6.821027,
+              "p95": 12.77228,
+              "maximum": 586.006102
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 5.2e-05,
+              "p50": 3.3e-05,
+              "p95": 0.000104,
+              "maximum": 0.000137
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.15149,
+              "p50": 0.132003,
+              "p95": 0.263343,
+              "maximum": 0.316699
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 8.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 6220800.0,
+            "native_seeks": 0.06666666666666667,
+            "native_forward_reuses": 1.9333333333333333,
+            "fused_opacity_passes": 0
+          },
+          "logical_peak_bytes": 198029532.0,
+          "scratch_peak_bytes": 32.0
+        },
+        "video/advancing/warm": {
+          "frames": 150,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 15.881734,
+              "p50": 15.469603,
+              "p95": 17.535571,
+              "maximum": 31.660299
+            },
+            "compile_ns": {
+              "mean": 0.002517,
+              "p50": 0.002241,
+              "p95": 0.004277,
+              "maximum": 0.008182
+            },
+            "gpu_ns": {
+              "mean": 2.894268,
+              "p50": 2.784256,
+              "p95": 3.421184,
+              "maximum": 4.25472
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.111188,
+              "p50": 0.096723,
+              "p95": 0.158157,
+              "maximum": 0.23499
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 11.646927,
+              "p50": 11.322042,
+              "p95": 13.162494,
+              "maximum": 26.661772
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "native_decode_nanoseconds": {
+              "mean": 7.107366,
+              "p50": 6.949847,
+              "p95": 8.096957,
+              "maximum": 12.529035
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 5.4e-05,
+              "p50": 4.1e-05,
+              "p95": 9.9e-05,
+              "maximum": 0.000182
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.1504,
+              "p50": 0.133198,
+              "p95": 0.212537,
+              "maximum": 0.703889
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 8.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 6220800.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 2.0,
+            "fused_opacity_passes": 0
+          },
+          "logical_peak_bytes": 198029532.0,
+          "scratch_peak_bytes": 32.0
+        },
+        "video/repeated/cold": {
+          "frames": 30,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 17.052613,
+              "p50": 8.387675,
+              "p95": 9.694865,
+              "maximum": 265.42598
+            },
+            "compile_ns": {
+              "mean": 0.002127,
+              "p50": 0.002036,
+              "p95": 0.00296,
+              "maximum": 0.003213
+            },
+            "gpu_ns": {
+              "mean": 2.867814,
+              "p50": 2.78528,
+              "p95": 3.35872,
+              "maximum": 3.642368
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.110157,
+              "p50": 0.096081,
+              "p95": 0.159746,
+              "maximum": 0.182612
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 12.884943,
+              "p50": 4.221242,
+              "p95": 5.611755,
+              "maximum": 261.482694
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "native_decode_nanoseconds": {
+              "mean": 8.576349,
+              "p50": 0.002034,
+              "p95": 0.003961,
+              "maximum": 257.226386
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 3.3e-05,
+              "p50": 3e-05,
+              "p95": 4.3e-05,
+              "maximum": 4.8e-05
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.145526,
+              "p50": 0.135893,
+              "p95": 0.192559,
+              "maximum": 0.20614
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 8.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 207360.0,
+            "native_seeks": 0.06666666666666667,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 0
+          },
+          "logical_peak_bytes": 198029532.0,
+          "scratch_peak_bytes": 32.0
+        },
+        "video/repeated/warm": {
+          "frames": 150,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 8.297156,
+              "p50": 8.172887,
+              "p95": 9.401529,
+              "maximum": 10.313735
+            },
+            "compile_ns": {
+              "mean": 0.002155,
+              "p50": 0.002091,
+              "p95": 0.002839,
+              "maximum": 0.003451
+            },
+            "gpu_ns": {
+              "mean": 2.87632,
+              "p50": 2.786304,
+              "p95": 3.436544,
+              "maximum": 3.633152
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.104602,
+              "p50": 0.095801,
+              "p95": 0.160377,
+              "maximum": 0.195517
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.153026,
+              "p50": 4.137587,
+              "p95": 4.65135,
+              "maximum": 5.449463
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.002097,
+              "p50": 0.002021,
+              "p95": 0.002927,
+              "maximum": 0.004085
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 3.3e-05,
+              "p50": 3e-05,
+              "p95": 4.9e-05,
+              "maximum": 7.7e-05
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.134229,
+              "p50": 0.127706,
+              "p95": 0.172715,
+              "maximum": 0.20021
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 8.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 0
+          },
+          "logical_peak_bytes": 198029532.0,
+          "scratch_peak_bytes": 32.0
+        }
+      }
+    },
+    {
+      "directory": "/tmp/fold-19b-before-2",
+      "log_sha256": "e30fefe0fa79224345f9654d6cea73f11f4710cdf4c1f36a8a786eba587bab1f",
+      "process": {
+        "command": [
+          "/tmp/fold-19b-baseline-profile",
+          "--ignored",
+          "--nocapture",
+          "--test-threads=1"
+        ],
+        "exit_code": 0,
+        "timed_out": false,
+        "wall_seconds": 15.949453434004681,
+        "samples": 196,
+        "sampled_tree_rss_bytes": 880660480,
+        "sampled_scratch_bytes": 64568250,
+        "sampled_gpu_process_bytes": 822083584,
+        "gpu_samples": 16,
+        "gpu_error": null,
+        "nominal_gpu_sample_interval_ms": 1000,
+        "nominal_sample_interval_ms": 50
+      },
+      "workloads": {
+        "compositor/advancing/cold": {
+          "frames": 30,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 10.347174,
+              "p50": 9.738703,
+              "p95": 11.522116,
+              "maximum": 22.407791
+            },
+            "compile_ns": {
+              "mean": 0.0077,
+              "p50": 0.006274,
+              "p95": 0.014475,
+              "maximum": 0.01949
+            },
+            "gpu_ns": {
+              "mean": 4.677018,
+              "p50": 4.516864,
+              "p95": 5.571584,
+              "maximum": 6.10816
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.094553,
+              "p50": 0.087034,
+              "p95": 0.119948,
+              "maximum": 0.279457
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.370079,
+              "p50": 4.048046,
+              "p95": 4.576173,
+              "maximum": 13.682096
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 3.7e-05,
+              "p50": 3.5e-05,
+              "p95": 6.3e-05,
+              "maximum": 6.4e-05
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.172142,
+              "p50": 0.152431,
+              "p95": 0.180717,
+              "maximum": 0.749655
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 13.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 0
+          },
+          "logical_peak_bytes": 99534940.0,
+          "scratch_peak_bytes": 0.0
+        },
+        "compositor/advancing/warm": {
+          "frames": 150,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 10.4706,
+              "p50": 10.321617,
+              "p95": 11.936182,
+              "maximum": 13.794141
+            },
+            "compile_ns": {
+              "mean": 0.009717,
+              "p50": 0.009482,
+              "p95": 0.016268,
+              "maximum": 0.03157
+            },
+            "gpu_ns": {
+              "mean": 4.734484,
+              "p50": 4.519936,
+              "p95": 5.40672,
+              "maximum": 5.85728
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.101824,
+              "p50": 0.08971,
+              "p95": 0.152236,
+              "maximum": 0.294227
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.381142,
+              "p50": 4.249969,
+              "p95": 5.593621,
+              "maximum": 7.054953
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 3.9e-05,
+              "p50": 3.6e-05,
+              "p95": 5.6e-05,
+              "maximum": 0.00014
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.16477,
+              "p50": 0.152438,
+              "p95": 0.232112,
+              "maximum": 0.262876
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 13.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 0
+          },
+          "logical_peak_bytes": 99534940.0,
+          "scratch_peak_bytes": 0.0
+        },
+        "compositor/repeated/cold": {
+          "frames": 30,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 10.792949,
+              "p50": 10.55516,
+              "p95": 11.463165,
+              "maximum": 12.454303
+            },
+            "compile_ns": {
+              "mean": 0.013642,
+              "p50": 0.013412,
+              "p95": 0.017179,
+              "maximum": 0.019339
+            },
+            "gpu_ns": {
+              "mean": 4.691285,
+              "p50": 4.51584,
+              "p95": 5.413888,
+              "maximum": 5.438464
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.102765,
+              "p50": 0.097294,
+              "p95": 0.131296,
+              "maximum": 0.135151
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.629138,
+              "p50": 4.53654,
+              "p95": 5.284591,
+              "maximum": 5.363801
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 4.2e-05,
+              "p50": 3.5e-05,
+              "p95": 6.6e-05,
+              "maximum": 0.00014
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.173904,
+              "p50": 0.159674,
+              "p95": 0.243582,
+              "maximum": 0.304908
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 13.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 0
+          },
+          "logical_peak_bytes": 99534940.0,
+          "scratch_peak_bytes": 0.0
+        },
+        "compositor/repeated/warm": {
+          "frames": 150,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 10.470462,
+              "p50": 10.286228,
+              "p95": 11.620021,
+              "maximum": 12.708687
+            },
+            "compile_ns": {
+              "mean": 0.009837,
+              "p50": 0.009511,
+              "p95": 0.015929,
+              "maximum": 0.027991
+            },
+            "gpu_ns": {
+              "mean": 4.712271,
+              "p50": 4.521984,
+              "p95": 5.455872,
+              "maximum": 5.999616
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.101281,
+              "p50": 0.090073,
+              "p95": 0.149345,
+              "maximum": 0.185325
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.425598,
+              "p50": 4.301581,
+              "p95": 5.353446,
+              "maximum": 6.162448
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 4.2e-05,
+              "p50": 3.5e-05,
+              "p95": 7e-05,
+              "maximum": 0.000196
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.170266,
+              "p50": 0.153771,
+              "p95": 0.245021,
+              "maximum": 0.769752
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 13.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 0
+          },
+          "logical_peak_bytes": 99534940.0,
+          "scratch_peak_bytes": 0.0
+        },
+        "motion/advancing/cold": {
+          "frames": 30,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 7.36696,
+              "p50": 6.857677,
+              "p95": 7.830861,
+              "maximum": 19.305183
+            },
+            "compile_ns": {
+              "mean": 0.009619,
+              "p50": 0.008904,
+              "p95": 0.013273,
+              "maximum": 0.022515
+            },
+            "gpu_ns": {
+              "mean": 1.238972,
+              "p50": 1.18272,
+              "p95": 1.814528,
+              "maximum": 1.847296
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.099991,
+              "p50": 0.091544,
+              "p95": 0.158544,
+              "maximum": 0.160498
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.817755,
+              "p50": 4.474645,
+              "p95": 5.04405,
+              "maximum": 13.677615
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.346471,
+              "p50": 0.320594,
+              "p95": 0.53204,
+              "maximum": 0.537273
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 4.4e-05,
+              "p50": 3.7e-05,
+              "p95": 8.3e-05,
+              "maximum": 0.00011
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.096955,
+              "p50": 0.091216,
+              "p95": 0.134009,
+              "maximum": 0.19394
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 4.0,
+            "upload_bytes": 94718.93333333333,
+            "vector_upload_bytes": 94718.93333333333,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 0
+          },
+          "logical_peak_bytes": 100291388.0,
+          "scratch_peak_bytes": 0.0
+        },
+        "motion/advancing/warm": {
+          "frames": 150,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 7.032445,
+              "p50": 6.848183,
+              "p95": 8.230217,
+              "maximum": 9.309323
+            },
+            "compile_ns": {
+              "mean": 0.011456,
+              "p50": 0.009803,
+              "p95": 0.019363,
+              "maximum": 0.025203
+            },
+            "gpu_ns": {
+              "mean": 1.248372,
+              "p50": 1.18784,
+              "p95": 1.728512,
+              "maximum": 1.926144
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.102422,
+              "p50": 0.092231,
+              "p95": 0.147866,
+              "maximum": 0.190771
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.542326,
+              "p50": 4.422369,
+              "p95": 5.557696,
+              "maximum": 6.434155
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.373697,
+              "p50": 0.326497,
+              "p95": 0.594829,
+              "maximum": 0.714276
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 3.9e-05,
+              "p50": 3.5e-05,
+              "p95": 5.6e-05,
+              "maximum": 0.000201
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.097603,
+              "p50": 0.09266,
+              "p95": 0.135795,
+              "maximum": 0.153827
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 4.0,
+            "upload_bytes": 94739.41333333333,
+            "vector_upload_bytes": 94739.41333333333,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 0
+          },
+          "logical_peak_bytes": 100291388.0,
+          "scratch_peak_bytes": 0.0
+        },
+        "motion/repeated/cold": {
+          "frames": 30,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 6.755202,
+              "p50": 6.525274,
+              "p95": 7.934153,
+              "maximum": 8.24957
+            },
+            "compile_ns": {
+              "mean": 0.013366,
+              "p50": 0.010633,
+              "p95": 0.024606,
+              "maximum": 0.027988
+            },
+            "gpu_ns": {
+              "mean": 1.230507,
+              "p50": 1.186816,
+              "p95": 1.406976,
+              "maximum": 2.008064
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.1044,
+              "p50": 0.09259,
+              "p95": 0.16004,
+              "maximum": 0.16635
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.316151,
+              "p50": 4.110288,
+              "p95": 5.320573,
+              "maximum": 5.341856
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.024236,
+              "p50": 0.012221,
+              "p95": 0.02786,
+              "maximum": 0.318808
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 4.5e-05,
+              "p50": 3.5e-05,
+              "p95": 8.4e-05,
+              "maximum": 0.000184
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.100979,
+              "p50": 0.094573,
+              "p95": 0.134178,
+              "maximum": 0.136054
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 4.0,
+            "upload_bytes": 3132.266666666667,
+            "vector_upload_bytes": 3132.266666666667,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 0
+          },
+          "logical_peak_bytes": 100291388.0,
+          "scratch_peak_bytes": 0.0
+        },
+        "motion/repeated/warm": {
+          "frames": 150,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 6.73489,
+              "p50": 6.63124,
+              "p95": 7.545378,
+              "maximum": 11.376231
+            },
+            "compile_ns": {
+              "mean": 0.012901,
+              "p50": 0.011179,
+              "p95": 0.02099,
+              "maximum": 0.04282
+            },
+            "gpu_ns": {
+              "mean": 1.234432,
+              "p50": 1.184768,
+              "p95": 1.746944,
+              "maximum": 1.982464
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.100713,
+              "p50": 0.092174,
+              "p95": 0.146841,
+              "maximum": 0.183494
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.270296,
+              "p50": 4.157706,
+              "p95": 4.675926,
+              "maximum": 8.38714
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.012346,
+              "p50": 0.011829,
+              "p95": 0.017726,
+              "maximum": 0.023385
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 3.9e-05,
+              "p50": 3.6e-05,
+              "p95": 5.7e-05,
+              "maximum": 7.4e-05
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.102436,
+              "p50": 0.094441,
+              "p95": 0.131989,
+              "maximum": 0.632132
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 4.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 0
+          },
+          "logical_peak_bytes": 100291388.0,
+          "scratch_peak_bytes": 0.0
+        },
+        "video/advancing/cold": {
+          "frames": 30,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 37.709992,
+              "p50": 16.579515,
+              "p95": 31.863059,
+              "maximum": 621.151286
+            },
+            "compile_ns": {
+              "mean": 0.002851,
+              "p50": 0.002467,
+              "p95": 0.004948,
+              "maximum": 0.007322
+            },
+            "gpu_ns": {
+              "mean": 3.132655,
+              "p50": 2.9952,
+              "p95": 3.798016,
+              "maximum": 3.98848
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.118102,
+              "p50": 0.09456,
+              "p95": 0.165472,
+              "maximum": 0.423994
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 33.008199,
+              "p50": 12.162408,
+              "p95": 25.01306,
+              "maximum": 610.855277
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "native_decode_nanoseconds": {
+              "mean": 27.858902,
+              "p50": 7.981675,
+              "p95": 15.570944,
+              "maximum": 593.226302
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 4.2e-05,
+              "p50": 3e-05,
+              "p95": 8.9e-05,
+              "maximum": 0.000105
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.154531,
+              "p50": 0.133583,
+              "p95": 0.258547,
+              "maximum": 0.322303
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 8.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 6220800.0,
+            "native_seeks": 0.06666666666666667,
+            "native_forward_reuses": 1.9333333333333333,
+            "fused_opacity_passes": 0
+          },
+          "logical_peak_bytes": 198029532.0,
+          "scratch_peak_bytes": 32.0
+        },
+        "video/advancing/warm": {
+          "frames": 150,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 16.996756,
+              "p50": 16.60718,
+              "p95": 18.466331,
+              "maximum": 31.591715
+            },
+            "compile_ns": {
+              "mean": 0.002592,
+              "p50": 0.002285,
+              "p95": 0.004969,
+              "maximum": 0.008293
+            },
+            "gpu_ns": {
+              "mean": 3.160548,
+              "p50": 2.993152,
+              "p95": 3.869696,
+              "maximum": 4.148224
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.10627,
+              "p50": 0.095218,
+              "p95": 0.158669,
+              "maximum": 0.248386
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 12.507105,
+              "p50": 12.176224,
+              "p95": 13.659344,
+              "maximum": 25.681324
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "native_decode_nanoseconds": {
+              "mean": 8.085229,
+              "p50": 7.878221,
+              "p95": 9.205224,
+              "maximum": 14.309454
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 4.2e-05,
+              "p50": 3.1e-05,
+              "p95": 8.3e-05,
+              "maximum": 0.000158
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.151942,
+              "p50": 0.132319,
+              "p95": 0.221954,
+              "maximum": 0.718621
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 8.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 6220800.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 2.0,
+            "fused_opacity_passes": 0
+          },
+          "logical_peak_bytes": 198029532.0,
+          "scratch_peak_bytes": 32.0
+        },
+        "video/repeated/cold": {
+          "frames": 30,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 15.9752,
+              "p50": 8.109497,
+              "p95": 9.615612,
+              "maximum": 238.784513
+            },
+            "compile_ns": {
+              "mean": 0.002136,
+              "p50": 0.001995,
+              "p95": 0.002781,
+              "maximum": 0.002807
+            },
+            "gpu_ns": {
+              "mean": 3.113471,
+              "p50": 2.993152,
+              "p95": 3.710976,
+              "maximum": 3.777504
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.099959,
+              "p50": 0.092743,
+              "p95": 0.141296,
+              "maximum": 0.168213
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 11.61605,
+              "p50": 3.956741,
+              "p95": 4.448833,
+              "maximum": 234.379764
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "native_decode_nanoseconds": {
+              "mean": 7.679845,
+              "p50": 0.001996,
+              "p95": 0.002868,
+              "maximum": 230.334278
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 3.4e-05,
+              "p50": 3.4e-05,
+              "p95": 4.8e-05,
+              "maximum": 5e-05
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.130774,
+              "p50": 0.122585,
+              "p95": 0.168986,
+              "maximum": 0.225475
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 8.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 207360.0,
+            "native_seeks": 0.06666666666666667,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 0
+          },
+          "logical_peak_bytes": 198029532.0,
+          "scratch_peak_bytes": 32.0
+        },
+        "video/repeated/warm": {
+          "frames": 150,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 8.811095,
+              "p50": 8.536239,
+              "p95": 10.367492,
+              "maximum": 11.67173
+            },
+            "compile_ns": {
+              "mean": 0.002254,
+              "p50": 0.002196,
+              "p95": 0.003047,
+              "maximum": 0.003644
+            },
+            "gpu_ns": {
+              "mean": 3.117493,
+              "p50": 2.992128,
+              "p95": 3.798016,
+              "maximum": 4.08064
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.109678,
+              "p50": 0.095769,
+              "p95": 0.16195,
+              "maximum": 0.689191
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.404041,
+              "p50": 4.22365,
+              "p95": 5.759786,
+              "maximum": 6.086171
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.002277,
+              "p50": 0.002056,
+              "p95": 0.003375,
+              "maximum": 0.011476
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 3.6e-05,
+              "p50": 3.5e-05,
+              "p95": 5.1e-05,
+              "maximum": 6.3e-05
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.139866,
+              "p50": 0.127765,
+              "p95": 0.200547,
+              "maximum": 0.297333
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 8.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 0
+          },
+          "logical_peak_bytes": 198029532.0,
+          "scratch_peak_bytes": 32.0
+        }
+      }
+    },
+    {
+      "directory": "/tmp/fold-19b-before-3",
+      "log_sha256": "405fb541050889525899fec499a705b5ae288838e7b2c6e5a60486fd80580512",
+      "process": {
+        "command": [
+          "/tmp/fold-19b-baseline-profile",
+          "--ignored",
+          "--nocapture",
+          "--test-threads=1"
+        ],
+        "exit_code": 0,
+        "timed_out": false,
+        "wall_seconds": 16.004338043014286,
+        "samples": 193,
+        "sampled_tree_rss_bytes": 879861760,
+        "sampled_scratch_bytes": 64568250,
+        "sampled_gpu_process_bytes": 822083584,
+        "gpu_samples": 16,
+        "gpu_error": null,
+        "nominal_gpu_sample_interval_ms": 1000,
+        "nominal_sample_interval_ms": 50
+      },
+      "workloads": {
+        "compositor/advancing/cold": {
+          "frames": 30,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 11.254459,
+              "p50": 10.253248,
+              "p95": 23.123503,
+              "maximum": 23.854537
+            },
+            "compile_ns": {
+              "mean": 0.00848,
+              "p50": 0.007277,
+              "p95": 0.012734,
+              "maximum": 0.016506
+            },
+            "gpu_ns": {
+              "mean": 4.75573,
+              "p50": 4.560896,
+              "p95": 5.630976,
+              "maximum": 5.668864
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.105418,
+              "p50": 0.089066,
+              "p95": 0.155204,
+              "maximum": 0.269042
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 5.021715,
+              "p50": 4.256967,
+              "p95": 14.089243,
+              "maximum": 16.170591
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 4e-05,
+              "p50": 4e-05,
+              "p95": 5.7e-05,
+              "maximum": 7.4e-05
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.186228,
+              "p50": 0.156992,
+              "p95": 0.253472,
+              "maximum": 0.747341
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 13.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 0
+          },
+          "logical_peak_bytes": 99534940.0,
+          "scratch_peak_bytes": 0.0
+        },
+        "compositor/advancing/warm": {
+          "frames": 150,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 10.277461,
+              "p50": 10.106385,
+              "p95": 11.621731,
+              "maximum": 12.916843
+            },
+            "compile_ns": {
+              "mean": 0.009336,
+              "p50": 0.008855,
+              "p95": 0.016418,
+              "maximum": 0.019833
+            },
+            "gpu_ns": {
+              "mean": 4.688684,
+              "p50": 4.52608,
+              "p95": 5.414912,
+              "maximum": 5.700608
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.100922,
+              "p50": 0.089658,
+              "p95": 0.14902,
+              "maximum": 0.176991
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.283578,
+              "p50": 4.152751,
+              "p95": 5.316287,
+              "maximum": 5.98004
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 4.4e-05,
+              "p50": 4e-05,
+              "p95": 6.1e-05,
+              "maximum": 0.000269
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.163583,
+              "p50": 0.150534,
+              "p95": 0.242067,
+              "maximum": 0.268598
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 13.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 0
+          },
+          "logical_peak_bytes": 99534940.0,
+          "scratch_peak_bytes": 0.0
+        },
+        "compositor/repeated/cold": {
+          "frames": 30,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 10.265216,
+              "p50": 10.16724,
+              "p95": 10.99515,
+              "maximum": 11.716067
+            },
+            "compile_ns": {
+              "mean": 0.009931,
+              "p50": 0.009025,
+              "p95": 0.015188,
+              "maximum": 0.016047
+            },
+            "gpu_ns": {
+              "mean": 4.668484,
+              "p50": 4.519936,
+              "p95": 5.458944,
+              "maximum": 5.748736
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.10218,
+              "p50": 0.09072,
+              "p95": 0.161141,
+              "maximum": 0.183169
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.304184,
+              "p50": 4.240731,
+              "p95": 4.700251,
+              "maximum": 5.040205
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 3.9e-05,
+              "p50": 4e-05,
+              "p95": 6.1e-05,
+              "maximum": 6.8e-05
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.160291,
+              "p50": 0.148002,
+              "p95": 0.208852,
+              "maximum": 0.251586
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 13.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 0
+          },
+          "logical_peak_bytes": 99534940.0,
+          "scratch_peak_bytes": 0.0
+        },
+        "compositor/repeated/warm": {
+          "frames": 150,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 10.371184,
+              "p50": 10.125683,
+              "p95": 11.582922,
+              "maximum": 12.671765
+            },
+            "compile_ns": {
+              "mean": 0.009777,
+              "p50": 0.008321,
+              "p95": 0.017602,
+              "maximum": 0.02182
+            },
+            "gpu_ns": {
+              "mean": 4.726211,
+              "p50": 4.525056,
+              "p95": 5.433344,
+              "maximum": 5.8368
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.102714,
+              "p50": 0.089772,
+              "p95": 0.155429,
+              "maximum": 0.211066
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.345633,
+              "p50": 4.206727,
+              "p95": 5.453171,
+              "maximum": 5.791453
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 4.5e-05,
+              "p50": 4e-05,
+              "p95": 8.3e-05,
+              "maximum": 0.000382
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.169188,
+              "p50": 0.149516,
+              "p95": 0.239173,
+              "maximum": 0.699089
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 13.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 0
+          },
+          "logical_peak_bytes": 99534940.0,
+          "scratch_peak_bytes": 0.0
+        },
+        "motion/advancing/cold": {
+          "frames": 30,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 7.481314,
+              "p50": 6.8185,
+              "p95": 8.839221,
+              "maximum": 21.123838
+            },
+            "compile_ns": {
+              "mean": 0.009567,
+              "p50": 0.008839,
+              "p95": 0.014975,
+              "maximum": 0.016018
+            },
+            "gpu_ns": {
+              "mean": 1.234842,
+              "p50": 1.19296,
+              "p95": 1.654784,
+              "maximum": 1.816576
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.094579,
+              "p50": 0.090718,
+              "p95": 0.128646,
+              "maximum": 0.149581
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.903945,
+              "p50": 4.399978,
+              "p95": 5.673406,
+              "maximum": 15.261405
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.346617,
+              "p50": 0.3182,
+              "p95": 0.559741,
+              "maximum": 0.568097
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 4.5e-05,
+              "p50": 3.1e-05,
+              "p95": 9.6e-05,
+              "maximum": 0.000121
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.09844,
+              "p50": 0.092165,
+              "p95": 0.150399,
+              "maximum": 0.204795
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 4.0,
+            "upload_bytes": 94718.93333333333,
+            "vector_upload_bytes": 94718.93333333333,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 0
+          },
+          "logical_peak_bytes": 100291388.0,
+          "scratch_peak_bytes": 0.0
+        },
+        "motion/advancing/warm": {
+          "frames": 150,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 7.434954,
+              "p50": 7.322957,
+              "p95": 8.690473,
+              "maximum": 9.643378
+            },
+            "compile_ns": {
+              "mean": 0.014326,
+              "p50": 0.013199,
+              "p95": 0.022539,
+              "maximum": 0.026771
+            },
+            "gpu_ns": {
+              "mean": 1.250939,
+              "p50": 1.18784,
+              "p95": 1.768448,
+              "maximum": 1.96608
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.112058,
+              "p50": 0.099747,
+              "p95": 0.162098,
+              "maximum": 0.186269
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.847481,
+              "p50": 4.730227,
+              "p95": 5.863072,
+              "maximum": 6.638983
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.415357,
+              "p50": 0.354353,
+              "p95": 0.61892,
+              "maximum": 0.795848
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 4.1e-05,
+              "p50": 3.3e-05,
+              "p95": 7.7e-05,
+              "maximum": 0.000117
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.105951,
+              "p50": 0.098067,
+              "p95": 0.145637,
+              "maximum": 0.169217
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 4.0,
+            "upload_bytes": 94739.41333333333,
+            "vector_upload_bytes": 94739.41333333333,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 0
+          },
+          "logical_peak_bytes": 100291388.0,
+          "scratch_peak_bytes": 0.0
+        },
+        "motion/repeated/cold": {
+          "frames": 30,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 7.530467,
+              "p50": 7.13145,
+              "p95": 8.962192,
+              "maximum": 9.008365
+            },
+            "compile_ns": {
+              "mean": 0.02072,
+              "p50": 0.02035,
+              "p95": 0.029287,
+              "maximum": 0.029479
+            },
+            "gpu_ns": {
+              "mean": 1.241463,
+              "p50": 1.178624,
+              "p95": 1.758208,
+              "maximum": 1.803264
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.128249,
+              "p50": 0.133577,
+              "p95": 0.171066,
+              "maximum": 0.17839
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.841591,
+              "p50": 4.582589,
+              "p95": 5.811854,
+              "maximum": 6.181346
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.034823,
+              "p50": 0.014435,
+              "p95": 0.023759,
+              "maximum": 0.620182
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 4.8e-05,
+              "p50": 4.1e-05,
+              "p95": 9.6e-05,
+              "maximum": 0.000185
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.115805,
+              "p50": 0.104477,
+              "p95": 0.15016,
+              "maximum": 0.161592
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 4.0,
+            "upload_bytes": 3132.266666666667,
+            "vector_upload_bytes": 3132.266666666667,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 0
+          },
+          "logical_peak_bytes": 100291388.0,
+          "scratch_peak_bytes": 0.0
+        },
+        "motion/repeated/warm": {
+          "frames": 150,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 7.630631,
+              "p50": 7.205548,
+              "p95": 10.488183,
+              "maximum": 13.302683
+            },
+            "compile_ns": {
+              "mean": 0.021264,
+              "p50": 0.019474,
+              "p95": 0.035233,
+              "maximum": 0.042607
+            },
+            "gpu_ns": {
+              "mean": 1.257902,
+              "p50": 1.184768,
+              "p95": 1.821696,
+              "maximum": 2.102272
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.131313,
+              "p50": 0.107737,
+              "p95": 0.191143,
+              "maximum": 0.82202
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.846119,
+              "p50": 4.605468,
+              "p95": 6.7438,
+              "maximum": 9.098637
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.014383,
+              "p50": 0.012901,
+              "p95": 0.021085,
+              "maximum": 0.033011
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 4.4e-05,
+              "p50": 3.5e-05,
+              "p95": 7.9e-05,
+              "maximum": 0.000122
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.122941,
+              "p50": 0.107011,
+              "p95": 0.178338,
+              "maximum": 0.699867
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 4.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 0
+          },
+          "logical_peak_bytes": 100291388.0,
+          "scratch_peak_bytes": 0.0
+        },
+        "video/advancing/cold": {
+          "frames": 30,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 37.925792,
+              "p50": 15.585255,
+              "p95": 27.798095,
+              "maximum": 653.30863
+            },
+            "compile_ns": {
+              "mean": 0.002617,
+              "p50": 0.002237,
+              "p95": 0.005239,
+              "maximum": 0.006024
+            },
+            "gpu_ns": {
+              "mean": 2.973047,
+              "p50": 2.789376,
+              "p95": 3.734528,
+              "maximum": 3.74272
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.113195,
+              "p50": 0.098362,
+              "p95": 0.181962,
+              "maximum": 0.182396
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 33.422589,
+              "p50": 11.138984,
+              "p95": 22.375714,
+              "maximum": 644.354822
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "native_decode_nanoseconds": {
+              "mean": 27.970532,
+              "p50": 6.773701,
+              "p95": 11.838649,
+              "maximum": 625.234293
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 6.7e-05,
+              "p50": 7e-05,
+              "p95": 0.000122,
+              "maximum": 0.000206
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.158667,
+              "p50": 0.132657,
+              "p95": 0.241244,
+              "maximum": 0.388572
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 8.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 6220800.0,
+            "native_seeks": 0.06666666666666667,
+            "native_forward_reuses": 1.9333333333333333,
+            "fused_opacity_passes": 0
+          },
+          "logical_peak_bytes": 198029532.0,
+          "scratch_peak_bytes": 32.0
+        },
+        "video/advancing/warm": {
+          "frames": 150,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 15.699146,
+              "p50": 15.521163,
+              "p95": 17.159779,
+              "maximum": 19.78632
+            },
+            "compile_ns": {
+              "mean": 0.002423,
+              "p50": 0.002209,
+              "p95": 0.003538,
+              "maximum": 0.00936
+            },
+            "gpu_ns": {
+              "mean": 2.890691,
+              "p50": 2.78528,
+              "p95": 3.436544,
+              "maximum": 3.743744
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.106716,
+              "p50": 0.097022,
+              "p95": 0.152165,
+              "maximum": 0.169346
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 11.4963,
+              "p50": 11.291586,
+              "p95": 12.957331,
+              "maximum": 15.585175
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "native_decode_nanoseconds": {
+              "mean": 7.060119,
+              "p50": 6.950904,
+              "p95": 7.682874,
+              "maximum": 9.502233
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 6.4e-05,
+              "p50": 6.9e-05,
+              "p95": 0.000111,
+              "maximum": 0.000387
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.153774,
+              "p50": 0.135893,
+              "p95": 0.210297,
+              "maximum": 0.784079
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 8.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 6220800.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 2.0,
+            "fused_opacity_passes": 0
+          },
+          "logical_peak_bytes": 198029532.0,
+          "scratch_peak_bytes": 32.0
+        },
+        "video/repeated/cold": {
+          "frames": 30,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 15.975528,
+              "p50": 8.254474,
+              "p95": 9.89939,
+              "maximum": 233.550553
+            },
+            "compile_ns": {
+              "mean": 0.002063,
+              "p50": 0.001979,
+              "p95": 0.002806,
+              "maximum": 0.003028
+            },
+            "gpu_ns": {
+              "mean": 2.870272,
+              "p50": 2.787328,
+              "p95": 3.33312,
+              "maximum": 3.695616
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.102349,
+              "p50": 0.091894,
+              "p95": 0.144374,
+              "maximum": 0.158936
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 11.774193,
+              "p50": 4.160044,
+              "p95": 5.263461,
+              "maximum": 229.547152
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "native_decode_nanoseconds": {
+              "mean": 7.519839,
+              "p50": 0.00189,
+              "p95": 0.003408,
+              "maximum": 225.535312
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 3.5e-05,
+              "p50": 3e-05,
+              "p95": 5.7e-05,
+              "maximum": 8.4e-05
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.137236,
+              "p50": 0.124449,
+              "p95": 0.186022,
+              "maximum": 0.197838
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 8.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 207360.0,
+            "native_seeks": 0.06666666666666667,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 0
+          },
+          "logical_peak_bytes": 198029532.0,
+          "scratch_peak_bytes": 32.0
+        },
+        "video/repeated/warm": {
+          "frames": 150,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 8.503888,
+              "p50": 8.301536,
+              "p95": 9.717433,
+              "maximum": 10.104129
+            },
+            "compile_ns": {
+              "mean": 0.002235,
+              "p50": 0.002122,
+              "p95": 0.003134,
+              "maximum": 0.00343
+            },
+            "gpu_ns": {
+              "mean": 2.868559,
+              "p50": 2.787328,
+              "p95": 3.412992,
+              "maximum": 3.656704
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.112799,
+              "p50": 0.097525,
+              "p95": 0.15916,
+              "maximum": 0.197455
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.317138,
+              "p50": 4.159274,
+              "p95": 5.425536,
+              "maximum": 5.825832
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.002275,
+              "p50": 0.002027,
+              "p95": 0.003361,
+              "maximum": 0.011933
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 3.4e-05,
+              "p50": 3e-05,
+              "p95": 5e-05,
+              "maximum": 5.8e-05
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.13972,
+              "p50": 0.128048,
+              "p95": 0.193371,
+              "maximum": 0.208622
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 8.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 0
+          },
+          "logical_peak_bytes": 198029532.0,
+          "scratch_peak_bytes": 32.0
+        }
+      }
+    },
+    {
+      "directory": "/tmp/fold-19b-after-1",
+      "log_sha256": "b48a06f37242c888a24a593dd6f378a7591417c7d08b5032d15f61f135af1b1e",
+      "process": {
+        "command": [
+          "target/release/deps/efficiency-930858e33317b06a",
+          "--ignored",
+          "--nocapture",
+          "--test-threads=1"
+        ],
+        "exit_code": 0,
+        "timed_out": false,
+        "wall_seconds": 15.28557963098865,
+        "samples": 186,
+        "sampled_tree_rss_bytes": 924831744,
+        "sampled_scratch_bytes": 64568250,
+        "sampled_gpu_process_bytes": 822083584,
+        "gpu_samples": 15,
+        "gpu_error": null,
+        "nominal_gpu_sample_interval_ms": 1000,
+        "nominal_sample_interval_ms": 50
+      },
+      "workloads": {
+        "compositor/advancing/cold": {
+          "frames": 30,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 9.278792,
+              "p50": 8.586617,
+              "p95": 10.098796,
+              "maximum": 22.879525
+            },
+            "compile_ns": {
+              "mean": 0.006043,
+              "p50": 0.005209,
+              "p95": 0.01342,
+              "maximum": 0.014251
+            },
+            "gpu_ns": {
+              "mean": 3.059472,
+              "p50": 2.970624,
+              "p95": 3.74784,
+              "maximum": 3.765248
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.110887,
+              "p50": 0.091765,
+              "p95": 0.15352,
+              "maximum": 0.478487
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.713232,
+              "p50": 4.209141,
+              "p95": 5.657497,
+              "maximum": 14.33336
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 3.3e-05,
+              "p50": 3e-05,
+              "p95": 5.4e-05,
+              "maximum": 7.7e-05
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.135241,
+              "p50": 0.121303,
+              "p95": 0.204302,
+              "maximum": 0.294411
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 8.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 5.0
+          },
+          "logical_peak_bytes": 99534140.0,
+          "scratch_peak_bytes": 0.0
+        },
+        "compositor/advancing/warm": {
+          "frames": 150,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 8.770832,
+              "p50": 8.460722,
+              "p95": 10.260612,
+              "maximum": 11.13751
+            },
+            "compile_ns": {
+              "mean": 0.006084,
+              "p50": 0.005279,
+              "p95": 0.010008,
+              "maximum": 0.015821
+            },
+            "gpu_ns": {
+              "mean": 3.066278,
+              "p50": 2.970624,
+              "p95": 3.690496,
+              "maximum": 4.016128
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.104562,
+              "p50": 0.090947,
+              "p95": 0.16007,
+              "maximum": 0.352777
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.37756,
+              "p50": 4.197186,
+              "p95": 5.433506,
+              "maximum": 5.765178
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 3.5e-05,
+              "p50": 3e-05,
+              "p95": 5.5e-05,
+              "maximum": 0.000104
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.132284,
+              "p50": 0.12072,
+              "p95": 0.185664,
+              "maximum": 0.21733
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 8.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 5.0
+          },
+          "logical_peak_bytes": 99534140.0,
+          "scratch_peak_bytes": 0.0
+        },
+        "compositor/repeated/cold": {
+          "frames": 30,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 8.519188,
+              "p50": 8.224993,
+              "p95": 9.550664,
+              "maximum": 9.950661
+            },
+            "compile_ns": {
+              "mean": 0.005898,
+              "p50": 0.004694,
+              "p95": 0.011086,
+              "maximum": 0.01185
+            },
+            "gpu_ns": {
+              "mean": 3.152998,
+              "p50": 2.9696,
+              "p95": 4.041728,
+              "maximum": 4.064256
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.089933,
+              "p50": 0.088047,
+              "p95": 0.095085,
+              "maximum": 0.139658
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.137538,
+              "p50": 4.075154,
+              "p95": 4.728261,
+              "maximum": 5.071663
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 3.5e-05,
+              "p50": 3e-05,
+              "p95": 7.7e-05,
+              "maximum": 7.8e-05
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.124211,
+              "p50": 0.118453,
+              "p95": 0.171196,
+              "maximum": 0.187705
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 8.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 5.0
+          },
+          "logical_peak_bytes": 99534140.0,
+          "scratch_peak_bytes": 0.0
+        },
+        "compositor/repeated/warm": {
+          "frames": 150,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 8.736444,
+              "p50": 8.483737,
+              "p95": 10.142508,
+              "maximum": 11.038277
+            },
+            "compile_ns": {
+              "mean": 0.006924,
+              "p50": 0.006122,
+              "p95": 0.012193,
+              "maximum": 0.016737
+            },
+            "gpu_ns": {
+              "mean": 3.107957,
+              "p50": 2.971648,
+              "p95": 4.000768,
+              "maximum": 4.269056
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.100677,
+              "p50": 0.090495,
+              "p95": 0.149616,
+              "maximum": 0.169881
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.318866,
+              "p50": 4.209277,
+              "p95": 5.218015,
+              "maximum": 5.765555
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 3.6e-05,
+              "p50": 3e-05,
+              "p95": 7.4e-05,
+              "maximum": 9.1e-05
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.134073,
+              "p50": 0.120469,
+              "p95": 0.199887,
+              "maximum": 0.682177
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 8.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 5.0
+          },
+          "logical_peak_bytes": 99534140.0,
+          "scratch_peak_bytes": 0.0
+        },
+        "motion/advancing/cold": {
+          "frames": 30,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 7.193553,
+              "p50": 6.671216,
+              "p95": 7.627569,
+              "maximum": 19.654124
+            },
+            "compile_ns": {
+              "mean": 0.009868,
+              "p50": 0.008888,
+              "p95": 0.014894,
+              "maximum": 0.017792
+            },
+            "gpu_ns": {
+              "mean": 0.958054,
+              "p50": 0.956416,
+              "p95": 0.971776,
+              "maximum": 0.976896
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.097787,
+              "p50": 0.092536,
+              "p95": 0.142058,
+              "maximum": 0.151412
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.863784,
+              "p50": 4.513978,
+              "p95": 5.113933,
+              "maximum": 13.532438
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.326865,
+              "p50": 0.312181,
+              "p95": 0.428857,
+              "maximum": 0.552699
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 3.3e-05,
+              "p50": 3e-05,
+              "p95": 4.2e-05,
+              "maximum": 6e-05
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.090187,
+              "p50": 0.083578,
+              "p95": 0.11077,
+              "maximum": 0.18831
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 3.0,
+            "upload_bytes": 94718.93333333333,
+            "vector_upload_bytes": 94718.93333333333,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 1.0
+          },
+          "logical_peak_bytes": 100291228.0,
+          "scratch_peak_bytes": 0.0
+        },
+        "motion/advancing/warm": {
+          "frames": 150,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 6.836921,
+              "p50": 6.717971,
+              "p95": 7.576649,
+              "maximum": 8.932008
+            },
+            "compile_ns": {
+              "mean": 0.010527,
+              "p50": 0.009432,
+              "p95": 0.017376,
+              "maximum": 0.024002
+            },
+            "gpu_ns": {
+              "mean": 0.956014,
+              "p50": 0.955392,
+              "p95": 0.968704,
+              "maximum": 0.97792
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.099847,
+              "p50": 0.091602,
+              "p95": 0.142592,
+              "maximum": 0.19338
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.572386,
+              "p50": 4.456564,
+              "p95": 5.100129,
+              "maximum": 6.274314
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.350372,
+              "p50": 0.317234,
+              "p95": 0.538962,
+              "maximum": 0.650922
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 3.2e-05,
+              "p50": 3e-05,
+              "p95": 4.8e-05,
+              "maximum": 6.9e-05
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.086496,
+              "p50": 0.083649,
+              "p95": 0.10747,
+              "maximum": 0.145572
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 3.0,
+            "upload_bytes": 94739.41333333333,
+            "vector_upload_bytes": 94739.41333333333,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 1.0
+          },
+          "logical_peak_bytes": 100291228.0,
+          "scratch_peak_bytes": 0.0
+        },
+        "motion/repeated/cold": {
+          "frames": 30,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 6.410715,
+              "p50": 6.265608,
+              "p95": 7.314368,
+              "maximum": 7.566113
+            },
+            "compile_ns": {
+              "mean": 0.011672,
+              "p50": 0.009568,
+              "p95": 0.019628,
+              "maximum": 0.023954
+            },
+            "gpu_ns": {
+              "mean": 0.952321,
+              "p50": 0.951296,
+              "p95": 0.969728,
+              "maximum": 0.969728
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.095029,
+              "p50": 0.092007,
+              "p95": 0.129792,
+              "maximum": 0.13565
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.182016,
+              "p50": 4.108859,
+              "p95": 4.590287,
+              "maximum": 4.959365
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.019826,
+              "p50": 0.009425,
+              "p95": 0.016202,
+              "maximum": 0.311908
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 3.3e-05,
+              "p50": 3e-05,
+              "p95": 4.7e-05,
+              "maximum": 5.5e-05
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.08648,
+              "p50": 0.084465,
+              "p95": 0.102325,
+              "maximum": 0.118029
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 3.0,
+            "upload_bytes": 3132.266666666667,
+            "vector_upload_bytes": 3132.266666666667,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 1.0
+          },
+          "logical_peak_bytes": 100291228.0,
+          "scratch_peak_bytes": 0.0
+        },
+        "motion/repeated/warm": {
+          "frames": 150,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 6.648666,
+              "p50": 6.437316,
+              "p95": 7.783113,
+              "maximum": 9.990336
+            },
+            "compile_ns": {
+              "mean": 0.012301,
+              "p50": 0.011011,
+              "p95": 0.020054,
+              "maximum": 0.026278
+            },
+            "gpu_ns": {
+              "mean": 0.953344,
+              "p50": 0.951296,
+              "p95": 0.96768,
+              "maximum": 0.971776
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.105781,
+              "p50": 0.093476,
+              "p95": 0.156447,
+              "maximum": 0.177573
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.338869,
+              "p50": 4.180756,
+              "p95": 5.319119,
+              "maximum": 7.047037
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.011077,
+              "p50": 0.009676,
+              "p95": 0.016336,
+              "maximum": 0.026842
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 3.5e-05,
+              "p50": 3e-05,
+              "p95": 5.5e-05,
+              "maximum": 7.5e-05
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.09661,
+              "p50": 0.086596,
+              "p95": 0.127854,
+              "maximum": 0.607667
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 3.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 1.0
+          },
+          "logical_peak_bytes": 100291228.0,
+          "scratch_peak_bytes": 0.0
+        },
+        "video/advancing/cold": {
+          "frames": 30,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 37.757645,
+              "p50": 16.303043,
+              "p95": 18.211078,
+              "maximum": 658.048306
+            },
+            "compile_ns": {
+              "mean": 0.00294,
+              "p50": 0.002428,
+              "p95": 0.004839,
+              "maximum": 0.007043
+            },
+            "gpu_ns": {
+              "mean": 2.864095,
+              "p50": 2.651136,
+              "p95": 3.542048,
+              "maximum": 3.550208
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.107784,
+              "p50": 0.096792,
+              "p95": 0.163105,
+              "maximum": 0.166884
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 33.405352,
+              "p50": 12.252723,
+              "p95": 13.836287,
+              "maximum": 649.110381
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "native_decode_nanoseconds": {
+              "mean": 27.766409,
+              "p50": 7.77304,
+              "p95": 8.600768,
+              "maximum": 607.959017
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 5.8e-05,
+              "p50": 7.2e-05,
+              "p95": 8.7e-05,
+              "maximum": 0.00011
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.141847,
+              "p50": 0.130687,
+              "p95": 0.201746,
+              "maximum": 0.250927
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 7.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 6220800.0,
+            "native_seeks": 0.06666666666666667,
+            "native_forward_reuses": 1.9333333333333333,
+            "fused_opacity_passes": 1.0
+          },
+          "logical_peak_bytes": 198029372.0,
+          "scratch_peak_bytes": 32.0
+        },
+        "video/advancing/warm": {
+          "frames": 150,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 16.726407,
+              "p50": 16.530423,
+              "p95": 18.496756,
+              "maximum": 20.532115
+            },
+            "compile_ns": {
+              "mean": 0.002787,
+              "p50": 0.002411,
+              "p95": 0.005846,
+              "maximum": 0.008802
+            },
+            "gpu_ns": {
+              "mean": 2.873686,
+              "p50": 2.655232,
+              "p95": 3.56864,
+              "maximum": 3.729408
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.11109,
+              "p50": 0.099212,
+              "p95": 0.170517,
+              "maximum": 0.197929
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 12.515343,
+              "p50": 12.294548,
+              "p95": 14.109598,
+              "maximum": 15.410395
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "native_decode_nanoseconds": {
+              "mean": 7.98942,
+              "p50": 7.892484,
+              "p95": 8.696868,
+              "maximum": 9.513131
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 5.2e-05,
+              "p50": 4.2e-05,
+              "p95": 9.3e-05,
+              "maximum": 0.000132
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.146421,
+              "p50": 0.128532,
+              "p95": 0.204121,
+              "maximum": 0.720202
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 7.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 6220800.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 2.0,
+            "fused_opacity_passes": 1.0
+          },
+          "logical_peak_bytes": 198029372.0,
+          "scratch_peak_bytes": 32.0
+        },
+        "video/repeated/cold": {
+          "frames": 30,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 15.826316,
+              "p50": 7.889871,
+              "p95": 9.624134,
+              "maximum": 240.002035
+            },
+            "compile_ns": {
+              "mean": 0.002774,
+              "p50": 0.002194,
+              "p95": 0.004859,
+              "maximum": 0.006367
+            },
+            "gpu_ns": {
+              "mean": 2.799957,
+              "p50": 2.654208,
+              "p95": 3.707904,
+              "maximum": 3.794944
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.094599,
+              "p50": 0.089183,
+              "p95": 0.130626,
+              "maximum": 0.141899
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 11.784103,
+              "p50": 4.00362,
+              "p95": 5.069399,
+              "maximum": 236.188657
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "native_decode_nanoseconds": {
+              "mean": 7.735755,
+              "p50": 0.001912,
+              "p95": 0.002324,
+              "maximum": 232.014629
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 3e-05,
+              "p50": 2.9e-05,
+              "p95": 4.2e-05,
+              "maximum": 4.3e-05
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.118022,
+              "p50": 0.117769,
+              "p95": 0.127942,
+              "maximum": 0.131507
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 7.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 207360.0,
+            "native_seeks": 0.06666666666666667,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 1.0
+          },
+          "logical_peak_bytes": 198029372.0,
+          "scratch_peak_bytes": 32.0
+        },
+        "video/repeated/warm": {
+          "frames": 150,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 8.137738,
+              "p50": 8.023779,
+              "p95": 9.270661,
+              "maximum": 10.438096
+            },
+            "compile_ns": {
+              "mean": 0.004197,
+              "p50": 0.003806,
+              "p95": 0.009076,
+              "maximum": 0.012407
+            },
+            "gpu_ns": {
+              "mean": 2.763981,
+              "p50": 2.651136,
+              "p95": 3.432448,
+              "maximum": 3.757056
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.103255,
+              "p50": 0.093043,
+              "p95": 0.15125,
+              "maximum": 0.188971
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.100217,
+              "p50": 4.107973,
+              "p95": 4.763614,
+              "maximum": 5.616711
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.002172,
+              "p50": 0.00203,
+              "p95": 0.003258,
+              "maximum": 0.004081
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 3.2e-05,
+              "p50": 2.9e-05,
+              "p95": 4.9e-05,
+              "maximum": 7.5e-05
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.126349,
+              "p50": 0.120569,
+              "p95": 0.169126,
+              "maximum": 0.197732
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 7.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 1.0
+          },
+          "logical_peak_bytes": 198029372.0,
+          "scratch_peak_bytes": 32.0
+        }
+      }
+    },
+    {
+      "directory": "/tmp/fold-19b-after-2",
+      "log_sha256": "c7c2e6c474a6869f858f0caab5d9a23bf25d9cba470867a345baff606d9cc5f5",
+      "process": {
+        "command": [
+          "target/release/deps/efficiency-930858e33317b06a",
+          "--ignored",
+          "--nocapture",
+          "--test-threads=1"
+        ],
+        "exit_code": 0,
+        "timed_out": false,
+        "wall_seconds": 15.04123298000195,
+        "samples": 184,
+        "sampled_tree_rss_bytes": 880508928,
+        "sampled_scratch_bytes": 64568250,
+        "sampled_gpu_process_bytes": 822083584,
+        "gpu_samples": 15,
+        "gpu_error": null,
+        "nominal_gpu_sample_interval_ms": 1000,
+        "nominal_sample_interval_ms": 50
+      },
+      "workloads": {
+        "compositor/advancing/cold": {
+          "frames": 30,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 9.265291,
+              "p50": 8.593085,
+              "p95": 10.575747,
+              "maximum": 22.940498
+            },
+            "compile_ns": {
+              "mean": 0.0066,
+              "p50": 0.006544,
+              "p95": 0.012421,
+              "maximum": 0.014155
+            },
+            "gpu_ns": {
+              "mean": 3.029605,
+              "p50": 2.967552,
+              "p95": 3.382272,
+              "maximum": 3.666944
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.111396,
+              "p50": 0.092732,
+              "p95": 0.181111,
+              "maximum": 0.280239
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.724433,
+              "p50": 4.274041,
+              "p95": 5.46224,
+              "maximum": 14.524658
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 3.6e-05,
+              "p50": 3.3e-05,
+              "p95": 5e-05,
+              "maximum": 5.5e-05
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.168797,
+              "p50": 0.126263,
+              "p95": 0.225538,
+              "maximum": 0.854287
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 8.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 5.0
+          },
+          "logical_peak_bytes": 99534140.0,
+          "scratch_peak_bytes": 0.0
+        },
+        "compositor/advancing/warm": {
+          "frames": 150,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 8.69792,
+              "p50": 8.441274,
+              "p95": 9.843018,
+              "maximum": 11.079823
+            },
+            "compile_ns": {
+              "mean": 0.006919,
+              "p50": 0.006461,
+              "p95": 0.010525,
+              "maximum": 0.018962
+            },
+            "gpu_ns": {
+              "mean": 3.076298,
+              "p50": 2.966496,
+              "p95": 3.74272,
+              "maximum": 4.011008
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.099482,
+              "p50": 0.090536,
+              "p95": 0.1398,
+              "maximum": 0.174495
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.288698,
+              "p50": 4.191041,
+              "p95": 4.922437,
+              "maximum": 5.351
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 3.3e-05,
+              "p50": 3e-05,
+              "p95": 4.5e-05,
+              "maximum": 5.8e-05
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.127941,
+              "p50": 0.11826,
+              "p95": 0.181765,
+              "maximum": 0.294484
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 8.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 5.0
+          },
+          "logical_peak_bytes": 99534140.0,
+          "scratch_peak_bytes": 0.0
+        },
+        "compositor/repeated/cold": {
+          "frames": 30,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 8.498079,
+              "p50": 8.324677,
+              "p95": 9.795396,
+              "maximum": 11.369215
+            },
+            "compile_ns": {
+              "mean": 0.005947,
+              "p50": 0.005194,
+              "p95": 0.008861,
+              "maximum": 0.011042
+            },
+            "gpu_ns": {
+              "mean": 3.022678,
+              "p50": 2.963456,
+              "p95": 3.21024,
+              "maximum": 4.071424
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.093725,
+              "p50": 0.088773,
+              "p95": 0.13832,
+              "maximum": 0.170439
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.171395,
+              "p50": 4.108294,
+              "p95": 4.522131,
+              "maximum": 4.890349
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 3.2e-05,
+              "p50": 3e-05,
+              "p95": 4.2e-05,
+              "maximum": 5e-05
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.116424,
+              "p50": 0.114483,
+              "p95": 0.13401,
+              "maximum": 0.160445
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 8.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 5.0
+          },
+          "logical_peak_bytes": 99534140.0,
+          "scratch_peak_bytes": 0.0
+        },
+        "compositor/repeated/warm": {
+          "frames": 150,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 8.661309,
+              "p50": 8.454827,
+              "p95": 10.262785,
+              "maximum": 11.25987
+            },
+            "compile_ns": {
+              "mean": 0.007489,
+              "p50": 0.006403,
+              "p95": 0.012757,
+              "maximum": 0.014689
+            },
+            "gpu_ns": {
+              "mean": 3.071486,
+              "p50": 2.963456,
+              "p95": 3.723264,
+              "maximum": 3.971072
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.102605,
+              "p50": 0.091292,
+              "p95": 0.149668,
+              "maximum": 0.183026
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.270696,
+              "p50": 4.144744,
+              "p95": 5.278054,
+              "maximum": 5.89474
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 3.7e-05,
+              "p50": 3.1e-05,
+              "p95": 6.1e-05,
+              "maximum": 0.000145
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.131163,
+              "p50": 0.118164,
+              "p95": 0.19101,
+              "maximum": 0.654318
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 8.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 5.0
+          },
+          "logical_peak_bytes": 99534140.0,
+          "scratch_peak_bytes": 0.0
+        },
+        "motion/advancing/cold": {
+          "frames": 30,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 7.123154,
+              "p50": 6.622732,
+              "p95": 8.12723,
+              "maximum": 19.60483
+            },
+            "compile_ns": {
+              "mean": 0.009666,
+              "p50": 0.009077,
+              "p95": 0.014367,
+              "maximum": 0.0148
+            },
+            "gpu_ns": {
+              "mean": 0.937472,
+              "p50": 0.935936,
+              "p95": 0.955392,
+              "maximum": 0.960512
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.101178,
+              "p50": 0.090955,
+              "p95": 0.14036,
+              "maximum": 0.142339
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.722783,
+              "p50": 4.307386,
+              "p95": 4.946036,
+              "maximum": 13.410007
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.376834,
+              "p50": 0.319537,
+              "p95": 0.661227,
+              "maximum": 0.66868
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 4.2e-05,
+              "p50": 4e-05,
+              "p95": 6e-05,
+              "maximum": 6.8e-05
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.092552,
+              "p50": 0.084818,
+              "p95": 0.126665,
+              "maximum": 0.18565
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 3.0,
+            "upload_bytes": 94718.93333333333,
+            "vector_upload_bytes": 94718.93333333333,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 1.0
+          },
+          "logical_peak_bytes": 100291228.0,
+          "scratch_peak_bytes": 0.0
+        },
+        "motion/advancing/warm": {
+          "frames": 150,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 6.729507,
+              "p50": 6.600196,
+              "p95": 7.564843,
+              "maximum": 8.885889
+            },
+            "compile_ns": {
+              "mean": 0.011428,
+              "p50": 0.010096,
+              "p95": 0.021453,
+              "maximum": 0.028102
+            },
+            "gpu_ns": {
+              "mean": 0.93573,
+              "p50": 0.934912,
+              "p95": 0.953344,
+              "maximum": 0.959488
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.102764,
+              "p50": 0.093463,
+              "p95": 0.164126,
+              "maximum": 0.212797
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.479442,
+              "p50": 4.405399,
+              "p95": 4.903687,
+              "maximum": 6.292554
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.363653,
+              "p50": 0.32583,
+              "p95": 0.615371,
+              "maximum": 0.729161
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 3.6e-05,
+              "p50": 3.1e-05,
+              "p95": 5.5e-05,
+              "maximum": 0.000198
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.089701,
+              "p50": 0.085871,
+              "p95": 0.120896,
+              "maximum": 0.181386
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 3.0,
+            "upload_bytes": 94739.41333333333,
+            "vector_upload_bytes": 94739.41333333333,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 1.0
+          },
+          "logical_peak_bytes": 100291228.0,
+          "scratch_peak_bytes": 0.0
+        },
+        "motion/repeated/cold": {
+          "frames": 30,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 6.548077,
+              "p50": 6.485729,
+              "p95": 7.25438,
+              "maximum": 7.598985
+            },
+            "compile_ns": {
+              "mean": 0.012704,
+              "p50": 0.011119,
+              "p95": 0.01948,
+              "maximum": 0.027663
+            },
+            "gpu_ns": {
+              "mean": 0.930986,
+              "p50": 0.930816,
+              "p95": 0.935936,
+              "maximum": 0.939008
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.109704,
+              "p50": 0.096208,
+              "p95": 0.153372,
+              "maximum": 0.157151
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.203413,
+              "p50": 4.126541,
+              "p95": 4.851951,
+              "maximum": 4.909759
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.021539,
+              "p50": 0.010035,
+              "p95": 0.016285,
+              "maximum": 0.318605
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 3.5e-05,
+              "p50": 3.6e-05,
+              "p95": 4.8e-05,
+              "maximum": 4.8e-05
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.095681,
+              "p50": 0.089963,
+              "p95": 0.12348,
+              "maximum": 0.136112
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 3.0,
+            "upload_bytes": 3132.266666666667,
+            "vector_upload_bytes": 3132.266666666667,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 1.0
+          },
+          "logical_peak_bytes": 100291228.0,
+          "scratch_peak_bytes": 0.0
+        },
+        "motion/repeated/warm": {
+          "frames": 150,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 6.458251,
+              "p50": 6.264723,
+              "p95": 7.418797,
+              "maximum": 8.430429
+            },
+            "compile_ns": {
+              "mean": 0.01247,
+              "p50": 0.011275,
+              "p95": 0.01998,
+              "maximum": 0.026025
+            },
+            "gpu_ns": {
+              "mean": 0.931831,
+              "p50": 0.930816,
+              "p95": 0.948224,
+              "maximum": 0.953344
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.104764,
+              "p50": 0.095371,
+              "p95": 0.14921,
+              "maximum": 0.182587
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.209822,
+              "p50": 4.11489,
+              "p95": 5.051356,
+              "maximum": 5.815495
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.010803,
+              "p50": 0.009619,
+              "p95": 0.016229,
+              "maximum": 0.023962
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 3.7e-05,
+              "p50": 3.4e-05,
+              "p95": 5.3e-05,
+              "maximum": 0.000106
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.09758,
+              "p50": 0.08979,
+              "p95": 0.132138,
+              "maximum": 0.621739
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 3.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 1.0
+          },
+          "logical_peak_bytes": 100291228.0,
+          "scratch_peak_bytes": 0.0
+        },
+        "video/advancing/cold": {
+          "frames": 30,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 36.330747,
+              "p50": 15.81236,
+              "p95": 18.78805,
+              "maximum": 629.075208
+            },
+            "compile_ns": {
+              "mean": 0.002844,
+              "p50": 0.002344,
+              "p95": 0.004391,
+              "maximum": 0.007623
+            },
+            "gpu_ns": {
+              "mean": 2.799921,
+              "p50": 2.64192,
+              "p95": 3.414016,
+              "maximum": 3.649536
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.099432,
+              "p50": 0.092984,
+              "p95": 0.147405,
+              "maximum": 0.170032
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 32.141422,
+              "p50": 11.748658,
+              "p95": 14.041587,
+              "maximum": 619.972065
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "native_decode_nanoseconds": {
+              "mean": 27.327937,
+              "p50": 7.609812,
+              "p95": 8.619106,
+              "maximum": 598.666427
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 4.1e-05,
+              "p50": 3e-05,
+              "p95": 8.9e-05,
+              "maximum": 0.000102
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.1406,
+              "p50": 0.125889,
+              "p95": 0.193984,
+              "maximum": 0.369676
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 7.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 6220800.0,
+            "native_seeks": 0.06666666666666667,
+            "native_forward_reuses": 1.9333333333333333,
+            "fused_opacity_passes": 1.0
+          },
+          "logical_peak_bytes": 198029372.0,
+          "scratch_peak_bytes": 32.0
+        },
+        "video/advancing/warm": {
+          "frames": 150,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 16.401689,
+              "p50": 16.155152,
+              "p95": 18.180357,
+              "maximum": 20.624528
+            },
+            "compile_ns": {
+              "mean": 0.002437,
+              "p50": 0.002253,
+              "p95": 0.003499,
+              "maximum": 0.007765
+            },
+            "gpu_ns": {
+              "mean": 2.782815,
+              "p50": 2.640896,
+              "p95": 3.412,
+              "maximum": 4.4032
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.111565,
+              "p50": 0.098915,
+              "p95": 0.160201,
+              "maximum": 0.174611
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 12.301741,
+              "p50": 12.136206,
+              "p95": 13.552024,
+              "maximum": 16.124691
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "native_decode_nanoseconds": {
+              "mean": 7.810473,
+              "p50": 7.740419,
+              "p95": 8.486161,
+              "maximum": 9.118747
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 4.1e-05,
+              "p50": 3e-05,
+              "p95": 8.8e-05,
+              "maximum": 0.000192
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.145842,
+              "p50": 0.12954,
+              "p95": 0.194765,
+              "maximum": 0.703578
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 7.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 6220800.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 2.0,
+            "fused_opacity_passes": 1.0
+          },
+          "logical_peak_bytes": 198029372.0,
+          "scratch_peak_bytes": 32.0
+        },
+        "video/repeated/cold": {
+          "frames": 30,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 16.179174,
+              "p50": 8.033052,
+              "p95": 9.761589,
+              "maximum": 246.485672
+            },
+            "compile_ns": {
+              "mean": 0.001984,
+              "p50": 0.00194,
+              "p95": 0.00236,
+              "maximum": 0.002458
+            },
+            "gpu_ns": {
+              "mean": 2.764149,
+              "p50": 2.639872,
+              "p95": 3.390464,
+              "maximum": 3.429376
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.108389,
+              "p50": 0.095463,
+              "p95": 0.1585,
+              "maximum": 0.169924
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 12.108574,
+              "p50": 4.171464,
+              "p95": 4.513187,
+              "maximum": 242.428308
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "native_decode_nanoseconds": {
+              "mean": 7.929054,
+              "p50": 0.001909,
+              "p95": 0.008203,
+              "maximum": 237.807102
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 3.4e-05,
+              "p50": 3e-05,
+              "p95": 4.3e-05,
+              "maximum": 8.1e-05
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.126014,
+              "p50": 0.122419,
+              "p95": 0.163959,
+              "maximum": 0.207232
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 7.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 207360.0,
+            "native_seeks": 0.06666666666666667,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 1.0
+          },
+          "logical_peak_bytes": 198029372.0,
+          "scratch_peak_bytes": 32.0
+        },
+        "video/repeated/warm": {
+          "frames": 150,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 8.403895,
+              "p50": 8.174136,
+              "p95": 9.924198,
+              "maximum": 10.569534
+            },
+            "compile_ns": {
+              "mean": 0.002158,
+              "p50": 0.001989,
+              "p95": 0.002992,
+              "maximum": 0.007752
+            },
+            "gpu_ns": {
+              "mean": 2.740215,
+              "p50": 2.638848,
+              "p95": 3.4048,
+              "maximum": 3.654656
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.107685,
+              "p50": 0.094944,
+              "p95": 0.160927,
+              "maximum": 0.188677
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.346229,
+              "p50": 4.172327,
+              "p95": 5.32483,
+              "maximum": 6.020206
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.002199,
+              "p50": 0.00202,
+              "p95": 0.003224,
+              "maximum": 0.008859
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 3.5e-05,
+              "p50": 3.1e-05,
+              "p95": 5e-05,
+              "maximum": 6.8e-05
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.130945,
+              "p50": 0.121289,
+              "p95": 0.17903,
+              "maximum": 0.592504
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 7.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 1.0
+          },
+          "logical_peak_bytes": 198029372.0,
+          "scratch_peak_bytes": 32.0
+        }
+      }
+    },
+    {
+      "directory": "/tmp/fold-19b-after-3",
+      "log_sha256": "7ba770884dd91c867f54bdb9e43bcdaa88a5d9b3402e40420e08b5dc19930a18",
+      "process": {
+        "command": [
+          "target/release/deps/efficiency-930858e33317b06a",
+          "--ignored",
+          "--nocapture",
+          "--test-threads=1"
+        ],
+        "exit_code": 0,
+        "timed_out": false,
+        "wall_seconds": 15.270334500004537,
+        "samples": 187,
+        "sampled_tree_rss_bytes": 880570368,
+        "sampled_scratch_bytes": 64568250,
+        "sampled_gpu_process_bytes": 822083584,
+        "gpu_samples": 15,
+        "gpu_error": null,
+        "nominal_gpu_sample_interval_ms": 1000,
+        "nominal_sample_interval_ms": 50
+      },
+      "workloads": {
+        "compositor/advancing/cold": {
+          "frames": 30,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 9.1266,
+              "p50": 8.607694,
+              "p95": 9.934453,
+              "maximum": 22.718386
+            },
+            "compile_ns": {
+              "mean": 0.005864,
+              "p50": 0.0052,
+              "p95": 0.010353,
+              "maximum": 0.012039
+            },
+            "gpu_ns": {
+              "mean": 3.02032,
+              "p50": 2.960384,
+              "p95": 3.658752,
+              "maximum": 3.659776
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.103961,
+              "p50": 0.089231,
+              "p95": 0.181611,
+              "maximum": 0.286093
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.71588,
+              "p50": 4.280884,
+              "p95": 5.458736,
+              "maximum": 14.716468
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 3.4e-05,
+              "p50": 3e-05,
+              "p95": 5.5e-05,
+              "maximum": 5.6e-05
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.153846,
+              "p50": 0.120714,
+              "p95": 0.179847,
+              "maximum": 0.890364
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 8.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 5.0
+          },
+          "logical_peak_bytes": 99534140.0,
+          "scratch_peak_bytes": 0.0
+        },
+        "compositor/advancing/warm": {
+          "frames": 150,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 8.72454,
+              "p50": 8.524015,
+              "p95": 9.900318,
+              "maximum": 11.264294
+            },
+            "compile_ns": {
+              "mean": 0.006938,
+              "p50": 0.00594,
+              "p95": 0.011645,
+              "maximum": 0.020861
+            },
+            "gpu_ns": {
+              "mean": 3.05844,
+              "p50": 2.961408,
+              "p95": 3.718144,
+              "maximum": 4.037632
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.101721,
+              "p50": 0.089907,
+              "p95": 0.15603,
+              "maximum": 0.200572
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.346373,
+              "p50": 4.228393,
+              "p95": 5.288232,
+              "maximum": 5.972141
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 4.1e-05,
+              "p50": 3.1e-05,
+              "p95": 6.5e-05,
+              "maximum": 0.000319
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.123377,
+              "p50": 0.117499,
+              "p95": 0.173759,
+              "maximum": 0.197497
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 8.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 5.0
+          },
+          "logical_peak_bytes": 99534140.0,
+          "scratch_peak_bytes": 0.0
+        },
+        "compositor/repeated/cold": {
+          "frames": 30,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 8.890717,
+              "p50": 8.676958,
+              "p95": 9.973889,
+              "maximum": 10.051659
+            },
+            "compile_ns": {
+              "mean": 0.00764,
+              "p50": 0.006651,
+              "p95": 0.011865,
+              "maximum": 0.014275
+            },
+            "gpu_ns": {
+              "mean": 3.12463,
+              "p50": 2.963456,
+              "p95": 3.861504,
+              "maximum": 3.968992
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.107049,
+              "p50": 0.092158,
+              "p95": 0.151114,
+              "maximum": 0.180445
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.434743,
+              "p50": 4.337213,
+              "p95": 5.532042,
+              "maximum": 5.661976
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 3.4e-05,
+              "p50": 3e-05,
+              "p95": 5.3e-05,
+              "maximum": 5.8e-05
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.131126,
+              "p50": 0.122363,
+              "p95": 0.182054,
+              "maximum": 0.191197
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 8.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 5.0
+          },
+          "logical_peak_bytes": 99534140.0,
+          "scratch_peak_bytes": 0.0
+        },
+        "compositor/repeated/warm": {
+          "frames": 150,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 8.647146,
+              "p50": 8.327771,
+              "p95": 10.16302,
+              "maximum": 12.842217
+            },
+            "compile_ns": {
+              "mean": 0.006593,
+              "p50": 0.005732,
+              "p95": 0.010878,
+              "maximum": 0.020556
+            },
+            "gpu_ns": {
+              "mean": 3.123354,
+              "p50": 2.962432,
+              "p95": 3.817472,
+              "maximum": 4.021248
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.099965,
+              "p50": 0.089003,
+              "p95": 0.149244,
+              "maximum": 0.17584
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.247612,
+              "p50": 4.118221,
+              "p95": 5.097743,
+              "maximum": 7.797393
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 3.8e-05,
+              "p50": 3.1e-05,
+              "p95": 5.4e-05,
+              "maximum": 0.000303
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.12421,
+              "p50": 0.114207,
+              "p95": 0.172812,
+              "maximum": 0.654111
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 8.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 5.0
+          },
+          "logical_peak_bytes": 99534140.0,
+          "scratch_peak_bytes": 0.0
+        },
+        "motion/advancing/cold": {
+          "frames": 30,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 7.158774,
+              "p50": 6.540596,
+              "p95": 7.639276,
+              "maximum": 20.69922
+            },
+            "compile_ns": {
+              "mean": 0.008937,
+              "p50": 0.00862,
+              "p95": 0.012247,
+              "maximum": 0.013025
+            },
+            "gpu_ns": {
+              "mean": 0.93631,
+              "p50": 0.935936,
+              "p95": 0.948224,
+              "maximum": 0.954368
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.092237,
+              "p50": 0.089458,
+              "p95": 0.100485,
+              "maximum": 0.137852
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.734558,
+              "p50": 4.397155,
+              "p95": 4.625178,
+              "maximum": 13.593652
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.311232,
+              "p50": 0.308527,
+              "p95": 0.3312,
+              "maximum": 0.427684
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 3.1e-05,
+              "p50": 3e-05,
+              "p95": 3.8e-05,
+              "maximum": 4.1e-05
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.093896,
+              "p50": 0.083195,
+              "p95": 0.119792,
+              "maximum": 0.360411
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 3.0,
+            "upload_bytes": 94718.93333333333,
+            "vector_upload_bytes": 94718.93333333333,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 1.0
+          },
+          "logical_peak_bytes": 100291228.0,
+          "scratch_peak_bytes": 0.0
+        },
+        "motion/advancing/warm": {
+          "frames": 150,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 7.077069,
+              "p50": 6.824738,
+              "p95": 8.671752,
+              "maximum": 9.938162
+            },
+            "compile_ns": {
+              "mean": 0.011724,
+              "p50": 0.010517,
+              "p95": 0.019619,
+              "maximum": 0.024977
+            },
+            "gpu_ns": {
+              "mean": 0.937408,
+              "p50": 0.93696,
+              "p95": 0.951296,
+              "maximum": 0.959488
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.109153,
+              "p50": 0.094012,
+              "p95": 0.160685,
+              "maximum": 0.18509
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.759873,
+              "p50": 4.561441,
+              "p95": 6.091751,
+              "maximum": 6.711764
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.383426,
+              "p50": 0.326993,
+              "p95": 0.630281,
+              "maximum": 0.732229
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 3.7e-05,
+              "p50": 3e-05,
+              "p95": 5.6e-05,
+              "maximum": 0.000106
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.093642,
+              "p50": 0.087571,
+              "p95": 0.12928,
+              "maximum": 0.142072
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 3.0,
+            "upload_bytes": 94739.41333333333,
+            "vector_upload_bytes": 94739.41333333333,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 1.0
+          },
+          "logical_peak_bytes": 100291228.0,
+          "scratch_peak_bytes": 0.0
+        },
+        "motion/repeated/cold": {
+          "frames": 30,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 6.870374,
+              "p50": 6.609185,
+              "p95": 8.309058,
+              "maximum": 8.708414
+            },
+            "compile_ns": {
+              "mean": 0.013566,
+              "p50": 0.01064,
+              "p95": 0.024339,
+              "maximum": 0.033102
+            },
+            "gpu_ns": {
+              "mean": 0.932249,
+              "p50": 0.930816,
+              "p95": 0.942048,
+              "maximum": 0.9472
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.112781,
+              "p50": 0.097374,
+              "p95": 0.174925,
+              "maximum": 0.176475
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.561498,
+              "p50": 4.279083,
+              "p95": 5.786404,
+              "maximum": 6.04811
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.022551,
+              "p50": 0.009861,
+              "p95": 0.018595,
+              "maximum": 0.337216
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 3.7e-05,
+              "p50": 3.1e-05,
+              "p95": 5.6e-05,
+              "maximum": 8.9e-05
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.097803,
+              "p50": 0.090176,
+              "p95": 0.134876,
+              "maximum": 0.13527
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 3.0,
+            "upload_bytes": 3132.266666666667,
+            "vector_upload_bytes": 3132.266666666667,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 1.0
+          },
+          "logical_peak_bytes": 100291228.0,
+          "scratch_peak_bytes": 0.0
+        },
+        "motion/repeated/warm": {
+          "frames": 150,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 6.51447,
+              "p50": 6.353211,
+              "p95": 7.59012,
+              "maximum": 8.356914
+            },
+            "compile_ns": {
+              "mean": 0.012014,
+              "p50": 0.010362,
+              "p95": 0.019392,
+              "maximum": 0.024276
+            },
+            "gpu_ns": {
+              "mean": 0.932862,
+              "p50": 0.93184,
+              "p95": 0.9472,
+              "maximum": 0.955392
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.103947,
+              "p50": 0.092969,
+              "p95": 0.153925,
+              "maximum": 0.454351
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.252495,
+              "p50": 4.173004,
+              "p95": 4.884884,
+              "maximum": 5.42079
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.010107,
+              "p50": 0.009179,
+              "p95": 0.016663,
+              "maximum": 0.02005
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 3.3e-05,
+              "p50": 3e-05,
+              "p95": 4.8e-05,
+              "maximum": 6.1e-05
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.095081,
+              "p50": 0.088429,
+              "p95": 0.122707,
+              "maximum": 0.607938
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 3.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 1.0
+          },
+          "logical_peak_bytes": 100291228.0,
+          "scratch_peak_bytes": 0.0
+        },
+        "video/advancing/cold": {
+          "frames": 30,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 36.354675,
+              "p50": 15.689835,
+              "p95": 17.815723,
+              "maximum": 629.597419
+            },
+            "compile_ns": {
+              "mean": 0.002997,
+              "p50": 0.002662,
+              "p95": 0.004962,
+              "maximum": 0.006178
+            },
+            "gpu_ns": {
+              "mean": 2.703937,
+              "p50": 2.636768,
+              "p95": 3.067904,
+              "maximum": 3.397632
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.094296,
+              "p50": 0.09273,
+              "p95": 0.104706,
+              "maximum": 0.104737
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 32.186221,
+              "p50": 11.820324,
+              "p95": 13.662088,
+              "maximum": 619.81834
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "native_decode_nanoseconds": {
+              "mean": 27.308479,
+              "p50": 7.43904,
+              "p95": 8.397699,
+              "maximum": 601.335544
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 8.3e-05,
+              "p50": 8.8e-05,
+              "p95": 0.00017,
+              "maximum": 0.000277
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.133083,
+              "p50": 0.122319,
+              "p95": 0.182897,
+              "maximum": 0.259548
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 7.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 6220800.0,
+            "native_seeks": 0.06666666666666667,
+            "native_forward_reuses": 1.9333333333333333,
+            "fused_opacity_passes": 1.0
+          },
+          "logical_peak_bytes": 198029372.0,
+          "scratch_peak_bytes": 32.0
+        },
+        "video/advancing/warm": {
+          "frames": 150,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 16.589937,
+              "p50": 16.456827,
+              "p95": 18.21095,
+              "maximum": 19.068013
+            },
+            "compile_ns": {
+              "mean": 0.002694,
+              "p50": 0.002458,
+              "p95": 0.003805,
+              "maximum": 0.007454
+            },
+            "gpu_ns": {
+              "mean": 2.735818,
+              "p50": 2.635776,
+              "p95": 3.437568,
+              "maximum": 3.673088
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.113899,
+              "p50": 0.09835,
+              "p95": 0.169999,
+              "maximum": 0.188683
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 12.500588,
+              "p50": 12.358057,
+              "p95": 14.012318,
+              "maximum": 15.176061
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "native_decode_nanoseconds": {
+              "mean": 7.900972,
+              "p50": 7.840052,
+              "p95": 8.618066,
+              "maximum": 10.148772
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 8.5e-05,
+              "p50": 9.1e-05,
+              "p95": 0.000134,
+              "maximum": 0.000408
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.145481,
+              "p50": 0.1313,
+              "p95": 0.206809,
+              "maximum": 0.716273
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 7.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 6220800.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 2.0,
+            "fused_opacity_passes": 1.0
+          },
+          "logical_peak_bytes": 198029372.0,
+          "scratch_peak_bytes": 32.0
+        },
+        "video/repeated/cold": {
+          "frames": 30,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 15.89857,
+              "p50": 8.273935,
+              "p95": 9.68911,
+              "maximum": 230.564324
+            },
+            "compile_ns": {
+              "mean": 0.00274,
+              "p50": 0.002206,
+              "p95": 0.005372,
+              "maximum": 0.007395
+            },
+            "gpu_ns": {
+              "mean": 2.823165,
+              "p50": 2.638848,
+              "p95": 3.515392,
+              "maximum": 3.65568
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.107391,
+              "p50": 0.09435,
+              "p95": 0.16386,
+              "maximum": 0.16467
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 11.746452,
+              "p50": 4.231768,
+              "p95": 5.626658,
+              "maximum": 226.638603
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "native_decode_nanoseconds": {
+              "mean": 7.415641,
+              "p50": 0.00202,
+              "p95": 0.011591,
+              "maximum": 222.397231
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 4e-05,
+              "p50": 3e-05,
+              "p95": 8.8e-05,
+              "maximum": 0.000195
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.135999,
+              "p50": 0.12606,
+              "p95": 0.194769,
+              "maximum": 0.197435
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 7.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 207360.0,
+            "native_seeks": 0.06666666666666667,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 1.0
+          },
+          "logical_peak_bytes": 198029372.0,
+          "scratch_peak_bytes": 32.0
+        },
+        "video/repeated/warm": {
+          "frames": 150,
+          "milliseconds": {
+            "wall_ns": {
+              "mean": 8.363791,
+              "p50": 8.119978,
+              "p95": 9.571105,
+              "maximum": 10.842479
+            },
+            "compile_ns": {
+              "mean": 0.003063,
+              "p50": 0.002345,
+              "p95": 0.006733,
+              "maximum": 0.009616
+            },
+            "gpu_ns": {
+              "mean": 2.699746,
+              "p50": 2.635776,
+              "p95": 3.185664,
+              "maximum": 3.662816
+            },
+            "graph_prepare_nanoseconds": {
+              "mean": 0.104344,
+              "p50": 0.092733,
+              "p95": 0.156939,
+              "maximum": 0.201163
+            },
+            "evaluate_cpu_nanoseconds": {
+              "mean": 4.332165,
+              "p50": 4.190846,
+              "p95": 5.311274,
+              "maximum": 6.230386
+            },
+            "vector_prepare_nanoseconds": {
+              "mean": 0.0,
+              "p50": 0.0,
+              "p95": 0.0,
+              "maximum": 0.0
+            },
+            "native_decode_nanoseconds": {
+              "mean": 0.002288,
+              "p50": 0.001985,
+              "p95": 0.003388,
+              "maximum": 0.026305
+            },
+            "graphics_queue_nanoseconds": {
+              "mean": 3.2e-05,
+              "p50": 3e-05,
+              "p95": 4.5e-05,
+              "maximum": 6.1e-05
+            },
+            "queue_submit_nanoseconds": {
+              "mean": 0.1309,
+              "p50": 0.12163,
+              "p95": 0.176191,
+              "maximum": 0.555518
+            }
+          },
+          "mean_counts_or_bytes": {
+            "compute_passes": 7.0,
+            "upload_bytes": 0.0,
+            "vector_upload_bytes": 0.0,
+            "lut_upload_bytes": 0.0,
+            "readback_bytes": 0.0,
+            "status_readback_bytes": 24.0,
+            "native_gpu_local_copy_bytes": 0.0,
+            "native_seeks": 0.0,
+            "native_forward_reuses": 0.0,
+            "fused_opacity_passes": 1.0
+          },
+          "logical_peak_bytes": 198029372.0,
+          "scratch_peak_bytes": 32.0
+        }
+      }
+    }
+  ],
+  "binaries_sha256": {
+    "/tmp/fold-19b-baseline-profile": "a0731f9f7b9f8df7f927f45e784143229b249a91e664110c054fd705b32d3eae",
+    "target/release/deps/efficiency-930858e33317b06a": "90700f0c588dfb55973707c30b4eafea0e8565ad2e0e12a7a25502b9ed4fd1d4"
+  },
+  "changed_sources_sha256": {
+    "crates/render/src/gpu/mod.rs": "3ef59b753d05c9ce7bb898e794de108529fe927815828e4c7e14c52ddb1d9cea",
+    "crates/render/src/gpu/fusion.rs": "9d324c5c8bea44511f8e9865e2e3a6fb442205906f508aeaf782e2dd77952875",
+    "crates/render/src/gpu/operators.wgsl": "17b0ca43557214020049a8ecae28286225d3a5a6d565aac0318e05235468cef3",
+    "crates/render/tests/efficiency.rs": "6a1ad07723ce77411987ffb350459a8b66c1c501e94fe3d444635a0a368f3423"
+  }
+}

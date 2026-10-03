@@ -9,7 +9,7 @@ Deliver creative power with few steps and little visual noise. The artwork is pr
 
 ## Product grounding
 
-Source: `docs/Fold_Application_Product_Architecture.docx`, especially §§2, 10, 13–15 and 18. It is a product/architecture proposal, not evidence that a capability is implemented. Consult the relevant section when changing workflow or interaction semantics; this skill does not replace its contracts.
+Source: `docs/Fold_Application_Product_Architecture.md`, especially §§2, 10, 13–15 and 18. It is a product/architecture proposal, not evidence that a capability is implemented. Consult the relevant section when changing workflow or interaction semantics; this skill does not replace its contracts.
 
 - Editing, Compositing, and Motion are peer workspaces over one project and selection model (§§3, 14). Keep shared viewer, inspector, transport, and navigation patterns consistent.
 - Basic motion design starts on the canvas: Content → Distribution → Driver → Influence → Response. Reveal the same editable construction in the graph when precision is useful; basic work must not require graph wiring (§13).

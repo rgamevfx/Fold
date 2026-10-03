@@ -41,6 +41,43 @@ fn key() -> PreviewKey {
     }
 }
 #[test]
+fn realtime_preparation_is_one_exact_frame_ahead_and_obeys_range_and_mode() {
+    use fold_platform::desktop::{PlaybackMode, PlaybackRange, ViewerTransport};
+    let key = key();
+    let mut transport = ViewerTransport {
+        output: fold_platform::workspace::DocumentRef {
+            document: key.target.unwrap().0,
+            output: key.output.clone(),
+            extensions: Default::default(),
+        },
+        time: fold_foundation::Time::ZERO,
+        playing: true,
+        looping: false,
+        mode: PlaybackMode::RealTime,
+        range: PlaybackRange {
+            start: Some(0),
+            end: Some(1),
+        },
+    };
+    let next = realtime_next(&key, &transport, [30_000, 1001], 10).unwrap();
+    assert_eq!(next.frame, 1);
+    assert_eq!(
+        next.target.unwrap().1,
+        fold_foundation::Time::new(1001, 30_000).unwrap()
+    );
+    assert!(realtime_next(&next, &transport, [30_000, 1001], 10).is_none());
+    transport.looping = true;
+    assert_eq!(
+        realtime_next(&next, &transport, [30_000, 1001], 10).unwrap(),
+        key
+    );
+    transport.mode = PlaybackMode::EveryFrame;
+    assert!(realtime_next(&key, &transport, [30, 1], 10).is_none());
+    transport.mode = PlaybackMode::RealTime;
+    transport.playing = false;
+    assert!(realtime_next(&key, &transport, [30, 1], 10).is_none());
+}
+#[test]
 fn per_viewer_demand_is_bounded_and_unchanged_redraws_do_not_resubmit() {
     let mut host = PreviewHost::new();
     let mut client = Client::default();

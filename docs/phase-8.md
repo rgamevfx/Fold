@@ -3,7 +3,7 @@
 ## Status
 The original list-based editor was rejected: it did not meet the product's node-graph requirement. It has been **removed and replaced**, not retained as an alternative compositor. See `phase-8-correction.md` for the corrective design and acceptance record. The user accepted the corrected basic compositor after native inspection and navigation refinements; phase 8 is complete within the scope documented here. This acceptance does not assert that every manual recipe step below was individually verified. The separate sequence/audio/cross-document-undo checkpoint remains pending native acceptance.
 
-Architecture reference: `Fold_Application_Product_Architecture.docx`, sections 3–6, 10, 14–18.
+Architecture reference: `Fold_Application_Product_Architecture.md`, sections 3–6, 10, 14–18.
 
 ## Implemented
 

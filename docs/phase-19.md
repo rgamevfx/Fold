@@ -38,8 +38,10 @@ missed targets explicitly; leave phase/checkpoint unchecked until acceptance.
 
 ## Evidence
 
-Implementation is present; reference-machine acceptance is **pending**. Phase 19
-and its performance checkpoint remain unchecked in `dev-plan.md`.
+Reference-machine acceptance is **complete through [phase 19A](phase-19A.md)**.
+The original measurements below remain historical evidence of the throughput
+failures; the corrective phase records the final implementation, repeated passing
+measurements and checkpoint verification. Phase 19 and its checkpoint are checked.
 
 ### Shared execution and ownership
 
@@ -268,7 +270,8 @@ or performance acceptance is implied.
 
 ### Outstanding acceptance and reproduction
 
-Phase 19/checkpoint remain unchecked until the corrective workload acceptance.
+This original observation left phase 19/checkpoint unchecked; phase 19A subsequently
+closed corrective acceptance with repeated native measurements.
 Native normal/narrow **visual** review and DPI/physical scanout remain unverified:
 the computer-use provider reported `runtime_unavailable` because Orca was not
 running. The actual ImGui controls have normal/narrow interaction tests. Native

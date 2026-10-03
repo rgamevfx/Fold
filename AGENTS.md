@@ -1,5 +1,7 @@
 We are building Fold, a modular VFX, Editing, and Graphics engine and application.
 
+For product scope, architecture, or workflow decisions, consult the relevant sections of [the product and architecture proposal](docs/Fold_Application_Product_Architecture.md). Its diagrams are linked from `docs/media/`; current implementation decisions and phase priorities are in [dev-plan.md](dev-plan.md).
+
 Before creating or changing UI, read and apply the [fold-ui skill](.agents/skills/fold-ui/SKILL.md), including UI work within larger features.
 
 
@@ -49,4 +51,3 @@ Before creating or changing UI, read and apply the [fold-ui skill](.agents/skill
 \- Defer workspace checks, full test suites, and Clippy to vertical-slice checkpoints.
 
 \- Fix failures introduced by the change; report unrelated failures and deferred checks.
-

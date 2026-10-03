@@ -216,6 +216,8 @@ pub struct GpuPreviewResult {
     pub consumers: Vec<(crate::workspace::PanelInstanceId, u64)>,
 }
 pub trait DesktopClient {
+    /// Nonblocking notification after a result is published; no frame ownership crosses this callback.
+    fn set_preview_wake(&mut self, _wake: std::sync::Arc<dyn Fn() + Send + Sync>) {}
     #[cfg(feature = "gpu")]
     fn set_render_host(&mut self, _host: crate::gpu::Host) {}
     #[cfg(feature = "gpu")]
@@ -345,6 +347,10 @@ pub trait DesktopClient {
     fn poll(&mut self);
     fn command(&mut self, command: DesktopCommand);
     fn request_preview(&mut self, key: PreviewKey);
+    /// Defer new work while collecting results; finish with `end_preview_update`.
+    /// Already active work continues. This keeps successor selection atomic.
+    fn begin_preview_update(&mut self) {}
+    fn end_preview_update(&mut self) {}
     /// Atomically replace bounded per-consumer demand. Empty retires all demand.
     /// The serial default keeps small clients compatible; the application owns
     /// independent cancellation, fair selection and shared completion routing.

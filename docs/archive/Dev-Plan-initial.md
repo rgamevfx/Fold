@@ -1,6 +1,6 @@
 # Development plan
 
-- Before each phase, write a brief plan in `docs/phase-N.md`: goal, tasks, and acceptance criteria. Follow the product document `docs/Fold_Application_Product_Architecture.docx` and `AGENTS.md`.
+- Before each phase, write a brief plan in `docs/phase-N.md`: goal, tasks, and acceptance criteria. Follow the product document `docs/Fold_Application_Product_Architecture.md` and `AGENTS.md`.
 - During iteration, format touched files, check affected crates, and run focused tests for changed behavior. Run workspace checks and full suites at slice checkpoints.
 - Mark a phase `[x]` only when its acceptance criteria pass; record verification and deferred work in its plan. Include the tracker update in the phase commit.
 - Keep scope minimal: static packages, one supported media path, and one native window. Defer runtime plugins, 3D, and simulations.

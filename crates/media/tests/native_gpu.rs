@@ -186,7 +186,7 @@ fn two_same_source_ranges_and_two_distinct_sources_retain_cursors() {
         );
     }
     let stats = decoder.statistics();
-    assert_eq!(stats.launches, 2);
+    assert_eq!(stats.launches, 1);
     assert_eq!(stats.seeks, 2);
     assert_eq!(stats.forward_reuses, 2);
     assert_eq!(stats.requests, 4);
@@ -230,6 +230,45 @@ fn two_same_source_ranges_and_two_distinct_sources_retain_cursors() {
             + Nv12Layout::for_source(&other).unwrap().bytes * 2
     );
     eprintln!("two retained distinct-source ranges {stats:?}");
+}
+
+#[test]
+#[ignore = "reference GPU performance regression; two >=270-frame native fixtures"]
+fn alternating_viewers_preserve_two_source_decode_locality() {
+    let source = fixture();
+    let other = inspect(
+        std::path::Path::new(&std::env::var("FOLD_NATIVE_SECOND_FIXTURE").unwrap()),
+        &Cancel::default(),
+    )
+    .unwrap();
+    assert!(source.info.frames >= 270 && other.info.frames >= 270);
+    let (device, queue) = device();
+    let mut decoder = NativeDecoder::new().unwrap();
+    let mut elapsed = std::time::Duration::ZERO;
+    for offset in 0..12 {
+        for frame in [offset, 240 + offset] {
+            let begin = std::time::Instant::now();
+            for video in [&source, &other] {
+                let (pending, complete) =
+                    decode(&device, &mut decoder, video, frame, &Cancel::default()).unwrap();
+                let ready = pending.submit(&queue, complete, ()).unwrap();
+                device.poll(wgpu::PollType::wait_indefinitely()).unwrap();
+                drop(ready);
+            }
+            if offset > 0 {
+                elapsed += begin.elapsed();
+            }
+        }
+    }
+    let mean_ms = elapsed.as_secs_f64() * 1000. / 22.;
+    eprintln!(
+        "alternating two-source decode mean {mean_ms:.3} ms; {:?}",
+        decoder.statistics()
+    );
+    assert!(
+        mean_ms < 1000. / 30.,
+        "decode alone exceeds the frame budget: {mean_ms:.3} ms"
+    );
 }
 #[test]
 #[ignore = "requires native GPU helper; receipt mismatch and immediate drop regression"]

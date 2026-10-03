@@ -233,9 +233,22 @@ pub fn evaluate_scene_gpu(
     decoder: &mut Decoder,
     cancel: &Cancel,
 ) -> Result<fold_render::gpu::GpuFrame, String> {
+    evaluate_scene_gpu_admitted(snapshot, request, renderer, decoder, cancel, None)
+}
+
+#[cfg(feature = "gpu")]
+pub(crate) fn evaluate_scene_gpu_admitted(
+    snapshot: &Snapshot,
+    request: &SceneRequest,
+    renderer: &mut fold_render::gpu::Renderer,
+    decoder: &mut Decoder,
+    cancel: &Cancel,
+    class: Option<fold_render::scheduling::Class>,
+) -> Result<fold_render::gpu::GpuFrame, String> {
     let (plan, duration) = compile_scene(snapshot, request, cancel)?;
-    crate::color::with_config(snapshot, |config| {
-        renderer.evaluate(plan, config, decoder, cancel)
+    crate::color::with_config(snapshot, |config| match class {
+        Some(class) => renderer.evaluate_scheduled(plan, config, decoder, cancel, class),
+        None => renderer.evaluate(plan, config, decoder, cancel),
     })?
     .with_timing(request.time, duration)
 }

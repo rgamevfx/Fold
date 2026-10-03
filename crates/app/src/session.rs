@@ -14,6 +14,8 @@ mod view;
 #[path = "viewer_transport.rs"]
 mod viewer_transport;
 
+#[path = "preview_metadata.rs"]
+mod preview_metadata;
 #[path = "preview_worker.rs"]
 mod preview_worker;
 use preview_worker::PreviewWorker;
@@ -50,6 +52,7 @@ pub struct Session {
     state: DesktopState,
     overlay: Option<fold_project::EditSession>,
     preview: PreviewWorker,
+    metadata: std::cell::RefCell<preview_metadata::Metadata>,
     background: Vec<Background>,
     imported_items: Vec<fold_project::ItemId>,
     workspace_project: Option<String>,
@@ -75,6 +78,7 @@ impl Session {
             state: DesktopState::default(),
             overlay: None,
             preview: PreviewWorker::new(),
+            metadata: Default::default(),
             background: vec![],
             imported_items: Vec::new(),
             workspace_project: None,
@@ -232,6 +236,9 @@ impl Session {
     }
 }
 impl DesktopClient for Session {
+    fn set_preview_wake(&mut self, wake: std::sync::Arc<dyn Fn() + Send + Sync>) {
+        self.preview.set_wake(wake);
+    }
     fn viewer_audio_underruns(
         &self,
         viewer: fold_platform::workspace::PanelInstanceId,
@@ -363,7 +370,7 @@ impl DesktopClient for Session {
         };
         state.viewer_document = Some(output.document);
         let snapshot = self.preview_snapshot();
-        let info = crate::packages::builtins().output_ref(&snapshot, output);
+        let info = self.metadata.borrow_mut().output(&snapshot, output);
         state.content = None;
         match info {
             Ok(info) => {
@@ -375,13 +382,21 @@ impl DesktopClient for Session {
                     .unwrap_or(0)
                     .max(0) as u32;
                 state.frame = state.frame.min(info.frames.saturating_sub(1));
-                match workflow::content_for(&snapshot, output.document) {
+                match self
+                    .metadata
+                    .borrow_mut()
+                    .content(&snapshot, output.document)
+                {
                     Ok(content) => state.content = Some(content),
                     Err(error) => state.status = error,
                 }
                 state.transient = self.overlay.is_some()
                     && state.content
-                        != workflow::content_for(&self.project.snapshot(), output.document).ok();
+                        != self
+                            .metadata
+                            .borrow_mut()
+                            .content(&self.project.snapshot(), output.document)
+                            .ok();
             }
             Err(error) => {
                 state.frames = 0;
@@ -766,17 +781,39 @@ impl DesktopClient for Session {
         }
     }
     fn preview_demands(&mut self, demands: Vec<fold_platform::desktop::PreviewDemand>) {
+        self.preview.realtime_consumers(
+            self.viewers
+                .clocks
+                .iter()
+                .filter_map(|(&id, clock)| {
+                    (clock.transport.playing
+                        && clock.transport.mode == fold_platform::desktop::PlaybackMode::RealTime)
+                        .then_some(id)
+                })
+                .collect(),
+        );
         let snapshot = self.preview_snapshot();
         let valid = demands
             .into_iter()
             .take(128)
             .filter(|demand| {
                 demand.key.target.is_some_and(|(id, _)| {
-                    workflow::content_for(&snapshot, id).ok().as_ref() == Some(&demand.key.content)
+                    self.metadata
+                        .borrow_mut()
+                        .content(&snapshot, id)
+                        .ok()
+                        .as_ref()
+                        == Some(&demand.key.content)
                 })
             })
             .collect();
         self.preview.demands(snapshot, valid);
+    }
+    fn begin_preview_update(&mut self) {
+        self.preview.begin_update();
+    }
+    fn end_preview_update(&mut self) {
+        self.preview.end_update();
     }
     fn cancel_preview(&mut self) {
         self.preview.cancel();

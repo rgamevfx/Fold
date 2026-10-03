@@ -25,6 +25,8 @@ pub(super) struct NativeVideo {
     decoder: NativeDecoder,
     cache: VecDeque<Entry>,
     bytes: u64,
+    pub allocate_nanoseconds: u128,
+    pub submit_nanoseconds: u128,
 }
 impl NativeVideo {
     pub fn new() -> Result<Self, String> {
@@ -32,6 +34,8 @@ impl NativeVideo {
             decoder: NativeDecoder::new()?,
             cache: VecDeque::new(),
             bytes: 0,
+            allocate_nanoseconds: 0,
+            submit_nanoseconds: 0,
         })
     }
     pub fn statistics(&self) -> fold_media::native::NativeStatistics {
@@ -41,8 +45,8 @@ impl NativeVideo {
         self.cache.clear();
         self.bytes = 0;
     }
-    /// No pixel upload/readback. Readiness is a supervised host acknowledgment,
-    /// not an asynchronous external semaphore. Call from the render worker.
+    /// Source preparation runs on the worker. The evaluator pumps completion
+    /// once before preparation; duplicate device polls contend with UI/export.
     pub fn decode(
         &mut self,
         host: &Host,
@@ -51,8 +55,9 @@ impl NativeVideo {
         cancel: &Cancel,
     ) -> Result<Arc<NativeInput>, String> {
         cancel.check()?;
-        // Pump deferred loss notifications before any native allocation/launch.
-        host.poll()?;
+        host.check()?;
+        self.allocate_nanoseconds = 0;
+        self.submit_nanoseconds = 0;
         let frame = source.info.frame_at(time)?;
         if let Some(i) = self.cache.iter().position(|e| {
             e.fingerprint == source.fingerprint
@@ -73,6 +78,7 @@ impl NativeVideo {
             let old = self.cache.pop_front().unwrap();
             self.bytes -= old.input.bytes;
         }
+        let begin = std::time::Instant::now();
         let (mut pending, reservation) =
             fold_native_video::PendingBuffer::new_reserved(host.device(), layout.bytes, |bytes| {
                 match host.reserve_as(bytes, super::host::AllocationKind::Decoded) {
@@ -83,14 +89,15 @@ impl NativeVideo {
                     }
                 }
             })?;
+        self.allocate_nanoseconds = begin.elapsed().as_nanos();
         let bytes = pending.allocation_bytes();
         let complete = self
             .decoder
             .decode_into(source, time, pending.write_ticket()?, cancel)?;
-        host.poll()?;
-        // Submission internally retains BOTH the raw-barrier buffer and its
-        // reservation, even if the cache/caller immediately drops this input.
+        host.check()?;
+        let begin = std::time::Instant::now();
         let ready = pending.submit(host.queue(), complete, reservation.clone())?;
+        self.submit_nanoseconds = begin.elapsed().as_nanos();
         let input = Arc::new(NativeInput {
             buffer: ready.buffer,
             layout: Layout {
@@ -219,13 +226,23 @@ mod tests {
     fn destroyed_parent_device_is_rejected_before_native_launch() {
         let source = fixture();
         let (host, _) = pollster::block_on(Host::headless(64 * 1024 * 1024)).unwrap();
-        let mut native = NativeVideo::new().unwrap();
+        let mut renderer = super::super::Renderer::new(host.clone()).unwrap();
         host.device().destroy();
-        let error = native
-            .decode(
-                &host,
-                &source,
-                source.info.time(0).unwrap(),
+        // Completion/device-loss pumping belongs to the renderer entry point,
+        // once per graph, rather than once for every native source.
+        let error = renderer
+            .evaluate(
+                crate::RenderGraph {
+                    width: source.info.width,
+                    height: source.info.height,
+                    nodes: vec![crate::ImageOp::Video {
+                        source,
+                        time: fold_foundation::Time::ZERO,
+                    }],
+                    output: 0,
+                },
+                None,
+                &mut fold_media::Decoder::default(),
                 &Cancel::default(),
             )
             .err()
@@ -234,7 +251,10 @@ mod tests {
             error.contains("lost") || error.contains("stopped"),
             "{error}"
         );
-        assert_eq!(native.decoder.statistics().launches, 0);
+        assert!(
+            renderer.native_video.is_none(),
+            "no native decoder launched"
+        );
         assert_eq!(host.memory().allocated, 0);
     }
 }

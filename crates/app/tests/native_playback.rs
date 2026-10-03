@@ -173,6 +173,29 @@ fn native_device_clock_seek_and_drift() {
         .unwrap() as u64;
     assert_eq!(playback.sample(), Some(short_end));
     playback.pause();
+    // Loop a short marked range without resetting the device clock or leaving
+    // priming gaps. Multiple wraps must still expose a monotonic absolute clock.
+    playback.play_looping(snapshot.clone(), source.document, 5, 5, 8);
+    let deadline = Instant::now() + Duration::from_secs(15);
+    let mut last = 0;
+    let mut running = false;
+    loop {
+        assert!(Instant::now() < deadline, "loop clock timeout");
+        assert_eq!(playback.take_error(), None);
+        if let Some(sample) = playback.sample() {
+            assert!(sample >= last);
+            last = sample;
+            running = true;
+            if sample >= short_end + u64::from(AUDIO_RATE) {
+                break;
+            }
+        } else {
+            assert!(!running, "loop must not re-prime the device stream");
+        }
+        std::thread::sleep(Duration::from_millis(2));
+    }
+    assert_eq!(playback.underruns(), 0);
+    playback.pause();
     drop(playback);
 
     // Exercise the application monitor service, not just the device wrapper.

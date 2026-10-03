@@ -1,5 +1,5 @@
 //! Explicit GPU-resident NVDEC backend. Separate from CUDA-download compatibility.
-//! Two retained supervised helpers share aggregate process permits and immutable
+//! Two source helpers, each with two codec positions, share process permits and immutable
 //! source pins with software decoding. No media dependency on renderer/wgpu.
 #[cfg(test)]
 #[path = "native_tests.rs"]
@@ -52,7 +52,7 @@ struct Session {
     _directory: tempfile::TempDir,
     pin: Arc<source_pin::Pinned>,
     uuid: [u8; 16],
-    next: Option<u32>,
+    ranges: fold_native_video::Ranges,
 }
 impl Session {
     fn receive(&mut self, cancel: &Cancel, deadline: Instant) -> Result<Vec<u8>, String> {
@@ -116,6 +116,7 @@ impl Session {
                 info.frames.to_string(),
                 uuid.iter().map(|b| format!("{b:02x}")).collect(),
                 fold_native_video::PROTOCOL_NAME.into(),
+                "2".into(), // Explicit private helper capability: positions per source.
             ])
             .stdin(Stdio::null())
             .stdout(Stdio::null());
@@ -125,7 +126,7 @@ impl Session {
             _directory: directory,
             pin,
             uuid,
-            next: None,
+            ranges: Default::default(),
         };
         if session.receive(cancel, deadline)? != fold_native_video::READY_MESSAGE {
             return Err("invalid native helper handshake".into());
@@ -153,7 +154,7 @@ pub struct NativeStatistics {
     /// request. Not measured bus traffic or the sum of clear/copy transactions.
     pub gpu_local_copy_bytes: u64,
 }
-/// Two LRU range cursors (possibly for the same source), not a frame cache.
+/// Two LRU pinned sources, each retaining two codec positions, not a frame cache.
 /// Failed/cancelled requests kill/reap before caller allocations can be released.
 pub struct NativeDecoder {
     sessions: VecDeque<Session>,
@@ -207,43 +208,21 @@ impl NativeDecoder {
                 && s.pin.source.info == source.info
                 && s.uuid == uuid
         };
-        let nearby = |s: &Session| s.next.is_some_and(|n| n <= frame && frame - n <= 32);
-        let index = self
-            .sessions
-            .iter()
-            .enumerate()
-            .filter(|(_, s)| matches(s) && nearby(s))
-            .min_by_key(|(_, s)| frame - s.next.unwrap())
-            .map(|(i, _)| i);
-        // A free second slot is a second retained RANGE, even for one source.
-        // Once full, seek the least-recent same-source cursor rather than evict
-        // the other video. A third source evicts the overall least-recent slot.
-        let index = index.or_else(|| {
-            (self.sessions.len() == 2)
-                .then(|| self.sessions.iter().position(matches))
-                .flatten()
-        });
+        let index = self.sessions.iter().position(matches);
         let mut session = if let Some(i) = index {
             self.sessions.remove(i).unwrap()
         } else {
-            let pinned = self
-                .sessions
-                .iter()
-                .find(|s| matches(s))
-                .map(|s| s.pin.clone());
             if self.sessions.len() == 2 {
                 // Release the evicted source before reserving a third copy.
                 self.sessions.pop_front();
             }
-            let pin = match pinned {
-                Some(pin) => pin,
-                None => source_pin::acquire(source, cancel)?,
-            };
+            let pin = source_pin::acquire(source, cancel)?;
             let session = Session::open(pin, uuid, &self.helper, cancel, deadline)?;
             self.statistics.launches = self.statistics.launches.saturating_add(1);
             session
         };
-        if nearby(&session) {
+        let range = session.ranges.select(frame);
+        if session.ranges.is_forward(range, frame) {
             self.statistics.forward_reuses = self.statistics.forward_reuses.saturating_add(1);
         } else {
             self.statistics.seeks = self.statistics.seeks.saturating_add(1);
@@ -256,7 +235,7 @@ impl NativeDecoder {
             }
         };
         cancel.check()?;
-        session.next = Some(frame + 1);
+        session.ranges.complete(range, frame);
         self.statistics.requests = self.statistics.requests.saturating_add(1);
         self.statistics.codec_call_nanoseconds = self
             .statistics

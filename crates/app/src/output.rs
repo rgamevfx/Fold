@@ -16,8 +16,9 @@ impl OutputRenderer {
         #[cfg(feature = "gpu")]
         let gpu = match std::env::var("FOLD_RENDER_BACKEND").as_deref() {
             Ok("gpu") => {
-                let (host, _) =
-                    pollster::block_on(fold_render::gpu::Host::headless(512 * 1024 * 1024))?;
+                let (host, _) = pollster::block_on(fold_render::gpu::Host::headless(
+                    fold_render::gpu::Host::DEFAULT_BUDGET,
+                ))?;
                 Some(fold_render::gpu::Renderer::new(host)?)
             }
             Ok("cpu") | Err(std::env::VarError::NotPresent) => None,
@@ -49,18 +50,46 @@ impl OutputRenderer {
         request: &SceneRequest,
         cancel: &Cancel,
     ) -> Result<DisplayFrame, String> {
+        let began = std::time::Instant::now();
+        loop {
+            cancel.check()?;
+            match self.evaluate_once(snapshot, request, cancel) {
+                Err(error)
+                    if error.contains("GPU working budget exhausted")
+                        && began.elapsed().as_secs() < 30 =>
+                {
+                    // Submitted preview leases may still be in flight. Release
+                    // admission and partial work before waiting; the pinned
+                    // request remains immutable and no encoder output was sent.
+                    #[cfg(feature = "gpu")]
+                    if let Some(renderer) = &self.gpu {
+                        renderer.host().poll()?;
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(1));
+                }
+                result => return result,
+            }
+        }
+    }
+    fn evaluate_once(
+        &mut self,
+        snapshot: &CommittedSnapshot,
+        request: &SceneRequest,
+        cancel: &Cancel,
+    ) -> Result<DisplayFrame, String> {
         cancel.check()?;
-        let _admission = fold_render::scheduling::Scheduler::shared()
-            .enter(fold_render::scheduling::Class::Export, cancel)?;
         #[cfg(feature = "gpu")]
         if let Some(renderer) = self.gpu.as_mut() {
-            let scene = crate::media_workflow::evaluate_scene_gpu(
+            let scene = crate::media_workflow::evaluate_scene_gpu_admitted(
                 snapshot,
                 request,
                 renderer,
                 &mut self.decoder,
                 cancel,
+                Some(fold_render::scheduling::Class::Export),
             )?;
+            let output_permit = fold_render::scheduling::Scheduler::shared()
+                .enter(fold_render::scheduling::Class::Export, cancel)?;
             let mut output = crate::color::with_config(snapshot, |config| {
                 let processor = config
                     .map(|c| {
@@ -73,8 +102,25 @@ impl OutputRenderer {
                     .transpose()?;
                 renderer.output(&scene, processor.as_ref(), cancel)
             })?;
-            return output.readback(cancel);
+            drop(scene);
+            drop(output_permit);
+            let result = output.readback(cancel);
+            #[cfg(feature = "native-probe")]
+            if std::env::var_os("FOLD_SHARED_PROBE").is_some() {
+                eprintln!(
+                    "GPU export: time={:?} unix_ms={} transfers={:?}",
+                    request.time,
+                    std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_millis(),
+                    output.statistics
+                );
+            }
+            return result;
         }
+        let _admission = fold_render::scheduling::Scheduler::shared()
+            .enter(fold_render::scheduling::Class::Export, cancel)?;
         let scene = evaluate_scene(snapshot, request, &mut self.decoder, cancel)?.over_black();
         crate::color::delivery(snapshot, request.source.document, &scene)
     }

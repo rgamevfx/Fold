@@ -422,6 +422,10 @@ impl Shell {
             })
     }
     #[cfg(feature = "native-probe")]
+    pub fn probe_workspace_ready(&self) -> bool {
+        !self.restoring
+    }
+    #[cfg(feature = "native-probe")]
     pub fn probe_add_viewer(
         &mut self,
         output: fold_platform::workspace::DocumentRef,
@@ -1185,22 +1189,6 @@ impl Shell {
             self.refresh_viewer_targets(client);
         }
         let viewer = &self.workspace.viewers[&id];
-        let output = self.workspace.resolve(id);
-        let labels = client
-            .snapshot()
-            .map(|s| workspace::document_labels(&s))
-            .unwrap_or_default();
-        let source = output
-            .as_ref()
-            .and_then(|o| labels.get(&o.document))
-            .map(String::as_str)
-            .unwrap_or("No source");
-        let quality = match viewer.divisor {
-            1 => "Full",
-            2 => "Half",
-            _ => "Quarter",
-        };
-        let pinned = matches!(viewer.binding, ViewerBinding::Pinned(_));
         let mode = client.viewer_transport(id).map_or_else(
             || self.playback_mode(id, client),
             |transport| transport.mode,
@@ -1217,29 +1205,13 @@ impl Shell {
             ui.text_disabled("Audio");
             crate::sdk::toolbar::tooltip(ui, "Audio monitor — change in the viewer context menu");
         }
-        let image_time = self
-            .presentation
-            .get(&id)
-            .and_then(|(key, _)| key.as_ref())
-            .and_then(|key| key.target.map(|target| target.1))
-            .unwrap_or(viewer.time);
-        ui.same_line();
-        ui.text_disabled(format!(
-            "{}{} · Image {}/{}s · {source}",
-            if pinned { "Pinned · " } else { "" },
-            quality,
-            image_time.numerator(),
-            image_time.denominator()
-        ));
-        crate::sdk::toolbar::tooltip(
-            ui,
-            "Displayed image time; the transport below shows the requested playhead.",
-        );
-        if let Some(output) = &output
-            && output.output != "video"
-        {
+        if viewer.divisor > 1 {
             ui.same_line();
-            ui.text_disabled(&output.output);
+            ui.text_disabled(if viewer.divisor == 2 {
+                "Half"
+            } else {
+                "Quarter"
+            });
         }
         if let Some((_, Some(error))) = self.presentation.get(&id) {
             ui.text_wrapped(error);

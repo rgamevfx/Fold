@@ -233,12 +233,53 @@ fn real_textures_hold_until_replacement_and_remain_protected_under_pressure() {
         .unregister_external_texture(evicted.registration)
         .unwrap();
     client.transport.as_mut().unwrap().time = second.target.unwrap().1;
-    host.select_viewers(&[(id, Some(second))], &mut client);
+    host.select_viewers(&[(id, Some(second.clone()))], &mut client);
     assert!(!client.transport.as_ref().unwrap().playing);
     assert_eq!(
         client.transport.as_ref().unwrap().mode,
         fold_platform::desktop::PlaybackMode::RealTime
     );
     assert!(host.review_state(id).0.unwrap().contains("frame evicted"));
+    host.release(&mut renderer).unwrap();
+
+    // A range can contain older cache hits before preparation begins. Its new
+    // frames must evict unrelated entries first, not those earlier range hits.
+    let mut host = PreviewHost::new();
+    host.cache.budget = 5 * 16 * 16 * 4;
+    let mut plan = crate::review::Plan::new(
+        1,
+        second.clone(),
+        [24, 1],
+        fold_platform::desktop::PlaybackRange {
+            start: Some(0),
+            end: Some(2),
+        },
+        3,
+        host.cache.budget,
+    );
+    let first = plan.key(0);
+    let middle = plan.key(1);
+    let last = plan.key(2);
+    let unrelated = PreviewKey {
+        content: "other".into(),
+        ..middle.clone()
+    };
+    upload(&mut host, &mut renderer, &middle);
+    upload(&mut host, &mut renderer, &unrelated);
+    upload(&mut host, &mut renderer, &first);
+    plan.cursor = 2;
+    host.consumers.push(first);
+    host.reviews.insert(id, plan);
+    let evicted = host.evict_unused().unwrap();
+    renderer
+        .unregister_external_texture(evicted.registration)
+        .unwrap();
+    assert!(host.cache.peek(&unrelated).is_none());
+    assert!(host.cache.peek(&middle).is_some());
+    upload(&mut host, &mut renderer, &last);
+    assert_eq!(
+        host.reviews[&id].resident(|k| host.cache.peek(k).is_some()),
+        3
+    );
     host.release(&mut renderer).unwrap();
 }

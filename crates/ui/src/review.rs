@@ -83,6 +83,14 @@ impl Plan {
             .filter(|&offset| contains(&self.key(offset)))
             .count() as u32
     }
+    pub fn preparing_key(&self, key: &PreviewKey) -> bool {
+        self.message.is_none()
+            && !self.cached_playing
+            && self.cursor < self.count
+            && key.frame >= self.start
+            && key.frame - self.start < self.count
+            && *key == self.key(key.frame - self.start)
+    }
     pub fn next(&mut self, contains: impl Fn(&PreviewKey) -> bool) -> Option<PreviewKey> {
         if self.cached_playing || self.message.is_some() {
             return None;
@@ -164,6 +172,21 @@ mod tests {
         assert!(!plan.can_replay(4));
         assert!(plan.next(|_| false).is_none());
         assert!(plan.status(4).contains("evicted"));
+    }
+    #[test]
+    fn old_resident_frames_are_preserved_until_range_preparation_finishes() {
+        let mut plan = plan(7 * 1024);
+        let early = plan.key(0);
+        plan.cursor = 4;
+        assert!(plan.preparing_key(&early));
+        let mut unrelated = early.clone();
+        unrelated.view += 1;
+        assert!(!plan.preparing_key(&unrelated));
+        plan.cursor = plan.count;
+        assert!(
+            !plan.preparing_key(&early),
+            "completed ranges remain evictable"
+        );
     }
     #[test]
     fn seek_edit_port_color_and_resolution_interrupt_preparation() {

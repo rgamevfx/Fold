@@ -1,6 +1,6 @@
 # Current architecture and dependency policy
 
-Fold follows the ownership model in `Fold_Application_Product_Architecture.docx`.
+Fold follows the ownership model in `Fold_Application_Product_Architecture.md`.
 This document describes the current implementation; phase documents record
 historical slice evidence, not the current architecture. See `consolidation.md`
 for the remaining consolidation work and `phase-9.md` for motion acceptance.

@@ -114,3 +114,60 @@ fn two_consumers_continue_while_export_and_asset_only_ingest_run() {
     assert_eq!(session.snapshot().unwrap().state().assets.len(), 1);
     assert_eq!(session.output_info().unwrap().0, document);
 }
+
+#[test]
+fn result_publication_wakes_the_host_without_waiting_for_ui_polling() {
+    let (mut session, document) = fixture();
+    let (sender, receiver) = std::sync::mpsc::channel();
+    session.set_preview_wake(std::sync::Arc::new(move || {
+        let _ = sender.send(());
+    }));
+    let request = demand(&session, document, 1, 1, 0);
+    session.preview_demands(vec![request.clone()]);
+    // No UI poll/take loop: notification must follow actual publication.
+    receiver.recv_timeout(Duration::from_secs(10)).unwrap();
+    let result = session
+        .take_preview()
+        .expect("wake must follow publication");
+    assert_eq!(result.key, request.key);
+    result.frame.unwrap();
+    session.preview_demands(vec![request]);
+    assert!(session.take_preview().is_none());
+    drop(session);
+    assert!(matches!(
+        receiver.try_recv(),
+        Err(std::sync::mpsc::TryRecvError::Disconnected)
+    ));
+}
+
+#[test]
+fn collecting_a_result_waits_for_the_successor_demand_refresh() {
+    let (mut session, document) = fixture();
+    let (sender, receiver) = std::sync::mpsc::channel();
+    session.set_preview_wake(std::sync::Arc::new(move || {
+        let _ = sender.send(());
+    }));
+    let a = demand(&session, document, 1, 1, 0);
+    let b = demand(&session, document, 2, 1, 7);
+    session.preview_demands(vec![a.clone(), b.clone()]);
+    receiver.recv_timeout(Duration::from_secs(10)).unwrap();
+    session.begin_preview_update();
+    let first = session.take_preview().unwrap();
+    first.frame.unwrap();
+    assert!(receiver.recv_timeout(Duration::from_millis(50)).is_err());
+    // Retire the old queued successor before releasing the scheduling boundary.
+    let next = demand(&session, document, 1, 2, 3);
+    session.preview_demands(vec![next.clone()]);
+    session.end_preview_update();
+    receiver.recv_timeout(Duration::from_secs(10)).unwrap();
+    let result = session.take_preview().unwrap();
+    result.frame.unwrap();
+    assert_eq!(result.key, next.key);
+    // An unchanged demand set still releases the boundary explicitly.
+    session.preview_demands(vec![b]);
+    receiver.recv_timeout(Duration::from_secs(10)).unwrap();
+    session.begin_preview_update();
+    session.take_preview().unwrap().frame.unwrap();
+    session.end_preview_update();
+    session.preview_demands(vec![]);
+}
