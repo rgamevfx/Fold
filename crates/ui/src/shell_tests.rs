@@ -8,6 +8,39 @@ use std::{
 };
 
 #[test]
+fn preview_resolution_tracks_viewport_pixels_quality_and_aspect() {
+    assert_eq!(
+        preview_dimensions([3840, 2160], [480., 480.], 1),
+        [480, 270]
+    );
+    assert_eq!(
+        preview_dimensions([1920, 1080], [480., 480.], 2),
+        [240, 135]
+    );
+    assert_eq!(
+        preview_dimensions([3840, 2160], [960., 960.], 1),
+        [960, 540]
+    );
+    assert_eq!(preview_dimensions([320, 180], [960., 960.], 1), [320, 180]);
+    assert_eq!(
+        preview_dimensions([1080, 1920], [480., 480.], 1),
+        [270, 480]
+    );
+    assert_eq!(preview_dimensions([1920, 1080], [0., 0.], 1), [1, 1]);
+}
+
+#[test]
+#[cfg(feature = "native-probe")]
+fn full_resolution_probe_does_not_measure_a_viewport_sized_substitute() {
+    let mut shell = Shell::new(vec![]);
+    let id = *shell.workspace.viewers.keys().next().unwrap();
+    shell.viewport_pixels.insert(id, [480., 480.]);
+    assert_eq!(shell.sized_dimensions(id, [1920, 1080], 1), [480, 270]);
+    shell.probe_full_quality();
+    assert_eq!(shell.sized_dimensions(id, [1920, 1080], 1), [1920, 1080]);
+}
+
+#[test]
 fn playback_menu_selects_both_modes_and_source_default_at_narrow_widths() {
     use dear_imgui_rs::{Condition, MouseButton};
     use fold_platform::desktop::PlaybackMode;

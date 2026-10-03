@@ -39,6 +39,9 @@ impl<K: PartialEq, V> Cache<K, V> {
             .find(|e| &e.key == key)
             .map(|e| &e.value)
     }
+    pub fn entries_mut(&mut self) -> impl Iterator<Item = &mut Entry<K, V>> {
+        self.entries.iter_mut()
+    }
     pub fn needs_room(&self, bytes: usize) -> bool {
         self.bytes + bytes > self.budget || self.entries.len() >= 512
     }

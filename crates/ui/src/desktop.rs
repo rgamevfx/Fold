@@ -158,13 +158,13 @@ impl ApplicationHandler for App {
                         .shell
                         .files_dropped(desktop.pointer, &paths, desktop.client.as_mut());
                 }
-                if let Err(error) = desktop.draw() {
-                    self.stop(event_loop, error);
-                    return;
-                }
+                let result = desktop.draw();
                 #[cfg(feature = "native-probe")]
-                if desktop.probe_done {
+                if result.is_ok() && desktop.probe_done {
                     event_loop.exit();
+                }
+                if let Err(error) = result {
+                    self.stop(event_loop, error);
                 }
             }
             _ => {}
@@ -241,7 +241,8 @@ impl Desktop {
                 required_features: adapter.features()
                     & (wgpu::Features::FLOAT32_FILTERABLE
                         | wgpu::Features::TIMESTAMP_QUERY
-                        | wgpu::Features::TIMESTAMP_QUERY_INSIDE_ENCODERS),
+                        | wgpu::Features::TIMESTAMP_QUERY_INSIDE_ENCODERS
+                        | wgpu::Features::TEXTURE_COMPRESSION_BC),
                 ..Default::default()
             }))?;
         let mut preview_host = PreviewHost::new();

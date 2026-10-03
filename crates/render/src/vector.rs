@@ -1,7 +1,7 @@
 //! Immutable native 2D drawing contract. No authoring graph or feature models.
 //! The legacy adapter retains 8-bit SDR rasterization for appearance compatibility.
-//! The ACES path rasterizes coverage only, then composites float authored colors
-//! in RGBA32F. Coverage remains 8-bit; working RGB/alpha are not quantized.
+//! The ACES path uses analytic triangle/pixel coverage and float authored colors.
+//! Neither working color nor coverage is quantized to an SDR paint image.
 use fold_media::Cancel;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -33,7 +33,7 @@ pub enum Join {
     Round,
     Bevel,
 }
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Drawing {
     pub path: Arc<Vec<Segment>>,
     /// Column-vector affine: [a, b, c, d, tx, ty].
@@ -107,6 +107,47 @@ pub fn validate_working(drawings: &[Drawing], aces: bool) -> Result<(), String> 
     Ok(())
 }
 
+pub(crate) fn build_path(drawing: &Drawing) -> Option<tiny_skia::Path> {
+    let mut path = tiny_skia::PathBuilder::new();
+    for segment in drawing.path.iter() {
+        match *segment {
+            Segment::Move([x, y]) => path.move_to(x as f32, y as f32),
+            Segment::Line([x, y]) => path.line_to(x as f32, y as f32),
+            Segment::Quad([x, y], [u, v]) => path.quad_to(x as f32, y as f32, u as f32, v as f32),
+            Segment::Cubic([x, y], [u, v], [a, b]) => {
+                path.cubic_to(x as f32, y as f32, u as f32, v as f32, a as f32, b as f32)
+            }
+            Segment::Close => path.close(),
+        }
+    }
+    path.finish()
+}
+
+pub(crate) fn raster_stroke(stroke: &Stroke) -> tiny_skia::Stroke {
+    tiny_skia::Stroke {
+        width: stroke.width as f32,
+        line_cap: match stroke.cap {
+            Cap::Butt => tiny_skia::LineCap::Butt,
+            Cap::Round => tiny_skia::LineCap::Round,
+            Cap::Square => tiny_skia::LineCap::Square,
+        },
+        line_join: match stroke.join {
+            Join::Miter => tiny_skia::LineJoin::Miter,
+            Join::Round => tiny_skia::LineJoin::Round,
+            Join::Bevel => tiny_skia::LineJoin::Bevel,
+        },
+        ..Default::default()
+    }
+}
+
+pub(crate) fn fill_rule(drawing: &Drawing) -> tiny_skia::FillRule {
+    if drawing.even_odd {
+        tiny_skia::FillRule::EvenOdd
+    } else {
+        tiny_skia::FillRule::Winding
+    }
+}
+
 pub(crate) fn rasterize(
     drawings: &[Drawing],
     width: u32,
@@ -114,34 +155,15 @@ pub(crate) fn rasterize(
     cancel: &Cancel,
     aces: bool,
 ) -> Result<Vec<[f32; 4]>, String> {
-    validate_working(drawings, aces)?;
+    if aces {
+        return crate::vector_geometry::rasterize(drawings, width, height, cancel);
+    }
+    validate_working(drawings, false)?;
     let mut pixmap =
         tiny_skia::Pixmap::new(width, height).ok_or("vector surface allocation failed")?;
-    let mut working = Vec::new();
-    if aces {
-        let count = width as usize * height as usize;
-        working
-            .try_reserve_exact(count)
-            .map_err(|_| "vector working allocation failed")?;
-        working.resize(count, [0.; 4]);
-    }
     for drawing in drawings {
         cancel.check()?;
-        let mut path = tiny_skia::PathBuilder::new();
-        for segment in drawing.path.iter() {
-            match *segment {
-                Segment::Move([x, y]) => path.move_to(x as f32, y as f32),
-                Segment::Line([x, y]) => path.line_to(x as f32, y as f32),
-                Segment::Quad([x, y], [u, v]) => {
-                    path.quad_to(x as f32, y as f32, u as f32, v as f32)
-                }
-                Segment::Cubic([x, y], [u, v], [a, b]) => {
-                    path.cubic_to(x as f32, y as f32, u as f32, v as f32, a as f32, b as f32)
-                }
-                Segment::Close => path.close(),
-            }
-        }
-        let Some(path) = path.finish() else {
+        let Some(path) = build_path(drawing) else {
             continue;
         };
         let [a, b, c, d, x, y] = drawing.transform.map(|v| v as f32);
@@ -152,30 +174,13 @@ pub(crate) fn rasterize(
         }
         let paint = |color: [f64; 4]| {
             let mut paint = tiny_skia::Paint::default();
-            let [r, g, b, a] = if aces {
-                [1.; 4]
-            } else {
-                color.map(|v| v as f32)
-            };
+            let [r, g, b, a] = color.map(|v| v as f32);
             paint.set_color(tiny_skia::Color::from_rgba(r, g, b, a).expect("validated SDR color"));
             paint.anti_alias = true;
             paint
         };
         if let Some(color) = drawing.fill {
-            pixmap.fill_path(
-                &path,
-                &paint(color),
-                if drawing.even_odd {
-                    tiny_skia::FillRule::EvenOdd
-                } else {
-                    tiny_skia::FillRule::Winding
-                },
-                transform,
-                None,
-            );
-            if aces {
-                composite_coverage(&mut pixmap, &mut working, color, cancel)?;
-            }
+            pixmap.fill_path(&path, &paint(color), fill_rule(drawing), transform, None);
         }
         if let Some(stroke) = &drawing.stroke
             && stroke.width > 0.
@@ -183,32 +188,13 @@ pub(crate) fn rasterize(
             pixmap.stroke_path(
                 &path,
                 &paint(stroke.color),
-                &tiny_skia::Stroke {
-                    width: stroke.width as f32,
-                    line_cap: match stroke.cap {
-                        Cap::Butt => tiny_skia::LineCap::Butt,
-                        Cap::Round => tiny_skia::LineCap::Round,
-                        Cap::Square => tiny_skia::LineCap::Square,
-                    },
-                    line_join: match stroke.join {
-                        Join::Miter => tiny_skia::LineJoin::Miter,
-                        Join::Round => tiny_skia::LineJoin::Round,
-                        Join::Bevel => tiny_skia::LineJoin::Bevel,
-                    },
-                    ..Default::default()
-                },
+                &raster_stroke(stroke),
                 transform,
                 None,
             );
-            if aces {
-                composite_coverage(&mut pixmap, &mut working, stroke.color, cancel)?;
-            }
         }
     }
     cancel.check()?;
-    if aces {
-        return Ok(working);
-    }
     Ok(pixmap
         .data()
         .chunks_exact(4)
@@ -221,31 +207,6 @@ pub(crate) fn rasterize(
             ]
         })
         .collect())
-}
-
-fn composite_coverage(
-    coverage: &mut tiny_skia::Pixmap,
-    pixels: &mut [[f32; 4]],
-    color: [f64; 4],
-    cancel: &Cancel,
-) -> Result<(), String> {
-    let color = color.map(|v| v as f32);
-    for (index, (pixel, mask)) in pixels
-        .iter_mut()
-        .zip(coverage.data().chunks_exact(4))
-        .enumerate()
-    {
-        if index % 4096 == 0 {
-            cancel.check()?;
-        }
-        let alpha = color[3] * (f32::from(mask[3]) / 255.);
-        for c in 0..3 {
-            pixel[c] = color[c] * alpha + pixel[c] * (1. - alpha);
-        }
-        pixel[3] = alpha + pixel[3] * (1. - alpha);
-    }
-    coverage.fill(tiny_skia::Color::TRANSPARENT);
-    Ok(())
 }
 
 #[cfg(test)]

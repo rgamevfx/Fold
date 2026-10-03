@@ -21,12 +21,21 @@ pub(crate) enum Preview {
     Ready {
         texture: TextureId,
         dimensions: [u32; 2],
+        uv_max: [f32; 2],
     },
 }
 fn fitted_size(dimensions: [u32; 2], available: [f32; 2]) -> [f32; 2] {
     let [width, height] = dimensions.map(|v| v as f32);
     let scale = (available[0].max(0.0) / width).min(available[1].max(0.0) / height);
     [width * scale, height * scale]
+}
+/// Cap the explicit quality resolution to the drawable physical-pixel area.
+fn preview_dimensions(dimensions: [u32; 2], viewport: [f32; 2], divisor: u32) -> [u32; 2] {
+    let available = viewport.map(|v| (v / divisor.max(1) as f32).max(1.));
+    let scale = (available[0] / dimensions[0] as f32)
+        .min(available[1] / dimensions[1] as f32)
+        .min(1.);
+    dimensions.map(|v| ((v as f32 * scale).floor() as u32).max(1))
 }
 struct RuntimeEditor {
     contribution: String,
@@ -53,6 +62,9 @@ pub(crate) struct Shell {
     visible_panels: Vec<usize>,
     visible_editors: Vec<PanelInstanceId>,
     image_rects: BTreeMap<PanelInstanceId, crate::sdk::ViewerRect>,
+    viewport_pixels: BTreeMap<PanelInstanceId, [f32; 2]>,
+    #[cfg(feature = "native-probe")]
+    probe_full_resolution: bool,
     presentation: BTreeMap<PanelInstanceId, (Option<PreviewKey>, Option<String>)>,
     last_host_navigation: u64,
     bootstrap: bool,
@@ -100,6 +112,9 @@ impl Shell {
             visible_panels: vec![],
             visible_editors: vec![],
             image_rects: Default::default(),
+            viewport_pixels: Default::default(),
+            #[cfg(feature = "native-probe")]
+            probe_full_resolution: false,
             presentation: Default::default(),
             last_host_navigation: 0,
             bootstrap: true,
@@ -404,6 +419,9 @@ impl Shell {
     }
     #[cfg(feature = "native-probe")]
     pub fn probe_full_quality(&mut self) {
+        // Diagnostic only: sustained 1080p checkpoints must not accidentally
+        // measure a smaller viewport after automatic preview sizing.
+        self.probe_full_resolution = true;
         for viewer in self.workspace.viewers.values_mut() {
             viewer.divisor = 1;
         }
@@ -441,6 +459,22 @@ impl Shell {
             viewer.playing = transport.playing;
         }
     }
+    fn sized_dimensions(
+        &self,
+        id: PanelInstanceId,
+        dimensions: [u32; 2],
+        divisor: u32,
+    ) -> [u32; 2] {
+        #[cfg(feature = "native-probe")]
+        if self.probe_full_resolution {
+            return dimensions;
+        }
+        preview_dimensions(
+            dimensions,
+            self.viewport_pixels.get(&id).copied().unwrap_or([1., 1.]),
+            divisor,
+        )
+    }
     pub fn keys(&self, client: &dyn DesktopClient) -> Vec<(PanelInstanceId, Option<PreviewKey>)> {
         self.workspace
             .viewers
@@ -451,7 +485,9 @@ impl Shell {
                         .viewer_request(id)
                         .map_or(viewer.time, |request| request.1);
                     let state = client.preview_state(&output, time);
+                    self.viewport_pixels.get(&id)?;
                     let mut key = state.preview_key(state.frame, viewer.divisor)?;
+                    key.dimensions = self.sized_dimensions(id, key.dimensions, viewer.divisor);
                     key.output = output.output;
                     Some(key)
                 });
@@ -1213,6 +1249,9 @@ impl Shell {
                     if ui.selectable(label) {
                         self.workspace.viewers.get_mut(&id).unwrap().divisor = divisor;
                     }
+                    if ui.is_item_hovered() {
+                        ui.tooltip_text("Resolution relative to the fitted viewer image in physical pixels, capped at document resolution.");
+                    }
                 }
                 if let Some(output) = self.workspace.resolve(id) {
                     if ui.menu_item("Pin this output") {
@@ -1261,6 +1300,14 @@ impl Shell {
             let origin = ui.cursor_pos();
             let available = ui.content_region_avail();
             let image_height = (available[1] - crate::transport::Transport::height(ui)).max(0.);
+            let scale = ui.io().display_framebuffer_scale();
+            self.viewport_pixels.insert(
+                id,
+                [
+                    available[0].max(1.) * scale[0],
+                    image_height.max(1.) * scale[1],
+                ],
+            );
             let output = self.workspace.resolve(id);
             let wrong_source = self
                 .presentation
@@ -1283,6 +1330,7 @@ impl Shell {
                 Preview::Ready {
                     texture,
                     dimensions,
+                    uv_max,
                 } => {
                     let size = fitted_size(*dimensions, [available[0], image_height]);
                     if size[0] > 0. && size[1] > 0. {
@@ -1294,7 +1342,7 @@ impl Shell {
                                 dimensions: *dimensions,
                             },
                         );
-                        ui.image(*texture, size);
+                        ui.image_config(*texture, size).uv1(*uv_max).build();
                     }
                 }
             }
@@ -1361,6 +1409,7 @@ impl Shell {
                 self.workspace.monitored_viewer = None;
             }
             self.workspace.viewers.remove(&id);
+            self.viewport_pixels.remove(&id);
             self.sync_instances();
             self.rebuild_layout();
         }
@@ -1384,6 +1433,7 @@ impl Shell {
                 let expected = state
                     .preview_key(state.frame, viewer.divisor)
                     .map(|mut key| {
+                        key.dimensions = self.sized_dimensions(id, key.dimensions, viewer.divisor);
                         key.output = output.output.clone();
                         key
                     });

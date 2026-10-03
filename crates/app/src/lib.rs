@@ -6,6 +6,7 @@ pub mod composition;
 pub mod document_placement;
 pub mod ingest;
 pub mod media_workflow;
+pub mod output;
 pub mod packages;
 #[cfg(feature = "desktop")]
 pub mod playback;

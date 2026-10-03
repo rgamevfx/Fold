@@ -9,7 +9,8 @@ default-run = "fold-cli"
 default = []
 native-probe = ["desktop", "fold-ui/native-probe"]
 gpu = ["fold-render/gpu", "fold-platform/gpu", "dep:pollster"]
-desktop = ["gpu", "dep:rfd", "dep:fold-ui", "dep:cpal", "dep:rtrb", "fold-timeline/ui", "fold-compositor/ui", "fold-motion/ui"]
+native-video = ["gpu", "fold-render/native-video"]
+desktop = ["native-video", "dep:rfd", "dep:fold-ui", "dep:cpal", "dep:rtrb", "fold-timeline/ui", "fold-compositor/ui", "fold-motion/ui"]
 
 [dependencies]
 pollster = { version = "0.4", optional = true }

@@ -292,19 +292,15 @@ fn run() -> Result<(), Box<dyn Error>> {
     } else {
         fold_app::media_workflow::output(&snapshot)?.0
     };
-    let id = source.document;
-    let frame = fold_app::media_workflow::evaluate_scene(
+    let output = fold_app::output::OutputRenderer::from_environment()?.evaluate(
         &snapshot,
         &fold_app::media_workflow::SceneRequest {
             source,
             time,
             dimensions: [width, height],
         },
-        &mut fold_media::Decoder::default(),
         &fold_media::Cancel::default(),
-    )?
-    .over_black();
-    let output = fold_app::color::delivery(&snapshot, id, &frame)?;
+    )?;
     let parent = image_path
         .parent()
         .filter(|p| !p.as_os_str().is_empty())

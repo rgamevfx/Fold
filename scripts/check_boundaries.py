@@ -11,9 +11,10 @@ CREATIVE = {"fold-timeline", "fold-compositor", "fold-motion"}
 ALLOWED = {
     "fold-foundation": set(),
     "fold-color": set(),
+    "fold-native-video": set(),
     "fold-project": {"fold-foundation"},
-    "fold-media": {"fold-foundation"},
-    "fold-render": {"fold-foundation", "fold-color", "fold-media"},
+    "fold-media": {"fold-foundation", "fold-native-video"},
+    "fold-render": {"fold-foundation", "fold-color", "fold-media", "fold-native-video"},
     "fold-platform": SHARED - {"fold-platform"},
     "fold-ui": {"fold-foundation", "fold-platform"},
     **{name: SHARED | {"fold-ui"} for name in CREATIVE},

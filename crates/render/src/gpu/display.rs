@@ -9,10 +9,12 @@ use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct Display {
-    image: Arc<Image>,
-    host: Host,
-    parent: Completion,
-    ready: Completion,
+    pub(super) image: Arc<Image>,
+    pub(super) host: Host,
+    pub(super) parent: Completion,
+    pub(super) ready: Completion,
+    pub(super) compression: Option<Completion>,
+    pub(super) dimensions: [u32; 2],
     identity: String,
     timing: Option<crate::frame::Timing>,
     pub statistics: Statistics,
@@ -27,18 +29,42 @@ impl std::fmt::Debug for Display {
 }
 impl Display {
     pub fn gpu_nanoseconds(&self) -> Result<Option<f64>, String> {
+        let compression = match &self.compression {
+            Some(completion) => completion.gpu_nanoseconds()?,
+            None => Some(0.),
+        };
         Ok(self
             .parent
             .gpu_nanoseconds()?
             .zip(self.ready.gpu_nanoseconds()?)
-            .map(|(a, b)| a + b))
+            .zip(compression)
+            .map(|((scene, output), cache)| scene + output + cache))
     }
     pub fn dimensions(&self) -> [u32; 2] {
-        self.image.dimensions
+        self.dimensions
+    }
+    pub fn storage_bytes(&self) -> u64 {
+        self.image.bytes
+    }
+    pub fn uv_max(&self) -> [f32; 2] {
+        [
+            self.dimensions[0] as f32 / self.image.dimensions[0] as f32,
+            self.dimensions[1] as f32 / self.image.dimensions[1] as f32,
+        ]
+    }
+    pub fn is_compressed(&self) -> bool {
+        self.image.texture.format() == wgpu::TextureFormat::Bc7RgbaUnorm
     }
     pub fn is_ready(&self) -> Result<bool, String> {
         self.host.check()?;
-        Ok(self.parent.ready()? && self.ready.ready()?)
+        Ok(self.parent.ready()?
+            && self.ready.ready()?
+            && self
+                .compression
+                .as_ref()
+                .map(Completion::ready)
+                .transpose()?
+                .unwrap_or(true))
     }
     pub fn texture(&self) -> &wgpu::Texture {
         &self.image.texture
@@ -53,6 +79,9 @@ impl Display {
     }
     /// Explicit encoder/test boundary. Never used by normal viewer publication.
     pub fn readback(&mut self, cancel: &fold_media::Cancel) -> Result<crate::DisplayFrame, String> {
+        if self.is_compressed() {
+            return Err("BC7 presentation entries are not delivery/readback sources".into());
+        }
         let begin = std::time::Instant::now();
         while !self.is_ready()? {
             self.host.poll()?;
@@ -141,6 +170,7 @@ impl Renderer {
         processor: Option<&fold_color::Processor>,
         cancel: &fold_media::Cancel,
     ) -> Result<Display, String> {
+        let output_begin = std::time::Instant::now();
         cancel.check()?;
         self.host.check()?;
         if frame.host.id() != self.host.id() {
@@ -186,23 +216,29 @@ impl Renderer {
             &status,
         )?;
         status.encode(&mut encoder);
+        let submit_begin = std::time::Instant::now();
         self.host.submit(
             encoder,
             vec![frame.image.clone(), output.clone(), intermediate],
             vec![uniform, pipeline.reservation.clone()],
         );
+        let submit_nanoseconds = submit_begin.elapsed().as_nanos();
         let status_bytes = status.readback_bytes();
         let ready = status.submitted();
         let mut statistics = frame.statistics;
+        statistics.output_cpu_nanoseconds = output_begin.elapsed().as_nanos();
+        statistics.queue_submit_nanoseconds += submit_nanoseconds;
         statistics.lut_upload_bytes += bytes;
         statistics.compute_passes += 2;
         statistics.status_readback_bytes += status_bytes;
         cancel.check()?;
         Ok(Display {
+            dimensions: frame.dimensions(),
             image: output,
             host: self.host.clone(),
             parent: frame.ready.clone(),
             ready,
+            compression: None,
             identity: processor
                 .map_or("fold.legacy-linear-srgb-to-srgb.v1", |p| p.identity())
                 .into(),

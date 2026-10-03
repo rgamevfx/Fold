@@ -1,0 +1,27 @@
+[package]
+name = "fold-native-video"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+# Unsafe is isolated here; media/render retain the workspace forbid policy.
+[features]
+default = []
+gpu = ["dep:wgpu", "dep:ash"]
+helper = ["dep:bindgen"]
+
+[dependencies]
+libc = "0.2"
+wgpu = { version = "27", optional = true }
+ash = { version = "0.38", optional = true }
+
+[build-dependencies]
+bindgen = { version = "0.72", optional = true }
+
+[[bin]]
+name = "fold-video-helper"
+path = "src/helper.rs"
+required-features = ["helper"]
+
+[dev-dependencies]
+pollster = "0.4"

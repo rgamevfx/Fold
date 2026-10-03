@@ -6,17 +6,21 @@ publish.workspace = true
 
 [features]
 default = []
-gpu = ["dep:wgpu", "dep:bytemuck", "dep:pollster"]
+native-video = ["gpu", "fold-media/native-video", "dep:fold-native-video", "fold-native-video/gpu"]
+gpu = ["dep:wgpu", "dep:bytemuck", "dep:pollster", "dep:block_compression"]
 
 [dependencies]
+block_compression = { version = "=0.7.0", optional = true, default-features = false, features = ["bc7", "wgpu"] }
 wgpu = { version = "27", optional = true, features = ["glsl"] }
 bytemuck = { version = "1", optional = true, features = ["derive"] }
 pollster = { version = "0.4", optional = true }
 fold-foundation.workspace = true
 fold-color.workspace = true
 fold-media.workspace = true
+fold-native-video = { workspace = true, optional = true }
 serde.workspace = true
 tiny-skia = { version = "0.11", default-features = false, features = ["std", "simd"] }
+lyon_tessellation = "=1.0.20"
 
 [dev-dependencies]
 tempfile.workspace = true

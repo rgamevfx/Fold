@@ -7,6 +7,7 @@ pub mod frame;
 pub mod gpu;
 mod graph;
 pub mod vector;
+mod vector_geometry;
 pub use graph::{Affine, ImageId, ImageOp, RenderGraph};
 
 /// One full-frame operation; colors are premultiplied scene-linear RGBA.

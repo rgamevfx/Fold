@@ -94,6 +94,7 @@ fn real_textures_hold_until_replacement_and_remain_protected_under_pressure() {
                 _texture: texture,
                 gpu_lease: None,
                 dimensions: [16, 16],
+                compression_attempted: false,
                 in_flight: Arc::new(AtomicUsize::new(0)),
             },
             16 * 16 * 4,

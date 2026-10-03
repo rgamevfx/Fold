@@ -4,12 +4,21 @@ version.workspace = true
 edition.workspace = true
 publish.workspace = true
 
+[features]
+native-video = ["dep:fold-native-video"]
+
 [dependencies]
+fold-native-video = { workspace = true, optional = true }
 fold-foundation.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tempfile.workspace = true
 sha2 = "0.10"
+
+[dev-dependencies]
+fold-native-video = { workspace = true, features = ["gpu"] }
+wgpu = "27"
+pollster = "0.4"
 
 [lints]
 workspace = true

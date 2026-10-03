@@ -2,13 +2,23 @@
 use std::sync::Arc;
 
 pub mod audio;
+mod decoded;
+pub use decoded::{PlaneLayout, YuvEncoding, YuvFrame};
 pub mod ingest;
+#[cfg(all(feature = "native-video", target_os = "linux"))]
+pub mod native;
 mod process;
+mod source_pin;
+pub use source_pin::pinned_source_bytes;
 pub mod thumbnail;
 mod video;
+mod video_stream;
 mod wave;
 pub use process::Cancel;
-pub use video::{Decoder, Encoder, VideoInfo, VideoSource, fingerprint, inspect};
+pub use video::{
+    DecodeBackend, DecodeStatistics, Decoder, Encoder, VideoInfo, VideoSource, decoded_cache_bytes,
+    fingerprint, inspect,
+};
 pub use wave::{WaveInfo, WaveSource, inspect_wave};
 
 pub fn content_hash(bytes: &[u8]) -> String {
@@ -19,14 +29,14 @@ pub fn content_hash(bytes: &[u8]) -> String {
 pub const MAX_PIXELS: usize = 4_194_304;
 pub const MAX_SOURCE_BYTES: usize = MAX_PIXELS * 3 + 4096;
 
-/// Validated immutable RGB: sRGB RGB8 fixtures/legacy decode, or native BT.709
+/// Validated immutable RGB: sRGB RGB8 fixtures/legacy decode, or reconstructed BT.709
 /// encoded float RGB after YUV reconstruction (`is_signal`). This is not a
 /// working image or viewer cache entry; OCIO consumes `encoded_pixels` for ACES.
 #[derive(Clone, Debug)]
 pub struct RgbImage {
     dimensions: [u32; 2],
     rgb: Arc<[u8]>,
-    /// Tightly packed decoder-native G, B, R float planes (not working color).
+    /// Tightly packed reconstructed G, B, R float planes (not working color).
     signal: Option<Arc<[f32]>>,
 }
 
@@ -141,7 +151,8 @@ impl RgbImage {
             signal: Some(pixels.into()),
         })
     }
-    /// Borrowed native G/B/R float planes after explicit BT.709 reconstruction.
+    /// Borrowed G/B/R float planes after explicit BT.709 reconstruction.
+    /// Native codec samples are exposed separately through `YuvFrame`.
     /// Ownership remains with this immutable decoded image; alpha is opaque.
     pub fn native_gbr_planes(&self) -> Option<&[f32]> {
         self.signal.as_deref()

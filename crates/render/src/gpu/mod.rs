@@ -1,12 +1,18 @@
-//! GPU execution of the existing logical graph. Decoder-native GBR packing,
-//! OCIO input/output processing and image operators are GPU-resident. CPU decode,
-//! YUV reconstruction and vector coverage remain explicit measured adapters.
+//! GPU execution of the logical graph. Native YUV reconstruction, OCIO,
+//! float vector compositing and image operators remain GPU-resident. Native
+//! sample transport and reference-compatible coverage are measured CPU adapters.
 //! No renderer or device is initialized in CPU-only/headless builds by default.
+mod cache;
+pub use cache::PresentationCompressor;
 mod color;
 mod display;
 mod host;
 pub use display::Display;
+#[cfg(all(feature = "native-video", target_os = "linux"))]
+mod native_video;
 mod validation;
+mod vector;
+mod yuv;
 use crate::{Frame, ImageOp, RenderGraph, WorkingSpace, graph};
 use host::Image;
 pub use host::{Host, Memory};
@@ -20,9 +26,26 @@ pub struct Statistics {
     pub lut_upload_bytes: u64,
     pub readback_bytes: u64,
     pub status_readback_bytes: u64,
+    /// Full-frame CPU RGB/RGBA adapters. Native decode and CPU coverage are
+    /// measured separately below; zero here does not mean zero CPU work.
     pub cpu_adapter_nodes: u32,
     pub cpu_adapter_nanoseconds: u128,
     pub compute_passes: u32,
+    pub graph_prepare_nanoseconds: u128,
+    pub evaluate_cpu_nanoseconds: u128,
+    pub output_cpu_nanoseconds: u128,
+    pub queue_submit_nanoseconds: u128,
+    pub native_video_nodes: u32,
+    pub resident_video_nodes: u32,
+    pub vector_prepare_nanoseconds: u128,
+    pub vector_upload_bytes: u64,
+    pub native_decode_nanoseconds: u128,
+    /// Inclusive helper call intervals, not isolated GPU codec/copy timestamps.
+    pub native_codec_call_nanoseconds: u64,
+    pub native_copy_ready_nanoseconds: u64,
+    pub native_gpu_local_copy_bytes: u64,
+    pub native_pipe_bytes: u64,
+    pub native_upload_encode_nanoseconds: u128,
 }
 
 /// Immutable scene image. Readiness is queue completion, not submission. A frame
@@ -205,6 +228,10 @@ pub struct Renderer {
     layout: wgpu::BindGroupLayout,
     colors: std::collections::BTreeMap<(String, bool), Arc<color::ColorPipeline>>,
     planes: wgpu::ComputePipeline,
+    yuv: yuv::YuvPipeline,
+    vector: vector::VectorPipeline,
+    #[cfg(all(feature = "native-video", target_os = "linux"))]
+    native_video: Option<native_video::NativeVideo>,
 }
 impl Renderer {
     pub fn new(host: Host) -> Result<Self, String> {
@@ -286,10 +313,16 @@ impl Renderer {
             compilation_options: Default::default(),
             cache: None,
         });
+        let yuv = yuv::YuvPipeline::new(&host);
+        let vector = vector::VectorPipeline::new(&host);
         host.check()?;
         Ok(Self {
             host,
             pipeline,
+            yuv,
+            vector,
+            #[cfg(all(feature = "native-video", target_os = "linux"))]
+            native_video: None,
             layout,
             planes,
             colors: Default::default(),
@@ -376,9 +409,9 @@ impl Renderer {
         &self.host
     }
 
-    /// Evaluate without working-image readback. Source decode/reconstruction and
-    /// vector rasterization use bounded CPU adapters; native float-plane packing
-    /// and OCIO input processing run on the GPU. Unsupported work fails.
+    /// Evaluate without working-image readback. ACES video preserves native YUV
+    /// until GPU reconstruction; drawing coverage is composed into float color on
+    /// the GPU. Legacy CPU image adapters remain explicit. Unsupported work fails.
     pub fn evaluate(
         &mut self,
         graph: RenderGraph,
@@ -388,10 +421,23 @@ impl Renderer {
     ) -> Result<GpuFrame, String> {
         cancel.check()?;
         self.host.poll()?;
+        // Retained inputs are expendable under host pressure; displayed and
+        // submitted resources remain protected by their independent leases.
+        let memory = self.host.memory();
+        if memory.allocated > memory.budget.saturating_mul(3) / 4 {
+            self.yuv.clear();
+            self.vector.clear();
+            #[cfg(all(feature = "native-video", target_os = "linux"))]
+            if let Some(native) = self.native_video.as_mut() {
+                native.clear();
+            }
+        }
+        let evaluate_begin = std::time::Instant::now();
         let aces = config.is_some();
         graph::validate(&graph, aces)?;
         let processors = graph::input_processors(&graph, config)?;
         let (needed, mut uses) = graph::dependencies(&graph);
+        let prepare_nanoseconds = evaluate_begin.elapsed().as_nanos();
         let dimensions = [graph.width, graph.height];
         // At most two parameter buffers per reachable node (separable blur).
         // Reserve before recording so even a long graph is aggregate bounded.
@@ -412,6 +458,7 @@ impl Renderer {
         let status = validation::Status::new(&self.host)?;
         status.start(&mut encoder);
         let mut stats = Statistics {
+            graph_prepare_nanoseconds: prepare_nanoseconds,
             status_readback_bytes: status.readback_bytes(),
             ..Default::default()
         };
@@ -502,6 +549,109 @@ impl Renderer {
                     );
                     stats.compute_passes += 2;
                     scratch.push(intermediate);
+                    compute = false;
+                }
+                ImageOp::Vector(drawings) if aces => {
+                    let (bytes, elapsed) = self.vector.encode(
+                        &mut encoder,
+                        drawings,
+                        &output,
+                        &status,
+                        &mut buffers,
+                        cancel,
+                    )?;
+                    stats.upload_bytes += bytes;
+                    stats.vector_upload_bytes += bytes;
+                    stats.vector_prepare_nanoseconds += elapsed;
+                    stats.compute_passes += 1;
+                    compute = false;
+                }
+                ImageOp::Video { source, time } | ImageOp::VideoInput { source, time, .. }
+                    if aces =>
+                {
+                    stats.native_video_nodes += 1;
+                    let encoded = match scratch.pop() {
+                        Some(image) => image,
+                        None => {
+                            let image = self.host.image(dimensions)?;
+                            leases.push(image.clone());
+                            image
+                        }
+                    };
+                    if decoder.backend() == fold_media::DecodeBackend::CudaNative {
+                        #[cfg(all(feature = "native-video", target_os = "linux"))]
+                        {
+                            let begin = std::time::Instant::now();
+                            if self.native_video.is_none() {
+                                self.native_video = Some(native_video::NativeVideo::new()?);
+                            }
+                            let native = self.native_video.as_mut().unwrap();
+                            let before = native.statistics();
+                            let input = native.decode(&self.host, source, *time, cancel)?;
+                            let after = native.statistics();
+                            stats.native_codec_call_nanoseconds += after
+                                .codec_call_nanoseconds
+                                .saturating_sub(before.codec_call_nanoseconds);
+                            stats.native_copy_ready_nanoseconds += after
+                                .copy_ready_nanoseconds
+                                .saturating_sub(before.copy_ready_nanoseconds);
+                            stats.native_gpu_local_copy_bytes += after
+                                .gpu_local_copy_bytes
+                                .saturating_sub(before.gpu_local_copy_bytes);
+                            stats.native_decode_nanoseconds += begin.elapsed().as_nanos();
+                            stats.resident_video_nodes += 1;
+                            buffers.push(input.reservation.clone());
+                            let begin = std::time::Instant::now();
+                            self.yuv.encode_external(
+                                &self.host,
+                                &mut encoder,
+                                &input.buffer,
+                                input.layout,
+                                &encoded,
+                                &mut buffers,
+                            )?;
+                            stats.native_upload_encode_nanoseconds += begin.elapsed().as_nanos();
+                        }
+                        #[cfg(not(all(feature = "native-video", target_os = "linux")))]
+                        return Err(
+                            "native NVDEC support is not enabled in this build/platform".into()
+                        );
+                    } else {
+                        let begin = std::time::Instant::now();
+                        let before = decoder.statistics().pipe_bytes;
+                        let frame = decoder.decode_native(source, *time, cancel)?;
+                        stats.native_decode_nanoseconds += begin.elapsed().as_nanos();
+                        stats.native_pipe_bytes += decoder.statistics().pipe_bytes - before;
+                        let begin = std::time::Instant::now();
+                        stats.upload_bytes += self.yuv.encode(
+                            &self.host,
+                            &mut encoder,
+                            &frame,
+                            &encoded,
+                            &mut buffers,
+                        )?;
+                        stats.native_upload_encode_nanoseconds += begin.elapsed().as_nanos();
+                    }
+                    let space = match op {
+                        ImageOp::VideoInput { space, .. } => space.as_str(),
+                        _ => fold_color::settings::VIDEO_INPUT,
+                    };
+                    let (pipeline, uploaded) =
+                        self.color_pipeline(Some(&processors[space]), false)?;
+                    stats.lut_upload_bytes += uploaded;
+                    let intermediate = pipeline.encode(
+                        &self.host,
+                        &mut encoder,
+                        &encoded,
+                        &output,
+                        false,
+                        &status,
+                    )?;
+                    leases.push(intermediate.clone());
+                    scratch.push(intermediate);
+                    scratch.push(encoded);
+                    buffers.push(pipeline.reservation.clone());
+                    stats.compute_passes += 3;
                     compute = false;
                 }
                 ImageOp::Media(_)
@@ -686,8 +836,11 @@ impl Renderer {
         cancel.check()?;
         self.host.check()?;
         status.encode(&mut encoder);
+        let submit_begin = std::time::Instant::now();
         self.host.submit(encoder, leases, buffers);
+        stats.queue_submit_nanoseconds = submit_begin.elapsed().as_nanos();
         let ready = status.submitted();
+        stats.evaluate_cpu_nanoseconds = evaluate_begin.elapsed().as_nanos();
         cancel.check()?;
         self.host.check()?;
         Ok(GpuFrame {

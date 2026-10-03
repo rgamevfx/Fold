@@ -95,7 +95,8 @@ impl Host {
                 required_features: adapter.features()
                     & (wgpu::Features::FLOAT32_FILTERABLE
                         | wgpu::Features::TIMESTAMP_QUERY
-                        | wgpu::Features::TIMESTAMP_QUERY_INSIDE_ENCODERS),
+                        | wgpu::Features::TIMESTAMP_QUERY_INSIDE_ENCODERS
+                        | wgpu::Features::TEXTURE_COMPRESSION_BC),
                 ..Default::default()
             })
             .await
@@ -116,7 +117,10 @@ impl Host {
         let stopped = Arc::new(Mutex::new(None));
         let errors = stopped.clone();
         device.on_uncaptured_error(Arc::new(move |error| {
-            *errors.lock().unwrap() = Some(format!("GPU rendering stopped: {error}"));
+            errors
+                .lock()
+                .unwrap()
+                .get_or_insert_with(|| format!("GPU rendering stopped: {error}"));
         }));
         let lost = stopped.clone();
         device.set_device_lost_callback(move |reason, message| {
@@ -189,12 +193,23 @@ impl Host {
         if width == 0 || height == 0 || width > limit || height > limit {
             return Err("unsupported GPU image dimensions".into());
         }
+        let compressed = format == wgpu::TextureFormat::Bc7RgbaUnorm;
+        if compressed
+            && (!width.is_multiple_of(4)
+                || !height.is_multiple_of(4)
+                || !self
+                    .device()
+                    .features()
+                    .contains(wgpu::Features::TEXTURE_COMPRESSION_BC))
+        {
+            return Err("unsupported BC7 image dimensions or device".into());
+        }
         let bytes = u64::from(width)
             * u64::from(height)
-            * if format == wgpu::TextureFormat::Rgba32Float {
-                16
-            } else {
-                4
+            * match format {
+                wgpu::TextureFormat::Rgba32Float => 16,
+                wgpu::TextureFormat::Bc7RgbaUnorm => 1,
+                _ => 4,
             };
         let mut pool = self.0.pool.lock().unwrap();
         if let Some(image) = pool.images.iter().find(|image| {
@@ -212,7 +227,7 @@ impl Host {
         // accounting lock across a driver allocation they might otherwise await.
         drop(pool);
         let texture = self.device().create_texture(&wgpu::TextureDescriptor {
-            label: Some("Fold scene RGBA32F"),
+            label: Some("Fold pooled image"),
             size: wgpu::Extent3d {
                 width,
                 height,
@@ -223,9 +238,13 @@ impl Host {
             dimension: wgpu::TextureDimension::D2,
             format,
             usage: wgpu::TextureUsages::TEXTURE_BINDING
-                | wgpu::TextureUsages::STORAGE_BINDING
                 | wgpu::TextureUsages::COPY_SRC
-                | wgpu::TextureUsages::COPY_DST,
+                | wgpu::TextureUsages::COPY_DST
+                | if compressed {
+                    wgpu::TextureUsages::empty()
+                } else {
+                    wgpu::TextureUsages::STORAGE_BINDING
+                },
             view_formats: &[],
         });
         if let Err(error) = self.check() {

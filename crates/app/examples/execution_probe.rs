@@ -143,7 +143,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "audio {}",
         serde_json::json!({"cold_prepare_ms":cold_audio_ms,"warm_prepare_ms":warm_audio_ms,"pcm_usage":audio_decoder.prepared_usage()})
     );
-    let mut decoder = Decoder::default();
+    let mut decoder = Decoder::from_environment()?;
+    // The oracle is deliberately software/CPU even when production evaluation
+    // uses GPU-only decoder surfaces. Never force a hidden hardware download.
+    let mut reference_decoder = Decoder::default();
     #[cfg(feature = "gpu")]
     let mut gpu = if gpu_requested {
         let (host, adapter) =
@@ -198,7 +201,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let reference = fold_app::media_workflow::evaluate_scene(
                         &snapshot,
                         &request,
-                        &mut decoder,
+                        &mut reference_decoder,
                         &cancel,
                     )?
                     .over_black();

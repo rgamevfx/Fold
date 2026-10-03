@@ -7,6 +7,7 @@ use std::sync::{Arc, Mutex};
 type ResultState = Arc<Mutex<Option<Result<Option<f64>, String>>>>;
 pub(super) struct Status {
     pub gpu: wgpu::Buffer,
+    pub failure: &'static str,
     readback: wgpu::Buffer,
     reservation: Arc<Reservation>,
     timestamps: Option<(wgpu::QuerySet, wgpu::Buffer, f32)>,
@@ -66,6 +67,7 @@ impl Status {
             mapped_at_creation: false,
         });
         Ok(Self {
+            failure: "GPU intermediate contains nonfinite RGB or invalid alpha",
             gpu,
             readback,
             reservation,
@@ -110,7 +112,7 @@ impl Status {
                     if valid {
                         Ok(time)
                     } else {
-                        Err("GPU intermediate contains nonfinite RGB or invalid alpha".into())
+                        Err(self.failure.into())
                     }
                 });
                 drop(self.reservation);

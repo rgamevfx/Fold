@@ -1,5 +1,5 @@
-//! Display-transformed RGBA8 GPU hot cache. No image-file compression, no linear
-//! frame retention, no export reuse. Submitted textures are protected until done.
+//! Display-transformed GPU hot cache: immediate RGBA8, background BC7 retention.
+//! No working-frame retention/export reuse. Submitted leases stay protected.
 use crate::{cache::Cache, shell::Preview};
 use dear_imgui_wgpu::{ExternalTextureId, WgpuRenderer, wgpu};
 use fold_platform::workspace::PanelInstanceId;
@@ -19,17 +19,21 @@ mod gpu_tests;
 #[path = "preview_tests.rs"]
 mod tests;
 
+#[path = "preview_compression.rs"]
+mod compression;
+
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 struct Texture {
     registration: ExternalTextureId,
     _texture: wgpu::Texture,
     gpu_lease: Option<fold_platform::gpu::Display>,
     dimensions: [u32; 2],
+    compression_attempted: bool,
     in_flight: Arc<AtomicUsize>,
 }
 enum Prepared {
     Cpu(DisplayFrame),
-    Gpu(fold_platform::gpu::Display),
+    Gpu(Box<fold_platform::gpu::Display>),
 }
 impl Prepared {
     fn dimensions(&self) -> [u32; 2] {
@@ -42,6 +46,8 @@ impl Prepared {
 pub(crate) struct PreviewHost {
     pub state: Preview,
     render_host: Option<u64>,
+    compression: Option<compression::Compression>,
+    compression_error: Option<String>,
     wanted: Option<PreviewKey>,
     displayed: Option<PreviewKey>,
     cache: Cache<PreviewKey, Texture>,
@@ -65,6 +71,8 @@ impl PreviewHost {
         Self {
             state: Preview::Pending,
             render_host: None,
+            compression: None,
+            compression_error: None,
             wanted: None,
             displayed: None,
             cache: Cache::new(256 * 1024 * 1024),
@@ -84,6 +92,13 @@ impl PreviewHost {
     }
     pub fn attach_host(&mut self, host: &fold_platform::gpu::Host) {
         self.render_host = Some(host.id());
+        if host
+            .device()
+            .features()
+            .contains(wgpu::Features::TEXTURE_COMPRESSION_BC)
+        {
+            self.compression = Some(compression::Compression::new(host.clone()));
+        }
     }
     #[cfg(feature = "native-probe")]
     pub fn probe_frame(&self) -> (Option<u32>, bool) {
@@ -96,11 +111,18 @@ impl PreviewHost {
     }
     pub fn statistics(&self) -> String {
         format!(
-            "GPU RGBA8 cache: {:.1}/256 MiB | hits {} | misses {} | displayed frame {:?}",
+            "GPU RGBA8/BC7 cache: {:.1}/256 MiB | hits {} | misses {} | displayed frame {:?} | {}",
             self.cache.bytes as f64 / 1048576.0,
             self.cache.hits,
             self.cache.misses,
-            self.displayed.as_ref().map(|key| key.frame)
+            self.displayed.as_ref().map(|key| key.frame),
+            self.compression_error
+                .as_deref()
+                .unwrap_or(if self.compression.is_some() {
+                    "BC7 enabled"
+                } else {
+                    "RGBA8 fallback"
+                })
         )
     }
     pub fn select_viewers(
@@ -242,6 +264,10 @@ impl PreviewHost {
             Preview::Ready {
                 texture: texture.registration.texture_id(),
                 dimensions: texture.dimensions,
+                uv_max: texture
+                    .gpu_lease
+                    .as_ref()
+                    .map_or([1., 1.], |frame| frame.uv_max()),
             }
         } else if let Some((_, error)) = self.failures.iter().find(|(failed, _)| failed == key) {
             Preview::Failed(error.clone())
@@ -275,6 +301,10 @@ impl PreviewHost {
                 self.state = Preview::Ready {
                     texture: texture.registration.texture_id(),
                     dimensions: texture.dimensions,
+                    uv_max: texture
+                        .gpu_lease
+                        .as_ref()
+                        .map_or([1., 1.], |frame| frame.uv_max()),
                 };
                 self.displayed = Some(key);
             } else {
@@ -305,6 +335,7 @@ impl PreviewHost {
             self.probe_upload = None;
         }
         let _ = device.poll(wgpu::PollType::Poll);
+        self.poll_compression(renderer)?;
         if let Some(result) = client.take_preview()
             && self.wanted.as_ref() == Some(&result.key)
         {
@@ -322,7 +353,7 @@ impl PreviewHost {
         {
             self.requested = false;
             match result.frame {
-                Ok(frame) => self.pending = Some(Prepared::Gpu(frame)),
+                Ok(frame) => self.pending = Some(Prepared::Gpu(Box::new(frame))),
                 Err(error) => {
                     self.failures.push((result.key, error.clone()));
                     self.state = Preview::Failed(error);
@@ -389,7 +420,7 @@ impl PreviewHost {
         #[cfg(feature = "native-probe")]
         let upload_start = std::time::Instant::now();
         let (texture, gpu_lease) = match frame {
-            Prepared::Gpu(frame) => (frame.texture().clone(), Some(frame)),
+            Prepared::Gpu(frame) => (frame.texture().clone(), Some(*frame)),
             Prepared::Cpu(frame) => {
                 let texture = device.create_texture(&wgpu::TextureDescriptor {
                     label: Some("Fold cached SDR sRGB bytes"),
@@ -434,6 +465,7 @@ impl PreviewHost {
         self.state = Preview::Ready {
             texture: registration.texture_id(),
             dimensions: [width, height],
+            uv_max: [1., 1.],
         };
         let key = self.wanted.clone().unwrap();
         self.cache.insert(
@@ -443,12 +475,78 @@ impl PreviewHost {
                 _texture: texture,
                 gpu_lease,
                 dimensions: [width, height],
+                compression_attempted: false,
                 in_flight: Arc::new(AtomicUsize::new(0)),
             },
             bytes,
         );
         self.completed_frame(&key);
         self.displayed = Some(key);
+        Ok(())
+    }
+    fn poll_compression(&mut self, renderer: &mut WgpuRenderer) -> Result<()> {
+        let Some(compression) = &mut self.compression else {
+            return Ok(());
+        };
+        if let Some(result) = compression.take() {
+            match result {
+                Ok((key, frame)) => {
+                    // Do not replace a displayed registration or unfinished UI use.
+                    if let Some(old) = self.cache.evict(|candidate, texture| {
+                        candidate == &key
+                            && !self.consumers.contains(candidate)
+                            && !self.held.values().any(|held| held == candidate)
+                            && self.displayed.as_ref() != Some(candidate)
+                            && texture.in_flight.load(Ordering::Acquire) == 0
+                    }) {
+                        let registration = renderer.register_external_texture(
+                            &frame.texture().create_view(&Default::default()),
+                        )?;
+                        renderer.unregister_external_texture(old.registration)?;
+                        let bytes = frame.storage_bytes() as usize;
+                        self.cache.insert(
+                            key,
+                            Texture {
+                                registration,
+                                _texture: frame.texture().clone(),
+                                dimensions: frame.dimensions(),
+                                gpu_lease: Some(frame),
+                                compression_attempted: true,
+                                in_flight: Arc::new(AtomicUsize::new(0)),
+                            },
+                            bytes,
+                        );
+                    }
+                }
+                Err(error) => self.compression_error = Some(format!("RGBA8 retained: {error}")),
+            }
+        }
+        // Foreground misses/readiness get priority. Fill BC7 while paused or
+        // replaying resident frames, not ahead of an outstanding render demand.
+        if compression.can_accept() && !self.requested && self.pending.is_none() {
+            for entry in self.cache.entries_mut() {
+                let texture = &mut entry.value;
+                if texture.compression_attempted
+                    || self.consumers.contains(&entry.key)
+                    || self.held.values().any(|key| key == &entry.key)
+                    || self.displayed.as_ref() == Some(&entry.key)
+                    || texture.in_flight.load(Ordering::Acquire) != 0
+                {
+                    continue;
+                }
+                if let Some(frame) = &texture.gpu_lease {
+                    texture.compression_attempted = true;
+                    let [width, height] = frame.dimensions();
+                    if u64::from(width.div_ceil(4)) * u64::from(height.div_ceil(4)) * 16
+                        >= frame.storage_bytes()
+                    {
+                        continue;
+                    }
+                    compression.request(entry.key.clone(), frame.clone());
+                    break;
+                }
+            }
+        }
         Ok(())
     }
     /// Call immediately after submission; callbacks protect resources against
@@ -479,6 +577,7 @@ impl PreviewHost {
         }
     }
     pub fn release(&mut self, renderer: &mut WgpuRenderer) -> Result<()> {
+        self.compression.take();
         while let Some(texture) = self.cache.evict(|_, _| true) {
             renderer.unregister_external_texture(texture.registration)?;
         }

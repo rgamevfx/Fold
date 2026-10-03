@@ -7,10 +7,41 @@ use std::{
     io::{Read, Write},
     path::{Path, PathBuf},
     process::{Command, Stdio},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicU64, Ordering},
+    },
 };
+
+#[cfg(test)]
+#[path = "video_range_tests.rs"]
+mod tests;
 
 const MAX_FILE: u64 = 2 * 1024 * 1024 * 1024;
 const MAX_FRAMES: u32 = 18000;
+static DECODED_BYTES: AtomicU64 = AtomicU64::new(0);
+/// Process-wide cache retention, excluding caller-held images and codec buffers.
+pub fn decoded_cache_bytes() -> u64 {
+    DECODED_BYTES.load(Ordering::Acquire)
+}
+// Proofs refer to verified complete file bytes, never just a path or mtime.
+static VERIFIED: Mutex<VecDeque<(String, VideoInfo)>> = Mutex::new(VecDeque::new());
+pub(crate) fn verified_info(fingerprint: &str) -> Option<VideoInfo> {
+    VERIFIED
+        .lock()
+        .unwrap()
+        .iter()
+        .find(|(hash, _)| hash == fingerprint)
+        .map(|(_, info)| info.clone())
+}
+pub(crate) fn remember_verified(fingerprint: &str, info: &VideoInfo) {
+    let mut entries = VERIFIED.lock().unwrap();
+    entries.retain(|(hash, _)| hash != fingerprint);
+    if entries.len() == 128 {
+        entries.pop_front();
+    }
+    entries.push_back((fingerprint.into(), info.clone()));
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct VideoInfo {
@@ -104,10 +135,14 @@ fn base(program: &str) -> Command {
 pub fn inspect(path: &Path, cancel: &Cancel) -> Result<VideoSource, String> {
     let path = path.canonicalize().map_err(|e| e.to_string())?;
     let hash = fingerprint(&path, cancel)?;
-    let info = probe(&path, cancel)?;
+    let info = match verified_info(&hash) {
+        Some(info) => info,
+        None => probe(&path, cancel)?,
+    };
     if fingerprint(&path, cancel)? != hash {
         return Err("source changed during import".into());
     }
+    remember_verified(&hash, &info);
     Ok(VideoSource {
         path,
         fingerprint: hash,
@@ -115,7 +150,7 @@ pub fn inspect(path: &Path, cancel: &Cancel) -> Result<VideoSource, String> {
     })
 }
 
-fn probe(path: &Path, cancel: &Cancel) -> Result<VideoInfo, String> {
+pub(crate) fn probe(path: &Path, cancel: &Cancel) -> Result<VideoInfo, String> {
     let output = tempfile::NamedTempFile::new().map_err(|e| e.to_string())?;
     let mut cmd = base("ffprobe");
     cmd.args(["-threads", "1", "-select_streams", "v", "-show_streams", "-show_frames", "-show_format", "-show_entries", "stream=codec_name,pix_fmt,width,height,r_frame_rate,time_base,color_space,color_transfer,color_primaries,color_range,sample_aspect_ratio,field_order,chroma_location:stream_side_data=rotation:frame=best_effort_timestamp,pkt_duration:format=format_name", "-of", "json"])
@@ -220,22 +255,131 @@ fn probe(path: &Path, cancel: &Cancel) -> Result<VideoInfo, String> {
     Ok(info)
 }
 
-struct Pinned {
-    source: VideoSource,
-    file: tempfile::NamedTempFile,
+/// Explicit source-decoder policy. `Cuda` is the compatibility host-download
+/// route; `CudaNative` requires the supervised GPU-resident surface service.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum DecodeBackend {
+    #[default]
+    Software,
+    Cuda,
+    CudaNative,
 }
-/// Two worker-owned verified copies; source bytes cannot change during decoding.
-/// Temporary files are removed on eviction/drop, not a persistent frame cache.
-#[derive(Default)]
+#[derive(Clone, Copy, Debug, Default)]
+pub struct DecodeStatistics {
+    pub launches: u64,
+    /// Frames received from the range pipe, excluding codec-internal preroll.
+    pub decoded_frames: u64,
+    pub cache_hits: u64,
+    pub pipe_bytes: u64,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum DecodeFormat {
+    Rgb8,
+    Signal,
+    Yuv420,
+}
+impl DecodeFormat {
+    fn bytes(self, [w, h]: [u32; 2]) -> u64 {
+        let pixels = u64::from(w) * u64::from(h);
+        match self {
+            Self::Rgb8 => pixels * 3,
+            Self::Signal => pixels * 12,
+            Self::Yuv420 => pixels + 2 * u64::from(w.div_ceil(2)) * u64::from(h.div_ceil(2)),
+        }
+    }
+}
+#[derive(Clone)]
+enum Decoded {
+    Rgb(RgbImage),
+    Yuv(crate::YuvFrame),
+}
+impl Decoded {
+    fn dimensions(&self) -> [u32; 2] {
+        match self {
+            Self::Rgb(f) => f.dimensions(),
+            Self::Yuv(f) => f.dimensions(),
+        }
+    }
+    fn storage_bytes(&self) -> u64 {
+        match self {
+            Self::Rgb(f) => f.storage_bytes(),
+            Self::Yuv(f) => f.storage_bytes(),
+        }
+    }
+    fn format(&self) -> DecodeFormat {
+        match self {
+            Self::Rgb(f) if f.is_signal() => DecodeFormat::Signal,
+            Self::Rgb(_) => DecodeFormat::Rgb8,
+            Self::Yuv(_) => DecodeFormat::Yuv420,
+        }
+    }
+    fn rgb(self) -> Result<RgbImage, String> {
+        match self {
+            Self::Rgb(f) => Ok(f),
+            _ => Err("expected RGB decoder result".into()),
+        }
+    }
+}
+struct ActiveStream {
+    fingerprint: String,
+    info: VideoInfo,
+    dimensions: [u32; 2],
+    format: DecodeFormat,
+    next: u32,
+    stream: crate::video_stream::Stream,
+    pin: Arc<crate::source_pin::Pinned>,
+}
+/// Two retained range decoders and two leases on process-wide verified sources.
+/// Source bytes cannot change during decoding; pins are not a frame cache.
 pub struct Decoder {
-    pinned: VecDeque<Pinned>,
-    // Bounded sequential read-ahead avoids launching a codec for every playback
-    // frame. Shared across sources/resolutions: 32 MiB legacy RGB8, 64 MiB when
-    // retaining float signal RGB, at most 512 frames. Both paths share one LRU.
-    read_ahead: VecDeque<(String, VideoInfo, u32, RgbImage)>,
+    pinned: VecDeque<Arc<crate::source_pin::Pinned>>,
+    streams: VecDeque<ActiveStream>,
+    backend: DecodeBackend,
+    statistics: DecodeStatistics,
+    // Shared across sources/resolutions, bounded to 64 MiB and 512 frames.
+    // Only demanded frames are retained; FFmpeg is backpressured by its pipe.
+    read_ahead: VecDeque<(String, VideoInfo, u32, Decoded)>,
+}
+impl Default for Decoder {
+    fn default() -> Self {
+        Self::with_backend(DecodeBackend::Software)
+    }
 }
 impl Decoder {
+    /// Explicit process policy, independent of project content and GPU rendering.
+    /// CUDA failure is reported, never silently relabelled as hardware success.
+    pub fn from_environment() -> Result<Self, String> {
+        let backend = match std::env::var("FOLD_VIDEO_DECODER").as_deref() {
+            Err(std::env::VarError::NotPresent) | Ok("software") => DecodeBackend::Software,
+            Ok("cuda") => DecodeBackend::Cuda,
+            Ok("cuda-native") => DecodeBackend::CudaNative,
+            _ => return Err("FOLD_VIDEO_DECODER must be software, cuda, or cuda-native".into()),
+        };
+        Ok(Self::with_backend(backend))
+    }
+    pub fn with_backend(backend: DecodeBackend) -> Self {
+        Self {
+            pinned: VecDeque::new(),
+            streams: VecDeque::new(),
+            backend,
+            statistics: DecodeStatistics::default(),
+            read_ahead: VecDeque::new(),
+        }
+    }
+    pub fn backend(&self) -> DecodeBackend {
+        self.backend
+    }
+    pub fn statistics(&self) -> DecodeStatistics {
+        self.statistics
+    }
+    pub fn retained_bytes(&self) -> u64 {
+        self.read_ahead
+            .iter()
+            .map(|(_, _, _, image)| image.storage_bytes())
+            .sum()
+    }
     pub(crate) fn pin(&mut self, source: &VideoSource, cancel: &Cancel) -> Result<PathBuf, String> {
+        cancel.check()?;
         source.info.validate_media_profile()?;
         if let Some(index) = self.pinned.iter().position(|p| {
             p.source.fingerprint == source.fingerprint && p.source.info == source.info
@@ -245,45 +389,25 @@ impl Decoder {
             self.pinned.push_back(pinned);
             return Ok(path);
         }
-        let mut input = std::fs::File::open(&source.path)
-            .map_err(|e| format!("missing media {}: {e}", source.path.display()))?;
-        if !input.metadata().map_err(|e| e.to_string())?.is_file() {
-            return Err("media must be a regular file".into());
-        }
-        // Evict before allocating the next copy: at most two 2-GiB files per worker.
         if self.pinned.len() == 2 {
-            self.pinned.pop_front();
+            // Keep active range leases, not an idle copy whose range already
+            // ended. Otherwise two cursor slots can accidentally retain three
+            // whole sources and reject a new request under the scratch budget.
+            let unused = self
+                .pinned
+                .iter()
+                .position(|pin| {
+                    !self
+                        .streams
+                        .iter()
+                        .any(|stream| Arc::ptr_eq(&stream.pin, pin))
+                })
+                .unwrap_or(0);
+            self.pinned.remove(unused);
         }
-        let mut file = tempfile::NamedTempFile::new().map_err(|e| e.to_string())?;
-        let mut hash = Sha256::new();
-        let mut buffer = [0u8; 64 * 1024];
-        let mut size = 0u64;
-        loop {
-            cancel.check()?;
-            let n = input.read(&mut buffer).map_err(|e| e.to_string())?;
-            if n == 0 {
-                break;
-            }
-            size += n as u64;
-            if size > MAX_FILE {
-                return Err("media exceeds 2 GiB source budget".into());
-            }
-            hash.update(&buffer[..n]);
-            file.write_all(&buffer[..n]).map_err(|e| e.to_string())?;
-        }
-        if format!("sha256:{:x}", hash.finalize()) != source.fingerprint {
-            return Err("source fingerprint changed; reimport required".into());
-        }
-        // Ensure persisted metadata cannot reinterpret the same fingerprint.
-        let actual = probe(file.path(), cancel)?;
-        if actual != source.info {
-            return Err("source metadata mismatch".into());
-        }
-        let path = file.path().to_owned();
-        self.pinned.push_back(Pinned {
-            source: source.clone(),
-            file,
-        });
+        let pinned = crate::source_pin::acquire(source, cancel)?;
+        let path = pinned.file.path().to_owned();
+        self.pinned.push_back(pinned);
         Ok(path)
     }
 
@@ -294,7 +418,8 @@ impl Decoder {
         dimensions: [u32; 2],
         cancel: &Cancel,
     ) -> Result<RgbImage, String> {
-        self.decode_mode(source, time, dimensions, cancel, false)
+        self.decode_mode(source, time, dimensions, cancel, DecodeFormat::Rgb8)?
+            .rgb()
     }
 
     /// Reconstruct BT.709 YUV as float RGB with its camera transfer intact.
@@ -306,7 +431,46 @@ impl Decoder {
         dimensions: [u32; 2],
         cancel: &Cancel,
     ) -> Result<RgbImage, String> {
-        self.decode_mode(source, time, dimensions, cancel, true)
+        cancel.check()?;
+        let pixels = u64::from(dimensions[0]) * u64::from(dimensions[1]);
+        if pixels == 0 || pixels > super::MAX_PIXELS as u64 {
+            return Err("invalid reconstruction dimensions".into());
+        }
+        self.decode_native(source, time, cancel)?
+            .reconstruct_signal(dimensions, cancel)
+    }
+
+    /// Independent FFmpeg reconstruction oracle for native-pipeline qualification.
+    /// Not the normal GPU or CPU rendering path.
+    pub fn decode_signal_reference(
+        &mut self,
+        source: &VideoSource,
+        time: Time,
+        dimensions: [u32; 2],
+        cancel: &Cancel,
+    ) -> Result<RgbImage, String> {
+        self.decode_mode(source, time, dimensions, cancel, DecodeFormat::Signal)?
+            .rgb()
+    }
+
+    /// Preserve native source planes, independent of viewer resolution. GPU
+    /// consumers reconstruct and resize; RGB methods remain compatibility/reference adapters.
+    pub fn decode_native(
+        &mut self,
+        source: &VideoSource,
+        time: Time,
+        cancel: &Cancel,
+    ) -> Result<crate::YuvFrame, String> {
+        match self.decode_mode(
+            source,
+            time,
+            [source.info.width, source.info.height],
+            cancel,
+            DecodeFormat::Yuv420,
+        )? {
+            Decoded::Yuv(frame) => Ok(frame),
+            _ => Err("expected native decoder result".into()),
+        }
     }
 
     fn decode_mode(
@@ -315,12 +479,20 @@ impl Decoder {
         time: Time,
         dimensions: [u32; 2],
         cancel: &Cancel,
-        signal: bool,
-    ) -> Result<RgbImage, String> {
-        let disk_pixel = if signal { 12 } else { 3 };
-        let stored_pixel = if signal { 16 } else { 3 };
-        let budget = if signal { 64 } else { 32 } * 1024 * 1024;
+        format: DecodeFormat,
+    ) -> Result<Decoded, String> {
+        if self.backend == DecodeBackend::CudaNative {
+            return Err("cuda-native requires the native GPU surface service; CPU/download fallback is forbidden".into());
+        }
+        let frame_bytes = format.bytes(dimensions);
+        let budget = 64 * 1024 * 1024;
         let frame = source.info.frame_at(time)?;
+        if self.backend == DecodeBackend::Cuda
+            && (!(48..=4096).contains(&source.info.width)
+                || !(16..=4096).contains(&source.info.height))
+        {
+            return Err("GTX 1070 CUDA/NVDEC H.264 requires source dimensions 48..4096 by 16..4096; select the software decoder".into());
+        }
         let count = u64::from(dimensions[0]) * u64::from(dimensions[1]);
         if count == 0 || count > crate::MAX_PIXELS as u64 {
             return Err("invalid decode resolution".into());
@@ -334,29 +506,95 @@ impl Decoder {
                         && info == &source.info
                         && *index == frame
                         && image.dimensions() == dimensions
-                        && image.is_signal() == signal
+                        && image.format() == format
                 })
         {
+            self.statistics.cache_hits += 1;
             return Ok(image.clone());
         }
-        let path = self.pin(source, cancel)?;
-        let batch = u64::from((source.info.frames - frame).min(32))
-            .min((16 * 1024 * 1024 / (count * stored_pixel)).max(1));
-        let mut retained: u64 = self
-            .read_ahead
-            .iter()
-            .map(|(_, _, _, image)| image.storage_bytes())
-            .sum();
-        while retained + count * stored_pixel * batch > budget
-            || self.read_ahead.len() + batch as usize > 512
-        {
+        let mut retained = self.retained_bytes();
+        while retained + frame_bytes > budget || self.read_ahead.len() >= 512 {
             let (_, _, _, image) = self
                 .read_ahead
                 .pop_front()
-                .ok_or("read-ahead budget exceeded")?;
+                .ok_or("decoded-frame budget exceeded")?;
             retained -= image.storage_bytes();
+            DECODED_BYTES.fetch_sub(image.storage_bytes(), Ordering::AcqRel);
         }
-        let output = tempfile::NamedTempFile::new().map_err(|e| e.to_string())?;
+        // A nearby forward request can consume/discard a short gap without a
+        // new codec launch. Reverse/far seeks create an exact new range.
+        let existing = self.streams.iter().position(|stream| {
+            stream.fingerprint == source.fingerprint
+                && stream.info == source.info
+                && stream.dimensions == dimensions
+                && stream.format == format
+                && stream.next <= frame
+                && frame - stream.next <= 32
+        });
+        let mut active = if let Some(index) = existing {
+            self.streams.remove(index).unwrap()
+        } else {
+            if self.streams.len() == 2 {
+                self.streams.pop_front();
+            }
+            self.open_stream(source, frame, dimensions, format, cancel)?
+        };
+        let bytes = loop {
+            // On cancellation/error `active` drops and kills the blocked child.
+            let bytes = active.stream.read(cancel)?;
+            self.statistics.decoded_frames += 1;
+            self.statistics.pipe_bytes += bytes.len() as u64;
+            let index = active.next;
+            active.next += 1;
+            if index == frame {
+                break bytes;
+            }
+        };
+        if active.next < source.info.frames {
+            self.streams.push_back(active);
+        }
+        let image = match format {
+            DecodeFormat::Signal => Decoded::Rgb(RgbImage::from_gbr(dimensions, &bytes)?),
+            DecodeFormat::Rgb8 => {
+                Decoded::Rgb(RgbImage::from_rgb(dimensions, bytes).map_err(str::to_owned)?)
+            }
+            DecodeFormat::Yuv420 => Decoded::Yuv(crate::YuvFrame::from_420(
+                dimensions,
+                bytes,
+                source.info.time(frame)?,
+                Time::new(i64::from(source.info.rate[1]), source.info.rate[0])
+                    .map_err(|e| e.to_string())?,
+            )?),
+        };
+        cancel.check()?;
+        // Other workers may already occupy the shared retention allowance. A
+        // current frame may still be returned, but do not grow another cache.
+        if DECODED_BYTES
+            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |used| {
+                used.checked_add(image.storage_bytes())
+                    .filter(|bytes| *bytes <= 128 * 1024 * 1024)
+            })
+            .is_ok()
+        {
+            self.read_ahead.push_back((
+                source.fingerprint.clone(),
+                source.info.clone(),
+                frame,
+                image.clone(),
+            ));
+        }
+        Ok(image)
+    }
+
+    fn open_stream(
+        &mut self,
+        source: &VideoSource,
+        frame: u32,
+        dimensions: [u32; 2],
+        format: DecodeFormat,
+        cancel: &Cancel,
+    ) -> Result<ActiveStream, String> {
+        let path = self.pin(source, cancel)?;
         // Seek to a whole second at/before the requested frame. Accurate input
         // seek discards earlier frames; select the remaining exact CFR offset.
         // Whole seconds avoid decimal rounding at fractional-rate boundaries.
@@ -367,13 +605,48 @@ impl Decoder {
             .to_ticks(source.info.rate[0], source.info.rate[1], Rounding::Ceil)
             .map_err(|e| e.to_string())?;
         let offset = i64::from(frame) - first;
-        let transfer = if signal { "709" } else { "iec61966-2-1" };
-        let pixel_format = if signal { "gbrpf32le" } else { "rgb24" };
-        let filter = format!(
-            "select=gte(n\\,{offset}),scale={}:{}:flags=neighbor,zscale=matrixin=709:transferin=709:primariesin=709:rangein=limited:matrix=gbr:transfer={transfer}:primaries=709:range=full,format=gbrpf32le,format={pixel_format}",
-            dimensions[0], dimensions[1]
-        );
+        let transfer = if format == DecodeFormat::Signal {
+            "709"
+        } else {
+            "iec61966-2-1"
+        };
+        let pixel_format = match format {
+            DecodeFormat::Signal => "gbrpf32le",
+            DecodeFormat::Rgb8 => "rgb24",
+            DecodeFormat::Yuv420 => "yuv420p",
+        };
+        let download = if self.backend == DecodeBackend::Cuda {
+            "hwdownload,format=nv12,"
+        } else {
+            ""
+        };
+        let scale = format!("scale={}:{}:flags=neighbor,", dimensions[0], dimensions[1]);
+        // Subsampled YUV reconstruction requires even dimensions. For odd
+        // requests, reconstruct at native size before nearest float-RGB scaling.
+        let even = dimensions.iter().all(|n| n.is_multiple_of(2));
+        let (before, after) = if even {
+            (scale.as_str(), "")
+        } else {
+            ("", scale.as_str())
+        };
+        let filter = if format == DecodeFormat::Yuv420 {
+            format!("{download}select=gte(n\\,{offset}),format=yuv420p")
+        } else {
+            format!(
+                "{download}select=gte(n\\,{offset}),{before}zscale=matrixin=709:transferin=709:primariesin=709:rangein=limited:matrix=gbr:transfer={transfer}:primaries=709:range=full,format=gbrpf32le,{after}format={pixel_format}"
+            )
+        };
         let mut cmd = base("ffmpeg");
+        if self.backend == DecodeBackend::Cuda {
+            cmd.args([
+                "-hwaccel",
+                "cuda",
+                "-hwaccel_device",
+                "0",
+                "-hwaccel_output_format",
+                "cuda",
+            ]);
+        }
         cmd.args([
             "-nostdin",
             "-threads",
@@ -393,51 +666,38 @@ impl Decoder {
             "-vf",
             &filter,
             "-frames:v",
-            &batch.to_string(),
+            &(source.info.frames - frame).to_string(),
             "-fps_mode",
             "passthrough",
+            // Bound the rawvideo output encoder too: its automatic frame-thread
+            // queue otherwise retains many full float images behind the pipe.
+            "-threads:v",
+            "1",
             "-f",
             "rawvideo",
             "-pix_fmt",
             pixel_format,
             "pipe:1",
         ])
-        .stdout(Stdio::from(output.reopen().map_err(|e| e.to_string())?));
-        Process::spawn(
-            cmd,
-            cancel.clone(),
-            Some((output.path().into(), count * disk_pixel * batch)),
-        )?
-        .finish()?;
-        cancel.check()?;
-        let mut bytes = Vec::new();
-        output
-            .reopen()
-            .map_err(|e| e.to_string())?
-            .take(count * disk_pixel * batch + 1)
-            .read_to_end(&mut bytes)
-            .map_err(|e| e.to_string())?;
-        if bytes.len() as u64 != count * disk_pixel * batch {
-            return Err("incomplete video read-ahead decode".into());
-        }
-        for (offset, bytes) in bytes
-            .chunks_exact((count * disk_pixel) as usize)
-            .enumerate()
-        {
-            self.read_ahead.push_back((
-                source.fingerprint.clone(),
-                source.info.clone(),
-                frame + offset as u32,
-                if signal {
-                    RgbImage::from_gbr(dimensions, bytes)?
-                } else {
-                    RgbImage::from_rgb(dimensions, bytes.to_vec()).map_err(str::to_owned)?
-                },
-            ));
-        }
-        Ok(self.read_ahead[self.read_ahead.len() - batch as usize]
-            .3
-            .clone())
+        .stdout(Stdio::piped());
+        let frame_bytes = format.bytes(dimensions) as usize;
+        let stream = crate::video_stream::Stream::new(cmd, frame_bytes)?;
+        self.statistics.launches += 1;
+        Ok(ActiveStream {
+            fingerprint: source.fingerprint.clone(),
+            info: source.info.clone(),
+            dimensions,
+            format,
+            next: frame,
+            stream,
+            pin: self.pinned.back().unwrap().clone(),
+        })
+    }
+}
+
+impl Drop for Decoder {
+    fn drop(&mut self) {
+        DECODED_BYTES.fetch_sub(self.retained_bytes(), Ordering::AcqRel);
     }
 }
 

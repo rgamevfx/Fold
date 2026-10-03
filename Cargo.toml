@@ -3,6 +3,7 @@ resolver = "3"
 members = [
     "crates/foundation",
     "crates/color",
+    "crates/native-video",
     "crates/project",
     "crates/media",
     "crates/render",
@@ -27,6 +28,7 @@ uuid = { version = "1", features = ["v4", "serde"] }
 tempfile = "3"
 fold-foundation = { path = "crates/foundation" }
 fold-color = { path = "crates/color" }
+fold-native-video = { path = "crates/native-video" }
 fold-project = { path = "crates/project" }
 fold-media = { path = "crates/media" }
 fold-render = { path = "crates/render" }

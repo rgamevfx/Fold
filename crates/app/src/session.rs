@@ -50,7 +50,7 @@ impl PreviewWorker {
         ));
         let state = shared.clone();
         let thread = std::thread::spawn(move || {
-            let mut decoder = Decoder::default();
+            let mut decoder = Decoder::from_environment();
             let mut color_identity = None;
             #[cfg(feature = "gpu")]
             let mut gpu: Option<(u64, Result<fold_render::gpu::Renderer, String>)> = None;
@@ -94,7 +94,7 @@ impl PreviewWorker {
                             &snapshot,
                             &request,
                             renderer,
-                            &mut decoder,
+                            decoder.as_mut().map_err(|e| e.clone())?,
                             &cancel,
                         )?;
                         crate::color::with_config(&snapshot, |config| {
@@ -111,7 +111,10 @@ impl PreviewWorker {
                     }
                     continue;
                 }
-                let frame = workflow::evaluate(&snapshot, &key, &mut decoder, &cancel)
+                let frame = decoder
+                    .as_mut()
+                    .map_err(|e| e.clone())
+                    .and_then(|decoder| workflow::evaluate(&snapshot, &key, decoder, &cancel))
                     .and_then(|f| crate::color::preview(&snapshot, &f));
                 let mut queue = state.0.lock().unwrap();
                 // Request replacement/cancellation and publication serialize here.
