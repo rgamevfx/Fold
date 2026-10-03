@@ -26,7 +26,8 @@ pub const MAX_SOURCE_BYTES: usize = MAX_PIXELS * 3 + 4096;
 pub struct RgbImage {
     dimensions: [u32; 2],
     rgb: Arc<[u8]>,
-    signal: Option<Arc<[[f32; 4]]>>,
+    /// Tightly packed decoder-native G, B, R float planes (not working color).
+    signal: Option<Arc<[f32]>>,
 }
 
 impl RgbImage {
@@ -123,20 +124,16 @@ impl RgbImage {
         if count == 0 || count > MAX_PIXELS || bytes.len() != count * 12 {
             return Err("Invalid float decode planes".into());
         }
-        let sample = |plane: usize, pixel: usize| {
-            let start = (plane * count + pixel) * 4;
-            f32::from_le_bytes(bytes[start..start + 4].try_into().unwrap())
-        };
         let mut pixels = Vec::new();
         pixels
-            .try_reserve_exact(count)
+            .try_reserve_exact(count * 3)
             .map_err(|_| "Float decode allocation failed")?;
-        for i in 0..count {
-            let p = [sample(2, i), sample(0, i), sample(1, i), 1.];
-            if p.iter().any(|v| !v.is_finite()) {
+        for sample in bytes.chunks_exact(4) {
+            let value = f32::from_le_bytes(sample.try_into().unwrap());
+            if !value.is_finite() {
                 return Err("Nonfinite decoder output".into());
             }
-            pixels.push(p);
+            pixels.push(value);
         }
         Ok(Self {
             dimensions,
@@ -144,8 +141,14 @@ impl RgbImage {
             signal: Some(pixels.into()),
         })
     }
+    /// Borrowed native G/B/R float planes after explicit BT.709 reconstruction.
+    /// Ownership remains with this immutable decoded image; alpha is opaque.
+    pub fn native_gbr_planes(&self) -> Option<&[f32]> {
+        self.signal.as_deref()
+    }
     pub fn encoded_pixels(&self) -> impl Iterator<Item = [f32; 4]> + '_ {
-        (0..self.dimensions[0] as usize * self.dimensions[1] as usize).map(|i| {
+        let count = self.dimensions[0] as usize * self.dimensions[1] as usize;
+        (0..count).map(move |i| {
             self.signal.as_ref().map_or_else(
                 || {
                     [
@@ -155,7 +158,7 @@ impl RgbImage {
                         1.,
                     ]
                 },
-                |p| p[i],
+                |p| [p[2 * count + i], p[i], p[count + i], 1.],
             )
         })
     }
@@ -165,7 +168,7 @@ impl RgbImage {
     pub fn storage_bytes(&self) -> u64 {
         self.signal
             .as_ref()
-            .map_or(self.rgb.len() as u64, |p| p.len() as u64 * 16)
+            .map_or(self.rgb.len() as u64, |p| p.len() as u64 * 4)
     }
 
     pub fn dimensions(&self) -> [u32; 2] {
@@ -198,9 +201,11 @@ impl RgbImage {
                     }
                 };
                 [
-                    decode(signal[i][0]),
-                    decode(signal[i][1]),
-                    decode(signal[i][2]),
+                    decode(
+                        signal[2 * self.dimensions[0] as usize * self.dimensions[1] as usize + i],
+                    ),
+                    decode(signal[i]),
+                    decode(signal[self.dimensions[0] as usize * self.dimensions[1] as usize + i]),
                     1.,
                 ]
             } else {
@@ -218,6 +223,24 @@ impl RgbImage {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn native_float_planes_retain_order_precision_and_bounded_storage() {
+        let values = [0.25f32, -0.1, 0.5, 2., 0.75, 1.5]; // G, B, R; two pixels
+        let bytes: Vec<u8> = values.iter().flat_map(|v| v.to_le_bytes()).collect();
+        let image = RgbImage::from_gbr([2, 1], &bytes).unwrap();
+        assert_eq!(image.native_gbr_planes().unwrap(), &values);
+        assert_eq!(image.storage_bytes(), 24);
+        assert_eq!(
+            image.encoded_pixels().collect::<Vec<_>>(),
+            vec![[0.75, 0.25, 0.5, 1.], [1.5, -0.1, 2., 1.]]
+        );
+        assert!(RgbImage::from_gbr([1, 1], &bytes).is_err());
+        let nonfinite: Vec<u8> = [f32::NAN, 0., 0.]
+            .iter()
+            .flat_map(|v| v.to_le_bytes())
+            .collect();
+        assert!(RgbImage::from_gbr([1, 1], &nonfinite).is_err());
+    }
     #[test]
     fn cached_input_transfer_matches_every_rgb8_reference_value() {
         let image =

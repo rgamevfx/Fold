@@ -11,7 +11,7 @@ native-probe = []
 [dependencies]
 serde_json.workspace = true
 fold-foundation.workspace = true
-fold-platform.workspace = true
+fold-platform = { workspace = true, features = ["gpu"] }
 dear-imgui-rs = "0.18"
 dear-node-editor = "0.18"
 dear-imgui-winit = "0.18"

@@ -142,7 +142,7 @@ fn persisted_color_undo_legacy_and_matched_cli_preview_output() {
         .preview_state(&reference, Time::ZERO)
         .preview_key(0, 1)
         .unwrap();
-    session.request_preview(key);
+    session.request_preview(key.clone());
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
     loop {
         session.poll();
@@ -169,6 +169,41 @@ fn persisted_color_undo_legacy_and_matched_cli_preview_output() {
             "preview worker timed out"
         );
         std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    #[cfg(feature = "gpu")]
+    {
+        let (host, _) =
+            pollster::block_on(fold_render::gpu::Host::headless(64 * 1024 * 1024)).unwrap();
+        session.set_render_host(host.clone());
+        session.request_preview(key.clone());
+        session.cancel_preview();
+        assert!(session.take_gpu_preview().is_none());
+        session.request_preview(key.clone());
+        let begin = std::time::Instant::now();
+        let result = loop {
+            session.poll();
+            host.poll().unwrap();
+            if let Some(result) = session.take_gpu_preview() {
+                break result;
+            }
+            assert!(
+                begin.elapsed().as_secs() < 15,
+                "GPU worker publication timeout"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(2));
+        };
+        assert_eq!(result.key, key);
+        let mut gpu = result.frame.unwrap();
+        assert_eq!(gpu.statistics.readback_bytes, 0);
+        assert_eq!(gpu.owner(), host.id());
+        let pixels = gpu.readback(&fold_media::Cancel::default()).unwrap();
+        for (a, b) in pixels.rgba().iter().zip(preview.rgba()) {
+            assert!(a.abs_diff(*b) <= 1);
+        }
+        assert!(
+            session.take_preview().is_none(),
+            "GPU workers do not also publish CPU frames"
+        );
     }
     // Opening/saving a missing-contract project never changes its interpretation.
     let mut legacy = Project::new(4);
@@ -241,7 +276,8 @@ fn native_signal_input_overrides_read_nodes_export_and_external_configs() {
         .unwrap();
     assert!(signal.is_signal());
     assert!(!legacy.is_signal());
-    assert_eq!(signal.storage_bytes(), 16 * 16 * 16);
+    assert_eq!(signal.storage_bytes(), 16 * 16 * 12);
+    assert_eq!(signal.native_gbr_planes().unwrap().len(), 16 * 16 * 3);
     assert!(
         (signal.encoded_pixels().next().unwrap()[0] - legacy.encoded_pixels().next().unwrap()[0])
             .abs()

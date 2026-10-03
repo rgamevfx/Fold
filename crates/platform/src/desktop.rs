@@ -199,7 +199,18 @@ pub struct PreviewResult {
     pub key: PreviewKey,
     pub frame: Result<DisplayFrame, String>,
 }
+#[cfg(feature = "gpu")]
+pub struct GpuPreviewResult {
+    pub key: PreviewKey,
+    pub frame: Result<crate::gpu::Display, String>,
+}
 pub trait DesktopClient {
+    #[cfg(feature = "gpu")]
+    fn set_render_host(&mut self, _host: crate::gpu::Host) {}
+    #[cfg(feature = "gpu")]
+    fn take_gpu_preview(&mut self) -> Option<GpuPreviewResult> {
+        None
+    }
     fn state(&self) -> &DesktopState;
     fn viewer_transport(
         &self,

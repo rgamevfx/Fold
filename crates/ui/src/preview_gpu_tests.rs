@@ -92,6 +92,7 @@ fn real_textures_hold_until_replacement_and_remain_protected_under_pressure() {
             Texture {
                 registration,
                 _texture: texture,
+                gpu_lease: None,
                 dimensions: [16, 16],
                 in_flight: Arc::new(AtomicUsize::new(0)),
             },

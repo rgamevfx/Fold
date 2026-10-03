@@ -277,6 +277,21 @@ impl Config {
         })
     }
 }
+/// Owned OCIO GPU program and LUTs. No native handles cross worker boundaries.
+#[derive(Debug, Deserialize)]
+pub struct GpuShader {
+    pub shader: String,
+    pub textures: Vec<GpuLut>,
+}
+#[derive(Debug, Deserialize)]
+pub struct GpuLut {
+    pub sampler: String,
+    pub size: [u32; 3],
+    pub channels: usize,
+    pub linear: bool,
+    pub values: Vec<f32>,
+}
+
 /// Worker-local processor. Deliberately not Send/Sync: native calls and resource
 /// construction stay on the owning worker, rather than behind a UI-thread lock.
 pub struct Processor {
@@ -287,6 +302,9 @@ pub struct Processor {
     identity: String,
 }
 impl Processor {
+    pub fn gpu_shader(&self) -> Result<GpuShader, String> {
+        self.native.gpu()
+    }
     pub fn source(&self) -> &str {
         &self.source
     }

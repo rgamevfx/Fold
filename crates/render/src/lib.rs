@@ -1,8 +1,10 @@
-//! Feature-neutral CPU execution. Creative packages compile immutable inputs here.
+//! Feature-neutral CPU reference and optional GPU execution of immutable inputs.
 use std::io::{self, Write};
 
 pub mod audio;
 pub mod frame;
+#[cfg(feature = "gpu")]
+pub mod gpu;
 mod graph;
 pub mod vector;
 pub use graph::{Affine, ImageId, ImageOp, RenderGraph};

@@ -23,15 +23,29 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 struct Texture {
     registration: ExternalTextureId,
     _texture: wgpu::Texture,
+    gpu_lease: Option<fold_platform::gpu::Display>,
     dimensions: [u32; 2],
     in_flight: Arc<AtomicUsize>,
 }
+enum Prepared {
+    Cpu(DisplayFrame),
+    Gpu(fold_platform::gpu::Display),
+}
+impl Prepared {
+    fn dimensions(&self) -> [u32; 2] {
+        match self {
+            Self::Cpu(f) => f.dimensions(),
+            Self::Gpu(f) => f.dimensions(),
+        }
+    }
+}
 pub(crate) struct PreviewHost {
     pub state: Preview,
+    render_host: Option<u64>,
     wanted: Option<PreviewKey>,
     displayed: Option<PreviewKey>,
     cache: Cache<PreviewKey, Texture>,
-    pending: Option<DisplayFrame>,
+    pending: Option<Prepared>,
     requested: bool,
     consumers: Vec<PreviewKey>,
     /// Exact immutable key is the consumer's presentation generation. A repeated
@@ -50,6 +64,7 @@ impl PreviewHost {
     pub fn new() -> Self {
         Self {
             state: Preview::Pending,
+            render_host: None,
             wanted: None,
             displayed: None,
             cache: Cache::new(256 * 1024 * 1024),
@@ -66,6 +81,9 @@ impl PreviewHost {
             #[cfg(feature = "native-probe")]
             probe_upload: None,
         }
+    }
+    pub fn attach_host(&mut self, host: &fold_platform::gpu::Host) {
+        self.render_host = Some(host.id());
     }
     #[cfg(feature = "native-probe")]
     pub fn probe_frame(&self) -> (Option<u32>, bool) {
@@ -292,10 +310,41 @@ impl PreviewHost {
         {
             self.requested = false;
             match result.frame {
-                Ok(frame) => self.pending = Some(frame),
+                Ok(frame) => self.pending = Some(Prepared::Cpu(frame)),
                 Err(error) => {
                     self.failures.push((result.key, error.clone()));
                     self.state = Preview::Failed(error);
+                }
+            }
+        }
+        if let Some(result) = client.take_gpu_preview()
+            && self.wanted.as_ref() == Some(&result.key)
+        {
+            self.requested = false;
+            match result.frame {
+                Ok(frame) => self.pending = Some(Prepared::Gpu(frame)),
+                Err(error) => {
+                    self.failures.push((result.key, error.clone()));
+                    self.state = Preview::Failed(error);
+                }
+            }
+        }
+        if let Some(Prepared::Gpu(frame)) = self.pending.as_ref() {
+            let readiness = if self.render_host == Some(frame.owner()) {
+                frame.is_ready()
+            } else {
+                Err("Preview texture belongs to a different GPU device".into())
+            };
+            match readiness {
+                Ok(false) => return Ok(()),
+                Ok(true) => {}
+                Err(error) => {
+                    if let Some(key) = &self.wanted {
+                        self.failures.push((key.clone(), error.clone()));
+                    }
+                    self.pending = None;
+                    self.state = Preview::Failed(error);
+                    return Ok(());
                 }
             }
         }
@@ -303,7 +352,7 @@ impl PreviewHost {
             return Ok(());
         };
         let [width, height] = frame.dimensions();
-        let bytes = frame.rgba().len();
+        let bytes = width as usize * height as usize * 4;
         if bytes > self.cache.budget
             || width > device.limits().max_texture_dimension_2d
             || height > device.limits().max_texture_dimension_2d
@@ -324,6 +373,14 @@ impl PreviewHost {
             renderer.unregister_external_texture(old.registration)?;
         }
         let frame = self.pending.take().unwrap();
+        #[cfg(feature = "native-probe")]
+        if let Prepared::Gpu(gpu) = &frame {
+            eprintln!(
+                "GPU preview: gpu_ms={:?} transfers={:?}",
+                gpu.gpu_nanoseconds()?.map(|v| v / 1e6),
+                gpu.statistics
+            );
+        }
         let size = wgpu::Extent3d {
             width,
             height,
@@ -331,38 +388,48 @@ impl PreviewHost {
         };
         #[cfg(feature = "native-probe")]
         let upload_start = std::time::Instant::now();
-        let texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("Fold cached SDR sRGB bytes"),
-            size,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            // Display transform is already applied; target is also non-sRGB.
-            format: wgpu::TextureFormat::Rgba8Unorm,
-            usage: wgpu::TextureUsages::COPY_DST | wgpu::TextureUsages::TEXTURE_BINDING,
-            view_formats: &[],
-        });
-        queue.write_texture(
-            wgpu::TexelCopyTextureInfo {
-                texture: &texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d::ZERO,
-                aspect: wgpu::TextureAspect::All,
-            },
-            frame.rgba(),
-            wgpu::TexelCopyBufferLayout {
-                offset: 0,
-                bytes_per_row: Some(width * 4),
-                rows_per_image: Some(height),
-            },
-            size,
-        );
+        let (texture, gpu_lease) = match frame {
+            Prepared::Gpu(frame) => (frame.texture().clone(), Some(frame)),
+            Prepared::Cpu(frame) => {
+                let texture = device.create_texture(&wgpu::TextureDescriptor {
+                    label: Some("Fold cached SDR sRGB bytes"),
+                    size,
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    dimension: wgpu::TextureDimension::D2,
+                    // Display transform is already applied; target is also non-sRGB.
+                    format: wgpu::TextureFormat::Rgba8Unorm,
+                    usage: wgpu::TextureUsages::COPY_DST | wgpu::TextureUsages::TEXTURE_BINDING,
+                    view_formats: &[],
+                });
+                queue.write_texture(
+                    wgpu::TexelCopyTextureInfo {
+                        texture: &texture,
+                        mip_level: 0,
+                        origin: wgpu::Origin3d::ZERO,
+                        aspect: wgpu::TextureAspect::All,
+                    },
+                    frame.rgba(),
+                    wgpu::TexelCopyBufferLayout {
+                        offset: 0,
+                        bytes_per_row: Some(width * 4),
+                        rows_per_image: Some(height),
+                    },
+                    size,
+                );
+                (texture, None)
+            }
+        };
         let registration = renderer.register_external_texture(
             &texture.create_view(&wgpu::TextureViewDescriptor::default()),
         )?;
         #[cfg(feature = "native-probe")]
         {
-            self.probe_upload = Some((upload_start, std::time::Instant::now(), bytes));
+            self.probe_upload = Some((
+                upload_start,
+                std::time::Instant::now(),
+                if gpu_lease.is_some() { 0 } else { bytes },
+            ));
         }
         self.state = Preview::Ready {
             texture: registration.texture_id(),
@@ -374,6 +441,7 @@ impl PreviewHost {
             Texture {
                 registration,
                 _texture: texture,
+                gpu_lease,
                 dimensions: [width, height],
                 in_flight: Arc::new(AtomicUsize::new(0)),
             },
@@ -402,7 +470,9 @@ impl PreviewHost {
             if let Some(texture) = self.cache.peek(&key) {
                 let in_flight = texture.in_flight.clone();
                 in_flight.fetch_add(1, Ordering::AcqRel);
+                let lease = texture.gpu_lease.clone();
                 queue.on_submitted_work_done(move || {
+                    drop(lease);
                     in_flight.fetch_sub(1, Ordering::AcqRel);
                 });
             }

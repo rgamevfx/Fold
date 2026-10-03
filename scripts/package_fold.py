@@ -36,6 +36,7 @@ def main():
     manifest["rustc"] = subprocess.check_output(["rustc", "--version"], text=True).strip()
     sources = [ROOT / "Cargo.toml", ROOT / "Cargo.lock"]
     sources += sorted((ROOT / "crates").rglob("*.rs"))
+    sources += sorted((ROOT / "crates").rglob("*.wgsl"))
     sources += sorted((ROOT / "crates").rglob("Cargo.toml"))
     sources += [ROOT / "crates/color/native/bridge.cpp"]
     manifest["sources"] = {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest() for p in sources}

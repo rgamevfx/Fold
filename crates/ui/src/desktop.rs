@@ -217,7 +217,7 @@ impl Drop for Desktop {
 impl Desktop {
     fn new(
         event_loop: &ActiveEventLoop,
-        preview: Box<dyn DesktopClient>,
+        mut preview: Box<dyn DesktopClient>,
         mut panels: Vec<crate::sdk::RegisteredPanel>,
     ) -> Result<Self> {
         #[cfg(feature = "native-probe")]
@@ -237,7 +237,30 @@ impl Desktop {
         }))?;
         eprintln!("Fold presentation adapter: {:?}", adapter.get_info());
         let (device, queue) =
-            pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor::default()))?;
+            pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
+                required_features: adapter.features()
+                    & (wgpu::Features::FLOAT32_FILTERABLE
+                        | wgpu::Features::TIMESTAMP_QUERY
+                        | wgpu::Features::TIMESTAMP_QUERY_INSIDE_ENCODERS),
+                ..Default::default()
+            }))?;
+        let mut preview_host = PreviewHost::new();
+        // One host budget/device for scene evaluation and held display leases.
+        // CPU is an explicit startup fallback, never a silent per-effect bypass.
+        match std::env::var("FOLD_RENDER_BACKEND").as_deref() {
+            Ok("cpu") => eprintln!("Fold render backend: CPU reference"),
+            Ok("gpu") | Err(std::env::VarError::NotPresent) => {
+                let host = fold_platform::gpu::Host::from_device(
+                    device.clone(),
+                    queue.clone(),
+                    512 * 1024 * 1024,
+                )?;
+                preview_host.attach_host(&host);
+                preview.set_render_host(host);
+                eprintln!("Fold render backend: shared GPU");
+            }
+            _ => return Err("FOLD_RENDER_BACKEND must be cpu or gpu".into()),
+        }
         let size = window.inner_size();
         let mut config = surface
             .get_default_config(&adapter, size.width.max(1), size.height.max(1))
@@ -304,7 +327,7 @@ impl Desktop {
             external_drag: false,
             #[cfg(target_os = "linux")]
             drop_pointer: native_drop::DropPointer::new(&window),
-            preview: PreviewHost::new(),
+            preview: preview_host,
             client: preview,
             #[cfg(feature = "native-probe")]
             probe,

@@ -103,7 +103,7 @@ pub fn content_for(
     document: fold_foundation::DocumentId,
 ) -> Result<String, String> {
     let mut data =
-        b"fold-video-evaluator-v4;ocio-2.4.2;aces-srgb-view-v1;native709-float;nearest;".to_vec();
+        b"fold-video-evaluator-v5;gpu-operators-v1;rgba32f;ocio-2.4.2;aces-srgb-view-v1;native709-float;nearest;".to_vec();
     if let Some(color) = fold_platform::color::project(snapshot)? {
         data.extend(serde_json::to_vec(&color).map_err(|e| e.to_string())?);
     }
@@ -163,6 +163,14 @@ pub fn evaluate(
     cancel: &Cancel,
 ) -> Result<fold_render::Frame, String> {
     cancel.check()?;
+    evaluate_scene(snapshot, &preview_request(snapshot, key)?, decoder, cancel)
+        .map(fold_render::Frame::over_black)
+}
+
+pub(crate) fn preview_request(
+    snapshot: &Snapshot,
+    key: &PreviewKey,
+) -> Result<SceneRequest, String> {
     let (source, time) = if let Some((document, time)) = key.target {
         (
             DocumentRef {
@@ -180,17 +188,11 @@ pub fn evaluate(
     if key.content != content_for(snapshot, source.document)? || key.view != 1 {
         return Err("preview identity/settings mismatch".into());
     }
-    evaluate_scene(
-        snapshot,
-        &SceneRequest {
-            source,
-            time,
-            dimensions: key.dimensions,
-        },
-        decoder,
-        cancel,
-    )
-    .map(fold_render::Frame::over_black)
+    Ok(SceneRequest {
+        source,
+        time,
+        dimensions: key.dimensions,
+    })
 }
 
 /// Logical scene demand. Viewer generation/cache identity is consumer routing,
@@ -210,6 +212,34 @@ pub fn evaluate_scene(
     decoder: &mut Decoder,
     cancel: &Cancel,
 ) -> Result<fold_render::Frame, String> {
+    let (plan, duration) = compile_scene(snapshot, request, cancel)?;
+    crate::color::with_config(snapshot, |config| match config {
+        Some(config) => fold_render::render_aces_with(plan, config, decoder, cancel),
+        None => fold_render::render_with(plan, decoder, cancel),
+    })?
+    .with_timing(request.time, duration)
+}
+
+#[cfg(feature = "gpu")]
+pub fn evaluate_scene_gpu(
+    snapshot: &Snapshot,
+    request: &SceneRequest,
+    renderer: &mut fold_render::gpu::Renderer,
+    decoder: &mut Decoder,
+    cancel: &Cancel,
+) -> Result<fold_render::gpu::GpuFrame, String> {
+    let (plan, duration) = compile_scene(snapshot, request, cancel)?;
+    crate::color::with_config(snapshot, |config| {
+        renderer.evaluate(plan, config, decoder, cancel)
+    })?
+    .with_timing(request.time, duration)
+}
+
+fn compile_scene(
+    snapshot: &Snapshot,
+    request: &SceneRequest,
+    cancel: &Cancel,
+) -> Result<(fold_render::RenderGraph, fold_foundation::Time), String> {
     cancel.check()?;
     let registry = crate::packages::builtins();
     let info = registry.output_ref(snapshot, &request.source)?;
@@ -223,11 +253,7 @@ pub fn evaluate_scene(
         request.dimensions,
         cancel,
     )?;
-    crate::color::with_config(snapshot, |config| match config {
-        Some(config) => fold_render::render_aces_with(plan, config, decoder, cancel),
-        None => fold_render::render_with(plan, decoder, cancel),
-    })?
-    .with_timing(request.time, info.time(1)?)
+    Ok((plan, info.time(1)?))
 }
 
 const OUTPUT_SETTING: &str = "fold.output";
@@ -376,18 +402,49 @@ fn export_video(
         time: info.time(start)?,
         dimensions: [info.width, info.height],
     };
-    // Preflight decode of both dependencies before starting the encoder.
-    let mut first = Some(evaluate_scene(snapshot, &request, &mut decoder, cancel)?);
+    // Select once per pinned job, independently of viewer state. GPU output is
+    // explicit: the CPU reference remains the default for headless builds.
+    #[cfg(feature = "gpu")]
+    let mut gpu = match std::env::var("FOLD_RENDER_BACKEND").as_deref() {
+        Ok("gpu") => {
+            let (host, _) =
+                pollster::block_on(fold_render::gpu::Host::headless(512 * 1024 * 1024))?;
+            Some(fold_render::gpu::Renderer::new(host)?)
+        }
+        Ok("cpu") | Err(std::env::VarError::NotPresent) => None,
+        _ => return Err("FOLD_RENDER_BACKEND must be cpu or gpu".into()),
+    };
+    #[cfg(not(feature = "gpu"))]
+    if std::env::var("FOLD_RENDER_BACKEND").is_ok_and(|v| v != "cpu") {
+        return Err("GPU delivery requires a build with the gpu feature".into());
+    }
+    let mut evaluate_output =
+        |request: &SceneRequest| -> Result<fold_render::DisplayFrame, String> {
+            #[cfg(feature = "gpu")]
+            if let Some(renderer) = gpu.as_mut() {
+                let scene = evaluate_scene_gpu(snapshot, request, renderer, &mut decoder, cancel)?;
+                let mut output = crate::color::with_config(snapshot, |config| {
+                    let processor = config
+                        .map(|c| {
+                            c.display(
+                                fold_color::WORKING_SPACE,
+                                &fold_platform::color::output(snapshot, request.source.document)?
+                                    .display_transform(),
+                            )
+                        })
+                        .transpose()?;
+                    renderer.output(&scene, processor.as_ref(), cancel)
+                })?;
+                return output.readback(cancel);
+            }
+            let scene = evaluate_scene(snapshot, request, &mut decoder, cancel)?.over_black();
+            crate::color::delivery(snapshot, request.source.document, &scene)
+        };
+    // Preflight decode AND the explicit output transform before any destination.
+    let mut first = Some(evaluate_output(&request)?);
     let output_color = fold_platform::color::project(snapshot)?
         .map(|_| fold_platform::color::output(snapshot, request.source.document))
         .transpose()?;
-    // Preflight the explicit transform before creating an encoder destination.
-    crate::color::with_config(snapshot, |config| {
-        if let (Some(config), Some(output)) = (config, output_color.as_ref()) {
-            config.display(fold_color::WORKING_SPACE, &output.display_transform())?;
-        }
-        Ok(())
-    })?;
     let mut encoder = match output_color.as_ref().map(|c| c.display.as_str()) {
         Some("Rec.1886 Rec.709 - Display") => {
             Encoder::new_rec709(path, &info, end - start, cancel.clone())?
@@ -398,13 +455,10 @@ fn export_video(
     for frame in start..end {
         cancel.check()?;
         request.time = info.time(frame)?;
-        let scene = match first.take() {
-            Some(scene) => scene,
-            None => evaluate_scene(snapshot, &request, &mut decoder, cancel)?,
-        }
-        .over_black();
-        let display = crate::color::delivery(snapshot, request.source.document, &scene)?;
-        drop(scene); // Do not retain a linear frame across encode or later frames.
+        let display = match first.take() {
+            Some(display) => display,
+            None => evaluate_output(&request)?,
+        };
         let rgb: Vec<u8> = display
             .rgba()
             .chunks_exact(4)

@@ -31,7 +31,7 @@ impl Affine {
         ty: 0.0,
     };
 
-    fn inverse(self) -> Result<Self, &'static str> {
+    pub(crate) fn inverse(self) -> Result<Self, &'static str> {
         let Self { a, b, c, d, tx, ty } = self;
         let det = a * d - b * c;
         if ![a, b, c, d, tx, ty, det].iter().all(|v| v.is_finite()) || det == 0.0 {
@@ -131,7 +131,7 @@ impl ImageOp {
             None => Self::Video { source, time },
         }
     }
-    fn inputs(&self) -> impl Iterator<Item = ImageId> {
+    pub(crate) fn inputs(&self) -> impl Iterator<Item = ImageId> {
         let inputs = match *self {
             Self::Solid { .. }
             | Self::Media(_)
@@ -214,36 +214,9 @@ impl From<SolidPlan> for RenderGraph {
     }
 }
 
-pub(crate) fn evaluate(
-    graph: RenderGraph,
-    decoder: &mut fold_media::Decoder,
-    cancel: &fold_media::Cancel,
-    budget: usize,
-    config: Option<&fold_color::Config>,
-) -> Result<Frame, String> {
-    let aces = config.is_some();
-    let mut processors = std::collections::BTreeMap::new();
-    if let Some(config) = config {
-        for space in [
-            fold_color::settings::SRGB_INPUT,
-            fold_color::settings::VIDEO_INPUT,
-        ]
-        .into_iter()
-        .chain(graph.nodes.iter().filter_map(|op| {
-            if let ImageOp::VideoInput { space, .. } = op {
-                Some(space.as_str())
-            } else {
-                None
-            }
-        })) {
-            if !processors.contains_key(space) {
-                processors.insert(
-                    space.to_owned(),
-                    config.conversion(space, fold_color::WORKING_SPACE)?,
-                );
-            }
-        }
-    }
+/// Validate the logical graph identically for every physical backend, including
+/// disconnected nodes. Returns the full-frame pixel count.
+pub(crate) fn validate(graph: &RenderGraph, aces: bool) -> Result<usize, String> {
     let count = u64::from(graph.width) * u64::from(graph.height);
     if count == 0 || count > MAX_PIXELS {
         return Err("resolution must contain 1..=4194304 pixels".into());
@@ -320,6 +293,11 @@ pub(crate) fn evaluate(
         }
     }
 
+    Ok(count as usize)
+}
+
+/// Reachability and reference counts for completion-aware physical executors.
+pub(crate) fn dependencies(graph: &RenderGraph) -> (Vec<bool>, Vec<usize>) {
     let mut needed = vec![false; graph.nodes.len()];
     needed[graph.output] = true;
     let mut uses = vec![0usize; graph.nodes.len()];
@@ -331,8 +309,53 @@ pub(crate) fn evaluate(
             }
         }
     }
+    (needed, uses)
+}
+
+/// Preflight input assignments even on disconnected nodes, like structural
+/// validation. Physical backends must not silently accept an invalid assignment.
+pub(crate) fn input_processors(
+    graph: &RenderGraph,
+    config: Option<&fold_color::Config>,
+) -> Result<std::collections::BTreeMap<String, fold_color::Processor>, String> {
+    let mut processors = std::collections::BTreeMap::new();
+    if let Some(config) = config {
+        for space in [
+            fold_color::settings::SRGB_INPUT,
+            fold_color::settings::VIDEO_INPUT,
+        ]
+        .into_iter()
+        .chain(graph.nodes.iter().filter_map(|op| {
+            if let ImageOp::VideoInput { space, .. } = op {
+                Some(space.as_str())
+            } else {
+                None
+            }
+        })) {
+            if !processors.contains_key(space) {
+                processors.insert(
+                    space.to_owned(),
+                    config.conversion(space, fold_color::WORKING_SPACE)?,
+                );
+            }
+        }
+    }
+    Ok(processors)
+}
+
+pub(crate) fn evaluate(
+    graph: RenderGraph,
+    decoder: &mut fold_media::Decoder,
+    cancel: &fold_media::Cancel,
+    budget: usize,
+    config: Option<&fold_color::Config>,
+) -> Result<Frame, String> {
+    cancel.check()?;
+    let aces = config.is_some();
+    let count = validate(&graph, aces)?;
+    let processors = input_processors(&graph, config)?;
+    let (needed, mut uses) = dependencies(&graph);
     let mut frames: Vec<Option<Frame>> = (0..graph.nodes.len()).map(|_| None).collect();
-    let count = count as usize;
     let bytes = count * std::mem::size_of::<[f32; 4]>();
     let mut live_bytes = 0;
     for (id, op) in graph.nodes.iter().enumerate() {

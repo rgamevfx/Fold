@@ -21,6 +21,10 @@ type Request = (Snapshot, PreviewKey, Cancel);
 struct Mailbox {
     pending: Option<Request>,
     result: Option<PreviewResult>,
+    #[cfg(feature = "gpu")]
+    gpu_result: Option<fold_platform::desktop::GpuPreviewResult>,
+    #[cfg(feature = "gpu")]
+    render_host: Option<fold_render::gpu::Host>,
     colors: Option<fold_platform::color::Choices>,
     stop: bool,
 }
@@ -35,6 +39,10 @@ impl PreviewWorker {
             Mutex::new(Mailbox {
                 pending: None,
                 result: None,
+                #[cfg(feature = "gpu")]
+                gpu_result: None,
+                #[cfg(feature = "gpu")]
+                render_host: None,
                 colors: None,
                 stop: false,
             }),
@@ -44,6 +52,8 @@ impl PreviewWorker {
         let thread = std::thread::spawn(move || {
             let mut decoder = Decoder::default();
             let mut color_identity = None;
+            #[cfg(feature = "gpu")]
+            let mut gpu: Option<(u64, Result<fold_render::gpu::Renderer, String>)> = None;
             loop {
                 let (snapshot, key, cancel) = {
                     let (lock, ready) = &*state;
@@ -70,6 +80,37 @@ impl PreviewWorker {
                         state.0.lock().unwrap().colors = Some(choices);
                     }
                 }
+                #[cfg(feature = "gpu")]
+                let render_host = state.0.lock().unwrap().render_host.clone();
+                #[cfg(feature = "gpu")]
+                if let Some(host) = render_host {
+                    if gpu.as_ref().is_none_or(|(id, _)| *id != host.id()) {
+                        gpu = Some((host.id(), fold_render::gpu::Renderer::new(host)));
+                    }
+                    let frame = (|| {
+                        let renderer = gpu.as_mut().unwrap().1.as_mut().map_err(|e| e.clone())?;
+                        let request = workflow::preview_request(&snapshot, &key)?;
+                        let scene = workflow::evaluate_scene_gpu(
+                            &snapshot,
+                            &request,
+                            renderer,
+                            &mut decoder,
+                            &cancel,
+                        )?;
+                        crate::color::with_config(&snapshot, |config| {
+                            let processor = config
+                                .map(|c| c.display(fold_color::WORKING_SPACE, &Default::default()))
+                                .transpose()?;
+                            renderer.output(&scene, processor.as_ref(), &cancel)
+                        })
+                    })();
+                    let mut queue = state.0.lock().unwrap();
+                    if cancel.check().is_ok() && !queue.stop {
+                        queue.gpu_result =
+                            Some(fold_platform::desktop::GpuPreviewResult { key, frame });
+                    }
+                    continue;
+                }
                 let frame = workflow::evaluate(&snapshot, &key, &mut decoder, &cancel)
                     .and_then(|f| crate::color::preview(&snapshot, &f));
                 let mut queue = state.0.lock().unwrap();
@@ -90,6 +131,10 @@ impl PreviewWorker {
         self.cancel.cancel();
         queue.pending = None;
         queue.result = None;
+        #[cfg(feature = "gpu")]
+        {
+            queue.gpu_result = None;
+        }
     }
     fn request(&mut self, snapshot: Snapshot, key: PreviewKey) {
         self.cancel();
@@ -795,6 +840,15 @@ impl DesktopClient for Session {
     }
     fn cancel_preview(&mut self) {
         self.preview.cancel();
+    }
+    #[cfg(feature = "gpu")]
+    fn set_render_host(&mut self, host: fold_render::gpu::Host) {
+        self.preview.cancel();
+        self.preview.shared.0.lock().unwrap().render_host = Some(host);
+    }
+    #[cfg(feature = "gpu")]
+    fn take_gpu_preview(&mut self) -> Option<fold_platform::desktop::GpuPreviewResult> {
+        self.preview.shared.0.lock().unwrap().gpu_result.take()
     }
     fn take_preview(&mut self) -> Option<PreviewResult> {
         self.preview.take()

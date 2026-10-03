@@ -14,6 +14,8 @@ use fold_render::RenderGraph;
 
 // Presentation contract, not access to engine resources or GPU implementation.
 pub use fold_render::DisplayFrame;
+#[cfg(feature = "gpu")]
+pub use fold_render::gpu;
 
 /// Nested outputs compile into the caller's IR, never into rendered frames.
 pub type VideoResolver<'a> = dyn Fn(&DocumentRef, Time) -> Result<RenderGraph, String> + 'a;

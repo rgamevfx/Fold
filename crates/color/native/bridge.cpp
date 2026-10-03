@@ -4,6 +4,9 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <sstream>
+#include <iomanip>
+#include <cmath>
 namespace OCIO = OCIO_NAMESPACE;
 namespace {
 struct Config { OCIO::ConstConfigRcPtr value; OCIO::ConstContextRcPtr context; };
@@ -82,6 +85,73 @@ void *fold_ocio_processor(void *p, const char *source, const char *destination,
         return new Processor{processor, processor->getDefaultCPUProcessor()};
     }, err, size);
 }
+// Optional GPU export extension to ABI 1. Descriptors contain owned JSON; no
+// OCIO pointers escape. Texture/descriptor sizes are bounded before copying.
+void *fold_ocio_gpu(void *p, char *err, size_t size) noexcept {
+    return create([&]() -> void * {
+        auto desc = OCIO::GpuShaderDesc::CreateShaderDesc();
+        desc->setLanguage(OCIO::GPU_LANGUAGE_GLSL_4_0);
+        desc->setFunctionName("fold_ocio");
+        desc->setAllowTexture1D(false);
+        desc->setTextureMaxWidth(4096);
+        static_cast<Processor *>(p)->value->getDefaultGPUProcessor()->extractGpuShaderInfo(desc);
+        if (desc->getNumUniforms()) throw std::runtime_error("dynamic OCIO uniforms require the CPU backend");
+        if (desc->getNumTextures() + desc->getNum3DTextures() > 8)
+            throw std::runtime_error("OCIO GPU texture count exceeds 8");
+        auto quote = [](const char *text) {
+            std::string out = "\"";
+            for (const unsigned char c : std::string(text)) {
+                if (c == '\n') out += "\\n";
+                else if (c == '\r') out += "\\r";
+                else if (c == '\t') out += "\\t";
+                else if (c == '\\' || c == '"') { out += '\\'; out += c; }
+                else if (c < 32) throw std::runtime_error("control byte in GPU descriptor");
+                else out += c;
+            }
+            return out + "\"";
+        };
+        std::ostringstream out;
+        out << std::setprecision(9) << "{\"shader\":" << quote(desc->getShaderText()) << ",\"textures\":[";
+        size_t total = 0;
+        unsigned index = 0;
+        auto texture = [&](const char *sampler, unsigned w, unsigned h, unsigned d, unsigned channels,
+                           OCIO::Interpolation interpolation, const float *values) {
+            const size_t count = size_t(w) * h * d * channels;
+            if (!w || !h || !d || w > 4096 || h > 4096 || d > 129 || count > 4*1024*1024 || total + count > 4*1024*1024)
+                throw std::runtime_error("OCIO GPU LUT budget exceeded");
+            total += count;
+            if (index++) out << ',';
+            out << "{\"sampler\":" << quote(sampler) << ",\"size\":[" << w << ',' << h << ',' << d
+                << "],\"channels\":" << channels << ",\"linear\":" << (interpolation == OCIO::INTERP_LINEAR ? "true" : "false")
+                << ",\"values\":[";
+            for (size_t i = 0; i < count; ++i) {
+                if (!std::isfinite(values[i])) throw std::runtime_error("nonfinite OCIO GPU LUT");
+                if (i) out << ',';
+                out << values[i];
+            }
+            out << "]}";
+        };
+        for (unsigned i = 0; i < desc->getNumTextures(); ++i) {
+            const char *name, *sampler; unsigned w, h;
+            OCIO::GpuShaderDesc::TextureType channels;
+            OCIO::GpuShaderDesc::TextureDimensions dimensions;
+            OCIO::Interpolation interpolation;
+            desc->getTexture(i, name, sampler, w, h, channels, dimensions, interpolation);
+            const float *values; desc->getTextureValues(i, values);
+            texture(sampler, w, h, 1, channels == OCIO::GpuShaderDesc::TEXTURE_RED_CHANNEL ? 1 : 3, interpolation, values);
+        }
+        for (unsigned i = 0; i < desc->getNum3DTextures(); ++i) {
+            const char *name, *sampler; unsigned edge; OCIO::Interpolation interpolation;
+            desc->get3DTexture(i, name, sampler, edge, interpolation);
+            const float *values; desc->get3DTextureValues(i, values);
+            texture(sampler, edge, edge, edge, 3, interpolation, values);
+        }
+        out << "]}";
+        return new std::string(out.str());
+    }, err, size);
+}
+const char *fold_ocio_gpu_json(void *p) noexcept { return static_cast<std::string *>(p)->c_str(); }
+void fold_ocio_gpu_drop(void *p) noexcept { delete static_cast<std::string *>(p); }
 void fold_ocio_processor_drop(void *p) noexcept { delete static_cast<Processor *>(p); }
 const char *fold_ocio_processor_id(void *p) noexcept {
     try { return static_cast<Processor *>(p)->cpu->getCacheID(); } catch (...) { return nullptr; }

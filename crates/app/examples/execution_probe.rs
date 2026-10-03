@@ -18,7 +18,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     let frames: u32 = args[3].to_str().ok_or("invalid frame count")?.parse()?;
     let cancel = Cancel::default();
-    let mut project = Project::new(8);
+    let gpu_requested = std::env::var("FOLD_RENDER_BACKEND").as_deref() == Ok("gpu");
+    #[cfg(not(feature = "gpu"))]
+    if gpu_requested {
+        return Err("GPU probe requires --features gpu".into());
+    }
+    let mut project = if gpu_requested {
+        fold_app::color::new_project(8)
+    } else {
+        Project::new(8)
+    };
     let import = |project: &mut Project,
                   path,
                   document,
@@ -105,6 +114,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         &project.snapshot(),
         source.document,
     )?)?;
+    if gpu_requested {
+        project.commit(fold_app::color::set_output(
+            &project.snapshot(),
+            source.document,
+            fold_color::settings::OutputTransform {
+                display: "sRGB - Display".into(),
+                ..Default::default()
+            },
+        )?)?;
+    }
     let snapshot = project.snapshot();
     fold_project::save(&snapshot, &destination)?;
     let packages = fold_app::packages::builtins();
@@ -125,11 +144,91 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         serde_json::json!({"cold_prepare_ms":cold_audio_ms,"warm_prepare_ms":warm_audio_ms,"pcm_usage":audio_decoder.prepared_usage()})
     );
     let mut decoder = Decoder::default();
+    #[cfg(feature = "gpu")]
+    let mut gpu = if gpu_requested {
+        let (host, adapter) =
+            pollster::block_on(fold_render::gpu::Host::headless(512 * 1024 * 1024))?;
+        println!("GPU adapter: {adapter:?}");
+        Some(fold_render::gpu::Renderer::new(host)?)
+    } else {
+        None
+    };
     for pass in ["initial", "repeat"] {
         let mut compile_ms = Vec::new();
         let mut render_ms = Vec::new();
         let mut display_ms = Vec::new();
         for frame in 0..frames {
+            #[cfg(feature = "gpu")]
+            if let Some(renderer) = gpu.as_mut() {
+                let begin = Instant::now();
+                let request = fold_app::media_workflow::SceneRequest {
+                    source: source.clone(),
+                    time: info.time(frame)?,
+                    dimensions: [info.width, info.height],
+                };
+                let scene = fold_app::media_workflow::evaluate_scene_gpu(
+                    &snapshot,
+                    &request,
+                    renderer,
+                    &mut decoder,
+                    &cancel,
+                )?;
+                let mut display = fold_app::color::with_config(&snapshot, |config| {
+                    let processor = config
+                        .unwrap()
+                        .display(fold_color::WORKING_SPACE, &Default::default())?;
+                    renderer.output(&scene, Some(&processor), &cancel)
+                })?;
+                while !display.is_ready()? {
+                    renderer.host().poll()?;
+                    if begin.elapsed().as_secs() > 30 {
+                        return Err("GPU frame timeout".into());
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(1));
+                }
+                println!(
+                    "gpu frame={frame} pass={pass} wall_ms={:.3} gpu_ms={:?} transfers={:?} memory={:?}",
+                    begin.elapsed().as_secs_f64() * 1000.,
+                    display.gpu_nanoseconds()?.map(|v| v / 1e6),
+                    display.statistics,
+                    renderer.host().memory()
+                );
+                if frame == 0 {
+                    let actual = display.readback(&cancel)?;
+                    let reference = fold_app::media_workflow::evaluate_scene(
+                        &snapshot,
+                        &request,
+                        &mut decoder,
+                        &cancel,
+                    )?
+                    .over_black();
+                    let expected = fold_app::color::preview(&snapshot, &reference)?;
+                    let error = actual
+                        .rgba()
+                        .iter()
+                        .zip(expected.rgba())
+                        .map(|(a, b)| a.abs_diff(*b))
+                        .max()
+                        .unwrap();
+                    println!("CPU/GPU output max_code_error={error}");
+                    if error > 1 {
+                        return Err("CPU/GPU pre-encode error exceeds one SDR code".into());
+                    }
+                    let delivery = fold_app::color::with_config(&snapshot, |config| {
+                        let p = config.unwrap().display(
+                            fold_color::WORKING_SPACE,
+                            &fold_platform::color::output(&snapshot, source.document)?
+                                .display_transform(),
+                        )?;
+                        renderer.output(&scene, Some(&p), &cancel)
+                    })?
+                    .readback(&cancel)?;
+                    if actual.rgba() != delivery.rgba() {
+                        return Err("matched GPU preview/delivery differ".into());
+                    }
+                }
+                continue;
+            }
             let begin = Instant::now();
             let graph = packages.video_with(
                 &snapshot,
@@ -151,6 +250,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "video {}",
             serde_json::json!({"pass":pass,"frames":frames,"compile_ms":compile_ms,"decode_render_ms":render_ms,"display_ms":display_ms})
         );
+    }
+    if gpu_requested {
+        let path = destination.with_extension("mp4");
+        fold_app::media_workflow::export(&project.snapshot(), &path, 0, frames.min(4), &cancel)?;
+        println!("GPU explicit-output export: {}", path.display());
     }
     Ok(())
 }

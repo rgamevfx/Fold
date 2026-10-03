@@ -190,6 +190,36 @@ pub(crate) struct Processor {
     handle: NonNull<c_void>,
 }
 impl Processor {
+    pub(crate) fn gpu(&self) -> Result<crate::GpuShader, String> {
+        type Extract = unsafe extern "C" fn(Handle, *mut c_char, usize) -> Handle;
+        // Optional ABI extension: existing CPU packages remain usable, while
+        // GPU selection reports an actionable error for an older bridge.
+        unsafe {
+            let extract = self
+                .api
+                ._library
+                .get::<Extract>(b"fold_ocio_gpu\0")
+                .map_err(|_| "OCIO runtime lacks GPU support; rebuild the private color package")?;
+            let json = self
+                .api
+                ._library
+                .get::<IdFn>(b"fold_ocio_gpu_json\0")
+                .map_err(|e| e.to_string())?;
+            let drop = self
+                .api
+                ._library
+                .get::<DropHandle>(b"fold_ocio_gpu_drop\0")
+                .map_err(|e| e.to_string())?;
+            let mut err = [0; 4096];
+            let handle = extract(self.handle.as_ptr(), err.as_mut_ptr(), err.len());
+            if handle.is_null() {
+                return Err(error(&err));
+            }
+            let text = owned(json(handle));
+            drop(handle);
+            serde_json::from_str(&text?).map_err(|e| e.to_string())
+        }
+    }
     pub(crate) fn id(&self) -> Result<String, String> {
         owned(unsafe { (self.api.id)(self.handle.as_ptr()) })
     }

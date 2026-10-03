@@ -1,6 +1,6 @@
 //! Physical frame metadata is descriptive, never permission to borrow storage.
-//! `Frame` owns ready CPU pixels today. GPU/external leases and completion tokens
-//! are opaque host-service identities; panels cannot derive a pointer from them.
+//! `Frame` owns ready CPU pixels; the optional GPU backend owns scene-image
+//! leases. Lease/completion identities never let panels derive a pointer.
 use fold_foundation::Time;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Alpha {
@@ -29,7 +29,7 @@ pub struct Timing {
 pub enum Storage {
     /// Owned by the returned Frame; borrowing cannot outlive that owner.
     CpuOwned,
-    /// Future host render-resource service leases. Descriptor IDs confer no
+    /// Host render-resource service leases. Descriptor IDs confer no
     /// access and do not establish completion or authorize resource recycling.
     GpuLease {
         device: u64,
