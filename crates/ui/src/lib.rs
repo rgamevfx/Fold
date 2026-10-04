@@ -12,6 +12,7 @@ pub mod sdk;
 mod shell;
 mod target_selector;
 mod transport;
+mod viewer_source;
 mod workspace_store;
 
 // Dear ImGui permits only one owning thread at a time, including headless tests.

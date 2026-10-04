@@ -1,9 +1,9 @@
-//! Version-1 explicit-follow bindings become link groups without changing targets.
+//! Upgrade explicit-follow and single-owner groups to independent viewer sources.
 use super::{LinkGroup, PanelInstanceId};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 
-pub(super) fn upgrade(mut value: Value) -> Result<Value, String> {
+fn upgrade_legacy(mut value: Value) -> Result<Value, String> {
     match value.get("version").and_then(Value::as_u64) {
         Some(3) => return Ok(value),
         Some(2) => {
@@ -78,5 +78,91 @@ pub(super) fn upgrade(mut value: Value) -> Result<Value, String> {
     value["group_sources"] = Value::Object(groups);
     value["inspector_group"] = json!(inspector_group);
     value["version"] = json!(3);
+    Ok(value)
+}
+
+pub(super) fn upgrade(value: Value) -> Result<Value, String> {
+    if value.get("version").and_then(Value::as_u64) == Some(4) {
+        return Ok(value);
+    }
+    let mut value = upgrade_legacy(value)?;
+    let sources = value["group_sources"]
+        .as_object()
+        .cloned()
+        .unwrap_or_default();
+    let editors = value["editors"].as_object_mut().ok_or("missing editors")?;
+    let mut occupied = std::collections::BTreeSet::new();
+    let mut ids: Vec<_> = editors.keys().cloned().collect();
+    ids.sort_by_key(|id| id.parse::<u64>().unwrap_or(0));
+    for id in ids {
+        let e = editors.get_mut(&id).unwrap();
+        let contribution = e["contribution"].as_str().unwrap_or("").to_owned();
+        let group = e["group"].as_str().unwrap_or("A").to_owned();
+        let group = if occupied.contains(&(group.clone(), contribution.clone())) {
+            ["A", "B", "C", "D"]
+                .into_iter()
+                .find(|g| !occupied.contains(&(g.to_string(), contribution.clone())))
+                .unwrap_or("Unlinked")
+                .to_owned()
+        } else {
+            group
+        };
+        if group != "Unlinked" {
+            occupied.insert((group.clone(), contribution));
+        }
+        e["group"] = json!(group);
+    }
+    let editors = editors.clone();
+    for viewer in value["viewers"]
+        .as_object_mut()
+        .ok_or("missing viewers")?
+        .values_mut()
+    {
+        if viewer["binding"] == "Linked" {
+            let group = viewer["group"].as_str().unwrap_or("A");
+            if let Some(editor) = sources
+                .get(group)
+                .and_then(Value::as_u64)
+                .and_then(|id| editors.get(&id.to_string()))
+            {
+                viewer["source"] = editor["contribution"].clone();
+                viewer["group"] = editor["group"].clone();
+                if editor["group"] != "Unlinked" {
+                    continue;
+                }
+                if let Some(document) = editor["navigation"]
+                    .as_array()
+                    .and_then(|n| n.last())
+                    .and_then(|n| n.get("document"))
+                {
+                    viewer["binding"] =
+                        json!({"Pinned": {"document": document, "output": "video"}});
+                    continue;
+                }
+            }
+            viewer["binding"] = viewer
+                .get("last_output")
+                .filter(|o| !o.is_null())
+                .map(|o| json!({"Pinned": o}))
+                .unwrap_or(json!("Unbound"));
+        }
+    }
+    let inspected = value["inspector_group"].as_str().unwrap_or("A");
+    if let Some(editor) = sources
+        .get(inspected)
+        .and_then(Value::as_u64)
+        .and_then(|id| editors.get(&id.to_string()))
+    {
+        value["inspector_group"] = editor["group"].clone();
+    }
+    let mut selections = serde_json::Map::new();
+    for id in sources.values() {
+        if let Some(editor) = id.as_u64().and_then(|id| editors.get(&id.to_string())) {
+            selections.insert(editor["group"].as_str().unwrap_or("A").into(), id.clone());
+        }
+    }
+    value.as_object_mut().unwrap().remove("group_sources");
+    value["group_selections"] = Value::Object(selections);
+    value["version"] = json!(4);
     Ok(value)
 }

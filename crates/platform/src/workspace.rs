@@ -76,6 +76,7 @@ pub enum LinkGroup {
     B,
     C,
     D,
+    Unlinked,
 }
 impl LinkGroup {
     pub const ALL: [Self; 4] = [Self::A, Self::B, Self::C, Self::D];
@@ -85,6 +86,7 @@ impl LinkGroup {
             Self::B => "B",
             Self::C => "C",
             Self::D => "D",
+            Self::Unlinked => "Unlinked",
         }
     }
 }
@@ -156,13 +158,16 @@ pub struct ViewerInstance {
     #[serde(default)]
     pub group: LinkGroup,
     pub binding: ViewerBinding,
+    /// Stable editor contribution followed within the selected group.
+    #[serde(default)]
+    pub source: Option<String>,
     pub last_output: Option<DocumentRef>,
     /// Transient routing identity: nested mapping applies only within the same
     /// source editor, not when joining a different group or source.
     #[serde(skip)]
     pub last_editor: Option<PanelInstanceId>,
-    /// Optional direct-tool association for pinned outputs. Linked viewers use
-    /// their group's source editor, never an association inferred from focus.
+    /// Optional direct-tool association for unlinked outputs. Linked viewers use
+    /// their chosen editor type within the group, never window focus.
     pub editor: Option<PanelInstanceId>,
     pub time: Time,
     pub divisor: u32,
@@ -181,6 +186,7 @@ impl Default for ViewerInstance {
             playback_mode: None,
             group: LinkGroup::A,
             binding: ViewerBinding::Linked,
+            source: None,
             last_output: None,
             last_editor: None,
             editor: None,
@@ -204,9 +210,11 @@ pub struct Workspace {
     pub viewers: BTreeMap<PanelInstanceId, ViewerInstance>,
     pub focused_editor: Option<PanelInstanceId>,
     #[serde(default)]
-    pub group_sources: BTreeMap<LinkGroup, PanelInstanceId>,
+    pub group_selections: BTreeMap<LinkGroup, PanelInstanceId>,
     #[serde(default)]
     pub inspector_group: LinkGroup,
+    #[serde(default)]
+    pub inspector_lock: Option<(PanelInstanceId, EditorInstance)>,
     #[serde(default)]
     pub inspector_viewer: Option<PanelInstanceId>,
     #[serde(default)]
@@ -219,14 +227,15 @@ pub struct Workspace {
 impl Default for Workspace {
     fn default() -> Self {
         Self {
-            version: 3,
+            version: 4,
             project: String::new(),
             panels: Default::default(),
             editors: Default::default(),
             viewers: Default::default(),
             focused_editor: None,
-            group_sources: Default::default(),
+            group_selections: Default::default(),
             inspector_group: LinkGroup::A,
+            inspector_lock: None,
             inspector_viewer: None,
             monitored_viewer: None,
             monitor_initialized: false,
@@ -254,11 +263,20 @@ impl Workspace {
         id
     }
     pub fn add_editor(&mut self, contribution: &str, document_type: &str) -> PanelInstanceId {
+        let group = LinkGroup::ALL
+            .into_iter()
+            .find(|group| {
+                !self
+                    .editors
+                    .values()
+                    .any(|e| e.group == *group && e.contribution == contribution)
+            })
+            .unwrap_or(LinkGroup::Unlinked);
         let id = self.allocate();
         self.editors.insert(
             id,
             EditorInstance {
-                group: LinkGroup::A,
+                group,
                 contribution: contribution.into(),
                 document_type: document_type.into(),
                 navigation: vec![],
@@ -268,11 +286,24 @@ impl Workspace {
         );
         id
     }
-    pub fn add_viewer(&mut self, viewer: ViewerInstance) -> PanelInstanceId {
+    pub fn add_viewer(&mut self, mut viewer: ViewerInstance) -> PanelInstanceId {
         let id = self.allocate();
         if !self.monitor_initialized {
             self.monitored_viewer = Some(id);
             self.monitor_initialized = true;
+        }
+        if viewer.binding == ViewerBinding::Linked && viewer.source.is_none() {
+            viewer.source = self
+                .group_selections
+                .get(&viewer.group)
+                .and_then(|id| self.editors.get(id))
+                .map(|e| e.contribution.clone())
+                .or_else(|| {
+                    self.editors
+                        .values()
+                        .find(|e| e.group == viewer.group && e.document().is_some())
+                        .map(|e| e.contribution.clone())
+                });
         }
         self.viewers.insert(id, viewer);
         id
@@ -281,66 +312,161 @@ impl Workspace {
         let viewer = self.viewers.get(&id)?;
         match &viewer.binding {
             ViewerBinding::Pinned(output) => Some(output.clone()),
-            ViewerBinding::Linked => self
-                .editors
-                .get(self.group_sources.get(&viewer.group)?)?
-                .output(),
+            ViewerBinding::Linked => self.editors.get(&self.linked_editor(id)?)?.output(),
             ViewerBinding::Unbound => None,
         }
     }
-    /// A group source is chosen explicitly, never by window focus.
-    pub fn publish(&mut self, editor: PanelInstanceId) {
+    /// Record explicit selection/navigation without retargeting existing viewers.
+    pub fn record_selection(&mut self, editor: PanelInstanceId) {
         if let Some(binding) = self.editors.get(&editor) {
-            self.group_sources.insert(binding.group, editor);
+            self.group_selections.insert(binding.group, editor);
+            for viewer in self.viewers.values_mut().filter(|v| {
+                v.group == binding.group && v.binding == ViewerBinding::Linked && v.source.is_none()
+            }) {
+                viewer.source = Some(binding.contribution.clone());
+            }
         }
     }
-    fn detach_group(&mut self, group: LinkGroup) {
-        self.reconcile();
-        self.group_sources.remove(&group);
-        for viewer in self
+    pub fn can_join_group(&self, editor: PanelInstanceId, group: LinkGroup) -> bool {
+        group == LinkGroup::Unlinked
+            || self.editors.get(&editor).is_some_and(|e| {
+                !self.editors.iter().any(|(id, other)| {
+                    *id != editor && other.group == group && other.contribution == e.contribution
+                })
+            })
+    }
+    pub fn set_editor_group(&mut self, editor: PanelInstanceId, group: LinkGroup) {
+        if !self.can_join_group(editor, group) {
+            return;
+        }
+        let Some(previous) = self.editors.get(&editor).map(|e| e.group) else {
+            return;
+        };
+        if previous == group {
+            return;
+        }
+        let followers: Vec<_> = self
             .viewers
-            .values_mut()
-            .filter(|v| v.group == group && v.binding == ViewerBinding::Linked)
-        {
-            viewer.binding = viewer
-                .last_output
-                .clone()
+            .keys()
+            .copied()
+            .filter(|id| self.linked_editor(*id) == Some(editor))
+            .collect();
+        for viewer in followers {
+            self.unlink_viewer(viewer);
+        }
+        self.editors.get_mut(&editor).unwrap().group = group;
+        self.group_selections.retain(|_, id| *id != editor);
+    }
+    pub fn set_viewer_group(&mut self, viewer: PanelInstanceId, group: LinkGroup) {
+        if group == LinkGroup::Unlinked {
+            self.unlink_viewer(viewer);
+            return;
+        }
+        let default_source = self
+            .group_selections
+            .get(&group)
+            .and_then(|id| self.editors.get(id))
+            .map(|e| e.contribution.clone());
+        if let Some(viewer) = self.viewers.get_mut(&viewer) {
+            viewer.group = group;
+            viewer.binding = ViewerBinding::Linked;
+            viewer.editor = None;
+            if viewer.source.is_none() {
+                viewer.source = default_source;
+            }
+        }
+    }
+    pub fn follow_source(&mut self, viewer: PanelInstanceId, editor: PanelInstanceId) {
+        let Some(editor) = self.editors.get(&editor) else {
+            return;
+        };
+        if editor.group == LinkGroup::Unlinked {
+            return;
+        }
+        if let Some(viewer) = self.viewers.get_mut(&viewer) {
+            viewer.group = editor.group;
+            viewer.source = Some(editor.contribution.clone());
+            viewer.binding = ViewerBinding::Linked;
+            viewer.editor = None;
+        }
+    }
+    pub fn pin_output(&mut self, viewer: PanelInstanceId, output: DocumentRef) {
+        let mut candidates = self
+            .editors
+            .iter()
+            .filter(|(_, e)| e.output().as_ref() == Some(&output));
+        let editor = candidates
+            .next()
+            .filter(|_| candidates.next().is_none())
+            .map(|(&id, _)| id);
+        let source = editor.map(|id| self.editors[&id].contribution.clone());
+        if let Some(viewer) = self.viewers.get_mut(&viewer) {
+            viewer.binding = ViewerBinding::Pinned(output);
+            viewer.editor = editor;
+            viewer.source = source;
+        }
+    }
+    pub fn unlink_viewer(&mut self, id: PanelInstanceId) {
+        let output = self
+            .resolve(id)
+            .or_else(|| self.viewers.get(&id)?.last_output.clone());
+        if let Some(viewer) = self.viewers.get_mut(&id) {
+            viewer.binding = output
                 .map(ViewerBinding::Pinned)
                 .unwrap_or(ViewerBinding::Unbound);
             viewer.editor = None;
         }
     }
-    pub fn set_editor_group(&mut self, editor: PanelInstanceId, group: LinkGroup) {
-        let Some(previous) = self.editors.get(&editor).map(|e| e.group) else {
-            return;
-        };
-        if previous != group && self.group_sources.get(&previous) == Some(&editor) {
-            self.detach_group(previous);
+    fn linked_editor(&self, id: PanelInstanceId) -> Option<PanelInstanceId> {
+        let viewer = self.viewers.get(&id)?;
+        if viewer.binding != ViewerBinding::Linked || viewer.group == LinkGroup::Unlinked {
+            return None;
         }
-        self.editors.get_mut(&editor).unwrap().group = group;
-        self.publish(editor);
-    }
-    pub fn set_viewer_group(&mut self, viewer: PanelInstanceId, group: LinkGroup) {
-        if let Some(viewer) = self.viewers.get_mut(&viewer) {
-            viewer.group = group;
-            viewer.binding = ViewerBinding::Linked;
-            viewer.editor = None;
-        }
+        let source = viewer.source.as_ref()?;
+        self.editors
+            .iter()
+            .find(|(_, e)| e.group == viewer.group && &e.contribution == source)
+            .map(|(&id, _)| id)
     }
     pub fn editor_for_viewer(&self, viewer: PanelInstanceId) -> Option<PanelInstanceId> {
         let v = self.viewers.get(&viewer)?;
         let editor = if v.binding == ViewerBinding::Linked {
-            self.group_sources.get(&v.group).copied()
+            self.linked_editor(viewer)
         } else {
             v.editor
         }?;
         (self.editors.get(&editor)?.output() == self.resolve(viewer)).then_some(editor)
     }
     pub fn inspector_editor(&self) -> Option<PanelInstanceId> {
-        self.group_sources
+        if let Some((id, _)) = &self.inspector_lock {
+            return Some(*id);
+        }
+        self.group_selections
             .get(&self.inspector_group)
             .copied()
             .filter(|id| self.editors.contains_key(id))
+            .or_else(|| {
+                self.editors
+                    .iter()
+                    .find(|(_, e)| e.group == self.inspector_group && e.document().is_some())
+                    .map(|(&id, _)| id)
+            })
+    }
+    pub fn toggle_inspector_lock(&mut self) {
+        if self.inspector_lock.is_some() {
+            self.inspector_lock = None;
+        } else {
+            let time = self.inspector_context().map(|(_, time)| time);
+            self.inspector_lock = self.inspector_editor().and_then(|id| {
+                let mut binding = self.editors.get(&id)?.clone();
+                if let Some(time) = time
+                    && let Some(location) = binding.navigation.last_mut()
+                {
+                    location.time = time;
+                }
+                Some((id, binding))
+            });
+        }
     }
     pub fn viewer_for_editor(&self, editor: PanelInstanceId) -> Result<PanelInstanceId, String> {
         let output = self
@@ -368,12 +494,37 @@ impl Workspace {
             _ => Err("Select a viewer to choose the edit-time context".into()),
         }
     }
-    /// The inspector uses its group's source and one unambiguous/explicitly
-    /// selected viewer clock, never the last focused editor or completed request.
+    /// Inspection follows group selection or a locked selection. Use its matching
+    /// viewer clock, or explicit editor-local time when that output is not viewed.
+    /// Multiple matching clocks require an explicit viewer choice.
     pub fn inspector_context(&self) -> Option<(PanelInstanceId, Time)> {
         let editor = self.inspector_editor()?;
-        let viewer = self.viewer_for_editor(editor).ok()?;
-        Some((editor, self.viewers[&viewer].time))
+        let binding = self
+            .inspector_lock
+            .as_ref()
+            .map(|(_, e)| e)
+            .or_else(|| self.editors.get(&editor))?;
+        let candidates: Vec<_> = self
+            .viewers
+            .iter()
+            .filter(|(id, _)| {
+                self.editor_for_viewer(**id) == Some(editor)
+                    && self.resolve(**id) == binding.output()
+            })
+            .collect();
+        let time = if let Some((_, viewer)) = candidates
+            .iter()
+            .find(|(id, _)| Some(**id) == self.inspector_viewer)
+        {
+            viewer.time
+        } else {
+            match candidates.as_slice() {
+                [(_, viewer)] => viewer.time,
+                [] => binding.navigation.last()?.time,
+                _ => return None,
+            }
+        };
+        Some((editor, time))
     }
     pub fn reconcile(&mut self) {
         if self
@@ -391,26 +542,30 @@ impl Workspace {
             let viewer = self.viewers.get_mut(&id).unwrap();
             if let Some(output) = output {
                 viewer.last_output = Some(output);
-            } else if viewer.binding == ViewerBinding::Linked
-                && self
-                    .group_sources
-                    .get(&viewer.group)
-                    .is_some_and(|editor| !self.editors.contains_key(editor))
-            {
-                viewer.binding = viewer
-                    .last_output
-                    .clone()
-                    .map(ViewerBinding::Pinned)
-                    .unwrap_or(ViewerBinding::Unbound);
-                viewer.editor = None;
             }
         }
-        self.group_sources
+        self.group_selections
             .retain(|_, id| self.editors.contains_key(id));
     }
     pub fn close_editor(&mut self, id: PanelInstanceId) {
         self.reconcile(); // Capture the last target before removing its owner.
+        let followers: Vec<_> = self
+            .viewers
+            .keys()
+            .copied()
+            .filter(|viewer| self.linked_editor(*viewer) == Some(id))
+            .collect();
+        for viewer in followers {
+            self.unlink_viewer(viewer);
+        }
         self.editors.remove(&id);
+        if self
+            .inspector_lock
+            .as_ref()
+            .is_some_and(|(owner, _)| *owner == id)
+        {
+            self.inspector_lock = None;
+        }
         if self.focused_editor == Some(id) {
             self.focused_editor = None;
         }
@@ -428,7 +583,7 @@ impl Workspace {
         let json = serde_json::from_slice(bytes).map_err(|e| e.to_string())?;
         let mut value: Self =
             serde_json::from_value(migration::upgrade(json)?).map_err(|e| e.to_string())?;
-        if value.version != 3 || value.project != project {
+        if value.version != 4 || value.project != project {
             return Err("incompatible workspace or project association".into());
         }
         if value.panels.len() + value.editors.len() + value.viewers.len() > 64
@@ -441,15 +596,26 @@ impl Workspace {
                 e.navigation.len() > 64 || e.navigation.iter().any(|v| v.time < Time::ZERO)
             })
             || value
-                .group_sources
+                .group_selections
                 .iter()
                 .any(|(group, id)| value.editors.get(id).is_some_and(|e| e.group != *group))
+            || value.inspector_lock.as_ref().is_some_and(|(id, e)| {
+                !value.editors.contains_key(id)
+                    || e.navigation.len() > 64
+                    || e.navigation.iter().any(|v| v.time < Time::ZERO)
+            })
             || value
                 .viewers
                 .values()
                 .any(|v| ![1, 2, 4].contains(&v.divisor) || v.time < Time::ZERO)
         {
             return Err("invalid workspace instances".into());
+        }
+        let mut occupied = std::collections::BTreeSet::new();
+        if value.editors.values().any(|e| {
+            e.group != LinkGroup::Unlinked && !occupied.insert((e.group, e.contribution.clone()))
+        }) {
+            return Err("duplicate editor type in panel group".into());
         }
         let max = value
             .editors
@@ -507,11 +673,12 @@ mod tests {
         assert_eq!(restored.viewers[&b].playback_mode, None);
         let mut legacy = serde_json::to_value(&w).unwrap();
         legacy["version"] = serde_json::json!(2);
+        legacy["group_sources"] = legacy["group_selections"].take();
         for viewer in legacy["viewers"].as_object_mut().unwrap().values_mut() {
             viewer.as_object_mut().unwrap().remove("playback_mode");
         }
         let migrated = Workspace::decode(&serde_json::to_vec(&legacy).unwrap(), "").unwrap();
-        assert_eq!(migrated.version, 3);
+        assert_eq!(migrated.version, 4);
         assert!(
             migrated
                 .viewers
@@ -563,7 +730,7 @@ mod tests {
             .get_mut(&b)
             .unwrap()
             .bind(location(root, Time::ZERO));
-        w.publish(a);
+        w.record_selection(a);
         let x = w.add_viewer(ViewerInstance {
             binding: ViewerBinding::Linked,
             editor: Some(a),

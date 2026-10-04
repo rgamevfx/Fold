@@ -89,7 +89,7 @@ impl Shell {
         }
         let first = workspace.editors.keys().next().copied();
         if let Some(first) = first {
-            workspace.publish(first);
+            workspace.record_selection(first);
         }
         workspace.add_viewer(ViewerInstance::default());
         let viewer = WindowKey::new("fold.viewer.main", "Viewer").unwrap();
@@ -571,7 +571,7 @@ impl Shell {
             editor.selection.document = Some(document.id);
             self.focus = Some(id);
             self.workspace.focused_editor = Some(id);
-            self.workspace.publish(id);
+            self.workspace.record_selection(id);
         }
     }
     pub fn controls(
@@ -647,7 +647,10 @@ impl Shell {
                         .map(|(&id, _)| id)
                 });
                 if let Some(editor) = editor {
-                    self.workspace.publish(editor);
+                    self.workspace.record_selection(editor);
+                    if let Some(&viewer) = self.workspace.viewers.keys().next() {
+                        self.workspace.follow_source(viewer, editor);
+                    }
                 } else if let Some(document) = target
                     && let Some(viewer) = self.workspace.viewers.values_mut().next()
                 {
@@ -720,10 +723,11 @@ impl Shell {
                 self.rebuild_layout();
             }
             if let Some(id) = duplicate {
-                let editor = self.workspace.editors[&id].clone();
+                let mut editor = self.workspace.editors[&id].clone();
                 let new = self
                     .workspace
                     .add_editor(&editor.contribution, &editor.document_type);
+                editor.group = self.workspace.editors[&new].group;
                 self.workspace.editors.insert(new, editor);
                 self.focus = Some(new);
                 self.sync_instances();
@@ -766,6 +770,12 @@ impl Shell {
         let mut close_editor = None;
         let mut group_changes = Vec::new();
         let mut publish = Vec::new();
+        let memberships: Vec<_> = self
+            .workspace
+            .editors
+            .iter()
+            .map(|(&id, e)| (id, e.group, e.contribution.clone()))
+            .collect();
         for (&id, binding) in &mut self.workspace.editors {
             let choices = client
                 .snapshot()
@@ -801,7 +811,7 @@ impl Shell {
                 });
             let visible = ui.window(&key).focused(self.focus == Some(id)).build(|| {
                 if ui.is_window_focused() { self.workspace.focused_editor = Some(id); }
-                if let Some(group) = group_selector::draw(ui, binding.group, self.workspace.group_sources.get(&binding.group) == Some(&id)) { group_changes.push((id, group)); }
+                if let Some(group) = group_selector::draw_choices(ui, binding.group, |group| group == workspace::LinkGroup::Unlinked || !memberships.iter().any(|(other, occupied, contribution)| *other != id && *occupied == group && *contribution == binding.contribution)) { group_changes.push((id, group)); }
                 ui.same_line();
                 if let Some(action) = target_selector::draw(ui, &label, binding.navigation.len() > 1, &choices) {
                     client.command(DesktopCommand::CancelPreviewEdit);
@@ -815,7 +825,6 @@ impl Shell {
                     }
                 }
                 if let Some(_popup) = ui.begin_popup_context_window() {
-                    if ui.menu_item("Use as group source") { publish.push(id); }
                     if ui.menu_item("Close editor") { close_editor = Some(id); }
                 }
                 if let Some(editor) = self.editors.get_mut(&id)
@@ -827,6 +836,7 @@ impl Shell {
                     let mut context = PanelContext::new(client, &mut scoped).instance(id);
                     editor.panels.editor.draw(ExtensionUi { ui, host: &mut context });
                     if let Some(time) = context.seek_request() { seeks.push((id, time)); }
+                    if context.selection_requested() { publish.push(id); }
                     drop(context);
                     binding.selection = scoped.selection.clone();
                     if scoped.navigation != navigation { publish.push(id); binding.navigation = scoped.navigation; binding.document_type = scoped.document_type; binding.mapped_navigation = scoped.mapped_navigation; }
@@ -840,7 +850,7 @@ impl Shell {
             self.workspace.set_editor_group(id, group);
         }
         for id in publish {
-            self.workspace.publish(id);
+            self.workspace.record_selection(id);
         }
         for (editor, time) in seeks {
             self.seek_from_editor(editor, time, client);
@@ -878,16 +888,40 @@ impl Shell {
                         || registered.descriptor.id == crate::sdk::animation_editor::PANEL_ID
                     {
                         if let Some(group) =
-                            group_selector::draw(ui, self.workspace.inspector_group, false)
+                            group_selector::draw(ui, self.workspace.inspector_group)
                         {
                             self.workspace.inspector_group = group;
+                            self.workspace.inspector_lock = None;
                         }
+                        ui.same_line();
+                        let locked = self.workspace.inspector_lock.is_some();
+                        if crate::sdk::toolbar::icon_button(
+                            ui,
+                            "inspector-lock",
+                            if locked {
+                                crate::sdk::toolbar::ToolbarIcon::Lock
+                            } else {
+                                crate::sdk::toolbar::ToolbarIcon::Unlock
+                            },
+                            if locked {
+                                "Unlock inspected selection"
+                            } else {
+                                "Lock inspected selection"
+                            },
+                        ) {
+                            self.workspace.toggle_inspector_lock();
+                        }
+                        let locked_binding = self
+                            .workspace
+                            .inspector_lock
+                            .as_ref()
+                            .map(|(_, binding)| binding.clone());
                         let inspector_context = self.workspace.inspector_context();
                         if let Some(id) = self.workspace.inspector_editor()
                             && let Some(binding) = self.workspace.editors.get_mut(&id)
-                            && registered
-                                .panel
-                                .supports_document_type(&binding.document_type)
+                            && registered.panel.supports_document_type(
+                                &locked_binding.as_ref().unwrap_or(binding).document_type,
+                            )
                             && let Some(editor) = self.editors.get_mut(&id)
                         {
                             if editor.panels.editor.supports_animation()
@@ -903,7 +937,8 @@ impl Shell {
                                 id.0, self.workspace.inspector_viewer
                             );
                             let _scope = ui.push_id(&scope);
-                            let mut scoped = binding.clone();
+                            let mut scoped =
+                                locked_binding.clone().unwrap_or_else(|| binding.clone());
                             if let Some((owner, time)) = inspector_context
                                 && owner == id
                                 && let Some(location) = scoped.navigation.last_mut()
@@ -927,15 +962,19 @@ impl Shell {
                                 seeks.push((id, time));
                             }
                             drop(context);
-                            binding.selection = scoped.selection.clone();
-                            if scoped.navigation != navigation {
+                            if locked_binding.is_some() {
+                                self.workspace.inspector_lock = Some((id, scoped.clone()));
+                            } else {
+                                binding.selection = scoped.selection.clone();
+                            }
+                            if locked_binding.is_none() && scoped.navigation != navigation {
                                 binding.navigation = scoped.navigation;
                                 binding.document_type = scoped.document_type;
                                 binding.mapped_navigation = scoped.mapped_navigation;
                                 publish.push(id);
                             }
                         } else {
-                            ui.text_disabled("Choose a source editor for this group.");
+                            ui.text_disabled("Select an object in an editor in this group.");
                         }
                     } else {
                         let id = self
@@ -960,10 +999,24 @@ impl Shell {
             }
         }
         for id in publish {
-            self.workspace.publish(id);
+            self.workspace.record_selection(id);
         }
         for (editor, time) in seeks {
-            self.seek_from_editor(editor, time, client);
+            if let Some((owner, locked)) = &mut self.workspace.inspector_lock
+                && *owner == editor
+                && self
+                    .workspace
+                    .editors
+                    .get(&editor)
+                    .and_then(EditorInstance::document)
+                    != locked.document()
+            {
+                if let Some(location) = locked.navigation.last_mut() {
+                    location.time = time;
+                }
+            } else {
+                self.seek_from_editor(editor, time, client);
+            }
         }
         self.refresh_viewer_targets(client);
         for (&id, contribution) in &self.workspace.panels {
@@ -1206,7 +1259,24 @@ impl Shell {
                 binding.time = time;
                 self.submit_viewer(viewer, client);
             }
-            Err(error) => client.command(DesktopCommand::Notify(error)),
+            Err(error) => {
+                let has_viewer = self
+                    .workspace
+                    .viewers
+                    .keys()
+                    .any(|id| self.workspace.editor_for_viewer(*id) == Some(editor));
+                if !has_viewer
+                    && let Some(location) = self
+                        .workspace
+                        .editors
+                        .get_mut(&editor)
+                        .and_then(|e| e.navigation.last_mut())
+                {
+                    location.time = time;
+                } else {
+                    client.command(DesktopCommand::Notify(error));
+                }
+            }
         }
     }
     fn viewer_channel_selector(
@@ -1281,48 +1351,71 @@ impl Shell {
         );
     }
     fn viewer_header(&mut self, ui: &Ui, id: PanelInstanceId, client: &mut dyn DesktopClient) {
-        let compact = ui.content_region_avail()[0] < 400.;
-        let group = self.workspace.viewers[&id].group;
-        if let Some(group) = group_selector::draw(ui, group, false) {
-            self.workspace.set_viewer_group(id, group);
-            self.refresh_viewer_targets(client);
-        }
-        self.viewer_channel_selector(ui, id, client, compact);
-        let viewer = &self.workspace.viewers[&id];
-        let mode = client.viewer_transport(id).map_or_else(
-            || self.playback_mode(id, client),
-            |transport| transport.mode,
-        );
-        ui.same_line();
-        let mode_label = match mode {
-            fold_platform::desktop::PlaybackMode::RealTime => "Real-time",
-            fold_platform::desktop::PlaybackMode::EveryFrame => "Every-frame",
+        let width = ui.content_region_avail()[0];
+        let compact = width < 540.;
+        let labels = client
+            .snapshot()
+            .map(|s| workspace::document_labels(&s))
+            .unwrap_or_default();
+        let reserved = if compact {
+            (ui.frame_height() + 4.)
+                .max(ui.calc_text_size("1/2")[0] + ui.clone_style().frame_padding()[0] * 2.)
+                + ui.clone_style().item_spacing()[0]
+        } else {
+            190.
         };
+        let source_changed = crate::viewer_source::draw(
+            ui,
+            &mut self.workspace,
+            id,
+            &labels,
+            reserved,
+            |document| client.outputs(document),
+        );
         if compact {
-            if ui.small_button("…##viewer-status") {
-                ui.open_popup("viewer-status");
-            }
-            crate::sdk::toolbar::tooltip(ui, &format!("Playback mode: {mode_label}"));
-            if let Some(_popup) = ui.begin_popup("viewer-status") {
-                ui.text(format!("Playback mode: {mode_label}"));
+            ui.same_line();
+            let divisor = self.workspace.viewers[&id].divisor;
+            let popup = if divisor > 1 {
+                let label = if divisor == 2 {
+                    "1/2##viewer-options"
+                } else {
+                    "1/4##viewer-options"
+                };
+                if ui.button(label) {
+                    ui.open_popup("viewer-options");
+                }
+                crate::sdk::toolbar::tooltip(
+                    ui,
+                    "Preview resolution — channels and playback options",
+                );
+                ui.begin_popup("viewer-options")
+            } else {
+                crate::sdk::toolbar::icon_menu(
+                    ui,
+                    "viewer-options",
+                    "Full resolution — channels and playback options",
+                )
+            };
+            if let Some(_popup) = popup {
+                ui.text_disabled("Channels");
+                self.viewer_channel_selector(ui, id, client, false);
+                ui.separator();
+                self.playback_mode_items(ui, id, client);
             }
         } else {
-            ui.text_disabled(mode_label);
+            self.viewer_channel_selector(ui, id, client, false);
+            if self.workspace.viewers[&id].divisor > 1 {
+                ui.same_line();
+                ui.text_disabled(if self.workspace.viewers[&id].divisor == 2 {
+                    "1/2"
+                } else {
+                    "1/4"
+                });
+                crate::sdk::toolbar::tooltip(ui, "Preview resolution");
+            }
         }
-        if self.workspace.monitored_viewer == Some(id)
-            && mode == fold_platform::desktop::PlaybackMode::RealTime
-        {
-            ui.same_line();
-            ui.text_disabled("Audio");
-            crate::sdk::toolbar::tooltip(ui, "Audio monitor — change in the viewer context menu");
-        }
-        if viewer.divisor > 1 {
-            ui.same_line();
-            ui.text_disabled(if viewer.divisor == 2 {
-                "Half"
-            } else {
-                "Quarter"
-            });
+        if source_changed {
+            self.refresh_viewer_targets(client);
         }
         if let Some((_, Some(error))) = self.presentation.get(&id) {
             ui.text_wrapped(error);
@@ -1332,7 +1425,7 @@ impl Shell {
         }
         if let Some(output) = self.workspace.resolve(id) {
             let state = client.preview_state(&output, self.workspace.viewers[&id].time);
-            if state.content.is_none() {
+            if state.content.is_none() && !state.status.is_empty() {
                 ui.text_colored([0.95, 0.55, 0.35, 1.], &state.status);
             }
         }
@@ -1388,29 +1481,15 @@ impl Shell {
                     }
                 }
                 if let Some(output) = self.workspace.resolve(id) {
-                    if ui.menu_item("Pin this output") {
-                        let editor = self.workspace.editor_for_viewer(id);
-                        let viewer = self.workspace.viewers.get_mut(&id).unwrap();
-                        viewer.binding = ViewerBinding::Pinned(output.clone());
-                        viewer.editor = editor;
-                    }
                     if let Some(_menu) = ui.begin_menu("Output") {
                         for descriptor in client.outputs(output.document) {
                             let _disabled = ui.begin_disabled_with_cond(descriptor.info.is_err());
                             if ui.menu_item(descriptor.label) {
-                                self.workspace.viewers.get_mut(&id).unwrap().binding =
-                                    ViewerBinding::Pinned(descriptor.reference);
+                                self.workspace.pin_output(id, descriptor.reference);
                                 self.refresh_viewer_targets(client);
                             }
                         }
                     }
-                }
-                if self.workspace.viewers[&id].binding != ViewerBinding::Linked
-                    && ui.menu_item("Follow group")
-                {
-                    let group = self.workspace.viewers[&id].group;
-                    self.workspace.set_viewer_group(id, group);
-                    self.refresh_viewer_targets(client);
                 }
                 if let Some(_menu) = ui.begin_menu("Playback mode") {
                     self.playback_mode_items(ui, id, client);
@@ -1606,6 +1685,7 @@ impl Shell {
             if let Some(location) = binding.navigation.last_mut() {
                 location.time = viewer.time;
             }
+            let mut selected = false;
             ui.window(&self.viewers[&id]).build(|| {
                 let mut context = PanelContext::new(client, &mut binding).instance(id);
                 editor.panels.editor.draw_viewer_overlay(
@@ -1615,12 +1695,16 @@ impl Shell {
                     },
                     *rect,
                 );
+                selected = context.selection_requested();
             });
             self.workspace
                 .editors
                 .get_mut(&editor_id)
                 .unwrap()
                 .selection = binding.selection;
+            if selected {
+                self.workspace.record_selection(editor_id);
+            }
         }
     }
 }

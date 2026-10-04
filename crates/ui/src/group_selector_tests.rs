@@ -32,7 +32,7 @@ fn letter_control_is_small_at_normal_and_narrow_widths_and_selects_b_by_mouse() 
                 .size([width, 280.], Condition::Always)
                 .build(|| {
                     let origin = ui.cursor_screen_pos();
-                    if let Some(chosen) = draw(ui, group, true) {
+                    if let Some(chosen) = draw(ui, group) {
                         group = chosen;
                     }
                     assert!(
@@ -98,7 +98,7 @@ fn letter_dropdown_has_keyboard_navigation() {
             .position([0.; 2], Condition::Always)
             .size([220., 280.], Condition::Always)
             .build(|| {
-                if let Some(chosen) = draw(ui, group, false) {
+                if let Some(chosen) = draw(ui, group) {
                     group = chosen;
                 }
             });

@@ -446,7 +446,11 @@ impl GraphCanvas {
             })
             .collect();
         let mut events = Vec::new();
-        if selected != graph.selected {
+        let reselected = ui.is_mouse_clicked(MouseButton::Left)
+            && editor
+                .hovered_node()
+                .is_some_and(|node| selected.iter().any(|id| self.ids.nodes[id] == node.raw()));
+        if selected != graph.selected || reselected {
             events.push(GraphEvent::Select(selected.clone()));
         }
         self.selection = selected;

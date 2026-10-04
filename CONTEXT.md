@@ -5,16 +5,20 @@ Workspace navigation links creative panels without changing authored project con
 ## Language
 
 **Panel link group**:
-A named association of editors, viewers and inspectors around one editing source. Membership does not imply shared playback time.
+A named association of editors, viewers and inspectors within one editing context. Membership does not imply shared playback time.
 _Avoid_: Playback group, document group
 
 **Group source**:
-The editor explicitly chosen to supply a panel link group's document output and editing selection. Focus alone does not designate a group source.
+An editor available within a panel link group. Each viewer independently chooses which editor type to follow; inspectors follow explicit selections within the group.
 _Avoid_: Last active panel, global selection
 
-**Pinned output**:
+**Unlinked output**:
 A viewer's fixed document/output reference, independent of subsequent group-source navigation.
 _Avoid_: Delivery output
 
 **Delivery output**:
 The authored project output selected for export, independent of workspace panel navigation.
+
+**Inspector lock**:
+A retained inspected selection, independent of subsequent editor selections and navigation.
+_Avoid_: Viewer pin

@@ -7,6 +7,7 @@ struct Context {
     commits: usize,
     previews: usize,
     cancels: usize,
+    selections: usize,
 }
 impl Context {
     fn new() -> Self {
@@ -60,6 +61,7 @@ impl Context {
             commits: 0,
             previews: 0,
             cancels: 0,
+            selections: 0,
         }
     }
 }
@@ -79,7 +81,10 @@ impl GraphContext for Context {
     }
     fn event(&mut self, event: GraphEvent) -> Result<(), String> {
         match event {
-            GraphEvent::Select(ids) => self.graph.selected = ids,
+            GraphEvent::Select(ids) => {
+                self.selections += 1;
+                self.graph.selected = ids;
+            }
             GraphEvent::PreviewPositions(positions) => {
                 self.previews += 1;
                 for (id, p) in positions {
@@ -307,4 +312,46 @@ fn layout_uses_dependencies_not_node_storage_order() {
         assert!(actual.contains(&position));
     }
     assert!(context.graph.nodes.iter().all(|n| n.position.is_none()));
+}
+
+#[test]
+fn clicking_an_already_selected_node_reasserts_inspection_without_editing() {
+    let _guard = crate::IMGUI_TEST_LOCK.lock().unwrap();
+    let mut context = imgui::Context::create();
+    context.set_ini_filename(None::<String>).unwrap();
+    context
+        .font_atlas()
+        .try_claim_legacy_renderer()
+        .unwrap()
+        .build();
+    context.io_mut().set_display_size([1200., 800.]);
+    context.io_mut().set_delta_time(1. / 60.);
+    let mut canvas = GraphCanvas::default();
+    canvas.initialize(&context);
+    let mut graph = Context::new();
+    frames(&mut context, &mut canvas, &mut graph, 20);
+    let unit = scale(&canvas) / 100.;
+    let point = [
+        canvas.view[0][0] + 80. * unit,
+        canvas.view[0][1] + 20. * unit,
+    ];
+    context.io_mut().add_mouse_pos_event(point);
+    frames(&mut context, &mut canvas, &mut graph, 3);
+    for _ in 0..2 {
+        let before = graph.selections;
+        context
+            .io_mut()
+            .add_mouse_button_event(imgui::MouseButton::Left, true);
+        frames(&mut context, &mut canvas, &mut graph, 3);
+        context
+            .io_mut()
+            .add_mouse_button_event(imgui::MouseButton::Left, false);
+        frames(&mut context, &mut canvas, &mut graph, 3);
+        assert!(
+            graph.selections > before,
+            "explicit re-selection must notify the inspector router"
+        );
+        assert_eq!(graph.graph.selected, vec![graph.graph.nodes[0].id]);
+    }
+    assert_eq!(graph.commits, 0);
 }

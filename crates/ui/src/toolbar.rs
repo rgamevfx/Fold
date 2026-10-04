@@ -14,6 +14,9 @@ pub enum ToolbarIcon {
     List,
     Curve,
     DopeSheet,
+    Unlink,
+    Lock,
+    Unlock,
 }
 
 pub fn tooltip(ui: &Ui, text: &str) {
@@ -28,6 +31,11 @@ pub fn icon_button(ui: &Ui, id: &str, icon: ToolbarIcon, tip: &str) -> bool {
     let size = ui.frame_height();
     let clicked = ui.button_with_size("##action", [size + 4., size]);
     tooltip(ui, tip);
+    draw_icon(ui, icon, p, size);
+    clicked
+}
+
+pub fn draw_icon(ui: &Ui, icon: ToolbarIcon, p: [f32; 2], size: f32) {
     let draw = ui.get_window_draw_list();
     let color = ui.style_color(StyleColor::Text);
     let center = [p[0] + (size + 4.) / 2., p[1] + size / 2.];
@@ -39,6 +47,22 @@ pub fn icon_button(ui: &Ui, id: &str, icon: ToolbarIcon, tip: &str) -> bool {
             .build();
     };
     match icon {
+        ToolbarIcon::Unlink => {
+            line([-1., 0.2], [-1., -0.7]);
+            line([-1., -0.7], [-0.2, -0.7]);
+            line([1., -0.2], [1., 0.7]);
+            line([1., 0.7], [0.2, 0.7]);
+            line([-0.8, 1.], [0.8, -1.]);
+        }
+        ToolbarIcon::Lock | ToolbarIcon::Unlock => {
+            draw.add_rect(point(-0.8, -0.1), point(0.8, 1.), color)
+                .build();
+            line([-0.5, -0.1], [-0.5, -0.9]);
+            line([-0.5, -0.9], [0.5, -0.9]);
+            if matches!(icon, ToolbarIcon::Lock) {
+                line([0.5, -0.9], [0.5, -0.1]);
+            }
+        }
         ToolbarIcon::Curve => {
             for (a, b) in [
                 ([-1., 0.8], [-0.5, 0.6]),
@@ -118,7 +142,6 @@ pub fn icon_button(ui: &Ui, id: &str, icon: ToolbarIcon, tip: &str) -> bool {
             line([-0.6, 1.3], [0.6, 1.3]);
         }
     }
-    clicked
 }
 
 pub fn menu_button<'ui>(ui: &'ui Ui, label: &str, tip: &str) -> Option<PopupToken<'ui>> {

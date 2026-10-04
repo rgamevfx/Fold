@@ -53,7 +53,7 @@ fn two_editors_and_viewers_preserve_exact_targets_delivery_and_undo() {
         .get_mut(&b)
         .unwrap()
         .bind(location(ids[1], Time::new(1, 24).unwrap()));
-    workspace.publish(a);
+    workspace.record_selection(a);
     let x = workspace.add_viewer(ViewerInstance {
         binding: ViewerBinding::Linked,
         editor: Some(a),
@@ -78,10 +78,15 @@ fn two_editors_and_viewers_preserve_exact_targets_delivery_and_undo() {
             context.state().navigation.last().unwrap().time,
             Time::new(1, 48).unwrap()
         );
+        assert!(!context.selection_requested());
         context.command(DesktopCommand::Select(Selection {
             document: Some(ids[1]),
             objects: vec![],
         }));
+        assert!(
+            context.selection_requested(),
+            "reselecting the same selection must retarget inspection"
+        );
         context.command(DesktopCommand::NavigateBack);
     }
     assert_eq!(
@@ -131,7 +136,7 @@ fn two_editors_and_viewers_preserve_exact_targets_delivery_and_undo() {
 }
 
 #[test]
-fn group_sources_do_not_change_delivery_project_history_or_other_viewer_time() {
+fn group_selections_do_not_change_delivery_project_history_or_other_viewer_time() {
     use fold_platform::workspace::LinkGroup;
     let (mut session, ids) = fixture();
     let before = session.snapshot().unwrap();
@@ -146,7 +151,7 @@ fn group_sources_do_not_change_delivery_project_history_or_other_viewer_time() {
         .get_mut(&b)
         .unwrap()
         .bind(location(ids[1], Time::ZERO));
-    w.publish(a);
+    w.record_selection(a);
     w.set_editor_group(b, LinkGroup::B);
     let x = w.add_viewer(ViewerInstance {
         time: Time::new(7, 48).unwrap(),
@@ -186,7 +191,7 @@ fn group_sources_do_not_change_delivery_project_history_or_other_viewer_time() {
         .get_mut(&a)
         .unwrap()
         .bind(location(ids[1], Time::new(1, 48).unwrap()));
-    w.publish(a);
+    w.record_selection(a);
     assert_eq!(w.resolve(x).unwrap().document, ids[0]);
     assert_eq!(w.viewers[&y].time, Time::new(1, 8).unwrap());
     w.set_viewer_group(x, LinkGroup::B);
@@ -211,7 +216,7 @@ fn missing_targets_and_restore_never_choose_another_document() {
         .get_mut(&editor)
         .unwrap()
         .bind(location(ids[1], Time::ZERO));
-    w.publish(editor);
+    w.record_selection(editor);
     let viewer = w.add_viewer(ViewerInstance {
         binding: ViewerBinding::Linked,
         editor: Some(editor),

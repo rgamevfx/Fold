@@ -12,6 +12,7 @@ pub struct PanelContext<'a> {
     playback_requested: Option<bool>,
     instance: Option<crate::workspace::PanelInstanceId>,
     seek_request: Option<Time>,
+    selection_requested: bool,
 }
 impl<'a> PanelContext<'a> {
     pub fn new(host: &'a mut dyn DesktopClient, editor: &'a mut EditorInstance) -> Self {
@@ -42,6 +43,7 @@ impl<'a> PanelContext<'a> {
             playback_requested: None,
             instance: None,
             seek_request: None,
+            selection_requested: false,
         }
     }
     /// Non-document panels have an identity without acquiring an editor binding.
@@ -57,6 +59,7 @@ impl<'a> PanelContext<'a> {
             playback_requested: None,
             instance: Some(id),
             seek_request: None,
+            selection_requested: false,
         }
     }
     pub fn instance(mut self, id: crate::workspace::PanelInstanceId) -> Self {
@@ -78,6 +81,9 @@ impl<'a> PanelContext<'a> {
         self.state.playback_range = range;
         self.state.playing = playing;
         self.state.priming = false;
+    }
+    pub fn selection_requested(&self) -> bool {
+        self.selection_requested
     }
     pub fn seek_request(&self) -> Option<Time> {
         self.seek_request
@@ -233,6 +239,7 @@ impl DesktopClient for PanelContext<'_> {
                     self.state.status = "Selection does not belong to this editor target".into();
                     return;
                 }
+                self.selection_requested = true;
                 self.editor.as_mut().unwrap().selection = selection;
                 self.sync();
             }

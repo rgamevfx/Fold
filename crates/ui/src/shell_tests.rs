@@ -274,7 +274,7 @@ fn editor_seeks_choose_one_explicit_viewer_and_leave_others_and_delivery_untouch
             label: String::new(),
         });
     shell.workspace.viewers.clear();
-    shell.workspace.publish(editor);
+    shell.workspace.record_selection(editor);
     let a = shell.workspace.add_viewer(ViewerInstance {
         binding: ViewerBinding::Linked,
         editor: Some(editor),
@@ -342,7 +342,7 @@ fn following_preserves_viewer_time_on_root_switch_and_maps_nested_navigation_and
         .get_mut(&editor)
         .unwrap()
         .bind(location(docs[0], Time::ZERO));
-    shell.workspace.publish(editor);
+    shell.workspace.record_selection(editor);
     let viewer = shell.workspace.add_viewer(ViewerInstance {
         binding: ViewerBinding::Linked,
         editor: Some(editor),
@@ -416,7 +416,7 @@ fn joining_another_group_preserves_time_even_when_its_source_has_nested_navigati
         .get_mut(&b)
         .unwrap()
         .navigate(location(docs[1], Time::new(1, 48).unwrap()));
-    shell.workspace.publish(a);
+    shell.workspace.record_selection(a);
     shell.workspace.set_editor_group(b, LinkGroup::B);
     let viewer = *shell.workspace.viewers.keys().next().unwrap();
     shell.workspace.viewers.get_mut(&viewer).unwrap().time = Time::new(7, 48).unwrap();
@@ -493,7 +493,7 @@ fn runtime_editors_and_inspectors_are_isolated_at_normal_and_narrow_widths() {
                 label: String::new(),
             });
     }
-    shell.workspace.publish(a);
+    shell.workspace.record_selection(a);
     shell.workspace.set_editor_group(b, workspace::LinkGroup::B);
     shell.sync_instances();
     for width in [1280., 520.] {
@@ -511,26 +511,59 @@ fn runtime_editors_and_inspectors_are_isolated_at_normal_and_narrow_widths() {
             }
         }
     }
-    let seen = seen.borrow();
+    let observed = seen.borrow();
     for id in [a, b] {
         let document = shell.workspace.editors[&id].document();
         assert!(
-            seen.iter()
+            observed
+                .iter()
                 .any(|&(owner, target, inspector, _)| owner == Some(id)
                     && target == document
                     && inspector)
         );
         assert!(
-            seen.iter()
+            observed
+                .iter()
                 .filter(|&&(owner, _, _, _)| owner == Some(id))
                 .all(|&(_, target, _, _)| target == document)
         );
         assert!(
-            seen.iter()
+            observed
+                .iter()
                 .any(|&(owner, _, inspector, count)| owner == Some(id) && !inspector && count == 1),
             "each instance starts with fresh gesture state"
         );
     }
+    drop(observed);
+    shell.workspace.inspector_group = workspace::LinkGroup::A;
+    shell.workspace.record_selection(a);
+    shell.workspace.toggle_inspector_lock();
+    shell
+        .workspace
+        .editors
+        .get_mut(&a)
+        .unwrap()
+        .bind(ViewLocation {
+            document: docs[1],
+            time: Time::new(5, 24).unwrap(),
+            label: String::new(),
+        });
+    seen.borrow_mut().clear();
+    for _ in 0..3 {
+        shell.prepare_frame(&mut context);
+        let ui = context.frame();
+        shell.controls(ui, &mut host).unwrap();
+        context.end_frame();
+    }
+    assert!(
+        seen.borrow()
+            .iter()
+            .any(|&(owner, document, inspector, _)| owner == Some(a)
+                && inspector
+                && document == Some(docs[0])),
+        "locked inspector retains the original network after the editor navigates"
+    );
+    assert_eq!(shell.workspace.editors[&a].document(), Some(docs[1]));
     assert_eq!(host.delivery, docs[0]);
     assert!(!host.commands.iter().any(|c| matches!(
         c,
@@ -724,7 +757,7 @@ fn animation_surface_uses_the_explicit_viewer_time_and_rejects_ambiguity() {
             time: Time::ZERO,
             label: String::new(),
         });
-    shell.workspace.publish(editor);
+    shell.workspace.record_selection(editor);
     let first = *shell.workspace.viewers.keys().next().unwrap();
     shell.workspace.viewers.get_mut(&first).unwrap().time = Time::new(7, 48).unwrap();
     let second = shell.workspace.add_viewer(ViewerInstance {
@@ -814,4 +847,100 @@ fn channel_selector_and_viewer_status_fit_narrow_headers() {
             drop(context.render_legacy());
         }
     }
+}
+
+#[test]
+fn viewer_header_stays_one_row_and_inside_normal_and_narrow_panels() {
+    use dear_imgui_rs::Condition;
+    let _guard = crate::IMGUI_TEST_LOCK.lock().unwrap();
+    for width in [680., 240., 170.] {
+        let mut context = Context::create();
+        context.set_ini_filename(None::<String>).unwrap();
+        context
+            .font_atlas()
+            .try_claim_legacy_renderer()
+            .unwrap()
+            .build();
+        context.io_mut().set_display_size([800., 400.]);
+        context.io_mut().set_delta_time(1. / 60.);
+        let docs = [DocumentId::new(), DocumentId::new()];
+        let mut host = Host {
+            documents: docs,
+            state: Default::default(),
+            delivery: docs[0],
+            commands: vec![],
+        };
+        let mut shell = Shell::new(vec![]);
+        let viewer = *shell.workspace.viewers.keys().next().unwrap();
+        shell.workspace.pin_output(
+            viewer,
+            workspace::DocumentRef {
+                document: docs[0],
+                output: "video".into(),
+                extensions: Default::default(),
+            },
+        );
+        for divisor in [1, 2, 4] {
+            shell.workspace.viewers.get_mut(&viewer).unwrap().divisor = divisor;
+            for _ in 0..3 {
+                let ui = context.frame();
+                ui.window("Header")
+                    .position([0.; 2], Condition::Always)
+                    .size([width, 300.], Condition::Always)
+                    .build(|| {
+                        let origin = ui.cursor_screen_pos();
+                        let available = ui.content_region_avail()[0];
+                        shell.viewer_header(ui, viewer, &mut host);
+                        assert!(
+                            ui.cursor_screen_pos()[1] - origin[1]
+                                <= ui.frame_height_with_spacing() + 1.
+                        );
+                        assert!(
+                            ui.item_rect_max()[0] <= origin[0] + available + 1.,
+                            "header fits at {width}px with divisor {divisor}"
+                        );
+                    });
+                context.end_frame();
+            }
+        }
+    }
+}
+
+#[test]
+fn editor_without_a_viewer_seeks_its_own_exact_local_time() {
+    let docs = [DocumentId::new(), DocumentId::new()];
+    let mut host = Host {
+        documents: docs,
+        state: Default::default(),
+        delivery: docs[0],
+        commands: vec![],
+    };
+    let mut shell = Shell::new(vec![]);
+    let editor = shell.workspace.add_editor("motion", "motion");
+    shell
+        .workspace
+        .editors
+        .get_mut(&editor)
+        .unwrap()
+        .bind(ViewLocation {
+            document: docs[1],
+            time: Time::ZERO,
+            label: String::new(),
+        });
+    shell.workspace.record_selection(editor);
+    // This viewer is explicitly watching a different output.
+    let viewer = *shell.workspace.viewers.keys().next().unwrap();
+    shell.workspace.pin_output(
+        viewer,
+        workspace::DocumentRef {
+            document: docs[0],
+            output: "video".into(),
+            extensions: Default::default(),
+        },
+    );
+    let time = Time::new(7, 48).unwrap();
+    shell.seek_from_editor(editor, time, &mut host);
+    assert_eq!(shell.workspace.inspector_context(), Some((editor, time)));
+    assert_eq!(shell.workspace.viewers[&viewer].time, Time::ZERO);
+    assert!(host.commands.is_empty());
 }
