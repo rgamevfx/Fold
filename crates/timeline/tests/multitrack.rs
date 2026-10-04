@@ -248,6 +248,8 @@ fn track_visibility_solo_mute_opacity_and_audio_mix_lower_to_shared_plans() {
             dimensions: [2, 2],
             cancel: &Default::default(),
             resolve: &|_, _| Err("unexpected nested source".into()),
+            resolve_image: &|_, _| Err("unexpected nested image".into()),
+            describe_channels: &|_| Err("unexpected nested channel catalog".into()),
         })
     };
     let document = sequence.document(id).unwrap();

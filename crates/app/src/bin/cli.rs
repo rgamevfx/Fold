@@ -295,6 +295,7 @@ fn run() -> Result<(), Box<dyn Error>> {
     let output = fold_app::output::OutputRenderer::from_environment()?.evaluate(
         &snapshot,
         &fold_app::media_workflow::SceneRequest {
+            preview: None,
             source,
             time,
             dimensions: [width, height],

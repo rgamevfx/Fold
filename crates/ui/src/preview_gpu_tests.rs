@@ -88,6 +88,7 @@ fn real_textures_hold_until_replacement_and_remain_protected_under_pressure() {
         frame: 0,
         dimensions: [16, 16],
         view: 1,
+        channels: Default::default(),
     };
     let next = PreviewKey {
         frame: 1,
@@ -189,6 +190,7 @@ fn real_textures_hold_until_replacement_and_remain_protected_under_pressure() {
         frame: 0,
         dimensions: [16, 16],
         view: 1,
+        channels: Default::default(),
     };
     let second = PreviewKey {
         frame: 1,

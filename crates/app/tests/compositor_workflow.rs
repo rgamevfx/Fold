@@ -93,6 +93,7 @@ fn registry_rejects_bad_types_cycles_ports_and_dependency_declarations() {
             parameters: P::Output,
             animation: Default::default(),
             inputs: vec![Some(read.id)],
+            effect: Default::default(),
             position: None,
             extensions: Default::default(),
         },
@@ -256,6 +257,7 @@ fn nested_timing_alpha_cache_persistence_and_atomic_cross_document_undo() {
         frame: 24,
         dimensions: [16, 16],
         view: 1,
+        channels: Default::default(),
     };
     assert_eq!(
         media_workflow::evaluate(

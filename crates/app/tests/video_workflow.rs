@@ -88,6 +88,7 @@ fn codec_timing_color_import_composition_export_and_persistence() {
         frame: 0,
         dimensions: [64, 32],
         view: 1,
+        channels: Default::default(),
     };
     let frame = workflow::evaluate(&pinned, &key, &mut decoder, &cancel).unwrap();
     let display = frame.to_display().unwrap();

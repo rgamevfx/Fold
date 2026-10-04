@@ -78,6 +78,7 @@ fn native_device_clock_seek_and_drift() {
         frame: 0,
         dimensions: [64, 32],
         view: 1,
+        channels: Default::default(),
     };
     media_workflow::evaluate(&snapshot, &key, &mut decoder, &Cancel::default()).unwrap();
     playback.play(snapshot.clone(), source.document, 0, info.frames);

@@ -64,10 +64,10 @@ impl DocumentProvider for Documents {
         crate::COMPOSITE
     }
     fn schema(&self) -> u32 {
-        3
+        4
     }
     fn supports_schema(&self, schema: u32) -> bool {
-        [1, 2, 3].contains(&schema)
+        [1, 2, 3, 4].contains(&schema)
     }
     fn validate(&self, document: &Document) -> Result<(), String> {
         Composite::from_document(document).map(|_| ())
@@ -80,14 +80,25 @@ impl DocumentProvider for Documents {
     ) -> Result<(), String> {
         for node in Composite::from_document(document)?.nodes {
             if let crate::Parameters::Read {
+                source:
+                    crate::Source::Exr {
+                        asset: id, image, ..
+                    },
+                ..
+            } = &node.parameters
+                && *id == asset
+                && metadata.profile != fold_media::ingest::SourceProfile::Exr(image.clone())
+            {
+                return Err("Relink changes the EXR channel catalog or image windows".into());
+            }
+            if let crate::Parameters::Read {
                 source: crate::Source::Asset { asset: id, info },
                 ..
             } = node.parameters
+                && id == asset
+                && metadata.profile != fold_media::ingest::SourceProfile::Video(info)
             {
-                if id == asset && metadata.profile != fold_media::ingest::SourceProfile::Video(info)
-                {
-                    return Err("relink changes compositor source duration/streams".into());
-                }
+                return Err("relink changes compositor source duration/streams".into());
             }
         }
         Ok(())
@@ -109,7 +120,7 @@ pub fn register(registry: &mut PackageRegistry) -> Result<(), String> {
             host_api: HOST_API,
             dependencies: &[],
             panels: PANELS,
-            build: concat!(env!("CARGO_PKG_VERSION"), ":compositor-schema3-evaluator3"),
+            build: concat!(env!("CARGO_PKG_VERSION"), ":compositor-schema4-evaluator4"),
         },
         documents: vec![Box::new(Documents)],
         commands: vec![CommandRegistration {

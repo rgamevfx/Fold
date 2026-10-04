@@ -15,27 +15,73 @@ impl Context<'_> {
         let graph = self.state.graph.as_ref().unwrap();
         let rect = [0, 0, graph.info.width, graph.info.height];
         let mut templates: Vec<_> = vec![
+            P::Read {
+                source: Source::Unassigned {
+                    info: graph.info.clone(),
+                },
+                start: Time::ZERO,
+                source_start: Time::ZERO,
+                duration: graph.info.time(graph.info.frames).unwrap(),
+            },
             P::Solid {
                 rgba: [0.2, 0.3, 0.5, 1.],
             },
-            P::Transform {
-                translate: [0.; 2],
-                scale: [1.; 2],
-                opacity: 1.,
+            P::TransformImage {
+                settings: crate::Transform {
+                    pivot: [graph.info.width as f64 / 2., graph.info.height as f64 / 2.],
+                    ..Default::default()
+                },
             },
             P::Crop { rect },
-            P::Blur { radius: 3 },
-            P::Grade { gain: [1.; 3] },
-            P::Mask { rect },
+            P::GaussianBlur {
+                size: [3.; 2],
+                edges: Default::default(),
+            },
+            P::ColorGrade {
+                settings: Default::default(),
+            },
+            P::Shape {
+                shape: crate::Shape::Rectangle,
+                bounds: rect.map(f64::from),
+            },
+            P::Shape {
+                shape: crate::Shape::Ellipse,
+                bounds: rect.map(f64::from),
+            },
+            P::Unary {
+                operation: fold_render::operations::Unary::Exposure { stops: 0. },
+            },
+            P::Unary {
+                operation: fold_render::operations::Unary::Invert,
+            },
+            P::Unary {
+                operation: fold_render::operations::Unary::Clamp {
+                    minimum: 0.,
+                    maximum: 1.,
+                },
+            },
+            P::Unary {
+                operation: fold_render::operations::Unary::Premult,
+            },
+            P::Unary {
+                operation: fold_render::operations::Unary::Unpremult,
+            },
             P::ApplyMask,
-            P::Merge,
+            P::Composite {
+                mode: Default::default(),
+            },
+            P::Shuffle { mappings: vec![] },
+            P::RemoveChannels {
+                channels: vec![],
+                keep: false,
+            },
         ]
         .into_iter()
         .map(|p| {
             (
                 NodeTemplate {
                     key: p.operator().id.into(),
-                    label: p.operator().id.into(),
+                    label: p.operator().label().into(),
                     category: "Image".into(),
                 },
                 p,
@@ -77,7 +123,7 @@ impl Context<'_> {
         }
         for node in &graph.nodes {
             if let P::Read {
-                source: Source::Asset { asset, .. },
+                source: Source::Asset { asset, .. } | Source::Exr { asset, .. },
                 ..
             } = &node.parameters
             {
@@ -154,13 +200,13 @@ impl GraphContext for Context<'_> {
                     let op = n.parameters.operator();
                     NodeView {
                         id: n.id,
-                        label: op.id.to_uppercase(),
+                        label: op.label().to_uppercase(),
                         summary: summary(&n.parameters),
                         position: n.position,
                         can_open: false,
                         color: match n.parameters {
                             P::Read { .. } | P::Solid { .. } => GRAPH_COLORS.source,
-                            P::Merge => GRAPH_COLORS.merge,
+                            P::Merge | P::Composite { .. } => GRAPH_COLORS.merge,
                             _ => color(op.output),
                         },
                         inputs: op
@@ -169,9 +215,14 @@ impl GraphContext for Context<'_> {
                             .enumerate()
                             .map(|(i, kind)| PortView {
                                 key: op.input_key(i).into(),
-                                label: op.input_key(i).into(),
+                                label: op.input_label(i).into(),
                                 color: color(*kind),
                             })
+                            .chain(op.supports_effect().then(|| PortView {
+                                key: "mask".into(),
+                                label: "mask".into(),
+                                color: GRAPH_COLORS.mask,
+                            }))
                             .collect(),
                         outputs: if matches!(n.parameters, P::Output) {
                             vec![]
@@ -189,24 +240,45 @@ impl GraphContext for Context<'_> {
                 .nodes
                 .iter()
                 .flat_map(|n| {
-                    n.inputs.iter().enumerate().filter_map(|(i, source)| {
-                        source.map(|source| WireView {
-                            source: Socket {
-                                node: source,
-                                key: graph
-                                    .node(source)
-                                    .unwrap()
-                                    .parameters
-                                    .operator()
-                                    .output_key()
-                                    .into(),
-                            },
-                            target: Socket {
-                                node: n.id,
-                                key: n.parameters.operator().input_key(i).into(),
-                            },
+                    n.inputs
+                        .iter()
+                        .enumerate()
+                        .filter_map(|(i, source)| {
+                            source.map(|source| WireView {
+                                source: Socket {
+                                    node: source,
+                                    key: graph
+                                        .node(source)
+                                        .unwrap()
+                                        .parameters
+                                        .operator()
+                                        .output_key()
+                                        .into(),
+                                },
+                                target: Socket {
+                                    node: n.id,
+                                    key: n.parameters.operator().input_key(i).into(),
+                                },
+                            })
                         })
-                    })
+                        .chain(n.effect.mask.map(|source| {
+                            WireView {
+                                source: Socket {
+                                    node: source,
+                                    key: graph
+                                        .node(source)
+                                        .unwrap()
+                                        .parameters
+                                        .operator()
+                                        .output_key()
+                                        .into(),
+                                },
+                                target: Socket {
+                                    node: n.id,
+                                    key: "mask".into(),
+                                },
+                            }
+                        }))
                 })
                 .collect(),
         }
@@ -264,8 +336,24 @@ fn color(kind: PortType) -> [f32; 4] {
 }
 fn summary(p: &P) -> String {
     match p {
+        P::Unary { operation } => operation.label().into(),
+        P::Shape { shape, .. } => shape.label().into(),
+        P::GaussianBlur { size, .. } => format!("Gaussian {:.1} × {:.1} px", size[0], size[1]),
+        P::TransformImage { .. } => "2D transform".into(),
+        P::ColorGrade { .. } => "Color grade".into(),
+        P::Composite { mode } => mode.label().into(),
+        P::Shuffle { mappings } => format!("{} channel mappings", mappings.len()),
+        P::RemoveChannels { keep, .. } => {
+            if *keep {
+                "Keep selected channels".into()
+            } else {
+                "Remove selected channels".into()
+            }
+        }
         P::Read { source, .. } => match source {
+            Source::Unassigned { .. } => "Choose a source file".into(),
             Source::Asset { .. } => "Media source".into(),
+            Source::Exr { image, .. } => format!("OpenEXR • {} channels", image.channels.len()),
             Source::Document { .. } => "Nested document".into(),
         },
         P::Blur { radius } => format!("Radius {radius} px"),

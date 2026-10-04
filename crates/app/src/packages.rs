@@ -32,6 +32,12 @@ pub fn builtins() -> Arc<PackageRegistry> {
                     audio: vec![],
                     commands: vec![
                         CommandRegistration {
+                            id: crate::read_source::REPLACE,
+                            title: "Choose Read source",
+                            execution: Execution::Worker,
+                            handler: crate::read_source::replace,
+                        },
+                        CommandRegistration {
                             id: crate::composition::CREATE,
                             title: "Create Composition (keep audio)",
                             execution: Execution::Immediate,

@@ -194,6 +194,7 @@ pub(crate) fn preview_request(
         return Err("preview identity/settings mismatch".into());
     }
     Ok(SceneRequest {
+        preview: Some(key.channels.clone()),
         source,
         time,
         dimensions: key.dimensions,
@@ -204,6 +205,7 @@ pub(crate) fn preview_request(
 /// not render authority. Delivery supplies a committed snapshot separately.
 #[derive(Clone, Debug)]
 pub struct SceneRequest {
+    pub preview: Option<fold_render::view::View>,
     pub source: DocumentRef,
     pub time: fold_foundation::Time,
     pub dimensions: [u32; 2],
@@ -264,13 +266,24 @@ fn compile_scene(
     if request.time < fold_foundation::Time::ZERO || request.time >= info.time(info.frames)? {
         return Err("frame outside sequence".into());
     }
-    let plan = registry.video_with(
-        snapshot,
-        &request.source,
-        request.time,
-        request.dimensions,
-        cancel,
-    )?;
+    let plan = if let Some(view) = &request.preview {
+        registry.video_channels(
+            snapshot,
+            &request.source,
+            request.time,
+            request.dimensions,
+            cancel,
+            &view.selection()?,
+        )?
+    } else {
+        registry.video_with(
+            snapshot,
+            &request.source,
+            request.time,
+            request.dimensions,
+            cancel,
+        )?
+    };
     Ok((plan, info.time(1)?))
 }
 
@@ -472,6 +485,7 @@ fn export_video(
     #[cfg(not(feature = "gpu"))]
     let mut evaluator = crate::output::OutputRenderer::from_environment()?;
     let mut request = SceneRequest {
+        preview: None,
         source,
         time: info.time(start)?,
         dimensions: [info.width, info.height],

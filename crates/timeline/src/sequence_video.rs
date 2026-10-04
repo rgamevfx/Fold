@@ -29,6 +29,7 @@ impl VideoProvider for SequenceProvider {
             dimensions: [width, height],
             cancel,
             resolve,
+            ..
         } = request;
         let output = reference.output.as_str();
         cancel.check()?;

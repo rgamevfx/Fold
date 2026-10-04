@@ -38,17 +38,11 @@ pub fn place(
         .ok_or("missing composite")?;
     let mut graph = Composite::from_document(old)?;
     let source = match &request.source {
-        PlacementSource::Asset(asset) => {
-            let fold_media::ingest::SourceProfile::Video(info) =
-                asset_metadata(snapshot, *asset)?.profile
-            else {
-                return Err("this compositor provider currently accepts video assets only".into());
-            };
-            Source::Asset {
-                asset: *asset,
-                info,
-            }
-        }
+        PlacementSource::Asset(asset) => source_from_profile(
+            *asset,
+            asset_metadata(snapshot, *asset)?.profile,
+            &graph.info,
+        )?,
         PlacementSource::Output(source) => Source::Document {
             source: source.clone(),
             info: info.ok_or("missing output capability")?,
@@ -69,4 +63,45 @@ pub fn place(
     let mut document = graph.document(request.target)?;
     document.extensions = old.extensions.clone();
     Ok(document)
+}
+
+/// Shared by placement and the application's worker-side file picker.
+pub fn source_from_profile(
+    asset: fold_foundation::AssetId,
+    profile: fold_media::ingest::SourceProfile,
+    composition: &fold_media::VideoInfo,
+) -> Result<Source, String> {
+    match profile {
+        fold_media::ingest::SourceProfile::Video(info) => Ok(Source::Asset { asset, info }),
+        fold_media::ingest::SourceProfile::Exr(image) => Ok(Source::Exr {
+            color_layers: image
+                .channels
+                .iter()
+                .filter(|c| c.color)
+                .filter_map(|c| c.name.rsplit_once('.').map(|(layer, _)| layer.to_owned()))
+                .filter(|layer| {
+                    // RGB spelling alone cannot distinguish lighting from
+                    // normals, positions or other utility AOVs.
+                    layer == "rgba"
+                        && ["red", "green", "blue"].iter().all(|component| {
+                            image
+                                .channels
+                                .iter()
+                                .any(|c| c.name == format!("{layer}.{component}"))
+                        })
+                })
+                .collect::<std::collections::BTreeSet<_>>()
+                .into_iter()
+                .collect(),
+            asset,
+            info: fold_media::VideoInfo {
+                width: image.dimensions[0],
+                height: image.dimensions[1],
+                rate: composition.rate,
+                frames: composition.frames,
+            },
+            image,
+        }),
+        _ => Err("Read requires video or OpenEXR".into()),
+    }
 }

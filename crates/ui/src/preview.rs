@@ -187,6 +187,7 @@ impl PreviewHost {
                     && key.as_ref().is_some_and(|key| {
                         key.target.map(|t| t.0) == held.target.map(|t| t.0)
                             && key.output == held.output
+                            && key.channels == held.channels
                     })
             })
         });
@@ -458,6 +459,7 @@ impl PreviewHost {
                         && key.content == demand.content
                         && key.dimensions == demand.dimensions
                         && key.view == demand.view
+                        && key.channels == demand.channels
                         && key.output == demand.output
                         && key.target.map(|t| t.0) == demand.target.map(|t| t.0)
                 })

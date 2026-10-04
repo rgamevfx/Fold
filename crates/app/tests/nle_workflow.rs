@@ -310,6 +310,7 @@ fn multitrack_nle_edit_mix_render_save_reopen_and_export() {
         frame: 72,
         dimensions: [320, 180],
         view: 1,
+        channels: Default::default(),
     };
     let mut video_decoder = Decoder::default();
     let preview = media_workflow::evaluate(&reopened, &key, &mut video_decoder, &Cancel::default())

@@ -344,6 +344,12 @@ impl DesktopClient for Session {
     fn workspace_restore(&self) -> bool {
         self.workspace_restore
     }
+    fn channels(
+        &self,
+        output: &fold_project::DocumentRef,
+    ) -> Result<Vec<fold_render::channels::ChannelName>, String> {
+        crate::packages::builtins().channels(&self.project.snapshot(), output)
+    }
     fn outputs(
         &self,
         document: fold_foundation::DocumentId,
@@ -490,6 +496,9 @@ impl DesktopClient for Session {
                     } else {
                         self.state.status.clear();
                     }
+                }
+                Ok(Completed::Imported(batch)) if batch.mutations.is_empty() => {
+                    self.state.status.clear()
                 }
                 Ok(Completed::Imported(batch)) => match self.project.commit(batch) {
                     Ok(_) => {

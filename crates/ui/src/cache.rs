@@ -74,6 +74,7 @@ mod tests {
             frame: 7,
             dimensions: [640, 360],
             view: 1,
+            channels: Default::default(),
         };
         let mut cache = Cache::new(16);
         cache.insert(key.clone(), 1, 4);

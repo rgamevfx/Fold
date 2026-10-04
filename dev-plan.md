@@ -251,3 +251,12 @@ The following is a code/document inspection baseline, not a fresh test or perfor
 - [x] 22. Add the user-requested Animation surface alongside the existing editors.
   - Shared Dope Sheet / Curve Editor, compact parameter keying, component channels, Bézier/tangent editing, exact-time evaluation and transactional gestures. Preserve package boundaries and explicit viewer edit-time context.
   - Plan and evidence: [phase-22 animation authoring](docs/phase-22.md). This slice does not close the outstanding delivery/hardening work in phases 20–21.
+
+## Production compositing slice
+
+- [ ] 23. Replace stand-in compositor nodes and support multilayer compositing.
+  - Plan, decisions, implementation sequence and acceptance: [phase-23 production compositor](docs/phase-23.md).
+  - Support arbitrary named color/data channels, depth and CG AOVs; Nuke-style Shuffle, channel preservation and demand-driven evaluation. Provide standard optional image mask inputs, selected mask channels, invert and mix on applicable processing nodes.
+  - Replace core node controls/math, add the agreed first toolset, and provide simple Read file/range/offset/input-transform controls. Preserve exact time, typed interpretation, signed bounds, undo/animation, old documents and shared preview/export/headless semantics.
+  - Cache only the selected viewer visualization as a display image. Layer/channel selection and depth-range settings participate in presentation identity and upstream demand; working channel caches remain separately budgeted. Export remains independent of viewer state.
+  - Acceptance includes twenty-layer fixtures, CPU/GPU equivalence, selective dependency execution, displayed-image cache sizing/invalidation, bounded resources, native normal/narrow UI and phase-19 performance requalification. This phase does not close phases 20–21.

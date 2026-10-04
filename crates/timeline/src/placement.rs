@@ -36,7 +36,7 @@ pub fn place(
             let info = match metadata.profile {
                 SourceProfile::Video(info) => SourceMedia::Video(info),
                 SourceProfile::Wave(info) => SourceMedia::Audio(info),
-                SourceProfile::Ppm { .. } => {
+                SourceProfile::Ppm { .. } | SourceProfile::Exr(_) => {
                     return Err(
                         "still-image clips are not supported by this timeline provider".into(),
                     );

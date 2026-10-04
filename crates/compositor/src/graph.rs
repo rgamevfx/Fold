@@ -4,9 +4,45 @@ use fold_foundation::ObjectId;
 use std::collections::{BTreeMap, BTreeSet};
 
 impl crate::Operator {
+    pub fn label(&self) -> &'static str {
+        match self.id {
+            "Solid" => "Constant",
+            "ApplyMask" => "Multiply Alpha",
+            "RemoveChannels" => "Remove / Keep Channels",
+            _ => self.id,
+        }
+    }
+    pub fn input_label(&self, slot: usize) -> &'static str {
+        match (self.id, slot) {
+            ("Merge", 0) => "A",
+            ("Merge", 1) => "B",
+            _ => self.input_key(slot),
+        }
+    }
+    pub fn supports_effect(&self) -> bool {
+        matches!(
+            self.id,
+            "Transform"
+                | "Crop"
+                | "Blur"
+                | "Grade"
+                | "Merge"
+                | "Exposure"
+                | "Invert"
+                | "Clamp"
+                | "Premult"
+                | "Unpremult"
+        )
+    }
+    pub fn optional_input(&self, slot: usize) -> bool {
+        self.id == "Shuffle" && slot == 1
+    }
+
     /// Stable socket names within the versioned operator schema, never UI labels.
     pub fn input_key(&self, slot: usize) -> &'static str {
         match (self.id, slot) {
+            ("Shuffle", 0) => "A",
+            ("Shuffle", 1) => "B",
             ("Merge", 0) => "foreground",
             ("Merge", 1) => "background",
             ("ApplyMask", 1) => "mask",
@@ -22,6 +58,14 @@ impl crate::Operator {
     }
 }
 impl Node {
+    pub fn dependencies(&self) -> impl Iterator<Item = ObjectId> + '_ {
+        self.inputs
+            .iter()
+            .flatten()
+            .copied()
+            .chain(self.effect.mask)
+    }
+
     pub fn disconnected(parameters: Parameters) -> Self {
         let inputs = vec![None; parameters.operator().inputs.len()];
         Self {
@@ -29,6 +73,7 @@ impl Node {
             parameters,
             animation: Default::default(),
             inputs,
+            effect: Default::default(),
             position: None,
             extensions: Default::default(),
         }
@@ -52,15 +97,15 @@ impl Composite {
         let mut pending: BTreeMap<_, _> = self
             .nodes
             .iter()
-            .map(|n| (n.id, n.inputs.iter().flatten().count()))
+            .map(|n| (n.id, n.dependencies().count()))
             .collect();
         let mut consumers: BTreeMap<ObjectId, Vec<ObjectId>> = BTreeMap::new();
         for n in &self.nodes {
-            for input in n.inputs.iter().flatten() {
-                if !pending.contains_key(input) {
+            for input in n.dependencies() {
+                if !pending.contains_key(&input) {
                     return Err("connection references a missing node".into());
                 }
-                consumers.entry(*input).or_default().push(n.id);
+                consumers.entry(input).or_default().push(n.id);
             }
         }
         let mut ready: Vec<_> = pending
@@ -92,7 +137,13 @@ impl Composite {
         for id in order.iter().rev() {
             if needed.contains(id) {
                 let n = self.node(*id)?;
+                if let Some(mask) = n.effect.mask.filter(|_| !n.effect.mask_disabled) {
+                    needed.insert(mask);
+                }
                 for (slot, input) in n.inputs.iter().enumerate() {
+                    if input.is_none() && n.parameters.operator().optional_input(slot) {
+                        continue;
+                    }
                     needed.insert(input.ok_or_else(|| {
                         format!(
                             "{} {:?}: connect '{}' input",
@@ -119,10 +170,23 @@ impl Composite {
         let source_type = source_node.parameters.operator().output;
         let target_node = self.node(target)?;
         let op = target_node.parameters.operator();
+        if port == "mask" && op.supports_effect() {
+            if !matches!(source_type, PortType::Image | PortType::Mask) {
+                return Err("Mask requires an image".into());
+            }
+            let previous = self.node_mut(target)?.effect.mask.replace(source);
+            if let Err(error) = self.evaluation_order() {
+                self.node_mut(target)?.effect.mask = previous;
+                return Err(error);
+            }
+            return Ok(());
+        }
         let slot = (0..op.inputs.len())
             .find(|i| op.input_key(*i) == port)
             .ok_or("unknown input port")?;
-        if source_type != op.inputs[slot] {
+        if source_type != op.inputs[slot]
+            && !(op.inputs[slot] == PortType::Mask && source_type == PortType::Image)
+        {
             return Err(format!(
                 "{} requires {:?}, not {:?}",
                 port, op.inputs[slot], source_type
@@ -137,6 +201,10 @@ impl Composite {
     }
     pub fn disconnect(&mut self, target: ObjectId, port: &str) -> Result<(), String> {
         let n = self.node_mut(target)?;
+        if port == "mask" && n.parameters.operator().supports_effect() {
+            n.effect.mask = None;
+            return Ok(());
+        }
         let slot = (0..n.inputs.len())
             .find(|i| n.parameters.operator().input_key(*i) == port)
             .ok_or("unknown input port")?;
@@ -149,6 +217,9 @@ impl Composite {
         }
         self.nodes.retain(|n| !ids.contains(&n.id));
         for n in &mut self.nodes {
+            if n.effect.mask.is_some_and(|id| ids.contains(&id)) {
+                n.effect.mask = None;
+            }
             for input in &mut n.inputs {
                 if input.is_some_and(|id| ids.contains(&id)) {
                     *input = None;

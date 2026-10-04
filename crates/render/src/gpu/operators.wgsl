@@ -6,15 +6,23 @@ struct Params {
     matrix: vec4<f32>, // inverse a,b,c,d
     offset: vec4<f32>,
     rect: vec4<u32>,
+    grade: array<vec4<f32>, 7>,
 }
 @group(0) @binding(0) var first: texture_2d<f32>;
 @group(0) @binding(1) var second: texture_2d<f32>;
+@group(0) @binding(5) var mask_image: texture_2d<f32>;
 @group(0) @binding(2) var result: texture_storage_2d<rgba32float, write>;
 @group(0) @binding(3) var<uniform> params: Params;
 @group(0) @binding(4) var<storage, read_write> invalid: atomic<u32>;
 fn sample_first(p: vec2<i32>) -> vec4<f32> {
     if any(p < vec2<i32>(0)) || any(p >= vec2<i32>(params.header.yz)) { return vec4<f32>(0.0); }
     return textureLoad(first, p, 0);
+}
+fn cubic(value: f32) -> f32 {
+    let x=abs(value);
+    if x<1.0 { return (1.5*x-2.5)*x*x+1.0; }
+    if x<2.0 { return ((-0.5*x+2.5)*x-4.0)*x+2.0; }
+    return 0.0;
 }
 fn validate(value: vec4<f32>) {
     let exponent = bitcast<vec4<u32>>(value) & vec4<u32>(0x7f800000u);
@@ -28,6 +36,104 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let p = vec2<i32>(id.xy);
     var value = vec4<f32>(0.0);
     switch params.header.x {
+        case 17u: {
+            value=textureLoad(first,p,0); var rgb=value.rgb;
+            switch params.rect.x {
+                case 0u: { rgb*=params.color.x; }
+                case 1u: { rgb=vec3<f32>(1.0)-rgb; }
+                case 2u: { rgb=clamp(rgb,vec3<f32>(params.color.x),vec3<f32>(params.color.y)); }
+                case 3u: { rgb*=value.a; }
+                default: { if value.a==0.0 {rgb=vec3<f32>(0.0);} else {rgb/=value.a;} }
+            }
+            value=vec4<f32>(rgb,value.a);
+        }
+        case 15u, 16u: {
+            let sigma=params.color.x; let radius=i32(ceil(3.0*sigma)); var divisor=0.0;
+            for (var k=-radius;k<=radius;k+=1) {
+                var weight=1.0; if sigma>0.0 { let v=f32(k)/sigma; weight=exp(-0.5*v*v); }
+                var delta=vec2<i32>(k,0); if params.header.x==16u { delta=vec2<i32>(0,k); }
+                var q=p+delta;
+                if params.rect.y==1u { q=clamp(q,vec2<i32>(0),vec2<i32>(params.header.yz)-vec2<i32>(1)); }
+                value+=sample_first(q)*weight; divisor+=weight;
+            }
+            value/=divisor; value.a=clamp(value.a,0.0,1.0);
+        }
+        case 14u: {
+            let q=vec2<f32>(id.xy)+vec2<f32>(0.5); let m=params.matrix;
+            let s=vec2<f32>(m.x*q.x+m.z*q.y,m.y*q.x+m.w*q.y)+params.offset.xy;
+            if all(s>=vec2<f32>(-2.0)) && all(s<=vec2<f32>(params.header.yz)+vec2<f32>(2.0)) {
+                if params.rect.x==0u { value=sample_first(vec2<i32>(floor(s))); }
+                else {
+                    let base=floor(s-vec2<f32>(0.5)); let fraction=s-vec2<f32>(0.5)-base;
+                    var start=0; var end=1;
+                    if params.rect.x==2u { start=-1; end=2; }
+                    for (var y=start;y<=end;y+=1) { for (var x=start;x<=end;x+=1) {
+                        var weight=0.0;
+                        if params.rect.x==2u { weight=cubic(f32(x)-fraction.x)*cubic(f32(y)-fraction.y); }
+                        else { weight=select(1.0-fraction.x,fraction.x,x==1)*select(1.0-fraction.y,fraction.y,y==1); }
+                        value+=sample_first(vec2<i32>(base)+vec2<i32>(x,y))*weight;
+                    } }
+                    value.a=clamp(value.a,0.0,1.0);
+                }
+            }
+        }
+        case 12u: {
+            let a = textureLoad(first,p,0); let b = textureLoad(second,p,0);
+            switch params.rect.x {
+                case 0u: { value = a+b*(1.0-a.a); }
+                case 1u: { value = a+b; }
+                case 2u: { value = a*b; }
+                case 3u: { value = a+b-a*b; }
+                case 4u: { value = abs(a-b); }
+                case 5u: { value = min(a,b); }
+                case 6u: { value = max(a,b); }
+                case 7u: { value = a*b.a; }
+                case 8u: { value = a*(1.0-b.a); }
+                case 9u: { value = a*b.a+b*(1.0-a.a); }
+                case 10u: { value = a*(1.0-b.a)+b*(1.0-a.a); }
+                default: { value = a; }
+            }
+            value.a = clamp(value.a,0.0,1.0);
+        }
+        case 13u: {
+            value = textureLoad(first,p,0);
+            if params.rect.y == 0u {
+                if params.rect.x != 0u && value.a == 0.0 { value = vec4<f32>(0.0); }
+                else {
+                    var rgb = value.rgb;
+                    if params.rect.x != 0u { rgb /= value.a; }
+                    rgb = ((rgb-params.grade[0].rgb)/(params.grade[1].rgb-params.grade[0].rgb)*(params.grade[3].rgb-params.grade[2].rgb)+params.grade[2].rgb)*params.grade[4].rgb+params.grade[5].rgb;
+                    rgb = sign(rgb)*pow(abs(rgb),vec3<f32>(1.0)/params.grade[6].rgb);
+                    if params.rect.x != 0u { rgb *= value.a; }
+                    value = vec4<f32>(rgb,value.a);
+                }
+            }
+        }
+        case 10u: {
+            let a = textureLoad(first, p, 0);
+            let b = textureLoad(second, p, 0);
+            for (var c = 0u; c < 4u; c += 1u) {
+                let source = params.rect[c];
+                if source < 4u { value[c] = a[source]; }
+                else if source < 8u { value[c] = b[source - 4u]; }
+                else if source == 9u { value[c] = 1.0; }
+            }
+        }
+        case 11u: {
+            let a = textureLoad(first, p, 0);
+            let b = textureLoad(second, p, 0);
+            var coverage = 1.0;
+            if params.rect.x != 0u {
+                coverage = clamp(textureLoad(mask_image, p, 0)[params.rect.y], 0.0, 1.0);
+                if params.rect.z != 0u { coverage = 1.0 - coverage; }
+            }
+            coverage *= params.color.x;
+            for (var c = 0u; c < 4u; c += 1u) {
+                if params.matrix[c] == 0.0 || coverage == 0.0 { value[c] = a[c]; }
+                else if coverage == 1.0 { value[c] = b[c]; }
+                else { value[c] = a[c] * (1.0 - coverage) + b[c] * coverage; }
+            }
+        }
         case 0u: { value = params.color; }
         case 1u: { value = textureLoad(first, p, 0) * params.color.x; }
         case 2u: {

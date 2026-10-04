@@ -19,7 +19,7 @@ pub(super) fn draw(editor: &mut Editor, shared: &Shared, context: ExtensionUi<'_
     let info = graph.info.clone();
     let mut channels = vec![];
     for (index, node) in graph.nodes.iter().enumerate() {
-        for property in node.parameters.animated_properties() {
+        for property in node.animated_properties() {
             for (i, component) in property.channels.iter().enumerate() {
                 let path = path(property.id, i);
                 if let Some(curve) = node.animation.get(&path) {

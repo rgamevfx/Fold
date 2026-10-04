@@ -2,13 +2,16 @@
 use std::io::{self, Write};
 
 pub mod audio;
+pub mod channels;
 pub mod frame;
 #[cfg(feature = "gpu")]
 pub mod gpu;
 mod graph;
+pub mod operations;
 pub mod scheduling;
 pub mod vector;
 mod vector_geometry;
+pub mod view;
 pub use graph::{Affine, ImageId, ImageOp, RenderGraph};
 
 /// One full-frame operation; colors are premultiplied scene-linear RGBA.
@@ -86,6 +89,26 @@ impl DisplayFrame {
 }
 
 impl Frame {
+    pub fn to_data_display(&self, range: view::Range) -> Result<DisplayFrame, String> {
+        let [black, white] = range.values();
+        let storage = fold_media::budget::reserve_output(self.pixels.len() as u64 * 4)?;
+        let mut rgba = Vec::new();
+        rgba.try_reserve_exact(self.pixels.len() * 4)
+            .map_err(|_| "Data display allocation failed")?;
+        for pixel in &self.pixels {
+            let value = (((pixel[0] - black) / (white - black)).clamp(0., 1.) * 255.).round() as u8;
+            rgba.extend_from_slice(&[value, value, value, 255]);
+        }
+        Ok(DisplayFrame {
+            width: self.width,
+            height: self.height,
+            rgba,
+            _storage: storage,
+            transform_identity: format!("fold.data-display.v1:{black:?}:{white:?}"),
+            timing: self.timing,
+        })
+    }
+
     pub fn with_timing(
         mut self,
         timestamp: fold_foundation::Time,

@@ -38,6 +38,7 @@ fn key() -> PreviewKey {
         frame: 0,
         dimensions: [16, 16],
         view: 1,
+        channels: Default::default(),
     }
 }
 #[test]
@@ -146,4 +147,33 @@ fn held_images_survive_waiting_but_retired_completions_and_other_sources_do_not(
     host.select_viewers(&[], &mut client);
     assert!(host.held.is_empty());
     assert!(host.completed.is_empty());
+}
+
+#[test]
+fn channel_or_visualization_changes_retire_held_images() {
+    use fold_platform::desktop::{ChannelView, DisplayRange};
+    let id = PanelInstanceId(1);
+    let mut host = PreviewHost::new();
+    let mut client = Client::default();
+    let beauty = key();
+    let depth = PreviewKey {
+        channels: ChannelView::Channel {
+            name: "depth.Z".to_owned().try_into().unwrap(),
+            range: DisplayRange::new(0., 100.).unwrap(),
+        },
+        ..beauty.clone()
+    };
+    let different_range = PreviewKey {
+        channels: ChannelView::Channel {
+            name: "depth.Z".to_owned().try_into().unwrap(),
+            range: DisplayRange::new(0., 200.).unwrap(),
+        },
+        ..beauty.clone()
+    };
+    for (previous, next) in [(beauty, depth.clone()), (depth, different_range)] {
+        host.select_viewers(&[(id, Some(previous.clone()))], &mut client);
+        host.held.insert(id, previous);
+        host.select_viewers(&[(id, Some(next))], &mut client);
+        assert!(host.presented_key(id).is_none());
+    }
 }

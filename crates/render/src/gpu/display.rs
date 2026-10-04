@@ -164,6 +164,93 @@ impl Display {
     }
 }
 impl Renderer {
+    /// Data inspection bypasses OCIO/beauty display processing and retains only
+    /// its opaque grayscale display image in the normal playback cache.
+    pub fn output_data(
+        &mut self,
+        frame: &GpuFrame,
+        range: crate::view::Range,
+        cancel: &fold_media::Cancel,
+    ) -> Result<Display, String> {
+        use wgpu::util::DeviceExt;
+        cancel.check()?;
+        self.host.check()?;
+        if frame.host.id() != self.host.id() {
+            return Err("GPU scene belongs to a different host".into());
+        }
+        let output = self
+            .host
+            .image_format(frame.dimensions(), wgpu::TextureFormat::Rgba8Unorm)?;
+        let status = Status::new(&self.host)?;
+        let lease = self.host.reserve(16)?;
+        let [black, white] = range.values();
+        let uniform = self
+            .host
+            .device()
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Data display range"),
+                contents: bytemuck::cast_slice(&[black, white, 0f32, 0f32]),
+                usage: wgpu::BufferUsages::UNIFORM,
+            });
+        let group = self
+            .host
+            .device()
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                label: None,
+                layout: &self.data_display.get_bind_group_layout(0),
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::TextureView(&frame.image.view),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::TextureView(&output.view),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: uniform.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 3,
+                        resource: status.gpu.as_entire_binding(),
+                    },
+                ],
+            });
+        let mut encoder = self
+            .host
+            .device()
+            .create_command_encoder(&Default::default());
+        status.start(&mut encoder);
+        {
+            let mut pass = encoder.begin_compute_pass(&Default::default());
+            pass.set_pipeline(&self.data_display);
+            pass.set_bind_group(0, &group, &[]);
+            let [width, height] = frame.dimensions();
+            pass.dispatch_workgroups(width.div_ceil(8), height.div_ceil(8), 1);
+        }
+        status.encode(&mut encoder);
+        self.host.submit(
+            encoder,
+            vec![frame.image.clone(), output.clone()],
+            vec![lease],
+        );
+        let mut statistics = frame.statistics;
+        statistics.compute_passes += 1;
+        statistics.status_readback_bytes += status.readback_bytes();
+        Ok(Display {
+            dimensions: frame.dimensions(),
+            image: output,
+            host: self.host.clone(),
+            parent: frame.ready.clone(),
+            ready: status.submitted(),
+            compression: None,
+            identity: format!("fold.data-display.v1:{black:?}:{white:?}"),
+            timing: frame.timing,
+            statistics,
+        })
+    }
+
     /// Explicit output transform and black matte. This never uses a viewer cache,
     /// and the same entry point serves preview and pinned delivery settings.
     pub fn output(

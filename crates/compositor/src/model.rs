@@ -81,10 +81,98 @@ pub const OPERATORS: &[Operator] = &[
         output: Image,
         version: 1,
     },
+    Operator {
+        id: "Shuffle",
+        inputs: &[Image, Image],
+        output: Image,
+        version: 1,
+    },
+    Operator {
+        id: "RemoveChannels",
+        inputs: &[Image],
+        output: Image,
+        version: 1,
+    },
+    Operator {
+        id: "Grade",
+        inputs: &[Image],
+        output: Image,
+        version: 2,
+    },
+    Operator {
+        id: "Merge",
+        inputs: &[Image, Image],
+        output: Image,
+        version: 2,
+    },
+    Operator {
+        id: "Transform",
+        inputs: &[Image],
+        output: Image,
+        version: 2,
+    },
+    Operator {
+        id: "Blur",
+        inputs: &[Image],
+        output: Image,
+        version: 2,
+    },
+    Operator {
+        id: "Exposure",
+        inputs: &[Image],
+        output: Image,
+        version: 1,
+    },
+    Operator {
+        id: "Invert",
+        inputs: &[Image],
+        output: Image,
+        version: 1,
+    },
+    Operator {
+        id: "Clamp",
+        inputs: &[Image],
+        output: Image,
+        version: 1,
+    },
+    Operator {
+        id: "Premult",
+        inputs: &[Image],
+        output: Image,
+        version: 1,
+    },
+    Operator {
+        id: "Unpremult",
+        inputs: &[Image],
+        output: Image,
+        version: 1,
+    },
+    Operator {
+        id: "Rectangle",
+        inputs: &[],
+        output: Image,
+        version: 1,
+    },
+    Operator {
+        id: "Ellipse",
+        inputs: &[],
+        output: Image,
+        version: 1,
+    },
 ];
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub enum Source {
+    Unassigned {
+        info: VideoInfo,
+    },
+    Exr {
+        asset: AssetId,
+        info: VideoInfo,
+        image: fold_media::exr::Info,
+        #[serde(default)]
+        color_layers: Vec<String>,
+    },
     Asset {
         asset: AssetId,
         info: VideoInfo,
@@ -97,7 +185,10 @@ pub enum Source {
 impl Source {
     pub fn info(&self) -> &VideoInfo {
         match self {
-            Self::Asset { info, .. } | Self::Document { info, .. } => info,
+            Self::Unassigned { info }
+            | Self::Exr { info, .. }
+            | Self::Asset { info, .. }
+            | Self::Document { info, .. } => info,
         }
     }
 }
@@ -131,7 +222,34 @@ pub enum Parameters {
     Mask {
         rect: [u32; 4],
     },
+    Unary {
+        operation: fold_render::operations::Unary,
+    },
+    Shape {
+        shape: crate::Shape,
+        bounds: [f64; 4],
+    },
+    GaussianBlur {
+        size: [f32; 2],
+        edges: fold_render::operations::Edges,
+    },
+    TransformImage {
+        settings: crate::Transform,
+    },
+    ColorGrade {
+        settings: fold_render::operations::Grade,
+    },
+    Composite {
+        mode: fold_render::operations::MergeMode,
+    },
     ApplyMask,
+    Shuffle {
+        mappings: Vec<crate::ChannelMapping>,
+    },
+    RemoveChannels {
+        channels: Vec<fold_render::channels::ChannelName>,
+        keep: bool,
+    },
     /// Input 0 is foreground, input 1 background.
     Merge,
     Output,
@@ -149,10 +267,52 @@ impl Parameters {
             Self::ApplyMask => 7,
             Self::Merge => 8,
             Self::Output => 9,
+            Self::Shuffle { .. } => 10,
+            Self::RemoveChannels { .. } => 11,
+            Self::ColorGrade { .. } => 12,
+            Self::Composite { .. } => 13,
+            Self::TransformImage { .. } => 14,
+            Self::GaussianBlur { .. } => 15,
+            Self::Unary { operation } => {
+                16 + match operation {
+                    fold_render::operations::Unary::Exposure { .. } => 0,
+                    fold_render::operations::Unary::Invert => 1,
+                    fold_render::operations::Unary::Clamp { .. } => 2,
+                    fold_render::operations::Unary::Premult => 3,
+                    fold_render::operations::Unary::Unpremult => 4,
+                }
+            }
+            Self::Shape { shape, .. } => {
+                if *shape == crate::Shape::Rectangle {
+                    21
+                } else {
+                    22
+                }
+            }
         }]
     }
     pub(crate) fn validate(&self) -> Result<(), String> {
         match self {
+            Self::Unary { operation } => operation.validate()?,
+            Self::Shape { shape, bounds } => {
+                crate::shapes::drawing(*shape, *bounds, [1.; 2])?;
+            }
+            Self::GaussianBlur { size, .. } => fold_render::operations::validate_blur(*size)?,
+            Self::TransformImage { settings } => {
+                settings.matrix([1.; 2])?;
+            }
+            Self::ColorGrade { settings } => settings.validate()?,
+            Self::Shuffle { mappings } => {
+                let unique: BTreeSet<_> = mappings.iter().map(|m| &m.destination).collect();
+                if mappings.len() > 256 || unique.len() != mappings.len() {
+                    return Err(
+                        "Shuffle requires unique destinations and at most 256 mappings".into(),
+                    );
+                }
+            }
+            Self::RemoveChannels { channels, .. } if channels.len() > 256 => {
+                return Err("Select at most 256 channels".into());
+            }
             Self::Read {
                 source,
                 start,
@@ -161,8 +321,30 @@ impl Parameters {
             } => {
                 let info = source.info();
                 info.validate()?;
-                if *start < Time::ZERO
-                    || *source_start < Time::ZERO
+                if let Source::Exr {
+                    image,
+                    color_layers,
+                    ..
+                } = source
+                {
+                    if color_layers.len() > 256
+                        || color_layers.iter().any(|layer| {
+                            !["red", "green", "blue"].iter().all(|component| {
+                                image
+                                    .channels
+                                    .iter()
+                                    .any(|c| c.name == format!("{layer}.{component}"))
+                            })
+                        })
+                    {
+                        return Err("EXR color assignments require complete RGB layers".into());
+                    }
+                    image.validate()?;
+                    if image.dimensions != [info.width, info.height] {
+                        return Err("EXR source dimensions disagree".into());
+                    }
+                }
+                if *source_start < Time::ZERO
                     || *duration <= Time::ZERO
                     || source_start
                         .checked_add(*duration)
@@ -222,6 +404,8 @@ pub struct Node {
     pub animation: crate::animation::Channels,
     /// Fixed, named operator ports; None is a deliberately disconnected socket.
     pub inputs: Vec<Option<ObjectId>>,
+    #[serde(default, skip_serializing_if = "crate::Effect::is_default")]
+    pub effect: crate::Effect,
     #[serde(default)]
     pub position: Option<[f32; 2]>,
     #[serde(default)]
@@ -234,6 +418,7 @@ impl Node {
             parameters,
             animation: Default::default(),
             inputs: inputs.into_iter().map(Some).collect(),
+            effect: Default::default(),
             position: None,
             extensions: Default::default(),
         }
@@ -267,6 +452,15 @@ impl Composite {
         let mut ids = BTreeSet::new();
         for node in &self.nodes {
             node.parameters.validate()?;
+            node.effect.validate()?;
+            if !node.parameters.operator().supports_effect() && !node.effect.is_default() {
+                return Err("This node does not support effect controls".into());
+            }
+            if let Some(mask) = node.effect.mask
+                && !matches!(ports.get(&mask), Some(PortType::Image | PortType::Mask))
+            {
+                return Err("Mask input requires an image or mask output".into());
+            }
             node.validate_animation()?;
             let op = node.parameters.operator();
             if !ids.insert(node.id)
@@ -283,6 +477,7 @@ impl Composite {
             for (input, expected) in node.inputs.iter().zip(op.inputs) {
                 if let Some(input) = input
                     && ports.get(input) != Some(expected)
+                    && !(*expected == PortType::Mask && ports.get(input) == Some(&PortType::Image))
                 {
                     return Err(format!(
                         "{}: input requires {expected:?} (missing or incompatible connection)",
@@ -320,7 +515,7 @@ impl Composite {
             .iter()
             .filter_map(|n| match n.parameters {
                 Parameters::Read {
-                    source: Source::Asset { asset, .. },
+                    source: Source::Asset { asset, .. } | Source::Exr { asset, .. },
                     ..
                 } => Some(asset),
                 _ => None,
@@ -339,7 +534,7 @@ impl Composite {
             id,
             package_id: crate::PACKAGE.into(),
             type_id: crate::COMPOSITE.into(),
-            schema_version: 3,
+            schema_version: 4,
             revision: Revision::default(),
             dependencies: self.dependencies(),
             assets: self.assets(),
@@ -350,7 +545,7 @@ impl Composite {
     pub fn from_document(document: &Document) -> Result<Self, String> {
         if document.package_id != crate::PACKAGE
             || document.type_id != crate::COMPOSITE
-            || ![1, 2, 3].contains(&document.schema_version)
+            || ![1, 2, 3, 4].contains(&document.schema_version)
             || document.payload.len() > 1024 * 1024
         {
             return Err("unsupported composite document".into());

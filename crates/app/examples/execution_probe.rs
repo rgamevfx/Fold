@@ -165,6 +165,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             if let Some(renderer) = gpu.as_mut() {
                 let begin = Instant::now();
                 let request = fold_app::media_workflow::SceneRequest {
+                    preview: None,
                     source: source.clone(),
                     time: info.time(frame)?,
                     dimensions: [info.width, info.height],

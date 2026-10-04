@@ -42,3 +42,6 @@ required-features = ["desktop"]
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+exr = { version = "=1.74.2", default-features = false }

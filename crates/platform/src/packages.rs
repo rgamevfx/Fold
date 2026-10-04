@@ -419,6 +419,32 @@ impl PackageRegistry {
         self.video
             .compile_with(snapshot, source, time, dimensions, cancel)
     }
+    pub fn channels(
+        &self,
+        snapshot: &Snapshot,
+        source: &DocumentRef,
+    ) -> Result<Vec<fold_render::channels::ChannelName>, String> {
+        self.video.channels(snapshot, source)
+    }
+    pub fn video_channels(
+        &self,
+        snapshot: &Snapshot,
+        source: &DocumentRef,
+        time: Time,
+        dimensions: [u32; 2],
+        cancel: &Cancel,
+        selection: &fold_render::view::Selection,
+    ) -> Result<RenderGraph, String> {
+        self.validate_video_dependencies(
+            snapshot,
+            source,
+            &mut Vec::new(),
+            &mut BTreeSet::new(),
+            cancel,
+        )?;
+        self.video
+            .compile_channels(snapshot, source, time, dimensions, cancel, selection)
+    }
     fn validate_video_dependencies(
         &self,
         snapshot: &Snapshot,

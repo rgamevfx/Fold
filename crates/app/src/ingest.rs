@@ -46,6 +46,11 @@ pub struct IngestProposal {
     pub items: Vec<ItemId>,
 }
 impl IngestProposal {
+    pub(crate) fn into_batch(self) -> Result<EditBatch, String> {
+        self.cancel.check()?;
+        Ok(self.batch)
+    }
+
     /// Check cancellation again at publication, including completed-but-unclaimed jobs.
     pub fn commit(self, project: &mut Project) -> Result<CommittedSnapshot, String> {
         self.cancel.check()?;

@@ -184,6 +184,7 @@ fn motion_nests_in_compositor_and_timeline_without_flattening() {
         frame: 0,
         dimensions: [64, 64],
         view: 1,
+        channels: Default::default(),
     };
     let frame = media_workflow::evaluate(
         &project.snapshot(),

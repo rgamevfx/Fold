@@ -89,7 +89,7 @@ pub fn choose_files(multiple: bool) -> Option<Vec<std::path::PathBuf>> {
         } else {
             "Relink media"
         })
-        .add_filter("Supported media", &["mp4", "wav", "ppm"]);
+        .add_filter("Supported media", &["mp4", "wav", "ppm", "exr"]);
     if multiple {
         dialog.pick_files()
     } else {

@@ -1,6 +1,7 @@
 //! Small nonblocking desktop interface. Implementations own jobs and projects;
 //! the UI owns controls and presentation textures, never decode/evaluation.
 use crate::DisplayFrame;
+pub use fold_render::view::{Range as DisplayRange, View as ChannelView};
 use std::path::PathBuf;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -14,6 +15,7 @@ pub struct PreviewKey {
     /// Fixed sRGB viewer-policy version; working/config resource identity is
     /// included in content. Delivery transforms never enter presentation keys.
     pub view: u32,
+    pub channels: ChannelView,
 }
 /// One latest demand per viewer. Background preparation never replaces that
 /// viewer's foreground demand; it occupies a separate bounded demand slot.
@@ -133,6 +135,7 @@ impl DesktopState {
             frame,
             dimensions: self.dimensions.map(|n| (n / divisor).max(1)),
             view: 1,
+            channels: Default::default(),
         })
     }
 }
@@ -302,6 +305,15 @@ pub trait DesktopClient {
                 .max(0) as u32;
         }
         state
+    }
+    fn channels(
+        &self,
+        _output: &fold_project::DocumentRef,
+    ) -> Result<Vec<fold_render::channels::ChannelName>, String> {
+        fold_render::channels::RGBA
+            .into_iter()
+            .map(|name| name.to_owned().try_into())
+            .collect()
     }
     fn outputs(
         &self,

@@ -42,6 +42,9 @@ pub fn thumbnail(
         SourceProfile::Video(_) => {
             command.args(["-an", "-vf", "scale=128:72:force_original_aspect_ratio=decrease:force_divisible_by=2:flags=bilinear,zscale=matrixin=709:transferin=709:primariesin=709:rangein=limited:matrix=gbr:transfer=iec61966-2-1:primaries=709:range=full,format=gbrpf32le,format=rgb24,pad=128:72:(ow-iw)/2:(oh-ih)/2"]);
         }
+        SourceProfile::Exr(_) => {
+            return Err("EXR browser thumbnails require a selected color interpretation".into());
+        }
         SourceProfile::Ppm { .. } => {
             command.args(["-vf", "scale=128:72:force_original_aspect_ratio=decrease:flags=bilinear,pad=128:72:(ow-iw)/2:(oh-ih)/2"]);
         }

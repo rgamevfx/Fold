@@ -760,3 +760,58 @@ fn animation_surface_uses_the_explicit_viewer_time_and_rejects_ambiguity() {
         );
     }
 }
+
+#[test]
+fn channel_selector_and_viewer_status_fit_narrow_headers() {
+    let _guard = crate::IMGUI_TEST_LOCK.lock().unwrap();
+    let mut context = Context::create();
+    context.set_ini_filename(None::<String>).unwrap();
+    context
+        .font_atlas()
+        .try_claim_legacy_renderer()
+        .unwrap()
+        .build();
+    context.io_mut().set_display_size([1000., 800.]);
+    context.io_mut().set_delta_time(1. / 60.);
+    let documents = [DocumentId::new(), DocumentId::new()];
+    let mut host = Host {
+        documents,
+        state: Default::default(),
+        delivery: documents[0],
+        commands: vec![],
+    };
+    let mut shell = Shell::new(vec![]);
+    shell.workspace.viewers.clear();
+    let source = workspace::DocumentRef {
+        document: documents[0],
+        output: "video".into(),
+        extensions: Default::default(),
+    };
+    let id = shell.workspace.add_viewer(ViewerInstance {
+        binding: ViewerBinding::Pinned(source.clone()),
+        last_output: Some(source),
+        divisor: 4,
+        playback_mode: Some(fold_platform::desktop::PlaybackMode::RealTime),
+        ..Default::default()
+    });
+    shell.workspace.monitored_viewer = Some(id);
+    for width in [420., 280.] {
+        for frame in 0..4 {
+            let ui = context.frame();
+            ui.window("Viewer")
+                .position([0.; 2], dear_imgui_rs::Condition::Always)
+                .size([width, 400.], dear_imgui_rs::Condition::Always)
+                .build(|| {
+                    let top = ui.cursor_screen_pos()[1];
+                    shell.viewer_header(ui, id, &mut host);
+                    if frame >= 2 {
+                        assert_eq!(ui.scroll_max_x(), 0., "{width}px");
+                        assert!(
+                            ui.cursor_screen_pos()[1] - top <= ui.frame_height_with_spacing() * 2.
+                        );
+                    }
+                });
+            drop(context.render_legacy());
+        }
+    }
+}

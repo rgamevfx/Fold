@@ -5,6 +5,7 @@ pub mod audio;
 pub mod budget;
 mod decoded;
 pub use decoded::{PlaneLayout, YuvEncoding, YuvFrame};
+pub mod exr;
 pub mod ingest;
 #[cfg(all(feature = "native-video", target_os = "linux"))]
 pub mod native;

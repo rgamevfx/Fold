@@ -13,6 +13,7 @@ pub const INTERPRETATION_KEY: &str = "fold.media.input.v1";
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SourceProfile {
     Video(VideoInfo),
+    Exr(crate::exr::Info),
     Wave(WaveInfo),
     Ppm { dimensions: [u32; 2] },
 }
@@ -64,6 +65,7 @@ pub fn inspect_linked(path: &Path, cancel: &Cancel) -> Result<LinkedSource, Stri
         .unwrap_or("")
         .to_ascii_lowercase();
     let profile = match extension.as_str() {
+        "exr" => SourceProfile::Exr(crate::exr::inspect(&path, cancel)?),
         "wav" => SourceProfile::Wave(crate::inspect_wave(&path, cancel)?.info),
         "mp4" => SourceProfile::Video(crate::inspect(&path, cancel)?.info),
         "ppm" => {
@@ -77,7 +79,7 @@ pub fn inspect_linked(path: &Path, cancel: &Cancel) -> Result<LinkedSource, Stri
                 dimensions: crate::RgbImage::decode_ppm(&bytes)?.dimensions(),
             }
         }
-        _ => return Err("unsupported linked media: expected MP4, WAVE or P6 PPM".into()),
+        _ => return Err("unsupported linked media: expected MP4, WAVE, P6 PPM or OpenEXR".into()),
     };
     let (streams, raw_format) = if matches!(profile, SourceProfile::Ppm { .. }) {
         (
@@ -91,6 +93,18 @@ pub fn inspect_linked(path: &Path, cancel: &Cancel) -> Result<LinkedSource, Stri
                     "codec_name": "ppm", "pix_fmt": "rgb24", "bits_per_raw_sample": 8,
                     "alpha": "opaque", "interpretation": "legacy P6 sRGB adapter"
                 }),
+            }],
+            serde_json::Value::Null,
+        )
+    } else if let SourceProfile::Exr(info) = &profile {
+        (
+            vec![StreamMetadata {
+                index: 0,
+                kind: "video".into(),
+                facts: serde_json::to_value(info).map_err(|e| e.to_string())?,
+                bit_depth: None,
+                planes: None,
+                alpha: None,
             }],
             serde_json::Value::Null,
         )
@@ -160,7 +174,7 @@ pub fn inspect_linked(path: &Path, cancel: &Cancel) -> Result<LinkedSource, Stri
     let timing_policy = match &profile {
         SourceProfile::Video(_) => "verified exact CFR, zero origin",
         SourceProfile::Wave(_) => "exact sample frames, zero origin",
-        SourceProfile::Ppm { .. } => "still image",
+        SourceProfile::Ppm { .. } | SourceProfile::Exr(_) => "still image",
     }
     .into();
     Ok(LinkedSource {

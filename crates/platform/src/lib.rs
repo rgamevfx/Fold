@@ -10,8 +10,11 @@ use fold_media::Cancel;
 pub use fold_media::VideoInfo;
 use fold_project::{Document, DocumentRef, Snapshot};
 pub use fold_project::{Revision as ProjectRevision, Snapshot as ProjectSnapshot};
-use fold_render::RenderGraph;
 pub use fold_render::scheduling;
+use fold_render::{
+    RenderGraph,
+    channels::{ChannelGraph, ChannelName},
+};
 
 // Presentation contract, not access to engine resources or GPU implementation.
 pub use fold_render::DisplayFrame;
@@ -20,6 +23,9 @@ pub use fold_render::gpu;
 
 /// Nested outputs compile into the caller's IR, never into rendered frames.
 pub type VideoResolver<'a> = dyn Fn(&DocumentRef, Time) -> Result<RenderGraph, String> + 'a;
+
+pub type ChannelResolver<'a> = dyn Fn(&DocumentRef) -> Result<Vec<ChannelName>, String> + 'a;
+pub type ImageResolver<'a> = dyn Fn(&DocumentRef, Time) -> Result<ChannelGraph, String> + 'a;
 
 /// One compilation interface for every source, including legacy adapters.
 /// Nested resolution inherits the snapshot, dimensions and cancellation token.
@@ -31,6 +37,9 @@ pub struct VideoCompile<'a> {
     pub dimensions: [u32; 2],
     pub cancel: &'a Cancel,
     pub resolve: &'a VideoResolver<'a>,
+    pub resolve_image: &'a ImageResolver<'a>,
+    /// Structural discovery for inactive sources; must not evaluate media.
+    pub describe_channels: &'a ChannelResolver<'a>,
 }
 
 pub trait VideoProvider: Send + Sync {
@@ -60,6 +69,21 @@ pub trait VideoProvider: Send + Sync {
     /// Reference-local controls must be explicitly supported, never silently ignored.
     fn supports_controls(&self) -> bool {
         false
+    }
+    fn channels(
+        &self,
+        _document: &Document,
+        _resolve: &ChannelResolver<'_>,
+    ) -> Result<Vec<fold_render::channels::ChannelName>, String> {
+        fold_render::channels::RGBA
+            .into_iter()
+            .map(|name| name.to_owned().try_into())
+            .collect()
+    }
+    /// RGBA-only providers retain their existing interface; multilayer providers
+    /// override this method to preserve their named outputs through nesting.
+    fn compile_image(&self, request: VideoCompile<'_>) -> Result<ChannelGraph, String> {
+        self.compile(request).map(ChannelGraph::rgba)
     }
     fn compile(&self, request: VideoCompile<'_>) -> Result<RenderGraph, String>;
 }
@@ -123,9 +147,74 @@ impl VideoRegistry {
         dimensions: [u32; 2],
         cancel: &Cancel,
     ) -> Result<RenderGraph, String> {
-        self.compile_nested(snapshot, source, time, dimensions, cancel, &[])
+        self.compile_nested(snapshot, source, time, dimensions, cancel, &[])?
+            .select(None)
     }
 
+    pub fn channels(
+        &self,
+        snapshot: &Snapshot,
+        source: &DocumentRef,
+    ) -> Result<Vec<ChannelName>, String> {
+        self.channels_nested(snapshot, source, &[], &Default::default())
+    }
+    fn channels_nested(
+        &self,
+        snapshot: &Snapshot,
+        source: &DocumentRef,
+        ancestors: &[fold_foundation::DocumentId],
+        cache: &std::cell::RefCell<Vec<(DocumentRef, Vec<ChannelName>)>>,
+    ) -> Result<Vec<ChannelName>, String> {
+        if ancestors.contains(&source.document) || ancestors.len() >= 64 {
+            return Err("Recursive or excessively deep channel catalog".into());
+        }
+        if let Some((_, names)) = cache
+            .borrow()
+            .iter()
+            .find(|(reference, _)| reference == source)
+        {
+            return Ok(names.clone());
+        }
+        let document = snapshot
+            .state()
+            .documents
+            .get(&source.document)
+            .ok_or("Missing document")?;
+        let provider = self
+            .providers
+            .iter()
+            .find(|p| p.package_id() == document.package_id && p.type_id() == document.type_id)
+            .ok_or("Missing image provider")?;
+        if !provider
+            .outputs(document)
+            .iter()
+            .any(|o| o.reference.output == source.output)
+        {
+            return Err("Unavailable image output".into());
+        }
+        let mut path = ancestors.to_vec();
+        path.push(source.document);
+        let names = provider.channels(document, &|nested| {
+            if !document.dependencies.contains(nested) {
+                return Err("Undeclared channel source dependency".into());
+            }
+            self.channels_nested(snapshot, nested, &path, cache)
+        })?;
+        cache.borrow_mut().push((source.clone(), names.clone()));
+        Ok(names)
+    }
+    pub fn compile_channels(
+        &self,
+        snapshot: &Snapshot,
+        source: &DocumentRef,
+        time: Time,
+        dimensions: [u32; 2],
+        cancel: &Cancel,
+        selection: &fold_render::view::Selection,
+    ) -> Result<RenderGraph, String> {
+        self.compile_nested(snapshot, source, time, dimensions, cancel, &[])?
+            .select(Some(selection))
+    }
     fn compile_nested(
         &self,
         snapshot: &Snapshot,
@@ -134,7 +223,7 @@ impl VideoRegistry {
         dimensions: [u32; 2],
         cancel: &Cancel,
         ancestors: &[fold_foundation::DocumentId],
-    ) -> Result<RenderGraph, String> {
+    ) -> Result<ChannelGraph, String> {
         cancel.check()?;
         if ancestors.contains(&source.document) || ancestors.len() >= 64 {
             return Err(format!(
@@ -169,7 +258,7 @@ impl VideoRegistry {
         }
         let mut path = ancestors.to_vec();
         path.push(source.document);
-        let resolve = |nested: &DocumentRef, local_time: Time| {
+        let resolve_image = |nested: &DocumentRef, local_time: Time| {
             cancel.check()?;
             if !document.dependencies.contains(nested) {
                 return Err(format!(
@@ -179,7 +268,18 @@ impl VideoRegistry {
             }
             self.compile_nested(snapshot, nested, local_time, dimensions, cancel, &path)
         };
-        let graph = provider.compile(VideoCompile {
+        let resolve = |nested: &DocumentRef, local_time: Time| {
+            resolve_image(nested, local_time)?.select(None)
+        };
+        let catalog = std::cell::RefCell::default();
+        let describe_channels = |nested: &DocumentRef| {
+            cancel.check()?;
+            if !document.dependencies.contains(nested) {
+                return Err("Undeclared channel source dependency".into());
+            }
+            self.channels_nested(snapshot, nested, &path, &catalog)
+        };
+        let request = VideoCompile {
             snapshot,
             document,
             reference: source,
@@ -187,7 +287,10 @@ impl VideoRegistry {
             dimensions,
             cancel,
             resolve: &resolve,
-        })?;
+            resolve_image: &resolve_image,
+            describe_channels: &describe_channels,
+        };
+        let graph = provider.compile_image(request)?;
         cancel.check()?;
         Ok(graph)
     }

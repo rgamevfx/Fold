@@ -167,6 +167,8 @@ pub struct ViewerInstance {
     pub time: Time,
     pub divisor: u32,
     #[serde(default)]
+    pub channels: crate::desktop::ChannelView,
+    #[serde(default)]
     pub range: crate::desktop::PlaybackRange,
     #[serde(default)]
     pub looping: bool,
@@ -184,6 +186,7 @@ impl Default for ViewerInstance {
             editor: None,
             time: Time::ZERO,
             divisor: 2,
+            channels: Default::default(),
             range: Default::default(),
             looping: false,
             playing: false,

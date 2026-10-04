@@ -226,6 +226,8 @@ fn source_handles_and_video_lowering_use_exact_half_open_ranges() {
             dimensions: [2, 2],
             cancel: &Default::default(),
             resolve: &|_, _| Err("unexpected nested source".into()),
+            resolve_image: &|_, _| Err("unexpected nested image".into()),
+            describe_channels: &|_| Err("unexpected nested channel catalog".into()),
         })
     };
     for frame in [0, 25, 49] {

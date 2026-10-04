@@ -302,6 +302,9 @@ impl PreviewWorker {
                         )?;
                         let _output_permit =
                             fold_render::scheduling::Scheduler::shared().enter(class, &cancel)?;
+                        if let fold_render::view::View::Channel { range, .. } = &key.channels {
+                            return renderer.output_data(&scene, *range, &cancel);
+                        }
                         crate::color::with_config(&snapshot, |config| {
                             let processor = config
                                 .map(|c| c.display(fold_color::WORKING_SPACE, &Default::default()))
@@ -353,7 +356,10 @@ impl PreviewWorker {
                     .as_mut()
                     .map_err(|e| e.clone())
                     .and_then(|decoder| workflow::evaluate(&snapshot, &key, decoder, &cancel))
-                    .and_then(|f| crate::color::preview(&snapshot, &f));
+                    .and_then(|f| match &key.channels {
+                        fold_render::view::View::Channel { range, .. } => f.to_data_display(*range),
+                        _ => crate::color::preview(&snapshot, &f),
+                    });
                 let mut queue = state.0.lock().unwrap();
                 if queue.retry_pressure(&snapshot, &key, frame.as_ref().err().map(String::as_str)) {
                     let _ = state
@@ -466,6 +472,7 @@ mod tests {
                 frame,
                 dimensions: [16, 16],
                 view: 1,
+                channels: Default::default(),
             },
         }
     }

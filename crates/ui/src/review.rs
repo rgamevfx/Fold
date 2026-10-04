@@ -74,6 +74,7 @@ impl Plan {
             && self.template.content == key.content
             && self.template.dimensions == key.dimensions
             && self.template.view == key.view
+            && self.template.channels == key.channels
             && self.template.output == key.output
             && self.template.target.map(|t| t.0) == key.target.map(|t| t.0)
             && self.range == range
@@ -142,6 +143,7 @@ mod tests {
                 frame: 0,
                 dimensions: [16, 16],
                 view: 1,
+                channels: Default::default(),
             },
             [30_000, 1001],
             PlaybackRange {
@@ -194,6 +196,13 @@ mod tests {
         assert!(plan.compatible(1, &plan.key(1), plan.range));
         assert!(!plan.compatible(2, &plan.key(1), plan.range));
         for key in [
+            PreviewKey {
+                channels: fold_platform::desktop::ChannelView::Channel {
+                    name: "depth.Z".to_owned().try_into().unwrap(),
+                    range: fold_platform::desktop::DisplayRange::new(0., 100.).unwrap(),
+                },
+                ..plan.key(1)
+            },
             PreviewKey {
                 content: "edit".into(),
                 ..plan.key(1)

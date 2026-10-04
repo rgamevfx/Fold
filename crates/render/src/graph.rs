@@ -31,7 +31,7 @@ impl Affine {
         ty: 0.0,
     };
 
-    pub(crate) fn inverse(self) -> Result<Self, &'static str> {
+    pub fn inverse(self) -> Result<Self, &'static str> {
         let Self { a, b, c, d, tx, ty } = self;
         let det = a * d - b * c;
         if ![a, b, c, d, tx, ty, det].iter().all(|v| v.is_finite()) || det == 0.0 {
@@ -64,6 +64,12 @@ pub enum ImageOp {
     /// Validated opaque SDR source. Decoded storage is caller-owned; its RGB8
     /// byte count across all source nodes is separately capped at 64 MiB.
     Media(fold_media::RgbImage),
+    Exr {
+        source: fold_media::exr::Source,
+        channels: [Option<String>; 4],
+        /// None denotes data. Color tuples carry an explicit input assignment.
+        space: Option<String>,
+    },
     /// Immutable native paths in output-pixel coordinates, ordered back to front.
     Vector(std::sync::Arc<Vec<crate::vector::Drawing>>),
     Video {
@@ -79,9 +85,45 @@ pub enum ImageOp {
     Solid {
         rgba: [f32; 4],
     },
+    /// Repack channels without applying color conversion or normalization.
+    /// Selectors 0..4 read first, 4..8 read second, 8 is zero, 9 is one.
+    Shuffle {
+        first: ImageId,
+        second: Option<ImageId>,
+        mapping: [u8; 4],
+    },
+    /// Effect coverage, distinct from alpha multiplication. The original is B
+    /// for a merge. Unselected channels pass through unchanged.
+    Mix {
+        original: ImageId,
+        processed: ImageId,
+        mask: Option<ImageId>,
+        mask_channel: u8,
+        invert: bool,
+        amount: f32,
+        channels: [bool; 4],
+    },
     Transform {
         input: ImageId,
         transform: Affine,
+    },
+    Unary {
+        input: ImageId,
+        operation: crate::operations::Unary,
+    },
+    Resample {
+        input: ImageId,
+        transform: Affine,
+        filter: crate::operations::Filter,
+    },
+    ColorGrade {
+        input: ImageId,
+        settings: crate::operations::Grade,
+    },
+    Merge {
+        first: ImageId,
+        second: ImageId,
+        mode: crate::operations::MergeMode,
     },
     /// Scales all four premultiplied channels by a finite value in 0..=1.
     Opacity {
@@ -92,6 +134,11 @@ pub enum ImageOp {
     Crop {
         input: ImageId,
         rect: [u32; 4],
+    },
+    Gaussian {
+        input: ImageId,
+        size: [f32; 2],
+        edges: crate::operations::Edges,
     },
     /// Box blur with transparent borders and a fixed full-kernel divisor.
     Blur {
@@ -133,21 +180,34 @@ impl ImageOp {
     }
     pub(crate) fn inputs(&self) -> impl Iterator<Item = ImageId> {
         let inputs = match *self {
+            Self::Shuffle { first, second, .. } => [Some(first), second, None],
+            Self::Mix {
+                original,
+                processed,
+                mask,
+                ..
+            } => [Some(original), Some(processed), mask],
             Self::Solid { .. }
+            | Self::Exr { .. }
             | Self::Media(_)
             | Self::Video { .. }
             | Self::VideoInput { .. }
-            | Self::Vector(_) => [None, None],
-            Self::Transform { input, .. }
+            | Self::Vector(_) => [None, None, None],
+            Self::Unary { input, .. }
+            | Self::Resample { input, .. }
+            | Self::ColorGrade { input, .. }
+            | Self::Transform { input, .. }
             | Self::Opacity { input, .. }
             | Self::Crop { input, .. }
+            | Self::Gaussian { input, .. }
             | Self::Blur { input, .. }
-            | Self::Grade { input, .. } => [Some(input), None],
-            Self::Mask { input, mask } => [Some(input), Some(mask)],
+            | Self::Grade { input, .. } => [Some(input), None, None],
+            Self::Merge { first, second, .. } => [Some(first), Some(second), None],
+            Self::Mask { input, mask } => [Some(input), Some(mask), None],
             Self::Over {
                 foreground,
                 background,
-            } => [Some(foreground), Some(background)],
+            } => [Some(foreground), Some(background), None],
         };
         inputs.into_iter().flatten()
     }
@@ -179,12 +239,39 @@ impl RenderGraph {
                 return Err("invalid nested graph ordering".into());
             }
             match op {
-                ImageOp::Transform { input, .. }
+                ImageOp::Shuffle { first, second, .. } => {
+                    *first += offset;
+                    if let Some(second) = second {
+                        *second += offset;
+                    }
+                }
+                ImageOp::Mix {
+                    original,
+                    processed,
+                    mask,
+                    ..
+                } => {
+                    *original += offset;
+                    *processed += offset;
+                    if let Some(mask) = mask {
+                        *mask += offset;
+                    }
+                }
+                ImageOp::Unary { input, .. }
+                | ImageOp::Resample { input, .. }
+                | ImageOp::ColorGrade { input, .. }
+                | ImageOp::Transform { input, .. }
                 | ImageOp::Opacity { input, .. }
                 | ImageOp::Crop { input, .. }
+                | ImageOp::Gaussian { input, .. }
                 | ImageOp::Blur { input, .. }
                 | ImageOp::Grade { input, .. } => *input += offset,
-                ImageOp::Mask { input, mask } => {
+                ImageOp::Merge {
+                    first: input,
+                    second: mask,
+                    ..
+                }
+                | ImageOp::Mask { input, mask } => {
                     *input += offset;
                     *mask += offset;
                 }
@@ -239,6 +326,47 @@ pub(crate) fn validate(graph: &RenderGraph, aces: bool) -> Result<usize, String>
             return Err("image inputs must precede their consumer".into());
         }
         match *op {
+            ImageOp::Unary { ref operation, .. } => operation.validate()?,
+            ImageOp::ColorGrade { ref settings, .. } => settings.validate()?,
+            ImageOp::Merge { .. } => {}
+            ImageOp::Exr {
+                ref source,
+                ref channels,
+                ref space,
+            } => {
+                source.info.validate()?;
+                if space.is_some() && !aces {
+                    return Err("EXR color inputs require an ACES project".into());
+                }
+                for name in channels.iter().flatten() {
+                    if !source.info.channels.iter().any(|c| &c.source == name) {
+                        return Err(format!("Missing EXR channel '{name}'"));
+                    }
+                }
+            }
+            ImageOp::Shuffle {
+                second, mapping, ..
+            } => {
+                if mapping
+                    .iter()
+                    .any(|&c| c > 9 || ((4..8).contains(&c) && second.is_none()))
+                {
+                    return Err(
+                        "Shuffle requires valid channels and a connected B for B mappings".into(),
+                    );
+                }
+            }
+            ImageOp::Mix {
+                mask_channel,
+                amount,
+                ..
+            } => {
+                if mask_channel > 3 || !amount.is_finite() || !(0.0..=1.0).contains(&amount) {
+                    return Err(
+                        "effect mix requires a valid mask channel and amount in 0..1".into(),
+                    );
+                }
+            }
             ImageOp::Solid { rgba: [r, g, b, a] } => {
                 fold_color::validate_pixel([r, g, b, a])?;
                 if !aces
@@ -249,7 +377,7 @@ pub(crate) fn validate(graph: &RenderGraph, aces: bool) -> Result<usize, String>
                     return Err("expected finite SDR premultiplied linear RGBA".into());
                 }
             }
-            ImageOp::Transform { transform, .. } => {
+            ImageOp::Resample { transform, .. } | ImageOp::Transform { transform, .. } => {
                 transform.inverse()?;
             }
             ImageOp::Opacity { opacity, .. } => {
@@ -265,6 +393,7 @@ pub(crate) fn validate(graph: &RenderGraph, aces: bool) -> Result<usize, String>
                     return Err("invalid crop rectangle".into());
                 }
             }
+            ImageOp::Gaussian { size, .. } => crate::operations::validate_blur(size)?,
             ImageOp::Blur { radius, .. } => {
                 if radius > 64 {
                     return Err("blur radius exceeds 64 pixels".into());
@@ -326,7 +455,11 @@ pub(crate) fn input_processors(
         ]
         .into_iter()
         .chain(graph.nodes.iter().filter_map(|op| {
-            if let ImageOp::VideoInput { space, .. } = op {
+            if let ImageOp::VideoInput { space, .. }
+            | ImageOp::Exr {
+                space: Some(space), ..
+            } = op
+            {
                 Some(space.as_str())
             } else {
                 None
@@ -376,6 +509,98 @@ pub(crate) fn evaluate(
             .map_err(|_| "frame allocation failed")?;
         let input = |id: ImageId| frames[id].as_ref().expect("validated live input");
         match *op {
+            ImageOp::Unary {
+                input: source,
+                ref operation,
+            } => pixels.extend(
+                input(source)
+                    .pixels
+                    .iter()
+                    .map(|&pixel| operation.apply(pixel)),
+            ),
+            ImageOp::ColorGrade {
+                input: source,
+                ref settings,
+            } => {
+                pixels.extend(
+                    input(source)
+                        .pixels
+                        .iter()
+                        .map(|&pixel| settings.apply(pixel)),
+                );
+            }
+            ImageOp::Merge {
+                first,
+                second,
+                mode,
+            } => {
+                pixels.extend(
+                    input(first)
+                        .pixels
+                        .iter()
+                        .zip(&input(second).pixels)
+                        .map(|(&a, &b)| mode.apply(a, b)),
+                );
+            }
+            ImageOp::Exr {
+                ref source,
+                ref channels,
+                ref space,
+            } => {
+                let decoded = fold_media::exr::decode(
+                    source,
+                    channels.each_ref().map(|c| c.as_deref()),
+                    [graph.width, graph.height],
+                    cancel,
+                )?;
+                pixels.extend_from_slice(&decoded.pixels);
+                if let Some(space) = space {
+                    processors[space].apply(&mut pixels)?;
+                }
+            }
+            ImageOp::Shuffle {
+                first,
+                second,
+                mapping,
+            } => {
+                for i in 0..count {
+                    let a = input(first).pixels[i];
+                    let b = second.map_or([0.; 4], |id| input(id).pixels[i]);
+                    pixels.push(mapping.map(|c| match c {
+                        0..=3 => a[c as usize],
+                        4..=7 => b[c as usize - 4],
+                        8 => 0.,
+                        _ => 1.,
+                    }));
+                }
+            }
+            ImageOp::Mix {
+                original,
+                processed,
+                mask,
+                mask_channel,
+                invert,
+                amount,
+                channels,
+            } => {
+                for i in 0..count {
+                    let a = input(original).pixels[i];
+                    let b = input(processed).pixels[i];
+                    let coverage = mask.map_or(1., |id| {
+                        let value = input(id).pixels[i][mask_channel as usize].clamp(0., 1.);
+                        if invert { 1. - value } else { value }
+                    }) * amount;
+                    pixels.push(std::array::from_fn(|c| {
+                        if !channels[c] || coverage == 0. {
+                            a[c]
+                        } else if coverage == 1. {
+                            b[c]
+                        } else {
+                            a[c] * (1. - coverage) + b[c] * coverage
+                        }
+                    }));
+                }
+            }
             ImageOp::Vector(ref drawings) => {
                 // Raster surface + resulting float pixels coexist; do not reserve
                 // another float frame before entering the vector adapter.
@@ -479,6 +704,23 @@ pub(crate) fn evaluate(
                         .map(|(p, m)| p.map(|v| v * m[3])),
                 );
             }
+            ImageOp::Gaussian {
+                input: source,
+                size,
+                edges,
+            } => {
+                if live_bytes + 2 * bytes > budget {
+                    return Err("Gaussian scratch exceeds working memory budget".into());
+                }
+                crate::operations::gaussian(
+                    &input(source).pixels,
+                    &mut pixels,
+                    [graph.width, graph.height],
+                    size,
+                    edges,
+                    cancel,
+                )?;
+            }
             ImageOp::Blur {
                 input: source,
                 radius,
@@ -545,6 +787,26 @@ pub(crate) fn evaluate(
                     }
                 }
             }
+            ImageOp::Resample {
+                input: source,
+                transform,
+                filter,
+            } => {
+                let m = transform.inverse()?;
+                for y in 0..graph.height {
+                    cancel.check()?;
+                    for x in 0..graph.width {
+                        let x = f64::from(x) + 0.5;
+                        let y = f64::from(y) + 0.5;
+                        pixels.push(crate::operations::sample(
+                            &input(source).pixels,
+                            [graph.width, graph.height],
+                            [m.a * x + m.c * y + m.tx, m.b * x + m.d * y + m.ty],
+                            filter,
+                        ));
+                    }
+                }
+            }
             ImageOp::Transform {
                 input: source,
                 transform,
@@ -571,10 +833,8 @@ pub(crate) fn evaluate(
                 }
             }
         }
-        if aces {
-            for pixel in &pixels {
-                fold_color::validate_pixel(*pixel)?;
-            }
+        for pixel in &pixels {
+            fold_color::validate_pixel(*pixel)?;
         }
         frames[id] = Some(Frame {
             _storage: storage,

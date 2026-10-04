@@ -520,6 +520,7 @@ impl Shell {
                     let mut key = state.preview_key(state.frame, viewer.divisor)?;
                     key.dimensions = self.sized_dimensions(id, key.dimensions, viewer.divisor);
                     key.output = output.output;
+                    key.channels = viewer.channels.clone();
                     Some(key)
                 });
                 (id, key)
@@ -1208,22 +1209,106 @@ impl Shell {
             Err(error) => client.command(DesktopCommand::Notify(error)),
         }
     }
+    fn viewer_channel_selector(
+        &mut self,
+        ui: &Ui,
+        id: PanelInstanceId,
+        client: &dyn DesktopClient,
+        compact: bool,
+    ) {
+        use fold_platform::desktop::{ChannelView, DisplayRange};
+        let Some(output) = self.workspace.resolve(id) else {
+            return;
+        };
+        ui.same_line();
+        ui.set_next_item_width(if compact { 80. } else { 130. });
+        let current = self.workspace.viewers[&id].channels.clone();
+        if let Some(_combo) = ui.begin_combo("##channels", current.label()) {
+            match client.channels(&output) {
+                Ok(channels) => {
+                    let layers: std::collections::BTreeSet<_> =
+                        channels.iter().map(|name| name.layer()).collect();
+                    for layer in layers {
+                        if ["red", "green", "blue"].iter().all(|component| {
+                            channels
+                                .iter()
+                                .any(|c| c.as_str() == format!("{layer}.{component}"))
+                        }) && ui.selectable(format!("{layer} · RGB"))
+                        {
+                            self.workspace.viewers.get_mut(&id).unwrap().channels =
+                                ChannelView::Rgb {
+                                    layer: layer.to_owned(),
+                                };
+                        }
+                    }
+                    ui.separator();
+                    for name in channels {
+                        if ui.selectable(name.as_str()) {
+                            self.workspace.viewers.get_mut(&id).unwrap().channels =
+                                ChannelView::Channel {
+                                    name,
+                                    range: DisplayRange::default(),
+                                };
+                        }
+                    }
+                }
+                Err(error) => ui.text_wrapped(error),
+            }
+            if let ChannelView::Channel { range, .. } =
+                &mut self.workspace.viewers.get_mut(&id).unwrap().channels
+            {
+                ui.separator();
+                let mut values = range.values();
+                let black = crate::sdk::imgui::Drag::new("Black")
+                    .speed(0.01)
+                    .build(ui, &mut values[0]);
+                let white = crate::sdk::imgui::Drag::new("White")
+                    .speed(0.01)
+                    .build(ui, &mut values[1]);
+                if (black || white)
+                    && let Ok(value) = DisplayRange::new(values[0], values[1])
+                {
+                    *range = value;
+                }
+            }
+        }
+        crate::sdk::toolbar::tooltip(
+            ui,
+            &format!(
+                "{} — viewer layer/channel; data uses the selected grayscale range",
+                current.label()
+            ),
+        );
+    }
     fn viewer_header(&mut self, ui: &Ui, id: PanelInstanceId, client: &mut dyn DesktopClient) {
+        let compact = ui.content_region_avail()[0] < 400.;
         let group = self.workspace.viewers[&id].group;
         if let Some(group) = group_selector::draw(ui, group, false) {
             self.workspace.set_viewer_group(id, group);
             self.refresh_viewer_targets(client);
         }
+        self.viewer_channel_selector(ui, id, client, compact);
         let viewer = &self.workspace.viewers[&id];
         let mode = client.viewer_transport(id).map_or_else(
             || self.playback_mode(id, client),
             |transport| transport.mode,
         );
         ui.same_line();
-        ui.text_disabled(match mode {
+        let mode_label = match mode {
             fold_platform::desktop::PlaybackMode::RealTime => "Real-time",
             fold_platform::desktop::PlaybackMode::EveryFrame => "Every-frame",
-        });
+        };
+        if compact {
+            if ui.small_button("…##viewer-status") {
+                ui.open_popup("viewer-status");
+            }
+            crate::sdk::toolbar::tooltip(ui, &format!("Playback mode: {mode_label}"));
+            if let Some(_popup) = ui.begin_popup("viewer-status") {
+                ui.text(format!("Playback mode: {mode_label}"));
+            }
+        } else {
+            ui.text_disabled(mode_label);
+        }
         if self.workspace.monitored_viewer == Some(id)
             && mode == fold_platform::desktop::PlaybackMode::RealTime
         {
@@ -1501,6 +1586,7 @@ impl Shell {
                     .map(|mut key| {
                         key.dimensions = self.sized_dimensions(id, key.dimensions, viewer.divisor);
                         key.output = output.output.clone();
+                        key.channels = viewer.channels.clone();
                         key
                     });
                 if presented.is_none() || *presented != expected {

@@ -16,6 +16,7 @@ fn scene_request_is_independent_of_viewer_keys_and_retains_alpha() {
         .unwrap();
     let snapshot = project.snapshot();
     let mut request = media_workflow::SceneRequest {
+        preview: None,
         source: DocumentRef {
             document: id,
             output: "video".into(),

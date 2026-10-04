@@ -229,6 +229,7 @@ struct Params {
     matrix: [f32; 4],
     offset: [f32; 4],
     rect: [u32; 4],
+    grade: [[f32; 4]; 7],
 }
 
 /// Worker-owned pipeline state, sharing host allocations with other workers.
@@ -236,6 +237,7 @@ struct Params {
 pub struct Renderer {
     host: Host,
     pipeline: wgpu::ComputePipeline,
+    data_display: wgpu::ComputePipeline,
     layout: wgpu::BindGroupLayout,
     colors: std::collections::BTreeMap<(String, bool), Arc<color::ColorPipeline>>,
     planes: wgpu::ComputePipeline,
@@ -263,6 +265,7 @@ impl Renderer {
             entries: &[
                 texture(0),
                 texture(1),
+                texture(5),
                 wgpu::BindGroupLayoutEntry {
                     binding: 2,
                     visibility: wgpu::ShaderStages::COMPUTE,
@@ -327,7 +330,20 @@ impl Renderer {
         let yuv = yuv::YuvPipeline::new(&host);
         let vector = vector::VectorPipeline::new(&host);
         host.check()?;
+        let data_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("Data channel visualization"),
+            source: wgpu::ShaderSource::Wgsl(include_str!("data_display.wgsl").into()),
+        });
+        let data_display = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: Some("Data channel visualization"),
+            layout: None,
+            module: &data_shader,
+            entry_point: Some("main"),
+            compilation_options: Default::default(),
+            cache: None,
+        });
         Ok(Self {
+            data_display,
             host,
             pipeline,
             yuv,
@@ -342,8 +358,7 @@ impl Renderer {
     fn pass(
         &self,
         encoder: &mut wgpu::CommandEncoder,
-        first: &Image,
-        second: &Image,
+        [first, second, mask]: [&Image; 3],
         output: &Image,
         params: Params,
         status: &validation::Status,
@@ -370,6 +385,10 @@ impl Renderer {
                     wgpu::BindGroupEntry {
                         binding: 1,
                         resource: wgpu::BindingResource::TextureView(&second.view),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 5,
+                        resource: wgpu::BindingResource::TextureView(&mask.view),
                     },
                     wgpu::BindGroupEntry {
                         binding: 2,
@@ -526,14 +545,79 @@ impl Renderer {
                 ..Default::default()
             };
             let mut logical_inputs = op.inputs();
-            let mut inputs = [logical_inputs.next(), logical_inputs.next()];
+            let mut inputs = [
+                logical_inputs.next(),
+                logical_inputs.next(),
+                logical_inputs.next(),
+            ];
             if let Some((input, _)) = fused[id] {
                 inputs[0] = Some(input);
             }
             let first = inputs[0].map_or(&dummy, |i| frames[i].as_ref().unwrap());
             let second = inputs[1].map_or(&dummy, |i| frames[i].as_ref().unwrap());
+            let mask = inputs[2].map_or(&dummy, |i| frames[i].as_ref().unwrap());
             let mut compute = true;
             match op {
+                ImageOp::Unary { operation, .. } => {
+                    use crate::operations::Unary;
+                    params.header[0] = 17;
+                    params.rect[0] = match *operation {
+                        Unary::Exposure { stops } => {
+                            params.color[0] = stops.exp2();
+                            0
+                        }
+                        Unary::Invert => 1,
+                        Unary::Clamp { minimum, maximum } => {
+                            params.color[0] = minimum;
+                            params.color[1] = maximum;
+                            2
+                        }
+                        Unary::Premult => 3,
+                        Unary::Unpremult => 4,
+                    };
+                }
+                ImageOp::Merge { mode, .. } => {
+                    params.header[0] = 12;
+                    params.rect[0] = *mode as u32;
+                }
+                ImageOp::ColorGrade { settings, .. } => {
+                    params.header[0] = 13;
+                    params.rect[0] = u32::from(settings.unpremultiply);
+                    params.rect[1] = u32::from(settings == &crate::operations::Grade::default());
+                    for (target, value) in params.grade.iter_mut().zip([
+                        settings.black,
+                        settings.white,
+                        settings.lift,
+                        settings.gain,
+                        settings.multiply,
+                        settings.offset,
+                        settings.gamma,
+                    ]) {
+                        target[..3].copy_from_slice(&value);
+                    }
+                }
+                ImageOp::Shuffle { mapping, .. } => {
+                    params.header[0] = 10;
+                    params.rect = mapping.map(u32::from);
+                }
+                ImageOp::Mix {
+                    mask,
+                    mask_channel,
+                    invert,
+                    amount,
+                    channels,
+                    ..
+                } => {
+                    params.header[0] = 11;
+                    params.color[0] = *amount;
+                    params.rect = [
+                        u32::from(mask.is_some()),
+                        u32::from(*mask_channel),
+                        u32::from(*invert),
+                        0,
+                    ];
+                    params.matrix = channels.map(|enabled| if enabled { 1. } else { 0. });
+                }
                 ImageOp::Solid { rgba } => {
                     params.color = if aces && rgba[3] == 0. {
                         [0.; 4]
@@ -563,9 +647,13 @@ impl Renderer {
                     params.color[..3].copy_from_slice(gain);
                 }
                 ImageOp::Mask { .. } => params.header[0] = 5,
-                ImageOp::Transform { transform, .. } => {
+                ImageOp::Resample { transform, .. } | ImageOp::Transform { transform, .. } => {
                     let m = transform.inverse()?;
                     params.header[0] = 6;
+                    if let ImageOp::Resample { filter, .. } = op {
+                        params.header[0] = 14;
+                        params.rect[0] = *filter as u32;
+                    }
                     params.matrix = [m.a as f32, m.b as f32, m.c as f32, m.d as f32];
                     params.offset = [m.tx as f32, m.ty as f32, 0., 0.];
                     if params
@@ -580,7 +668,7 @@ impl Renderer {
                         );
                     }
                 }
-                ImageOp::Blur { radius, .. } => {
+                ImageOp::Gaussian { .. } | ImageOp::Blur { .. } => {
                     let intermediate = match scratch.pop() {
                         Some(image) => image,
                         None => {
@@ -590,13 +678,29 @@ impl Renderer {
                         }
                     };
                     params.header[0] = 7;
-                    params.rect[0] = *radius;
-                    self.pass(&mut encoder, first, &dummy, &intermediate, params, &status);
-                    params.header[0] = 8;
+                    if let ImageOp::Blur { radius, .. } = op {
+                        params.rect[0] = *radius;
+                    }
+                    if let ImageOp::Gaussian { size, edges, .. } = op {
+                        params.header[0] = 15;
+                        params.color[0] = size[0];
+                        params.rect[1] = *edges as u32;
+                    }
                     self.pass(
                         &mut encoder,
+                        [first, &dummy, &dummy],
                         &intermediate,
-                        &dummy,
+                        params,
+                        &status,
+                    );
+                    params.header[0] = 8;
+                    if let ImageOp::Gaussian { size, .. } = op {
+                        params.header[0] = 16;
+                        params.color[0] = size[1];
+                    }
+                    self.pass(
+                        &mut encoder,
+                        [&intermediate, &dummy, &dummy],
                         &output,
                         params,
                         &status,
@@ -680,14 +784,30 @@ impl Renderer {
                     stats.compute_passes += 3;
                     compute = false;
                 }
-                ImageOp::Media(_)
+                ImageOp::Exr { .. }
+                | ImageOp::Media(_)
                 | ImageOp::Video { .. }
                 | ImageOp::VideoInput { .. }
                 | ImageOp::Vector(_) => {
                     let begin = std::time::Instant::now();
                     let mut input_space = None;
                     let mut native_planes = None;
-                    let pixels: Vec<[f32; 4]> = if aces && !matches!(op, ImageOp::Vector(_)) {
+                    let mut exr_pixels;
+                    let pixels: Vec<[f32; 4]> = if let ImageOp::Exr {
+                        source,
+                        channels,
+                        space,
+                    } = op
+                    {
+                        exr_pixels = fold_media::exr::decode(
+                            source,
+                            channels.each_ref().map(|c| c.as_deref()),
+                            dimensions,
+                            cancel,
+                        )?;
+                        input_space = space.as_deref();
+                        std::mem::take(&mut exr_pixels.pixels)
+                    } else if aces && !matches!(op, ImageOp::Vector(_)) {
                         let decoded;
                         let source = match op {
                             ImageOp::Media(source) => source,
@@ -848,7 +968,13 @@ impl Renderer {
                 }
             }
             if compute {
-                self.pass(&mut encoder, first, second, &output, params, &status);
+                self.pass(
+                    &mut encoder,
+                    [first, second, mask],
+                    &output,
+                    params,
+                    &status,
+                );
                 stats.compute_passes += 1;
             }
             frames[id] = Some(output);

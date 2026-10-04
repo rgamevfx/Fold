@@ -38,7 +38,7 @@ impl Panel for Canvas {
         let state = std::rc::Rc::new(std::cell::RefCell::new(super::state::State::default()));
         Some(fold_ui::sdk::EditorPanels {
             editor: Box::new(Self::new(state.clone())),
-            inspector: Box::new(super::inspector::Inspector(state)),
+            inspector: Box::new(super::inspector::Inspector(state, Default::default())),
         })
     }
     fn cancel_interaction(&mut self, host: &mut dyn fold_platform::desktop::DesktopClient) {

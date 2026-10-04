@@ -190,6 +190,12 @@ impl DesktopClient for PanelContext<'_> {
     fn video_info(&self, id: fold_foundation::DocumentId) -> Result<fold_media::VideoInfo, String> {
         self.host.video_info(id)
     }
+    fn channels(
+        &self,
+        output: &fold_project::DocumentRef,
+    ) -> Result<Vec<fold_render::channels::ChannelName>, String> {
+        self.host.channels(output)
+    }
     fn outputs(&self, id: fold_foundation::DocumentId) -> Vec<crate::workspace::OutputDescriptor> {
         self.host.outputs(id)
     }

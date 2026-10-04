@@ -27,6 +27,7 @@ fn scene(snapshot: &fold_project::Snapshot, document: DocumentId) -> fold_render
     workflow::evaluate_scene(
         snapshot,
         &workflow::SceneRequest {
+            preview: None,
             source: fold_project::DocumentRef {
                 document,
                 output: "video".into(),

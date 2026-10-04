@@ -99,7 +99,7 @@ fn compositor_graph_and_inspector_draw_without_authoring() {
     context.io_mut().set_delta_time(1. / 60.);
     let mut canvas = canvas::Canvas::new(state.clone());
     canvas.initialize(&context);
-    let mut inspector = inspector::Inspector(state);
+    let mut inspector = inspector::Inspector(state, Default::default());
     for frame in 0..20 {
         let width = if frame >= 10 { 320. } else { 850. };
         context.io_mut().add_mouse_pos_event([width - 20., 700.]);
@@ -224,7 +224,7 @@ fn inspector_does_not_finish_an_animation_gesture() {
     state.preview(&mut host);
     assert!(state.editing && !state.property_editing);
     let state = Rc::new(RefCell::new(state));
-    let mut inspector = inspector::Inspector(state.clone());
+    let mut inspector = inspector::Inspector(state.clone(), Default::default());
     let mut context = imgui::Context::create();
     context.set_ini_filename(None::<String>).unwrap();
     context
@@ -264,4 +264,101 @@ fn inspector_does_not_finish_an_animation_gesture() {
             .animation
             .is_empty()
     );
+}
+
+#[test]
+fn production_node_inspectors_fit_normal_and_narrow_panels_without_edits() {
+    let _guard = IMGUI_TEST_LOCK.lock().unwrap();
+    let (mut host, initial) = setup();
+    let document = initial.document.unwrap();
+    let mut composite = initial.graph.unwrap();
+    let image = composite.nodes[0].id;
+    for parameters in [
+        Parameters::ColorGrade {
+            settings: Default::default(),
+        },
+        Parameters::TransformImage {
+            settings: Default::default(),
+        },
+        Parameters::GaussianBlur {
+            size: [3.; 2],
+            edges: Default::default(),
+        },
+        Parameters::Composite {
+            mode: Default::default(),
+        },
+        Parameters::Shuffle { mappings: vec![] },
+        Parameters::RemoveChannels {
+            channels: vec![],
+            keep: false,
+        },
+        Parameters::Unary {
+            operation: fold_render::operations::Unary::Exposure { stops: 0. },
+        },
+        Parameters::Shape {
+            shape: crate::Shape::Ellipse,
+            bounds: [0., 0., 16., 16.],
+        },
+        Parameters::Read {
+            source: crate::Source::Unassigned {
+                info: composite.info.clone(),
+            },
+            start: fold_foundation::Time::ZERO,
+            source_start: fold_foundation::Time::ZERO,
+            duration: composite.info.time(24).unwrap(),
+        },
+    ] {
+        let mut node = Node::disconnected(parameters);
+        node.inputs.fill(Some(image));
+        if node.parameters.operator().supports_effect() {
+            node.effect.mask = Some(image);
+        }
+        composite.nodes.push(node);
+    }
+    host.project
+        .commit(EditBatch {
+            base: host.project.snapshot().revision(),
+            mutations: vec![Mutation::PutDocument(composite.document(document).unwrap())],
+        })
+        .unwrap();
+    let before = host.project.snapshot().revision();
+    let state = Rc::new(RefCell::new(state::State::default()));
+    let mut inspector = inspector::Inspector(state.clone(), Default::default());
+    state.borrow_mut().sync(&mut host);
+    let mut context = imgui::Context::create();
+    context.set_ini_filename(None::<String>).unwrap();
+    context
+        .font_atlas()
+        .try_claim_legacy_renderer()
+        .unwrap()
+        .build();
+    context.io_mut().set_display_size([1200., 900.]);
+    context.io_mut().set_delta_time(1. / 60.);
+    for node in &composite.nodes {
+        state.borrow_mut().selected = vec![node.id];
+        for width in [420., 280.] {
+            for frame in 0..3 {
+                let ui = context.frame();
+                ui.window("Inspector")
+                    .position([0.; 2], imgui::Condition::Always)
+                    .size([width, 850.], imgui::Condition::Always)
+                    .build(|| {
+                        inspector.draw(ExtensionUi {
+                            ui,
+                            host: &mut host,
+                        });
+                        if frame == 2 {
+                            assert_eq!(
+                                ui.scroll_max_x(),
+                                0.,
+                                "{} at {width}px",
+                                node.parameters.operator().label()
+                            );
+                        }
+                    });
+                drop(context.render_legacy());
+            }
+        }
+    }
+    assert_eq!(host.project.snapshot().revision(), before);
 }

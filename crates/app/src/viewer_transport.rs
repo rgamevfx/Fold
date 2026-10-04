@@ -389,6 +389,7 @@ mod tests {
             frame,
             dimensions: [16, 16],
             view: 1,
+            channels: Default::default(),
         }
     }
     fn every(now: Instant, looping: bool) -> Clock {
