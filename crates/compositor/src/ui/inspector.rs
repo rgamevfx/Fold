@@ -148,11 +148,8 @@ impl Panel for Inspector {
                 state.commit(host);
             }
         }
-        ui.separator();
-        if state.editing {
-            ui.text_colored([0.95, 0.75, 0.35, 1.0], "LIVE PREVIEW • uncommitted");
-        }
         if !state.error.is_empty() {
+            ui.separator();
             ui.text_wrapped(&state.error);
         }
     }

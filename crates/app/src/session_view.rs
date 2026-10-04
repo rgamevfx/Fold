@@ -24,10 +24,7 @@ impl Session {
                     .map_err(|e| e.to_string())
             });
         match result {
-            Ok(()) => {
-                self.refresh();
-                self.state.status = "Preview — uncommitted gesture (Escape cancels)".into();
-            }
+            Ok(()) => self.refresh(),
             Err(error) => {
                 self.overlay = None;
                 self.refresh();

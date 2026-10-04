@@ -22,13 +22,17 @@ The compactness rules below are additional product taste guidance, not quotation
 ## Design rules
 
 1. **Quiet chrome.** Panel toolbars use one row by default, two at most. Move secondary actions into menus, contextual controls, or the inspector. At narrow widths, use overflow rather than stacking more toolbar rows. Keep the canvas, graph, timeline, or viewer dominant.
-2. **Purposeful visibility.** Each visible element must support the current task, navigation, or meaningful state. Put internal IDs and raw diagnostics in diagnostic views; legal notices in About / Third-party licenses as required. Put gesture instructions and explanations in tooltips or help. Routine success messages need not occupy permanent panel space.
+2. **Purposeful visibility.** Each visible element must support the current task, navigation, or meaningful state. Put internal IDs and raw diagnostics in diagnostic views; legal notices in About / Third-party licenses as required. Put gesture instructions and explanations in tooltips or help.
 3. **Recognizable controls.** Prefer shared icon buttons for familiar actions, with tooltips giving the action name and available shortcut. Use concise text when an icon would be ambiguous. Keep meaningful parameter labels visible: tooltips replace explanations, not basic comprehension. Provide keyboard access and clear focus.
 4. **Artist language.** Use established editing, VFX, and animation terms, with consistent names across workspaces. Translate schema fields into readable labels with useful units and precision. Present alignment as alignment controls, not instructions for decoding numeric values. Display precision must not reduce stored precision or authoritative time accuracy.
 5. **Fast paths, retained depth.** Offer sensible defaults and direct actions for common outcomes; retain primitive operations through expandable detail, menus, or the graph. Convenience controls edit the same underlying construction. Keep advanced controls discoverable rather than deleting creative capability to simplify the screen.
 6. **Context and hierarchy.** Group related properties; align labels and values. Keep frequent controls prominent and occasional actions secondary. Prefer a compact animation affordance and parameter menu to repeated rows of Animate/Publish buttons. Make driven/keyframed state and the actual edit target clear.
 7. **Compact, not cramped.** Remove redundant labels, headings, and containers before shrinking text, spacing, or hit targets. Use readable type, DPI-aware shared components, restrained semantic color, and non-color state cues. Preserve numeric alternatives to dragging.
 8. **Honest state.** Keep source/local-time context, relevant scope, missing dependencies, pending work, and preview quality/approximation status visible when applicable (§14). Essential warnings and errors must not depend on hovering. Minimalism must not make a stale or degraded preview appear current.
+
+## Feedback must add information
+
+The control and artwork provide feedback for parameter edits, selections, dragging, and ordinary commits. Do not announce these routine interactions when their outcome is already visible. Internal edit-session states such as “uncommitted” belong in diagnostics. Show notifications when they communicate a failure, consequence, required action, or meaningful background completion that would otherwise be unclear. Routine interaction feedback must not shift or resize the working surface.
 
 ## Apply to each UI change
 

@@ -1223,8 +1223,6 @@ impl Shell {
             let state = client.preview_state(&output, self.workspace.viewers[&id].time);
             if state.content.is_none() {
                 ui.text_colored([0.95, 0.55, 0.35, 1.], &state.status);
-            } else if state.transient {
-                ui.text_colored([0.95, 0.75, 0.35, 1.], "Uncommitted edit preview");
             }
         }
     }
