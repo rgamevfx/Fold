@@ -153,7 +153,7 @@ pub fn inspect(path: &Path, cancel: &Cancel) -> Result<VideoSource, String> {
 pub(crate) fn probe(path: &Path, cancel: &Cancel) -> Result<VideoInfo, String> {
     let output = tempfile::NamedTempFile::new().map_err(|e| e.to_string())?;
     let mut cmd = base("ffprobe");
-    cmd.args(["-threads", "1", "-select_streams", "v", "-show_streams", "-show_frames", "-show_format", "-show_entries", "stream=codec_name,pix_fmt,width,height,r_frame_rate,time_base,color_space,color_transfer,color_primaries,color_range,sample_aspect_ratio,field_order,chroma_location:stream_side_data=rotation:frame=best_effort_timestamp,pkt_duration:format=format_name", "-of", "json"])
+    cmd.args(["-threads", "1", "-select_streams", "v", "-show_streams", "-show_frames", "-show_format", "-show_entries", "stream=codec_name,pix_fmt,width,height,r_frame_rate,time_base,start_pts,duration_ts,color_space,color_transfer,color_primaries,color_range,sample_aspect_ratio,field_order,chroma_location:stream_side_data=rotation:frame=best_effort_timestamp,pkt_duration,duration:format=format_name", "-of", "json"])
         .arg(path).stdout(Stdio::from(output.reopen().map_err(|e| e.to_string())?));
     Process::spawn(
         cmd,
@@ -233,6 +233,16 @@ pub(crate) fn probe(path: &Path, cancel: &Cancel) -> Result<VideoInfo, String> {
         frames: frames.len().try_into().map_err(|_| "too many frames")?,
     };
     info.validate_media_profile()?;
+    validate_timing(&info, tb, frames, stream)?;
+    Ok(info)
+}
+
+fn validate_timing(
+    info: &VideoInfo,
+    tb: [u32; 2],
+    frames: &[serde_json::Value],
+    stream: &serde_json::Value,
+) -> Result<(), String> {
     // This first profile is exactly CFR from timestamp zero. Reject VFR instead
     // of guessing frame numbers from average frame rate.
     for (i, frame) in frames.iter().enumerate() {
@@ -242,9 +252,24 @@ pub(crate) fn probe(path: &Path, cancel: &Cancel) -> Result<VideoInfo, String> {
         let time = Time::new(pts, tb[1])
             .and_then(|t| t.checked_scale(i64::from(tb[0]), 1))
             .map_err(|e| e.to_string())?;
-        let duration = frame["pkt_duration"]
-            .as_i64()
-            .ok_or("missing frame duration")?;
+        let duration =
+            if let Some(value) = frame.get("duration").or_else(|| frame.get("pkt_duration")) {
+                value.as_i64().ok_or("invalid frame duration")?
+            } else {
+                // Some MP4s expose PTS and a stream end but omit packet/frame
+                // durations. Prove each interval from those exact integer times;
+                // never substitute average rate or guess the final frame length.
+                let end = frames
+                    .get(i + 1)
+                    .and_then(|next| next["best_effort_timestamp"].as_i64())
+                    .or_else(|| {
+                        (i + 1 == frames.len() && stream["start_pts"].as_i64() == Some(0))
+                            .then(|| stream["duration_ts"].as_i64())
+                            .flatten()
+                    })
+                    .ok_or("missing frame duration and exact end timestamp")?;
+                end.checked_sub(pts).ok_or("frame duration overflow")?
+            };
         let duration = Time::new(duration, tb[1])
             .and_then(|t| t.checked_scale(i64::from(tb[0]), 1))
             .map_err(|e| e.to_string())?;
@@ -252,7 +277,7 @@ pub(crate) fn probe(path: &Path, cancel: &Cancel) -> Result<VideoInfo, String> {
             return Err("only zero-origin constant-frame-rate video is supported".into());
         }
     }
-    Ok(info)
+    Ok(())
 }
 
 /// Explicit source-decoder policy. `Cuda` is the compatibility host-download

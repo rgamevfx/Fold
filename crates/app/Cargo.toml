@@ -35,6 +35,10 @@ rfd = { version = "0.15", optional = true, default-features = false, features = 
 name = "fold-cli"
 path = "src/bin/cli.rs"
 
+[[example]]
+name = "render_profile"
+required-features = ["gpu"]
+
 [[bin]]
 name = "fold-desktop"
 path = "src/bin/desktop.rs"

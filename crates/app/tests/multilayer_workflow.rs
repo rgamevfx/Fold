@@ -169,7 +169,13 @@ fn twenty_aovs_decode_only_the_selected_source_tuple_and_cache_one_display_image
             &cancel,
         )
         .unwrap();
-        assert_eq!(scene.statistics.cpu_adapter_nodes, 1, "{view:?}");
+        let reused = matches!(&view, View::Channel { name, .. } if name.as_str() == "rgba.alpha");
+        assert_eq!(
+            scene.statistics.cpu_adapter_nodes,
+            u32::from(!reused),
+            "{view:?}"
+        );
+        assert_eq!(scene.statistics.resident_still_nodes, u32::from(reused));
         let mut display = match view {
             View::Channel { range, .. } => renderer.output_data(&scene, range, &cancel).unwrap(),
             _ => renderer.output(&scene, None, &cancel).unwrap(),
@@ -276,4 +282,163 @@ fn nested_composites_preserve_channel_catalogs_values_and_inactive_frames() {
         .unwrap_err()
         .contains("connect")
     );
+}
+
+#[cfg(feature = "gpu")]
+#[test]
+#[ignore = "requires native GPU"]
+fn unchanged_exr_reuses_gpu_input_across_time_and_effect_edits() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("cached.exr");
+    fixture(&path);
+    let (mut project, source) = project(&path);
+    let (host, _) = pollster::block_on(fold_render::gpu::Host::headless(2 * 1024 * 1024)).unwrap();
+    let mut renderer = fold_render::gpu::Renderer::new(host.clone()).unwrap();
+    let cancel = fold_media::Cancel::default();
+    let mut decoder = fold_media::Decoder::default();
+    let mut demand = request(source.clone(), View::default());
+    let mut first = media_workflow::evaluate_scene_gpu(
+        &project.snapshot(),
+        &demand,
+        &mut renderer,
+        &mut decoder,
+        &cancel,
+    )
+    .unwrap();
+    let original = first.readback(&cancel).unwrap();
+    assert_eq!(first.statistics.cpu_adapter_nodes, 1);
+    let mut composite =
+        Composite::from_document(&project.snapshot().state().documents[&source.document]).unwrap();
+    let input = composite.node(composite.output).unwrap().inputs[0].unwrap();
+    let grade = Node::new(
+        P::ColorGrade {
+            settings: fold_render::operations::Grade {
+                multiply: [2.; 3],
+                ..Default::default()
+            },
+        },
+        vec![input],
+    );
+    composite.node_mut(composite.output).unwrap().inputs[0] = Some(grade.id);
+    composite.nodes.push(grade);
+    project
+        .commit(EditBatch {
+            base: project.snapshot().revision(),
+            mutations: vec![Mutation::PutDocument(
+                composite.document(source.document).unwrap(),
+            )],
+        })
+        .unwrap();
+    demand.time = Time::new(1, 24).unwrap();
+    let mut second = media_workflow::evaluate_scene_gpu(
+        &project.snapshot(),
+        &demand,
+        &mut renderer,
+        &mut decoder,
+        &cancel,
+    )
+    .unwrap();
+    assert_eq!(
+        second.statistics.cpu_adapter_nodes, 0,
+        "unchanged EXR must not decode again after an effect edit"
+    );
+    assert_eq!(second.statistics.upload_bytes, 0);
+    assert_eq!(
+        second.readback(&cancel).unwrap().pixels(),
+        &[[0.5, 0.5, 0.5, 1.]; 6]
+    );
+    assert_eq!(
+        first.readback(&cancel).unwrap().pixels(),
+        original.pixels(),
+        "cached source cannot become writable scratch"
+    );
+    demand.dimensions = [2, 1];
+    let mut resized = media_workflow::evaluate_scene_gpu(
+        &project.snapshot(),
+        &demand,
+        &mut renderer,
+        &mut decoder,
+        &cancel,
+    )
+    .unwrap();
+    assert_eq!(resized.statistics.cpu_adapter_nodes, 1);
+    resized.readback(&cancel).unwrap();
+    // The byte cap also evicts before the entry cap: each tuple almost fills
+    // the 256 KiB retention allowance on this 2 MiB host.
+    for dimensions in [[128, 128], [127, 128], [128, 128]] {
+        demand.dimensions = dimensions;
+        let mut frame = media_workflow::evaluate_scene_gpu(
+            &project.snapshot(),
+            &demand,
+            &mut renderer,
+            &mut decoder,
+            &cancel,
+        )
+        .unwrap();
+        assert_eq!(frame.statistics.cpu_adapter_nodes, 1);
+        frame.readback(&cancel).unwrap();
+        assert!(host.memory().allocated <= host.memory().budget);
+    }
+    // Selecting more tuples than the retention cap evicts inputs, never held frames.
+    for layer in 0..10 {
+        let view = View::Channel {
+            name: format!("aov{layer}.Z").try_into().unwrap(),
+            range: Range::new(1000., 1020.).unwrap(),
+        };
+        let mut frame = media_workflow::evaluate_scene_gpu(
+            &project.snapshot(),
+            &request(source.clone(), view),
+            &mut renderer,
+            &mut decoder,
+            &cancel,
+        )
+        .unwrap();
+        frame.readback(&cancel).unwrap();
+        assert!(host.memory().allocated <= host.memory().budget);
+    }
+    demand.dimensions = [3, 2];
+    let mut evicted = media_workflow::evaluate_scene_gpu(
+        &project.snapshot(),
+        &demand,
+        &mut renderer,
+        &mut decoder,
+        &cancel,
+    )
+    .unwrap();
+    assert_eq!(evicted.statistics.cpu_adapter_nodes, 1);
+    evicted.readback(&cancel).unwrap();
+    let mut warm = media_workflow::evaluate_scene_gpu(
+        &project.snapshot(),
+        &demand,
+        &mut renderer,
+        &mut decoder,
+        &cancel,
+    )
+    .unwrap();
+    assert_eq!(warm.statistics.cpu_adapter_nodes, 0);
+    warm.readback(&cancel).unwrap();
+    assert_eq!(first.readback(&cancel).unwrap().pixels(), original.pixels());
+    // Same length and restored mtime must still invalidate the cached input.
+    let modified = std::fs::metadata(&path).unwrap().modified().unwrap();
+    let mut changed = std::fs::read(&path).unwrap();
+    *changed.last_mut().unwrap() ^= 1;
+    std::fs::write(&path, changed).unwrap();
+    std::fs::File::options()
+        .write(true)
+        .open(&path)
+        .unwrap()
+        .set_times(std::fs::FileTimes::new().set_modified(modified))
+        .unwrap();
+    demand.dimensions = [3, 2];
+    let error = media_workflow::evaluate_scene_gpu(
+        &project.snapshot(),
+        &demand,
+        &mut renderer,
+        &mut decoder,
+        &cancel,
+    )
+    .err()
+    .unwrap();
+    assert!(error.contains("fingerprint"), "{error}");
+    assert!(host.memory().allocated <= host.memory().budget);
 }

@@ -256,6 +256,18 @@ pub fn validate_blur(size: [f32; 2]) -> Result<(), String> {
     }
     Ok(())
 }
+pub(crate) fn gaussian_weights(sigma: f32) -> Vec<f32> {
+    let radius = (3. * sigma).ceil() as i32;
+    (-radius..=radius)
+        .map(|k| {
+            if sigma == 0. {
+                1.
+            } else {
+                (-0.5 * (k as f32 / sigma).powi(2)).exp()
+            }
+        })
+        .collect()
+}
 pub(crate) fn gaussian(
     pixels: &[[f32; 4]],
     result: &mut Vec<[f32; 4]>,
@@ -271,15 +283,7 @@ pub(crate) fn gaussian(
     result.resize(pixels.len(), [0.; 4]);
     for (axis, sigma) in size.into_iter().enumerate() {
         let radius = (3. * sigma).ceil() as i32;
-        let weights: Vec<f32> = (-radius..=radius)
-            .map(|k| {
-                if sigma == 0. {
-                    1.
-                } else {
-                    (-0.5 * (k as f32 / sigma).powi(2)).exp()
-                }
-            })
-            .collect();
+        let weights = gaussian_weights(sigma);
         let divisor: f32 = weights.iter().sum();
         let (input, output) = if axis == 0 {
             (pixels, scratch.as_mut_slice())

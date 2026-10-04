@@ -1,0 +1,834 @@
+{
+  "baseline_commit": "382a11bdce230298eb8f7fb66b8f4be83ebbc9b1",
+  "frames_per_run": 120,
+  "excluded_warm_frames": [
+    0
+  ],
+  "sources": {
+    "still": {
+      "path": "/tmp/fold-perf-still.exr",
+      "sha256": "1139838a32c72d6f42e3275ff9c79ef5b5cdc0c031e92e2014a26cdfe2eb6221"
+    },
+    "ltx": {
+      "path": "/tmp/fold-render-perf/ltx.mp4",
+      "sha256": "822423a364b17425bd57f9bdcb1787d5ba3481a04bbe49f86bb510a221504a37"
+    },
+    "hevc": {
+      "path": "/tmp/fold-render-perf/hevc-derived.mp4",
+      "sha256": "11d6c804e970f618116e088f68619e858f5996b2360c14aedb643f3440e1ec51"
+    },
+    "prores": {
+      "path": "/tmp/fold-render-perf/prores-derived.mp4",
+      "sha256": "15357f1bc6f99928c40c8a3fce3b23bfbaed3a13c1cf95fe4327a03f825ea2cf"
+    }
+  },
+  "binaries": {
+    "before": "1e1ea9fcec3990b18cdccb32fdfa07c39efbbb8b2d98e201815583769596e1b2",
+    "after": "297fce1522e74f6eff25823beacb5c0c9d3915bd0cce681cef09255764cfe473"
+  },
+  "runs": [
+    {
+      "repeat": 1,
+      "workload": "still",
+      "version": "before",
+      "cold_wall_ms": 246.74496000000002,
+      "peak_allocated_bytes": 174367564,
+      "warm_upload_bytes": 3948134400,
+      "wall_ms": {
+        "mean": 215.8407026134454,
+        "p95": 250.78797400000002,
+        "max": 320.008835
+      },
+      "gpu_ms": {
+        "mean": 21.63209357983193,
+        "p95": 45.63456,
+        "max": 98.623488
+      },
+      "compile_ms": {
+        "mean": 0.2452601680672269,
+        "p95": 0.398536,
+        "max": 0.727165
+      },
+      "adapter_ms": {
+        "mean": 165.61503186554623,
+        "p95": 172.949169,
+        "max": 176.06128
+      },
+      "decode_ms": {
+        "mean": 0.0,
+        "p95": 0.0,
+        "max": 0.0
+      }
+    },
+    {
+      "repeat": 1,
+      "workload": "still",
+      "version": "after",
+      "cold_wall_ms": 254.30490300000002,
+      "peak_allocated_bytes": 207545164,
+      "warm_upload_bytes": 0,
+      "wall_ms": {
+        "mean": 15.629123579831933,
+        "p95": 18.516965,
+        "max": 21.892341
+      },
+      "gpu_ms": {
+        "mean": 7.494466151260505,
+        "p95": 8.822784,
+        "max": 9.060352
+      },
+      "compile_ms": {
+        "mean": 0.23394459663865547,
+        "p95": 0.371165,
+        "max": 0.419609
+      },
+      "adapter_ms": {
+        "mean": 0.0,
+        "p95": 0.0,
+        "max": 0.0
+      },
+      "decode_ms": {
+        "mean": 0.0,
+        "p95": 0.0,
+        "max": 0.0
+      }
+    },
+    {
+      "repeat": 1,
+      "workload": "ltx",
+      "version": "before",
+      "cold_wall_ms": 244.483194,
+      "peak_allocated_bytes": 239685996,
+      "warm_upload_bytes": 0,
+      "wall_ms": {
+        "mean": 23.113484151260504,
+        "p95": 29.714332,
+        "max": 33.407653
+      },
+      "gpu_ms": {
+        "mean": 12.498642823529412,
+        "p95": 13.26592,
+        "max": 13.408256
+      },
+      "compile_ms": {
+        "mean": 0.21119985714285713,
+        "p95": 0.339921,
+        "max": 0.359574
+      },
+      "adapter_ms": {
+        "mean": 0.0,
+        "p95": 0.0,
+        "max": 0.0
+      },
+      "decode_ms": {
+        "mean": 2.5082144957983195,
+        "p95": 4.624243,
+        "max": 6.645472
+      }
+    },
+    {
+      "repeat": 1,
+      "workload": "ltx",
+      "version": "after",
+      "cold_wall_ms": 222.04399899999999,
+      "peak_allocated_bytes": 239685996,
+      "warm_upload_bytes": 0,
+      "wall_ms": {
+        "mean": 18.96329368907563,
+        "p95": 22.709674,
+        "max": 25.275967
+      },
+      "gpu_ms": {
+        "mean": 8.336590521008404,
+        "p95": 8.920064,
+        "max": 9.355264
+      },
+      "compile_ms": {
+        "mean": 0.21096473949579833,
+        "p95": 0.35151,
+        "max": 0.400141
+      },
+      "adapter_ms": {
+        "mean": 0.0,
+        "p95": 0.0,
+        "max": 0.0
+      },
+      "decode_ms": {
+        "mean": 2.732847008403361,
+        "p95": 5.287078,
+        "max": 6.410024
+      }
+    },
+    {
+      "repeat": 1,
+      "workload": "hevc",
+      "version": "before",
+      "cold_wall_ms": 229.018543,
+      "peak_allocated_bytes": 239685996,
+      "warm_upload_bytes": 0,
+      "wall_ms": {
+        "mean": 22.8695818907563,
+        "p95": 27.933007,
+        "max": 34.28197
+      },
+      "gpu_ms": {
+        "mean": 12.509029109243697,
+        "p95": 13.427712,
+        "max": 13.508608
+      },
+      "compile_ms": {
+        "mean": 0.21029196638655462,
+        "p95": 0.33764299999999997,
+        "max": 0.362674
+      },
+      "adapter_ms": {
+        "mean": 0.0,
+        "p95": 0.0,
+        "max": 0.0
+      },
+      "decode_ms": {
+        "mean": 2.622441512605042,
+        "p95": 4.755637,
+        "max": 12.166681
+      }
+    },
+    {
+      "repeat": 1,
+      "workload": "hevc",
+      "version": "after",
+      "cold_wall_ms": 218.13378,
+      "peak_allocated_bytes": 239685996,
+      "warm_upload_bytes": 0,
+      "wall_ms": {
+        "mean": 19.250329109243697,
+        "p95": 23.722385,
+        "max": 34.97269
+      },
+      "gpu_ms": {
+        "mean": 8.442509983193277,
+        "p95": 9.179136,
+        "max": 9.416704
+      },
+      "compile_ms": {
+        "mean": 0.2250804705882353,
+        "p95": 0.345467,
+        "max": 0.9754050000000001
+      },
+      "adapter_ms": {
+        "mean": 0.0,
+        "p95": 0.0,
+        "max": 0.0
+      },
+      "decode_ms": {
+        "mean": 2.9444223781512604,
+        "p95": 6.142828,
+        "max": 9.180351
+      }
+    },
+    {
+      "repeat": 1,
+      "workload": "prores",
+      "version": "before",
+      "cold_wall_ms": 236.452444,
+      "peak_allocated_bytes": 239685996,
+      "warm_upload_bytes": 0,
+      "wall_ms": {
+        "mean": 23.361480579831934,
+        "p95": 29.226161,
+        "max": 35.173659
+      },
+      "gpu_ms": {
+        "mean": 12.433846857142857,
+        "p95": 13.21472,
+        "max": 13.47584
+      },
+      "compile_ms": {
+        "mean": 0.2126999243697479,
+        "p95": 0.32363,
+        "max": 0.512727
+      },
+      "adapter_ms": {
+        "mean": 0.0,
+        "p95": 0.0,
+        "max": 0.0
+      },
+      "decode_ms": {
+        "mean": 2.7540180588235295,
+        "p95": 5.925655,
+        "max": 14.32565
+      }
+    },
+    {
+      "repeat": 1,
+      "workload": "prores",
+      "version": "after",
+      "cold_wall_ms": 225.804258,
+      "peak_allocated_bytes": 239685996,
+      "warm_upload_bytes": 0,
+      "wall_ms": {
+        "mean": 18.965964579831933,
+        "p95": 22.248088,
+        "max": 26.328493
+      },
+      "gpu_ms": {
+        "mean": 8.430006857142857,
+        "p95": 9.179136,
+        "max": 9.422848
+      },
+      "compile_ms": {
+        "mean": 0.2016941512605042,
+        "p95": 0.322815,
+        "max": 0.35158599999999995
+      },
+      "adapter_ms": {
+        "mean": 0.0,
+        "p95": 0.0,
+        "max": 0.0
+      },
+      "decode_ms": {
+        "mean": 2.8199462268907562,
+        "p95": 4.576704,
+        "max": 5.917508
+      }
+    },
+    {
+      "repeat": 2,
+      "workload": "still",
+      "version": "before",
+      "cold_wall_ms": 251.941105,
+      "peak_allocated_bytes": 174367564,
+      "warm_upload_bytes": 3948134400,
+      "wall_ms": {
+        "mean": 216.12506314285716,
+        "p95": 249.883583,
+        "max": 323.799474
+      },
+      "gpu_ms": {
+        "mean": 19.37389068907563,
+        "p95": 43.80672,
+        "max": 97.516544
+      },
+      "compile_ms": {
+        "mean": 0.24789589075630253,
+        "p95": 0.401768,
+        "max": 0.67526
+      },
+      "adapter_ms": {
+        "mean": 168.14235629411763,
+        "p95": 179.045871,
+        "max": 185.040091
+      },
+      "decode_ms": {
+        "mean": 0.0,
+        "p95": 0.0,
+        "max": 0.0
+      }
+    },
+    {
+      "repeat": 2,
+      "workload": "still",
+      "version": "after",
+      "cold_wall_ms": 249.050913,
+      "peak_allocated_bytes": 207545164,
+      "warm_upload_bytes": 0,
+      "wall_ms": {
+        "mean": 15.445998663865547,
+        "p95": 18.551927,
+        "max": 21.937414
+      },
+      "gpu_ms": {
+        "mean": 7.443920403361345,
+        "p95": 8.511488,
+        "max": 9.315296
+      },
+      "compile_ms": {
+        "mean": 0.24016337815126051,
+        "p95": 0.37863699999999995,
+        "max": 0.426457
+      },
+      "adapter_ms": {
+        "mean": 0.0,
+        "p95": 0.0,
+        "max": 0.0
+      },
+      "decode_ms": {
+        "mean": 0.0,
+        "p95": 0.0,
+        "max": 0.0
+      }
+    },
+    {
+      "repeat": 2,
+      "workload": "ltx",
+      "version": "before",
+      "cold_wall_ms": 228.665856,
+      "peak_allocated_bytes": 239685996,
+      "warm_upload_bytes": 0,
+      "wall_ms": {
+        "mean": 24.097558268907562,
+        "p95": 32.188397,
+        "max": 35.902139999999996
+      },
+      "gpu_ms": {
+        "mean": 12.571346823529412,
+        "p95": 13.365248,
+        "max": 13.503488
+      },
+      "compile_ms": {
+        "mean": 0.2248629831932773,
+        "p95": 0.343876,
+        "max": 0.567638
+      },
+      "adapter_ms": {
+        "mean": 0.0,
+        "p95": 0.0,
+        "max": 0.0
+      },
+      "decode_ms": {
+        "mean": 2.8104362521008404,
+        "p95": 6.421994,
+        "max": 10.838866
+      }
+    },
+    {
+      "repeat": 2,
+      "workload": "ltx",
+      "version": "after",
+      "cold_wall_ms": 231.08869800000002,
+      "peak_allocated_bytes": 239685996,
+      "warm_upload_bytes": 0,
+      "wall_ms": {
+        "mean": 18.723911084033613,
+        "p95": 22.60454,
+        "max": 24.502004
+      },
+      "gpu_ms": {
+        "mean": 8.401988840336134,
+        "p95": 9.132032,
+        "max": 9.283584
+      },
+      "compile_ms": {
+        "mean": 0.1997289831932773,
+        "p95": 0.28131100000000003,
+        "max": 0.324189
+      },
+      "adapter_ms": {
+        "mean": 0.0,
+        "p95": 0.0,
+        "max": 0.0
+      },
+      "decode_ms": {
+        "mean": 2.606916924369748,
+        "p95": 5.932966,
+        "max": 6.593646
+      }
+    },
+    {
+      "repeat": 2,
+      "workload": "hevc",
+      "version": "before",
+      "cold_wall_ms": 228.859892,
+      "peak_allocated_bytes": 239685996,
+      "warm_upload_bytes": 0,
+      "wall_ms": {
+        "mean": 23.534547361344536,
+        "p95": 29.491487,
+        "max": 33.297211
+      },
+      "gpu_ms": {
+        "mean": 12.549937478991597,
+        "p95": 13.375488,
+        "max": 13.530112
+      },
+      "compile_ms": {
+        "mean": 0.22319630252100842,
+        "p95": 0.35511,
+        "max": 0.393975
+      },
+      "adapter_ms": {
+        "mean": 0.0,
+        "p95": 0.0,
+        "max": 0.0
+      },
+      "decode_ms": {
+        "mean": 2.610709201680672,
+        "p95": 4.434125,
+        "max": 7.560056
+      }
+    },
+    {
+      "repeat": 2,
+      "workload": "hevc",
+      "version": "after",
+      "cold_wall_ms": 217.70883899999998,
+      "peak_allocated_bytes": 239685996,
+      "warm_upload_bytes": 0,
+      "wall_ms": {
+        "mean": 19.412763823529414,
+        "p95": 23.921044,
+        "max": 35.263495
+      },
+      "gpu_ms": {
+        "mean": 8.406669983193277,
+        "p95": 9.120768,
+        "max": 9.264128
+      },
+      "compile_ms": {
+        "mean": 0.21954126890756304,
+        "p95": 0.348748,
+        "max": 0.355508
+      },
+      "adapter_ms": {
+        "mean": 0.0,
+        "p95": 0.0,
+        "max": 0.0
+      },
+      "decode_ms": {
+        "mean": 2.992328705882353,
+        "p95": 6.194935,
+        "max": 15.426409
+      }
+    },
+    {
+      "repeat": 2,
+      "workload": "prores",
+      "version": "before",
+      "cold_wall_ms": 234.122231,
+      "peak_allocated_bytes": 239685996,
+      "warm_upload_bytes": 0,
+      "wall_ms": {
+        "mean": 23.889284277310924,
+        "p95": 30.340228,
+        "max": 33.906437
+      },
+      "gpu_ms": {
+        "mean": 12.696593210084034,
+        "p95": 13.48096,
+        "max": 13.559808
+      },
+      "compile_ms": {
+        "mean": 0.22593913445378153,
+        "p95": 0.336926,
+        "max": 0.41472299999999995
+      },
+      "adapter_ms": {
+        "mean": 0.0,
+        "p95": 0.0,
+        "max": 0.0
+      },
+      "decode_ms": {
+        "mean": 2.9086336302521008,
+        "p95": 5.471918,
+        "max": 9.66137
+      }
+    },
+    {
+      "repeat": 2,
+      "workload": "prores",
+      "version": "after",
+      "cold_wall_ms": 220.47251,
+      "peak_allocated_bytes": 239685996,
+      "warm_upload_bytes": 0,
+      "wall_ms": {
+        "mean": 19.268493084033615,
+        "p95": 23.495695,
+        "max": 29.49457
+      },
+      "gpu_ms": {
+        "mean": 8.427511394957984,
+        "p95": 9.110528,
+        "max": 9.40032
+      },
+      "compile_ms": {
+        "mean": 0.2046638319327731,
+        "p95": 0.30683400000000005,
+        "max": 0.36244899999999997
+      },
+      "adapter_ms": {
+        "mean": 0.0,
+        "p95": 0.0,
+        "max": 0.0
+      },
+      "decode_ms": {
+        "mean": 2.8452310420168065,
+        "p95": 5.536009,
+        "max": 7.425093
+      }
+    },
+    {
+      "repeat": 3,
+      "workload": "still",
+      "version": "before",
+      "cold_wall_ms": 270.457044,
+      "peak_allocated_bytes": 174367564,
+      "warm_upload_bytes": 3948134400,
+      "wall_ms": {
+        "mean": 219.94566584033615,
+        "p95": 254.17616999999998,
+        "max": 284.068889
+      },
+      "gpu_ms": {
+        "mean": 22.1215483697479,
+        "p95": 44.409856,
+        "max": 83.806272
+      },
+      "compile_ms": {
+        "mean": 0.2525744285714286,
+        "p95": 0.396625,
+        "max": 0.796354
+      },
+      "adapter_ms": {
+        "mean": 169.17596900840337,
+        "p95": 184.418419,
+        "max": 193.016551
+      },
+      "decode_ms": {
+        "mean": 0.0,
+        "p95": 0.0,
+        "max": 0.0
+      }
+    },
+    {
+      "repeat": 3,
+      "workload": "still",
+      "version": "after",
+      "cold_wall_ms": 246.772116,
+      "peak_allocated_bytes": 207545164,
+      "warm_upload_bytes": 0,
+      "wall_ms": {
+        "mean": 15.720719445378151,
+        "p95": 19.20862,
+        "max": 25.968497
+      },
+      "gpu_ms": {
+        "mean": 7.437285915966386,
+        "p95": 8.516608,
+        "max": 9.042944
+      },
+      "compile_ms": {
+        "mean": 0.24623264705882353,
+        "p95": 0.39462200000000003,
+        "max": 0.481503
+      },
+      "adapter_ms": {
+        "mean": 0.0,
+        "p95": 0.0,
+        "max": 0.0
+      },
+      "decode_ms": {
+        "mean": 0.0,
+        "p95": 0.0,
+        "max": 0.0
+      }
+    },
+    {
+      "repeat": 3,
+      "workload": "ltx",
+      "version": "before",
+      "cold_wall_ms": 222.00041000000002,
+      "peak_allocated_bytes": 239685996,
+      "warm_upload_bytes": 0,
+      "wall_ms": {
+        "mean": 23.202594731092436,
+        "p95": 29.689236,
+        "max": 37.189937
+      },
+      "gpu_ms": {
+        "mean": 12.615180907563024,
+        "p95": 13.394944,
+        "max": 13.513728
+      },
+      "compile_ms": {
+        "mean": 0.21186872268907564,
+        "p95": 0.32550500000000004,
+        "max": 0.5008560000000001
+      },
+      "adapter_ms": {
+        "mean": 0.0,
+        "p95": 0.0,
+        "max": 0.0
+      },
+      "decode_ms": {
+        "mean": 2.5932393949579833,
+        "p95": 3.725788,
+        "max": 14.530261
+      }
+    },
+    {
+      "repeat": 3,
+      "workload": "ltx",
+      "version": "after",
+      "cold_wall_ms": 227.227399,
+      "peak_allocated_bytes": 239685996,
+      "warm_upload_bytes": 0,
+      "wall_ms": {
+        "mean": 18.99049363865546,
+        "p95": 23.137421,
+        "max": 26.864035
+      },
+      "gpu_ms": {
+        "mean": 8.465184268907564,
+        "p95": 9.1904,
+        "max": 9.412608
+      },
+      "compile_ms": {
+        "mean": 0.20504920168067226,
+        "p95": 0.34139,
+        "max": 0.377213
+      },
+      "adapter_ms": {
+        "mean": 0.0,
+        "p95": 0.0,
+        "max": 0.0
+      },
+      "decode_ms": {
+        "mean": 2.856080907563025,
+        "p95": 6.262047,
+        "max": 10.024953
+      }
+    },
+    {
+      "repeat": 3,
+      "workload": "hevc",
+      "version": "before",
+      "cold_wall_ms": 227.457864,
+      "peak_allocated_bytes": 239685996,
+      "warm_upload_bytes": 0,
+      "wall_ms": {
+        "mean": 23.326351201680673,
+        "p95": 30.208277,
+        "max": 41.422644
+      },
+      "gpu_ms": {
+        "mean": 12.58948625210084,
+        "p95": 13.402112,
+        "max": 13.500416
+      },
+      "compile_ms": {
+        "mean": 0.22340002521008404,
+        "p95": 0.350434,
+        "max": 0.439409
+      },
+      "adapter_ms": {
+        "mean": 0.0,
+        "p95": 0.0,
+        "max": 0.0
+      },
+      "decode_ms": {
+        "mean": 2.7367270840336135,
+        "p95": 4.23762,
+        "max": 18.46764
+      }
+    },
+    {
+      "repeat": 3,
+      "workload": "hevc",
+      "version": "after",
+      "cold_wall_ms": 228.660831,
+      "peak_allocated_bytes": 239685996,
+      "warm_upload_bytes": 0,
+      "wall_ms": {
+        "mean": 19.42679595798319,
+        "p95": 24.51069,
+        "max": 30.895342
+      },
+      "gpu_ms": {
+        "mean": 8.404140100840337,
+        "p95": 9.1648,
+        "max": 9.4976
+      },
+      "compile_ms": {
+        "mean": 0.22333682352941175,
+        "p95": 0.338904,
+        "max": 0.36185500000000004
+      },
+      "adapter_ms": {
+        "mean": 0.0,
+        "p95": 0.0,
+        "max": 0.0
+      },
+      "decode_ms": {
+        "mean": 2.9451353865546217,
+        "p95": 5.53467,
+        "max": 7.718272
+      }
+    },
+    {
+      "repeat": 3,
+      "workload": "prores",
+      "version": "before",
+      "cold_wall_ms": 235.70248099999998,
+      "peak_allocated_bytes": 239685996,
+      "warm_upload_bytes": 0,
+      "wall_ms": {
+        "mean": 23.69271749579832,
+        "p95": 30.013088,
+        "max": 39.466963
+      },
+      "gpu_ms": {
+        "mean": 12.61284894117647,
+        "p95": 13.405184,
+        "max": 13.585408
+      },
+      "compile_ms": {
+        "mean": 0.22336023529411764,
+        "p95": 0.353419,
+        "max": 0.6399170000000001
+      },
+      "adapter_ms": {
+        "mean": 0.0,
+        "p95": 0.0,
+        "max": 0.0
+      },
+      "decode_ms": {
+        "mean": 2.661041319327731,
+        "p95": 4.891887,
+        "max": 6.078399
+      }
+    },
+    {
+      "repeat": 3,
+      "workload": "prores",
+      "version": "after",
+      "cold_wall_ms": 223.840619,
+      "peak_allocated_bytes": 239685996,
+      "warm_upload_bytes": 0,
+      "wall_ms": {
+        "mean": 19.73769004201681,
+        "p95": 24.221428,
+        "max": 25.278404000000002
+      },
+      "gpu_ms": {
+        "mean": 8.473333243697478,
+        "p95": 9.199616,
+        "max": 9.317376
+      },
+      "compile_ms": {
+        "mean": 0.22080836974789916,
+        "p95": 0.35435700000000003,
+        "max": 0.435607
+      },
+      "adapter_ms": {
+        "mean": 0.0,
+        "p95": 0.0,
+        "max": 0.0
+      },
+      "decode_ms": {
+        "mean": 3.0759029915966387,
+        "p95": 6.214472,
+        "max": 7.495717
+      }
+    }
+  ],
+  "original_h264_after": {
+    "path": "/home/rgame/Videos/ltxsamplevideo.mp4",
+    "frames": 450,
+    "cold_wall_ms": 282.957047,
+    "warm_mean_ms": 19.430466988864143,
+    "warm_p95_ms": 23.146127999999997,
+    "warm_max_ms": 29.675197,
+    "mean_gpu_ms": 8.451320445434298,
+    "peak_allocated_bytes": 239685996,
+    "warm_upload_bytes": 0
+  }
+}

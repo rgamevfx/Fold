@@ -434,3 +434,76 @@ fn gpu_unary_operations_match_reference() {
         }
     }
 }
+
+#[cfg(feature = "gpu")]
+#[test]
+#[ignore = "requires native GPU"]
+fn gpu_gaussian_stripes_match_cpu_for_borders_large_kernels_and_partial_groups() {
+    use fold_render::operations::Edges;
+    let (host, _) = pollster::block_on(fold_render::gpu::Host::headless(16 * 1024 * 1024)).unwrap();
+    let mut renderer = fold_render::gpu::Renderer::new(host).unwrap();
+    let cancel = fold_media::Cancel::default();
+    let mut decoder = fold_media::Decoder::default();
+    for dimensions in [[1, 1], [67, 65], [129, 3]] {
+        for size in [
+            [0., 0.],
+            [0., 20.],
+            [20., 0.],
+            [20., 20.],
+            [10.5, 31.75],
+            [256., 33.],
+        ] {
+            for edges in [Edges::Transparent, Edges::Clamp] {
+                let [width, height] = dimensions;
+                let pixels = (0..width * height)
+                    .flat_map(|i| {
+                        [
+                            (i * 17 % 256) as u8,
+                            (i * 31 % 256) as u8,
+                            (i * 7 % 256) as u8,
+                        ]
+                    })
+                    .collect();
+                let graph = RenderGraph {
+                    width,
+                    height,
+                    output: 2,
+                    nodes: vec![
+                        Op::Media(fold_media::RgbImage::from_rgb(dimensions, pixels).unwrap()),
+                        Op::Crop {
+                            input: 0,
+                            rect: [
+                                0,
+                                0,
+                                width.saturating_sub(1).max(1),
+                                height.saturating_sub(1).max(1),
+                            ],
+                        },
+                        Op::Gaussian {
+                            input: 1,
+                            size,
+                            edges,
+                        },
+                    ],
+                };
+                let expected = render(graph.clone()).unwrap();
+                let actual = renderer
+                    .evaluate(graph, None, &mut decoder, &cancel)
+                    .unwrap()
+                    .readback(&cancel)
+                    .unwrap();
+                for (a, b) in actual
+                    .pixels()
+                    .iter()
+                    .flatten()
+                    .zip(expected.pixels().iter().flatten())
+                {
+                    assert!(
+                        (a - b).abs() < 1e-5,
+                        "{dimensions:?} {size:?} {edges:?}: {a} vs {b}"
+                    );
+                }
+            }
+        }
+    }
+}

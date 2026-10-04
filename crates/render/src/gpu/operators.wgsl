@@ -47,17 +47,6 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
             }
             value=vec4<f32>(rgb,value.a);
         }
-        case 15u, 16u: {
-            let sigma=params.color.x; let radius=i32(ceil(3.0*sigma)); var divisor=0.0;
-            for (var k=-radius;k<=radius;k+=1) {
-                var weight=1.0; if sigma>0.0 { let v=f32(k)/sigma; weight=exp(-0.5*v*v); }
-                var delta=vec2<i32>(k,0); if params.header.x==16u { delta=vec2<i32>(0,k); }
-                var q=p+delta;
-                if params.rect.y==1u { q=clamp(q,vec2<i32>(0),vec2<i32>(params.header.yz)-vec2<i32>(1)); }
-                value+=sample_first(q)*weight; divisor+=weight;
-            }
-            value/=divisor; value.a=clamp(value.a,0.0,1.0);
-        }
         case 14u: {
             let q=vec2<f32>(id.xy)+vec2<f32>(0.5); let m=params.matrix;
             let s=vec2<f32>(m.x*q.x+m.z*q.y,m.y*q.x+m.w*q.y)+params.offset.xy;

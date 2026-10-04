@@ -7,8 +7,10 @@ pub use cache::PresentationCompressor;
 mod color;
 mod display;
 mod fusion;
+mod gaussian;
 mod host;
 mod preparation;
+mod still;
 pub use display::Display;
 #[cfg(all(feature = "native-video", target_os = "linux"))]
 mod native_video;
@@ -31,6 +33,7 @@ pub struct Statistics {
     /// Full-frame CPU RGB/RGBA adapters. Native decode and CPU coverage are
     /// measured separately below; zero here does not mean zero CPU work.
     pub cpu_adapter_nodes: u32,
+    pub resident_still_nodes: u32,
     pub cpu_adapter_nanoseconds: u128,
     pub compute_passes: u32,
     pub fused_opacity_passes: u32,
@@ -243,6 +246,8 @@ pub struct Renderer {
     planes: wgpu::ComputePipeline,
     yuv: yuv::YuvPipeline,
     vector: vector::VectorPipeline,
+    still: still::Cache,
+    gaussian: gaussian::Gaussian,
     #[cfg(all(feature = "native-video", target_os = "linux"))]
     native_video: Option<native_video::NativeVideo>,
 }
@@ -327,6 +332,7 @@ impl Renderer {
             compilation_options: Default::default(),
             cache: None,
         });
+        let gaussian = gaussian::Gaussian::new(&host);
         let yuv = yuv::YuvPipeline::new(&host);
         let vector = vector::VectorPipeline::new(&host);
         host.check()?;
@@ -344,6 +350,7 @@ impl Renderer {
         });
         Ok(Self {
             data_display,
+            gaussian,
             host,
             pipeline,
             yuv,
@@ -353,6 +360,7 @@ impl Renderer {
             layout,
             planes,
             colors: Default::default(),
+            still: Default::default(),
         })
     }
     fn pass(
@@ -479,6 +487,7 @@ impl Renderer {
         // submitted resources remain protected by their independent leases.
         let memory = self.host.memory();
         if memory.allocated > memory.budget.saturating_mul(3) / 4 {
+            self.still.clear();
             self.yuv.clear();
             self.vector.clear();
             #[cfg(all(feature = "native-video", target_os = "linux"))]
@@ -520,6 +529,8 @@ impl Renderer {
         // read: distinct passes provide barriers. It does not escape to the host
         // pool until the entire submission completes.
         let mut scratch = Vec::<Arc<Image>>::new();
+        let mut immutable = vec![false; graph.nodes.len()];
+        let mut retained = Vec::new();
         let mut encoder = self
             .host
             .device()
@@ -532,6 +543,17 @@ impl Renderer {
                 continue;
             }
             cancel.check()?;
+            let still_key = still::Key::new(op, dimensions, &processors)?
+                .filter(|key| still::Cache::eligible(key, self.host.memory().budget));
+            if let Some(key) = &still_key
+                && let Some(image) = self.still.get(key, cancel)?
+            {
+                leases.push(image.clone());
+                frames[id] = Some(image);
+                immutable[id] = true;
+                stats.resident_still_nodes += 1;
+                continue;
+            }
             let output = match scratch.pop() {
                 Some(image) => image,
                 None => {
@@ -677,34 +699,42 @@ impl Renderer {
                             image
                         }
                     };
-                    params.header[0] = 7;
-                    if let ImageOp::Blur { radius, .. } = op {
-                        params.rect[0] = *radius;
-                    }
                     if let ImageOp::Gaussian { size, edges, .. } = op {
-                        params.header[0] = 15;
-                        params.color[0] = size[0];
-                        params.rect[1] = *edges as u32;
+                        for (axis, images) in [
+                            [first, intermediate.as_ref()],
+                            [intermediate.as_ref(), output.as_ref()],
+                        ]
+                        .into_iter()
+                        .enumerate()
+                        {
+                            buffers.push(self.gaussian.encode(
+                                &mut encoder,
+                                images,
+                                axis,
+                                size[axis],
+                                *edges,
+                                &status,
+                            )?);
+                        }
+                    } else if let ImageOp::Blur { radius, .. } = op {
+                        params.header[0] = 7;
+                        params.rect[0] = *radius;
+                        self.pass(
+                            &mut encoder,
+                            [first, &dummy, &dummy],
+                            &intermediate,
+                            params,
+                            &status,
+                        );
+                        params.header[0] = 8;
+                        self.pass(
+                            &mut encoder,
+                            [&intermediate, &dummy, &dummy],
+                            &output,
+                            params,
+                            &status,
+                        );
                     }
-                    self.pass(
-                        &mut encoder,
-                        [first, &dummy, &dummy],
-                        &intermediate,
-                        params,
-                        &status,
-                    );
-                    params.header[0] = 8;
-                    if let ImageOp::Gaussian { size, .. } = op {
-                        params.header[0] = 16;
-                        params.color[0] = size[1];
-                    }
-                    self.pass(
-                        &mut encoder,
-                        [&intermediate, &dummy, &dummy],
-                        &output,
-                        params,
-                        &status,
-                    );
                     stats.compute_passes += 2;
                     scratch.push(intermediate);
                     compute = false;
@@ -977,11 +1007,18 @@ impl Renderer {
                 );
                 stats.compute_passes += 1;
             }
+            if let Some(key) = still_key {
+                immutable[id] = true;
+                retained.push((key, output.clone()));
+            }
             frames[id] = Some(output);
             for input in inputs.into_iter().flatten() {
                 uses[input] -= 1;
                 if uses[input] == 0 {
-                    scratch.push(frames[input].take().unwrap());
+                    let image = frames[input].take().unwrap();
+                    if !immutable[input] {
+                        scratch.push(image);
+                    }
                 }
             }
         }
@@ -992,6 +1029,10 @@ impl Renderer {
         self.host.submit(encoder, leases, buffers);
         stats.queue_submit_nanoseconds = submit_begin.elapsed().as_nanos();
         let ready = status.submitted();
+        for (key, image) in retained {
+            self.still
+                .insert(key, image, ready.clone(), self.host.memory().budget);
+        }
         stats.evaluate_cpu_nanoseconds = evaluate_begin.elapsed().as_nanos();
         cancel.check()?;
         self.host.check()?;
