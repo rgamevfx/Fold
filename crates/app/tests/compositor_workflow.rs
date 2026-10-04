@@ -91,6 +91,7 @@ fn registry_rejects_bad_types_cycles_ports_and_dependency_declarations() {
         Node {
             id: c.output,
             parameters: P::Output,
+            animation: Default::default(),
             inputs: vec![Some(read.id)],
             position: None,
             extensions: Default::default(),

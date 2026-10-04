@@ -151,7 +151,7 @@ impl Parameters {
             Self::Output => 9,
         }]
     }
-    fn validate(&self) -> Result<(), String> {
+    pub(crate) fn validate(&self) -> Result<(), String> {
         match self {
             Self::Read {
                 source,
@@ -218,6 +218,8 @@ impl Parameters {
 pub struct Node {
     pub id: ObjectId,
     pub parameters: Parameters,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub animation: crate::animation::Channels,
     /// Fixed, named operator ports; None is a deliberately disconnected socket.
     pub inputs: Vec<Option<ObjectId>>,
     #[serde(default)]
@@ -230,6 +232,7 @@ impl Node {
         Self {
             id: ObjectId::new(),
             parameters,
+            animation: Default::default(),
             inputs: inputs.into_iter().map(Some).collect(),
             position: None,
             extensions: Default::default(),
@@ -264,6 +267,7 @@ impl Composite {
         let mut ids = BTreeSet::new();
         for node in &self.nodes {
             node.parameters.validate()?;
+            node.validate_animation()?;
             let op = node.parameters.operator();
             if !ids.insert(node.id)
                 || node.inputs.len() != op.inputs.len()
@@ -335,7 +339,7 @@ impl Composite {
             id,
             package_id: crate::PACKAGE.into(),
             type_id: crate::COMPOSITE.into(),
-            schema_version: 2,
+            schema_version: 3,
             revision: Revision::default(),
             dependencies: self.dependencies(),
             assets: self.assets(),
@@ -346,7 +350,7 @@ impl Composite {
     pub fn from_document(document: &Document) -> Result<Self, String> {
         if document.package_id != crate::PACKAGE
             || document.type_id != crate::COMPOSITE
-            || ![1, 2].contains(&document.schema_version)
+            || ![1, 2, 3].contains(&document.schema_version)
             || document.payload.len() > 1024 * 1024
         {
             return Err("unsupported composite document".into());

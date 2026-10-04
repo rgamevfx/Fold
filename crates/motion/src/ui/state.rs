@@ -16,6 +16,9 @@ pub struct State {
     pub parents: Vec<Option<ObjectId>>,
     pub error: String,
     pub editing: bool,
+    pub auto_key: bool,
+    /// Only the inspector may finish/cancel a property gesture.
+    pub property_editing: bool,
     pub generation: u64,
     base: Revision,
     original: Option<Motion>,
@@ -65,6 +68,7 @@ impl State {
                 chosen.and_then(|id| Motion::from_document(&snapshot.state().documents[&id]).ok());
             self.original = self.motion.clone();
             self.editing = false;
+            self.property_editing = false;
             self.generation += 1;
             if self.group.is_some_and(|id| {
                 !self
@@ -150,6 +154,7 @@ impl State {
                 host.command(DesktopCommand::Extension(request));
                 if host.snapshot().is_some_and(|s| s.revision() != self.base) {
                     self.editing = false;
+                    self.property_editing = false;
                     self.sync(host);
                     self.error.clear();
                 } else {
@@ -168,6 +173,7 @@ impl State {
         host.command(DesktopCommand::CancelPreviewEdit);
         self.motion = self.original.clone();
         self.editing = false;
+        self.property_editing = false;
         self.generation += 1;
     }
     pub fn change(

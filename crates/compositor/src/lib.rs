@@ -1,4 +1,5 @@
 //! Compositor-owned authoring, static operators, and shared-engine lowering.
+pub mod animation;
 mod compile;
 mod graph;
 mod model;

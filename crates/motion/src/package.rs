@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 mod prepared;
 use std::sync::Arc;
 pub const EDIT: &str = "fold.motion.edit";
-const BUILD: &str = "motion-schema1-evaluator1-vector-linear8-noto-b85c38ec";
+const BUILD: &str = "motion-schema2-evaluator2-vector-linear8-noto-b85c38ec";
 pub const PANEL: &str = "fold.motion.editor";
 pub const INSPECTOR: &str = "fold.motion.inspector";
 pub const PANELS: &[PanelDescriptor] = &[
@@ -61,7 +61,10 @@ impl DocumentProvider for Documents {
         MOTION
     }
     fn schema(&self) -> u32 {
-        1
+        2
+    }
+    fn supports_schema(&self, schema: u32) -> bool {
+        [1, 2].contains(&schema)
     }
     fn validate(&self, d: &Document) -> Result<(), String> {
         self.0.get(d).map(|_| ())

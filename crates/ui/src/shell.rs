@@ -662,6 +662,7 @@ impl Shell {
         let mut duplicate = None;
         let mut new_editor = None;
         let mut add_viewer = false;
+        let mut reveal_animation = false;
         ui.main_menu_bar(|| {
             ui.text("Fold");
             if let Some(_menu) = ui.begin_menu("Panels") {
@@ -670,6 +671,10 @@ impl Shell {
                     .iter()
                     .filter(|p| p.descriptor.placement == PanelPlacement::Editor)
                 {
+                    if panel.descriptor.id == crate::sdk::animation_editor::PANEL_ID {
+                        reveal_animation |= ui.menu_item("Animation");
+                        continue;
+                    }
                     if ui.menu_item(format!("New {} editor", panel.descriptor.title)) {
                         new_editor = panel
                             .panel
@@ -863,8 +868,14 @@ impl Shell {
             }
             let visible = ui
                 .window(&registered.key)
+                .focused(
+                    reveal_animation
+                        && registered.descriptor.id == crate::sdk::animation_editor::PANEL_ID,
+                )
                 .build(|| {
-                    if registered.descriptor.placement == PanelPlacement::Inspector {
+                    if registered.descriptor.placement == PanelPlacement::Inspector
+                        || registered.descriptor.id == crate::sdk::animation_editor::PANEL_ID
+                    {
                         if let Some(group) =
                             group_selector::draw(ui, self.workspace.inspector_group, false)
                         {
@@ -878,6 +889,14 @@ impl Shell {
                                 .supports_document_type(&binding.document_type)
                             && let Some(editor) = self.editors.get_mut(&id)
                         {
+                            if editor.panels.editor.supports_animation()
+                                && inspector_context.is_none()
+                            {
+                                ui.text_wrapped(
+                                    "Select a linked viewer to choose the animation edit time.",
+                                );
+                                return;
+                            }
                             let scope = format!(
                                 "editor-{}-viewer-{:?}",
                                 id.0, self.workspace.inspector_viewer
@@ -892,10 +911,17 @@ impl Shell {
                             }
                             let navigation = scoped.navigation.clone();
                             let mut context = PanelContext::new(client, &mut scoped).instance(id);
-                            editor.panels.inspector.draw(ExtensionUi {
-                                ui,
-                                host: &mut context,
-                            });
+                            if registered.descriptor.id == crate::sdk::animation_editor::PANEL_ID {
+                                editor.panels.editor.draw_animation(ExtensionUi {
+                                    ui,
+                                    host: &mut context,
+                                });
+                            } else {
+                                editor.panels.inspector.draw(ExtensionUi {
+                                    ui,
+                                    host: &mut context,
+                                });
+                            }
                             if let Some(time) = context.seek_request() {
                                 seeks.push((id, time));
                             }

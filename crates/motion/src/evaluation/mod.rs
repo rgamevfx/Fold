@@ -111,7 +111,9 @@ impl<'a> Evaluator<'a> {
             .find(|s| s.id == socket)
             .ok_or_else(|| format!("unknown input {socket}"))?;
         let result = match node.inputs.get(socket) {
-            Some(Input::Value(value)) => Value::Field(Field::constant(value.clone())),
+            Some(Input::Value(value)) => {
+                Value::Field(Field::constant(node.sample_input(socket, value, self.time)))
+            }
             Some(Input::Link(link)) => self.resolve(link)?,
             None => {
                 if let Some(value) = &slot.default {

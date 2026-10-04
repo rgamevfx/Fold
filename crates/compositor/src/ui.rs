@@ -1,11 +1,14 @@
 //! Spatial graph authoring through the shared UI SDK. Canvas and inspector
 //! share UI-only gesture state; all persistent changes are host transactions.
+mod animation;
 mod canvas;
 mod graph;
 mod inspector;
 mod state;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+static IMGUI_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 use fold_ui::sdk::PanelRegistry;
 use std::{cell::RefCell, rc::Rc};
 pub fn register(registry: &mut PanelRegistry) -> Result<(), String> {

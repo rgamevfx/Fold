@@ -22,6 +22,12 @@ pub struct Node {
     pub kind: String,
     pub version: u32,
     pub inputs: BTreeMap<String, Input>,
+    #[serde(
+        rename = "fold.motion.animation",
+        default,
+        skip_serializing_if = "BTreeMap::is_empty"
+    )]
+    pub animation: crate::animation::parameters::Channels,
     pub settings: serde_json::Value,
     pub position: [f32; 2],
     #[serde(flatten)]
@@ -39,6 +45,7 @@ impl Node {
                 .iter()
                 .filter_map(|s| s.default.clone().map(|v| (s.id.clone(), Input::Value(v))))
                 .collect(),
+            animation: Default::default(),
             settings: (d.defaults)(),
             position: [0.; 2],
             extensions: BTreeMap::new(),

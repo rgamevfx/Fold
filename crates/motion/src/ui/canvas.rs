@@ -12,8 +12,16 @@ pub struct Canvas {
     pub state: Shared,
     pub canvas: GraphCanvas,
     pub overlay: super::overlay::Overlay,
+    pub(super) animation: super::animation::Animation,
 }
 impl Panel for Canvas {
+    fn supports_animation(&self) -> bool {
+        true
+    }
+    fn draw_animation(&mut self, context: ExtensionUi<'_>) {
+        self.animation.draw(&self.state, context);
+    }
+
     fn new_instance(&self) -> Option<fold_ui::sdk::EditorPanels> {
         let state = std::rc::Rc::new(std::cell::RefCell::new(super::state::State::default()));
         Some(fold_ui::sdk::EditorPanels {
@@ -21,11 +29,9 @@ impl Panel for Canvas {
                 state: state.clone(),
                 canvas: Default::default(),
                 overlay: Default::default(),
+                animation: Default::default(),
             }),
-            inspector: Box::new(super::inspector::Inspector {
-                state,
-                curves: Default::default(),
-            }),
+            inspector: Box::new(super::inspector::Inspector { state }),
         })
     }
     fn cancel_interaction(&mut self, host: &mut dyn fold_platform::desktop::DesktopClient) {

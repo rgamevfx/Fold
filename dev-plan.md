@@ -245,3 +245,9 @@ The following is a code/document inspection baseline, not a fresh test or perfor
   - Review UI at normal/narrow sizes and 100/150/200 percent DPI where supported: compact chrome, readable names, keyboard/focus routing, drag alternatives, explicit source/time context, quality/missing/failure states without ordinary frame-preparation messages or blanking, playback-mode controls, and correct inspector/overlay targeting. Report unsupported IME/accessibility behavior rather than implying it is solved.
   - Acceptance: tracked failures introduced by this plan are fixed; inherited gaps have evidence or explicitly approved deferrals. Full workspace tests/checks, formatting, Clippy, boundary checks, desktop/headless packaging checks, and native workflow acceptance are recorded.
 - [ ] Checkpoint: import linked media → organize bins → create/edit a sequence → composite → animate → inspect two outputs with independent viewers/transports → save/reopen → export from desktop and CLI. Use the bundled ACES configuration and ACEScg default, preserve editability and undo, verify missing-dependency/recovery behavior, and publish reference-machine performance/resource evidence. The new plan is complete only when this workflow and its acceptance suite pass; retiring the old plan is not a substitute.
+
+## Animation authoring slice
+
+- [x] 22. Add the user-requested Animation surface alongside the existing editors.
+  - Shared Dope Sheet / Curve Editor, compact parameter keying, component channels, Bézier/tangent editing, exact-time evaluation and transactional gestures. Preserve package boundaries and explicit viewer edit-time context.
+  - Plan and evidence: [phase-22 animation authoring](docs/phase-22.md). This slice does not close the outstanding delivery/hardening work in phases 20–21.

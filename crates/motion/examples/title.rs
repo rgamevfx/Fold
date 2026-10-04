@@ -41,6 +41,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .id;
     let keys = a::keyframe_input(&mut m, transform, "translation", Time::ZERO)?;
     a::node(&mut m, keys)?.settings = serde_json::to_value(Track {
+        channels: vec![],
         keys: vec![
             Key {
                 time: Time::ZERO,

@@ -64,10 +64,10 @@ impl DocumentProvider for Documents {
         crate::COMPOSITE
     }
     fn schema(&self) -> u32 {
-        2
+        3
     }
     fn supports_schema(&self, schema: u32) -> bool {
-        [1, 2].contains(&schema)
+        [1, 2, 3].contains(&schema)
     }
     fn validate(&self, document: &Document) -> Result<(), String> {
         Composite::from_document(document).map(|_| ())
@@ -109,7 +109,7 @@ pub fn register(registry: &mut PackageRegistry) -> Result<(), String> {
             host_api: HOST_API,
             dependencies: &[],
             panels: PANELS,
-            build: concat!(env!("CARGO_PKG_VERSION"), ":compositor-schema2-evaluator2"),
+            build: concat!(env!("CARGO_PKG_VERSION"), ":compositor-schema3-evaluator3"),
         },
         documents: vec![Box::new(Documents)],
         commands: vec![CommandRegistration {

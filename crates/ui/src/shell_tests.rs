@@ -642,3 +642,121 @@ fn review_menu_is_explicit_and_preserves_playback_mode_at_normal_and_narrow_widt
         }
     }
 }
+
+#[test]
+fn animation_surface_uses_the_explicit_viewer_time_and_rejects_ambiguity() {
+    type Times = Rc<RefCell<Vec<Time>>>;
+    struct Animated(Times);
+    impl Panel for Animated {
+        fn id(&self) -> &'static str {
+            "test.animated"
+        }
+        fn document_type(&self) -> Option<&'static str> {
+            Some("test.kind")
+        }
+        fn supports_animation(&self) -> bool {
+            true
+        }
+        fn new_instance(&self) -> Option<EditorPanels> {
+            Some(EditorPanels {
+                editor: Box::new(Self(self.0.clone())),
+                inspector: Box::new(Self(self.0.clone())),
+            })
+        }
+        fn draw(&mut self, _: ExtensionUi<'_>) {}
+        fn draw_animation(&mut self, context: ExtensionUi<'_>) {
+            self.0
+                .borrow_mut()
+                .push(context.host.state().navigation.last().unwrap().time);
+        }
+    }
+    let _guard = crate::IMGUI_TEST_LOCK.lock().unwrap();
+    let mut context = Context::create();
+    context.set_ini_filename(None::<String>).unwrap();
+    context
+        .io_mut()
+        .set_config_flags(ConfigFlags::DOCKING_ENABLE);
+    context
+        .font_atlas()
+        .try_claim_legacy_renderer()
+        .unwrap()
+        .build();
+    context.io_mut().set_display_size([1000., 600.]);
+    context.io_mut().set_delta_time(1. / 60.);
+    let seen = Times::default();
+    let panels = vec![
+        RegisteredPanel {
+            descriptor: fold_platform::packages::PanelDescriptor {
+                id: "test.animated",
+                title: "Editor",
+                placement: PanelPlacement::Editor,
+            },
+            panel: Box::new(Animated(seen.clone())),
+            key: WindowKey::new("test.animated", "Editor").unwrap(),
+        },
+        RegisteredPanel {
+            descriptor: fold_platform::packages::PanelDescriptor {
+                id: crate::sdk::animation_editor::PANEL_ID,
+                title: "Animation",
+                placement: PanelPlacement::Editor,
+            },
+            panel: Box::new(crate::sdk::animation_editor::Surface),
+            key: WindowKey::new(crate::sdk::animation_editor::PANEL_ID, "Animation").unwrap(),
+        },
+    ];
+    let mut shell = Shell::new(panels);
+    shell.bootstrap = false;
+    let docs = [DocumentId::new(), DocumentId::new()];
+    let mut host = Host {
+        documents: docs,
+        state: Default::default(),
+        delivery: docs[0],
+        commands: vec![],
+    };
+    let editor = *shell.workspace.editors.keys().next().unwrap();
+    shell
+        .workspace
+        .editors
+        .get_mut(&editor)
+        .unwrap()
+        .bind(ViewLocation {
+            document: docs[0],
+            time: Time::ZERO,
+            label: String::new(),
+        });
+    shell.workspace.publish(editor);
+    let first = *shell.workspace.viewers.keys().next().unwrap();
+    shell.workspace.viewers.get_mut(&first).unwrap().time = Time::new(7, 48).unwrap();
+    let second = shell.workspace.add_viewer(ViewerInstance {
+        time: Time::new(1, 8).unwrap(),
+        ..Default::default()
+    });
+    // Explicitly reveal the Animation tab while keeping its ordinary dock placement.
+    let mut frame = |shell: &mut Shell, context: &mut Context| {
+        shell.prepare_frame(context);
+        let ui = context.frame();
+        shell.controls(ui, &mut host).unwrap();
+        ui.window(&shell.panels[1].key).focused(true).build(|| {});
+        context.end_frame();
+    };
+    for _ in 0..3 {
+        frame(&mut shell, &mut context);
+    }
+    assert!(
+        seen.borrow().is_empty(),
+        "ambiguous viewer clocks must not reach animation controls"
+    );
+    for viewer in [first, second] {
+        shell.workspace.inspector_viewer = Some(viewer);
+        seen.borrow_mut().clear();
+        for _ in 0..3 {
+            frame(&mut shell, &mut context);
+        }
+        assert!(!seen.borrow().is_empty());
+        assert!(
+            seen.borrow()
+                .iter()
+                .all(|&time| time == shell.workspace.viewers[&viewer].time)
+        );
+    }
+}

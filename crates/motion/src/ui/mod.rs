@@ -1,6 +1,6 @@
 //! UI-only presentation over transactional graph edits.
+mod animation;
 mod canvas;
-mod curves;
 mod graph;
 mod inspector;
 mod overlay;
@@ -18,13 +18,8 @@ pub fn register(registry: &mut PanelRegistry) -> Result<(), String> {
             state: state.clone(),
             canvas: Default::default(),
             overlay: Default::default(),
+            animation: Default::default(),
         },
     )?;
-    registry.register_node_inspector(
-        crate::PACKAGE,
-        inspector::Inspector {
-            state,
-            curves: Default::default(),
-        },
-    )
+    registry.register_node_inspector(crate::PACKAGE, inspector::Inspector { state })
 }

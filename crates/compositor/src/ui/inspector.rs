@@ -3,9 +3,8 @@ use crate::{Parameters as P, Source, package};
 use fold_foundation::Time;
 use fold_platform::desktop::{DesktopCommand, ViewLocation};
 use fold_ui::sdk::{
-    EditResponse as Response, ExtensionUi, NumericProperty, Panel, UiId,
+    EditResponse as Response, ExtensionUi, Panel, UiId,
     imgui::{Drag, Ui},
-    toolbar::tooltip,
 };
 pub(super) struct Inspector(pub Shared);
 impl Panel for Inspector {
@@ -43,6 +42,13 @@ impl Panel for Inspector {
             .scope(ui)
         });
         let document = state.document;
+        let auto_key = state.auto_key;
+        let time = host
+            .state()
+            .navigation
+            .last()
+            .map(|v| v.time)
+            .unwrap_or(Time::ZERO);
         let mut output_change = None;
         let Some(node) = state.graph.as_mut().and_then(|g| g.node_mut(id).ok()) else {
             return;
@@ -51,29 +57,29 @@ impl Panel for Inspector {
         ui.separator();
         let mut response = Response::default();
         let mut navigate = None;
+        let properties = node.parameters.animated_properties();
+        for mut property in properties {
+            fold_ui::sdk::animated_property::AnimatedProperty {
+                id: property.id,
+                label: property.label,
+                components: property.channels,
+                unit: property.unit,
+                range: property.range,
+                color: (property.id == "color").then_some(aces),
+            }
+            .draw(
+                ui,
+                &mut property.values,
+                &mut node.animation,
+                time,
+                auto_key,
+                &mut response,
+            );
+            if response.changed {
+                let _ = node.parameters.set_property(property.id, &property.values);
+            }
+        }
         match &mut node.parameters {
-            P::Solid { rgba } => {
-                let mut straight = rgba.map(f64::from);
-                if straight[3] > 0. { for c in 0..3 { straight[c] /= straight[3]; } }
-                fold_ui::sdk::color_controls::authored(ui, &mut straight, aces, &mut response);
-                if response.changed { *rgba = [straight[0] * straight[3], straight[1] * straight[3], straight[2] * straight[3], straight[3]].map(|v| v as f32); }
-            }
-            P::Transform { translate, scale, opacity } => {
-                for (i,label) in ["Position X", "Position Y"].iter().enumerate() {
-                    NumericProperty { id: ["translation.x", "translation.y"][i], label, unit: "px", speed: 1.0, range: None, default: Some(0.) }.draw(ui, &mut translate[i], &mut response);
-                }
-                ui.separator();
-                for (i,label) in ["Scale X", "Scale Y"].iter().enumerate() {
-                    NumericProperty { id: ["scale.x", "scale.y"][i], label, unit: "", speed: 0.01, range: None, default: Some(1.) }.draw(ui, &mut scale[i], &mut response);
-                }
-                let changed = Drag::new("Opacity").speed(0.005).range(0.0,1.0).build(ui,opacity); response.item(ui,changed);
-            }
-            P::Crop { rect } | P::Mask { rect } => {
-                for (i,label) in ["Left", "Top", "Right", "Bottom"].iter().enumerate() { let changed = Drag::new(label).speed(1.0).range(0,16384).build(ui,&mut rect[i]); response.item(ui,changed); }
-                tooltip(ui, "Bounds in document pixels; right and bottom edges are exclusive. Outside is transparent.");
-            }
-            P::Blur { radius } => { let changed = Drag::new("Radius (pixels)").speed(0.1).range(0,64).build(ui,radius); response.item(ui,changed); tooltip(ui, "Box filter in linear light. Transparent borders expand the image support."); }
-            P::Grade { gain } => { for (i,label) in ["Red gain", "Green gain", "Blue gain"].iter().enumerate() { let changed = Drag::new(label).speed(0.01).range(0.0,16.0).build(ui,&mut gain[i]); response.item(ui,changed); } tooltip(ui, "Scene-linear RGB gain."); }
             P::Read { source, start, source_start, duration } => {
                 rational(ui,"Start",start,&mut response); rational(ui,"Source in",source_start,&mut response); rational(ui,"Duration",duration,&mut response);
                 ui.separator();
@@ -109,6 +115,7 @@ impl Panel for Inspector {
                     }
                 }
             }
+            P::Solid { .. } | P::Transform { .. } | P::Crop { .. } | P::Mask { .. } | P::Blur { .. } | P::Grade { .. } => {},
             P::Merge => ui.text_wrapped("Foreground over background, using premultiplied alpha in scene-linear light."),
             P::ApplyMask => ui.text_wrapped("Multiply image RGBA by the connected mask. Image and mask sockets are different types."),
             P::Output => {
@@ -137,14 +144,18 @@ impl Panel for Inspector {
             state.sync(host);
             return;
         }
-        response.cancel_on_escape(ui, state.editing);
+        response.cancel_on_escape(ui, state.editing && state.property_editing);
         if response.cancelled {
             state.cancel(host);
         } else {
             if response.changed {
+                state.property_editing = true;
                 state.preview(host);
             }
-            if response.finished && state.editing {
+            if state.property_editing
+                && state.editing
+                && (response.finished || !ui.is_any_item_active())
+            {
                 state.commit(host);
             }
         }

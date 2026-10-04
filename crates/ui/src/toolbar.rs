@@ -12,6 +12,8 @@ pub enum ToolbarIcon {
     View,
     Grid,
     List,
+    Curve,
+    DopeSheet,
 }
 
 pub fn tooltip(ui: &Ui, text: &str) {
@@ -37,6 +39,32 @@ pub fn icon_button(ui: &Ui, id: &str, icon: ToolbarIcon, tip: &str) -> bool {
             .build();
     };
     match icon {
+        ToolbarIcon::Curve => {
+            for (a, b) in [
+                ([-1., 0.8], [-0.5, 0.6]),
+                ([-0.5, 0.6], [0., -0.4]),
+                ([0., -0.4], [1., -0.8]),
+            ] {
+                line(a, b);
+            }
+        }
+        ToolbarIcon::DopeSheet => {
+            for (x, y) in [(-0.5, -0.6), (0.4, 0.6)] {
+                line([-1., y], [1., y]);
+                draw.add_polyline(
+                    vec![
+                        point(x, y - 0.3),
+                        point(x + 0.3, y),
+                        point(x, y + 0.3),
+                        point(x - 0.3, y),
+                    ],
+                    color,
+                )
+                .closed(true)
+                .filled(true)
+                .build();
+            }
+        }
         ToolbarIcon::Add => {
             line([-1., 0.], [1., 0.]);
             line([0., -1.], [0., 1.]);

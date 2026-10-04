@@ -194,6 +194,7 @@ fn rational_keys_hold_linear_eased_and_reverse_requests() {
     let mut m = small();
     let keys = a::add_node(&mut m, "fold.motion.keyframes").unwrap();
     let track = Track {
+        channels: vec![],
         keys: vec![
             Key {
                 time: Time::new(1001, 24000).unwrap(),
@@ -336,4 +337,124 @@ fn reusable_groups_bind_values_without_copying_their_construction() {
         m.graph.node(instance).unwrap().inputs["amount"],
         Input::Value(_)
     ));
+}
+
+#[test]
+fn input_channel_animation_is_independent_and_does_not_replace_graph_drivers() {
+    let mut m = small();
+    let value = a::add_node(&mut m, "fold.motion.value").unwrap();
+    let mut curve = fold_animation::Curve::default();
+    curve.insert(Time::ZERO, 0.);
+    curve.insert(Time::new(1, 1).unwrap(), 10.);
+    a::node(&mut m, value)
+        .unwrap()
+        .animation
+        .insert("value.0".into(), curve);
+    for n in [4, 1, 3, 0, 2] {
+        assert!((scalar(&m, value, Time::new(n, 4).unwrap()) - n as f64 * 2.5).abs() < 1e-10);
+    }
+    let reopened = Motion::from_document(&m.document(DocumentId::new()).unwrap()).unwrap();
+    assert_eq!(m, reopened);
+    let driver = a::add_node(&mut m, "fold.motion.value").unwrap();
+    let before = m.clone();
+    assert!(a::connect(&mut m, value, "value", link(driver, "value")).is_err());
+    assert_eq!(m, before);
+}
+
+#[test]
+fn legacy_ease_converts_to_equivalent_editable_bezier_channels() {
+    use fold_motion::animation::{Interpolation, Key, Track};
+    let mut track = Track {
+        channels: vec![],
+        keys: vec![
+            Key {
+                time: Time::ZERO,
+                value: Datum::Vector([0., 5.]),
+                interpolation: Interpolation::Ease,
+            },
+            Key {
+                time: Time::new(1, 1).unwrap(),
+                value: Datum::Vector([10., 15.]),
+                interpolation: Interpolation::Linear,
+            },
+        ],
+    };
+    let legacy = track.clone();
+    track.channels = track.scalar_curves();
+    for n in 0..=10 {
+        let time = Time::new(n, 10).unwrap();
+        let a = legacy.sample(time).unwrap().vector().unwrap();
+        let b = track.sample(time).unwrap().vector().unwrap();
+        assert!((a[0] - b[0]).abs() < 1e-9 && (a[1] - b[1]).abs() < 1e-9);
+    }
+    track.channels[0].insert(Time::new(1, 2).unwrap(), 100.);
+    assert!(
+        (track
+            .sample(Time::new(1, 2).unwrap())
+            .unwrap()
+            .vector()
+            .unwrap()[1]
+            - 10.)
+            .abs()
+            < 1e-9
+    );
+}
+
+#[test]
+fn cleared_driver_components_hold_their_authored_value_without_recreating_keys() {
+    use fold_motion::animation::{Interpolation, Key, Track};
+    let track = Track {
+        keys: vec![Key {
+            time: Time::ZERO,
+            value: Datum::Vector([3., 7.]),
+            interpolation: Interpolation::Linear,
+        }],
+        channels: vec![
+            fold_animation::Curve::default(),
+            fold_animation::Curve {
+                keys: vec![fold_animation::Key::new(Time::ZERO, 10.)],
+            },
+        ],
+    };
+    track.validate().unwrap();
+    assert_eq!(
+        track.sample(Time::new(1, 2).unwrap()).unwrap(),
+        Datum::Vector([3., 10.])
+    );
+}
+
+#[test]
+fn motion_animation_migration_preserves_unowned_extension_fields() {
+    let mut motion = small();
+    let node = &mut motion.graph.nodes[0];
+    node.extensions.insert(
+        "animation".into(),
+        serde_json::json!({"unowned":"preserve"}),
+    );
+    let mut document = motion.document(DocumentId::new()).unwrap();
+    document.schema_version = 1;
+    assert_eq!(Motion::from_document(&document).unwrap(), motion);
+}
+
+#[test]
+fn legacy_negative_keys_remain_editable_without_changing_sampling() {
+    use fold_motion::animation::{Interpolation, Key, Track};
+    let mut track = Track {
+        keys: vec![
+            Key {
+                time: Time::new(-1, 1).unwrap(),
+                value: Datum::Scalar(0.),
+                interpolation: Interpolation::Linear,
+            },
+            Key {
+                time: Time::new(1, 1).unwrap(),
+                value: Datum::Scalar(10.),
+                interpolation: Interpolation::Linear,
+            },
+        ],
+        channels: vec![],
+    };
+    track.channels = track.scalar_curves();
+    track.validate().unwrap();
+    assert_eq!(track.sample(Time::ZERO).unwrap(), Datum::Scalar(5.));
 }

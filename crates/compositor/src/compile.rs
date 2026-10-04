@@ -61,7 +61,8 @@ impl VideoProvider for Provider {
             cancel.check()?;
             let node = composite.node(id)?;
             let input = |i: usize| ids[&node.inputs[i].expect("validated reachable socket")];
-            let op = match &node.parameters {
+            let parameters = node.evaluated_parameters(time)?;
+            let op = match &parameters {
                 P::Read {
                     source,
                     start,

@@ -9,6 +9,7 @@ publish.workspace = true
 native-probe = []
 
 [dependencies]
+fold-animation.workspace = true
 serde_json.workspace = true
 fold-foundation.workspace = true
 fold-platform = { workspace = true, features = ["gpu"] }

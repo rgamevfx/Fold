@@ -18,6 +18,7 @@ pub fn keyframe_input(
     };
     let id = add_node(motion, "fold.motion.keyframes")?;
     node(motion, id)?.settings = serde_json::to_value(crate::animation::Track {
+        channels: vec![],
         keys: vec![crate::animation::Key {
             time,
             value,

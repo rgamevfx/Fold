@@ -17,6 +17,9 @@ pub struct State {
     pub error: String,
     pub generation: u64,
     pub editing: bool,
+    pub auto_key: bool,
+    /// Only the inspector may finish/cancel a property gesture.
+    pub property_editing: bool,
     root: Option<std::sync::Arc<fold_project::Document>>,
     view: Option<DocumentId>,
 }
@@ -73,6 +76,7 @@ impl State {
             self.root = root;
             self.base = snapshot.revision();
             self.editing = false;
+            self.property_editing = false;
             self.graph = desired
                 .and_then(|id| Composite::from_document(&snapshot.state().documents[&id]).ok());
             self.original = self.graph.clone();
@@ -133,6 +137,7 @@ impl State {
                     self.cancel(host);
                 } else {
                     self.editing = false;
+                    self.property_editing = false;
                     self.sync(host);
                     self.error.clear();
                 }
@@ -152,6 +157,7 @@ impl State {
                 .is_some_and(|g| g.nodes.iter().any(|n| n.id == *id))
         });
         self.editing = false;
+        self.property_editing = false;
         self.generation += 1;
     }
     pub fn view(&self, host: &mut dyn DesktopClient) {

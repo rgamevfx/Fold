@@ -10,10 +10,16 @@ mod canvas_pan;
 #[path = "color_controls.rs"]
 pub mod color_controls;
 pub use canvas_pan::CanvasPan;
+#[path = "animated_property.rs"]
+pub mod animated_property;
+#[path = "animation_editor/mod.rs"]
+pub mod animation_editor;
 #[path = "project_drop.rs"]
 pub mod project_drop;
 #[path = "property_edit.rs"]
 mod property_edit;
+#[path = "time_view.rs"]
+pub mod time_view;
 #[path = "toolbar.rs"]
 pub mod toolbar;
 pub use property_edit::{EditResponse, NumericProperty, UiId};
@@ -48,6 +54,16 @@ pub struct EditorPanels {
     pub inspector: Box<dyn Panel>,
 }
 pub trait Panel {
+    /// Optional animation surface sharing this editor instance's authoring state.
+    fn supports_animation(&self) -> bool {
+        false
+    }
+    fn draw_animation(&mut self, context: ExtensionUi<'_>) {
+        context
+            .ui
+            .text_disabled("This editor has no animatable properties.");
+    }
+
     /// Reuse this contribution's implementation with fresh instance-local state.
     fn new_instance(&self) -> Option<EditorPanels> {
         None
@@ -172,6 +188,19 @@ impl PanelRegistry {
                 key: imgui::WindowKey::new(descriptor.id, descriptor.title)
                     .map_err(|e| e.to_string())?,
                 panel: Box::new(self.node_inspector),
+            });
+        }
+        if self.entries.iter().any(|p| p.panel.supports_animation()) {
+            let descriptor = PanelDescriptor {
+                id: animation_editor::PANEL_ID,
+                title: "Animation",
+                placement: fold_platform::packages::PanelPlacement::Editor,
+            };
+            self.entries.push(RegisteredPanel {
+                descriptor,
+                key: imgui::WindowKey::new(descriptor.id, descriptor.title)
+                    .map_err(|e| e.to_string())?,
+                panel: Box::new(animation_editor::Surface),
             });
         }
         Ok(self.entries)

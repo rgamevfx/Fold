@@ -77,6 +77,7 @@ pub fn definitions() -> Vec<Definition> {
     keys.outputs[0].1 = Kind::Generic;
     keys.defaults = || {
         serde_json::to_value(Track {
+            channels: vec![],
             keys: vec![Key {
                 time: Time::ZERO,
                 value: Datum::Scalar(0.),

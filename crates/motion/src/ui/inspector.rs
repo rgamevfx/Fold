@@ -11,7 +11,6 @@ use fold_ui::sdk::{
 };
 pub struct Inspector {
     pub state: Shared,
-    pub curves: super::curves::Curves,
 }
 impl Panel for Inspector {
     fn id(&self) -> &'static str {
@@ -71,7 +70,12 @@ impl Panel for Inspector {
                 )
             })
             .collect();
-        let info = motion.info.clone();
+        let time = host
+            .state()
+            .navigation
+            .last()
+            .map(|v| v.time)
+            .unwrap_or(fold_foundation::Time::ZERO);
         let Some(node) = motion.graph.nodes.iter_mut().find(|n| n.id == selected) else {
             return;
         };
@@ -108,6 +112,24 @@ impl Panel for Inspector {
         let mut animate = None;
         let mut publish = None;
         let mut focus = None;
+        if let Some(_menu) = icon_menu(ui, "node-controls", "Drivers and published controls") {
+            let inputs: Vec<_> = node
+                .inputs
+                .iter()
+                .filter_map(|(key, input)| matches!(input, Input::Value(_)).then_some(key.clone()))
+                .collect();
+            for key in inputs {
+                if let Some(_submenu) = ui.begin_menu(property_label(&key)) {
+                    if ui.menu_item("Create keyframe driver") {
+                        animate = Some(key.clone());
+                    }
+                    if ui.menu_item("Publish control") {
+                        publish = Some(key);
+                    }
+                }
+            }
+        }
+
         if registry::find(&node.kind).is_ok_and(|d| {
             d.inputs
                 .iter()
@@ -150,26 +172,31 @@ impl Panel for Inspector {
             for socket in sockets {
                 let key = socket.id;
                 let _id = ui.push_id(&key);
-                ui.text(property_label(&key));
-                let animatable = matches!(
-                    node.inputs.get(&key),
-                    Some(Input::Value(
-                        Datum::Scalar(_) | Datum::Vector(_) | Datum::Color(_)
-                    ))
-                );
-                if animatable {
-                    ui.same_line();
-                    if let Some(_menu) =
-                        icon_menu(ui, "property-actions", "Animation and published controls")
-                    {
-                        if ui.menu_item("Animate") {
-                            animate = Some(key.clone());
-                        }
-                        if ui.menu_item("Publish control") {
-                            publish = Some(key.clone());
-                        }
+                if let Some(Input::Value(value)) = node.inputs.get_mut(&key)
+                    && let Some((components, mut values)) =
+                        crate::animation::parameters::components(value)
+                    && key != "alignment"
+                {
+                    fold_ui::sdk::animated_property::AnimatedProperty {
+                        id: &key,
+                        label: &property_label(&key),
+                        components,
+                        unit: socket.unit,
+                        range: None,
+                        color: matches!(value, Datum::Color(_)).then_some(aces),
                     }
+                    .draw(
+                        ui,
+                        &mut values,
+                        &mut node.animation,
+                        time,
+                        state.auto_key,
+                        &mut response,
+                    );
+                    crate::animation::parameters::set_components(value, &values);
+                    continue;
                 }
+                ui.text(property_label(&key));
                 if !socket.unit.is_empty() && key != "alignment" {
                     ui.same_line();
                     ui.text_disabled(&socket.unit);
@@ -245,81 +272,7 @@ impl Panel for Inspector {
                 }
             }
         } else if node.kind == "fold.motion.keyframes" {
-            if let Ok(mut track) = node.settings::<crate::animation::Track>() {
-                let (changed, finished) = self.curves.draw(ui, node.id, &mut track, &info);
-                response.changed |= changed;
-                response.finished |= finished;
-                let time = fold_foundation::Time::new(
-                    i64::from(host.state().frame) * i64::from(host.state().rate[1]),
-                    host.state().rate[0],
-                )
-                .unwrap();
-                if ui.button("Add key at playhead") {
-                    if !track.keys.iter().any(|k| k.time == time) {
-                        let value = track.sample(time).unwrap_or(Datum::Scalar(0.));
-                        track.keys.push(crate::animation::Key {
-                            time,
-                            value,
-                            interpolation: crate::animation::Interpolation::Linear,
-                        });
-                        track.keys.sort_by_key(|k| k.time);
-                        node.settings = serde_json::to_value(&track).unwrap();
-                        response.changed = true;
-                        response.finished = true;
-                    }
-                }
-                let mut remove = None;
-                for (i, key) in track.keys.iter_mut().enumerate() {
-                    let _id = ui.push_id(i as i32);
-                    ui.separator();
-                    ui.text(format!("Key {}", i + 1));
-                    let mut numerator = key.time.numerator();
-                    let mut denominator = key.time.denominator();
-                    let changed = Drag::new("Time numerator")
-                        .speed(1.)
-                        .build(ui, &mut numerator);
-                    response.item(ui, changed);
-                    let changed_d = Drag::new("Time denominator")
-                        .range(1, u32::MAX)
-                        .build(ui, &mut denominator);
-                    response.item(ui, changed_d);
-                    if (changed || changed_d)
-                        && let Ok(t) = fold_foundation::Time::new(numerator, denominator)
-                    {
-                        key.time = t;
-                    }
-                    datum(ui, &mut key.value, aces, &mut response);
-                    if let Some(_combo) =
-                        ui.begin_combo("Interpolation", format!("{:?}", key.interpolation))
-                    {
-                        for (name, value) in [
-                            ("Hold", crate::animation::Interpolation::Hold),
-                            ("Linear", crate::animation::Interpolation::Linear),
-                            ("Ease", crate::animation::Interpolation::Ease),
-                        ] {
-                            if ui.selectable(name) {
-                                key.interpolation = value;
-                                response.changed = true;
-                                response.finished = true;
-                            }
-                        }
-                    }
-                    if ui.small_button("Delete key") {
-                        remove = Some(i);
-                    }
-                }
-                if let Some(i) = remove
-                    && track.keys.len() > 1
-                {
-                    track.keys.remove(i);
-                    response.changed = true;
-                    response.finished = true;
-                }
-                if response.changed {
-                    track.keys.sort_by_key(|k| k.time);
-                    node.settings = serde_json::to_value(track).unwrap();
-                }
-            }
+            ui.text_disabled("Edit keys in the Animation panel.");
         } else {
             settings(ui, &mut node.settings, &mut response, 0);
         }
@@ -373,17 +326,21 @@ impl Panel for Inspector {
             state.selected = vec![id];
             state.generation += 1;
         }
-        response.cancel_on_escape(ui, state.editing);
+        response.cancel_on_escape(ui, state.editing && state.property_editing);
         if response.cancelled {
             state.cancel(host);
         } else {
             if response.changed {
+                state.property_editing = true;
                 state.replace_view(motion);
                 state.preview(host);
             }
             // Closing a popup can remove its numeric control before it reports
             // deactivation. Finish that preview once no control owns the edit.
-            if state.editing && (response.finished || !ui.is_any_item_active()) {
+            if state.property_editing
+                && state.editing
+                && (response.finished || !ui.is_any_item_active())
+            {
                 state.commit(host);
             }
         }
@@ -392,7 +349,7 @@ impl Panel for Inspector {
         }
     }
 }
-fn property_label(key: &str) -> String {
+pub(super) fn property_label(key: &str) -> String {
     if key == "domain" {
         return "Scope".into();
     }

@@ -21,6 +21,11 @@ impl DesktopClient for Host {
         match command {
             DesktopCommand::Select(selection) => self.state.selection = selection,
             DesktopCommand::CancelPreviewEdit => {}
+            DesktopCommand::PreviewExtension(request) => {
+                self.registry
+                    .stage(&self.project.snapshot(), &request, &Default::default())
+                    .unwrap();
+            }
             DesktopCommand::Extension(request) => {
                 let batch = self
                     .registry
@@ -77,6 +82,7 @@ fn setup() -> (Host, state::State) {
 }
 #[test]
 fn compositor_graph_and_inspector_draw_without_authoring() {
+    let _guard = IMGUI_TEST_LOCK.lock().unwrap();
     let (mut host, state) = setup();
     let before = host.project.snapshot();
     let state = Rc::new(RefCell::new(state));
@@ -202,5 +208,60 @@ fn shared_editor_events_use_compositor_validation_and_atomic_undo() {
     assert_eq!(
         host.project.snapshot().state().documents,
         before.state().documents
+    );
+}
+
+#[test]
+fn inspector_does_not_finish_an_animation_gesture() {
+    let _guard = IMGUI_TEST_LOCK.lock().unwrap();
+    let (mut host, mut state) = setup();
+    let before = host.project.snapshot().revision();
+    let node = &mut state.graph.as_mut().unwrap().nodes[0];
+    state.selected = vec![node.id];
+    let mut curve = fold_animation::Curve::default();
+    curve.insert(fold_foundation::Time::ZERO, 0.5);
+    node.animation.insert("color.3".into(), curve);
+    state.preview(&mut host);
+    assert!(state.editing && !state.property_editing);
+    let state = Rc::new(RefCell::new(state));
+    let mut inspector = inspector::Inspector(state.clone());
+    let mut context = imgui::Context::create();
+    context.set_ini_filename(None::<String>).unwrap();
+    context
+        .font_atlas()
+        .try_claim_legacy_renderer()
+        .unwrap()
+        .build();
+    context.io_mut().set_display_size([400., 400.]);
+    context.io_mut().set_delta_time(1. / 60.);
+    for _ in 0..3 {
+        let ui = context.frame();
+        ui.window("Inspector").build(|| {
+            inspector.draw(ExtensionUi {
+                ui,
+                host: &mut host,
+            })
+        });
+        drop(context.render_legacy());
+    }
+    assert_eq!(host.project.snapshot().revision(), before);
+    assert!(state.borrow().editing);
+    state.borrow_mut().commit(&mut host);
+    assert_ne!(host.project.snapshot().revision(), before);
+    host.project.undo().unwrap();
+    assert!(
+        Composite::from_document(
+            host.project
+                .snapshot()
+                .state()
+                .documents
+                .values()
+                .next()
+                .unwrap()
+        )
+        .unwrap()
+        .nodes[0]
+            .animation
+            .is_empty()
     );
 }

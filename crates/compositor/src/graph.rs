@@ -27,6 +27,7 @@ impl Node {
         Self {
             id: ObjectId::new(),
             parameters,
+            animation: Default::default(),
             inputs,
             position: None,
             extensions: Default::default(),

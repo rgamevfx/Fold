@@ -1,4 +1,5 @@
 //! Exact authored key times; interpolation only converts the local interval ratio.
+pub mod parameters;
 use crate::fields::Datum;
 use fold_foundation::Time;
 use serde::{Deserialize, Serialize};
@@ -18,6 +19,8 @@ pub struct Key {
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Track {
     pub keys: Vec<Key>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub channels: Vec<fold_animation::Curve>,
 }
 impl Track {
     pub fn validate(&self) -> Result<(), String> {
@@ -40,10 +43,58 @@ impl Track {
         if self.keys.windows(2).any(|w| w[0].time >= w[1].time) {
             return Err("keys must have unique increasing exact times".into());
         }
+        if !self.channels.is_empty() {
+            let count = parameters::components(&self.keys[0].value).unwrap().1.len();
+            if self.channels.len() != count {
+                return Err("Keyframe channel count disagrees with value type".into());
+            }
+            for curve in &self.channels {
+                if !curve.keys.is_empty() {
+                    curve.validate()?;
+                }
+            }
+        }
         Ok(())
+    }
+    pub fn scalar_curves(&self) -> Vec<fold_animation::Curve> {
+        if !self.channels.is_empty() {
+            return self.channels.clone();
+        }
+        let count = parameters::components(&self.keys[0].value).unwrap().1.len();
+        (0..count)
+            .map(|component| fold_animation::Curve {
+                keys: self
+                    .keys
+                    .iter()
+                    .map(|key| {
+                        let value = parameters::components(&key.value).unwrap().1[component];
+                        let mut result = fold_animation::Key::new(key.time, value);
+                        result.interpolation = match key.interpolation {
+                            Interpolation::Hold => fold_animation::Interpolation::Hold,
+                            Interpolation::Linear => fold_animation::Interpolation::Linear,
+                            Interpolation::Ease => fold_animation::Interpolation::Bezier,
+                        };
+                        result.tangents = fold_animation::Tangents::Broken;
+                        result
+                    })
+                    .collect(),
+            })
+            .collect()
     }
     pub fn sample(&self, time: Time) -> Result<Datum, String> {
         self.validate()?;
+        if !self.channels.is_empty() {
+            let mut result = self.keys[0].value.clone();
+            let base = parameters::components(&result).unwrap().1;
+            let values: Vec<_> = self
+                .channels
+                .iter()
+                .zip(base)
+                .map(|(c, base)| c.sample(time).unwrap_or(base))
+                .collect();
+            parameters::set_components(&mut result, &values);
+            return Ok(result);
+        }
         let end = self.keys.partition_point(|k| k.time <= time);
         if end == 0 {
             return Ok(self.keys[0].value.clone());

@@ -158,6 +158,7 @@ impl Motion {
             if let Ok(d) = registry::find(&n.kind)
                 && n.version == 1
             {
+                n.validate_animation()?;
                 (d.validate)(n).map_err(|e| format!("{} {:?}: {e}", d.name, n.id))?;
             }
         }
@@ -247,7 +248,7 @@ impl Motion {
             id,
             package_id: crate::PACKAGE.into(),
             type_id: MOTION.into(),
-            schema_version: 1,
+            schema_version: 2,
             revision: Revision::default(),
             dependencies: vec![],
             assets: vec![],
@@ -258,7 +259,7 @@ impl Motion {
     pub fn from_document(document: &Document) -> Result<Self, String> {
         if document.package_id != crate::PACKAGE
             || document.type_id != MOTION
-            || document.schema_version != 1
+            || ![1, 2].contains(&document.schema_version)
             || !document.dependencies.is_empty()
             || !document.assets.is_empty()
         {

@@ -145,11 +145,11 @@ fn drawing_motion_graph_inspector_and_handles_does_not_mutate_project() {
         state: state.clone(),
         canvas: Default::default(),
         overlay: Default::default(),
+        animation: Default::default(),
     };
     canvas.initialize(&context);
     let mut inspector = inspector::Inspector {
         state: state.clone(),
-        curves: Default::default(),
     };
     for frame in 0..24 {
         let maximized = frame >= 8;
@@ -233,6 +233,7 @@ fn drawing_motion_graph_inspector_and_handles_does_not_mutate_project() {
         a::node(&mut motion, selected)
             .unwrap()
             .set("alignment", Datum::Scalar(0.375));
+        state.property_editing = true;
         state.replace_view(motion);
         state.preview(&mut host);
     }

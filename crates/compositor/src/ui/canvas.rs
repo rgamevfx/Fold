@@ -15,16 +15,25 @@ use fold_ui::sdk::{
 pub(super) struct Canvas {
     state: Shared,
     canvas: GraphCanvas,
+    animation: fold_ui::sdk::animation_editor::Editor,
 }
 impl Canvas {
     pub fn new(state: Shared) -> Self {
         Self {
             state,
             canvas: GraphCanvas::default(),
+            animation: Default::default(),
         }
     }
 }
 impl Panel for Canvas {
+    fn supports_animation(&self) -> bool {
+        true
+    }
+    fn draw_animation(&mut self, context: ExtensionUi<'_>) {
+        super::animation::draw(&mut self.animation, &self.state, context);
+    }
+
     fn new_instance(&self) -> Option<fold_ui::sdk::EditorPanels> {
         let state = std::rc::Rc::new(std::cell::RefCell::new(super::state::State::default()));
         Some(fold_ui::sdk::EditorPanels {
