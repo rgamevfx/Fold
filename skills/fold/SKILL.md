@@ -42,3 +42,5 @@ On a conflict, refresh state **and affected content**, reconcile the user's chan
 For Motion → Composite → Sequence authoring, adapt [the executable cross-feature example](scripts/demo.py). Running it adds documents; use it only when those additions fit the task. The [animated grid example](references/motion.md#example-animated-grid-with-cell-text) explains the reusable construction from a reference-recreation exercise without baking in that project's IDs or dimensions.
 
 For morphing layouts, live coordinate labels, sampled stipple, synchronized overlays, or editable glow, read [the procedural dot-study workflow](references/procedural-dot-study.md). It supplies the demo's controls, formulas, timing, typed edit fragments, and verification steps. Adapt its shared relationships to the brief; its counts and aesthetics are example choices.
+
+For particle attraction into editable text or shapes, read [the particle workflow](references/particles.md). It covers the shipped tool, independent point/attractor/palette inputs, layer keyframes, Solver limits, and reuse checks.

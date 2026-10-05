@@ -864,3 +864,50 @@ fn embedded_font_document_supports_preview_cancel_commit_and_undo() {
         after.state().documents
     );
 }
+
+#[test]
+fn attract_particles_action_and_animation_share_one_undo_step() {
+    let mut host = Host::new();
+    let mut state = state::State::default();
+    state.create(&mut host);
+    state.change_scene(&mut host, |m| {
+        a::scene::create_object(m, "fold.motion.text").map(Some)
+    });
+    let target = state.selected[0];
+    let before = host.project.snapshot();
+    state.change_scene(&mut host, |m| {
+        a::particles::from_object(m, target).map(Some)
+    });
+    assert!(state.error.is_empty(), "{}", state.error);
+    assert_eq!(
+        host.project.snapshot().revision().0,
+        before.revision().0 + 1
+    );
+    let owner = state.selected[0];
+    assert!(
+        state
+            .motion
+            .as_ref()
+            .unwrap()
+            .graph
+            .node(owner)
+            .unwrap()
+            .animation
+            .contains_key("attraction.0")
+    );
+    host.project.undo().unwrap();
+    assert_eq!(
+        host.project.snapshot().state().documents,
+        before.state().documents
+    );
+    host.project.redo().unwrap();
+    let snapshot = host.project.snapshot();
+    let document = &snapshot.state().documents[&state.document.unwrap()];
+    assert!(
+        crate::Motion::from_document(document)
+            .unwrap()
+            .graph
+            .node(owner)
+            .is_ok()
+    );
+}

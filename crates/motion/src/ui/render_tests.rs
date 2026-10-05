@@ -83,11 +83,53 @@ fn motion_tools_and_inspector_render_normal_and_narrow() {
         ("solver-narrow", 390., 280.),
         ("drift-normal", 850., 400.),
         ("drift-narrow", 390., 280.),
+        ("particles-normal", 850., 400.),
+        ("particles-narrow", 390., 280.),
+        ("particles-source-normal", 850., 400.),
+        ("particles-source-narrow", 390., 280.),
+        ("particles-palette-normal", 850., 400.),
+        ("particles-palette-narrow", 390., 280.),
     ] {
         if let Ok(filter) = std::env::var("FOLD_MOTION_CAPTURE_FILTER") {
             if !name.starts_with(&filter) {
                 continue;
             }
+        }
+        if name == "particles-source-normal" || name == "particles-palette-normal" {
+            let mut state = inspector.state.borrow_mut();
+            let owner = state
+                .inspector_return
+                .map(|(_, parent)| parent)
+                .unwrap_or(state.selected[0]);
+            let key = if name == "particles-source-normal" {
+                "points"
+            } else {
+                "color"
+            };
+            let crate::graph::Input::Link(link) = &state
+                .motion
+                .as_ref()
+                .unwrap()
+                .graph
+                .node(owner)
+                .unwrap()
+                .inputs[key]
+            else {
+                panic!()
+            };
+            let driver = link.node;
+            state.inspector_return = Some((driver, owner));
+            state.network_object = Some(owner);
+            state.selected = vec![driver];
+        }
+        if name == "particles-normal" {
+            let mut state = inspector.state.borrow_mut();
+            state.create(&mut host);
+            state.change_scene(&mut host, |m| {
+                let source = crate::authoring::scene::create_object(m, "fold.motion.text")?;
+                crate::authoring::particles::from_object(m, source).map(Some)
+            });
+            assert!(state.error.is_empty(), "{}", state.error);
         }
         if name == "solver-normal" || name == "drift-normal" {
             let mut state = inspector.state.borrow_mut();

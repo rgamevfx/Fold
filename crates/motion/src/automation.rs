@@ -27,6 +27,11 @@ enum Edit {
         kind: String,
         name: String,
     },
+    AttractParticles {
+        id: ObjectId,
+        attractor: ObjectId,
+        name: String,
+    },
     Set {
         node: ObjectId,
         input: String,
@@ -77,6 +82,7 @@ pub fn catalog() -> Value {
         {"op":"info","value":{"width":960,"height":540,"rate":[24,1],"frames":120}},
         {"op":"add","id":"$node","kind":"fold.motion.math","group":null},
         {"op":"object","id":"$text","kind":"fold.motion.text","name":"Title"},
+        {"op":"attract_particles","id":"$particles","attractor":"$text","name":"Attract Particles"},
         {"op":"set","node":"$node","input":"a","value":{"Scalar":2},"group":null},
         {"op":"connect","node":"$node","input":"a","source":{"node":"$source","socket":"value"}},
         {"op":"disconnect","node":"$node","input":"a"},
@@ -125,29 +131,18 @@ pub fn author(document: &Document, edits: &[Value]) -> Result<Document, String> 
                     return Err("node ID already exists".into());
                 }
                 let old = crate::authoring::scene::create_object(&mut m, &kind)?;
-                for n in &mut m.graph.nodes {
-                    if n.id == old {
-                        n.id = id;
-                    }
-                    for input in n.inputs.values_mut() {
-                        if let Input::Link(l) = input
-                            && l.node == old
-                        {
-                            l.node = id;
-                        }
-                    }
+                rename_object(&mut m, old, id, name);
+            }
+            Edit::AttractParticles {
+                id,
+                attractor,
+                name,
+            } => {
+                if m.graph.nodes.iter().any(|n| n.id == id) {
+                    return Err("node ID already exists".into());
                 }
-                let o = m
-                    .scene
-                    .as_mut()
-                    .unwrap()
-                    .objects
-                    .iter_mut()
-                    .find(|o| o.id == old)
-                    .unwrap();
-                o.id = id;
-                o.source.node = id;
-                o.name = name;
+                let old = crate::authoring::particles::from_object(&mut m, attractor)?;
+                rename_object(&mut m, old, id, name);
             }
             Edit::Set {
                 node,
@@ -235,4 +230,74 @@ pub fn author(document: &Document, edits: &[Value]) -> Result<Document, String> 
     let mut result = m.document(document.id)?;
     result.extensions = document.extensions.clone();
     Ok(result)
+}
+
+fn rename_object(m: &mut Motion, old: ObjectId, id: ObjectId, name: String) {
+    for n in &mut m.graph.nodes {
+        if n.id == old {
+            n.id = id;
+        }
+        for input in n.inputs.values_mut() {
+            if let Input::Link(l) = input
+                && l.node == old
+            {
+                l.node = id;
+            }
+        }
+    }
+    let o = m
+        .scene
+        .as_mut()
+        .unwrap()
+        .objects
+        .iter_mut()
+        .find(|o| o.id == old)
+        .unwrap();
+    o.id = id;
+    o.source.node = id;
+    o.name = name;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn particle_public_authoring_creates_editable_tool_with_requested_identity() {
+        let m = Motion::empty();
+        let id = ObjectId::new();
+        let target = ObjectId::new();
+        let document = m.document(Default::default()).unwrap();
+        let document=author(&document,&[
+        serde_json::json!({"op":"object","id":target,"kind":"fold.motion.text","name":"Target"}),
+        serde_json::json!({"op":"attract_particles","id":id,"attractor":target,"name":"Particles"}),
+    ]).unwrap();
+        let m = Motion::from_document(&document).unwrap();
+        assert_eq!(
+            m.scene
+                .as_ref()
+                .unwrap()
+                .objects
+                .iter()
+                .find(|o| o.id == id)
+                .unwrap()
+                .name,
+            "Particles"
+        );
+        assert!(
+            m.graph
+                .node(id)
+                .unwrap()
+                .animation
+                .contains_key("attraction.0")
+        );
+        let mut evaluator =
+            crate::evaluation::Evaluator::new(&m, fold_foundation::Time::new(9, 1).unwrap())
+                .unwrap();
+        evaluator
+            .resolve(&Link {
+                node: id,
+                socket: "content".into(),
+            })
+            .unwrap();
+    }
 }

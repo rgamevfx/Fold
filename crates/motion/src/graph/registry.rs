@@ -32,6 +32,7 @@ pub fn definitions() -> &'static [Definition] {
         result.push(nodes::shape_grid::definition_grid());
         result.push(nodes::convex_sweep::definition_sweep());
         result.push(nodes::direction::definition_direction());
+        result.extend(nodes::particles::definitions());
         result
     })
 }
