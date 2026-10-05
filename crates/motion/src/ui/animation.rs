@@ -7,7 +7,7 @@ use fold_foundation::ObjectId;
 use fold_platform::desktop::{DesktopCommand, Selection, TransportAction};
 use fold_ui::sdk::{
     ExtensionUi,
-    animation_editor::{Channel, Context, Editor},
+    animation_editor::{Channel, Context, Editor, Track as RowTrack},
 };
 use std::collections::BTreeMap;
 #[derive(Default)]
@@ -18,6 +18,12 @@ pub(super) struct Animation {
 }
 impl Animation {
     pub fn draw(&mut self, shared: &Shared, context: ExtensionUi<'_>) {
+        self.draw_view(shared, context, false);
+    }
+    pub fn draw_scoped(&mut self, shared: &Shared, context: ExtensionUi<'_>) {
+        self.draw_view(shared, context, true);
+    }
+    fn draw_view(&mut self, shared: &Shared, context: ExtensionUi<'_>, scoped: bool) {
         let ExtensionUi { ui, host } = context;
         let mut state = shared.borrow_mut();
         state.sync(host);
@@ -29,11 +35,141 @@ impl Animation {
         let Some(document) = state.document else {
             return;
         };
-        let Some(mut motion) = state.view_motion() else {
+        let Some(mut motion) = (if scoped {
+            state.view_motion()
+        } else {
+            state.motion.clone()
+        }) else {
             return;
         };
         let mut channels = vec![];
+        let mut tracks = vec![];
+        if !scoped && let Some(scene) = &motion.scene {
+            for object in &scene.objects {
+                tracks.push(RowTrack {
+                    id: object.id,
+                    parent: object.parent,
+                    label: object.name.clone(),
+                    layer: Some(fold_ui::sdk::animation_editor::LayerControls {
+                        visible: object.visible,
+                        icon: match motion
+                            .graph
+                            .node(object.source.node)
+                            .map(|n| n.kind.as_str())
+                            .unwrap_or("")
+                        {
+                            "fold.motion.text" => "T",
+                            "fold.motion.scene_children" => "G",
+                            "fold.motion.path" => "P",
+                            "fold.motion.group_instance" => "N",
+                            _ => "S",
+                        },
+                    }),
+                    locked: object.locked,
+                    range: Some((object.start, object.end)),
+                });
+                for (id, label) in object
+                    .transform
+                    .iter()
+                    .map(|&id| (id, "Transform".to_string()))
+                    .chain(
+                        object
+                            .appearance
+                            .iter()
+                            .map(|&id| (id, "Appearance".into())),
+                    )
+                    .chain(object.modifiers.iter().map(|&id| {
+                        let label = motion
+                            .graph
+                            .node(id)
+                            .ok()
+                            .and_then(|n| {
+                                n.settings::<crate::nodes::interface::GroupSettings>().ok()
+                            })
+                            .and_then(|s| s.group)
+                            .and_then(|id| motion.groups.get(&id))
+                            .map(|g| g.name.clone())
+                            .unwrap_or("Modifier".into());
+                        (id, label)
+                    }))
+                {
+                    tracks.push(RowTrack {
+                        id,
+                        parent: Some(object.id),
+                        label,
+                        locked: object.locked,
+                        range: None,
+                        layer: None,
+                    });
+                }
+                for (id, label) in object
+                    .masks
+                    .iter()
+                    .map(|m| (m.id, "Mask".to_string()))
+                    .chain(
+                        object
+                            .constraints
+                            .iter()
+                            .map(|c| (c.id, c.kind.label().to_string())),
+                    )
+                {
+                    tracks.push(RowTrack {
+                        id,
+                        parent: Some(object.id),
+                        label,
+                        locked: object.locked,
+                        range: None,
+                        layer: None,
+                    });
+                }
+            }
+        }
+
+        if !scoped && let Some(scene) = &motion.scene {
+            for object in &scene.objects {
+                for (id, label, animation) in
+                    std::iter::once((object.id, object.name.clone(), &object.animation))
+                        .chain(
+                            object
+                                .constraints
+                                .iter()
+                                .map(|c| (c.id, c.kind.label().to_string(), &c.animation)),
+                        )
+                        .chain(
+                            object
+                                .masks
+                                .iter()
+                                .map(|m| (m.id, "Mask".to_string(), &m.animation)),
+                        )
+                {
+                    for (path, curve) in animation {
+                        let property = path.strip_suffix(".0").unwrap_or(path).to_string();
+                        let property_label = match property.as_str() {
+                            "scene.opacity" | "opacity" => "Opacity",
+                            "progress" => "Path progress",
+                            "influence" => "Influence",
+                            "feather" => "Feather",
+                            _ => &property,
+                        }
+                        .to_string();
+                        channels.push(Channel {
+                            object: id,
+                            node_label: label.clone(),
+                            property,
+                            property_label,
+                            component: "Value".into(),
+                            path: path.clone(),
+                            curve: curve.clone(),
+                        });
+                    }
+                }
+            }
+        }
+
         for (index, node) in motion.graph.nodes.iter().enumerate() {
+            if !scoped && motion.scene.is_some() && !tracks.iter().any(|t| t.id == node.id) {
+                continue;
+            }
             let name = registry::find(&node.kind)
                 .map(|d| d.name)
                 .unwrap_or("Unavailable node");
@@ -52,7 +188,7 @@ impl Animation {
                             object: node.id,
                             node_label: label.clone(),
                             property: input.clone(),
-                            property_label: super::inspector::property_label(input),
+                            property_label: super::input_label(&motion, node, input),
                             component: (*component).into(),
                             path,
                             curve: curve.clone(),
@@ -84,6 +220,23 @@ impl Animation {
                 }
             }
         }
+        fn ordered(
+            parent: Option<ObjectId>,
+            all: &[RowTrack],
+            result: &mut Vec<RowTrack>,
+            depth: usize,
+        ) {
+            if depth > all.len() {
+                return;
+            }
+            for track in all.iter().filter(|t| t.parent == parent) {
+                result.push(track.clone());
+                ordered(Some(track.id), all, result, depth + 1);
+            }
+        }
+        let mut sorted = vec![];
+        ordered(None, &tracks, &mut sorted, 0);
+        let tracks = sorted;
         let selected = state.selected.clone();
         let time = host
             .state()
@@ -101,10 +254,45 @@ impl Animation {
                 rate: motion.info.rate,
                 frames: motion.info.frames,
                 nodes: &selected,
+                tracks: &tracks,
                 auto_key: &mut state.auto_key,
             },
         );
+        if response.visibility.is_some() || response.lock.is_some() {
+            state.change_scene(host, |m| {
+                if let Some((id, visible)) = response.visibility {
+                    let o = m
+                        .scene
+                        .as_mut()
+                        .unwrap()
+                        .objects
+                        .iter_mut()
+                        .find(|o| o.id == id)
+                        .ok_or("missing object")?;
+                    if o.locked {
+                        return Err("unlock this object before changing visibility".into());
+                    }
+                    o.visible = visible;
+                }
+                if let Some((id, locked)) = response.lock {
+                    m.scene
+                        .as_mut()
+                        .unwrap()
+                        .objects
+                        .iter_mut()
+                        .find(|o| o.id == id)
+                        .ok_or("missing object")?
+                        .locked = locked;
+                }
+                Ok(None)
+            });
+            return;
+        }
         if let Some(node) = response.select_node {
+            if !scoped {
+                state.group = None;
+                state.parents.clear();
+            }
             state.selected = vec![node];
             host.command(DesktopCommand::Select(Selection {
                 document: Some(document),
@@ -119,8 +307,38 @@ impl Animation {
         if response.edit.cancelled {
             state.cancel(host);
         } else {
+            if let Some((source, target, after)) = response.reorder {
+                state.change_scene(host, |m| {
+                    crate::authoring::scene::reorder(m, source, target, after)?;
+                    Ok(Some(source))
+                });
+                return;
+            }
             if response.edit.changed {
+                if let Some((id, start, end)) = response.range
+                    && let Some(object) = motion
+                        .scene
+                        .as_mut()
+                        .and_then(|s| s.objects.iter_mut().find(|o| o.id == id))
+                {
+                    object.start = start;
+                    object.end = end;
+                }
                 for channel in channels {
+                    if let Some((base, animation)) = motion.scene.as_mut().and_then(|s| {
+                        crate::scene::animation::channel_mut(s, channel.object, &channel.path)
+                    }) {
+                        if channel.curve.keys.is_empty() {
+                            *base = animation
+                                .get(&channel.path)
+                                .and_then(|c| c.sample(time))
+                                .unwrap_or(*base);
+                            animation.remove(&channel.path);
+                        } else {
+                            animation.insert(channel.path, channel.curve);
+                        }
+                        continue;
+                    }
                     if let Some(node) = motion
                         .graph
                         .nodes
@@ -167,7 +385,11 @@ impl Animation {
                         node.set("value", value);
                     }
                 }
-                state.replace_view(motion);
+                if scoped {
+                    state.replace_view(motion);
+                } else {
+                    state.motion = Some(motion);
+                }
                 state.preview(host);
             }
             if response.edit.finished && state.editing {

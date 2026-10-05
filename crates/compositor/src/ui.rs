@@ -16,7 +16,7 @@ use std::{cell::RefCell, rc::Rc};
 pub fn register(registry: &mut PanelRegistry) -> Result<(), String> {
     let state = Rc::new(RefCell::new(state::State::default()));
     registry.register(crate::PACKAGE, canvas::Canvas::new(state.clone()))?;
-    registry.register_node_inspector(
+    registry.register_inspector(
         crate::PACKAGE,
         inspector::Inspector(state, Default::default()),
     )

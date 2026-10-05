@@ -226,6 +226,12 @@ impl Shell {
             .workspace
             .editors
             .keys()
+            .filter(|id| {
+                !self
+                    .editors
+                    .get(id)
+                    .is_some_and(|e| e.panels.editor.network_primary())
+            })
             .map(|&id| {
                 self.editors
                     .get(&id)
@@ -667,6 +673,7 @@ impl Shell {
         let mut new_editor = None;
         let mut add_viewer = false;
         let mut reveal_animation = false;
+        let mut reveal_network = false;
         ui.main_menu_bar(|| {
             ui.text("Fold");
             if let Some(_menu) = ui.begin_menu("Panels") {
@@ -675,6 +682,10 @@ impl Shell {
                     .iter()
                     .filter(|p| p.descriptor.placement == PanelPlacement::Editor)
                 {
+                    if panel.descriptor.id == crate::sdk::network::PANEL_ID {
+                        reveal_network |= ui.menu_item("Network");
+                        continue;
+                    }
                     if panel.descriptor.id == crate::sdk::animation_editor::PANEL_ID {
                         reveal_animation |= ui.menu_item("Animation");
                         continue;
@@ -777,6 +788,13 @@ impl Shell {
             .map(|(&id, e)| (id, e.group, e.contribution.clone()))
             .collect();
         for (&id, binding) in &mut self.workspace.editors {
+            if self
+                .editors
+                .get(&id)
+                .is_some_and(|e| e.panels.editor.network_primary())
+            {
+                continue;
+            }
             let choices = client
                 .snapshot()
                 .map(|s| {
@@ -855,6 +873,14 @@ impl Shell {
         for (editor, time) in seeks {
             self.seek_from_editor(editor, time, client);
         }
+        reveal_network |= self
+            .focus
+            .and_then(|id| self.editors.get(&id))
+            .is_some_and(|e| e.panels.editor.network_primary());
+        reveal_network |= self
+            .editors
+            .values_mut()
+            .any(|e| e.panels.editor.take_network_request());
         self.focus = None;
         if let Some(id) = close_editor {
             if let Some(editor) = self.editors.get_mut(&id) {
@@ -880,12 +906,15 @@ impl Shell {
             let visible = ui
                 .window(&registered.key)
                 .focused(
-                    reveal_animation
-                        && registered.descriptor.id == crate::sdk::animation_editor::PANEL_ID,
+                    (reveal_animation
+                        && registered.descriptor.id == crate::sdk::animation_editor::PANEL_ID)
+                        || (reveal_network
+                            && registered.descriptor.id == crate::sdk::network::PANEL_ID),
                 )
                 .build(|| {
                     if registered.descriptor.placement == PanelPlacement::Inspector
                         || registered.descriptor.id == crate::sdk::animation_editor::PANEL_ID
+                        || registered.descriptor.id == crate::sdk::network::PANEL_ID
                     {
                         if let Some(group) =
                             group_selector::draw(ui, self.workspace.inspector_group)
@@ -911,6 +940,76 @@ impl Shell {
                         ) {
                             self.workspace.toggle_inspector_lock();
                         }
+                        if registered.descriptor.id == crate::sdk::network::PANEL_ID {
+                            ui.same_line();
+                            let current = self.workspace.inspector_editor();
+                            let context_name = |binding: &EditorInstance| {
+                                binding
+                                    .document()
+                                    .and_then(|id| labels.get(&id))
+                                    .cloned()
+                                    .unwrap_or_else(|| {
+                                        binding
+                                            .document_type
+                                            .rsplit('.')
+                                            .next()
+                                            .unwrap_or("Network")
+                                            .to_owned()
+                                    })
+                            };
+                            let label = current
+                                .and_then(|id| self.workspace.editors.get(&id))
+                                .map(&context_name)
+                                .unwrap_or("Choose context".into());
+                            let mut choose = None;
+                            ui.set_next_item_width(
+                                (ui.content_region_avail()[0] - ui.frame_height() - 12.).max(32.),
+                            );
+                            if let Some(_combo) = ui.begin_combo("##network-context", &label) {
+                                for (&id, binding) in &self.workspace.editors {
+                                    if self
+                                        .editors
+                                        .get(&id)
+                                        .is_some_and(|e| e.panels.editor.supports_network())
+                                    {
+                                        let title = context_name(binding);
+                                        if ui.selectable(format!("{title}##network-{}", id.0)) {
+                                            choose = Some(id);
+                                        }
+                                    }
+                                }
+                            }
+                            if let Some(id) = choose {
+                                self.workspace.inspector_lock = None;
+                                self.workspace.inspector_group = self.workspace.editors[&id].group;
+                                self.workspace.focused_editor = Some(id);
+                                self.workspace.record_selection(id);
+                            }
+                        }
+                        if registered.descriptor.id == crate::sdk::network::PANEL_ID
+                            && self.workspace.inspector_lock.is_none()
+                            && let Some(id) = self.workspace.inspector_editor()
+                            && let Some(binding) = self.workspace.editors.get_mut(&id)
+                            && binding.navigation.len() > 1
+                        {
+                            ui.same_line();
+                            if crate::sdk::toolbar::icon_button(
+                                ui,
+                                "network-back",
+                                crate::sdk::toolbar::ToolbarIcon::Back,
+                                "Return to parent document",
+                            ) {
+                                binding.back();
+                                if let Some(snapshot) = client.snapshot()
+                                    && let Some(document) = binding
+                                        .document()
+                                        .and_then(|id| snapshot.state().documents.get(&id))
+                                {
+                                    binding.document_type = document.type_id.clone();
+                                }
+                                publish.push(id);
+                            }
+                        }
                         let locked_binding = self
                             .workspace
                             .inspector_lock
@@ -926,6 +1025,7 @@ impl Shell {
                         {
                             if editor.panels.editor.supports_animation()
                                 && inspector_context.is_none()
+                                && registered.descriptor.id != crate::sdk::network::PANEL_ID
                             {
                                 ui.text_wrapped(
                                     "Select a linked viewer to choose the animation edit time.",
@@ -947,7 +1047,18 @@ impl Shell {
                             }
                             let navigation = scoped.navigation.clone();
                             let mut context = PanelContext::new(client, &mut scoped).instance(id);
-                            if registered.descriptor.id == crate::sdk::animation_editor::PANEL_ID {
+                            if registered.descriptor.id == crate::sdk::network::PANEL_ID {
+                                self.visible_editors.push(id);
+                                if ui.is_window_focused() {
+                                    self.workspace.focused_editor = Some(id);
+                                }
+                                editor.panels.editor.draw_network(ExtensionUi {
+                                    ui,
+                                    host: &mut context,
+                                });
+                            } else if registered.descriptor.id
+                                == crate::sdk::animation_editor::PANEL_ID
+                            {
                                 editor.panels.editor.draw_animation(ExtensionUi {
                                     ui,
                                     host: &mut context,
@@ -960,6 +1071,9 @@ impl Shell {
                             }
                             if let Some(time) = context.seek_request() {
                                 seeks.push((id, time));
+                            }
+                            if context.selection_requested() {
+                                publish.push(id);
                             }
                             drop(context);
                             if locked_binding.is_some() {

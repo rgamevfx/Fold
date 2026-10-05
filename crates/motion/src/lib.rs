@@ -8,6 +8,7 @@ pub mod geometry;
 pub mod graph;
 pub mod nodes;
 pub mod package;
+pub mod scene;
 #[cfg(feature = "ui")]
 pub mod ui;
 pub use document::{MOTION, Motion};

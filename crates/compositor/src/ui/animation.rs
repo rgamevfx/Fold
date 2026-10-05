@@ -25,7 +25,7 @@ pub(super) fn draw(editor: &mut Editor, shared: &Shared, context: ExtensionUi<'_
                 if let Some(curve) = node.animation.get(&path) {
                     channels.push(Channel {
                         object: node.id,
-                        node_label: format!("{} {}", node.parameters.operator().id, index + 1),
+                        node_label: format!("{} {}", node.parameters.operator().label(), index + 1),
                         property: property.id.into(),
                         property_label: property.label.into(),
                         component: (*component).into(),
@@ -53,6 +53,7 @@ pub(super) fn draw(editor: &mut Editor, shared: &Shared, context: ExtensionUi<'_
             rate: info.rate,
             frames: info.frames,
             nodes: &selected,
+            tracks: &[],
             auto_key: &mut state.auto_key,
         },
     );

@@ -219,10 +219,9 @@ fn project_workflow_reuses_assets_and_outputs_and_preserves_history_and_content(
         )
         .unwrap();
     assert!(
-        graph
-            .nodes
-            .iter()
-            .any(|node| matches!(node, fold_render::ImageOp::Vector(_))),
+        graph.nodes.iter().any(
+            |node| matches!(node, fold_render::ImageOp::Vector(drawings) if !drawings.is_empty())
+        ),
         "nested motion remains native vector work, not a flattened file"
     );
     assert_eq!(snapshot.state().assets.len(), 1);

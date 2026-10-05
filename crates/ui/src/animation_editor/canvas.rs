@@ -9,6 +9,19 @@ use fold_foundation::{ObjectId, Time};
 use std::collections::BTreeSet;
 
 pub(super) enum Gesture {
+    Divider,
+    Track {
+        id: ObjectId,
+        start: [f32; 2],
+    },
+    Range {
+        id: ObjectId,
+        original: (Time, Time),
+        start: f32,
+        edge: i8,
+        channels: Vec<Channel>,
+        keys: BTreeSet<ObjectId>,
+    },
     Keys {
         original: Vec<Channel>,
         start: [f32; 2],
@@ -32,14 +45,14 @@ pub(super) enum Gesture {
     Seek,
 }
 enum Row {
-    Node(ObjectId, Vec<usize>),
+    Node(ObjectId, String, usize, Vec<usize>),
     Property(ObjectId, String, Vec<usize>),
     Channel(usize),
 }
 impl Row {
     fn channels(&self) -> Vec<usize> {
         match self {
-            Self::Node(_, v) | Self::Property(_, _, v) => v.clone(),
+            Self::Node(_, _, _, v) | Self::Property(_, _, v) => v.clone(),
             Self::Channel(i) => vec![*i],
         }
     }
@@ -50,6 +63,61 @@ fn inside(p: [f32; 2], min: [f32; 2], max: [f32; 2]) -> bool {
 impl Editor {
     fn rows(&self, channels: &[Channel], context: &Context<'_>) -> Vec<Row> {
         let mut rows = vec![];
+        if !context.tracks.is_empty() {
+            for track in context.tracks {
+                let mut parent = track.parent;
+                let mut depth = 0;
+                let mut hidden = false;
+                while let Some(id) = parent {
+                    depth += 1;
+                    if depth > context.tracks.len() {
+                        hidden = true;
+                        break;
+                    }
+                    hidden |= self.collapsed_nodes.contains(&id);
+                    parent = context
+                        .tracks
+                        .iter()
+                        .find(|t| t.id == id)
+                        .and_then(|t| t.parent);
+                }
+                if hidden {
+                    continue;
+                }
+                let descendants = |object| {
+                    let mut id = Some(object);
+                    for _ in 0..=context.tracks.len() {
+                        if id == Some(track.id) {
+                            return true;
+                        }
+                        id = id
+                            .and_then(|id| context.tracks.iter().find(|t| t.id == id))
+                            .and_then(|t| t.parent);
+                        if id.is_none() {
+                            break;
+                        }
+                    }
+                    false
+                };
+                let indices: Vec<_> = channels
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, c)| descendants(c.object))
+                    .map(|(i, _)| i)
+                    .collect();
+                rows.push(Row::Node(track.id, track.label.clone(), depth, indices));
+                if !self.collapsed_nodes.contains(&track.id) {
+                    let own: Vec<_> = channels
+                        .iter()
+                        .enumerate()
+                        .filter(|(_, c)| c.object == track.id && self.matches(c, context))
+                        .map(|(i, _)| i)
+                        .collect();
+                    self.property_rows(&mut rows, channels, track.id, &own);
+                }
+            }
+            return rows;
+        }
         let mut nodes = BTreeSet::new();
         for c in channels.iter().filter(|c| self.matches(c, context)) {
             if !nodes.insert(c.object) {
@@ -61,35 +129,49 @@ impl Editor {
                 .filter(|(_, v)| v.object == c.object && self.matches(v, context))
                 .map(|(i, _)| i)
                 .collect();
-            rows.push(Row::Node(c.object, node_channels.clone()));
+            rows.push(Row::Node(
+                c.object,
+                c.node_label.clone(),
+                0,
+                node_channels.clone(),
+            ));
             if self.collapsed_nodes.contains(&c.object) {
                 continue;
             }
-            let mut properties = BTreeSet::new();
-            for &i in &node_channels {
-                let c = &channels[i];
-                if !properties.insert(c.property.clone()) {
-                    continue;
-                }
-                let items: Vec<_> = node_channels
-                    .iter()
-                    .copied()
-                    .filter(|&j| channels[j].property == c.property)
-                    .collect();
-                if items.len() == 1 && channels[items[0]].component == "Value" {
-                    rows.push(Row::Channel(items[0]));
-                    continue;
-                }
-                rows.push(Row::Property(c.object, c.property.clone(), items.clone()));
-                if !self
-                    .collapsed_properties
-                    .contains(&(c.object, c.property.clone()))
-                {
-                    rows.extend(items.into_iter().map(Row::Channel));
-                }
-            }
+            self.property_rows(&mut rows, channels, c.object, &node_channels);
         }
         rows
+    }
+    fn property_rows(
+        &self,
+        rows: &mut Vec<Row>,
+        channels: &[Channel],
+        object: ObjectId,
+        node_channels: &[usize],
+    ) {
+        let mut properties = BTreeSet::new();
+        for &i in node_channels {
+            let c = &channels[i];
+            if !properties.insert(c.property.clone()) {
+                continue;
+            }
+            let items: Vec<_> = node_channels
+                .iter()
+                .copied()
+                .filter(|&j| channels[j].property == c.property)
+                .collect();
+            if items.len() == 1 && channels[items[0]].component == "Value" {
+                rows.push(Row::Channel(items[0]));
+                continue;
+            }
+            rows.push(Row::Property(object, c.property.clone(), items.clone()));
+            if !self
+                .collapsed_properties
+                .contains(&(c.object, c.property.clone()))
+            {
+                rows.extend(items.into_iter().map(Row::Channel));
+            }
+        }
     }
     pub(super) fn canvas(
         &mut self,
@@ -110,7 +192,13 @@ impl Editor {
             .max(40.),
         ];
         let row_height = ui.text_line_height() + 6.;
-        let header = header_width(size[0]);
+        let header = if self.hide_timing {
+            size[0]
+        } else {
+            self.header_pixels
+                .unwrap_or_else(|| header_width(size[0]))
+                .clamp(40., (size[0] - 40.).max(40.))
+        };
         let body = [origin[0] + header, origin[1] + row_height];
         let end = [origin[0] + size[0], origin[1] + size[1]];
         let value_height = (end[1] - body[1] - 16.).max(1.);
@@ -135,6 +223,14 @@ impl Editor {
         let mut keys: Vec<(ObjectId, usize, usize, [f32; 2])> = vec![];
         let mut handles: Vec<(usize, usize, bool, [f32; 2])> = vec![];
         let mut row_hit = None;
+        let controls_width = if context.tracks.iter().any(|t| t.layer.is_some()) {
+            54.
+        } else {
+            0.
+        };
+        let mut layer_hit = None;
+        let mut range_hit = None;
+        let mut summary_hit = None;
         draw.with_clip_rect(origin, end, || {
             draw.add_rect(origin, end, colors.background)
                 .filled(true)
@@ -150,41 +246,138 @@ impl Editor {
                     continue;
                 }
                 let list = row.channels();
-                let c = &channels[list[0]];
+                let owner = match row {
+                    Row::Node(id, ..) | Row::Property(id, ..) => *id,
+                    Row::Channel(i) => channels[*i].object,
+                };
+                let mut depth = 0;
+                let mut parent = context
+                    .tracks
+                    .iter()
+                    .find(|t| t.id == owner)
+                    .and_then(|t| t.parent);
+                while let Some(id) = parent {
+                    depth += 1;
+                    if depth > context.tracks.len() {
+                        break;
+                    }
+                    parent = context
+                        .tracks
+                        .iter()
+                        .find(|t| t.id == id)
+                        .and_then(|t| t.parent);
+                }
                 let (indent, label, collapsed) = match row {
-                    Row::Node(id, _) => (
-                        0.,
-                        c.node_label.as_str(),
+                    Row::Node(id, label, depth, _) => (
+                        *depth as f32 * 12.,
+                        label.as_str(),
                         Some(self.collapsed_nodes.contains(id)),
                     ),
                     Row::Property(id, p, _) => (
-                        12.,
-                        c.property_label.as_str(),
+                        12. + depth as f32 * 12.,
+                        channels[list[0]].property_label.as_str(),
                         Some(self.collapsed_properties.contains(&(*id, p.clone()))),
                     ),
-                    Row::Channel(_) if c.component == "Value" => {
-                        (12., c.property_label.as_str(), None)
+                    Row::Channel(i) => {
+                        let c = &channels[*i];
+                        (
+                            28. + depth as f32 * 12.,
+                            if c.component == "Value" {
+                                c.property_label.as_str()
+                            } else {
+                                c.component.as_str()
+                            },
+                            None,
+                        )
                     }
-                    Row::Channel(_) => (28., c.component.as_str(), None),
                 };
                 let selected = list.iter().any(|&i| {
                     self.visible_channels
                         .contains(&(channels[i].object, channels[i].path.clone()))
                 });
                 draw.with_clip_rect([origin[0], body[1]], [body[0] - 2., end[1]], || {
-                    if selected && matches!(row, Row::Channel(_)) {
+                    if (selected && matches!(row, Row::Channel(_)))
+                        || (matches!(row, Row::Node(..)) && context.nodes.contains(&owner))
+                    {
                         draw.add_rect([origin[0], top], [body[0], top + row_height], colors.lane)
                             .filled(true)
                             .build();
                     }
+                    if let Row::Node(id, ..) = row
+                        && let Some(track) = context.tracks.iter().find(|t| t.id == *id)
+                        && let Some(layer) = &track.layer
+                    {
+                        let size = (row_height - 2.).min(17.);
+                        for (index, icon, tip) in [
+                            (
+                                0,
+                                crate::sdk::toolbar::ToolbarIcon::View,
+                                if layer.visible {
+                                    "Hide layer"
+                                } else {
+                                    "Show layer"
+                                },
+                            ),
+                            (
+                                1,
+                                if track.locked {
+                                    crate::sdk::toolbar::ToolbarIcon::Lock
+                                } else {
+                                    crate::sdk::toolbar::ToolbarIcon::Unlock
+                                },
+                                if track.locked {
+                                    "Unlock layer"
+                                } else {
+                                    "Lock layer"
+                                },
+                            ),
+                        ] {
+                            let p = [origin[0] + index as f32 * 18., top + 1.];
+                            crate::sdk::toolbar::draw_icon_on(
+                                ui,
+                                &draw,
+                                icon,
+                                p,
+                                size,
+                                colors.text,
+                            );
+                            if index == 0 && !layer.visible {
+                                draw.add_line(
+                                    [p[0] + 3., p[1] + size - 2.],
+                                    [p[0] + size, p[1] + 2.],
+                                    colors.muted,
+                                )
+                                .build();
+                            }
+                            if inside(mouse, p, [p[0] + 18., top + row_height])
+                                && inside(mouse, [origin[0], body[1]], [body[0], end[1]])
+                            {
+                                ui.tooltip_text(tip);
+                                layer_hit = Some((
+                                    *id,
+                                    index,
+                                    if index == 0 {
+                                        !layer.visible
+                                    } else {
+                                        !track.locked
+                                    },
+                                ));
+                            }
+                        }
+                        draw.add_text([origin[0] + 39., top + 2.], colors.muted, layer.icon);
+                    }
                     if let Some(collapsed) = collapsed {
                         draw.add_text(
-                            [origin[0] + 4. + indent, top + 2.],
+                            [origin[0] + controls_width + 4. + indent, top + 2.],
                             colors.muted,
                             if collapsed { ">" } else { "v" },
                         );
                     }
-                    draw.add_text([origin[0] + 16. + indent, top + 2.], colors.text, label);
+                    draw.add_text(
+                        [origin[0] + controls_width + 16. + indent, top + 2.],
+                        colors.text,
+                        label,
+                    );
                 });
                 if inside(
                     mouse,
@@ -201,6 +394,98 @@ impl Editor {
                             colors.grid,
                         )
                         .build();
+                        if let Row::Node(id, _, _, _) = row
+                            && let Some(track) = context.tracks.iter().find(|t| t.id == *id)
+                            && let Some((start, finish)) = track.range
+                        {
+                            let left = self.view.x(frame(start, context.rate), body[0]);
+                            let right = self.view.x(frame(finish, context.rate), body[0]);
+                            let min = [left, top + 2.];
+                            let max = [right.max(left + 3.), top + row_height - 2.];
+                            let hovered = inside(mouse, min, max) && inside(mouse, body, end);
+                            let selected = context.nodes.contains(id);
+                            let edge_width = (row_height * 0.3).min((right - left).max(0.) * 0.25);
+                            draw.add_rect(
+                                min,
+                                max,
+                                if track.locked {
+                                    colors.muted
+                                } else if selected {
+                                    colors.selected
+                                } else {
+                                    colors.video
+                                },
+                            )
+                            .rounding(2.)
+                            .filled(true)
+                            .build();
+                            if selected || hovered {
+                                draw.add_rect(min, max, colors.text).rounding(2.).build();
+                                for x in [left + 3., right - 3.] {
+                                    if right - left > 12. {
+                                        draw.add_line(
+                                            [x, min[1] + 3.],
+                                            [x, max[1] - 3.],
+                                            colors.text,
+                                        )
+                                        .build();
+                                    }
+                                }
+                            }
+                            if !track.locked && hovered {
+                                range_hit = Some((
+                                    *id,
+                                    (start, finish),
+                                    if (mouse[0] - left).abs() < edge_width {
+                                        -1
+                                    } else if (mouse[0] - right).abs() < edge_width {
+                                        1
+                                    } else {
+                                        0
+                                    },
+                                ));
+                            }
+                        }
+                        let has_range = matches!(row, Row::Node(id, ..)
+                            if context.tracks.iter().any(|t| t.id == *id && t.range.is_some()));
+                        if !matches!(row, Row::Channel(_)) && !has_range {
+                            let times: Vec<_> = list
+                                .iter()
+                                .flat_map(|&i| channels[i].curve.keys.iter().map(|k| k.time))
+                                .collect();
+                            if let (Some(first), Some(last)) =
+                                (times.iter().min(), times.iter().max())
+                            {
+                                let left = self.view.x(frame(*first, context.rate), body[0]);
+                                let right = self.view.x(frame(*last, context.rate), body[0]);
+                                let y = top + row_height * 0.5;
+                                let half = row_height * 0.28;
+                                let min = [left - 4., y - half];
+                                let max = [right + 4., y + half];
+                                let selected = list.iter().any(|&i| {
+                                    channels[i]
+                                        .curve
+                                        .keys
+                                        .iter()
+                                        .any(|k| self.selected.contains(&k.id))
+                                });
+                                let outline = if selected {
+                                    colors.selected
+                                } else {
+                                    colors.muted
+                                };
+                                let mut fill = outline;
+                                fill[3] = if selected { 0.55 } else { 0.22 };
+                                draw.add_rect(min, max, fill)
+                                    .rounding(2.)
+                                    .filled(true)
+                                    .build();
+                                draw.add_rect(min, max, outline).rounding(2.).build();
+                                if inside(mouse, min, max) && inside(mouse, body, end) {
+                                    summary_hit = Some(r);
+                                }
+                            }
+                        }
                         for i in list {
                             for (j, key) in channels[i].curve.keys.iter().enumerate() {
                                 let p = [
@@ -435,14 +720,43 @@ impl Editor {
                 ui.open_popup("animation-key-menu");
             }
             if ui.is_mouse_clicked(MouseButton::Left) {
-                if let Some(r) = row_hit {
+                if let Some((id, index, value)) = layer_hit {
+                    if index == 0 {
+                        response.visibility = Some((id, value));
+                    } else {
+                        response.lock = Some((id, value));
+                    }
+                } else if !self.hide_timing
+                    && (mouse[0] - body[0]).abs() <= 4.
+                    && range_hit.is_none()
+                {
+                    self.gesture = Some(Gesture::Divider);
+                } else if let Some(r) = row_hit {
                     let row = &rows[r];
                     let indices = row.channels();
-                    response.select_node = Some(channels[indices[0]].object);
+                    response.select_node = match row {
+                        Row::Node(id, ..) => Some(*id),
+                        _ => indices.first().map(|&i| channels[i].object),
+                    };
                     match row {
-                        Row::Node(id, _) => {
-                            if !self.collapsed_nodes.remove(id) {
-                                self.collapsed_nodes.insert(*id);
+                        Row::Node(id, _, _, _) => {
+                            if mouse[0]
+                                < origin[0]
+                                    + controls_width
+                                    + 16.
+                                    + match row {
+                                        Row::Node(_, _, depth, _) => *depth as f32 * 12.,
+                                        _ => 0.,
+                                    }
+                            {
+                                if !self.collapsed_nodes.remove(id) {
+                                    self.collapsed_nodes.insert(*id);
+                                }
+                            } else if context.tracks.iter().any(|t| t.id == *id && !t.locked) {
+                                self.gesture = Some(Gesture::Track {
+                                    id: *id,
+                                    start: mouse,
+                                });
                             }
                         }
                         Row::Property(id, p, _) => {
@@ -462,6 +776,50 @@ impl Editor {
                             }
                         }
                     }
+                } else if let Some((id, original, edge)) = range_hit {
+                    let keys = rows
+                        .iter()
+                        .find_map(|row| match row {
+                            Row::Node(owner, ..) if *owner == id => Some(row.channels()),
+                            _ => None,
+                        })
+                        .unwrap_or_default()
+                        .into_iter()
+                        .filter(|&i| {
+                            !context
+                                .tracks
+                                .iter()
+                                .any(|t| t.id == channels[i].object && t.locked)
+                        })
+                        .flat_map(|i| channels[i].curve.keys.iter().map(|k| k.id))
+                        .collect();
+                    response.select_node = Some(id);
+                    self.gesture = Some(Gesture::Range {
+                        id,
+                        original,
+                        edge,
+                        start: mouse[0],
+                        channels: channels.to_vec(),
+                        keys,
+                    });
+                } else if let Some(r) = summary_hit {
+                    self.selected = rows[r]
+                        .channels()
+                        .iter()
+                        .filter(|&&i| {
+                            !context
+                                .tracks
+                                .iter()
+                                .any(|t| t.id == channels[i].object && t.locked)
+                        })
+                        .flat_map(|&i| channels[i].curve.keys.iter().map(|k| k.id))
+                        .collect();
+                    if !self.selected.is_empty() {
+                        self.gesture = Some(Gesture::Keys {
+                            original: channels.to_vec(),
+                            start: mouse,
+                        });
+                    }
                 } else if mouse[1] < body[1] && mouse[0] >= body[0] {
                     self.gesture = Some(Gesture::Seek);
                 } else if let Some(&(channel, key, incoming, _)) = handles
@@ -475,12 +833,24 @@ impl Editor {
                         incoming,
                     });
                 } else if let Some((id, _, _, point)) = hit {
-                    // A node/property summary diamond represents every channel keyed here.
-                    let hits: BTreeSet<_> = keys
-                        .iter()
-                        .filter(|(_, _, _, p)| p == point)
-                        .map(|(id, _, _, _)| *id)
-                        .collect();
+                    // Parent summaries move the complete animation, including collapsed channels.
+                    let row_index =
+                        ((mouse[1] - body[1] + self.view.scroll_y) / row_height).floor() as usize;
+                    let summary = (!self.curves)
+                        .then(|| rows.get(row_index))
+                        .flatten()
+                        .filter(|r| !matches!(r, Row::Channel(_)));
+                    let hits: BTreeSet<_> = if let Some(row) = summary {
+                        row.channels()
+                            .iter()
+                            .flat_map(|&i| channels[i].curve.keys.iter().map(|k| k.id))
+                            .collect()
+                    } else {
+                        keys.iter()
+                            .filter(|(_, _, _, p)| p == point)
+                            .map(|(id, _, _, _)| *id)
+                            .collect()
+                    };
                     if ui.io().key_ctrl() {
                         if hits.iter().all(|id| self.selected.contains(id)) {
                             for id in hits {
@@ -510,6 +880,17 @@ impl Editor {
             }
         }
         if focused && ui.is_key_pressed(Key::Escape) {
+            if let Some(Gesture::Range {
+                id,
+                original,
+                channels: before,
+                ..
+            }) = &self.gesture
+            {
+                channels.clone_from_slice(before);
+                response.range = Some((*id, original.0, original.1));
+                response.edit.cancelled = true;
+            }
             if let Some(Gesture::Keys { original, .. } | Gesture::Handle { original, .. }) =
                 &self.gesture
             {
@@ -520,6 +901,73 @@ impl Editor {
         }
         if let Some(gesture) = &self.gesture {
             match gesture {
+                Gesture::Track { id, start } => {
+                    if ui.is_mouse_released(MouseButton::Left)
+                        && (mouse[1] - start[1]).abs() > 4.
+                        && let Some(r) = row_hit
+                        && let Row::Node(target, ..) = &rows[r]
+                        && target != id
+                    {
+                        let midpoint = body[1] + (r as f32 + 0.5) * row_height - self.view.scroll_y;
+                        response.reorder = Some((*id, *target, mouse[1] > midpoint));
+                        response.edit.changed = true;
+                        response.edit.finished = true;
+                    }
+                }
+                Gesture::Divider => {
+                    self.header_pixels =
+                        Some((mouse[0] - origin[0]).clamp(40., (size[0] - 40.).max(40.)));
+                }
+                Gesture::Range {
+                    id,
+                    original,
+                    start,
+                    edge,
+                    channels: before,
+                    keys,
+                } => {
+                    let delta =
+                        (f64::from(mouse[0] - start) / self.view.pixels_per_frame).round() as i64;
+                    if let Ok(delta) = time(delta, context.rate) {
+                        let from = if *edge <= 0 {
+                            original.0.checked_add(delta).ok()
+                        } else {
+                            Some(original.0)
+                        };
+                        let to = if *edge >= 0 {
+                            original.1.checked_add(delta).ok()
+                        } else {
+                            Some(original.1)
+                        };
+                        if let (Some(from), Some(to)) = (from, to)
+                            && from < to
+                        {
+                            let proposal = if *edge == 0 {
+                                model::move_keys(before, keys, delta, 0.)
+                            } else {
+                                Ok(before.clone())
+                            };
+                            match proposal {
+                                Ok(proposal) => {
+                                    response.edit.changed = context
+                                        .tracks
+                                        .iter()
+                                        .find(|t| t.id == *id)
+                                        .and_then(|t| t.range)
+                                        != Some((from, to))
+                                        || channels
+                                            .iter()
+                                            .zip(&proposal)
+                                            .any(|(a, b)| a.curve != b.curve);
+                                    channels.clone_from_slice(&proposal);
+                                    response.range = Some((*id, from, to));
+                                    self.error.clear();
+                                }
+                                Err(error) => self.error = error,
+                            }
+                        }
+                    }
+                }
                 Gesture::Seek => {
                     let f = self
                         .view
@@ -615,16 +1063,18 @@ impl Editor {
             }
             if ui.is_mouse_released(MouseButton::Left) || ui.is_mouse_released(MouseButton::Middle)
             {
-                response.edit.finished =
-                    matches!(gesture, Gesture::Keys { .. } | Gesture::Handle { .. });
+                response.edit.finished |= matches!(
+                    gesture,
+                    Gesture::Keys { .. } | Gesture::Handle { .. } | Gesture::Range { .. }
+                );
                 self.gesture = None;
             }
         }
-        if channels.is_empty() {
+        if channels.is_empty() && context.tracks.is_empty() {
             draw.add_text(
                 [body[0] + 8., body[1] + 8.],
                 colors.muted,
-                "Key a parameter in the Node Inspector.",
+                "Key a parameter in the Inspector.",
             );
         }
     }

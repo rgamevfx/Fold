@@ -2,7 +2,7 @@
 use super::*;
 use crate::{
     document::Motion,
-    evaluation::{field, output},
+    evaluation::{Value, field, output},
     fields::Field,
     graph::{Graph, Link},
 };
@@ -15,6 +15,8 @@ pub struct Port {
     pub name: String,
     pub kind: Kind,
     pub default: Option<Datum>,
+    #[serde(default)]
+    pub unit: String,
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct GroupDefinition {
@@ -135,6 +137,8 @@ pub fn definitions() -> Vec<Definition> {
             let mut nested = Evaluator::for_graph(e.motion, &group.graph, e.time)?;
             nested.bindings = bindings;
             nested.group_depth = e.group_depth + 1;
+            nested.object_path = e.object_path.clone();
+            nested.current_object = e.current_object;
             nested.budget = std::mem::take(&mut e.budget);
             let mut result = Outputs::new();
             for (name, link) in &group.outputs {
@@ -146,7 +150,73 @@ pub fn definitions() -> Vec<Definition> {
     );
     group.defaults = || serde_json::to_value(GroupSettings::default()).unwrap();
     group.validate = |n| n.settings::<GroupSettings>().map(|_| ());
-    vec![control, input, out, group]
+    let mut reference = definition(
+        "fold.motion.object_reference",
+        "Object Reference",
+        "Scene",
+        vec![],
+        vec![("content", Kind::Content)],
+        |e, n| {
+            let id: ObjectId = serde_json::from_value(
+                n.settings
+                    .get("object")
+                    .cloned()
+                    .ok_or("choose a scene object")?,
+            )
+            .map_err(|e| e.to_string())?;
+            if n.settings
+                .get("world")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false)
+            {
+                let content = e.world_content(id)?;
+                let content = if n
+                    .settings
+                    .get("owner_space")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false)
+                {
+                    let owner = e
+                        .current_object
+                        .ok_or("owner-relative reference requires a scene object")?;
+                    let mut wrapper = crate::geometry::Element::new(
+                        n.seed(),
+                        crate::geometry::Geometry::Group(content),
+                    );
+                    wrapper.transform = crate::geometry::inverse(e.world_matrix(owner)?)?;
+                    std::sync::Arc::new(vec![wrapper])
+                } else {
+                    content
+                };
+                Ok(output("content", Value::Content(content)))
+            } else {
+                Ok(output("content", e.object(id)?))
+            }
+        },
+    );
+    reference.defaults = || serde_json::json!({});
+    let empty = definition(
+        "fold.motion.empty",
+        "Empty Content",
+        "Scene",
+        vec![],
+        vec![("content", Kind::Content)],
+        |_, _| Ok(crate::evaluation::content(std::sync::Arc::new(vec![]))),
+    );
+    let mut children = definition(
+        "fold.motion.scene_children",
+        "Scene Group",
+        "Scene",
+        vec![],
+        vec![("content", Kind::Content)],
+        |e, n| {
+            let id =
+                serde_json::from_value(n.settings["object"].clone()).map_err(|e| e.to_string())?;
+            Ok(output("content", e.children(id)?))
+        },
+    );
+    children.defaults = || serde_json::json!({});
+    vec![control, input, out, group, reference, empty, children]
 }
 pub fn signature(
     motion: &Motion,
@@ -167,7 +237,16 @@ pub fn signature(
             id: p.id.clone(),
             kind: p.kind,
             default: p.default.clone(),
-            unit: "",
+            unit: match p.unit.as_str() {
+                "integer" => "integer",
+                "px" => "px",
+                "degrees" => "degrees",
+                "seconds" => "seconds",
+                "Hz" => "Hz",
+                "cycles/s" => "cycles/s",
+                "factor" => "factor",
+                _ => "",
+            },
         })
         .collect();
     let mut outputs = Vec::new();

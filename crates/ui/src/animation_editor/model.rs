@@ -85,6 +85,40 @@ pub fn move_keys(
     Ok(result)
 }
 
+/// Exact rational retiming, anchored at the earliest selected key.
+pub fn scale_keys(
+    original: &[Channel],
+    selected: &BTreeSet<ObjectId>,
+    ratio: [i32; 2],
+) -> Result<Vec<Channel>, String> {
+    if ratio[0] <= 0 || ratio[1] <= 0 {
+        return Err("Time scale must be positive".into());
+    }
+    let first = original
+        .iter()
+        .flat_map(|c| &c.curve.keys)
+        .filter(|k| selected.contains(&k.id))
+        .map(|k| k.time)
+        .min()
+        .ok_or("Select keys to retime")?;
+    let mut result = original.to_vec();
+    for channel in &mut result {
+        for key in &mut channel.curve.keys {
+            if selected.contains(&key.id) {
+                key.time = key
+                    .time
+                    .checked_sub(first)
+                    .and_then(|t| t.checked_scale(i64::from(ratio[0]), ratio[1] as u32))
+                    .and_then(|t| t.checked_add(first))
+                    .map_err(|e| e.to_string())?;
+            }
+        }
+        channel.curve.keys.sort_by_key(|k| k.time);
+        channel.curve.validate()?;
+    }
+    Ok(result)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -101,6 +135,22 @@ mod tests {
             path: "position.0".into(),
             curve,
         }]
+    }
+    #[test]
+    fn rational_scaling_preserves_values_and_rejects_collisions() {
+        let original = channels();
+        let ids = original[0].curve.keys.iter().map(|k| k.id).collect();
+        let scaled = scale_keys(&original, &ids, [3, 2]).unwrap();
+        assert_eq!(scaled[0].curve.keys[0].time, Time::new(1, 24).unwrap());
+        assert_eq!(scaled[0].curve.keys[1].time, Time::new(1, 6).unwrap());
+        assert_eq!(
+            scaled[0].curve.keys[1].value,
+            original[0].curve.keys[1].value
+        );
+        assert!(scale_keys(&original, &ids, [1, 0]).is_err());
+        let mut collision = original.clone();
+        collision[0].curve.insert(Time::new(1, 6).unwrap(), 8.);
+        assert!(scale_keys(&collision, &ids, [3, 2]).is_err());
     }
     #[test]
     fn multi_key_moves_preserve_spacing_and_reject_collisions_atomically() {

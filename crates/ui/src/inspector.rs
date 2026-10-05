@@ -2,15 +2,15 @@
 use crate::sdk::{ExtensionUi, Panel, imgui};
 pub(crate) const ID: &str = "fold.ui.node-inspector";
 #[derive(Default)]
-pub(crate) struct NodeInspector {
+pub(crate) struct Inspector {
     pub providers: Vec<Box<dyn Panel>>,
 }
-impl NodeInspector {
+impl Inspector {
     pub fn contains(&self, id: &str) -> bool {
         self.providers.iter().any(|p| p.id() == id)
     }
 }
-impl Panel for NodeInspector {
+impl Panel for Inspector {
     fn id(&self) -> &'static str {
         ID
     }
@@ -45,7 +45,7 @@ impl Panel for NodeInspector {
         } else {
             context
                 .ui
-                .text_wrapped("Select a node to inspect its properties.");
+                .text_wrapped("Select an object to inspect its properties.");
         }
     }
 }

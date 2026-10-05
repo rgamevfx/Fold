@@ -1,5 +1,6 @@
 //! Headless demand evaluation. Node dispatch is registry-driven; fields remain
 //! expressions until a geometry operation selects an explicit element domain.
+mod relationships;
 use crate::{
     document::Motion,
     fields::{Budget, Datum, Field, Kind},
@@ -7,7 +8,7 @@ use crate::{
     graph::{Graph, Input, Link, Node, registry},
 };
 use fold_foundation::{ObjectId, Time};
-use fold_render::{ImageOp, RenderGraph};
+use fold_render::RenderGraph;
 use std::{
     collections::{BTreeMap, BTreeSet},
     sync::Arc,
@@ -43,6 +44,8 @@ pub struct Evaluator<'a> {
     graph: &'a Graph,
     pub(crate) bindings: BTreeMap<String, Value>,
     pub(crate) group_depth: usize,
+    pub(crate) object_path: BTreeSet<ObjectId>,
+    pub(crate) current_object: Option<ObjectId>,
     pub budget: Budget,
     cache: BTreeMap<ObjectId, Outputs>,
     active: BTreeSet<ObjectId>,
@@ -63,10 +66,87 @@ impl<'a> Evaluator<'a> {
             graph,
             bindings: BTreeMap::new(),
             group_depth: 0,
+            object_path: BTreeSet::new(),
+            current_object: None,
             budget: Budget::default(),
             cache: BTreeMap::new(),
             active: BTreeSet::new(),
         })
+    }
+    /// References use source objects regardless of their direct-render visibility.
+    pub fn object(&mut self, id: ObjectId) -> Result<Value, String> {
+        if self.object_path.len() >= 64 || self.object_path.contains(&id) {
+            return Err("cyclic scene object reference".into());
+        }
+        let object = self
+            .motion
+            .scene
+            .as_ref()
+            .and_then(|s| s.objects.iter().find(|o| o.id == id))
+            .ok_or("missing referenced scene object")?;
+        let mut nested = Self::for_graph(self.motion, &self.motion.graph, self.time)?;
+        nested.object_path = self.object_path.clone();
+        nested.object_path.insert(id);
+        nested.current_object = Some(id);
+        nested.group_depth = self.group_depth;
+        nested.budget = std::mem::take(&mut self.budget);
+        let result = nested.resolve(&object.output).and_then(|value| {
+            let Value::Content(content) = value else {
+                return Err("object output requires content".into());
+            };
+            nested.scene_effects(id, content).map(Value::Content)
+        });
+        self.budget = nested.budget;
+        result
+    }
+    pub fn children(&mut self, id: ObjectId) -> Result<Value, String> {
+        let scene = self
+            .motion
+            .scene
+            .as_ref()
+            .ok_or("scene group requires a scene")?;
+        let mut elements = vec![];
+        for child in scene.objects.iter().rev().filter(|o| o.parent == Some(id)) {
+            if child.visible
+                && self.time >= child.start
+                && self.time < child.end
+                && let Value::Content(content) = self.object(child.id)?
+            {
+                elements.extend(content.iter().cloned());
+            }
+        }
+        Ok(Value::Content(Arc::new(elements)))
+    }
+    pub fn scene(&mut self) -> Result<Value, String> {
+        let Some(scene) = &self.motion.scene else {
+            return self.resolve(&self.motion.graph.output);
+        };
+        if let Some(id) = scene.output {
+            let object = scene
+                .objects
+                .iter()
+                .find(|o| o.id == id)
+                .ok_or("missing output object")?;
+            return if self.time >= object.start && self.time < object.end {
+                self.object(id)
+            } else {
+                Ok(Value::Content(Arc::new(vec![])))
+            };
+        }
+        let mut elements = Vec::new();
+        for object in scene.objects.iter().rev() {
+            if object.parent.is_none()
+                && object.visible
+                && self.time >= object.start
+                && self.time < object.end
+            {
+                let Value::Content(content) = self.object(object.id)? else {
+                    return Err("object output must be content".into());
+                };
+                elements.extend(content.iter().cloned());
+            }
+        }
+        Ok(Value::Content(Arc::new(elements)))
     }
     pub fn resolve(&mut self, link: &Link) -> Result<Value, String> {
         if !self.cache.contains_key(&link.node) {
@@ -191,22 +271,18 @@ pub(crate) fn compile_prepared(
     }
     let mut evaluator = Evaluator::for_graph(motion, &motion.graph, time)?;
     evaluator.budget = Budget::cancellable(cancel);
-    let value = evaluator.resolve(&motion.graph.output)?;
+    let value = evaluator.scene()?;
     let Value::Content(content) = value else {
         return Err("motion output must be scene content".into());
     };
-    let drawings = crate::geometry::drawings_with(
+    crate::geometry::render::compile(
         &content,
+        width,
+        height,
         [
             width as f64 / motion.info.width as f64,
             height as f64 / motion.info.height as f64,
         ],
         cancel,
-    )?;
-    Ok(RenderGraph {
-        width,
-        height,
-        nodes: vec![ImageOp::Vector(Arc::new(drawings))],
-        output: 0,
-    })
+    )
 }

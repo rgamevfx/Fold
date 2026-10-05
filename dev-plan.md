@@ -274,3 +274,20 @@ The following is a code/document inspection baseline, not a fresh test or perfor
 - [x] 24. Separate per-viewer group sources from inspector selection, with a single-row group/unlinked and combined network picker.
   - Plan and evidence: [phase-24 panel linking](docs/phase-24.md). Preserve independent clocks, explicit edit context, saved targets and delivery isolation.
   - Verified: 10 platform, 58 UI and 5 application routing checks pass (2 existing GPU checks ignored); desktop build, touched-file formatting and diff review pass. Native normal/narrow inspection confirms compact controls and opening Motion without retargeting the compositor viewer. Full native gesture/DPI and integration/performance requalification remain qualified/deferred as recorded in the phase evidence.
+
+## Motion scene authoring and integrated animation
+
+- [x] 25. Implement object-based MoGraph authoring and connected creative contexts.
+  - User-approved plan and acceptance: [phase-25 Motion authoring](docs/phase-25.md).
+  - Integrate scene hierarchy, compact dope sheet and curves; retain the sequence Timeline. Generalize Inspector and share a contextual Network surface without merging feature models.
+  - Add editable graph-backed modifiers, procedural objects and object references, with exposed controls and explicit scene/render semantics.
+  - Connect editable Motion outputs to compositor documents through provider services. Verify transactional edits, persistence, deterministic evaluation and prepare a user-verifiable demo; native dragging is unavailable on this machine.
+  - Implementation and full desktop-feature workspace tests are complete; native demo/gesture acceptance remains pending user review, with limits recorded in phase 25. Workspace Clippy completed with existing warnings; package boundary checks pass.
+  - Track refinement: compact filled object strips, lighter animation summaries, body drags move range plus descendant keys, and edge drags trim only the range. Native review remains pending.
+
+## Layer relationships and attributed path motion
+
+- [x] 26. Deliver the ordered layer workflow, transform relationships, masks/isolation, and attributed path-motion demo.
+  - Contracts, implementation and verification: [phase 26](docs/phase-26.md).
+  - Implemented and rendered the editable Chroma Parade project. All 120 preview frames match between CPU and GPU. Workspace checkpoint plus corrected Motion regression results are recorded in phase 26; native interface/gesture acceptance remains pending user review.
+  - User review: interface looks good; demo playback is reported too slow. Release-build profiling and measured rendering optimization remain open follow-up work (no performance fix included).

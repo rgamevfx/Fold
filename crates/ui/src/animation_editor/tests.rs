@@ -62,6 +62,7 @@ fn compact_views_fit_normal_and_narrow_panels_without_mutations() {
                                 rate: [24, 1],
                                 frames: 96,
                                 nodes: &[],
+                                tracks: &[],
                                 auto_key: &mut auto,
                             },
                         );
@@ -122,6 +123,7 @@ fn dragging_keys_previews_releases_once_and_escape_restores_original() {
                         rate: [24, 1],
                         frames: 96,
                         nodes: &[],
+                        tracks: &[],
                         auto_key: &mut auto,
                     },
                 );
@@ -170,4 +172,325 @@ fn dragging_keys_previews_releases_once_and_escape_restores_original() {
     assert!(!response.edit.finished);
     drop(draw);
     assert_ne!(channels[0].curve, original);
+}
+
+#[test]
+fn collapsed_parent_summary_retimes_all_descendant_keys_and_commits_once() {
+    let _guard = crate::IMGUI_TEST_LOCK.lock().unwrap();
+    let mut imgui = context();
+    let mut editor = Editor::default();
+    let document = DocumentId::new();
+    let mut channels = channels();
+    let original: Vec<_> = channels.iter().map(|c| c.curve.clone()).collect();
+    let parent = ObjectId::new();
+    let tracks = vec![
+        Track {
+            id: parent,
+            parent: None,
+            label: "Title".into(),
+            locked: false,
+            range: None,
+            layer: None,
+        },
+        Track {
+            id: channels[0].object,
+            parent: Some(parent),
+            label: "Transform".into(),
+            locked: false,
+            range: None,
+            layer: None,
+        },
+    ];
+    let mut auto = false;
+    let mut draw = |imgui: &mut ImGui, editor: &mut Editor, channels: &mut [Channel]| {
+        let mut response = Response::default();
+        let mut body = [0.; 2];
+        let ui = imgui.frame();
+        ui.window("Scene")
+            .position([0.; 2], Condition::Always)
+            .size([900., 500.], Condition::Always)
+            .build(|| {
+                let origin = ui.cursor_screen_pos();
+                body = [
+                    origin[0] + 210.,
+                    origin[1] + ui.frame_height_with_spacing() + ui.text_line_height() + 6.,
+                ];
+                response = editor.draw(
+                    ui,
+                    channels,
+                    super::Context {
+                        document,
+                        generation: 0,
+                        time: Time::ZERO,
+                        rate: [24, 1],
+                        frames: 96,
+                        nodes: &[],
+                        tracks: &tracks,
+                        auto_key: &mut auto,
+                    },
+                );
+            });
+        drop(imgui.render_legacy());
+        (response, body)
+    };
+    for _ in 0..3 {
+        draw(&mut imgui, &mut editor, &mut channels);
+    }
+    editor.collapsed_nodes.insert(parent);
+    let (_, body) = draw(&mut imgui, &mut editor, &mut channels);
+    // Grab between summary diamonds, not an individual key.
+    let at = [editor.view.x(36., body[0]), body[1] + 9.5];
+    imgui.io_mut().add_mouse_pos_event(at);
+    draw(&mut imgui, &mut editor, &mut channels);
+    imgui
+        .io_mut()
+        .add_mouse_button_event(MouseButton::Left, true);
+    draw(&mut imgui, &mut editor, &mut channels);
+    imgui.io_mut().add_mouse_pos_event([at[0] + 40., at[1]]);
+    let (response, _) = draw(&mut imgui, &mut editor, &mut channels);
+    assert!(response.edit.changed && !response.edit.finished);
+    let delta = channels[0].curve.keys[0]
+        .time
+        .checked_sub(original[0].keys[0].time)
+        .unwrap();
+    assert!(delta > Time::ZERO);
+    for (channel, before) in channels.iter().zip(&original) {
+        for (key, before) in channel.curve.keys.iter().zip(&before.keys) {
+            assert_eq!(key.time, before.time.checked_add(delta).unwrap());
+            assert_eq!(key.value, before.value);
+        }
+    }
+    imgui
+        .io_mut()
+        .add_mouse_button_event(MouseButton::Left, false);
+    assert!(draw(&mut imgui, &mut editor, &mut channels).0.edit.finished);
+    assert!(!draw(&mut imgui, &mut editor, &mut channels).0.edit.finished);
+}
+
+#[test]
+fn static_object_range_drag_previews_and_cancels_without_keyframes() {
+    strip_gesture(false, false, true);
+}
+
+#[test]
+fn object_strip_moves_descendant_keys_but_edge_trims_preserve_them() {
+    for trim in [false, true] {
+        for cancel in [false, true] {
+            strip_gesture(true, trim, cancel);
+        }
+    }
+}
+
+fn strip_gesture(animated: bool, trim: bool, cancel: bool) {
+    let _guard = crate::IMGUI_TEST_LOCK.lock().unwrap();
+    let mut imgui = context();
+    let mut editor = Editor::default();
+    let document = DocumentId::new();
+    let id = ObjectId::new();
+    let original = (Time::ZERO, Time::new(4, 1).unwrap());
+    let mut tracks = vec![Track {
+        id,
+        parent: None,
+        label: "Static box".into(),
+        locked: false,
+        range: Some(original),
+        layer: None,
+    }];
+    let mut channels = if animated { channels() } else { vec![] };
+    let before = channels.clone();
+    if let Some(channel) = channels.first() {
+        tracks.push(Track {
+            id: channel.object,
+            parent: Some(id),
+            label: "Transform".into(),
+            locked: false,
+            range: None,
+            layer: None,
+        });
+    }
+    let mut auto = false;
+    let mut draw =
+        |imgui: &mut ImGui, editor: &mut Editor, tracks: &[Track], channels: &mut [Channel]| {
+            let mut response = Response::default();
+            let mut body = [0.; 2];
+            let ui = imgui.frame();
+            ui.window("Scene range")
+                .position([0.; 2], Condition::Always)
+                .size([900., 500.], Condition::Always)
+                .build(|| {
+                    let origin = ui.cursor_screen_pos();
+                    body = [
+                        origin[0] + 210.,
+                        origin[1] + ui.frame_height_with_spacing() + ui.text_line_height() + 6.,
+                    ];
+                    response = editor.draw(
+                        ui,
+                        channels,
+                        super::Context {
+                            document,
+                            generation: 0,
+                            time: Time::ZERO,
+                            rate: [24, 1],
+                            frames: 120,
+                            nodes: &[],
+                            tracks,
+                            auto_key: &mut auto,
+                        },
+                    );
+                });
+            drop(imgui.render_legacy());
+            (response, body)
+        };
+    for _ in 0..3 {
+        draw(&mut imgui, &mut editor, &tracks, &mut channels);
+    }
+    let (_, body) = draw(&mut imgui, &mut editor, &tracks, &mut channels);
+    editor.collapsed_nodes.insert(id);
+    let at = [
+        if trim {
+            editor.view.x(0., body[0]) + 2.
+        } else {
+            editor.view.x(48., body[0])
+        },
+        body[1] + 9.,
+    ];
+    imgui.io_mut().add_mouse_pos_event(at);
+    draw(&mut imgui, &mut editor, &tracks, &mut channels);
+    imgui
+        .io_mut()
+        .add_mouse_button_event(MouseButton::Left, true);
+    draw(&mut imgui, &mut editor, &tracks, &mut channels);
+    imgui.io_mut().add_mouse_pos_event([at[0] + 40., at[1]]);
+    let (response, _) = draw(&mut imgui, &mut editor, &tracks, &mut channels);
+    let (_, start, end) = response.range.unwrap();
+    assert!(response.edit.changed && !response.edit.finished && start > Time::ZERO);
+    if trim {
+        assert_eq!(end, original.1);
+    } else {
+        assert_eq!(end.checked_sub(start).unwrap(), original.1);
+    }
+    for (channel, before) in channels.iter().zip(&before) {
+        for (key, old) in channel.curve.keys.iter().zip(&before.curve.keys) {
+            assert_eq!(
+                key.time,
+                if trim {
+                    old.time
+                } else {
+                    old.time.checked_add(start).unwrap()
+                }
+            );
+            assert_eq!(key.value, old.value);
+        }
+    }
+    tracks[0].range = Some((start, end));
+    if !cancel {
+        imgui
+            .io_mut()
+            .add_mouse_button_event(MouseButton::Left, false);
+        assert!(
+            draw(&mut imgui, &mut editor, &tracks, &mut channels)
+                .0
+                .edit
+                .finished
+        );
+        assert!(
+            !draw(&mut imgui, &mut editor, &tracks, &mut channels)
+                .0
+                .edit
+                .finished
+        );
+        return;
+    }
+    imgui.io_mut().add_key_event(Key::Escape, true);
+    let (response, _) = draw(&mut imgui, &mut editor, &tracks, &mut channels);
+    assert!(response.edit.cancelled);
+    assert_eq!(response.range, Some((id, original.0, original.1)));
+    assert!(
+        channels
+            .iter()
+            .zip(&before)
+            .all(|(a, b)| a.curve == b.curve)
+    );
+}
+
+#[test]
+fn layer_eye_and_lock_emit_discrete_actions_at_normal_and_narrow_widths() {
+    let _guard = crate::IMGUI_TEST_LOCK.lock().unwrap();
+    for width in [900., 170.] {
+        let mut imgui = context();
+        let mut editor = Editor::default();
+        let document = DocumentId::new();
+        let id = ObjectId::new();
+        let mut auto = false;
+        let tracks = [Track {
+            id,
+            parent: None,
+            label: "Badge group".into(),
+            locked: false,
+            range: Some((Time::ZERO, Time::new(4, 1).unwrap())),
+            layer: Some(LayerControls {
+                visible: true,
+                icon: "G",
+            }),
+        }];
+        let mut draw = |imgui: &mut ImGui, editor: &mut Editor| {
+            let mut response = Response::default();
+            let mut row = [0.; 2];
+            let ui = imgui.frame();
+            ui.window("Layer controls")
+                .position([0.; 2], Condition::Always)
+                .size([width, 400.], Condition::Always)
+                .build(|| {
+                    let origin = ui.cursor_screen_pos();
+                    row = [
+                        origin[0],
+                        origin[1] + ui.frame_height_with_spacing() + ui.text_line_height() + 6.,
+                    ];
+                    response = editor.draw(
+                        ui,
+                        &mut [],
+                        super::Context {
+                            document,
+                            generation: 0,
+                            time: Time::ZERO,
+                            rate: [24, 1],
+                            frames: 96,
+                            nodes: &[],
+                            tracks: &tracks,
+                            auto_key: &mut auto,
+                        },
+                    );
+                });
+            drop(imgui.render_legacy());
+            (response, row)
+        };
+        for _ in 0..3 {
+            draw(&mut imgui, &mut editor);
+        }
+        let (_, row) = draw(&mut imgui, &mut editor);
+        for (x, lock) in [(8., false), (26., true)] {
+            imgui
+                .io_mut()
+                .add_mouse_pos_event([row[0] + x, row[1] + 9.]);
+            draw(&mut imgui, &mut editor);
+            imgui
+                .io_mut()
+                .add_mouse_button_event(MouseButton::Left, true);
+            let (response, _) = draw(&mut imgui, &mut editor);
+            if lock {
+                assert_eq!(response.lock, Some((id, true)));
+                assert!(response.visibility.is_none());
+            } else {
+                assert_eq!(response.visibility, Some((id, false)));
+                assert!(response.lock.is_none());
+            }
+            assert!(!response.edit.changed);
+            assert!(response.range.is_none());
+            assert!(response.reorder.is_none());
+            imgui
+                .io_mut()
+                .add_mouse_button_event(MouseButton::Left, false);
+            draw(&mut imgui, &mut editor);
+        }
+    }
 }

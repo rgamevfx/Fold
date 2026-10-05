@@ -27,6 +27,16 @@ impl Canvas {
     }
 }
 impl Panel for Canvas {
+    fn supports_network(&self) -> bool {
+        true
+    }
+    fn network_primary(&self) -> bool {
+        true
+    }
+    fn draw_network(&mut self, context: ExtensionUi<'_>) {
+        self.draw(context);
+    }
+
     fn supports_animation(&self) -> bool {
         true
     }

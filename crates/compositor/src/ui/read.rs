@@ -29,7 +29,7 @@ pub(super) fn draw(
     else {
         return actions;
     };
-    if ui.button("Choose file…") {
+    if !matches!(source, Source::Document { .. }) && ui.button("Choose file…") {
         actions.choose_source = true;
     }
     frame_range(
@@ -95,14 +95,7 @@ pub(super) fn draw(
                     )
                     .unwrap()
                 });
-            let local =
-                if time >= *start && start.checked_add(*duration).is_ok_and(|end| time < end) {
-                    time.checked_sub(*start)
-                        .and_then(|t| t.checked_add(*source_start))
-                        .ok()
-                } else {
-                    None
-                };
+            let local = source_time(time, *start, *source_start, *duration);
             if let Some(local) = local {
                 ui.text(format!(
                     "Source time: {}/{} s",
@@ -113,7 +106,7 @@ pub(super) fn draw(
                     actions.navigate = Some(ViewLocation {
                         document: source.document,
                         time: local,
-                        label: "Source composite".into(),
+                        label: "Source document".into(),
                     });
                 }
             } else {
@@ -221,4 +214,29 @@ fn frame_range(
         *duration = length;
         *start = at;
     }
+}
+
+/// The same exact-time navigation is used by Inspector and Network.
+pub(super) fn source_location(node: &Node, time: Time) -> Option<ViewLocation> {
+    let Parameters::Read {
+        source: Source::Document { source, .. },
+        start,
+        source_start,
+        duration,
+    } = &node.parameters
+    else {
+        return None;
+    };
+    let local = source_time(time, *start, *source_start, *duration)?;
+    Some(ViewLocation {
+        document: source.document,
+        time: local,
+        label: "Source document".into(),
+    })
+}
+fn source_time(time: Time, start: Time, source_start: Time, duration: Time) -> Option<Time> {
+    if time < start || time >= start.checked_add(duration).ok()? {
+        return None;
+    }
+    time.checked_sub(start).ok()?.checked_add(source_start).ok()
 }

@@ -32,9 +32,9 @@ fn small() -> Motion {
     m
 }
 #[test]
-fn catalog_has_38_nodes_and_group_instances_with_unique_stable_sockets() {
+fn catalog_includes_scene_nodes_with_unique_stable_sockets() {
     let catalog = fold_motion::graph::registry::definitions();
-    assert_eq!(catalog.len(), 39);
+    assert_eq!(catalog.len(), 44);
     let mut ids = std::collections::BTreeSet::new();
     for d in catalog {
         assert!(ids.insert(d.id));
@@ -314,6 +314,7 @@ fn reusable_groups_bind_values_without_copying_their_construction() {
                 name: "Amount".into(),
                 kind: Kind::Scalar,
                 default: Some(Datum::Scalar(0.)),
+                unit: String::new(),
             }],
             outputs: std::collections::BTreeMap::from([("value".into(), out.clone())]),
             graph: fold_motion::graph::Graph {

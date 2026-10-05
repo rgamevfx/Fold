@@ -14,6 +14,8 @@ pub use canvas_pan::CanvasPan;
 pub mod animated_property;
 #[path = "animation_editor/mod.rs"]
 pub mod animation_editor;
+#[path = "network.rs"]
+pub mod network;
 #[path = "project_drop.rs"]
 pub mod project_drop;
 #[path = "property_edit.rs"]
@@ -25,8 +27,8 @@ pub mod toolbar;
 pub use property_edit::{EditResponse, NumericProperty, UiId};
 #[path = "graph_canvas/mod.rs"]
 pub mod graph_canvas;
-#[path = "node_inspector.rs"]
-mod node_inspector;
+#[path = "inspector.rs"]
+mod inspector;
 use fold_platform::{
     desktop::DesktopClient,
     packages::{PackageRegistry, PanelDescriptor},
@@ -54,6 +56,23 @@ pub struct EditorPanels {
     pub inspector: Box<dyn Panel>,
 }
 pub trait Panel {
+    /// Consume an explicit artist request to reveal the shared Network tab.
+    fn take_network_request(&mut self) -> bool {
+        false
+    }
+    fn supports_network(&self) -> bool {
+        false
+    }
+    /// Graph-first contexts are displayed by the common Network surface.
+    fn network_primary(&self) -> bool {
+        false
+    }
+    fn draw_network(&mut self, context: ExtensionUi<'_>) {
+        context
+            .ui
+            .text_disabled("Select a procedural construction to edit its network.");
+    }
+
     /// Optional animation surface sharing this editor instance's authoring state.
     fn supports_animation(&self) -> bool {
         false
@@ -112,7 +131,7 @@ pub(crate) struct RegisteredPanel {
 pub struct PanelRegistry {
     declared: BTreeMap<&'static str, (&'static str, PanelDescriptor)>,
     entries: Vec<RegisteredPanel>,
-    node_inspector: node_inspector::NodeInspector,
+    inspector: inspector::Inspector,
 }
 impl PanelRegistry {
     pub fn new(packages: &PackageRegistry) -> Self {
@@ -122,7 +141,7 @@ impl PanelRegistry {
                 .flat_map(|m| m.panels.iter().map(move |p| (p.id, (m.id, *p))))
                 .collect(),
             entries: vec![],
-            node_inspector: Default::default(),
+            inspector: Default::default(),
         }
     }
     pub fn register(&mut self, package: &str, panel: impl Panel + 'static) -> Result<(), String> {
@@ -132,7 +151,7 @@ impl PanelRegistry {
             .ok_or("panel not declared in package manifest")?;
         if *owner != package
             || self.entries.iter().any(|p| p.descriptor.id == panel.id())
-            || self.node_inspector.contains(panel.id())
+            || self.inspector.contains(panel.id())
         {
             return Err("duplicate/foreign panel registration".into());
         }
@@ -145,9 +164,9 @@ impl PanelRegistry {
         });
         Ok(())
     }
-    /// Register properties inside the normal Node Inspector, not another window.
+    /// Register properties inside the shared Inspector, not another window.
     /// The contribution retains its package identity and shares the editor's state.
-    pub fn register_node_inspector(
+    pub fn register_inspector(
         &mut self,
         package: &str,
         inspector: impl Panel + 'static,
@@ -158,36 +177,49 @@ impl PanelRegistry {
             .ok_or("inspector not declared in package manifest")?;
         let kind = inspector
             .document_type()
-            .ok_or("node inspector requires a document type")?;
+            .ok_or("inspector requires a document type")?;
         if *owner != package
             || descriptor.placement != fold_platform::packages::PanelPlacement::Inspector
             || self
                 .entries
                 .iter()
                 .any(|p| p.descriptor.id == inspector.id())
-            || self.node_inspector.contains(inspector.id())
-            || self.node_inspector.supports_document_type(kind)
+            || self.inspector.contains(inspector.id())
+            || self.inspector.supports_document_type(kind)
         {
-            return Err("duplicate, foreign, or invalid node inspector contribution".into());
+            return Err("duplicate, foreign, or invalid inspector contribution".into());
         }
-        self.node_inspector.providers.push(Box::new(inspector));
+        self.inspector.providers.push(Box::new(inspector));
         Ok(())
     }
     pub(crate) fn finish(mut self) -> Result<Vec<RegisteredPanel>, String> {
-        if self.entries.len() + self.node_inspector.providers.len() != self.declared.len() {
+        if self.entries.len() + self.inspector.providers.len() != self.declared.len() {
             return Err("declared desktop contributions are missing implementations".into());
         }
-        if !self.node_inspector.providers.is_empty() {
+        if !self.inspector.providers.is_empty() {
             let descriptor = PanelDescriptor {
-                id: node_inspector::ID,
-                title: "Node Inspector",
+                id: inspector::ID,
+                title: "Inspector",
                 placement: fold_platform::packages::PanelPlacement::Inspector,
             };
             self.entries.push(RegisteredPanel {
                 descriptor,
                 key: imgui::WindowKey::new(descriptor.id, descriptor.title)
                     .map_err(|e| e.to_string())?,
-                panel: Box::new(self.node_inspector),
+                panel: Box::new(self.inspector),
+            });
+        }
+        if self.entries.iter().any(|p| p.panel.supports_network()) {
+            let descriptor = PanelDescriptor {
+                id: network::PANEL_ID,
+                title: "Network",
+                placement: fold_platform::packages::PanelPlacement::Editor,
+            };
+            self.entries.push(RegisteredPanel {
+                descriptor,
+                key: imgui::WindowKey::new(descriptor.id, descriptor.title)
+                    .map_err(|e| e.to_string())?,
+                panel: Box::new(network::Surface),
             });
         }
         if self.entries.iter().any(|p| p.panel.supports_animation()) {

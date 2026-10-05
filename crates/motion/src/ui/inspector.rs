@@ -27,7 +27,7 @@ impl Panel for Inspector {
         let mut state = self.state.borrow_mut();
         state.sync(host);
         let Some(&selected) = state.selected.first().filter(|_| state.selected.len() == 1) else {
-            ui.text_wrapped("Select a node to edit its properties.");
+            ui.text_wrapped("Select an object, modifier or node to edit its properties.");
             return;
         };
         let _scope = state.document.map(|document| {
@@ -39,9 +39,18 @@ impl Panel for Inspector {
             }
             .scope(ui)
         });
+        if state.group.is_none() && super::scene_inspector::draw(ui, host, &mut state, selected) {
+            return;
+        }
         let Some(mut motion) = state.view_motion() else {
             return;
         };
+        let objects: Vec<_> = state
+            .motion
+            .as_ref()
+            .and_then(|m| m.scene.as_ref())
+            .map(|s| s.objects.iter().map(|o| (o.id, o.name.clone())).collect())
+            .unwrap_or_default();
         let mut signature = motion
             .graph
             .node(selected)
@@ -76,6 +85,21 @@ impl Panel for Inspector {
             .last()
             .map(|v| v.time)
             .unwrap_or(fold_foundation::Time::ZERO);
+        let group_id = motion
+            .graph
+            .node(selected)
+            .ok()
+            .and_then(|n| n.settings::<crate::nodes::interface::GroupSettings>().ok())
+            .and_then(|s| s.group);
+        let port_labels: std::collections::BTreeMap<_, _> = group_id
+            .and_then(|id| motion.groups.get(&id))
+            .map(|g| {
+                g.inputs
+                    .iter()
+                    .map(|p| (p.id.clone(), p.name.clone()))
+                    .collect()
+            })
+            .unwrap_or_default();
         let Some(node) = motion.graph.nodes.iter_mut().find(|n| n.id == selected) else {
             return;
         };
@@ -85,6 +109,30 @@ impl Panel for Inspector {
                 .unwrap_or(&node.kind),
         );
         ui.separator();
+        if let Some(group) = group_id {
+            if ui.button("Edit Graph") {
+                state.cancel(host);
+                state.parents.push(None);
+                state.group = Some(group);
+                state.network_requested = true;
+                state.selected.clear();
+                return;
+            }
+            ui.same_line();
+            if ui.button("Make unique") {
+                state.change(host, |m| {
+                    let mut definition = m.groups.get(&group).ok_or("missing group")?.clone();
+                    definition.name.push_str(" Copy");
+                    let id = fold_foundation::ObjectId::new();
+                    m.groups.insert(id, definition);
+                    crate::authoring::node(m, selected)?.settings["group"] =
+                        serde_json::to_value(id).unwrap();
+                    Ok(Some(selected))
+                });
+                return;
+            }
+            ui.text_disabled("Graph edits affect every instance of this group. Make unique for a local variation.");
+        }
         if node.kind == "fold.motion.output"
             && aces
             && let (Some(snapshot), Some(document)) = (host.snapshot(), state.document)
@@ -109,6 +157,7 @@ impl Panel for Inspector {
             }
         }
         let mut response = Response::default();
+        let mut assign_group = None;
         let mut animate = None;
         let mut publish = None;
         let mut focus = None;
@@ -123,7 +172,11 @@ impl Panel for Inspector {
                     if ui.menu_item("Create keyframe driver") {
                         animate = Some(key.clone());
                     }
-                    if ui.menu_item("Publish control") {
+                    if ui.menu_item(if state.group.is_some() {
+                        "Expose group control"
+                    } else {
+                        "Publish control"
+                    }) {
                         publish = Some(key);
                     }
                 }
@@ -171,6 +224,12 @@ impl Panel for Inspector {
         if let Ok((sockets, _)) = signature {
             for socket in sockets {
                 let key = socket.id;
+                if !node.inputs.contains_key(&key)
+                    && let Some(default) = &socket.default
+                {
+                    node.inputs
+                        .insert(key.clone(), Input::Value(default.clone()));
+                }
                 let _id = ui.push_id(&key);
                 if let Some(Input::Value(value)) = node.inputs.get_mut(&key)
                     && let Some((components, mut values)) =
@@ -179,7 +238,10 @@ impl Panel for Inspector {
                 {
                     fold_ui::sdk::animated_property::AnimatedProperty {
                         id: &key,
-                        label: &property_label(&key),
+                        label: &port_labels
+                            .get(&key)
+                            .cloned()
+                            .unwrap_or_else(|| property_label(&key)),
                         components,
                         unit: socket.unit,
                         range: None,
@@ -264,12 +326,63 @@ impl Panel for Inspector {
             if let Some(_combo) = ui.begin_combo("Group", "Choose reusable group") {
                 for (id, name) in groups {
                     if ui.selectable(name) {
-                        node.settings["group"] = serde_json::to_value(id).unwrap();
-                        node.inputs.clear();
+                        assign_group = Some(id);
+                    }
+                }
+            }
+        } else if node.kind == "fold.motion.object_reference" {
+            let current = node
+                .settings
+                .get("object")
+                .and_then(|v| serde_json::from_value::<fold_foundation::ObjectId>(v.clone()).ok());
+            let label = objects
+                .iter()
+                .find(|(id, _)| Some(*id) == current)
+                .map(|(_, name)| name.as_str())
+                .unwrap_or("Choose object");
+            if let Some(_combo) = ui.begin_combo("Object", label) {
+                for (id, name) in objects {
+                    let _id = ui.push_id(&format!("{id:?}"));
+                    if ui.selectable(name) {
+                        node.settings["object"] = serde_json::to_value(id).unwrap();
                         response.changed = true;
                         response.finished = true;
                     }
                 }
+            }
+            let mut world = node
+                .settings
+                .get("world")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            if ui.checkbox("Use world coordinates", &mut world) {
+                node.settings["world"] = world.into();
+                response.changed = true;
+                response.finished = true;
+            }
+            if world {
+                let mut owner = node
+                    .settings
+                    .get("owner_space")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false);
+                if ui.checkbox("Relative to modifier owner", &mut owner) {
+                    node.settings["owner_space"] = owner.into();
+                    response.changed = true;
+                    response.finished = true;
+                }
+            }
+        } else if node.kind == "fold.motion.path" {
+            super::path_attributes::draw(
+                ui,
+                &mut node.settings,
+                aces,
+                &mut response,
+                node.id,
+                &mut state.path_attribute_names,
+            );
+            if let Some(segments) = node.settings.get_mut("segments") {
+                settings(ui, segments, &mut response, 0);
             }
         } else if node.kind == "fold.motion.keyframes" {
             ui.text_disabled("Edit keys in the Animation panel.");
@@ -302,7 +415,9 @@ impl Panel for Inspector {
                 )
                 .unwrap()
             });
-        let action = if let Some(key) = animate {
+        let action = if let Some(group) = assign_group {
+            Some(crate::authoring::assign_group(&mut motion, selected, group).map(|_| selected))
+        } else if let Some(key) = animate {
             Some(crate::authoring::keyframe_input(
                 &mut motion,
                 selected,
@@ -310,7 +425,13 @@ impl Panel for Inspector {
                 time,
             ))
         } else {
-            publish.map(|key| crate::authoring::expose_input(&mut motion, selected, &key))
+            publish.map(|key| {
+                if let Some(group) = state.group {
+                    crate::authoring::scene::expose_group_input(&mut motion, group, selected, &key)
+                } else {
+                    crate::authoring::expose_input(&mut motion, selected, &key)
+                }
+            })
         };
         if let Some(result) = action {
             match result {
@@ -402,7 +523,7 @@ fn alignment(ui: &Ui, value: &mut Datum, aces: bool, response: &mut Response) {
         );
     }
 }
-fn datum(ui: &Ui, value: &mut Datum, aces: bool, response: &mut Response) {
+pub(super) fn datum(ui: &Ui, value: &mut Datum, aces: bool, response: &mut Response) {
     match value {
         Datum::Scalar(v) => {
             NumericProperty {

@@ -5,7 +5,13 @@ use fold_animation::{Interpolation, Tangents};
 use fold_foundation::Time;
 
 impl Editor {
-    pub(super) fn key_menu(&mut self, ui: &Ui, channels: &mut [Channel], response: &mut Response) {
+    pub(super) fn key_menu(
+        &mut self,
+        ui: &Ui,
+        channels: &mut [Channel],
+        rate: [u32; 2],
+        response: &mut Response,
+    ) {
         let _disabled = self.selected.is_empty().then(|| ui.begin_disabled());
         for (label, interpolation) in [
             ("Hold", Interpolation::Hold),
@@ -46,6 +52,35 @@ impl Editor {
                 }
                 response.edit.changed = true;
                 response.edit.finished = true;
+            }
+        }
+        if let Some(_menu) = ui.begin_menu("Retime selected keys") {
+            ui.input_int("Offset frames", &mut self.retime_frames);
+            if ui.menu_item("Apply offset") {
+                match crate::sdk::time_view::time(i64::from(self.retime_frames), rate)
+                    .and_then(|delta| super::model::move_keys(channels, &self.selected, delta, 0.))
+                {
+                    Ok(proposal) => {
+                        channels.clone_from_slice(&proposal);
+                        response.edit.changed = true;
+                        response.edit.finished = true;
+                        self.error.clear();
+                    }
+                    Err(error) => self.error = error,
+                }
+            }
+            ui.input_int("Scale numerator", &mut self.time_scale[0]);
+            ui.input_int("Scale denominator", &mut self.time_scale[1]);
+            if ui.menu_item("Scale about first selected key") {
+                match super::model::scale_keys(channels, &self.selected, self.time_scale) {
+                    Ok(proposal) => {
+                        channels.clone_from_slice(&proposal);
+                        response.edit.changed = true;
+                        response.edit.finished = true;
+                        self.error.clear();
+                    }
+                    Err(error) => self.error = error,
+                }
             }
         }
         if self.selected.len() == 1 {

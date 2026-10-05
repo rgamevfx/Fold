@@ -10,13 +10,13 @@ use serde::{Deserialize, Serialize};
 mod prepared;
 use std::sync::Arc;
 pub const EDIT: &str = "fold.motion.edit";
-const BUILD: &str = "motion-schema2-evaluator2-vector-linear8-noto-b85c38ec";
+const BUILD: &str = "motion-schema4-evaluator4-vector-linear8-noto-b85c38ec";
 pub const PANEL: &str = "fold.motion.editor";
 pub const INSPECTOR: &str = "fold.motion.inspector";
 pub const PANELS: &[PanelDescriptor] = &[
     PanelDescriptor {
         id: PANEL,
-        title: "Motion",
+        title: "MoGraph",
         placement: PanelPlacement::Editor,
     },
     PanelDescriptor {
@@ -48,11 +48,11 @@ impl DocumentProvider for Documents {
     fn browser_kind(&self) -> Option<fold_platform::browser::DocumentKind> {
         Some(fold_platform::browser::DocumentKind {
             type_id: crate::document::MOTION,
-            title: "Motion",
+            title: "MoGraph",
         })
     }
     fn create(&self, id: fold_foundation::DocumentId) -> Result<Document, String> {
-        crate::document::Motion::empty().document(id)
+        crate::document::Motion::new_scene().document(id)
     }
     fn package_id(&self) -> &'static str {
         crate::PACKAGE
@@ -61,10 +61,10 @@ impl DocumentProvider for Documents {
         MOTION
     }
     fn schema(&self) -> u32 {
-        2
+        4
     }
     fn supports_schema(&self, schema: u32) -> bool {
-        [1, 2].contains(&schema)
+        [1, 2, 3, 4].contains(&schema)
     }
     fn validate(&self, d: &Document) -> Result<(), String> {
         self.0.get(d).map(|_| ())

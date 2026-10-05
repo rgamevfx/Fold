@@ -2,8 +2,13 @@
 mod animation;
 mod canvas;
 mod graph;
+mod group_interface;
 mod inspector;
 mod overlay;
+mod path_attributes;
+mod relationships;
+mod scene;
+mod scene_inspector;
 mod state;
 #[cfg(test)]
 mod tests;
@@ -19,7 +24,18 @@ pub fn register(registry: &mut PanelRegistry) -> Result<(), String> {
             canvas: Default::default(),
             overlay: Default::default(),
             animation: Default::default(),
+            network_animation: Default::default(),
         },
     )?;
-    registry.register_node_inspector(crate::PACKAGE, inspector::Inspector { state })
+    registry.register_inspector(crate::PACKAGE, inspector::Inspector { state })
+}
+
+fn input_label(motion: &crate::Motion, node: &crate::graph::Node, key: &str) -> String {
+    node.settings::<crate::nodes::interface::GroupSettings>()
+        .ok()
+        .and_then(|s| s.group)
+        .and_then(|id| motion.groups.get(&id))
+        .and_then(|g| g.inputs.iter().find(|p| p.id == key))
+        .map(|p| inspector::property_label(&p.name))
+        .unwrap_or_else(|| inspector::property_label(key))
 }

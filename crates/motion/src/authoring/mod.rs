@@ -1,6 +1,7 @@
 //! Direct tools edit the same persistent graph as socket wiring. No hidden evaluator.
 mod controls;
 mod groups;
+pub mod scene;
 use crate::{
     Motion,
     fields::Datum,
@@ -9,7 +10,7 @@ use crate::{
 };
 pub use controls::{expose_input, keyframe_input};
 use fold_foundation::ObjectId;
-pub use groups::group_node;
+pub use groups::{assign_group, group_node};
 pub fn add_node(motion: &mut Motion, kind: &str) -> Result<ObjectId, String> {
     let mut node = Node::new(kind)?;
     node.position = [
@@ -51,7 +52,10 @@ pub fn remove(motion: &mut Motion, id: ObjectId) -> Result<(), String> {
     Ok(())
 }
 /// Add content as another ordered layer, preserving the previous construction.
-pub fn add_content(motion: &mut Motion, kind: &str) -> Result<ObjectId, String> {
+pub(super) fn content_nodes(
+    motion: &mut Motion,
+    kind: &str,
+) -> Result<(ObjectId, ObjectId, ObjectId), String> {
     let source = add_node(motion, kind)?;
     if kind == "fold.motion.text" {
         let font = motion.fonts.keys().next().copied().unwrap_or_default();
@@ -76,6 +80,13 @@ pub fn add_content(motion: &mut Motion, kind: &str) -> Result<ObjectId, String> 
     ];
     node(motion, transform)?.connect("content", fill, "content");
     node(motion, transform)?.set("translation", Datum::Vector(center));
+    Ok((source, fill, transform))
+}
+pub fn add_content(motion: &mut Motion, kind: &str) -> Result<ObjectId, String> {
+    if motion.scene.is_some() {
+        return scene::create_object(motion, kind);
+    }
+    let (source, _, transform) = content_nodes(motion, kind)?;
     let out = motion.graph.output.node;
     let previous = node(motion, out)?.inputs.get("content").cloned();
     if let Some(Input::Link(previous)) = previous {

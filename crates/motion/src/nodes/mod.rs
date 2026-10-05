@@ -5,6 +5,7 @@ pub mod content;
 pub mod distribution;
 pub mod influence;
 pub mod interface;
+pub mod path_motion;
 pub mod response;
 pub mod scene;
 pub mod values;

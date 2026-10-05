@@ -17,8 +17,11 @@ pub struct State {
     pub error: String,
     pub editing: bool,
     pub auto_key: bool,
+    pub network_requested: bool,
+    pub path_attribute_names: std::collections::BTreeMap<(ObjectId, String), String>,
     /// Only the inspector may finish/cancel a property gesture.
     pub property_editing: bool,
+    pub interface_editing: bool,
     pub generation: u64,
     base: Revision,
     original: Option<Motion>,
@@ -69,6 +72,8 @@ impl State {
             self.original = self.motion.clone();
             self.editing = false;
             self.property_editing = false;
+            self.interface_editing = false;
+            self.path_attribute_names.clear();
             self.generation += 1;
             if self.group.is_some_and(|id| {
                 !self
@@ -90,11 +95,13 @@ impl State {
         let mut motion = self.motion.clone()?;
         if let Some(id) = self.group {
             motion.graph = motion.groups.get(&id)?.graph.clone();
+            motion.scene = None;
         }
         Some(motion)
     }
     pub fn replace_view(&mut self, mut view: Motion) {
         if let Some(id) = self.group {
+            view.scene = self.motion.as_ref().and_then(|m| m.scene.clone());
             let graph = view.graph;
             view.graph = self
                 .motion
@@ -155,6 +162,7 @@ impl State {
                 if host.snapshot().is_some_and(|s| s.revision() != self.base) {
                     self.editing = false;
                     self.property_editing = false;
+                    self.interface_editing = false;
                     self.sync(host);
                     self.error.clear();
                 } else {
@@ -174,7 +182,21 @@ impl State {
         self.motion = self.original.clone();
         self.editing = false;
         self.property_editing = false;
+        self.interface_editing = false;
         self.generation += 1;
+    }
+    pub fn change_scene(
+        &mut self,
+        host: &mut dyn DesktopClient,
+        f: impl FnOnce(&mut Motion) -> Result<Option<ObjectId>, String>,
+    ) {
+        self.group = None;
+        self.parents.clear();
+        self.change(host, f);
+        host.command(DesktopCommand::Select(fold_platform::desktop::Selection {
+            document: self.document,
+            objects: self.selected.clone(),
+        }));
     }
     pub fn change(
         &mut self,
@@ -204,7 +226,7 @@ impl State {
         self.parents.clear();
         self.selected.clear();
         self.document = Some(DocumentId::new());
-        self.motion = Some(Motion::empty());
+        self.motion = Some(Motion::new_scene());
         self.original = None;
         if let Some(snapshot) = host.snapshot() {
             self.base = snapshot.revision();

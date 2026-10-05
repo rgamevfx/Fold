@@ -407,7 +407,7 @@ impl ProjectPanel {
                 Entry::Item(ItemId::Document(_)) => match kind {
                     "Sequence" => "S",
                     "Composition" => "C",
-                    "Motion" => "G",
+                    "MoGraph" => "G",
                     _ => "?",
                 },
                 _ => "M",

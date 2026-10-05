@@ -43,6 +43,8 @@ impl Font {
 pub struct Motion {
     pub info: VideoInfo,
     pub graph: Graph,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scene: Option<crate::scene::Scene>,
     #[serde(default)]
     pub fonts: BTreeMap<ObjectId, Font>,
     #[serde(default)]
@@ -53,6 +55,13 @@ pub struct Motion {
     pub extensions: BTreeMap<String, serde_json::Value>,
 }
 impl Motion {
+    pub fn new_scene() -> Self {
+        Self {
+            scene: Some(crate::scene::Scene::default()),
+            ..Self::empty()
+        }
+    }
+
     pub fn empty() -> Self {
         let output = Node::new("fold.motion.output").expect("built-in output");
         let link = Link {
@@ -70,6 +79,7 @@ impl Motion {
                 nodes: vec![output],
                 output: link,
             },
+            scene: None,
             fonts: BTreeMap::new(),
             controls: BTreeMap::new(),
             groups: BTreeMap::new(),
@@ -80,6 +90,9 @@ impl Motion {
     /// compilation separately requires registered implementations and inputs.
     pub fn validate(&self) -> Result<(), String> {
         self.info.validate()?;
+        if let Some(scene) = &self.scene {
+            scene.validate(self)?;
+        }
         let nodes = self.graph.nodes.len()
             + self
                 .groups
@@ -248,7 +261,7 @@ impl Motion {
             id,
             package_id: crate::PACKAGE.into(),
             type_id: MOTION.into(),
-            schema_version: 2,
+            schema_version: if self.scene.is_some() { 4 } else { 2 },
             revision: Revision::default(),
             dependencies: vec![],
             assets: vec![],
@@ -259,7 +272,7 @@ impl Motion {
     pub fn from_document(document: &Document) -> Result<Self, String> {
         if document.package_id != crate::PACKAGE
             || document.type_id != MOTION
-            || ![1, 2].contains(&document.schema_version)
+            || ![1, 2, 3, 4].contains(&document.schema_version)
             || !document.dependencies.is_empty()
             || !document.assets.is_empty()
         {

@@ -129,7 +129,7 @@ fn drawing_motion_graph_inspector_and_handles_does_not_mutate_project() {
     let state = std::rc::Rc::new(std::cell::RefCell::new(state::State::default()));
     state.borrow_mut().create(&mut host);
     state.borrow_mut().change(&mut host, |m| {
-        a::add_content(m, "fold.motion.text").map(Some)
+        a::scene::create_object(m, "fold.motion.text").map(Some)
     });
     let revision = host.project.snapshot().revision();
     let mut context = imgui::Context::create();
@@ -146,6 +146,7 @@ fn drawing_motion_graph_inspector_and_handles_does_not_mutate_project() {
         canvas: Default::default(),
         overlay: Default::default(),
         animation: Default::default(),
+        network_animation: Default::default(),
     };
     canvas.initialize(&context);
     let mut inspector = inspector::Inspector {
@@ -154,7 +155,7 @@ fn drawing_motion_graph_inspector_and_handles_does_not_mutate_project() {
     for frame in 0..24 {
         let maximized = frame >= 8;
         let narrow = frame >= 16;
-        let graph_width = if narrow { 320. } else { 850. };
+        let graph_width = if narrow { 170. } else { 850. };
         context
             .io_mut()
             .add_mouse_pos_event([graph_width - 20., 800.]);
@@ -377,6 +378,58 @@ fn shared_editor_events_keep_motion_batches_atomic_and_selection_plural() {
         before.revision().0 + 1
     );
     host.project.undo().unwrap();
+    assert_eq!(
+        host.project.snapshot().state().documents,
+        before.state().documents
+    );
+}
+
+#[test]
+fn scene_modifier_gestures_commit_once_and_cancel_restores_authored_scene() {
+    let mut host = Host::new();
+    let mut state = state::State::default();
+    state.create(&mut host);
+    state.change_scene(&mut host, |m| {
+        a::scene::create_object(m, "fold.motion.rectangle").map(Some)
+    });
+    let object = state.selected[0];
+    state.change_scene(&mut host, |m| {
+        let group = a::scene::new_modifier_definition(m, true)?;
+        a::scene::add_modifier(m, object, group).map(Some)
+    });
+    let modifier = state.selected[0];
+    let before = host.project.snapshot();
+    for radius in [40., 90., 120.] {
+        a::node(state.motion.as_mut().unwrap(), modifier)
+            .unwrap()
+            .set("radius", Datum::Scalar(radius));
+        state.preview(&mut host);
+        assert_eq!(host.project.snapshot().revision(), before.revision());
+    }
+    state.commit(&mut host);
+    assert_eq!(
+        host.project.snapshot().revision().0,
+        before.revision().0 + 1
+    );
+    host.project.undo().unwrap();
+    assert_eq!(
+        host.project.snapshot().state().documents,
+        before.state().documents
+    );
+    state.sync(&mut host);
+    let original = state.motion.clone();
+    state
+        .motion
+        .as_mut()
+        .unwrap()
+        .scene
+        .as_mut()
+        .unwrap()
+        .objects[0]
+        .visible = false;
+    state.preview(&mut host);
+    state.cancel(&mut host);
+    assert_eq!(state.motion, original);
     assert_eq!(
         host.project.snapshot().state().documents,
         before.state().documents

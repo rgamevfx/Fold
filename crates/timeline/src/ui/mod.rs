@@ -22,7 +22,7 @@ use std::collections::BTreeMap;
 
 pub fn register(registry: &mut PanelRegistry) -> Result<(), String> {
     registry.register(crate::PACKAGE, TimelinePanel::default())?;
-    registry.register_node_inspector(crate::PACKAGE, inspector::Inspector::default())
+    registry.register_inspector(crate::PACKAGE, inspector::Inspector::default())
 }
 fn current(
     snapshot: &Snapshot,

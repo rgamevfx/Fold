@@ -103,7 +103,13 @@ fn handles(m: &Motion, selected: ObjectId) -> Vec<Handle> {
         return vec![];
     };
     let mut result = Vec::new();
-    let downstream = downstream(m, selected);
+    let downstream = m
+        .scene
+        .as_ref()
+        .and_then(|s| s.objects.iter().find(|o| o.owns(selected)))
+        .and_then(|o| o.transform)
+        .and_then(|id| m.graph.node(id).ok())
+        .or_else(|| downstream(m, selected));
     let outer = downstream.and_then(matrix).unwrap_or(IDENTITY);
     let base = if node.kind == "fold.motion.transform" {
         Some(node)
@@ -189,6 +195,23 @@ impl Overlay {
         }
         let mut state = state.borrow_mut();
         state.sync(host);
+        if state.motion.is_some() {
+            let saved = ui.cursor_screen_pos();
+            ui.set_cursor_screen_pos([rect.origin[0] + 8., rect.origin[1] + 8.]);
+            for (label, kind) in [
+                ("Text", "fold.motion.text"),
+                ("Rectangle", "fold.motion.rectangle"),
+                ("Ellipse", "fold.motion.ellipse"),
+            ] {
+                if ui.small_button(label) {
+                    state.change_scene(host, |m| {
+                        crate::authoring::scene::create_object(m, kind).map(Some)
+                    });
+                }
+                ui.same_line();
+            }
+            ui.set_cursor_screen_pos(saved);
+        }
         let time = host
             .state()
             .navigation
@@ -215,12 +238,40 @@ impl Overlay {
         let Some(&selected) = state.selected.first().filter(|_| state.selected.len() == 1) else {
             return;
         };
+        if motion.scene.as_ref().is_some_and(|s| {
+            s.objects
+                .iter()
+                .any(|o| o.owns(selected) && (o.locked || !o.constraints.is_empty()))
+        }) {
+            return;
+        }
         let scale = [
             rect.size[0] as f64 / motion.info.width as f64,
             rect.size[1] as f64 / motion.info.height as f64,
         ];
         let saved = ui.cursor_screen_pos();
-        let controls = handles(&motion, selected);
+        let mut controls = handles(&motion, selected);
+        if let Some(object) = motion
+            .scene
+            .as_ref()
+            .and_then(|s| s.objects.iter().find(|o| o.owns(selected)))
+        {
+            let mut evaluator = match crate::evaluation::Evaluator::new(&motion, time) {
+                Ok(e) => e,
+                Err(_) => return,
+            };
+            let parent = match object.parent {
+                Some(id) => match evaluator.world_matrix(id) {
+                    Ok(m) => m,
+                    Err(_) => return,
+                },
+                None => IDENTITY,
+            };
+            let outer = crate::geometry::multiply(parent, object.offset);
+            for handle in &mut controls {
+                handle.matrix = crate::geometry::multiply(outer, handle.matrix);
+            }
+        }
         for (i, handle) in controls.iter().enumerate() {
             let document = project(handle.matrix, handle.point);
             let p = [

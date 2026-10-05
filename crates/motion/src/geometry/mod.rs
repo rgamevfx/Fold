@@ -1,5 +1,7 @@
 //! Native content independent of graph authoring and presentation.
 pub mod appearance;
+pub mod path;
+pub mod render;
 pub mod shapes;
 pub mod text;
 use fold_render::vector::{Drawing, MAX_DRAWINGS, Segment, Stroke};
@@ -34,6 +36,9 @@ pub struct Element {
     pub stroke: Option<Stroke>,
     pub opacity: f64,
     pub even_odd: bool,
+    pub attributes: std::collections::BTreeMap<String, crate::fields::Datum>,
+    pub path_attributes: path::Attributes,
+    pub effects: Option<render::Effects>,
 }
 impl Element {
     pub fn new(id: u64, geometry: Geometry) -> Self {
@@ -45,6 +50,9 @@ impl Element {
             stroke: None,
             opacity: 1.,
             even_odd: false,
+            attributes: Default::default(),
+            path_attributes: Default::default(),
+            effects: None,
         }
     }
     pub fn matches(&self, domain: Domain) -> bool {
@@ -125,6 +133,9 @@ pub fn drawings_with(
         }
         for e in content.iter() {
             traversal.budget.spend()?;
+            if e.effects.is_some() {
+                return Err("isolated content requires image-plan compilation".into());
+            }
             let matrix = multiply(parent, e.transform);
             let fill = fill.or(e.fill);
             let stroke = stroke.clone().or_else(|| e.stroke.clone());
@@ -174,4 +185,60 @@ pub fn drawings_with(
     )?;
     fold_render::vector::validate_working(&traversal.drawings, true)?;
     Ok(traversal.drawings)
+}
+
+/// Checked affine inversion; singular parents cannot preserve world placement.
+pub fn inverse(m: [f64; 6]) -> Result<[f64; 6], String> {
+    let d = m[0] * m[3] - m[1] * m[2];
+    if !d.is_finite() || d.abs() < 1e-12 {
+        return Err("transform is singular".into());
+    }
+    Ok([
+        m[3] / d,
+        -m[1] / d,
+        -m[2] / d,
+        m[0] / d,
+        (m[2] * m[5] - m[3] * m[4]) / d,
+        (m[1] * m[4] - m[0] * m[5]) / d,
+    ])
+}
+
+/// Blend rotation on the short arc and preserve affine shear and signed scale.
+pub fn blend_transform(a: [f64; 6], b: [f64; 6], weight: f64) -> Result<[f64; 6], String> {
+    if weight == 0. {
+        return Ok(a);
+    }
+    if weight == 1. {
+        return Ok(b);
+    }
+    fn components(m: [f64; 6]) -> Result<[f64; 4], String> {
+        let sx = m[0].hypot(m[1]);
+        if sx < 1e-12 {
+            return Err("cannot blend a singular transform".into());
+        }
+        Ok([
+            m[1].atan2(m[0]),
+            sx,
+            (m[0] * m[3] - m[1] * m[2]) / sx,
+            (m[0] * m[2] + m[1] * m[3]) / sx,
+        ])
+    }
+    let x = components(a)?;
+    let y = components(b)?;
+    let angle = x[0]
+        + ((y[0] - x[0] + std::f64::consts::PI).rem_euclid(std::f64::consts::TAU)
+            - std::f64::consts::PI)
+            * weight;
+    let sx = x[1] + (y[1] - x[1]) * weight;
+    let sy = x[2] + (y[2] - x[2]) * weight;
+    let shear = x[3] + (y[3] - x[3]) * weight;
+    let (s, c) = angle.sin_cos();
+    Ok([
+        c * sx,
+        s * sx,
+        c * shear - s * sy,
+        s * shear + c * sy,
+        a[4] + (b[4] - a[4]) * weight,
+        a[5] + (b[5] - a[5]) * weight,
+    ])
 }

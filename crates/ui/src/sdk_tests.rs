@@ -45,23 +45,23 @@ fn node_property_contributions_share_one_inspector_window() {
     let mut registry = PanelRegistry::new(&packages);
     assert!(
         registry
-            .register_node_inspector("foreign", Properties("test.nodes.first", "first"))
+            .register_inspector("foreign", Properties("test.nodes.first", "first"))
             .is_err()
     );
     registry
-        .register_node_inspector("test.nodes", Properties("test.nodes.first", "first"))
+        .register_inspector("test.nodes", Properties("test.nodes.first", "first"))
         .unwrap();
     assert!(
         registry
-            .register_node_inspector("test.nodes", Properties("test.nodes.second", "first"))
+            .register_inspector("test.nodes", Properties("test.nodes.second", "first"))
             .is_err()
     );
     registry
-        .register_node_inspector("test.nodes", Properties("test.nodes.second", "second"))
+        .register_inspector("test.nodes", Properties("test.nodes.second", "second"))
         .unwrap();
     let panels = registry.finish().unwrap();
     assert_eq!(panels.len(), 1);
-    assert_eq!(panels[0].descriptor.title, "Node Inspector");
+    assert_eq!(panels[0].descriptor.title, "Inspector");
     assert!(panels[0].panel.supports_document_type("first"));
     assert!(panels[0].panel.supports_document_type("second"));
     assert!(!panels[0].panel.supports_document_type("unavailable"));

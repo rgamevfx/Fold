@@ -71,7 +71,11 @@ impl GraphContext for Context<'_> {
                         .iter()
                         .map(|s| PortView {
                             key: s.id.clone(),
-                            label: format!("{} : {:?}", s.id, s.kind),
+                            label: format!(
+                                "{} : {:?}",
+                                super::input_label(&motion, node, &s.id),
+                                s.kind
+                            ),
                             color: GRAPH_COLORS.image,
                         })
                         .collect(),

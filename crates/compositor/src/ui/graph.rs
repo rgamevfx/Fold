@@ -101,7 +101,23 @@ impl Context<'_> {
                     templates.push((
                         NodeTemplate {
                             key: format!("document:{:?}", d.id),
-                            label: format!("Read {} {:?}", d.type_id, d.id),
+                            label: format!(
+                                "{}: {}",
+                                self.host
+                                    .document_kinds()
+                                    .iter()
+                                    .find(|k| k.type_id == d.type_id)
+                                    .map(|k| k.title)
+                                    .unwrap_or("Document"),
+                                snapshot
+                                    .state()
+                                    .organization
+                                    .items
+                                    .iter()
+                                    .find(|item| item.id == fold_project::ItemId::Document(d.id))
+                                    .map(|item| item.name.as_str())
+                                    .unwrap_or("Untitled")
+                            ),
                             category: "Document output".into(),
                         },
                         P::Read {
@@ -200,10 +216,39 @@ impl GraphContext for Context<'_> {
                     let op = n.parameters.operator();
                     NodeView {
                         id: n.id,
-                        label: op.label().to_uppercase(),
+                        label: if let P::Read {
+                            source: Source::Document { source, .. },
+                            ..
+                        } = &n.parameters
+                        {
+                            self.host
+                                .snapshot()
+                                .and_then(|s| {
+                                    s.state()
+                                        .documents
+                                        .get(&source.document)
+                                        .map(|d| d.type_id.clone())
+                                })
+                                .and_then(|kind| {
+                                    self.host
+                                        .document_kinds()
+                                        .iter()
+                                        .find(|k| k.type_id == kind)
+                                        .map(|k| k.title.to_string())
+                                })
+                                .unwrap_or("Document".into())
+                        } else {
+                            op.label().to_uppercase()
+                        },
                         summary: summary(&n.parameters),
                         position: n.position,
-                        can_open: false,
+                        can_open: matches!(
+                            n.parameters,
+                            P::Read {
+                                source: Source::Document { .. },
+                                ..
+                            }
+                        ),
                         color: match n.parameters {
                             P::Read { .. } | P::Solid { .. } => GRAPH_COLORS.source,
                             P::Merge | P::Composite { .. } => GRAPH_COLORS.merge,
@@ -323,7 +368,23 @@ impl GraphContext for Context<'_> {
                 }
             }
             GraphEvent::Cancel => self.state.cancel(self.host),
-            GraphEvent::Navigate(_) => return Err("This node has no editable group".into()),
+            GraphEvent::Navigate(Some(id)) => {
+                let node = self.state.graph.as_ref().ok_or("No composite")?.node(id)?;
+                let time = self
+                    .host
+                    .state()
+                    .navigation
+                    .last()
+                    .map(|v| v.time)
+                    .unwrap_or(Time::ZERO);
+                let location = super::read::source_location(node, time)
+                    .ok_or("Source is unavailable or inactive at this time")?;
+                self.state.cancel(self.host);
+                self.host.command(DesktopCommand::Navigate(location));
+            }
+            GraphEvent::Navigate(None) => {
+                return Err("Use the document breadcrumb to return to the parent".into());
+            }
         }
         Ok(())
     }

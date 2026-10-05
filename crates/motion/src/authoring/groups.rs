@@ -10,12 +10,16 @@ pub fn group_node(motion: &mut Motion, id: ObjectId) -> Result<ObjectId, String>
         return Err("document Output cannot be extracted into a group".into());
     }
     let original = motion.graph.node(id)?.clone();
+    if original.kind == "fold.motion.scene_children" {
+        return Err("scene groups already own a child hierarchy; extract a modifier or content node instead".into());
+    }
     let (inputs, outputs) = motion.signature(&original)?;
     if outputs.is_empty() {
         return Err("node has no groupable outputs".into());
     }
     let name = registry::find(&original.kind)?.name.to_owned();
     let mut inside = original.clone();
+    inside.animation.clear();
     let mut nodes = Vec::new();
     let mut ports = Vec::new();
     for input in inputs {
@@ -28,6 +32,7 @@ pub fn group_node(motion: &mut Motion, id: ObjectId) -> Result<ObjectId, String>
             name: input.id,
             kind: input.kind,
             default: input.default,
+            unit: input.unit.into(),
         });
     }
     nodes.push(inside);
@@ -63,21 +68,43 @@ pub fn group_node(motion: &mut Motion, id: ObjectId) -> Result<ObjectId, String>
         },
     );
     let mut instance = Node::new("fold.motion.group_instance")?;
+    instance.id = id;
     instance.settings = serde_json::json!({"group":group});
+    instance.animation = original.animation;
     instance.inputs = original.inputs;
     instance.position = original.position;
-    let instance_id = instance.id;
     motion.graph.nodes.retain(|n| n.id != id);
-    for n in &mut motion.graph.nodes {
-        for value in n.inputs.values_mut() {
-            if let Input::Link(link) = value
-                && link.node == id
-            {
-                link.node = instance_id;
-            }
-        }
-    }
     motion.graph.nodes.push(instance);
     motion.validate()?;
-    Ok(instance_id)
+    Ok(id)
+}
+
+/// Changing a definition preserves compatible wiring and animation targets.
+pub fn assign_group(motion: &mut Motion, id: ObjectId, group: ObjectId) -> Result<(), String> {
+    let definition = motion.groups.get(&group).ok_or("missing group")?.clone();
+    let original = motion.graph.node(id)?;
+    if original.kind != "fold.motion.group_instance" {
+        return Err("select a group instance".into());
+    }
+    let previous = motion.signature(original).map(|s| s.0).unwrap_or_default();
+    let node = node(motion, id)?;
+    node.inputs.retain(|key, _| {
+        definition.inputs.iter().any(|port| {
+            port.id == *key
+                && previous
+                    .iter()
+                    .any(|old| old.id == *key && old.kind == port.kind)
+        })
+    });
+    node.animation.retain(|path, _| {
+        path.rsplit_once('.')
+            .is_some_and(|(key, _)| node.inputs.contains_key(key))
+    });
+    for port in definition.inputs {
+        if let Some(default) = port.default {
+            node.inputs.entry(port.id).or_insert(Input::Value(default));
+        }
+    }
+    node.settings["group"] = serde_json::to_value(group).unwrap();
+    Ok(())
 }

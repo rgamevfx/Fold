@@ -38,6 +38,18 @@ pub fn icon_button(ui: &Ui, id: &str, icon: ToolbarIcon, tip: &str) -> bool {
 pub fn draw_icon(ui: &Ui, icon: ToolbarIcon, p: [f32; 2], size: f32) {
     let draw = ui.get_window_draw_list();
     let color = ui.style_color(StyleColor::Text);
+    draw_icon_on(ui, &draw, icon, p, size, color);
+}
+
+/// Reuse a canvas draw-list borrow when rendering inline controls.
+pub fn draw_icon_on(
+    ui: &Ui,
+    draw: &super::imgui::DrawListMut<'_>,
+    icon: ToolbarIcon,
+    p: [f32; 2],
+    size: f32,
+    color: [f32; 4],
+) {
     let center = [p[0] + (size + 4.) / 2., p[1] + size / 2.];
     let unit = size * 0.23;
     let point = |x: f32, y: f32| [center[0] + x * unit, center[1] + y * unit];

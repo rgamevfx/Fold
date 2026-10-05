@@ -11,6 +11,24 @@ use crate::sdk::{
 };
 use fold_foundation::{DocumentId, ObjectId, Time};
 pub use model::Channel;
+
+#[derive(Clone)]
+pub struct LayerControls {
+    pub visible: bool,
+    pub icon: &'static str,
+}
+
+/// Provider-owned hierarchy, including static objects and modifier rows.
+#[derive(Clone)]
+pub struct Track {
+    pub id: ObjectId,
+    pub parent: Option<ObjectId>,
+    pub label: String,
+    pub locked: bool,
+    pub range: Option<(Time, Time)>,
+    pub layer: Option<LayerControls>,
+}
+
 use model::Clipboard;
 use std::collections::BTreeSet;
 
@@ -19,6 +37,8 @@ pub struct Editor {
     document: Option<DocumentId>,
     generation: u64,
     pub(crate) curves: bool,
+    pub(crate) hide_timing: bool,
+    pub(crate) header_pixels: Option<f32>,
     pub(crate) view: View,
     pub(crate) selected: BTreeSet<ObjectId>,
     pub(crate) visible_channels: BTreeSet<(ObjectId, String)>,
@@ -33,6 +53,8 @@ pub struct Editor {
     clipboard: Clipboard,
     numeric_edit: bool,
     pub(crate) error: String,
+    retime_frames: i32,
+    time_scale: [i32; 2],
 }
 pub struct Context<'a> {
     pub document: DocumentId,
@@ -41,6 +63,7 @@ pub struct Context<'a> {
     pub rate: [u32; 2],
     pub frames: u32,
     pub nodes: &'a [ObjectId],
+    pub tracks: &'a [Track],
     pub auto_key: &'a mut bool,
 }
 #[derive(Default)]
@@ -48,6 +71,10 @@ pub struct Response {
     pub edit: EditResponse,
     pub seek: Option<Time>,
     pub select_node: Option<ObjectId>,
+    pub range: Option<(ObjectId, Time, Time)>,
+    pub reorder: Option<(ObjectId, ObjectId, bool)>,
+    pub visibility: Option<(ObjectId, bool)>,
+    pub lock: Option<(ObjectId, bool)>,
 }
 impl Editor {
     pub fn reset_gesture(&mut self) {
@@ -59,6 +86,7 @@ impl Editor {
             *self = Self {
                 document: Some(context.document),
                 snapping: true,
+                time_scale: [1, 1],
                 ..Default::default()
             };
         }
@@ -66,11 +94,18 @@ impl Editor {
             self.reset_gesture();
             self.generation = context.generation;
         }
+        let locked: Vec<_> = channels
+            .iter()
+            .enumerate()
+            .filter(|(_, c)| context.tracks.iter().any(|t| t.id == c.object && t.locked))
+            .map(|(i, c)| (i, c.curve.clone()))
+            .collect();
         let mut response = Response::default();
         self.selected.retain(|id| {
-            channels
-                .iter()
-                .any(|c| c.curve.keys.iter().any(|k| k.id == *id))
+            channels.iter().any(|c| {
+                !context.tracks.iter().any(|t| t.id == c.object && t.locked)
+                    && c.curve.keys.iter().any(|k| k.id == *id)
+            })
         });
         if icon_button(
             ui,
@@ -114,7 +149,8 @@ impl Editor {
             }
             ui.checkbox("Auto Key", context.auto_key);
             ui.checkbox("Snap to frames", &mut self.snapping);
-            ui.checkbox("Selected nodes only", &mut self.selected_only);
+            ui.checkbox("Hide timing area", &mut self.hide_timing);
+            ui.checkbox("Selected objects only", &mut self.selected_only);
             ui.input_text("Search", &mut self.search).build();
             ui.separator();
             if ui.menu_item("Copy keys (Ctrl+C)") {
@@ -130,7 +166,7 @@ impl Editor {
                 self.delete(channels, &mut response);
             }
             ui.separator();
-            self.key_menu(ui, channels, &mut response);
+            self.key_menu(ui, channels, context.rate, &mut response);
         }
         if wide {
             ui.same_line();
@@ -177,13 +213,28 @@ impl Editor {
             self.view.first = channels
                 .iter()
                 .flat_map(|c| c.curve.keys.iter().map(|k| frame(k.time, context.rate)))
+                .chain(
+                    context
+                        .tracks
+                        .iter()
+                        .filter_map(|t| t.range.map(|(start, _)| frame(start, context.rate))),
+                )
                 .fold(0., f64::min);
             let last = channels
                 .iter()
                 .flat_map(|c| c.curve.keys.iter().map(|k| frame(k.time, context.rate)))
+                .chain(
+                    context
+                        .tracks
+                        .iter()
+                        .filter_map(|t| t.range.map(|(_, end)| frame(end, context.rate))),
+                )
                 .fold(f64::from(context.frames), f64::max);
             let width = ui.content_region_avail()[0].max(1.);
-            let header = canvas::header_width(width);
+            let header = self
+                .header_pixels
+                .unwrap_or_else(|| canvas::header_width(width))
+                .clamp(40., width.max(40.));
             self.view.pixels_per_frame = (f64::from((width - header - 8.).max(1.))
                 / (last - self.view.first).max(1.))
             .clamp(0.05, 80.);
@@ -232,11 +283,11 @@ impl Editor {
             }
         }
         self.canvas(ui, channels, &context, &mut response);
-        if channels.is_empty() {
+        if channels.is_empty() && context.tracks.is_empty() {
             self.fitted = false;
         }
         if let Some(_popup) = ui.begin_popup("animation-key-menu") {
-            self.key_menu(ui, channels, &mut response);
+            self.key_menu(ui, channels, context.rate, &mut response);
         }
         if self.numeric_edit && ui.is_key_pressed(Key::Escape) {
             response.edit.cancelled = true;
@@ -248,10 +299,17 @@ impl Editor {
         if !self.error.is_empty() {
             ui.text_wrapped(&self.error);
         }
+        for (index, curve) in locked {
+            channels[index].curve = curve;
+        }
         response
     }
     fn matches(&self, channel: &Channel, context: &Context<'_>) -> bool {
-        (!self.selected_only || context.nodes.contains(&channel.object))
+        (!self.selected_only
+            || context.nodes.contains(&channel.object)
+            || context.tracks.iter().any(|t| {
+                t.id == channel.object && t.parent.is_some_and(|p| context.nodes.contains(&p))
+            }))
             && (self.search.is_empty()
                 || format!(
                     "{} {} {}",
@@ -281,6 +339,7 @@ impl Editor {
     fn insert(&mut self, channels: &mut [Channel], context: &Context<'_>, response: &mut Response) {
         for c in channels.iter_mut() {
             if self.matches(c, context)
+                && !context.tracks.iter().any(|t| t.id == c.object && t.locked)
                 && (self.visible_channels.is_empty()
                     || self.visible_channels.contains(&(c.object, c.path.clone())))
                 && let Some(value) = c.curve.sample(context.time)

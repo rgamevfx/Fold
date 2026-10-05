@@ -702,6 +702,15 @@ fn animation_surface_uses_the_explicit_viewer_time_and_rejects_ambiguity() {
                 .borrow_mut()
                 .push(context.host.state().navigation.last().unwrap().time);
         }
+        fn supports_network(&self) -> bool {
+            true
+        }
+        fn network_primary(&self) -> bool {
+            true
+        }
+        fn draw_network(&mut self, context: ExtensionUi<'_>) {
+            self.draw_animation(context);
+        }
     }
     let _guard = crate::IMGUI_TEST_LOCK.lock().unwrap();
     let mut context = Context::create();
@@ -792,6 +801,22 @@ fn animation_surface_uses_the_explicit_viewer_time_and_rejects_ambiguity() {
                 .all(|&time| time == shell.workspace.viewers[&viewer].time)
         );
     }
+    // Reuse the linked instance through Network; the primary graph editor has no duplicate window.
+    shell.panels[1].descriptor.id = crate::sdk::network::PANEL_ID;
+    shell.panels[1].panel = Box::new(crate::sdk::network::Surface);
+    shell.panels[1].key = WindowKey::new(crate::sdk::network::PANEL_ID, "Network").unwrap();
+    shell.workspace.inspector_viewer = Some(first);
+    seen.borrow_mut().clear();
+    for _ in 0..3 {
+        frame(&mut shell, &mut context);
+    }
+    assert!(!seen.borrow().is_empty());
+    assert!(
+        seen.borrow()
+            .iter()
+            .all(|&time| time == shell.workspace.viewers[&first].time)
+    );
+    assert!(shell.visible_editors.contains(&editor));
 }
 
 #[test]

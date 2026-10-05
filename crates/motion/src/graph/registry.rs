@@ -11,6 +11,7 @@ pub fn definitions() -> &'static [Definition] {
             nodes::content::text::definition_text(),
         ];
         result.extend(nodes::distribution::definitions());
+        result.extend(nodes::path_motion::definitions());
         result.extend(nodes::values::definitions());
         result.extend(nodes::animation::definitions());
         result.extend(nodes::influence::definitions());

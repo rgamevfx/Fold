@@ -204,19 +204,25 @@ impl AnimatedProperty<'_> {
             // Alt-click is consumed before Drag can enter a value-edit gesture.
             let alt = ui.io().key_alt();
             let disabled = (locked || alt).then(|| ui.begin_disabled());
-            let format = if self.components.len() > 1 {
+            let integer = self.unit == "integer";
+            let format = if integer {
+                "%.0f".into()
+            } else if self.components.len() > 1 {
                 format!("{} %.3f", self.components[i])
             } else {
                 "%.3f".into()
             };
             let mut drag = Drag::new("##value")
-                .speed(0.1)
+                .speed(if integer { 1. } else { 0.1 })
                 .try_display_format(format)
                 .expect("component numeric format");
             if let Some([min, max]) = self.range {
                 drag = drag.range(min, max).flags(DragFlags::ALWAYS_CLAMP);
             }
             let changed = drag.build(ui, &mut value) && value.is_finite();
+            if integer {
+                value = value.round();
+            }
             let min = ui.item_rect_min();
             let max = ui.item_rect_max();
             response.item(ui, changed);
@@ -311,6 +317,15 @@ impl AnimatedProperty<'_> {
                 }
                 response.changed = true;
                 response.finished = true;
+            }
+            if integer
+                && (changed || matches!(action, Some(Action::Insert)))
+                && let Some(key) = channels
+                    .get_mut(path)
+                    .and_then(|c| c.keys.iter_mut().find(|k| k.time == time))
+            {
+                key.value = key.value.round();
+                key.interpolation = fold_animation::Interpolation::Hold;
             }
         }
     }
