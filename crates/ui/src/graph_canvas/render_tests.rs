@@ -28,17 +28,6 @@ fn graph_typography_renders_across_zoom_dpi_and_ui_scale() {
         height: 768,
         depth_or_array_layers: 1,
     };
-    let texture = device.create_texture(&wgpu::TextureDescriptor {
-        label: Some("node typography review"),
-        size,
-        mip_level_count: 1,
-        sample_count: 1,
-        dimension: wgpu::TextureDimension::D2,
-        format: wgpu::TextureFormat::Rgba8Unorm,
-        usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
-        view_formats: &[],
-    });
-    let view = texture.create_view(&Default::default());
     std::fs::create_dir_all("/tmp/fold-node-ui").unwrap();
     let mut surfaces = Vec::new();
     for (name, width, dpi, scale, wheel) in [
@@ -51,7 +40,36 @@ fn graph_typography_renders_across_zoom_dpi_and_ui_scale() {
         ("eight-nodes", 1000., 1., 1., 0.),
         ("settings", 640., 1., 1., 0.),
         ("settings-narrow", 440., 1., 1., 0.),
+        ("settings-application", 640., 1., 1., 0.),
+        ("settings-application-narrow", 440., 1., 1., 0.),
+        ("menu-file", 1024., 1., 1., 0.),
+        ("menu-file-narrow", 440., 1., 1., 0.),
+        ("menu-edit", 1024., 1., 1., 0.),
+        ("menu-workspace", 1024., 1., 1., 0.),
+        ("menu-unsaved", 440., 1., 1., 0.),
     ] {
+        if std::env::var("FOLD_UI_REVIEW_FILTER").is_ok_and(|prefix| !name.starts_with(&prefix)) {
+            continue;
+        }
+        let size = wgpu::Extent3d {
+            width: if name.starts_with("menu") {
+                width as u32
+            } else {
+                1024
+            },
+            ..size
+        };
+        let texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("node typography review"),
+            size,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
+            view_formats: &[],
+        });
+        let view = texture.create_view(&Default::default());
         let mut graph = Context::new();
         graph
             .graph
@@ -82,10 +100,33 @@ fn graph_typography_renders_across_zoom_dpi_and_ui_scale() {
         }
         let mut settings = crate::settings::Settings::new(fonts.clone(), None);
         settings.open = name.starts_with("settings");
+        settings.application_category = name.starts_with("settings-application");
+        settings.application_draft.automatic = false;
+        settings.adapter = "NVIDIA GeForce GTX 1070".into();
+        let mut project_menu = crate::project_menu::ProjectMenu::default();
+        let mut workspace_menu = crate::workspace_presets::Menu::default();
+        workspace_menu.active = Some("Editing".into());
+        settings.preferences.workspaces.insert(
+            "Editing".into(),
+            serde_json::to_value(fold_platform::workspace::Workspace::default()).unwrap(),
+        );
+        let mut host = MenuHost::default();
+        host.state.dirty = true;
+        host.state.can_undo = true;
+        if name == "menu-unsaved" {
+            project_menu.request(crate::project_menu::Action::Quit, &mut host);
+        }
         let mut canvas = GraphCanvas::default();
         canvas.initialize(&context, Some(&fonts));
         context.style_mut().set_font_scale_main(scale);
-        context.io_mut().set_display_size([1024. / dpi, 768. / dpi]);
+        context.io_mut().set_display_size([
+            if name.starts_with("menu") {
+                width
+            } else {
+                1024. / dpi
+            },
+            768. / dpi,
+        ]);
         context.io_mut().set_display_framebuffer_scale([dpi; 2]);
         context.io_mut().set_delta_time(1. / 60.);
         for frame in 0..35 {
@@ -97,9 +138,39 @@ fn graph_typography_renders_across_zoom_dpi_and_ui_scale() {
             if frame == 20 && wheel != 0. {
                 context.io_mut().add_mouse_wheel_event([0., wheel]);
             }
+            if name.starts_with("menu") && name != "menu-unsaved" {
+                if frame < 2 {
+                    context
+                        .io_mut()
+                        .add_key_event(imgui::Key::Escape, frame == 0);
+                }
+                context.io_mut().add_mouse_pos_event([-100., -100.]);
+            }
             settings.prepare_frame(&mut context);
             let ui = context.frame();
-            if name.starts_with("settings") {
+            if name.starts_with("menu") {
+                ui.main_menu_bar(|| {
+                    if frame == 10 && name != "menu-unsaved" {
+                        ui.open_popup(if name == "menu-edit" {
+                            "Edit"
+                        } else if name == "menu-workspace" {
+                            "Workspace"
+                        } else {
+                            "File"
+                        });
+                    }
+                    project_menu.menus(ui, &mut host, &["/projects/Opening titles.fold".into()]);
+                    workspace_menu.draw(ui, Some(&settings));
+                    if let Some(_menu) = ui.begin_menu("Panels") {
+                        ui.menu_item("New viewer");
+                    }
+                    if let Some(_menu) = ui.begin_menu("Fold") {
+                        ui.menu_item("Settings…");
+                    }
+                });
+                project_menu.confirmation(ui, &mut host);
+                workspace_menu.dialog(ui, Some(&settings));
+            } else if name.starts_with("settings") {
                 ui.window("Settings##fold.settings")
                     .position([0.; 2], imgui::Condition::Always)
                     .size([width, 560.], imgui::Condition::Always)
@@ -164,9 +235,10 @@ fn graph_typography_renders_across_zoom_dpi_and_ui_scale() {
         }
         let zoom = super::scale(&canvas) / 100.;
         eprintln!("{name}: zoom {zoom:.3}, UI scale {scale}, DPI {dpi}");
+        let row_bytes = (size.width * 4).div_ceil(256) * 256;
         let buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: None,
-            size: 1024 * 768 * 4,
+            size: u64::from(row_bytes) * u64::from(size.height),
             usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
             mapped_at_creation: false,
         });
@@ -177,7 +249,7 @@ fn graph_typography_renders_across_zoom_dpi_and_ui_scale() {
                 buffer: &buffer,
                 layout: wgpu::TexelCopyBufferLayout {
                     offset: 0,
-                    bytes_per_row: Some(4096),
+                    bytes_per_row: Some(row_bytes),
                     rows_per_image: None,
                 },
             },
@@ -205,14 +277,33 @@ fn graph_typography_renders_across_zoom_dpi_and_ui_scale() {
                 "{name}: node labels disappeared ({bright_text} bright pixels)"
             );
         }
-        let mut ppm = b"P6\n1024 768\n255\n".to_vec();
-        for pixel in data.chunks_exact(4) {
-            ppm.extend_from_slice(&pixel[..3]);
+        let mut ppm = format!("P6\n{} {}\n255\n", size.width, size.height).into_bytes();
+        for row in data.chunks_exact(row_bytes as usize) {
+            for pixel in row[..size.width as usize * 4].chunks_exact(4) {
+                ppm.extend_from_slice(&pixel[..3]);
+            }
         }
         std::fs::write(format!("/tmp/fold-node-ui/{name}.ppm"), ppm).unwrap();
     }
     assert!(
-        surfaces.last().unwrap() > &(surfaces[0] * 8),
+        surfaces.is_empty() || surfaces.last().unwrap() > &(surfaces[0] * 8),
         "higher density must allocate higher-resolution glyphs: {surfaces:?}"
     );
+}
+
+#[derive(Default)]
+struct MenuHost {
+    state: fold_platform::desktop::DesktopState,
+}
+impl fold_platform::desktop::DesktopClient for MenuHost {
+    fn state(&self) -> &fold_platform::desktop::DesktopState {
+        &self.state
+    }
+    fn poll(&mut self) {}
+    fn command(&mut self, _: fold_platform::desktop::DesktopCommand) {}
+    fn request_preview(&mut self, _: fold_platform::desktop::PreviewKey) {}
+    fn cancel_preview(&mut self) {}
+    fn take_preview(&mut self) -> Option<fold_platform::desktop::PreviewResult> {
+        None
+    }
 }

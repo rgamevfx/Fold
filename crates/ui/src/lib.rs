@@ -7,6 +7,7 @@ mod native_probe;
 #[cfg(feature = "native-probe")]
 mod native_shared_probe;
 mod preview;
+mod project_menu;
 mod review;
 pub mod sdk;
 mod settings;
@@ -16,6 +17,7 @@ mod target_selector;
 mod transport;
 mod viewer_navigation;
 mod viewer_source;
+mod workspace_presets;
 mod workspace_store;
 
 // Dear ImGui permits only one owning thread at a time, including headless tests.

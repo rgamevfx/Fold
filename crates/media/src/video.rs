@@ -151,7 +151,7 @@ pub fn inspect(path: &Path, cancel: &Cancel) -> Result<VideoSource, String> {
 }
 
 pub(crate) fn probe(path: &Path, cancel: &Cancel) -> Result<VideoInfo, String> {
-    let output = tempfile::NamedTempFile::new().map_err(|e| e.to_string())?;
+    let output = crate::scratch::file().map_err(|e| e.to_string())?;
     let mut cmd = base("ffprobe");
     cmd.args(["-threads", "1", "-select_streams", "v", "-show_streams", "-show_frames", "-show_format", "-show_entries", "stream=codec_name,pix_fmt,width,height,r_frame_rate,time_base,start_pts,duration_ts,color_space,color_transfer,color_primaries,color_range,sample_aspect_ratio,field_order,chroma_location:stream_side_data=rotation:frame=best_effort_timestamp,pkt_duration,duration:format=format_name", "-of", "json"])
         .arg(path).stdout(Stdio::from(output.reopen().map_err(|e| e.to_string())?));

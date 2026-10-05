@@ -1104,6 +1104,7 @@ dependencies = [
  "fold-render",
  "serde",
  "serde_json",
+ "tempfile",
 ]
 
 [[package]]

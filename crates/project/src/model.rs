@@ -79,6 +79,19 @@ impl CommittedSnapshot {
     }
 }
 impl Snapshot {
+    /// Authored equality ignores publication revisions, including undo/redo.
+    pub fn same_content(&self, other: &Self) -> bool {
+        let a = self.state();
+        let b = other.state();
+        a.documents == b.documents
+            && a.assets == b.assets
+            && a.organization == b.organization
+            && a.settings == b.settings
+            && a.environment == b.environment
+            && a.extensions == b.extensions
+            && a.archive_extensions == b.archive_extensions
+    }
+
     pub fn state(&self) -> &ProjectState {
         &self.0
     }

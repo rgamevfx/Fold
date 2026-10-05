@@ -47,7 +47,9 @@ pub(crate) struct Shell {
     pub(crate) workspace: Workspace,
     layout: DockLayout,
     reset_layout: bool,
-    project_path: String,
+    pub(crate) project_menu: crate::project_menu::ProjectMenu,
+    workspace_menu: crate::workspace_presets::Menu,
+    default_workspace: Workspace,
     export_path: String,
     transports: BTreeMap<PanelInstanceId, crate::transport::Transport>,
     start: i32,
@@ -102,7 +104,9 @@ impl Shell {
             viewers: Default::default(),
             layout: DockLayout::tabs(std::iter::empty::<&WindowKey>()),
             reset_layout: false,
-            project_path: "/tmp/fold-project.fold".into(),
+            project_menu: Default::default(),
+            workspace_menu: Default::default(),
+            default_workspace: Workspace::default(),
             export_path: "/tmp/fold-export.mp4".into(),
             transports: Default::default(),
             start: 0,
@@ -129,6 +133,7 @@ impl Shell {
         };
         shell.sync_instances();
         shell.rebuild_layout();
+        shell.default_workspace = shell.workspace.preset();
         shell
     }
     fn sync_instances(&mut self) {
@@ -296,6 +301,23 @@ impl Shell {
         context: &mut dear_imgui_rs::Context,
         client: &mut dyn DesktopClient,
     ) {
+        if let (Some(settings), Some(path)) = (&mut self.settings, &client.state().project_path) {
+            if settings.ready && settings.preferences.recent.first() != Some(path) {
+                settings.preferences.recent.retain(|p| p != path);
+                settings.preferences.recent.insert(0, path.clone());
+                settings.preferences.recent.truncate(20);
+                settings.changed();
+            }
+        }
+        if let Some(settings) = &self.settings {
+            if settings.ready {
+                self.workspace_menu.active = self
+                    .workspace
+                    .preset_name
+                    .clone()
+                    .filter(|name| settings.preferences.workspaces.contains_key(name));
+            }
+        }
         if self.epoch != client.workspace_epoch() {
             self.epoch = client.workspace_epoch();
             if let Some(project) = client.workspace_project() {
@@ -306,14 +328,23 @@ impl Shell {
                 self.saved.clear();
                 self.restoring = client.workspace_restore();
                 if self.restoring {
+                    self.apply_preset(self.workspace.preset(), context, client, false);
+                    self.workspace_menu.active = None;
                     self.store.load(project);
                     self.bootstrap = true;
                     self.last_host_navigation = 0;
-                    for editor in self.workspace.editors.values_mut() {
-                        editor.navigation.clear();
-                        editor.selection = Default::default();
-                    }
                 }
+            } else {
+                if !self.workspace.project.is_empty() {
+                    self.store.save(self.workspace.clone());
+                }
+                let preset = self.workspace.preset();
+                self.apply_preset(preset, context, client, false);
+                self.workspace.project.clear();
+                self.workspace_menu.active = None;
+                self.restoring = false;
+                self.bootstrap = true;
+                self.last_host_navigation = 0;
             }
         }
         while let Some((project, result)) = self.store.take() {
@@ -326,6 +357,7 @@ impl Shell {
                         client.command(DesktopCommand::CloseViewer(id));
                     }
                     self.workspace = workspace;
+                    self.workspace_menu.active = self.workspace.preset_name.clone();
                     self.bootstrap = false;
                     self.last_host_navigation = client.state().navigation_event;
                     self.editors.clear();
@@ -339,6 +371,7 @@ impl Shell {
             }
             self.restoring = false;
         }
+        self.preset_frame(context, client);
         if !self.restoring
             && !self.workspace.project.is_empty()
             && self.last_save.elapsed().as_millis() >= 500
@@ -619,7 +652,17 @@ impl Shell {
             self.end = output.map_or(0, |(_, frames)| frames as i32);
             self.delivery_output = output;
         }
-        if !ui.io().want_text_input() && ui.io().key_ctrl() && ui.is_key_pressed(Key::Z) {
+        if !ui.io().want_text_input()
+            && !ui.is_popup_open_with_flags("", dear_imgui_rs::PopupQueryFlags::ANY_POPUP)
+            && !state.transient
+            && ui.io().key_ctrl()
+            && ui.is_key_pressed(Key::Z)
+            && if ui.io().key_shift() {
+                state.can_redo
+            } else {
+                state.can_undo
+            }
+        {
             client.command(if ui.io().key_shift() {
                 DesktopCommand::Redo
             } else {
@@ -688,13 +731,13 @@ impl Shell {
         let mut reveal_animation = false;
         let mut reveal_network = false;
         ui.main_menu_bar(|| {
-            if let Some(_menu) = ui.begin_menu("Fold") {
-                if ui.menu_item("Settings…")
-                    && let Some(settings) = &mut self.settings
-                {
-                    settings.show();
-                }
-            }
+            let recent = self
+                .settings
+                .as_ref()
+                .map(|s| s.preferences.recent.as_slice())
+                .unwrap_or(&[]);
+            self.project_menu.menus(ui, client, recent);
+            self.workspace_menu.draw(ui, self.settings.as_ref());
             if let Some(_menu) = ui.begin_menu("Panels") {
                 for panel in self
                     .panels
@@ -730,19 +773,17 @@ impl Shell {
                 if ui.menu_item("New viewer") {
                     add_viewer = true;
                 }
-                if ui.menu_item("Reset layout") {
-                    self.reset_layout = true;
+            }
+            if let Some(_menu) = ui.begin_menu("Fold") {
+                if ui.menu_item("Settings…")
+                    && let Some(settings) = &mut self.settings
+                {
+                    settings.show();
                 }
             }
-            ui.same_line();
-            if ui.button("Undo") {
-                client.command(DesktopCommand::Undo);
-            }
-            ui.same_line();
-            if ui.button("Redo") {
-                client.command(DesktopCommand::Redo);
-            }
         });
+        self.project_menu.confirmation(ui, client);
+        self.workspace_menu.dialog(ui, self.settings.as_ref());
         if let Some(settings) = &mut self.settings {
             if ui.is_key_down(Key::ModCtrl) && ui.is_key_pressed(Key::Comma) {
                 settings.show();
@@ -1177,16 +1218,6 @@ impl Shell {
                 .build(|| ui.text_wrapped("Open or create a document in Project."));
         }
         ui.window(&self.delivery).build(|| {
-            ui.input_text("Project path", &mut self.project_path)
-                .build();
-            if ui.button("Save") {
-                client.command(DesktopCommand::Save(self.project_path.clone().into()));
-            }
-            ui.same_line();
-            if ui.button("Open") {
-                client.command(DesktopCommand::Open(self.project_path.clone().into()));
-            }
-            ui.separator();
             if let Some((document, frames)) = self.delivery_output {
                 ui.text_wrapped(format!(
                     "Delivery: {} · {frames} frames",
@@ -1927,3 +1958,6 @@ mod docking_tests;
 #[cfg(test)]
 #[path = "shell_tests.rs"]
 mod tests;
+
+#[path = "shell_workspaces.rs"]
+mod presets;

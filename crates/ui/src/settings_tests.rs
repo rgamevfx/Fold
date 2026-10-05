@@ -56,7 +56,9 @@ fn settings_draw_at_normal_and_narrow_sizes_without_changes() {
     context.io_mut().set_delta_time(1. / 60.);
     let mut settings = Settings::new(fonts.clone(), None);
     settings.open = true;
-    for width in [640., 440.] {
+    for (width, application) in [(640., false), (440., false), (640., true), (440., true)] {
+        settings.application_category = application;
+        settings.application_draft.automatic = false;
         for _ in 0..3 {
             settings.prepare_frame(&mut context);
             let ui = context.frame();

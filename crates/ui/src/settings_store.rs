@@ -1,16 +1,44 @@
 //! One coalescing worker for application preferences; no I/O during UI redraw.
 use crate::sdk::appearance::Appearance;
 use serde_json::{Value, json};
-use std::{path::PathBuf, sync::mpsc, thread::JoinHandle};
+use std::{collections::BTreeMap, path::PathBuf, sync::mpsc, thread::JoinHandle};
+
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+pub(crate) struct Preferences {
+    pub ui: Appearance,
+    pub application: fold_platform::application::Application,
+    pub recent: Vec<PathBuf>,
+    pub workspaces: BTreeMap<String, Value>,
+}
+impl Preferences {
+    fn validate(&self) -> Result<(), String> {
+        self.ui.validate()?;
+        self.application.validate()?;
+        if self.recent.len() > 20 || self.workspaces.len() > 32 {
+            return Err("Too many saved preferences".into());
+        }
+        for (name, value) in &self.workspaces {
+            if name.trim().is_empty() || name.len() > 128 {
+                return Err("Invalid workspace name".into());
+            }
+            fold_platform::workspace::Workspace::decode(
+                &serde_json::to_vec(value).map_err(|e| e.to_string())?,
+                "",
+            )?;
+        }
+        Ok(())
+    }
+}
 
 pub(crate) enum Event {
-    Loaded(Result<Appearance, String>),
+    Loaded(Result<Preferences, String>),
     Saved(Result<(), String>),
 }
 pub(crate) struct Store {
-    sender: Option<mpsc::SyncSender<Appearance>>,
+    sender: Option<mpsc::SyncSender<Preferences>>,
     result: mpsc::Receiver<Event>,
-    pending: Option<Appearance>,
+    pending: Option<Preferences>,
     thread: Option<JoinHandle<()>>,
 }
 pub(crate) fn config_path() -> Option<PathBuf> {
@@ -20,13 +48,15 @@ pub(crate) fn config_path() -> Option<PathBuf> {
         .or_else(|| std::env::var_os("HOME").map(|v| PathBuf::from(v).join(".config")))
         .map(|p| p.join("fold/ui.json"))
 }
-fn load(path: &std::path::Path) -> Result<(Appearance, Value), String> {
+pub(crate) fn load(path: &std::path::Path) -> Result<(Preferences, Value), String> {
     match std::fs::metadata(path) {
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-            return Ok((Appearance::default(), json!({"version": 1})));
+            return Ok((Preferences::default(), json!({"version": 1})));
         }
         Err(e) => return Err(e.to_string()),
-        Ok(m) if m.len() > 64 * 1024 => return Err("UI settings exceed the size limit".into()),
+        Ok(m) if m.len() > 16 * 1024 * 1024 => {
+            return Err("UI settings exceed the size limit".into());
+        }
         Ok(_) => {}
     }
     let doc: Value = serde_json::from_slice(&std::fs::read(path).map_err(|e| e.to_string())?)
@@ -34,8 +64,7 @@ fn load(path: &std::path::Path) -> Result<(Appearance, Value), String> {
     if doc.get("version").and_then(Value::as_u64) != Some(1) {
         return Err("Unsupported UI settings version".into());
     }
-    let value: Appearance = serde_json::from_value(doc.get("ui").cloned().unwrap_or(json!({})))
-        .map_err(|e| e.to_string())?;
+    let value: Preferences = serde_json::from_value(doc.clone()).map_err(|e| e.to_string())?;
     value.validate()?;
     Ok((value, doc))
 }
@@ -48,11 +77,17 @@ fn merge(target: &mut Value, source: Value) {
         *target = source;
     }
 }
-fn save(path: &std::path::Path, doc: &mut Value, value: Appearance) -> Result<(), String> {
+fn save(path: &std::path::Path, doc: &mut Value, value: Preferences) -> Result<(), String> {
     value.validate()?;
-    merge(doc, json!({"version": 1, "ui": value}));
+    // Whole maps must replace so rename/delete do not resurrect old presets.
+    doc["workspaces"] = serde_json::to_value(&value.workspaces).map_err(|e| e.to_string())?;
+    doc["recent"] = serde_json::to_value(&value.recent).map_err(|e| e.to_string())?;
+    merge(
+        doc,
+        json!({"version": 1, "ui": value.ui, "application": value.application}),
+    );
     let bytes = serde_json::to_vec_pretty(doc).map_err(|e| e.to_string())?;
-    if bytes.len() > 64 * 1024 {
+    if bytes.len() > 16 * 1024 * 1024 {
         return Err("UI settings exceed the size limit".into());
     }
     std::fs::create_dir_all(
@@ -98,7 +133,7 @@ impl Store {
             thread: Some(thread),
         }
     }
-    pub(crate) fn save(&mut self, value: Appearance) {
+    pub(crate) fn save(&mut self, value: Preferences) {
         self.pending = Some(value);
         self.flush();
     }

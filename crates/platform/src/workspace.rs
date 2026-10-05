@@ -225,6 +225,8 @@ pub struct Workspace {
     pub monitored_viewer: Option<PanelInstanceId>,
     #[serde(default)]
     monitor_initialized: bool,
+    #[serde(default)]
+    pub preset_name: Option<String>,
     pub layout: String,
     next_id: u64,
 }
@@ -243,6 +245,7 @@ impl Default for Workspace {
             inspector_viewer: None,
             monitored_viewer: None,
             monitor_initialized: false,
+            preset_name: None,
             layout: String::new(),
             next_id: 1,
         }
@@ -579,6 +582,30 @@ impl Workspace {
             }
         }
         self.reconcile();
+    }
+    /// Portable panel arrangement: no project targets, selections, clocks or locks.
+    pub fn preset(&self) -> Self {
+        let mut preset = self.clone();
+        preset.project.clear();
+        preset.preset_name = None;
+        preset.inspector_lock = None;
+        for editor in preset.editors.values_mut() {
+            editor.navigation.clear();
+            editor.selection = Default::default();
+            editor.mapped_navigation = false;
+        }
+        for viewer in preset.viewers.values_mut() {
+            if matches!(viewer.binding, ViewerBinding::Pinned(_)) {
+                viewer.binding = ViewerBinding::Unbound;
+            }
+            viewer.last_output = None;
+            viewer.last_editor = None;
+            viewer.editor = None;
+            viewer.time = Time::ZERO;
+            viewer.range = Default::default();
+            viewer.playing = false;
+        }
+        preset
     }
     pub fn decode(bytes: &[u8], project: &str) -> Result<Self, String> {
         if bytes.len() > 2 * 1024 * 1024 {

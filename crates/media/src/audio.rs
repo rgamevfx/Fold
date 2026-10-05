@@ -57,7 +57,7 @@ pub fn has_audio(path: &Path, cancel: &Cancel) -> Result<bool, String> {
     has_audio_mode(path, cancel, false)
 }
 fn has_audio_mode(path: &Path, cancel: &Cancel, interactive: bool) -> Result<bool, String> {
-    let probe = tempfile::NamedTempFile::new().map_err(|e| e.to_string())?;
+    let probe = crate::scratch::file().map_err(|e| e.to_string())?;
     let mut cmd = command("ffprobe");
     cmd.args([
         "-select_streams",
@@ -118,7 +118,7 @@ impl AudioDecoder {
                     .map_err(|e| e.to_string())?
                     .len();
                 wave_reservation = Some(crate::budget::WAVE_COPY.reserve(source_bytes)?);
-                let mut copy = tempfile::NamedTempFile::new().map_err(|e| e.to_string())?;
+                let mut copy = crate::scratch::file().map_err(|e| e.to_string())?;
                 let mut input = std::fs::File::open(&source.path).map_err(|e| e.to_string())?;
                 let mut buffer = [0; 65536];
                 let mut size = 0u64;
@@ -148,7 +148,7 @@ impl AudioDecoder {
         // to actual bytes after completion; temporary output counts as disk use.
         let maximum = (MAX_AUDIO_SAMPLES + u64::from(AUDIO_RATE)) * 8;
         let reservation = crate::budget::PCM.reserve(maximum)?;
-        let file = tempfile::NamedTempFile::new().map_err(|e| e.to_string())?;
+        let file = crate::scratch::file().map_err(|e| e.to_string())?;
         // Absent audio is silence; corrupt media is still an error.
         if has_audio_mode(&path, cancel, self.interactive)? {
             let mut cmd = command("ffmpeg");

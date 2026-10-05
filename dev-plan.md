@@ -387,3 +387,13 @@ Phases 34–40 are complete per user acceptance. Validation evidence and unverif
   - Drop onto groups to add children, beside rows to order them, or at Scene root to unparent. Preserve current placement, retain live procedural references, highlight targets and expand groups on hover.
   - One undo step per drop; Escape cancels. Reject cycles and locked destinations. Focused mouse, hierarchy, serialization, undo and Badge/Duplicator tests pass.
   - Release desktop build and native-renderer normal/narrow captures pass. Updated Badge demo launched on GTX 1070. Validation and native-interaction limits: [phase 40](docs/phase-40.md).
+
+## Project lifecycle, workspace presets and application preferences
+
+- [x] 41. Replace scaffold project controls with application menus and machine preferences.
+  - File owns New/Open/Open Recent/Save/Save As/Close/Import/Quit; Edit owns Undo/Redo. Preserve text-entry shortcuts, disable unavailable history actions, show unsaved project state, and guard replacement/quit with Save/Discard/Cancel. Native choosers and archive I/O run off the UI thread; a failed/cancelled save or an edit during saving must not dismiss the guard.
+  - Workspace owns named portable presets, update/restore/rename/delete and reset to default. Reuse existing project sidecars for session restoration, while presets exclude project targets, selections, clocks and locks. Store preferences outside projects and preserve unknown fields.
+  - Add Application alongside UI in Settings: conservative automatic defaults or manual shared GPU/viewer-cache/CPU-image budgets, detected GPU, configurable temporary-media cache folder and protected viewer-cache clearing. Apply budgets/folder on restart and label their actual scope. GPU viewer caching remains GPU-only; persistent disk viewer caching is deferred.
+  - Surface-specific export design is explicitly deferred to a separate task. Existing Delivery export controls remain unchanged.
+  - Implemented and verified: initial UI checkpoint 81 passing tests; final focused checks include 19 shell/preset tests, six Settings/store tests, two menu-guard tests, two application lifecycle tests, and platform/media budget and preset checks. Explicit real-backend normal/narrow rendering and GPU cache-lifetime checks pass on Vulkan llvmpipe. Release desktop build, touched-file formatting and diff checks pass.
+  - Evidence, reviewed captures, resource-budget scope and follow-ups: [phase 41](docs/phase-41.md). Native file-chooser/window-close interaction remains unverified; workspace-wide checks and Clippy are deferred. Autosave/recovery and action-specific history labels remain separate follow-ups.

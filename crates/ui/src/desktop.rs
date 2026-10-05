@@ -161,7 +161,13 @@ impl ApplicationHandler for App {
             desktop.window.request_redraw();
         }
         match event {
-            WindowEvent::CloseRequested => event_loop.exit(),
+            WindowEvent::CloseRequested => {
+                desktop
+                    .shell
+                    .project_menu
+                    .request(crate::project_menu::Action::Quit, desktop.client.as_mut());
+                desktop.window.request_redraw();
+            }
             WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged { .. } => desktop.resize(),
             WindowEvent::HoveredFile(_) => desktop.external_drag = true,
             WindowEvent::HoveredFileCancelled => desktop.external_drag = false,
@@ -198,6 +204,9 @@ impl ApplicationHandler for App {
                         .files_dropped(desktop.pointer, &paths, desktop.client.as_mut());
                 }
                 let result = desktop.draw();
+                if desktop.shell.project_menu.quit {
+                    event_loop.exit();
+                }
                 event_loop.set_control_flow(ControlFlow::WaitUntil(desktop.next_redraw));
                 #[cfg(feature = "native-probe")]
                 if result.is_ok() && desktop.probe_done {
@@ -244,6 +253,7 @@ struct Desktop {
     queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
     window: Arc<Window>,
+    title: String,
     preview: PreviewHost,
     client: Box<dyn DesktopClient>,
     #[cfg(feature = "native-probe")]
@@ -290,7 +300,23 @@ impl Desktop {
                         | wgpu::Features::TEXTURE_COMPRESSION_BC),
                 ..Default::default()
             }))?;
+        // Read once before starting the desktop; redraw/persistence remain worker-only.
+        let preferences = crate::settings_store::config_path()
+            .and_then(|path| crate::settings_store::load(&path).ok())
+            .map(|(value, _)| value)
+            .unwrap_or_default();
+        let mut application = preferences.application.clone();
+        let mut startup_error = None;
+        if let Err(error) = application.configure_media() {
+            startup_error = Some(format!(
+                "Cache folder unavailable: {error}. Using default application settings."
+            ));
+            application = Default::default();
+            application.configure_media()?;
+        }
+        let budgets = application.effective();
         let mut preview_host = PreviewHost::new();
+        preview_host.set_cache_budget(budgets.viewer_mib as usize * 1024 * 1024);
         // One host budget/device for scene evaluation and held display leases.
         // CPU is an explicit startup fallback, never a silent per-effect bypass.
         match std::env::var("FOLD_RENDER_BACKEND").as_deref() {
@@ -299,7 +325,7 @@ impl Desktop {
                 let host = fold_platform::gpu::Host::from_device(
                     device.clone(),
                     queue.clone(),
-                    fold_platform::gpu::Host::DEFAULT_BUDGET,
+                    u64::from(budgets.gpu_mib) * 1024 * 1024,
                 )?;
                 preview_host.attach_host(&host);
                 preview.set_render_host(host);
@@ -356,6 +382,13 @@ impl Desktop {
                 crate::settings_store::config_path(),
             )),
         ));
+        if let Some(settings) = &mut shell.settings {
+            settings.active_application = application;
+            settings.adapter = adapter.get_info().name;
+            if let Some(error) = startup_error {
+                settings.report_error(error);
+            }
+        }
         shell.typography = Some(typography);
         #[cfg(feature = "native-probe")]
         let shell = {
@@ -383,6 +416,7 @@ impl Desktop {
             #[cfg(target_os = "linux")]
             drop_pointer: native_drop::DropPointer::new(&window),
             preview: preview_host,
+            title: String::new(),
             client: preview,
             #[cfg(feature = "native-probe")]
             probe,
@@ -438,11 +472,35 @@ impl Desktop {
             .prepare_frame(&mut self.context, &self.window)?;
         self.shell
             .workspace_frame(&mut self.context, self.client.as_mut());
+        let state = self.client.state();
+        let name = state
+            .project_path
+            .as_ref()
+            .and_then(|p| p.file_name())
+            .map(|n| n.to_string_lossy())
+            .unwrap_or_else(|| "Untitled".into());
+        let title = format!("{}{} — Fold", name, if state.dirty { " *" } else { "" });
+        if title != self.title {
+            self.window.set_title(&title);
+            self.title = title;
+        }
         self.shell.prepare_frame(&mut self.context);
         let ui = self.context.frame();
+        if let Some(settings) = &mut self.shell.settings {
+            settings.cache_usage = self.preview.cache_usage();
+        }
         self.shell.controls(ui, self.client.as_mut())?;
         #[cfg(feature = "native-probe")]
         let controls_done = std::time::Instant::now();
+        if self
+            .shell
+            .settings
+            .as_mut()
+            .is_some_and(|s| std::mem::take(&mut s.clear_cache))
+        {
+            self.preview
+                .clear_unused(&mut self.renderer, self.client.as_mut())?;
+        }
         let demands = self.shell.keys(self.client.as_ref());
         self.preview.select_viewers(&demands, self.client.as_mut());
         let actions = self.shell.take_review_actions();

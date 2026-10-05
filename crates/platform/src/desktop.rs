@@ -72,6 +72,15 @@ pub enum TransportAction {
 }
 #[derive(Clone, Debug)]
 pub struct DesktopState {
+    pub project_path: Option<PathBuf>,
+    pub dirty: bool,
+    pub can_undo: bool,
+    pub can_redo: bool,
+    pub file_busy: bool,
+    pub project_error: Option<String>,
+    pub file_result_serial: u64,
+    /// Advances only after a successful user save, including Save As.
+    pub save_serial: u64,
     pub color_choices: crate::color::Choices,
     pub selection: Selection,
     pub navigation: Vec<ViewLocation>,
@@ -96,6 +105,14 @@ pub struct DesktopState {
 impl Default for DesktopState {
     fn default() -> Self {
         Self {
+            project_path: None,
+            dirty: false,
+            can_undo: false,
+            can_redo: false,
+            file_busy: false,
+            project_error: None,
+            file_result_serial: 0,
+            save_serial: 0,
             color_choices: Default::default(),
             selection: Selection::default(),
             navigation: vec![],
@@ -199,6 +216,9 @@ pub enum DesktopCommand {
     Play,
     Pause,
     Seek(u32),
+    NewProject,
+    ChooseOpen,
+    ChooseSave,
     Save(PathBuf),
     Open(PathBuf),
     /// Load on a worker and navigate to the first document of a workspace type.

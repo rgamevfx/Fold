@@ -109,7 +109,7 @@ pub fn inspect_linked(path: &Path, cancel: &Cancel) -> Result<LinkedSource, Stri
             serde_json::Value::Null,
         )
     } else {
-        let output = tempfile::NamedTempFile::new().map_err(|e| e.to_string())?;
+        let output = crate::scratch::file().map_err(|e| e.to_string())?;
         let mut command = Command::new("ffprobe");
         command
             .args([

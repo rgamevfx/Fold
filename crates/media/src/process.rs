@@ -119,7 +119,7 @@ impl Process {
     ) -> Result<Self, String> {
         cancel.check()?;
         let slot = CAPACITY.reserve(audio)?;
-        let log = tempfile::NamedTempFile::new().map_err(|e| e.to_string())?;
+        let log = crate::scratch::file().map_err(|e| e.to_string())?;
         command.stderr(Stdio::from(log.reopen().map_err(|e| e.to_string())?));
         let mut child = command
             .spawn()

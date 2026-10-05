@@ -4,6 +4,7 @@ use std::sync::Arc;
 pub mod audio;
 pub mod budget;
 mod decoded;
+pub mod scratch;
 pub use decoded::{PlaneLayout, YuvEncoding, YuvFrame};
 pub mod exr;
 pub mod ingest;

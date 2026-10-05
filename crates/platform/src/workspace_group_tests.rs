@@ -235,3 +235,54 @@ fn legacy_follow_bindings_migrate_to_separate_groups_without_changing_time_or_pi
     invalid["viewers"][x.0.to_string()]["group"] = serde_json::json!("E");
     assert!(Workspace::decode(&serde_json::to_vec(&invalid).unwrap(), &w.project).is_err());
 }
+
+#[test]
+fn portable_presets_remove_all_project_bindings_but_keep_layout_and_links() {
+    use crate::desktop::ViewLocation;
+    use fold_foundation::{DocumentId, Time};
+    let mut workspace = Workspace::default();
+    workspace.project = "/project.fold".into();
+    workspace.layout = "layout".into();
+    let editor = workspace.add_editor("editor", "kind");
+    workspace
+        .editors
+        .get_mut(&editor)
+        .unwrap()
+        .bind(ViewLocation {
+            document: DocumentId::new(),
+            time: Time::new(5, 24).unwrap(),
+            label: "Private document".into(),
+        });
+    workspace.record_selection(editor);
+    workspace.toggle_inspector_lock();
+    let output = workspace.editors[&editor].output().unwrap();
+    let viewer = workspace.add_viewer(ViewerInstance {
+        binding: ViewerBinding::Pinned(output.clone()),
+        last_output: Some(output),
+        editor: Some(editor),
+        playing: true,
+        ..Default::default()
+    });
+    let preset = workspace.preset();
+    assert!(preset.project.is_empty());
+    assert_eq!(preset.layout, "layout");
+    assert!(preset.editors[&editor].navigation.is_empty());
+    assert!(preset.editors[&editor].selection.document.is_none());
+    assert!(preset.inspector_lock.is_none());
+    assert_eq!(preset.viewers[&viewer].binding, ViewerBinding::Unbound);
+    assert!(preset.viewers[&viewer].last_output.is_none());
+    assert!(preset.viewers[&viewer].editor.is_none());
+    assert!(!preset.viewers[&viewer].playing);
+    assert_eq!(
+        preset.editors[&editor].group,
+        workspace.editors[&editor].group
+    );
+    let bytes = serde_json::to_vec(&preset).unwrap();
+    assert!(
+        !String::from_utf8(bytes.clone())
+            .unwrap()
+            .contains("Private document")
+    );
+    Workspace::decode(&bytes, "").unwrap();
+    assert!(!workspace.editors[&editor].navigation.is_empty());
+}

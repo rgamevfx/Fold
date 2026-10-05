@@ -9,21 +9,22 @@ use std::sync::{
 pub(crate) struct Budget {
     used: AtomicU64,
     peak: AtomicU64,
-    limit: u64,
+    limit: AtomicU64,
 }
 impl Budget {
     pub const fn new(limit: u64) -> Self {
         Self {
             used: AtomicU64::new(0),
             peak: AtomicU64::new(0),
-            limit,
+            limit: AtomicU64::new(limit),
         }
     }
     pub fn reserve(&'static self, bytes: u64) -> Result<Arc<Lease>, &'static str> {
         let previous = self
             .used
             .fetch_update(Ordering::AcqRel, Ordering::Acquire, |used| {
-                used.checked_add(bytes).filter(|n| *n <= self.limit)
+                used.checked_add(bytes)
+                    .filter(|n| *n <= self.limit.load(Ordering::Acquire))
             })
             .map_err(
                 |_| "aggregate media storage budget exhausted; release unused leases and retry",
@@ -38,7 +39,7 @@ impl Budget {
         Usage {
             bytes: self.used.load(Ordering::Acquire),
             peak: self.peak.load(Ordering::Acquire),
-            budget: self.limit,
+            budget: self.limit.load(Ordering::Acquire),
         }
     }
 }
@@ -134,4 +135,11 @@ pub fn reserve_delivery(bytes: u64) -> Result<Arc<Lease>, &'static str> {
 }
 pub fn reserve_delivery_pcm(bytes: u64) -> Result<Arc<Lease>, &'static str> {
     DELIVERY_PCM.reserve(bytes)
+}
+
+/// Shared CPU image allowance: one third decoded planes, two thirds working images.
+/// Pipe, output, project/history and allocator overhead remain separately bounded.
+pub fn configure_image_memory(bytes: u64) {
+    DECODED.limit.store(bytes / 3, Ordering::Release);
+    WORKING.limit.store(bytes - bytes / 3, Ordering::Release);
 }

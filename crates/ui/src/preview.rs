@@ -492,6 +492,29 @@ impl PreviewHost {
             Preview::Pending
         }
     }
+    pub fn set_cache_budget(&mut self, bytes: usize) {
+        self.cache.budget = bytes;
+    }
+
+    pub fn cache_usage(&self) -> (usize, usize) {
+        (self.cache.bytes, self.cache.budget)
+    }
+
+    pub fn clear_unused(
+        &mut self,
+        renderer: &mut WgpuRenderer,
+        client: &mut dyn DesktopClient,
+    ) -> Result<()> {
+        for id in self.reviews.keys().copied().collect::<Vec<_>>() {
+            self.review_action(id, crate::review::Action::Cancel, client);
+        }
+        self.reviews.clear();
+        while let Some(texture) = self.evict_unused() {
+            renderer.unregister_external_texture(texture.registration)?;
+        }
+        Ok(())
+    }
+
     fn evict_unused(&mut self) -> Option<Texture> {
         let unused = |key: &PreviewKey, texture: &Texture| {
             (self.consumers.is_empty() && Some(key) != self.displayed.as_ref()

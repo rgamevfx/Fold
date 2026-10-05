@@ -160,11 +160,17 @@ fn real_textures_hold_until_replacement_and_remain_protected_under_pressure() {
         host.evict_unused().is_none(),
         "submitted old image and held replacement both stay protected"
     );
+    host.clear_unused(&mut renderer, &mut client).unwrap();
+    assert!(
+        host.cache.peek(&first).is_some(),
+        "in-flight cache entry must survive clear"
+    );
+    assert!(
+        host.cache.peek(&next).is_some(),
+        "displayed image must survive clear"
+    );
     flight.store(0, Ordering::Release);
-    let retired = host.evict_unused().unwrap();
-    renderer
-        .unregister_external_texture(retired.registration)
-        .unwrap();
+    host.clear_unused(&mut renderer, &mut client).unwrap();
     assert!(host.cache.peek(&first).is_none());
     assert!(host.cache.peek(&next).is_some());
     // A result from before a seek may populate cache, but cannot replace the held image.

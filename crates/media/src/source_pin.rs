@@ -61,7 +61,7 @@ pub(crate) fn acquire(source: &VideoSource, cancel: &Cancel) -> Result<Arc<Pinne
         })
         .map_err(|_| "aggregate immutable-source budget exhausted (4 GiB)")?;
     let reservation = Reservation(bytes);
-    let mut file = tempfile::NamedTempFile::new().map_err(|e| e.to_string())?;
+    let mut file = crate::scratch::file().map_err(|e| e.to_string())?;
     let mut hash = Sha256::new();
     let mut buffer = [0; 64 * 1024];
     let mut size = 0;

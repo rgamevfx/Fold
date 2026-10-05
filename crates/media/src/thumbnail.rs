@@ -19,7 +19,7 @@ pub fn thumbnail(
     if inspected.fingerprint != fingerprint || &inspected.metadata.profile != profile {
         return Err("Source changed; relink required".into());
     }
-    let output = tempfile::NamedTempFile::new().map_err(|e| e.to_string())?;
+    let output = crate::scratch::file().map_err(|e| e.to_string())?;
     let mut command = Command::new("ffmpeg");
     command
         .args([
