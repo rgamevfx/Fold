@@ -7,7 +7,7 @@ Operate Fold through its public tools. Use the live catalog, inspected documents
 
 ## Establish the task
 
-1. Discover `sessions`; select the intended project by path and documents. Resolve ambiguity between matching sessions. Connections require Agent → Allow local connections, or launch with `--agent`.
+1. Discover `sessions`; select the intended project by path and documents. Reuse that session throughout the exercise. Before launching a desktop, check for an existing instance; when a release launch is needed, open the requested project in one instance and rediscover it. Resolve ambiguity between matching sessions. Connections require Agent → Allow local connections, or launch with `--agent`.
 2. Read `state`, then scope `catalog` by `method` for request schemas or `type` and `query` for package operations and nodes. Inspect existing targets with JSON pointers and pagination. Poll inspection jobs and read their nested outcome before using the data.
 3. For a visual reference, inspect actual images and multiple animation times. Match cached media to the supplied source before using it. Establish composition, timing, and likely artist edits before construction; resolve whether visible labels, guides, and selection markers belong in the recreation. If the reference is inaccessible, obtain the missing visual evidence rather than inventing its contents.
 
@@ -21,7 +21,7 @@ For Motion objects, text, copies, or group interfaces, read [Motion authoring](r
 
 Build the smallest useful part first: one visible source, its placement, and one driver or published control. Render it before multiplying copies or assembling a large graph. A successful validation proves structure, not appearance or editability.
 
-Design around the artist's next edit. Keep content, distribution, and drivers independently editable; reuse sources across copies. Prefer shipped tools and editable groups. Name scene objects and expose useful controls with units, sections, and sensible defaults. Keep internals inside groups and distinguish whole-object from per-copy changes. Change instance inputs for local revisions; edit shared definitions only when all instances should change.
+Design around the artist's next edit. Keep content, distribution, and drivers independently editable; reuse sources across copies. Prefer shipped tools and editable groups. Name scene objects and expose useful controls with units, sections, and sensible defaults. Keep internals inside groups and distinguish whole-object from per-copy changes. Make referenced sources reachable from the artist-facing controls, including hidden text/shape targets. Put key moments on the layer's native animation track. Change instance inputs for local revisions; edit shared definitions only when all instances should change.
 
 ## Commit against observed state
 
@@ -38,6 +38,7 @@ On a conflict, refresh state **and affected content**, reconcile the user's chan
 - Use `viewers` and `capture` to inspect the displayed result; check identities and stale status. Captures exclude chrome, overlays, and window zoom. `navigate` deliberately changes the named viewer and stops its playback. Use portal `screenshot` when the actual interface needs review.
 - MCP `jobs` returns images directly; CLI image results contain PNG base64 to decode and view. Report rendering/runtime failures as errors, not black artwork. Keep environment repair separate from creative edits; use documented installation guidance instead of reconstructing runtime internals.
 - Save to the requested or agreed destination with a fresh revision guard and verify the save outcome. Saving can change `project_epoch`; refresh state afterward. When reopening is requested, reopen the saved file, rediscover the session, inspect retained controls/resources, and render it again before claiming completion. Identify the objects and controls to edit, and disclose material unverified behavior.
+- For a repository demo, save the current live revision under `demos/`, including the user's edits since the original construction. Pair it with a short artist guide naming the source-edit path and timing controls. Label previews from older revisions explicitly. Record verified workflow lessons and missing public capabilities in the skill references and `dev-plan.md`.
 
 For Motion → Composite → Sequence authoring, adapt [the executable cross-feature example](scripts/demo.py). Running it adds documents; use it only when those additions fit the task. The [animated grid example](references/motion.md#example-animated-grid-with-cell-text) explains the reusable construction from a reference-recreation exercise without baking in that project's IDs or dimensions.
 

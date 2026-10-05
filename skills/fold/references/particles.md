@@ -27,7 +27,17 @@ Poll the job and inspect its outcome. Inspect the particle node and its `setting
 | Timing | Inspect the layer node's `fold.motion.animation`. Animate literal `attraction.0` and `turbulence.0` channels with exact key times. These appear in the MoGraph layer track. Preserve existing key IDs/tangents when retiming. |
 | Motion | `frequency` is response in Hz; `damping` controls settling; `variation` varies response by stable point identity. `acceleration`, `turbulence`, and motion `seed` are independent of palette randomization. |
 
+For an artist handoff, give the interface path as well as the API input: select **Attract Particles → Attractor → Edit**, then change the source's **Text** field. The Attractor picker replaces the object. The source is hidden from direct rendering, so its text can be hard to discover from the resulting particles alone. Inspect the current text before describing it: the original reference used “3,” but the saved demo may contain the artist's replacement.
+
 The default stepped palette uses positions 0, .25, .5, .75 with a random coordinate in [0,1). Each stop owns the interval until the next stop; the last owns the remainder to 1. This gives equal probability to four colors. A final stop at exactly 1 has zero probability under this driver. Use unequal interval widths for weighted colors, or Linear/Smooth interpolation for gradients. Values are in the working color space; judge them through a render.
+
+## Refine the motion from renders
+
+When the first render feels too regular, identify which independent dimension needs variation. In this exercise, uniform arrival called for **Speed variation**; an overly straight initial border called for **Spread** on the point source. Color changes belong to the palette's seed. Keeping these controls separate lets the artist adjust one aspect without reshuffling the others.
+
+Use the source object and initial Points connection as replaceable inputs. Expose the few controls that explain the result; keep the Solver and copy construction inside ordinary editable groups. If extending Fold is part of the task, first identify the missing reusable operation, then expose it through the same public authoring contract and undoable scene action. Return to public tools to build the artwork and verify that a different target and point source work. Track a missing capability instead of teaching the artwork workflow to depend on private implementation details.
+
+Tune gathering and settling at several times, not just the final silhouette. Native Attraction and Turbulence keys give the artist timing handles; force values and response control the motion between those moments. Record exact key times from the current layer, rather than treating the reference timing as a required preset.
 
 ## Solver contract
 
@@ -42,4 +52,6 @@ The default stepped palette uses positions 0, .25, .5, .75 with a random coordin
 
 Render the initial spread, gathering, and settled state; compare cold and backward seeks. In a reversible probe, change target text, point count/distribution, palette seed, and an Attraction key time. Check that palette edits retain motion and that force keys alter gathering. Restore only the probe's changes using freshly inspected state. Save, reopen in the release desktop, rediscover the session, inspect retained sources/tracks, and render again.
 
-The reference for this exercise was acquired with yt-dlp after Instagram page access failed. Use the downloaded clip as visual evidence; inspect several times before deciding which primitives are needed. The delivered study is a procedural interpretation, with an editable font and particle trajectories rather than a pixel-identical reconstruction.
+The reference for this exercise was acquired with yt-dlp after Instagram page access failed. When a supplied video page cannot be inspected and a download is available, use the downloaded clip as visual evidence; verify its source and inspect spread, gathering, and settled frames before choosing primitives. The delivered study is a procedural interpretation, with an editable font and particle trajectories rather than a pixel-identical reconstruction.
+
+The reusable artifact is [the saved project](../../../demos/particle-attraction.fold), with [an artist guide](../../../demos/particle-attraction.md). Its source text and keys remain editable; those example values are not requirements for new setups. Preview timings and performance measurements refer to the revision tested. A successful still render or short render profile does not establish sustained desktop playback performance.
