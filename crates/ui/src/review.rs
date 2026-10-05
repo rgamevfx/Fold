@@ -32,7 +32,7 @@ impl Plan {
     ) -> Self {
         let (start, end) = range.bounds(frames);
         let bytes = template
-            .dimensions
+            .image_dimensions()
             .iter()
             .map(|n| u64::from(*n))
             .product::<u64>()
@@ -73,6 +73,7 @@ impl Plan {
         self.generation == generation
             && self.template.content == key.content
             && self.template.dimensions == key.dimensions
+            && self.template.region == key.region
             && self.template.view == key.view
             && self.template.channels == key.channels
             && self.template.output == key.output
@@ -137,6 +138,7 @@ mod tests {
         Plan::new(
             1,
             PreviewKey {
+                region: None,
                 target: Some((fold_foundation::DocumentId::new(), Time::ZERO)),
                 output: "video".into(),
                 content: "scene".into(),
@@ -196,6 +198,15 @@ mod tests {
         assert!(plan.compatible(1, &plan.key(1), plan.range));
         assert!(!plan.compatible(2, &plan.key(1), plan.range));
         for key in [
+            PreviewKey {
+                region: Some(fold_platform::desktop::PreviewRegion {
+                    x: 2,
+                    y: 2,
+                    width: 8,
+                    height: 8,
+                }),
+                ..plan.key(1)
+            },
             PreviewKey {
                 channels: fold_platform::desktop::ChannelView::Channel {
                     name: "depth.Z".to_owned().try_into().unwrap(),

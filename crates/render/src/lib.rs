@@ -8,6 +8,8 @@ pub mod frame;
 pub mod gpu;
 mod graph;
 pub mod operations;
+pub mod region;
+mod sampling;
 pub mod scheduling;
 pub mod vector;
 mod vector_geometry;

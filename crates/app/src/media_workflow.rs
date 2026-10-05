@@ -194,6 +194,7 @@ pub(crate) fn preview_request(
         return Err("preview identity/settings mismatch".into());
     }
     Ok(SceneRequest {
+        region: key.region,
         preview: Some(key.channels.clone()),
         source,
         time,
@@ -205,6 +206,8 @@ pub(crate) fn preview_request(
 /// not render authority. Delivery supplies a committed snapshot separately.
 #[derive(Clone, Debug)]
 pub struct SceneRequest {
+    /// Optional spatial demand, independent of viewer routing and delivery.
+    pub region: Option<fold_render::region::Region>,
     pub preview: Option<fold_render::view::View>,
     pub source: DocumentRef,
     pub time: fold_foundation::Time,
@@ -220,9 +223,21 @@ pub fn evaluate_scene(
     cancel: &Cancel,
 ) -> Result<fold_render::Frame, String> {
     let (plan, duration) = compile_scene(snapshot, request, cancel)?;
-    crate::color::with_config(snapshot, |config| match config {
-        Some(config) => fold_render::render_aces_with(plan, config, decoder, cancel),
-        None => fold_render::render_with(plan, decoder, cancel),
+    crate::color::with_config(snapshot, |config| {
+        let (plan, crop) = if let Some(region) = request.region {
+            let plan = fold_render::region::Plan::new(plan, region, config.is_some())?;
+            (plan.graph, Some(plan.output))
+        } else {
+            (plan, None)
+        };
+        let frame = match config {
+            Some(config) => fold_render::render_aces_with(plan, config, decoder, cancel),
+            None => fold_render::render_with(plan, decoder, cancel),
+        }?;
+        match crop {
+            Some(region) => fold_render::region::crop(frame, region),
+            None => Ok(frame),
+        }
     })?
     .with_timing(request.time, duration)
 }
@@ -248,9 +263,15 @@ pub(crate) fn evaluate_scene_gpu_admitted(
     class: Option<fold_render::scheduling::Class>,
 ) -> Result<fold_render::gpu::GpuFrame, String> {
     let (plan, duration) = compile_scene(snapshot, request, cancel)?;
-    crate::color::with_config(snapshot, |config| match class {
-        Some(class) => renderer.evaluate_scheduled(plan, config, decoder, cancel, class),
-        None => renderer.evaluate(plan, config, decoder, cancel),
+    crate::color::with_config(snapshot, |config| {
+        if let Some(region) = request.region {
+            renderer.evaluate_region(plan, region, config, decoder, cancel, class)
+        } else {
+            match class {
+                Some(class) => renderer.evaluate_scheduled(plan, config, decoder, cancel, class),
+                None => renderer.evaluate(plan, config, decoder, cancel),
+            }
+        }
     })?
     .with_timing(request.time, duration)
 }
@@ -485,6 +506,7 @@ fn export_video(
     #[cfg(not(feature = "gpu"))]
     let mut evaluator = crate::output::OutputRenderer::from_environment()?;
     let mut request = SceneRequest {
+        region: None,
         preview: None,
         source,
         time: info.time(start)?,

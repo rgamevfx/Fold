@@ -29,6 +29,7 @@ impl DesktopClient for Client {
 }
 fn key() -> PreviewKey {
     PreviewKey {
+        region: None,
         target: Some((
             fold_foundation::DocumentId::new(),
             fold_foundation::Time::ZERO,

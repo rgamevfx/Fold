@@ -1,11 +1,14 @@
 //! Small nonblocking desktop interface. Implementations own jobs and projects;
 //! the UI owns controls and presentation textures, never decode/evaluation.
 use crate::DisplayFrame;
+pub use fold_render::region::Region as PreviewRegion;
 pub use fold_render::view::{Range as DisplayRange, View as ChannelView};
 use std::path::PathBuf;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct PreviewKey {
+    /// Spatial crop in the full raster at `dimensions`; None means full frame.
+    pub region: Option<fold_render::region::Region>,
     /// Explicit nested output and exact local time; None selects project root.
     pub target: Option<(fold_foundation::DocumentId, fold_foundation::Time)>,
     pub output: String,
@@ -16,6 +19,11 @@ pub struct PreviewKey {
     /// included in content. Delivery transforms never enter presentation keys.
     pub view: u32,
     pub channels: ChannelView,
+}
+impl PreviewKey {
+    pub fn image_dimensions(&self) -> [u32; 2] {
+        self.region.map_or(self.dimensions, |r| r.dimensions())
+    }
 }
 /// One latest demand per viewer. Background preparation never replaces that
 /// viewer's foreground demand; it occupies a separate bounded demand slot.
@@ -116,6 +124,7 @@ impl DesktopState {
             return None;
         }
         Some(PreviewKey {
+            region: None,
             target: self.navigation.last().map(|location| {
                 (
                     location.document,

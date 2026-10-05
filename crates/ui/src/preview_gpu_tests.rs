@@ -82,6 +82,7 @@ fn real_textures_hold_until_replacement_and_remain_protected_under_pressure() {
     let mut client = Client::default();
     let id = PanelInstanceId(1);
     let first = PreviewKey {
+        region: None,
         target: None,
         output: "video".into(),
         content: "test".into(),
@@ -184,6 +185,7 @@ fn real_textures_hold_until_replacement_and_remain_protected_under_pressure() {
     host.cache.budget = 5 * 16 * 16 * 4;
     let document = fold_foundation::DocumentId::new();
     let template = PreviewKey {
+        region: None,
         target: Some((document, fold_foundation::Time::ZERO)),
         output: "video".into(),
         content: "review".into(),

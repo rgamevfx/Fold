@@ -59,6 +59,8 @@ impl Mailbox {
                         && d.background == *background
                         && d.key.content == active.key.content
                         && d.key.dimensions == active.key.dimensions
+                        && d.key.region == active.key.region
+                        && d.key.channels == active.key.channels
                         && d.key.view == active.key.view
                         && d.key.output == active.key.output
                         && d.key.target.map(|t| t.0) == active.key.target.map(|t| t.0)
@@ -466,6 +468,7 @@ mod tests {
             generation,
             background,
             key: PreviewKey {
+                region: None,
                 target: None,
                 output: "video".into(),
                 content: "scene".into(),
@@ -475,6 +478,28 @@ mod tests {
                 channels: Default::default(),
             },
         }
+    }
+    #[test]
+    fn spatial_changes_cancel_only_the_viewer_that_moved() {
+        let mut queue = Mailbox::default();
+        let a = demand(1, 1, 0, false);
+        let b = demand(2, 1, 0, false);
+        queue.replace(snapshot(), vec![a.clone(), b.clone()]);
+        let (_, _, cancel, _) = queue.next().unwrap();
+        let mut moved = a;
+        moved.key.region = Some(fold_render::region::Region {
+            x: 4,
+            y: 4,
+            width: 8,
+            height: 8,
+        });
+        queue.replace(snapshot(), vec![moved.clone(), b]);
+        assert!(cancel.check().is_ok());
+        assert_eq!(queue.active.as_ref().unwrap().consumers.len(), 1);
+        queue.replace(snapshot(), vec![moved.clone()]);
+        assert!(cancel.check().is_err());
+        assert!(queue.finish().is_empty());
+        assert_eq!(queue.next().unwrap().1, moved.key);
     }
     #[test]
     fn joining_an_active_key_does_not_queue_duplicate_work_after_completion() {

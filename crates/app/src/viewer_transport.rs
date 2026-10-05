@@ -380,6 +380,7 @@ mod tests {
     }
     fn key(c: &Clock, frame: u32) -> PreviewKey {
         PreviewKey {
+            region: None,
             target: Some((
                 c.transport.output.document,
                 Time::new(i64::from(frame) * i64::from(c.rate[1]), c.rate[0]).unwrap(),

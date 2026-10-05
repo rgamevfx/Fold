@@ -10,6 +10,7 @@ mod fusion;
 mod gaussian;
 mod host;
 mod preparation;
+mod sampling;
 mod still;
 pub use display::Display;
 #[cfg(all(feature = "native-video", target_os = "linux"))]
@@ -58,6 +59,38 @@ pub struct Statistics {
     pub native_pipe_bytes: u64,
     pub native_upload_encode_nanoseconds: u128,
 }
+impl Statistics {
+    fn accumulate(&mut self, other: &Self) {
+        self.upload_bytes += other.upload_bytes;
+        self.lut_upload_bytes += other.lut_upload_bytes;
+        self.readback_bytes += other.readback_bytes;
+        self.status_readback_bytes += other.status_readback_bytes;
+        self.cpu_adapter_nodes += other.cpu_adapter_nodes;
+        self.resident_still_nodes += other.resident_still_nodes;
+        self.cpu_adapter_nanoseconds += other.cpu_adapter_nanoseconds;
+        self.compute_passes += other.compute_passes;
+        self.fused_opacity_passes += other.fused_opacity_passes;
+        self.graph_prepare_nanoseconds += other.graph_prepare_nanoseconds;
+        self.evaluate_cpu_nanoseconds += other.evaluate_cpu_nanoseconds;
+        self.output_cpu_nanoseconds += other.output_cpu_nanoseconds;
+        self.queue_submit_nanoseconds += other.queue_submit_nanoseconds;
+        self.graphics_queue_nanoseconds += other.graphics_queue_nanoseconds;
+        self.native_video_nodes += other.native_video_nodes;
+        self.resident_video_nodes += other.resident_video_nodes;
+        self.vector_prepare_nanoseconds += other.vector_prepare_nanoseconds;
+        self.vector_upload_bytes += other.vector_upload_bytes;
+        self.native_decode_nanoseconds += other.native_decode_nanoseconds;
+        self.native_codec_call_nanoseconds += other.native_codec_call_nanoseconds;
+        self.native_allocate_nanoseconds += other.native_allocate_nanoseconds;
+        self.native_submit_nanoseconds += other.native_submit_nanoseconds;
+        self.native_seeks += other.native_seeks;
+        self.native_forward_reuses += other.native_forward_reuses;
+        self.native_copy_ready_nanoseconds += other.native_copy_ready_nanoseconds;
+        self.native_gpu_local_copy_bytes += other.native_gpu_local_copy_bytes;
+        self.native_pipe_bytes += other.native_pipe_bytes;
+        self.native_upload_encode_nanoseconds += other.native_upload_encode_nanoseconds;
+    }
+}
 
 /// Immutable scene image. Readiness is queue completion, not submission. A frame
 /// cannot be used with a different host, even if that host uses the same adapter.
@@ -65,6 +98,7 @@ pub struct GpuFrame {
     image: Arc<Image>,
     host: Host,
     ready: validation::Completion,
+    dependencies: Vec<validation::Completion>,
     working_space: WorkingSpace,
     config_identity: Option<String>,
     timing: Option<crate::frame::Timing>,
@@ -73,7 +107,11 @@ pub struct GpuFrame {
 }
 impl GpuFrame {
     pub fn gpu_nanoseconds(&self) -> Result<Option<f64>, String> {
-        self.ready.gpu_nanoseconds()
+        let mut total = self.ready.gpu_nanoseconds()?;
+        for ready in &self.dependencies {
+            total = total.zip(ready.gpu_nanoseconds()?).map(|(a, b)| a + b);
+        }
+        Ok(total)
     }
     pub fn with_timing(
         mut self,
@@ -125,6 +163,11 @@ impl GpuFrame {
     }
     pub fn is_ready(&self) -> Result<bool, String> {
         self.host.check()?;
+        for ready in &self.dependencies {
+            if !ready.ready()? {
+                return Ok(false);
+            }
+        }
         self.ready.ready()
     }
     /// Explicit worker-only reference/export boundary. Never call from a UI
@@ -248,6 +291,7 @@ pub struct Renderer {
     vector: vector::VectorPipeline,
     still: still::Cache,
     gaussian: gaussian::Gaussian,
+    sampling: sampling::Sampling,
     #[cfg(all(feature = "native-video", target_os = "linux"))]
     native_video: Option<native_video::NativeVideo>,
 }
@@ -333,6 +377,7 @@ impl Renderer {
             cache: None,
         });
         let gaussian = gaussian::Gaussian::new(&host);
+        let sampling = sampling::Sampling::new(&host);
         let yuv = yuv::YuvPipeline::new(&host);
         let vector = vector::VectorPipeline::new(&host);
         host.check()?;
@@ -351,6 +396,7 @@ impl Renderer {
         Ok(Self {
             data_display,
             gaussian,
+            sampling,
             host,
             pipeline,
             yuv,
@@ -447,6 +493,55 @@ impl Renderer {
         &self.host
     }
 
+    /// Evaluate the dependency footprint and extract the requested scene region.
+    pub fn evaluate_region(
+        &mut self,
+        graph: RenderGraph,
+        region: crate::region::Region,
+        config: Option<&fold_color::Config>,
+        decoder: &mut fold_media::Decoder,
+        cancel: &fold_media::Cancel,
+        class: Option<crate::scheduling::Class>,
+    ) -> Result<GpuFrame, String> {
+        let plan = crate::region::Plan::new(graph, region, config.is_some())?;
+        let mut frame = self.evaluate_admitted(plan.graph, config, decoder, cancel, class)?;
+        if plan.output == crate::region::Region::full(frame.dimensions()) {
+            return Ok(frame);
+        }
+        let _permit = class
+            .map(|c| crate::scheduling::Scheduler::shared().enter(c, cancel))
+            .transpose()?;
+        cancel.check()?;
+        let output = self.host.image(plan.output.dimensions())?;
+        let mut encoder = self
+            .host
+            .device()
+            .create_command_encoder(&Default::default());
+        let mut source = frame.image.texture.as_image_copy();
+        source.origin = wgpu::Origin3d {
+            x: plan.output.x,
+            y: plan.output.y,
+            z: 0,
+        };
+        // Append a completion after the copy; readiness covers both operator
+        // validation and extraction without waiting on the UI thread.
+        let status = validation::Status::new(&self.host)?;
+        status.start(&mut encoder);
+        encoder.copy_texture_to_texture(
+            source,
+            output.texture.as_image_copy(),
+            output.texture.size(),
+        );
+        status.encode(&mut encoder);
+        frame.statistics.status_readback_bytes += status.readback_bytes();
+        self.host
+            .submit(encoder, vec![frame.image.clone(), output.clone()], vec![]);
+        frame.dependencies.push(frame.ready.clone());
+        frame.ready = status.submitted();
+        frame.image = output;
+        Ok(frame)
+    }
+
     /// Evaluate without working-image readback. ACES video preserves native YUV
     /// until GPU reconstruction; drawing coverage is composed into float color on
     /// the GPU. Legacy CPU image adapters remain explicit. Unsupported work fails.
@@ -475,7 +570,7 @@ impl Renderer {
 
     fn evaluate_admitted(
         &mut self,
-        graph: RenderGraph,
+        mut graph: RenderGraph,
         config: Option<&fold_color::Config>,
         decoder: &mut fold_media::Decoder,
         cancel: &fold_media::Cancel,
@@ -497,6 +592,7 @@ impl Renderer {
         }
         let evaluate_begin = std::time::Instant::now();
         let aces = config.is_some();
+        crate::sampling::prepare(&mut graph);
         graph::validate(&graph, aces)?;
         let processors = graph::input_processors(&graph, config)?;
         let (mut needed, mut uses) = graph::dependencies(&graph);
@@ -506,6 +602,36 @@ impl Renderer {
             graph_prepare_nanoseconds: prepare_nanoseconds,
             ..Default::default()
         };
+        let mut sources: Vec<Option<GpuFrame>> = (0..graph.nodes.len()).map(|_| None).collect();
+        for (id, op) in graph.nodes.iter().enumerate() {
+            if needed[id]
+                && let ImageOp::WindowedSource { source, .. } = op
+            {
+                let native =
+                    crate::sampling::source_dimensions(source).ok_or("invalid region source")?;
+                let frame = self.evaluate_admitted(
+                    RenderGraph {
+                        width: native[0],
+                        height: native[1],
+                        nodes: vec![*source.clone()],
+                        output: 0,
+                    },
+                    config,
+                    decoder,
+                    cancel,
+                    class,
+                )?;
+                // Queue ordering protects the input copy. Carry completion and
+                // validation into the descendant rather than stalling this worker.
+                stats.accumulate(&frame.statistics);
+                sources[id] = Some(frame);
+            }
+        }
+        let dependencies = sources
+            .iter()
+            .flatten()
+            .flat_map(|f| std::iter::once(f.ready.clone()).chain(f.dependencies.iter().cloned()))
+            .collect();
         let mut video = if aces {
             self.prepare_video(&graph, &needed, decoder, cancel, &mut stats)?
         } else {
@@ -515,7 +641,7 @@ impl Renderer {
         let _permit = class
             .map(|class| crate::scheduling::Scheduler::shared().enter(class, cancel))
             .transpose()?;
-        stats.graphics_queue_nanoseconds = begin.elapsed().as_nanos();
+        stats.graphics_queue_nanoseconds += begin.elapsed().as_nanos();
         let dimensions = [graph.width, graph.height];
         // At most two parameter buffers per reachable node (separable blur).
         // Reserve before recording so even a long graph is aggregate bounded.
@@ -537,7 +663,7 @@ impl Renderer {
             .create_command_encoder(&Default::default());
         let status = validation::Status::new(&self.host)?;
         status.start(&mut encoder);
-        stats.status_readback_bytes = status.readback_bytes();
+        stats.status_readback_bytes += status.readback_bytes();
         for (id, op) in graph.nodes.iter().enumerate() {
             if !needed[id] {
                 continue;
@@ -580,6 +706,40 @@ impl Renderer {
             let mask = inputs[2].map_or(&dummy, |i| frames[i].as_ref().unwrap());
             let mut compute = true;
             match op {
+                ImageOp::WindowedSource {
+                    region, dimensions, ..
+                } => {
+                    let source = sources[id].take().ok_or("missing prepared region source")?;
+                    if source.dimensions() == *dimensions {
+                        let mut copy = source.image.texture.as_image_copy();
+                        copy.origin = wgpu::Origin3d {
+                            x: region.x,
+                            y: region.y,
+                            z: 0,
+                        };
+                        encoder.copy_texture_to_texture(
+                            copy,
+                            output.texture.as_image_copy(),
+                            output.texture.size(),
+                        );
+                    } else {
+                        let rows =
+                            crate::sampling::rows(source.dimensions()[1], dimensions[1], *region);
+                        let intermediate = self.host.image([region.width, rows[1] - rows[0]])?;
+                        buffers.push(self.sampling.encode(
+                            &self.host,
+                            &mut encoder,
+                            [&source.image, &intermediate, &output],
+                            *dimensions,
+                            *region,
+                            &status,
+                        )?);
+                        leases.push(intermediate);
+                        stats.compute_passes += 2;
+                    }
+                    leases.push(source.image);
+                    compute = false;
+                }
                 ImageOp::Unary { operation, .. } => {
                     use crate::operations::Unary;
                     params.header[0] = 17;
@@ -1027,7 +1187,7 @@ impl Renderer {
         status.encode(&mut encoder);
         let submit_begin = std::time::Instant::now();
         self.host.submit(encoder, leases, buffers);
-        stats.queue_submit_nanoseconds = submit_begin.elapsed().as_nanos();
+        stats.queue_submit_nanoseconds += submit_begin.elapsed().as_nanos();
         let ready = status.submitted();
         for (key, image) in retained {
             self.still
@@ -1040,6 +1200,7 @@ impl Renderer {
             image: frames[graph.output].take().unwrap(),
             host: self.host.clone(),
             ready,
+            dependencies,
             working_space: if aces {
                 WorkingSpace::AcesCg
             } else {

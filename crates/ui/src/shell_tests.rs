@@ -9,6 +9,12 @@ use std::{
 
 #[test]
 fn preview_resolution_tracks_viewport_pixels_quality_and_aspect() {
+    let preview_dimensions = |dimensions, viewport, divisor| {
+        crate::viewer_navigation::Navigation::default()
+            .demand(dimensions, viewport, [1.; 2], divisor)
+            .unwrap()
+            .0
+    };
     assert_eq!(
         preview_dimensions([3840, 2160], [480., 480.], 1),
         [480, 270]
@@ -26,7 +32,11 @@ fn preview_resolution_tracks_viewport_pixels_quality_and_aspect() {
         preview_dimensions([1080, 1920], [480., 480.], 1),
         [270, 480]
     );
-    assert_eq!(preview_dimensions([1920, 1080], [0., 0.], 1), [1, 1]);
+    assert!(
+        crate::viewer_navigation::Navigation::default()
+            .demand([1920, 1080], [0.; 2], [1.; 2], 1)
+            .is_none()
+    );
 }
 
 #[test]
@@ -35,9 +45,25 @@ fn full_resolution_probe_does_not_measure_a_viewport_sized_substitute() {
     let mut shell = Shell::new(vec![]);
     let id = *shell.workspace.viewers.keys().next().unwrap();
     shell.viewport_pixels.insert(id, [480., 480.]);
-    assert_eq!(shell.sized_dimensions(id, [1920, 1080], 1), [480, 270]);
+    let key = PreviewKey {
+        region: None,
+        target: None,
+        output: "video".into(),
+        content: "test".into(),
+        frame: 0,
+        dimensions: [1920, 1080],
+        view: 1,
+        channels: Default::default(),
+    };
+    assert_eq!(
+        shell.spatial_key(id, key.clone(), 1).unwrap().dimensions,
+        [480, 270]
+    );
     shell.probe_full_quality();
-    assert_eq!(shell.sized_dimensions(id, [1920, 1080], 1), [1920, 1080]);
+    assert_eq!(
+        shell.spatial_key(id, key, 1).unwrap().dimensions,
+        [1920, 1080]
+    );
 }
 
 #[test]
@@ -968,4 +994,65 @@ fn editor_without_a_viewer_seeks_its_own_exact_local_time() {
     assert_eq!(shell.workspace.inspector_context(), Some((editor, time)));
     assert_eq!(shell.workspace.viewers[&viewer].time, Time::ZERO);
     assert!(host.commands.is_empty());
+}
+
+#[test]
+fn viewer_errors_do_not_change_preview_demand_size() {
+    let _guard = crate::IMGUI_TEST_LOCK.lock().unwrap();
+    let mut context = Context::create();
+    context.set_ini_filename(None::<String>).unwrap();
+    context
+        .font_atlas()
+        .try_claim_legacy_renderer()
+        .unwrap()
+        .build();
+    context.io_mut().set_display_size([1000., 800.]);
+    context.io_mut().set_delta_time(1. / 60.);
+    let documents = [DocumentId::new(), DocumentId::new()];
+    let mut host = Host {
+        documents,
+        state: Default::default(),
+        delivery: documents[0],
+        commands: vec![],
+    };
+    let mut shell = Shell::new(vec![]);
+    let id = *shell.workspace.viewers.keys().next().unwrap();
+    shell.workspace.pin_output(
+        id,
+        workspace::DocumentRef {
+            document: documents[0],
+            output: "video".into(),
+            extensions: Default::default(),
+        },
+    );
+    shell.sync_instances();
+    for width in [680., 240.] {
+        let mut baseline = None;
+        for frame in 0..9 {
+            let error = (frame >= 4).then(|| {
+                "Render failed with a long diagnostic that wraps over several lines. ".repeat(5)
+            });
+            shell.presentation.insert(id, (None, error.clone()));
+            shell.review_state(id, (error.clone(), false));
+            let preview = error.map(Preview::Failed).unwrap_or(Preview::Pending);
+            let ui = context.frame();
+            ui.window(&shell.viewers[&id])
+                .position([0.; 2], dear_imgui_rs::Condition::Always)
+                .size([width, 400.], dear_imgui_rs::Condition::Always)
+                .build(|| {});
+            shell.viewer_instance(ui, id, &preview, "", &mut host);
+            let size = shell.viewport_pixels[&id];
+            if frame == 3 {
+                baseline = Some(size);
+            }
+            if frame >= 4 {
+                assert_eq!(
+                    Some(size),
+                    baseline,
+                    "message changed drawable size at {width}px"
+                );
+            }
+            context.end_frame();
+        }
+    }
 }

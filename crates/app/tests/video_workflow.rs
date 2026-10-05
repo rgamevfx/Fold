@@ -82,6 +82,7 @@ fn codec_timing_color_import_composition_export_and_persistence() {
     let reopened = load(&path, 8).unwrap();
     assert_eq!(content, workflow::content(&reopened.snapshot()).unwrap());
     let key = PreviewKey {
+        region: None,
         output: "video".into(),
         target: None,
         content,

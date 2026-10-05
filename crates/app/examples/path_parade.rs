@@ -264,6 +264,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let image = renderer.evaluate(
             &project.snapshot(),
             &media_workflow::SceneRequest {
+                region: None,
                 preview: None,
                 source: DocumentRef {
                     document: composite_id,

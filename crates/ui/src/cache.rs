@@ -68,6 +68,7 @@ mod tests {
     fn content_time_resolution_and_view_are_distinct() {
         use fold_platform::desktop::PreviewKey;
         let key = PreviewKey {
+            region: None,
             output: "video".into(),
             target: None,
             content: "content-a".into(),
@@ -79,6 +80,15 @@ mod tests {
         let mut cache = Cache::new(16);
         cache.insert(key.clone(), 1, 4);
         for changed in [
+            PreviewKey {
+                region: Some(fold_platform::desktop::PreviewRegion {
+                    x: 10,
+                    y: 20,
+                    width: 80,
+                    height: 60,
+                }),
+                ..key.clone()
+            },
             PreviewKey {
                 content: "content-b".into(),
                 ..key.clone()

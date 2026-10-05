@@ -12,6 +12,7 @@ pub struct Display {
     pub(super) image: Arc<Image>,
     pub(super) host: Host,
     pub(super) parent: Completion,
+    dependencies: Vec<Completion>,
     pub(super) ready: Completion,
     pub(super) compression: Option<Completion>,
     pub(super) dimensions: [u32; 2],
@@ -33,12 +34,19 @@ impl Display {
             Some(completion) => completion.gpu_nanoseconds()?,
             None => Some(0.),
         };
+        let mut dependencies = Some(0.);
+        for ready in &self.dependencies {
+            dependencies = dependencies
+                .zip(ready.gpu_nanoseconds()?)
+                .map(|(a, b)| a + b);
+        }
         Ok(self
             .parent
             .gpu_nanoseconds()?
             .zip(self.ready.gpu_nanoseconds()?)
             .zip(compression)
-            .map(|((scene, output), cache)| scene + output + cache))
+            .zip(dependencies)
+            .map(|(((scene, output), cache), dependencies)| scene + output + cache + dependencies))
     }
     pub fn dimensions(&self) -> [u32; 2] {
         self.dimensions
@@ -57,6 +65,11 @@ impl Display {
     }
     pub fn is_ready(&self) -> Result<bool, String> {
         self.host.check()?;
+        for ready in &self.dependencies {
+            if !ready.ready()? {
+                return Ok(false);
+            }
+        }
         Ok(self.parent.ready()?
             && self.ready.ready()?
             && self
@@ -243,6 +256,7 @@ impl Renderer {
             image: output,
             host: self.host.clone(),
             parent: frame.ready.clone(),
+            dependencies: frame.dependencies.clone(),
             ready: status.submitted(),
             compression: None,
             identity: format!("fold.data-display.v1:{black:?}:{white:?}"),
@@ -326,6 +340,7 @@ impl Renderer {
             image: output,
             host: self.host.clone(),
             parent: frame.ready.clone(),
+            dependencies: frame.dependencies.clone(),
             ready,
             compression: None,
             identity: processor

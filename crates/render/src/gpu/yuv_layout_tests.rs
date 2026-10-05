@@ -74,6 +74,7 @@ fn padded_nv12_is_equivalent_to_planar_and_rejects_out_of_bounds_layout() {
         status.encode(&mut encoder);
         host.submit(encoder, vec![output.clone()], reservations);
         let mut gpu = GpuFrame {
+            dependencies: vec![],
             image: output,
             host: host.clone(),
             ready: status.submitted(),

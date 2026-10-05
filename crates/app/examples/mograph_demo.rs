@@ -190,6 +190,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         media_workflow::evaluate_scene(
             &project.snapshot(),
             &media_workflow::SceneRequest {
+                region: None,
                 preview: None,
                 source: DocumentRef {
                     document: composite_id,

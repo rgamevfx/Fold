@@ -85,6 +85,7 @@ fn project(path: &std::path::Path) -> (Project, DocumentRef) {
 }
 fn request(source: DocumentRef, view: View) -> media_workflow::SceneRequest {
     media_workflow::SceneRequest {
+        region: None,
         preview: Some(view),
         source,
         time: Time::ZERO,

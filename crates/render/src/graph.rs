@@ -61,6 +61,13 @@ impl Affine {
 /// declared scene-linear working space (legacy linear-sRGB or explicit ACEScg).
 #[derive(Clone, Debug)]
 pub enum ImageOp {
+    /// Spatial source adapter. Decoders may still require a full native frame;
+    /// downstream operators receive only this region at the requested scale.
+    WindowedSource {
+        source: Box<ImageOp>,
+        dimensions: [u32; 2],
+        region: crate::region::Region,
+    },
     /// Validated opaque SDR source. Decoded storage is caller-owned; its RGB8
     /// byte count across all source nodes is separately capped at 64 MiB.
     Media(fold_media::RgbImage),
@@ -187,7 +194,8 @@ impl ImageOp {
                 mask,
                 ..
             } => [Some(original), Some(processed), mask],
-            Self::Solid { .. }
+            Self::WindowedSource { .. }
+            | Self::Solid { .. }
             | Self::Exr { .. }
             | Self::Media(_)
             | Self::Video { .. }
@@ -326,6 +334,42 @@ pub(crate) fn validate(graph: &RenderGraph, aces: bool) -> Result<usize, String>
             return Err("image inputs must precede their consumer".into());
         }
         match *op {
+            ImageOp::WindowedSource {
+                ref source,
+                dimensions,
+                region,
+            } => {
+                if !matches!(
+                    source.as_ref(),
+                    ImageOp::Media(_)
+                        | ImageOp::Exr { .. }
+                        | ImageOp::Video { .. }
+                        | ImageOp::VideoInput { .. }
+                ) {
+                    return Err("windowed source requires a media leaf".into());
+                }
+                if let ImageOp::Media(media) = source.as_ref() {
+                    source_bytes += media.storage_bytes();
+                    if source_bytes > PIXEL_BUDGET as u64 {
+                        return Err("render graph exceeds 64 MiB source image budget".into());
+                    }
+                }
+                region.validate(dimensions)?;
+                if region.dimensions() != [graph.width, graph.height] {
+                    return Err("source region dimensions mismatch".into());
+                }
+                let native =
+                    crate::sampling::source_dimensions(source).ok_or("invalid region source")?;
+                validate(
+                    &RenderGraph {
+                        width: native[0],
+                        height: native[1],
+                        nodes: vec![*source.clone()],
+                        output: 0,
+                    },
+                    aces,
+                )?;
+            }
             ImageOp::Unary { ref operation, .. } => operation.validate()?,
             ImageOp::ColorGrade { ref settings, .. } => settings.validate()?,
             ImageOp::Merge { .. } => {}
@@ -455,6 +499,11 @@ pub(crate) fn input_processors(
         ]
         .into_iter()
         .chain(graph.nodes.iter().filter_map(|op| {
+            let op = if let ImageOp::WindowedSource { source, .. } = op {
+                source.as_ref()
+            } else {
+                op
+            };
             if let ImageOp::VideoInput { space, .. }
             | ImageOp::Exr {
                 space: Some(space), ..
@@ -477,7 +526,7 @@ pub(crate) fn input_processors(
 }
 
 pub(crate) fn evaluate(
-    graph: RenderGraph,
+    mut graph: RenderGraph,
     decoder: &mut fold_media::Decoder,
     cancel: &fold_media::Cancel,
     budget: usize,
@@ -485,6 +534,7 @@ pub(crate) fn evaluate(
 ) -> Result<Frame, String> {
     cancel.check()?;
     let aces = config.is_some();
+    crate::sampling::prepare(&mut graph);
     let count = validate(&graph, aces)?;
     let processors = input_processors(&graph, config)?;
     let (needed, mut uses) = dependencies(&graph);
@@ -509,6 +559,27 @@ pub(crate) fn evaluate(
             .map_err(|_| "frame allocation failed")?;
         let input = |id: ImageId| frames[id].as_ref().expect("validated live input");
         match *op {
+            ImageOp::WindowedSource {
+                ref source,
+                dimensions,
+                region,
+            } => {
+                let native =
+                    crate::sampling::source_dimensions(source).ok_or("invalid region source")?;
+                let frame = evaluate(
+                    RenderGraph {
+                        width: native[0],
+                        height: native[1],
+                        nodes: vec![*source.clone()],
+                        output: 0,
+                    },
+                    decoder,
+                    cancel,
+                    budget.saturating_sub(live_bytes + bytes),
+                    config,
+                )?;
+                pixels = crate::sampling::resize(frame, dimensions, region, cancel)?.pixels;
+            }
             ImageOp::Unary {
                 input: source,
                 ref operation,

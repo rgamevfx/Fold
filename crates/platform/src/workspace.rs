@@ -152,6 +152,9 @@ pub enum ViewerBinding {
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ViewerInstance {
+    /// Screen sampling only; authored image filters and export stay independent.
+    #[serde(default)]
+    pub pixel_exact: bool,
     /// None follows the output provider's default, including on source changes.
     #[serde(default)]
     pub playback_mode: Option<crate::desktop::PlaybackMode>,
@@ -183,6 +186,7 @@ pub struct ViewerInstance {
 impl Default for ViewerInstance {
     fn default() -> Self {
         Self {
+            pixel_exact: false,
             playback_mode: None,
             group: LinkGroup::A,
             binding: ViewerBinding::Linked,
@@ -191,7 +195,7 @@ impl Default for ViewerInstance {
             last_editor: None,
             editor: None,
             time: Time::ZERO,
-            divisor: 2,
+            divisor: 1,
             channels: Default::default(),
             range: Default::default(),
             looping: false,

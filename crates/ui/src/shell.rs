@@ -29,14 +29,6 @@ fn fitted_size(dimensions: [u32; 2], available: [f32; 2]) -> [f32; 2] {
     let scale = (available[0].max(0.0) / width).min(available[1].max(0.0) / height);
     [width * scale, height * scale]
 }
-/// Cap the explicit quality resolution to the drawable physical-pixel area.
-fn preview_dimensions(dimensions: [u32; 2], viewport: [f32; 2], divisor: u32) -> [u32; 2] {
-    let available = viewport.map(|v| (v / divisor.max(1) as f32).max(1.));
-    let scale = (available[0] / dimensions[0] as f32)
-        .min(available[1] / dimensions[1] as f32)
-        .min(1.);
-    dimensions.map(|v| ((v as f32 * scale).floor() as u32).max(1))
-}
 struct RuntimeEditor {
     contribution: String,
     key: WindowKey,
@@ -61,7 +53,8 @@ pub(crate) struct Shell {
     delivery_output: Option<(DocumentId, u32)>,
     visible_panels: Vec<usize>,
     visible_editors: Vec<PanelInstanceId>,
-    image_rects: BTreeMap<PanelInstanceId, crate::sdk::ViewerRect>,
+    navigation: BTreeMap<PanelInstanceId, crate::viewer_navigation::Navigation>,
+    viewport_scale: BTreeMap<PanelInstanceId, [f32; 2]>,
     viewport_pixels: BTreeMap<PanelInstanceId, [f32; 2]>,
     #[cfg(feature = "native-probe")]
     probe_full_resolution: bool,
@@ -113,7 +106,8 @@ impl Shell {
             delivery_output: None,
             visible_panels: vec![],
             visible_editors: vec![],
-            image_rects: Default::default(),
+            navigation: Default::default(),
+            viewport_scale: Default::default(),
             viewport_pixels: Default::default(),
             #[cfg(feature = "native-probe")]
             probe_full_resolution: false,
@@ -496,21 +490,27 @@ impl Shell {
             .retain(|id, _| self.workspace.viewers.contains_key(id));
         self.review_states.insert(id, state);
     }
-    fn sized_dimensions(
+    fn spatial_key(
         &self,
         id: PanelInstanceId,
-        dimensions: [u32; 2],
+        mut key: PreviewKey,
         divisor: u32,
-    ) -> [u32; 2] {
+    ) -> Option<PreviewKey> {
         #[cfg(feature = "native-probe")]
         if self.probe_full_resolution {
-            return dimensions;
+            return Some(key);
         }
-        preview_dimensions(
-            dimensions,
-            self.viewport_pixels.get(&id).copied().unwrap_or([1., 1.]),
+        let default = crate::viewer_navigation::Navigation::default();
+        let navigation = self.navigation.get(&id).unwrap_or(&default);
+        let (dimensions, region) = navigation.demand(
+            key.dimensions,
+            self.viewport_pixels.get(&id).copied().unwrap_or([1.; 2]),
+            self.viewport_scale.get(&id).copied().unwrap_or([1.; 2]),
             divisor,
-        )
+        )?;
+        key.dimensions = dimensions;
+        key.region = region;
+        Some(key)
     }
     pub fn keys(&self, client: &dyn DesktopClient) -> Vec<(PanelInstanceId, Option<PreviewKey>)> {
         self.workspace
@@ -523,8 +523,8 @@ impl Shell {
                         .map_or(viewer.time, |request| request.1);
                     let state = client.preview_state(&output, time);
                     self.viewport_pixels.get(&id)?;
-                    let mut key = state.preview_key(state.frame, viewer.divisor)?;
-                    key.dimensions = self.sized_dimensions(id, key.dimensions, viewer.divisor);
+                    let mut key =
+                        self.spatial_key(id, state.preview_key(state.frame, 1)?, viewer.divisor)?;
                     key.output = output.output;
                     key.channels = viewer.channels.clone();
                     Some(key)
@@ -1471,13 +1471,17 @@ impl Shell {
             .snapshot()
             .map(|s| workspace::document_labels(&s))
             .unwrap_or_default();
-        let reserved = if compact {
-            (ui.frame_height() + 4.)
-                .max(ui.calc_text_size("1/2")[0] + ui.clone_style().frame_padding()[0] * 2.)
-                + ui.clone_style().item_spacing()[0]
-        } else {
-            190.
-        };
+        let fit_width = ui.calc_text_size("Fit")[0]
+            + ui.clone_style().frame_padding()[0] * 2.
+            + ui.clone_style().item_spacing()[0];
+        let reserved = fit_width
+            + if compact {
+                (ui.frame_height() + 4.)
+                    .max(ui.calc_text_size("1/2")[0] + ui.clone_style().frame_padding()[0] * 2.)
+                    + ui.clone_style().item_spacing()[0]
+            } else {
+                190.
+            };
         let source_changed = crate::viewer_source::draw(
             ui,
             &mut self.workspace,
@@ -1531,18 +1535,14 @@ impl Shell {
         if source_changed {
             self.refresh_viewer_targets(client);
         }
-        if let Some((_, Some(error))) = self.presentation.get(&id) {
-            ui.text_wrapped(error);
+        ui.same_line();
+        if ui.button("Fit") {
+            self.navigation.entry(id).or_default().fit();
         }
-        if let Some(error) = client.viewer_audio_error(id) {
-            ui.text_wrapped(error);
-        }
-        if let Some(output) = self.workspace.resolve(id) {
-            let state = client.preview_state(&output, self.workspace.viewers[&id].time);
-            if state.content.is_none() && !state.status.is_empty() {
-                ui.text_colored([0.95, 0.55, 0.35, 1.], &state.status);
-            }
-        }
+        crate::sdk::toolbar::tooltip(
+            ui,
+            "Fit image — F. Wheel to zoom; left or middle drag to pan.",
+        );
     }
     #[cfg(test)]
     pub fn viewer(
@@ -1564,34 +1564,34 @@ impl Shell {
         statistics: &str,
         client: &mut dyn DesktopClient,
     ) {
-        self.image_rects.remove(&id);
         let Some(key) = self.viewers.get(&id).cloned() else {
             return;
         };
         let mut close = false;
-        ui.window(&key).build(|| {
+        ui.window(&key).flags(dear_imgui_rs::WindowFlags::NO_SCROLLBAR | dear_imgui_rs::WindowFlags::NO_SCROLL_WITH_MOUSE).build(|| {
             self.viewer_header(ui, id, client);
-            if let Preview::Failed(error) = preview
-                && self
-                    .presentation
-                    .get(&id)
-                    .is_none_or(|(_, error)| error.is_none())
-            {
-                ui.text_wrapped(error);
-            }
-            if ui.is_window_focused() {
+            if ui.is_window_focused_with_flags(dear_imgui_rs::FocusedFlags::ROOT_AND_CHILD_WINDOWS) {
                 self.workspace.inspector_viewer = Some(id);
                 if let Some(editor) = self.workspace.editor_for_viewer(id) {
                     self.workspace.focused_editor = Some(editor);
                 }
             }
-            if let Some(_popup) = ui.begin_popup_context_window() {
+            if ui.is_window_hovered_with_flags(dear_imgui_rs::WindowHoveredFlags::CHILD_WINDOWS)
+                && ui.is_mouse_released(dear_imgui_rs::MouseButton::Right) {
+                ui.open_popup("viewer-context");
+            }
+            if let Some(_popup) = ui.begin_popup("viewer-context") {
+                if let Some(_menu) = ui.begin_menu("Display sampling") {
+                    let pixel_exact = &mut self.workspace.viewers.get_mut(&id).unwrap().pixel_exact;
+                    if ui.menu_item_enabled_selected_no_shortcut("Smooth", !*pixel_exact, true) { *pixel_exact = false; }
+                    if ui.menu_item_enabled_selected_no_shortcut("Pixel exact", *pixel_exact, true) { *pixel_exact = true; }
+                }
                 for (label, divisor) in [("Full", 1), ("Half", 2), ("Quarter", 4)] {
                     if ui.selectable(label) {
                         self.workspace.viewers.get_mut(&id).unwrap().divisor = divisor;
                     }
                     if ui.is_item_hovered() {
-                        ui.tooltip_text("Resolution relative to the fitted viewer image in physical pixels, capped at document resolution.");
+                        ui.tooltip_text("Resolution at the current viewer zoom in physical pixels, capped at document resolution.");
                     }
                 }
                 if let Some(output) = self.workspace.resolve(id) {
@@ -1635,6 +1635,7 @@ impl Shell {
             let review_status = self.review_states.get(&id).and_then(|s| s.0.clone());
             let image_height = (available[1] - crate::transport::Transport::height(ui)).max(0.);
             let scale = ui.io().display_framebuffer_scale();
+            self.viewport_scale.insert(id, scale);
             self.viewport_pixels.insert(
                 id,
                 [
@@ -1658,37 +1659,78 @@ impl Shell {
             } else {
                 preview
             };
-            match preview {
-                Preview::Pending => {}
-                Preview::Failed(_) => {}
-                Preview::Ready {
-                    texture,
-                    dimensions,
-                    uv_max,
-                } => {
-                    let size = fitted_size(*dimensions, [available[0], image_height]);
-                    if size[0] > 0. && size[1] > 0. {
-                        self.image_rects.insert(
-                            id,
-                            crate::sdk::ViewerRect {
-                                origin: ui.cursor_screen_pos(),
-                                size,
-                                dimensions: *dimensions,
-                            },
-                        );
-                        ui.image_config(*texture, size).uv1(*uv_max).build();
-                    }
+            let mut messages = Vec::new();
+            if let Some((_, Some(error))) = self.presentation.get(&id) {
+                messages.push(format!("Preview failed — displayed image may be stale: {error}"));
+            } else if let Preview::Failed(error) = preview {
+                messages.push(format!("Preview failed: {error}"));
+            }
+            if let Some(error) = client.viewer_audio_error(id) {
+                messages.push(format!("Audio: {error}"));
+            }
+            if let Some(output) = &output {
+                let state = client.preview_state(output, self.workspace.viewers[&id].time);
+                if state.content.is_none() && !state.status.is_empty() {
+                    messages.push(state.status.clone());
                 }
             }
-            if let Some(status) = review_status {
-                let height = ui.calc_text_size_with_opts(&status, false, available[0].max(1.))[1]
-                    + ui.clone_style().item_spacing()[1];
-                ui.set_cursor_pos([origin[0], origin[1] + (image_height - height).max(0.)]);
-                let left = ui.cursor_screen_pos();
-                ui.get_window_draw_list().add_rect(left, [left[0] + available[0], left[1] + height],
-                    ui.style_color(dear_imgui_rs::StyleColor::WindowBg)).filled(true).build();
-                ui.text_wrapped(&status);
-                if ui.is_item_hovered() { ui.tooltip_text(status); }
+            if let Some(status) = review_status { messages.push(status); }
+            if image_height > 0. && available[0] > 0. {
+                ui.child_window("viewer-canvas")
+                    .size([available[0], image_height])
+                    .flags(dear_imgui_rs::WindowFlags::NO_SCROLLBAR | dear_imgui_rs::WindowFlags::NO_SCROLL_WITH_MOUSE)
+                    .build(ui, || {
+                        let canvas = ui.cursor_screen_pos();
+                        let area = ui.content_region_avail();
+                        if area[0] <= 0. || area[1] <= 0. { return; }
+                        self.viewport_pixels.insert(id, [area[0]*scale[0], area[1]*scale[1]]);
+                        let dimensions = output.as_ref().map(|output| client.preview_state(output, self.workspace.viewers[&id].time).dimensions)
+                            .unwrap_or([1, 1]);
+                        let fitted = fitted_size(dimensions, area);
+                        if let Preview::Ready { texture, dimensions: tile_dimensions, uv_max } = preview {
+                            debug_assert!(tile_dimensions.iter().all(|n| *n > 0));
+                            let (image_origin, size) = self.navigation.entry(id).or_default().rect(canvas, area, fitted);
+                            let rect = crate::sdk::ViewerRect { origin: image_origin, size, dimensions };
+                            // A held tile remains at its original image-space location
+                            // while a new demand renders; never stretch it over the frame.
+                            let presented = self.presentation.get(&id).and_then(|p| p.0.as_ref());
+                            let mut start = image_origin;
+                            let mut end = [image_origin[0] + size[0], image_origin[1] + size[1]];
+                            if let Some(key) = presented && let Some(region) = key.region {
+                                for i in 0..2 {
+                                    let low = [region.x, region.y][i] as f32 / key.dimensions[i] as f32;
+                                    let high = ([region.x, region.y][i] + region.dimensions()[i]) as f32 / key.dimensions[i] as f32;
+                                    start[i] = image_origin[i] + low * size[i];
+                                    end[i] = image_origin[i] + high * size[i];
+                                }
+                            }
+                            let draw = ui.get_window_draw_list();
+                            if self.workspace.viewers[&id].pixel_exact { draw.set_sampler_nearest(); }
+                            draw.add_image(*texture, start, end, [0., 0.], *uv_max, [1.; 4]);
+                            if self.workspace.viewers[&id].pixel_exact { draw.set_sampler_linear(); }
+                            self.viewer_overlay(ui, id, rect, client);
+                        }
+                        self.navigation.entry(id).or_default().input(ui, canvas, area, fitted);
+                        if let Some(presented) = self.presentation.get(&id).and_then(|p| p.0.as_ref()) {
+                            let mut expected = presented.clone(); expected.dimensions = dimensions; expected.region = None;
+                            if self.spatial_key(id, expected, self.workspace.viewers[&id].divisor)
+                                .is_some_and(|key| key.dimensions != presented.dimensions || key.region != presented.region) {
+                                ui.get_window_draw_list().add_text([canvas[0] + 8., canvas[1] + area[1] - ui.text_line_height() - 8.],
+                                    ui.style_color(dear_imgui_rs::StyleColor::Text), "Updating preview…");
+                            }
+                        }
+                        if !messages.is_empty() {
+                            let width = (area[0] - 16.).max(1.);
+                            let message = messages.join("\n");
+                            let height = ui.calc_text_size_with_opts(&message, false, width)[1];
+                            let draw = ui.get_window_draw_list();
+                            draw.add_rect(canvas, [canvas[0] + area[0], canvas[1] + height + 16.],
+                                ui.style_color(dear_imgui_rs::StyleColor::WindowBg)).filled(true).build();
+                            draw.add_text_with_font(ui.current_font(), ui.current_font_size(),
+                                [canvas[0] + 8., canvas[1] + 8.], ui.style_color(dear_imgui_rs::StyleColor::Text),
+                                message, width, None);
+                        }
+                    });
             }
             ui.set_cursor_pos([origin[0], origin[1] + image_height]);
             if let Some(output) = self.workspace.resolve(id) {
@@ -1717,7 +1759,7 @@ impl Shell {
                 let before_time = viewer.time;
                 let before_range = viewer.range;
                 context.transport_context(viewer.playing, viewer.range);
-                if ui.is_window_focused() {
+                if ui.is_window_focused_with_flags(dear_imgui_rs::FocusedFlags::ROOT_AND_CHILD_WINDOWS) {
                     crate::transport::shortcuts(ui, &mut context);
                 }
                 self.transports
@@ -1754,71 +1796,76 @@ impl Shell {
             }
             self.workspace.viewers.remove(&id);
             self.viewport_pixels.remove(&id);
+            self.viewport_scale.remove(&id);
+            self.navigation.remove(&id);
             self.sync_instances();
             self.rebuild_layout();
         }
     }
-    pub fn viewer_overlays(&mut self, ui: &Ui, client: &mut dyn DesktopClient) {
-        for (&id, rect) in &self.image_rects {
-            let Some(viewer) = self.workspace.viewers.get(&id) else {
-                continue;
-            };
-            let Some(editor_id) = self.workspace.editor_for_viewer(id) else {
-                continue;
-            };
-            let Some(output) = self.workspace.resolve(id) else {
-                continue;
-            };
-            if viewer.playing {
-                continue;
+    fn viewer_overlay(
+        &mut self,
+        ui: &Ui,
+        id: PanelInstanceId,
+        rect: crate::sdk::ViewerRect,
+        client: &mut dyn DesktopClient,
+    ) {
+        let Some(viewer) = self.workspace.viewers.get(&id) else {
+            return;
+        };
+        let Some(editor_id) = self.workspace.editor_for_viewer(id) else {
+            return;
+        };
+        let Some(output) = self.workspace.resolve(id) else {
+            return;
+        };
+        if viewer.playing {
+            return;
+        }
+        if let Some((presented, _)) = self.presentation.get(&id) {
+            let state = client.preview_state(&output, viewer.time);
+            let expected = state
+                .preview_key(state.frame, 1)
+                .and_then(|key| self.spatial_key(id, key, viewer.divisor))
+                .map(|mut key| {
+                    key.output = output.output.clone();
+                    key.channels = viewer.channels.clone();
+                    key
+                });
+            if presented.is_none() || *presented != expected {
+                return;
             }
-            if let Some((presented, _)) = self.presentation.get(&id) {
-                let state = client.preview_state(&output, viewer.time);
-                let expected = state
-                    .preview_key(state.frame, viewer.divisor)
-                    .map(|mut key| {
-                        key.dimensions = self.sized_dimensions(id, key.dimensions, viewer.divisor);
-                        key.output = output.output.clone();
-                        key.channels = viewer.channels.clone();
-                        key
-                    });
-                if presented.is_none() || *presented != expected {
-                    continue;
-                }
-            }
-            let Some(binding) = self.workspace.editors.get(&editor_id) else {
-                continue;
-            };
-            if binding.output().as_ref() != Some(&output) {
-                continue;
-            }
-            let Some(editor) = self.editors.get_mut(&editor_id) else {
-                continue;
-            };
-            let mut binding = binding.clone();
-            if let Some(location) = binding.navigation.last_mut() {
-                location.time = viewer.time;
-            }
-            let mut selected = false;
-            ui.window(&self.viewers[&id]).build(|| {
-                let mut context = PanelContext::new(client, &mut binding).instance(id);
-                editor.panels.editor.draw_viewer_overlay(
-                    ExtensionUi {
-                        ui,
-                        host: &mut context,
-                    },
-                    *rect,
-                );
-                selected = context.selection_requested();
-            });
-            self.workspace
-                .editors
-                .get_mut(&editor_id)
-                .unwrap()
-                .selection = binding.selection;
-            if selected {
-                self.workspace.record_selection(editor_id);
-            }
+        }
+        let Some(binding) = self.workspace.editors.get(&editor_id) else {
+            return;
+        };
+        if binding.output().as_ref() != Some(&output) {
+            return;
+        }
+        let Some(editor) = self.editors.get_mut(&editor_id) else {
+            return;
+        };
+        let mut binding = binding.clone();
+        if let Some(location) = binding.navigation.last_mut() {
+            location.time = viewer.time;
+        }
+        let selected = {
+            let mut context = PanelContext::new(client, &mut binding).instance(id);
+            editor.panels.editor.draw_viewer_overlay(
+                ExtensionUi {
+                    ui,
+                    host: &mut context,
+                },
+                rect,
+            );
+            context.selection_requested()
+        };
+        self.workspace
+            .editors
+            .get_mut(&editor_id)
+            .unwrap()
+            .selection = binding.selection;
+        if selected {
+            self.workspace.record_selection(editor_id);
         }
     }
 }

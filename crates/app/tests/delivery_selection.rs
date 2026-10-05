@@ -16,6 +16,7 @@ fn scene_request_is_independent_of_viewer_keys_and_retains_alpha() {
         .unwrap();
     let snapshot = project.snapshot();
     let mut request = media_workflow::SceneRequest {
+        region: None,
         preview: None,
         source: DocumentRef {
             document: id,
@@ -34,6 +35,26 @@ fn scene_request_is_independent_of_viewer_keys_and_retains_alpha() {
         frame.to_display().is_err(),
         "scene evaluation must not silently matte"
     );
+    // Spatial preview requests are independent; the full delivery request
+    // remains full-frame and alpha/timing survive extraction.
+    let full_request = request.clone();
+    request.region = Some(fold_render::region::Region {
+        x: 1,
+        y: 1,
+        width: 2,
+        height: 2,
+    });
+    let tile = media_workflow::evaluate_scene(&snapshot, &request, &mut decoder, &cancel).unwrap();
+    assert_eq!(tile.dimensions(), [2, 2]);
+    assert_eq!(tile.pixels(), &[[0.; 4]; 4]);
+    assert_eq!(tile.descriptor().timing, frame.descriptor().timing);
+    assert_eq!(
+        media_workflow::evaluate_scene(&snapshot, &full_request, &mut decoder, &cancel)
+            .unwrap()
+            .dimensions(),
+        [4, 4]
+    );
+    request.region = None;
     request.source.output = "missing".into();
     assert!(media_workflow::evaluate_scene(&snapshot, &request, &mut decoder, &cancel).is_err());
     request.source.output = "video".into();

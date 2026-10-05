@@ -60,6 +60,7 @@ fn native_yuv_reconstruction_matches_float_reference() {
         status.encode(&mut encoder);
         host.submit(encoder, vec![output.clone()], reservations);
         let mut frame = GpuFrame {
+            dependencies: vec![],
             image: output,
             host: host.clone(),
             ready: status.submitted(),

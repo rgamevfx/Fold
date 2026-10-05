@@ -458,6 +458,7 @@ impl PreviewHost {
                     self.cache.peek(key).is_some()
                         && key.content == demand.content
                         && key.dimensions == demand.dimensions
+                        && key.region == demand.region
                         && key.view == demand.view
                         && key.channels == demand.channels
                         && key.output == demand.output

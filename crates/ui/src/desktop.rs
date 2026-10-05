@@ -471,7 +471,6 @@ impl Desktop {
                 self.client.as_mut(),
             );
         }
-        self.shell.viewer_overlays(ui, self.client.as_mut());
         #[cfg(feature = "native-probe")]
         let viewers_done = std::time::Instant::now();
         self.platform.prepare_render(ui, &self.window)?;

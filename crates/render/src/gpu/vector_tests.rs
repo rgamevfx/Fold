@@ -66,6 +66,7 @@ fn native_float_coverage_matches_reference_without_full_image_upload() {
             status.encode(&mut encoder);
             host.submit(encoder, vec![output.clone()], reservations);
             let mut frame = GpuFrame {
+                dependencies: vec![],
                 image: output,
                 host: host.clone(),
                 ready: status.submitted(),

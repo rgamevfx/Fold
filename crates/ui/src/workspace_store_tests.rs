@@ -18,13 +18,17 @@ fn sidecars_round_trip_without_project_io_and_flush_latest_state_on_close() {
         for _ in 0..10 {
             store.save(workspace.clone());
         }
-        workspace.add_viewer(Default::default());
+        workspace.add_viewer(fold_platform::workspace::ViewerInstance {
+            pixel_exact: true,
+            ..Default::default()
+        });
         store.save(workspace.clone());
         // Drop drains bounded/coalesced saves, including the last half-second.
     }
     let path = sidecar(&root, &workspace.project);
     let loaded = Workspace::decode(&std::fs::read(path).unwrap(), &workspace.project).unwrap();
     assert_eq!(loaded.viewers.len(), 1);
+    assert!(loaded.viewers.values().next().unwrap().pixel_exact);
     assert_eq!(loaded.editors[&editor].contribution, "unavailable.editor");
     let mut store = WorkspaceStore::at(Some(root.clone()));
     store.load(workspace.project.clone());

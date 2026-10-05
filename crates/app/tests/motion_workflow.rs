@@ -178,6 +178,7 @@ fn motion_nests_in_compositor_and_timeline_without_flattening() {
     assert_eq!(original, pixels(&project, &nested_ref));
     assert_eq!(original[0], [0.; 4]);
     let mut key = PreviewKey {
+        region: None,
         output: "video".into(),
         target: Some((sequence_id, Time::ZERO)),
         content: media_workflow::content_for(&project.snapshot(), sequence_id).unwrap(),
