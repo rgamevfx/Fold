@@ -49,9 +49,19 @@ pub fn runtime() -> Result<PathBuf, String> {
     let uid = std::fs::metadata("/proc/self")
         .map_err(|e| e.to_string())?
         .uid();
-    let base = std::env::var_os("XDG_RUNTIME_DIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from(format!("/tmp/fold-runtime-{uid}")));
+    let base = match std::env::var_os("XDG_RUNTIME_DIR") {
+        Some(path) => PathBuf::from(path),
+        None => {
+            // Agent harnesses may filter desktop environment variables. Share the
+            // login runtime with the app before falling back on headless hosts.
+            let login_runtime = PathBuf::from(format!("/run/user/{uid}"));
+            if login_runtime.try_exists().map_err(|e| e.to_string())? {
+                login_runtime
+            } else {
+                PathBuf::from(format!("/tmp/fold-runtime-{uid}"))
+            }
+        }
+    };
     private_directory(&base, uid)?;
     let dir = base.join("fold-agents");
     private_directory(&dir, uid)?;

@@ -23,9 +23,13 @@ pub fn call(session: &str, method: &str, params: Value) -> Result<Value, String>
     // Session IDs are UUIDs, never arbitrary paths.
     let _: fold_foundation::ObjectId =
         serde_json::from_value(json!(session)).map_err(|_| "invalid session ID")?;
-    let mut stream =
-        std::os::unix::net::UnixStream::connect(wire::runtime()?.join(session).join("ipc"))
-            .map_err(|e| e.to_string())?;
+    let socket = wire::runtime()?.join(session).join("ipc");
+    let mut stream = std::os::unix::net::UnixStream::connect(&socket).map_err(|e| {
+        format!(
+            "cannot connect to Fold socket {}: {e}; check that local connections are enabled and the app and client use the same runtime directory",
+            socket.display()
+        )
+    })?;
     stream
         .set_read_timeout(Some(std::time::Duration::from_secs(35)))
         .map_err(|e| e.to_string())?;

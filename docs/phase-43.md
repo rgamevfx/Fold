@@ -19,6 +19,8 @@ Configure a local stdio MCP server in the chosen harness:
 }
 ```
 
+For Codex, register the server with `codex mcp add fold --env XDG_RUNTIME_DIR=/run/user/1000 -- /absolute/path/to/fold-cli agent mcp`, replacing `/run/user/1000` with the app's actual runtime directory. Restart the MCP connection after changing its configuration; an already-running bridge retains its startup environment.
+
 The containing configuration format depends on the harness. The command and arguments above are the executable interface; no configuration is installed automatically. The harness must run as the same Linux user with access to Fold's runtime directory. Discover with `fold_sessions`, then pass the selected session UUID to tools. There is no remote HTTP endpoint or embedded model dependency.
 
 CLI equivalents:
@@ -37,7 +39,7 @@ The portable [Fold skill](../skills/fold/SKILL.md) can be installed in a harness
 
 ## Contract and behavior
 
-The API uses version 1 newline-delimited JSON over a same-user Unix socket. Requests contain `version`, `method`, and `params`; responses contain `ok` and `result` or `error`. Runtime directories are owner-only and sockets mode 0600. This is local application access, not a sandbox for hostile programs running as the same OS user.
+The API uses version 1 newline-delimited JSON over a same-user Unix socket. Requests contain `version`, `method`, and `params`; responses contain `ok` and `result` or `error`. Runtime directories are owner-only and sockets mode 0600. The location is `$XDG_RUNTIME_DIR/fold-agents` when explicitly configured; otherwise it uses `/run/user/<uid>/fold-agents` if that login runtime exists, then `/tmp/fold-runtime-<uid>/fold-agents` on headless hosts. Ownership and permission checks apply to every choice. A custom app runtime directory must also be passed explicitly to the MCP bridge. This is local application access, not a sandbox for hostile programs running as the same OS user.
 
 Discovery exposes method schemas, package operation examples, node sockets/defaults and registered commands. Methods cover state, catalog, scoped inspection, batches, undo/redo, jobs/cancellation, render, viewers/capture, navigation, save and portal screenshot. MCP additionally discovers sessions. The adapter implements explicit legacy MCP initialization for 2024-11-05 through 2025-11-25, tools/list and tools/call; it does not claim the newer draft lifecycle, subscriptions or remote authentication support.
 
@@ -70,3 +72,11 @@ A viewer capture represents the held image or crop, without application chrome, 
 - A separate live CLI batch edited the open title, sought the viewer, captured the changed image, and undid the transaction. Revision advanced on edit and undo, and dirty state returned to false. `/tmp/fold-agent-live-edit.png` was visually inspected.
 
 Desktop compilation passed. Workspace Clippy completed; new warnings were corrected, with existing warnings retained. The workspace test run passed the agent suite and earlier suites, then stopped at `media_sequence::input_output_transfer_roundtrips_every_rgb8_value`: the assertion that a mismatched graph width must fail did not hold. The color roundtrip passed, and this change does not modify that renderer path. Later workspace suites were not reached. Temporary images and project files are local validation artifacts, not committed example assets. The portable generator reproduces the example.
+
+## Discovery correction after Codex demo setup
+
+The connected Codex MCP process filtered out `XDG_RUNTIME_DIR`, while Fold inherited `/run/user/1000`. The original bridge searched the separate `/tmp/fold-runtime-1000` fallback, returning an empty session list and ENOENT for the known session. Process inspection confirmed the same UID, executable and visible socket, ruling out sandbox isolation. Earlier standalone MCP verification inherited the shell environment and did not cover this case.
+
+Discovery now resolves the standard login runtime when the environment variable is absent, while preserving explicit overrides and private-directory checks. Socket errors include the attempted path. The local Codex configuration also sets `XDG_RUNTIME_DIR` explicitly. The regression command `python3 scripts/check_agent_discovery.py target/debug/fold-cli SESSION` launches a real MCP process with that variable removed and asserts both discovery and direct state access. It reproduced both original failures before the fix.
+
+Validation: the regression failed with the original empty list and ENOENT, then passed against the same live empty session after rebuilding, with `XDG_RUNTIME_DIR` still removed. Both CLI and desktop builds passed, all four focused `agent_access` tests passed, and the diff whitespace check passed. Already-connected MCP processes still need a restart to load the new binary/configuration. No live project edits were made.
