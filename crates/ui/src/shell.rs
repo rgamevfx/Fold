@@ -1708,6 +1708,8 @@ impl Shell {
                             if self.workspace.viewers[&id].pixel_exact { draw.set_sampler_nearest(); }
                             draw.add_image(*texture, start, end, [0., 0.], *uv_max, [1.; 4]);
                             if self.workspace.viewers[&id].pixel_exact { draw.set_sampler_linear(); }
+                            // Feature overlays acquire their own draw-list wrapper.
+                            drop(draw);
                             self.viewer_overlay(ui, id, rect, client);
                         }
                         self.navigation.entry(id).or_default().input(ui, canvas, area, fitted);

@@ -1,6 +1,6 @@
 //! GPU execution of the logical graph. Native YUV reconstruction, OCIO,
 //! float vector compositing and image operators remain GPU-resident. Native
-//! sample transport and reference-compatible coverage are measured CPU adapters.
+//! sample transport remains a measured CPU adapter where required.
 //! No renderer or device is initialized in CPU-only/headless builds by default.
 mod cache;
 pub use cache::PresentationCompressor;
@@ -31,7 +31,7 @@ pub struct Statistics {
     pub lut_upload_bytes: u64,
     pub readback_bytes: u64,
     pub status_readback_bytes: u64,
-    /// Full-frame CPU RGB/RGBA adapters. Native decode and CPU coverage are
+    /// Full-frame CPU RGB/RGBA adapters. Native decode and geometry preparation are
     /// measured separately below; zero here does not mean zero CPU work.
     pub cpu_adapter_nodes: u32,
     pub resident_still_nodes: u32,
@@ -899,7 +899,7 @@ impl Renderer {
                     scratch.push(intermediate);
                     compute = false;
                 }
-                ImageOp::Vector(drawings) if aces => {
+                ImageOp::Vector(drawings) => {
                     let (bytes, elapsed) = self.vector.encode(
                         &mut encoder,
                         drawings,
@@ -977,8 +977,7 @@ impl Renderer {
                 ImageOp::Exr { .. }
                 | ImageOp::Media(_)
                 | ImageOp::Video { .. }
-                | ImageOp::VideoInput { .. }
-                | ImageOp::Vector(_) => {
+                | ImageOp::VideoInput { .. } => {
                     let begin = std::time::Instant::now();
                     let mut input_space = None;
                     let mut native_planes = None;
@@ -997,7 +996,7 @@ impl Renderer {
                         )?;
                         input_space = space.as_deref();
                         std::mem::take(&mut exr_pixels.pixels)
-                    } else if aces && !matches!(op, ImageOp::Vector(_)) {
+                    } else if aces {
                         let decoded;
                         let source = match op {
                             ImageOp::Media(source) => source,

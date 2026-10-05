@@ -1,6 +1,5 @@
 //! Immutable native 2D drawing contract. No authoring graph or feature models.
-//! The legacy adapter retains 8-bit SDR rasterization for appearance compatibility.
-//! The ACES path uses analytic triangle/pixel coverage and float authored colors.
+//! Both working spaces use analytic triangle/pixel coverage and float authored colors.
 //! Neither working color nor coverage is quantized to an SDR paint image.
 use fold_media::Cancel;
 use serde::{Deserialize, Serialize};
@@ -140,14 +139,6 @@ pub(crate) fn raster_stroke(stroke: &Stroke) -> tiny_skia::Stroke {
     }
 }
 
-pub(crate) fn fill_rule(drawing: &Drawing) -> tiny_skia::FillRule {
-    if drawing.even_odd {
-        tiny_skia::FillRule::EvenOdd
-    } else {
-        tiny_skia::FillRule::Winding
-    }
-}
-
 pub(crate) fn rasterize(
     drawings: &[Drawing],
     width: u32,
@@ -155,60 +146,8 @@ pub(crate) fn rasterize(
     cancel: &Cancel,
     aces: bool,
 ) -> Result<Vec<[f32; 4]>, String> {
-    if aces {
-        return crate::vector_geometry::rasterize(drawings, width, height, cancel);
-    }
-    validate_working(drawings, false)?;
-    let _surface_storage =
-        fold_media::budget::reserve_working(u64::from(width) * u64::from(height) * 4)?;
-    let mut pixmap =
-        tiny_skia::Pixmap::new(width, height).ok_or("vector surface allocation failed")?;
-    for drawing in drawings {
-        cancel.check()?;
-        let Some(path) = build_path(drawing) else {
-            continue;
-        };
-        let [a, b, c, d, x, y] = drawing.transform.map(|v| v as f32);
-        let transform = tiny_skia::Transform::from_row(a, b, c, d, x, y);
-        // A zero scale intentionally makes geometry invisible; it is valid animation.
-        if transform.invert().is_none() {
-            continue;
-        }
-        let paint = |color: [f64; 4]| {
-            let mut paint = tiny_skia::Paint::default();
-            let [r, g, b, a] = color.map(|v| v as f32);
-            paint.set_color(tiny_skia::Color::from_rgba(r, g, b, a).expect("validated SDR color"));
-            paint.anti_alias = true;
-            paint
-        };
-        if let Some(color) = drawing.fill {
-            pixmap.fill_path(&path, &paint(color), fill_rule(drawing), transform, None);
-        }
-        if let Some(stroke) = &drawing.stroke
-            && stroke.width > 0.
-        {
-            pixmap.stroke_path(
-                &path,
-                &paint(stroke.color),
-                &raster_stroke(stroke),
-                transform,
-                None,
-            );
-        }
-    }
-    cancel.check()?;
-    Ok(pixmap
-        .data()
-        .chunks_exact(4)
-        .map(|p| {
-            [
-                p[0] as f32 / 255.,
-                p[1] as f32 / 255.,
-                p[2] as f32 / 255.,
-                p[3] as f32 / 255.,
-            ]
-        })
-        .collect())
+    validate_working(drawings, aces)?;
+    crate::vector_geometry::rasterize(drawings, width, height, cancel)
 }
 
 #[cfg(test)]

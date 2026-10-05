@@ -186,6 +186,23 @@ impl Panel for Marker {
             }),
         })
     }
+    fn draw_viewer_overlay(&mut self, context: ExtensionUi<'_>, rect: crate::sdk::ViewerRect) {
+        context
+            .ui
+            .get_window_draw_list()
+            .add_line(
+                rect.origin,
+                [rect.origin[0] + rect.size[0], rect.origin[1] + rect.size[1]],
+                [1.; 4],
+            )
+            .build();
+        self.seen.borrow_mut().push((
+            context.instance(),
+            context.host.state().selection.document,
+            false,
+            0,
+        ));
+    }
     fn draw(&mut self, context: ExtensionUi<'_>) {
         if !self.inspector {
             self.count.set(self.count.get() + 1);
@@ -1052,6 +1069,78 @@ fn viewer_errors_do_not_change_preview_demand_size() {
                     "message changed drawable size at {width}px"
                 );
             }
+            context.end_frame();
+        }
+    }
+}
+
+#[test]
+fn ready_viewer_releases_image_draw_list_before_editor_overlay() {
+    let _guard = crate::IMGUI_TEST_LOCK.lock().unwrap();
+    let mut context = Context::create();
+    context.set_ini_filename(None::<String>).unwrap();
+    context
+        .font_atlas()
+        .try_claim_legacy_renderer()
+        .unwrap()
+        .build();
+    context.io_mut().set_display_size([1000., 800.]);
+    context.io_mut().set_delta_time(1. / 60.);
+    let documents = [DocumentId::new(), DocumentId::new()];
+    let mut host = Host {
+        documents,
+        state: Default::default(),
+        delivery: documents[0],
+        commands: vec![],
+    };
+    let seen = Seen::default();
+    let mut shell = Shell::new(vec![RegisteredPanel {
+        descriptor: fold_platform::packages::PanelDescriptor {
+            id: "test.editor",
+            title: "Editor",
+            placement: PanelPlacement::Editor,
+        },
+        key: WindowKey::new("test.editor", "Editor").unwrap(),
+        panel: Box::new(Marker {
+            inspector: false,
+            count: Default::default(),
+            seen: seen.clone(),
+        }),
+    }]);
+    let editor = *shell.workspace.editors.keys().next().unwrap();
+    shell
+        .workspace
+        .editors
+        .get_mut(&editor)
+        .unwrap()
+        .bind(ViewLocation {
+            document: documents[0],
+            time: Time::ZERO,
+            label: String::new(),
+        });
+    shell.workspace.record_selection(editor);
+    shell.sync_instances();
+    let id = *shell.workspace.viewers.keys().next().unwrap();
+    assert_eq!(shell.workspace.editor_for_viewer(id), Some(editor));
+    let preview = Preview::Ready {
+        texture: dear_imgui_rs::TextureId::new(1),
+        dimensions: [64, 64],
+        uv_max: [1.; 2],
+    };
+    for width in [680., 240.] {
+        for _ in 0..3 {
+            let before = seen.borrow().len();
+            let ui = context.frame();
+            ui.window(&shell.viewers[&id])
+                .position([0.; 2], dear_imgui_rs::Condition::Always)
+                .size([width, 400.], dear_imgui_rs::Condition::Always)
+                .build(|| {});
+            shell.viewer_instance(ui, id, &preview, "", &mut host);
+            assert_eq!(
+                seen.borrow().len(),
+                before + 1,
+                "overlay must actually draw"
+            );
             context.end_frame();
         }
     }

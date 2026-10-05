@@ -103,7 +103,7 @@ pub fn content_for(
     document: fold_foundation::DocumentId,
 ) -> Result<String, String> {
     let mut data =
-        b"fold-video-evaluator-v6;gpu-operators-v1;rgba32f;ocio-2.4.2;aces-srgb-view-v1;native709-float;nearest;".to_vec();
+        b"fold-video-evaluator-v7;analytic-vectors-all-spaces;gpu-operators-v1;rgba32f;ocio-2.4.2;aces-srgb-view-v1;native709-float;nearest;".to_vec();
     if let Some(color) = fold_platform::color::project(snapshot)? {
         data.extend(serde_json::to_vec(&color).map_err(|e| e.to_string())?);
     }

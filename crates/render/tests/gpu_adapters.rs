@@ -74,8 +74,11 @@ fn native_nested_sources_vectors_and_scratch_upload_order() {
         plan.output += 1;
         let expected = fold_render::render(plan.clone()).unwrap();
         let mut result = gpu.evaluate(plan, None, &mut decoder, &cancel).unwrap();
-        assert_eq!(result.statistics.cpu_adapter_nodes, 3);
-        assert_eq!(result.statistics.upload_bytes, 3 * 512 * 11);
+        assert_eq!(result.statistics.cpu_adapter_nodes, 2);
+        assert_eq!(
+            result.statistics.upload_bytes,
+            2 * 512 * 11 + result.statistics.vector_upload_bytes
+        );
         assert_eq!(result.statistics.readback_bytes, 0);
         assert!(result.statistics.status_readback_bytes >= 4);
         let actual = result.readback(&cancel).unwrap();

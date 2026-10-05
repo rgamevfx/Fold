@@ -90,3 +90,54 @@ fn native_float_coverage_matches_reference_without_full_image_upload() {
         }
     }
 }
+
+#[test]
+#[ignore = "requires native Vulkan"]
+fn unconfigured_vectors_stay_on_gpu_with_float_coverage() {
+    let (host, _) = pollster::block_on(Host::headless(8 * 1024 * 1024)).unwrap();
+    let mut renderer = crate::gpu::Renderer::new(host).unwrap();
+    let drawings = vec![Drawing {
+        path: Arc::new(vec![
+            Segment::Move([0.25, 0.25]),
+            Segment::Line([20.75, 0.25]),
+            Segment::Line([20.75, 20.75]),
+            Segment::Line([0.25, 20.75]),
+            Segment::Close,
+        ]),
+        transform: [1., 0., 0., 1., 0., 0.],
+        fill: Some([0.12345, 0.54321, 0.8, 0.4321]),
+        even_odd: false,
+        stroke: None,
+    }];
+    let graph = crate::RenderGraph {
+        width: 32,
+        height: 32,
+        nodes: vec![crate::ImageOp::Vector(Arc::new(drawings))],
+        output: 0,
+    };
+    let cancel = fold_media::Cancel::default();
+    let mut frame = renderer
+        .evaluate(
+            graph.clone(),
+            None,
+            &mut fold_media::Decoder::default(),
+            &cancel,
+        )
+        .unwrap();
+    assert_eq!(
+        frame.statistics.cpu_adapter_nodes, 0,
+        "vectors must not rasterize/upload CPU images"
+    );
+    assert!(frame.statistics.vector_upload_bytes > 0);
+    let actual = frame.readback(&cancel).unwrap();
+    let expected = crate::render(graph).unwrap();
+    for (a, b) in actual
+        .pixels()
+        .iter()
+        .flatten()
+        .zip(expected.pixels().iter().flatten())
+    {
+        assert!((a - b).abs() < 0.0001, "{a} != {b}");
+    }
+    assert!((actual.pixels()[33][3] - 0.4321).abs() < 0.00001);
+}

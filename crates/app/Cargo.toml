@@ -39,6 +39,10 @@ path = "src/bin/cli.rs"
 name = "render_profile"
 required-features = ["gpu"]
 
+[[example]]
+name = "motion_profile"
+required-features = ["gpu"]
+
 [[bin]]
 name = "fold-desktop"
 path = "src/bin/desktop.rs"
