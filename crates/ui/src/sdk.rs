@@ -1,10 +1,13 @@
 //! Small trusted, in-process panel SDK. Panels own presentation state only.
-//! Backend/device access stays private; raw ImGui is an explicitly unstable
-//! escape hatch for custom editors, not a promised native plugin ABI.
+//! Raw ImGui is an explicitly unstable escape hatch for custom editors,
+//! not a promised native plugin ABI.
 #[cfg(test)]
 #[path = "sdk_tests.rs"]
 mod tests;
 pub use dear_imgui_rs as imgui;
+// Unstable backend access for native UI capture tests in feature packages.
+#[doc(hidden)]
+pub use dear_imgui_wgpu as render_backend;
 #[path = "appearance.rs"]
 pub mod appearance;
 #[path = "canvas_pan.rs"]

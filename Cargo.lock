@@ -1067,7 +1067,6 @@ dependencies = [
 name = "fold-motion"
 version = "0.1.0"
 dependencies = [
- "dear-imgui-wgpu",
  "fold-animation",
  "fold-foundation",
  "fold-media",

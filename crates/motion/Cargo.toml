@@ -25,5 +25,4 @@ unicode-bidi = "0.3"
 workspace = true
 
 [dev-dependencies]
-dear-imgui-wgpu = { version = "0.18", default-features = false, features = ["wgpu-27"] }
 pollster = "0.4"

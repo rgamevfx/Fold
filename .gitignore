@@ -1,2 +1,10 @@
 /target/
 __pycache__/
+
+# Local credentials and environment overrides
+.env
+.env.*
+!.env.example
+.aws/
+*.pem
+*.key

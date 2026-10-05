@@ -1,6 +1,6 @@
 //! Native-backend captures of the actual Motion controls, not a UI mockup.
 use super::*;
-use dear_imgui_wgpu::{FramebufferExtent, WgpuInitInfo, WgpuRenderer, wgpu};
+use fold_ui::sdk::render_backend::{FramebufferExtent, WgpuInitInfo, WgpuRenderer, wgpu};
 use fold_ui::sdk::{ExtensionUi, Panel, imgui, typography::Typography};
 #[test]
 #[ignore = "native renderer; writes /tmp/fold-motion-v2-ui"]
