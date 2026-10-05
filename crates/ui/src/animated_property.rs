@@ -43,6 +43,34 @@ fn menu_items(ui: &Ui, keyed: bool, animated: bool) -> Option<Action> {
     }
     action
 }
+fn interpolation_menu(
+    ui: &Ui,
+    paths: &[String],
+    channels: &mut BTreeMap<String, Curve>,
+    response: &mut EditResponse,
+) {
+    if paths.iter().any(|p| channels.contains_key(p))
+        && let Some(_menu) = ui.begin_menu("Interpolation")
+    {
+        for (label, mode) in [
+            ("Linear", fold_animation::Interpolation::Linear),
+            ("Hold", fold_animation::Interpolation::Hold),
+            ("Bezier", fold_animation::Interpolation::Bezier),
+        ] {
+            if ui.menu_item(label) {
+                for path in paths {
+                    if let Some(curve) = channels.get_mut(path) {
+                        for key in &mut curve.keys {
+                            key.interpolation = mode;
+                        }
+                    }
+                }
+                response.changed = true;
+                response.finished = true;
+            }
+        }
+    }
+}
 impl AnimatedProperty<'_> {
     pub fn draw(
         &self,
@@ -52,6 +80,20 @@ impl AnimatedProperty<'_> {
         time: Time,
         auto_key: bool,
         response: &mut EditResponse,
+    ) {
+        self.draw_with_menu(ui, base, channels, time, auto_key, response, &mut |_| {});
+    }
+
+    /// Append feature actions to both the label and component context menus.
+    pub fn draw_with_menu(
+        &self,
+        ui: &Ui,
+        base: &mut [f64],
+        channels: &mut BTreeMap<String, Curve>,
+        time: Time,
+        auto_key: bool,
+        response: &mut EditResponse,
+        menu: &mut dyn FnMut(&Ui),
     ) {
         let _id = ui.push_id(self.id);
         let paths: Vec<_> = (0..base.len())
@@ -84,45 +126,69 @@ impl AnimatedProperty<'_> {
         if label_focused && (ui.is_key_pressed(Key::Enter) || ui.is_key_pressed(Key::Space)) {
             group = Some(Action::Insert);
         }
-        if let Some(_popup) = ui.begin_popup_context_item() {
-            group = menu_items(ui, keyed, animated).or(group);
-            if let Some(aces) = self.color
-                && let Ok(mut color) = <[f64; 4]>::try_from(values.as_slice())
-                && let Some(_picker) = ui.begin_menu("Color picker")
-            {
-                let locked = paths
-                    .iter()
-                    .any(|p| channels.get(p).is_some_and(|c| c.at(time).is_none()))
-                    && !auto_key;
-                let _disabled = locked.then(|| ui.begin_disabled());
-                let before = color;
-                let mut edit = EditResponse::default();
-                crate::sdk::color_controls::authored(ui, &mut color, aces, &mut edit);
-                for (i, (&value, &previous)) in color.iter().zip(&before).enumerate() {
-                    if value != previous && value.is_finite() {
-                        if auto_key || channels.contains_key(&paths[i]) {
-                            channels
-                                .entry(paths[i].clone())
-                                .or_default()
-                                .insert(time, value);
-                        } else {
-                            base[i] = value;
+        if self.color.is_some()
+            && label_hovered
+            && !ui.io().key_alt()
+            && ui.is_mouse_clicked(MouseButton::Left)
+        {
+            ui.open_popup("color-picker");
+        }
+        let mut edit_color =
+            |ui: &Ui, channels: &mut BTreeMap<String, Curve>, response: &mut EditResponse| {
+                if let Some(aces) = self.color
+                    && let Ok(mut color) = <[f64; 4]>::try_from(values.as_slice())
+                {
+                    let locked = paths
+                        .iter()
+                        .any(|p| channels.get(p).is_some_and(|c| c.at(time).is_none()))
+                        && !auto_key;
+                    let _disabled = locked.then(|| ui.begin_disabled());
+                    let before = color;
+                    let mut edit = EditResponse::default();
+                    crate::sdk::color_controls::authored(ui, &mut color, aces, &mut edit);
+                    for (i, (&value, &previous)) in color.iter().zip(&before).enumerate() {
+                        if value != previous && value.is_finite() {
+                            if auto_key || channels.contains_key(&paths[i]) {
+                                channels
+                                    .entry(paths[i].clone())
+                                    .or_default()
+                                    .insert(time, value);
+                            } else {
+                                base[i] = value;
+                            }
                         }
                     }
+                    response.changed |= edit.changed;
+                    response.finished |= edit.finished;
                 }
-                response.changed |= edit.changed;
-                response.finished |= edit.finished;
+            };
+        if let Some(_popup) = ui.begin_popup_context_item() {
+            group = menu_items(ui, keyed, animated).or(group);
+            interpolation_menu(ui, &paths, channels, response);
+            menu(ui);
+            if self.color.is_some()
+                && let Some(_picker) = ui.begin_menu("Color picker")
+            {
+                edit_color(ui, channels, response);
             }
+        }
+        if let Some(_picker) = ui.begin_popup("color-picker") {
+            edit_color(ui, channels, response);
         }
         tooltip(
             ui,
             &format!(
-                "{}{} — Alt-click to key all components; right-click for animation",
+                "{}{} — Alt-click to key all components; right-click for animation{}",
                 self.label,
                 if self.unit.is_empty() {
                     String::new()
                 } else {
                     format!(" ({})", self.unit)
+                },
+                if self.color.is_some() {
+                    "; click label or swatch for color"
+                } else {
+                    ""
                 }
             ),
         );
@@ -163,9 +229,27 @@ impl AnimatedProperty<'_> {
             )
             .build();
         }
+        let swatch = self.color.and_then(|aces| {
+            <[f64; 4]>::try_from(values.as_slice())
+                .ok()
+                .map(|v| fold_platform::color::to_picker(v, aces).map(|v| v.clamp(0., 1.) as f32))
+        });
+        let swatch_width = if swatch.is_some() { 12. } else { 0. };
+        if let Some(color) = swatch {
+            draw.add_rect(
+                [start[0] + label_width - 12., start[1] + 4.],
+                [start[0] + label_width - 2., start[1] + height - 4.],
+                color,
+            )
+            .filled(true)
+            .build();
+        }
         draw.with_clip_rect(
             start,
-            [start[0] + label_width - 2., start[1] + height],
+            [
+                start[0] + label_width - 2. - swatch_width,
+                start[1] + height,
+            ],
             || {
                 draw.add_text(
                     [
@@ -242,6 +326,8 @@ impl AnimatedProperty<'_> {
                 ui.open_popup("channel");
             }
             if let Some(_popup) = ui.begin_popup("channel") {
+                interpolation_menu(ui, std::slice::from_ref(path), channels, response);
+                menu(ui);
                 if ui.menu_item(if is_keyed {
                     "Update keyframe"
                 } else {
@@ -325,7 +411,6 @@ impl AnimatedProperty<'_> {
                     .and_then(|c| c.keys.iter_mut().find(|k| k.time == time))
             {
                 key.value = key.value.round();
-                key.interpolation = fold_animation::Interpolation::Hold;
             }
         }
     }
@@ -335,6 +420,70 @@ impl AnimatedProperty<'_> {
 mod tests {
     use super::*;
     use crate::sdk::imgui::{Condition, Context};
+    #[test]
+    fn integer_property_keys_interpolate_between_counts() {
+        let _guard = crate::IMGUI_TEST_LOCK.lock().unwrap();
+        let mut context = Context::create();
+        context.set_ini_filename(None::<String>).unwrap();
+        context
+            .font_atlas()
+            .try_claim_legacy_renderer()
+            .unwrap()
+            .build();
+        context.io_mut().set_display_size([500., 250.]);
+        context.io_mut().set_delta_time(1. / 60.);
+        let mut channels: BTreeMap<String, Curve> = BTreeMap::new();
+        let mut start = [0.; 2];
+        for (seconds, count) in [(0, 0.), (1, 120.)] {
+            // Author the displayed value, then key the numeric component as in the inspector.
+            let mut base = [count];
+            for frame in 0..6 {
+                context
+                    .io_mut()
+                    .add_mouse_pos_event([start[0] + 170., start[1] + 8.]);
+                context.io_mut().add_key_event(Key::ModAlt, true);
+                context
+                    .io_mut()
+                    .add_mouse_button_event(MouseButton::Left, frame == 4);
+                let ui = context.frame();
+                ui.window("Inspector")
+                    .position([0.; 2], Condition::Always)
+                    .size([400., 200.], Condition::Always)
+                    .build(|| {
+                        start = ui.cursor_screen_pos();
+                        // An existing curve samples its last value; seed the desired new key
+                        // before exercising the same component update action.
+                        if seconds == 1 && frame == 0 {
+                            channels
+                                .get_mut("count.0")
+                                .unwrap()
+                                .insert(Time::new(1, 1).unwrap(), count);
+                        }
+                        AnimatedProperty {
+                            id: "count",
+                            label: "Copies",
+                            components: &[""],
+                            unit: "integer",
+                            range: None,
+                            color: None,
+                        }
+                        .draw(
+                            ui,
+                            &mut base,
+                            &mut channels,
+                            Time::new(seconds, 1).unwrap(),
+                            false,
+                            &mut EditResponse::default(),
+                        );
+                    });
+                drop(context.render_legacy());
+            }
+        }
+        assert_eq!(
+            channels["count.0"].sample(Time::new(1, 2).unwrap()),
+            Some(60.)
+        );
+    }
     #[test]
     fn alt_click_keys_component_or_group_without_changing_authored_values() {
         let _guard = crate::IMGUI_TEST_LOCK.lock().unwrap();

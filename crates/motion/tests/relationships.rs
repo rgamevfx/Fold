@@ -422,3 +422,54 @@ fn extracting_animated_scene_content_preserves_identity_references_and_animation
     let b = fold_render::render(compile(&m, Time::new(1, 2).unwrap(), 64, 64).unwrap()).unwrap();
     assert_eq!(a.pixels(), b.pixels());
 }
+
+#[test]
+fn scene_drops_preserve_placement_reorder_and_reject_invalid_changes_atomically() {
+    let mut m = Motion::new_scene();
+    let group = create_group(&mut m).unwrap();
+    let nested = create_group(&mut m).unwrap();
+    let shape = create_object(&mut m, "fold.motion.rectangle").unwrap();
+    translate(&mut m, group, [100., 30.]);
+    translate(&mut m, shape, [40., 20.]);
+    let before = Evaluator::new(&m, Time::ZERO)
+        .unwrap()
+        .world_matrix(shape)
+        .unwrap();
+    place_object(&mut m, nested, Some(group), None, Time::ZERO).unwrap();
+    drop_beside(&mut m, shape, nested, false, Time::ZERO).unwrap();
+    assert_eq!(object(&mut m, shape).parent, Some(group));
+    let objects = &m.scene.as_ref().unwrap().objects;
+    assert!(
+        objects.iter().position(|o| o.id == shape) < objects.iter().position(|o| o.id == nested)
+    );
+    close(
+        Evaluator::new(&m, Time::ZERO)
+            .unwrap()
+            .world_matrix(shape)
+            .unwrap(),
+        before,
+    );
+    let saved = m.clone();
+    assert!(place_object(&mut m, group, Some(nested), None, Time::ZERO).is_err());
+    assert_eq!(m, saved);
+    assert!(place_object(&mut m, nested, Some(shape), None, Time::ZERO).is_err());
+    assert_eq!(m, saved);
+    object(&mut m, group).locked = true;
+    let saved = m.clone();
+    assert!(place_object(&mut m, shape, Some(group), None, Time::ZERO).is_err());
+    assert_eq!(m, saved);
+    object(&mut m, group).locked = false;
+    place_object(&mut m, shape, None, None, Time::ZERO).unwrap();
+    assert_eq!(object(&mut m, shape).parent, None);
+    close(
+        Evaluator::new(&m, Time::ZERO)
+            .unwrap()
+            .world_matrix(shape)
+            .unwrap(),
+        before,
+    );
+    assert_eq!(
+        Motion::from_document(&m.document(DocumentId::new()).unwrap()).unwrap(),
+        m
+    );
+}

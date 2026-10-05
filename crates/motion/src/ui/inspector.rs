@@ -26,10 +26,27 @@ impl Panel for Inspector {
             .is_some_and(|s| fold_platform::color::project(&s).ok().flatten().is_some());
         let mut state = self.state.borrow_mut();
         state.sync(host);
+        super::group_interface::window(ui, host, &mut state);
         let Some(&selected) = state.selected.first().filter(|_| state.selected.len() == 1) else {
             ui.text_wrapped("Select an object, modifier or node to edit its properties.");
             return;
         };
+        if let Some((driver, parent)) = state.inspector_return
+            && driver == selected
+            && let Some(m) = state.view_motion()
+            && let Ok(node) = m.graph.node(parent)
+            && ui.small_button(format!("Back to {}", super::graph::node_label(&m, node)))
+        {
+            state.selected = vec![parent];
+            state.inspector_return = None;
+            host.command(fold_platform::desktop::DesktopCommand::Select(
+                fold_platform::desktop::Selection {
+                    document: state.document,
+                    objects: vec![parent],
+                },
+            ));
+            return;
+        }
         let _scope = state.document.map(|document| {
             UiId {
                 package: crate::PACKAGE,
@@ -69,15 +86,7 @@ impl Panel for Inspector {
             .graph
             .nodes
             .iter()
-            .map(|n| {
-                (
-                    n.id,
-                    registry::find(&n.kind)
-                        .map(|d| d.name)
-                        .unwrap_or(&n.kind)
-                        .to_owned(),
-                )
-            })
+            .map(|n| (n.id, super::graph::node_label(&motion, n)))
             .collect();
         let time = host
             .state()
@@ -196,6 +205,13 @@ impl Panel for Inspector {
                         .unwrap_or(&node.kind)
                 }),
         );
+        if let Some(group) = group_id
+            && let Some(_menu) = ui.begin_popup_context_item_with_label(Some("property-actions"))
+        {
+            if ui.menu_item("Edit node interface") {
+                state.interface_target = Some(group);
+            }
+        }
         ui.separator();
         if let Some(group) = group_id {
             if ui.button("Edit Graph") {
@@ -253,7 +269,18 @@ impl Panel for Inspector {
         let mut animate = None;
         let mut publish = None;
         let mut focus = None;
+        let mut expose_socket = None;
+        let mut add_oscillator = None;
+        let mut add_color_ramp = None;
+        super::color_ramp::draw(ui, node, &mut motion.groups, aces, &mut response);
+        super::oscillator::draw(ui, node, &mut motion.groups, time, &mut response);
         if let Some(_menu) = icon_menu(ui, "node-controls", "Drivers and published controls") {
+            if let Some(group) = group_id {
+                if ui.menu_item("Edit node interface") {
+                    state.interface_target = Some(group);
+                }
+                ui.separator();
+            }
             let inputs: Vec<_> = node
                 .inputs
                 .iter()
@@ -265,7 +292,7 @@ impl Panel for Inspector {
                         animate = Some(key.clone());
                     }
                     if ui.menu_item(if state.group.is_some() {
-                        "Expose group control"
+                        "Promote to group input"
                     } else {
                         "Publish control"
                     }) {
@@ -318,6 +345,16 @@ impl Panel for Inspector {
             let mut section_open = true;
             for socket in sockets {
                 let key = socket.id;
+                if node.kind == "fold.motion.math"
+                    && key == "b"
+                    && matches!(
+                        node.settings.get("operation").and_then(|v| v.as_str()),
+                        Some("Absolute" | "Negate" | "Round" | "Floor" | "Ceil" | "Truncate")
+                    )
+                {
+                    continue;
+                }
+                let socket_visible = super::graph::socket_exposed(node, &key);
                 if group_id.is_some()
                     && state.group.is_none()
                     && socket.kind == crate::fields::Kind::Content
@@ -341,6 +378,33 @@ impl Panel for Inspector {
                 if !section_open {
                     continue;
                 }
+                if super::oscillator::is_oscillator(node) {
+                    let bpm = matches!(node.inputs.get("time_mode"), Some(Input::Value(Datum::Text(v))) if v == "BPM");
+                    if (key == "duration" && bpm) || (key == "bpm" && !bpm) {
+                        continue;
+                    }
+                    if matches!(key.as_str(), "shape" | "time_mode")
+                        && let Some(Input::Value(Datum::Text(value))) = node.inputs.get_mut(&key)
+                    {
+                        let choices = if key == "shape" {
+                            crate::nodes::oscillator::SHAPES
+                        } else {
+                            &["Seconds", "BPM"]
+                        };
+                        let label = if key == "shape" { "Shape" } else { "Timing" };
+                        if let Some(_combo) = ui.begin_combo(label, value.as_str()) {
+                            for &choice in choices {
+                                if ui.selectable(choice) {
+                                    *value = choice.into();
+                                    response.changed = true;
+                                    response.finished = true;
+                                }
+                            }
+                        }
+                        continue;
+                    }
+                }
+
                 if !node.inputs.contains_key(&key)
                     && let Some(default) = &socket.default
                 {
@@ -348,6 +412,33 @@ impl Panel for Inspector {
                         .insert(key.clone(), Input::Value(default.clone()));
                 }
                 let _id = ui.push_id(&key);
+                let mut property_menu = |ui: &Ui| {
+                    ui.separator();
+                    if matches!(
+                        socket.kind,
+                        crate::fields::Kind::Scalar
+                            | crate::fields::Kind::Vector
+                            | crate::fields::Kind::Color
+                    ) && let Some(_menu) = ui.begin_menu("Add Driver")
+                    {
+                        if ui.menu_item("Oscillator") {
+                            add_oscillator = Some(key.clone());
+                        }
+                        if socket.kind == crate::fields::Kind::Color && ui.menu_item("Color Ramp") {
+                            add_color_ramp = Some(key.clone());
+                        }
+                    }
+                    if ui.menu_item(if socket_visible {
+                        "Hide input socket"
+                    } else {
+                        "Expose input"
+                    }) {
+                        expose_socket = Some((key.clone(), !socket_visible));
+                    }
+                    if state.group.is_some() && ui.menu_item("Promote to group input") {
+                        publish = Some(key.clone());
+                    }
+                };
                 if let Some(Input::Value(value)) = node.inputs.get_mut(&key)
                     && let Some((components, mut values)) =
                         crate::animation::parameters::components(value)
@@ -364,13 +455,14 @@ impl Panel for Inspector {
                         range: None,
                         color: matches!(value, Datum::Color(_)).then_some(aces),
                     }
-                    .draw(
+                    .draw_with_menu(
                         ui,
                         &mut values,
                         &mut node.animation,
                         time,
                         state.auto_key,
                         &mut response,
+                        &mut property_menu,
                     );
                     crate::animation::parameters::set_components(value, &values);
                     continue;
@@ -384,6 +476,11 @@ impl Panel for Inspector {
                         value,
                     );
                     response.item(ui, changed);
+                    if let Some(_menu) =
+                        ui.begin_popup_context_item_with_label(Some("property-actions"))
+                    {
+                        property_menu(ui);
+                    }
                     continue;
                 }
                 ui.text(
@@ -398,14 +495,13 @@ impl Panel for Inspector {
                 }
                 match node.inputs.get_mut(&key) {
                     Some(Input::Link(link)) => {
-                        ui.text_disabled(format!(
-                            "Driven by {}",
+                        if ui.small_button(format!(
+                            "Edit {}",
                             names
                                 .get(&link.node)
                                 .map(String::as_str)
-                                .unwrap_or("missing node")
-                        ));
-                        if ui.small_button("Open driver") {
+                                .unwrap_or("driver")
+                        )) {
                             focus = Some(link.node);
                         }
                         ui.same_line();
@@ -420,6 +516,11 @@ impl Panel for Inspector {
                             alignment(ui, value, aces, &mut response);
                         } else {
                             datum(ui, value, aces, &mut response);
+                        }
+                        if let Some(_menu) =
+                            ui.begin_popup_context_item_with_label(Some("property-actions"))
+                        {
+                            property_menu(ui);
                         }
                     }
                     None => {
@@ -545,7 +646,10 @@ impl Panel for Inspector {
             }
         } else if node.kind == "fold.motion.keyframes" {
             ui.text_disabled("Edit keys in the Animation panel.");
-        } else {
+        } else if !matches!(
+            node.kind.as_str(),
+            "fold.motion.oscillator" | "fold.motion.color_ramp"
+        ) {
             settings(ui, &mut node.settings, &mut response, 0);
         }
         if node.kind == "fold.motion.path" && ui.button("Add cubic segment") {
@@ -584,8 +688,33 @@ impl Panel for Inspector {
                 super::gradient::draw(ui, &mut path.settings, aces, &mut response);
             }
         }
+        if let Some((key, visible)) = expose_socket {
+            let target = crate::authoring::node(&mut motion, selected).unwrap();
+            let visibility = target
+                .extensions
+                .entry("fold.motion.input_visibility".into())
+                .or_insert_with(|| serde_json::json!({}));
+            if !visibility.is_object() {
+                *visibility = serde_json::json!({});
+            }
+            visibility[&key] = serde_json::json!(visible);
+            response.changed = true;
+            response.finished = true;
+        }
         let action = if let Some(group) = assign_group {
             Some(crate::authoring::assign_group(&mut motion, selected, group).map(|_| selected))
+        } else if let Some(key) = add_color_ramp {
+            Some(crate::authoring::scene::assets::attach_color_ramp(
+                &mut motion,
+                selected,
+                &key,
+            ))
+        } else if let Some(key) = add_oscillator {
+            Some(crate::authoring::scene::assets::attach_oscillator(
+                &mut motion,
+                selected,
+                &key,
+            ))
         } else if let Some(key) = animate {
             Some(crate::authoring::keyframe_input(
                 &mut motion,
@@ -613,6 +742,21 @@ impl Panel for Inspector {
             }
         }
         if let Some(id) = focus {
+            if state.group.is_none()
+                && let Some(owner) = motion
+                    .scene
+                    .as_ref()
+                    .and_then(|s| s.objects.iter().find(|o| o.owns(selected)))
+            {
+                state.network_object = Some(owner.id);
+            }
+            state.inspector_return = Some((id, selected));
+            host.command(fold_platform::desktop::DesktopCommand::Select(
+                fold_platform::desktop::Selection {
+                    document: state.document,
+                    objects: vec![id],
+                },
+            ));
             state.selected = vec![id];
             state.generation += 1;
         }
@@ -787,11 +931,13 @@ fn settings(ui: &Ui, value: &mut serde_json::Value, response: &mut Response, dep
         serde_json::Value::String(text) => {
             let choices: &[&str] = if [
                 "Add", "Subtract", "Multiply", "Divide", "Min", "Max", "Absolute", "Negate",
+                "Round", "Floor", "Ceil", "Truncate",
             ]
             .contains(&text.as_str())
             {
                 &[
                     "Add", "Subtract", "Multiply", "Divide", "Min", "Max", "Absolute", "Negate",
+                    "Round", "Floor", "Ceil", "Truncate",
                 ]
             } else if ["Replace"].contains(&text.as_str()) {
                 &["Replace", "Add", "Multiply"]

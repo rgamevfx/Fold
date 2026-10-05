@@ -14,6 +14,8 @@ pub use model::Channel;
 
 #[derive(Clone)]
 pub struct LayerControls {
+    /// Whether dropping an object on this row can make it a child.
+    pub accepts_children: bool,
     pub visible: bool,
     pub icon: &'static str,
 }
@@ -50,6 +52,7 @@ pub struct Editor {
     pub(crate) fitted: bool,
     pub(crate) value_range: [f64; 2],
     gesture: Option<canvas::Gesture>,
+    drop_hover: Option<(ObjectId, f32)>,
     clipboard: Clipboard,
     numeric_edit: bool,
     pub(crate) error: String,
@@ -73,12 +76,14 @@ pub struct Response {
     pub select_node: Option<ObjectId>,
     pub range: Option<(ObjectId, Time, Time)>,
     pub reorder: Option<(ObjectId, ObjectId, bool)>,
+    pub reparent: Option<(ObjectId, Option<ObjectId>)>,
     pub visibility: Option<(ObjectId, bool)>,
     pub lock: Option<(ObjectId, bool)>,
 }
 impl Editor {
     pub fn reset_gesture(&mut self) {
         self.gesture = None;
+        self.drop_hover = None;
         self.numeric_edit = false;
     }
     pub fn draw(&mut self, ui: &Ui, channels: &mut [Channel], context: Context<'_>) -> Response {

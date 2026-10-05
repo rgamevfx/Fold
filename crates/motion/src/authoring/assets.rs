@@ -344,3 +344,17 @@ pub fn oscillate(m: &mut Motion, object: ObjectId) -> Result<ObjectId, String> {
     );
     super::add_modifier(m, object, group)
 }
+
+#[path = "duplicator.rs"]
+mod duplicator;
+pub use duplicator::{
+    attach_copy_palette, attach_copy_wave, copy_driver, duplicate, is_duplicator,
+};
+
+#[path = "oscillator.rs"]
+mod oscillator;
+pub use oscillator::attach_oscillator;
+
+#[path = "color_ramp.rs"]
+mod color_ramp;
+pub use color_ramp::{attach_color_ramp, set_color_ramp};

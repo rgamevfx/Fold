@@ -429,6 +429,7 @@ fn layer_eye_and_lock_emit_discrete_actions_at_normal_and_narrow_widths() {
             locked: false,
             range: Some((Time::ZERO, Time::new(4, 1).unwrap())),
             layer: Some(LayerControls {
+                accepts_children: false,
                 visible: true,
                 icon: "G",
             }),
@@ -491,6 +492,109 @@ fn layer_eye_and_lock_emit_discrete_actions_at_normal_and_narrow_widths() {
                 .io_mut()
                 .add_mouse_button_event(MouseButton::Left, false);
             draw(&mut imgui, &mut editor);
+        }
+    }
+}
+
+#[test]
+fn scene_drag_targets_expand_commit_once_and_cancel_at_normal_and_narrow_widths() {
+    let _guard = crate::IMGUI_TEST_LOCK.lock().unwrap();
+    for width in [900., 390.] {
+        let mut imgui = context();
+        let mut editor = Editor::default();
+        let document = DocumentId::new();
+        let group = ObjectId::new();
+        let path = ObjectId::new();
+        let tracks: Vec<_> = [(group, "Badge", true), (path, "Path", false)]
+            .into_iter()
+            .map(|(id, label, accepts_children)| Track {
+                id,
+                parent: None,
+                label: label.into(),
+                locked: false,
+                range: None,
+                layer: Some(LayerControls {
+                    accepts_children,
+                    visible: true,
+                    icon: if accepts_children { "G" } else { "P" },
+                }),
+            })
+            .collect();
+        let mut auto = false;
+        let mut draw = |imgui: &mut ImGui, editor: &mut Editor| {
+            let mut response = Response::default();
+            let mut body = [0.; 2];
+            let mut height = 0.;
+            let ui = imgui.frame();
+            ui.window("Scene drop")
+                .position([0.; 2], Condition::Always)
+                .size([width, 400.], Condition::Always)
+                .build(|| {
+                    let origin = ui.cursor_screen_pos();
+                    height = ui.text_line_height() + 6.;
+                    body = [
+                        origin[0],
+                        origin[1] + ui.frame_height_with_spacing() + height,
+                    ];
+                    response = editor.draw(
+                        ui,
+                        &mut [],
+                        super::Context {
+                            document,
+                            generation: 0,
+                            time: Time::ZERO,
+                            rate: [24, 1],
+                            frames: 96,
+                            nodes: &[],
+                            tracks: &tracks,
+                            auto_key: &mut auto,
+                        },
+                    );
+                });
+            drop(imgui.render_legacy());
+            (response, body, height)
+        };
+        for _ in 0..3 {
+            draw(&mut imgui, &mut editor);
+        }
+        let (_, body, height) = draw(&mut imgui, &mut editor);
+        for cancel in [false, true] {
+            editor.collapsed_nodes.insert(group);
+            imgui
+                .io_mut()
+                .add_mouse_pos_event([body[0] + 85., body[1] + height * 1.5]);
+            draw(&mut imgui, &mut editor);
+            imgui
+                .io_mut()
+                .add_mouse_button_event(MouseButton::Left, true);
+            draw(&mut imgui, &mut editor);
+            imgui
+                .io_mut()
+                .add_mouse_pos_event([body[0] + 85., body[1] + height * 0.5]);
+            for _ in 0..45 {
+                let (r, _, _) = draw(&mut imgui, &mut editor);
+                assert!(r.reparent.is_none());
+            }
+            assert!(!editor.collapsed_nodes.contains(&group));
+            if cancel {
+                imgui.io_mut().add_key_event(Key::Escape, true);
+                draw(&mut imgui, &mut editor);
+            }
+            imgui
+                .io_mut()
+                .add_mouse_button_event(MouseButton::Left, false);
+            let (r, _, _) = draw(&mut imgui, &mut editor);
+            assert_eq!(
+                r.reparent,
+                if cancel {
+                    None
+                } else {
+                    Some((path, Some(group)))
+                }
+            );
+            assert_eq!(r.edit.changed, !cancel);
+            assert!(draw(&mut imgui, &mut editor).0.reparent.is_none());
+            imgui.io_mut().add_key_event(Key::Escape, false);
         }
     }
 }

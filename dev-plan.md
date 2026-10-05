@@ -344,7 +344,9 @@ The following is a code/document inspection baseline, not a fresh test or perfor
 
 ## Motion UX overhaul and shipped procedural tools
 
-- [ ] 34. Deliver object-first Motion authoring and Chroma Parade v2 (implementation complete; native acceptance pending).
+Phases 34–40 are complete per user acceptance. Validation evidence and unverified native-interaction limits remain recorded below and in the phase notes.
+
+- [x] 34. Deliver object-first Motion authoring and Chroma Parade v2.
   - Authorized scope and acceptance: [phase 34](docs/phase-34.md).
   - Shipped tools are editable node groups with useful published controls and explicit source references. Preserve Motion → Composite → Sequence and existing project semantics.
   - Implement independent distribution/travel, Copy to Points attribute propagation, compact source/path/color controls, scoped Network navigation, and an intent-based Motion viewer shelf.
@@ -353,3 +355,35 @@ The following is a code/document inspection baseline, not a fresh test or perfor
   - Implemented Badge/Along Path/Oscillate assets, reference pick/edit controls, scoped construction graphs, gradient editing, modifier controls, and Motion-only text/shape/Bézier/transform tools with preview/undo/cancel.
   - Generated `/tmp/fold-chroma-parade-v2-final.fold`; original retained. 50 Motion tests, 75 shared UI tests and three app integration tests pass; release desktop builds; real-backend normal/narrow/network captures reviewed. Software-Vulkan profile and native-runtime limitations are recorded in phase 34.
   - Follow-up: fixed scoped Network hiding detached branches on output rewires. Construction membership is retained transactionally across reload; explicit deletion/undo and newly added disconnected nodes have regression coverage. Full document network remains available for previously hidden nodes.
+
+- [x] 35. Add a simple Duplicator and staggered badge-wave demo.
+  - Create a badge → Arrange / Duplicate → Animate / Wave across copies → enable a palette. Keep one editable source reference and compact Distribution, Wave and Color sections.
+  - Use Linear Points and reuse Copy to Points, Time, Index, Math, Wave and Set Position inside a shipped editable group. Stagger is a time delay per copy; speed does not change spacing.
+  - Add copy palette coloring that preserves text and outlines; deliver a separate Badge Wave project through Motion → Composite → Sequence.
+  - Implementation, validation and demo instructions: [phase 35](docs/phase-35.md).
+  - Delivered `/tmp/fold-badge-wave-demo.fold` and a ten-second preview. 56 Motion tests, 75 shared UI tests and the explicit normal/narrow render test pass; release desktop builds. GTX 1070 output benchmark: 42.842 ms warm mean including preparation/readback; live UI latency remains unverified.
+
+- [x] 36. Separate Duplicator inputs from reusable Wave and Palette drivers.
+  - Duplicator owns distribution, per-copy transform/color inputs and stagger. Position Wave and Palette actions create independent editable assets and connect them, without embedding effect-specific controls in the Duplicator.
+  - Stagger samples time-dependent fields at an exact delayed time, including keyframes and animated parameters through groups; preserve existing project semantics.
+  - Delivered and launched `/tmp/fold-badge-wave-modular.fold`. 58 Motion tests and the explicit UI render test pass; release builds pass. GTX 1070 CPU/GPU parity is within one color code. Native interaction acceptance remains unverified. Details: [phase 36](docs/phase-36.md).
+
+- [x] 37. Fix count interpolation and expose editable tool interfaces.
+  - Remove forced Hold on integer property keys; round valid fractional generator counts. Add explicit interpolation menus and Math Round/Floor/Ceil/Truncate.
+  - Add property socket exposure, group input promotion, node context actions and a typed-input interface editor using the existing graph and transaction model.
+  - 61 Motion tests plus explicit UI render verification and 76 shared UI tests pass; release desktop rebuilt. Running app and unsaved animation retained. Existing Hold keys can be repaired through Interpolation → Linear. Details: [phase 37](docs/phase-37.md).
+
+- [x] 38. Ship a general Oscillator driver and update Badge Wave.
+  - Editable group with shape, output range, cycle duration/BPM and phase; compact cycle preview and custom-curve editing, advanced timing, phase spread and channel offsets.
+  - Right-click numeric properties → Add Driver → Oscillator. Preserve legacy Wave definitions; retain independent duplication and existing delay semantics.
+  - 66 Motion tests and explicit UI render verification pass; release desktop rebuilt. Generated and launched `/tmp/fold-badge-oscillator.fold` on GTX 1070. All 120 preview frames match the prior demo exactly. Details and native-interaction limits: [phase 38](docs/phase-38.md).
+
+- [x] 39. Separate Color Ramp mapping from copy distribution.
+  - Copy Progress → Color Ramp → Duplicator Color; reusable scalar-to-color ramp with multiple RGBA stops and Linear/Smooth/Stepped interpolation.
+  - Reuse and improve the gradient editor; add the color-property driver action. Preserve independent text/stroke application and legacy Palette setups.
+  - 70 Motion tests and explicit UI render verification pass. Release rebuilt; `/tmp/fold-badge-color-ramp.fold` launched on GTX 1070. All 120 demo frames match the prior version exactly. Details and native-interaction limits: [phase 39](docs/phase-39.md).
+
+- [x] 40. Add direct scene-tree parenting and reordering.
+  - Drop onto groups to add children, beside rows to order them, or at Scene root to unparent. Preserve current placement, retain live procedural references, highlight targets and expand groups on hover.
+  - One undo step per drop; Escape cancels. Reject cycles and locked destinations. Focused mouse, hierarchy, serialization, undo and Badge/Duplicator tests pass.
+  - Release desktop build and native-renderer normal/narrow captures pass. Updated Badge demo launched on GTX 1070. Validation and native-interaction limits: [phase 40](docs/phase-40.md).

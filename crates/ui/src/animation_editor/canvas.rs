@@ -60,6 +60,58 @@ impl Row {
 fn inside(p: [f32; 2], min: [f32; 2], max: [f32; 2]) -> bool {
     p[0] >= min[0] && p[0] < max[0] && p[1] >= min[1] && p[1] < max[1]
 }
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum DropTarget {
+    Into(Option<ObjectId>),
+    Beside(ObjectId, bool),
+}
+
+fn track_drop(
+    tracks: &[super::Track],
+    source: ObjectId,
+    target: Option<(ObjectId, f32)>,
+) -> Option<DropTarget> {
+    let source = tracks.iter().find(|t| t.id == source && !t.locked)?;
+    let Some((id, fraction)) = target else {
+        return (source.layer.is_some() && source.parent.is_some())
+            .then_some(DropTarget::Into(None));
+    };
+    if source.id == id {
+        return None;
+    }
+    let target = tracks.iter().find(|t| t.id == id)?;
+    let into = (0.25..=0.75).contains(&fraction)
+        && target.layer.as_ref().is_some_and(|l| l.accepts_children);
+    if source.layer.is_none() {
+        return (!into
+            && target.layer.is_none()
+            && source.parent == target.parent
+            && !target.locked)
+            .then_some(DropTarget::Beside(id, fraction > 0.5));
+    }
+    target.layer.as_ref()?;
+    let parent = if into { Some(id) } else { target.parent };
+    let mut ancestor = parent;
+    for _ in 0..=tracks.len() {
+        let Some(id) = ancestor else {
+            return Some(if into {
+                DropTarget::Into(parent)
+            } else {
+                DropTarget::Beside(target.id, fraction > 0.5)
+            });
+        };
+        if id == source.id {
+            return None;
+        }
+        let track = tracks.iter().find(|t| t.id == id)?;
+        if track.locked {
+            return None;
+        }
+        ancestor = track.parent;
+    }
+    None
+}
+
 impl Editor {
     fn rows(&self, channels: &[Channel], context: &Context<'_>) -> Vec<Row> {
         let mut rows = vec![];
@@ -898,18 +950,101 @@ impl Editor {
                 response.edit.cancelled = true;
             }
             self.gesture = None;
+            self.drop_hover = None;
         }
         if let Some(gesture) = &self.gesture {
             match gesture {
                 Gesture::Track { id, start } => {
+                    let dragging = (mouse[0] - start[0]).hypot(mouse[1] - start[1]) > 4.;
+                    let in_header = inside(mouse, origin, [body[0], end[1]]);
+                    let target = if dragging && in_header {
+                        if let Some(r) = row_hit {
+                            if let Row::Node(target, ..) = &rows[r] {
+                                let top = body[1] + r as f32 * row_height - self.view.scroll_y;
+                                track_drop(
+                                    context.tracks,
+                                    *id,
+                                    Some((*target, (mouse[1] - top) / row_height)),
+                                )
+                            } else {
+                                None
+                            }
+                        } else if mouse[1] < body[1]
+                            || mouse[1]
+                                >= body[1] + rows.len() as f32 * row_height - self.view.scroll_y
+                        {
+                            track_drop(context.tracks, *id, None)
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    };
+                    let hover = match target {
+                        Some(DropTarget::Into(Some(id))) => Some(id),
+                        _ => None,
+                    };
+                    if let Some(id) = hover {
+                        let elapsed = match self.drop_hover {
+                            Some((prior, elapsed)) if prior == id => elapsed + ui.io().delta_time(),
+                            _ => 0.,
+                        };
+                        self.drop_hover = Some((id, elapsed));
+                        if elapsed >= 0.6 {
+                            self.collapsed_nodes.remove(&id);
+                        }
+                    } else {
+                        self.drop_hover = None;
+                    }
+                    if dragging {
+                        draw.with_clip_rect(origin, end, || {
+                            draw.add_text(
+                                [origin[0] + 5., origin[1] + 2.],
+                                colors.muted,
+                                "Scene root",
+                            );
+                            match target {
+                                Some(DropTarget::Into(parent)) => {
+                                    let top = if parent.is_some() {
+                                        body[1] + row_hit.unwrap() as f32 * row_height
+                                            - self.view.scroll_y
+                                    } else {
+                                        origin[1]
+                                    };
+                                    draw.add_rect(
+                                        [origin[0] + 1., top],
+                                        [body[0] - 1., top + row_height],
+                                        colors.selected,
+                                    )
+                                    .thickness(2.)
+                                    .build();
+                                }
+                                Some(DropTarget::Beside(_, after)) => {
+                                    let y = body[1]
+                                        + (row_hit.unwrap() as f32 + if after { 1. } else { 0. })
+                                            * row_height
+                                        - self.view.scroll_y;
+                                    draw.add_line(
+                                        [origin[0] + 2., y],
+                                        [body[0] - 2., y],
+                                        colors.selected,
+                                    )
+                                    .thickness(2.)
+                                    .build();
+                                }
+                                None => {}
+                            }
+                        });
+                    }
                     if ui.is_mouse_released(MouseButton::Left)
-                        && (mouse[1] - start[1]).abs() > 4.
-                        && let Some(r) = row_hit
-                        && let Row::Node(target, ..) = &rows[r]
-                        && target != id
+                        && let Some(target) = target
                     {
-                        let midpoint = body[1] + (r as f32 + 0.5) * row_height - self.view.scroll_y;
-                        response.reorder = Some((*id, *target, mouse[1] > midpoint));
+                        match target {
+                            DropTarget::Into(parent) => response.reparent = Some((*id, parent)),
+                            DropTarget::Beside(target, after) => {
+                                response.reorder = Some((*id, target, after))
+                            }
+                        }
                         response.edit.changed = true;
                         response.edit.finished = true;
                     }
@@ -1068,6 +1203,7 @@ impl Editor {
                     Gesture::Keys { .. } | Gesture::Handle { .. } | Gesture::Range { .. }
                 );
                 self.gesture = None;
+                self.drop_hover = None;
             }
         }
         if channels.is_empty() && context.tracks.is_empty() {
@@ -1093,6 +1229,55 @@ fn subframe_time(frame: f64, rate: [u32; 2]) -> Result<Time, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn drop_zones_reject_cycles_and_locks_and_distinguish_objects_from_modifiers() {
+        let group = ObjectId::new();
+        let child = ObjectId::new();
+        let path = ObjectId::new();
+        let modifier = ObjectId::new();
+        let mut tracks: Vec<_> = [
+            (group, None, true),
+            (child, Some(group), true),
+            (path, None, false),
+            (modifier, Some(path), false),
+        ]
+        .into_iter()
+        .map(|(id, parent, accepts_children)| super::super::Track {
+            id,
+            parent,
+            label: String::new(),
+            locked: false,
+            range: None,
+            layer: (id != modifier).then_some(super::super::LayerControls {
+                accepts_children,
+                visible: true,
+                icon: "G",
+            }),
+        })
+        .collect();
+        assert_eq!(
+            track_drop(&tracks, path, Some((group, 0.5))),
+            Some(DropTarget::Into(Some(group)))
+        );
+        assert_eq!(
+            track_drop(&tracks, path, Some((child, 0.1))),
+            Some(DropTarget::Beside(child, false))
+        );
+        assert_eq!(
+            track_drop(&tracks, path, Some((child, 0.9))),
+            Some(DropTarget::Beside(child, true))
+        );
+        assert_eq!(
+            track_drop(&tracks, child, None),
+            Some(DropTarget::Into(None))
+        );
+        assert_eq!(track_drop(&tracks, group, Some((child, 0.5))), None);
+        assert_eq!(track_drop(&tracks, group, Some((child, 0.1))), None);
+        assert_eq!(track_drop(&tracks, path, Some((modifier, 0.5))), None);
+        assert_eq!(track_drop(&tracks, modifier, Some((group, 0.5))), None);
+        tracks[0].locked = true;
+        assert_eq!(track_drop(&tracks, path, Some((group, 0.5))), None);
+    }
     #[test]
     fn fractional_frame_rates_allow_subframe_placement() {
         assert_eq!(

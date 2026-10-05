@@ -25,11 +25,13 @@ pub struct State {
     /// Only the inspector may finish/cancel a property gesture.
     pub property_editing: bool,
     pub interface_editing: bool,
+    pub interface_target: Option<ObjectId>,
     pub generation: u64,
     pub visual_revision: u64,
     pub scene_scope: Option<ObjectId>,
     pub source_history: Vec<ObjectId>,
     pub point_edit_requested: bool,
+    pub inspector_return: Option<(ObjectId, ObjectId)>,
     pub reference_pick: Option<(ObjectId, String)>,
     base: Revision,
     original: Option<Motion>,
@@ -74,6 +76,8 @@ impl State {
                 self.scene_scope = None;
                 self.source_history.clear();
                 self.reference_pick = None;
+                self.inspector_return = None;
+                self.interface_target = None;
                 self.document_network = false;
                 self.parents.clear();
                 self.selected.clear();
@@ -100,6 +104,8 @@ impl State {
                 self.scene_scope = None;
                 self.source_history.clear();
                 self.reference_pick = None;
+                self.inspector_return = None;
+                self.interface_target = None;
                 self.document_network = false;
                 self.parents.clear();
             }

@@ -12,10 +12,14 @@ pub fn definitions() -> &'static [Definition] {
             nodes::content::text::definition_text(),
         ];
         result.extend(nodes::distribution::definitions());
+        result.extend(nodes::copy_colors::definitions());
+        result.extend(nodes::color_ramp::definitions());
+        result.push(nodes::stagger::definition_stagger());
         result.extend(nodes::path_motion::definitions());
         result.push(nodes::path_points::definition_points());
         result.extend(nodes::values::definitions());
         result.extend(nodes::animation::definitions());
+        result.push(nodes::oscillator::definition_oscillator());
         result.extend(nodes::influence::definitions());
         result.extend(nodes::response::definitions());
         result.extend(nodes::scene::definitions());

@@ -192,7 +192,20 @@ impl<'a> Evaluator<'a> {
             .ok_or_else(|| format!("unknown input {socket}"))?;
         let result = match node.inputs.get(socket) {
             Some(Input::Value(value)) => {
-                Value::Field(Field::constant(node.sample_input(socket, value, self.time)))
+                if node.animation.is_empty() {
+                    Value::Field(Field::constant(value.clone()))
+                } else {
+                    let node = node.clone();
+                    let socket = socket.to_owned();
+                    let value = value.clone();
+                    let time = self.time;
+                    Value::Field(Field::new(value.kind(), false, move |s, _| {
+                        let time = time
+                            .checked_sub(s.time_offset.unwrap_or(Time::ZERO))
+                            .map_err(|e| e.to_string())?;
+                        Ok(node.sample_input(&socket, &value, time))
+                    }))
+                }
             }
             Some(Input::Link(link)) => self.resolve(link)?,
             None => {

@@ -233,6 +233,7 @@ impl Apply {
             let mut item = item.clone();
             if item.matches(self.domain) {
                 let sample = Sample {
+                    time_offset: None,
                     position: [item.transform[4], item.transform[5]],
                     index: self.index,
                     id: item.id,

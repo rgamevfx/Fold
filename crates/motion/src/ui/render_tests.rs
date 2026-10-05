@@ -63,9 +63,154 @@ fn motion_tools_and_inspector_render_normal_and_narrow() {
     for (name, width, properties) in [
         ("normal", 850., 400.),
         ("narrow", 390., 280.),
+        ("scene-drop-normal", 850., 400.),
+        ("scene-drop-narrow", 390., 280.),
         ("network", 850., 400.),
+        ("duplicator-normal", 850., 400.),
+        ("duplicator-narrow", 390., 280.),
+        ("duplicator-network", 850., 400.),
+        ("wave-driver", 850., 400.),
+        ("group-interface", 850., 400.),
+        ("count-menu", 850., 400.),
+        ("oscillator-normal", 850., 400.),
+        ("oscillator-narrow", 390., 280.),
+        ("oscillator-custom", 850., 400.),
+        ("color-ramp-normal", 850., 400.),
+        ("color-ramp-narrow", 390., 280.),
+        ("color-ramp-network", 850., 400.),
     ] {
-        for _ in 0..12 {
+        if name == "duplicator-normal" {
+            let mut state = inspector.state.borrow_mut();
+            state.create(&mut host);
+            state.change_scene(&mut host, |m| {
+                let source = crate::authoring::scene::assets::badge(m)?;
+                let id = crate::authoring::scene::assets::duplicate(m, source)?;
+                crate::authoring::scene::assets::attach_copy_wave(m, id)?;
+                crate::authoring::scene::assets::attach_copy_palette(m, id)?;
+                Ok(Some(id))
+            });
+        }
+        if name == "wave-driver" {
+            let mut state = inspector.state.borrow_mut();
+            let owner = state.selected[0];
+            let driver = crate::authoring::scene::assets::copy_driver(
+                state.motion.as_ref().unwrap(),
+                owner,
+                "offset_y",
+            )
+            .unwrap();
+            state.inspector_return = Some((driver, owner));
+            state.network_object = Some(owner);
+            state.selected = vec![driver];
+        }
+        if name == "group-interface" {
+            let mut state = inspector.state.borrow_mut();
+            let group = state
+                .motion
+                .as_ref()
+                .unwrap()
+                .graph
+                .node(state.selected[0])
+                .unwrap()
+                .settings::<crate::nodes::interface::GroupSettings>()
+                .unwrap()
+                .group
+                .unwrap();
+            state.interface_target = Some(group);
+        }
+        if name == "count-menu" {
+            let mut state = inspector.state.borrow_mut();
+            state.interface_target = None;
+            let owner = state.inspector_return.unwrap().1;
+            state.selected = vec![owner];
+        }
+        if name == "oscillator-normal" {
+            let mut state = inspector.state.borrow_mut();
+            state.create(&mut host);
+            state.change_scene(&mut host, |m| {
+                let badge = crate::authoring::scene::assets::badge(m)?;
+                let copies = crate::authoring::scene::assets::duplicate(m, badge)?;
+                let driver =
+                    crate::authoring::scene::assets::attach_oscillator(m, copies, "offset_y")?;
+                Ok(Some(driver))
+            });
+        }
+        if name == "oscillator-custom" {
+            let mut state = inspector.state.borrow_mut();
+            let selected = state.selected[0];
+            state.change(&mut host, |m| {
+                crate::authoring::node(m, selected)?
+                    .set("shape", crate::fields::Datum::Text("Custom".into()));
+                Ok(Some(selected))
+            });
+        }
+        if name == "color-ramp-normal" {
+            let mut state = inspector.state.borrow_mut();
+            state.create(&mut host);
+            state.change_scene(&mut host, |m| {
+                let badge = crate::authoring::scene::assets::badge(m)?;
+                let copies = crate::authoring::scene::assets::duplicate(m, badge)?;
+                let ramp = crate::authoring::scene::assets::attach_color_ramp(m, copies, "color")?;
+                crate::authoring::scene::assets::set_color_ramp(
+                    m,
+                    ramp,
+                    crate::nodes::color_ramp::Settings {
+                        stops: vec![
+                            crate::nodes::color_ramp::stop(0., [1., 0., 0., 1.]),
+                            crate::nodes::color_ramp::stop(0.5, [0., 1., 0., 0.25]),
+                            crate::nodes::color_ramp::stop(1., [0., 0., 1., 1.]),
+                        ],
+                        ..Default::default()
+                    },
+                )?;
+                Ok(Some(copies))
+            });
+            let owner = state.selected[0];
+            let ramp = crate::authoring::scene::assets::copy_driver(
+                state.motion.as_ref().unwrap(),
+                owner,
+                "color",
+            )
+            .unwrap();
+            state.network_object = Some(owner);
+            state.inspector_return = Some((ramp, owner));
+            state.selected = vec![ramp];
+        }
+        for frame_index in 0..12 {
+            if name.starts_with("scene-drop-") || name == "network" {
+                context
+                    .io_mut()
+                    .add_key_event(imgui::Key::Escape, frame_index == 0);
+                if frame_index == 0 {
+                    context
+                        .io_mut()
+                        .add_mouse_button_event(imgui::MouseButton::Left, false);
+                }
+            }
+            if name.starts_with("scene-drop-") {
+                context
+                    .io_mut()
+                    .add_mouse_pos_event([100., if frame_index < 5 { 662. } else { 724. }]);
+                if frame_index == 4 {
+                    context
+                        .io_mut()
+                        .add_mouse_button_event(imgui::MouseButton::Left, true);
+                }
+            }
+
+            if name == "oscillator-normal" {
+                context
+                    .io_mut()
+                    .add_key_event(imgui::Key::Escape, frame_index == 0);
+                context.io_mut().add_mouse_pos_event([700., 790.]);
+            }
+
+            if name == "count-menu" {
+                context.io_mut().add_mouse_pos_event([940., 307.]);
+                context
+                    .io_mut()
+                    .add_mouse_button_event(imgui::MouseButton::Right, frame_index == 4);
+            }
             let ui = context.frame();
             ui.window("Motion viewer")
                 .position([0., 0.], imgui::Condition::Always)
@@ -103,7 +248,11 @@ fn motion_tools_and_inspector_render_normal_and_narrow() {
                 .position([0., 508.], imgui::Condition::Always)
                 .size([width, 280.], imgui::Condition::Always)
                 .build(|| {
-                    if name == "network" {
+                    if name == "network"
+                        || name == "duplicator-network"
+                        || name == "wave-driver"
+                        || name == "color-ramp-network"
+                    {
                         canvas.draw_network(ExtensionUi {
                             ui,
                             host: &mut host,

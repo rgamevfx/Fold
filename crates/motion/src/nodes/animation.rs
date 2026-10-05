@@ -69,9 +69,15 @@ pub fn definitions() -> Vec<Definition> {
         vec![],
         vec![("value", Kind::Scalar)],
         |e, n| {
-            Ok(field(Field::constant(
-                n.settings::<Track>()?.sample(e.time)?,
-            )))
+            let track = n.settings::<Track>()?;
+            let time = e.time;
+            let kind = track.sample(time)?.kind();
+            Ok(field(Field::new(kind, false, move |s, _| {
+                track.sample(
+                    time.checked_sub(s.time_offset.unwrap_or(Time::ZERO))
+                        .map_err(|e| e.to_string())?,
+                )
+            })))
         },
     );
     keys.outputs[0].1 = Kind::Generic;
@@ -95,9 +101,15 @@ pub fn definitions() -> Vec<Definition> {
             vec![],
             vec![("value", Kind::Scalar)],
             |e, _| {
-                Ok(field(Field::constant(Datum::Scalar(
-                    e.time.numerator() as f64 / e.time.denominator() as f64,
-                ))))
+                let time = e.time;
+                Ok(field(Field::new(Kind::Scalar, false, move |s, _| {
+                    let time = time
+                        .checked_sub(s.time_offset.unwrap_or(Time::ZERO))
+                        .map_err(|e| e.to_string())?;
+                    Ok(Datum::Scalar(
+                        time.numerator() as f64 / time.denominator() as f64,
+                    ))
+                })))
             },
         ),
         wave,

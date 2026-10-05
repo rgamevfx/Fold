@@ -86,6 +86,13 @@ pub trait GraphContext {
     fn catalog(&self) -> Vec<NodeTemplate>;
     fn validate(&self, change: &GraphChange) -> Result<(), String>;
     fn event(&mut self, event: GraphEvent) -> Result<(), String>;
+    /// Feature-owned actions; shared canvas only presents labels and dispatches IDs.
+    fn node_actions(&self, _node: ObjectId) -> Vec<(String, String)> {
+        vec![]
+    }
+    fn node_action(&mut self, _node: ObjectId, _action: &str) -> Result<(), String> {
+        Ok(())
+    }
 }
 
 /// Shared DAG layout, used both for unauthored positions and explicit Arrange.

@@ -122,7 +122,7 @@ pub(super) fn draw(shared: &Shared, animation: &mut Animation, context: Extensio
                         .unwrap_or(fold_foundation::Time::ZERO);
                     if ui.menu_item("Scene root") {
                         state.change_scene(host, |m| {
-                            a::reparent(m, object.id, None, time, true)?;
+                            a::place_object(m, object.id, None, None, time)?;
                             Ok(Some(object.id))
                         });
                     }
@@ -130,7 +130,7 @@ pub(super) fn draw(shared: &Shared, animation: &mut Animation, context: Extensio
                         let _id = ui.push_id(&format!("{id:?}"));
                         if ui.menu_item(label) {
                             state.change_scene(host, |m| {
-                                a::reparent(m, object.id, Some(id), time, true)?;
+                                a::place_object(m, object.id, Some(id), None, time)?;
                                 Ok(Some(object.id))
                             });
                         }

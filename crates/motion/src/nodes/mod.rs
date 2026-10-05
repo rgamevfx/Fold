@@ -52,9 +52,17 @@ pub fn definition(
     }
 }
 pub fn bounded_count(value: f64, max: usize) -> Result<usize, String> {
-    if !value.is_finite() || value < 0. || value > max as f64 || value.fract() != 0. {
-        Err(format!("count must be an integer in 0..={max}"))
+    if !value.is_finite() || value < 0. || value > max as f64 {
+        Err(format!("count must be in 0..={max}"))
     } else {
-        Ok(value as usize)
+        Ok(value.round() as usize)
     }
 }
+
+pub mod copy_colors;
+
+pub mod stagger;
+
+pub mod oscillator;
+
+pub mod color_ramp;

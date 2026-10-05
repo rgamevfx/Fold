@@ -110,3 +110,29 @@ pub fn assign_group(motion: &mut Motion, id: ObjectId, group: ObjectId) -> Resul
     node.settings["group"] = serde_json::to_value(group).unwrap();
     Ok(())
 }
+
+/// Add a stable, typed public input and its matching internal node. Wiring is explicit.
+pub fn add_group_input(
+    motion: &mut Motion,
+    group: ObjectId,
+    value: Datum,
+) -> Result<ObjectId, String> {
+    value.validate()?;
+    let definition = motion.groups.get_mut(&group).ok_or("missing group")?;
+    let mut input = Node::new("fold.motion.group_input")?;
+    let key = format!("input_{:?}", input.id);
+    input.settings = serde_json::json!({"key":key,"value_type":value.kind()});
+    input.position = [-240., definition.inputs.len() as f32 * 90.];
+    let id = input.id;
+    definition.inputs.push(Port {
+        id: key,
+        name: format!("Input {}", definition.inputs.len() + 1),
+        kind: value.kind(),
+        default: Some(value),
+        unit: String::new(),
+        section: String::new(),
+        advanced: false,
+    });
+    definition.graph.nodes.push(input);
+    Ok(id)
+}

@@ -17,6 +17,10 @@ pub enum MathOp {
     Max,
     Absolute,
     Negate,
+    Round,
+    Floor,
+    Ceil,
+    Truncate,
 }
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct MathSettings {
@@ -46,8 +50,29 @@ pub fn definitions() -> Vec<Definition> {
         |e, n| {
             let operation = n.settings::<MathSettings>()?.operation;
             let a = e.field(n, "a")?;
-            let b = e.field(n, "b")?;
             let kind = a.kind;
+            if matches!(
+                operation,
+                MathOp::Absolute
+                    | MathOp::Negate
+                    | MathOp::Round
+                    | MathOp::Floor
+                    | MathOp::Ceil
+                    | MathOp::Truncate
+            ) {
+                return Ok(field(a.map(kind, move |a| {
+                    a.numeric(&a, |a, _| match operation {
+                        MathOp::Absolute => a.abs(),
+                        MathOp::Negate => -a,
+                        MathOp::Round => a.round(),
+                        MathOp::Floor => a.floor(),
+                        MathOp::Ceil => a.ceil(),
+                        MathOp::Truncate => a.trunc(),
+                        _ => unreachable!(),
+                    })
+                })));
+            }
+            let b = e.field(n, "b")?;
             Ok(field(a.zip(b, kind, move |a, b| {
                 a.numeric(&b, |a, b| match operation {
                     MathOp::Add => a + b,
@@ -56,8 +81,7 @@ pub fn definitions() -> Vec<Definition> {
                     MathOp::Divide => a / b,
                     MathOp::Min => a.min(b),
                     MathOp::Max => a.max(b),
-                    MathOp::Absolute => a.abs(),
-                    MathOp::Negate => -a,
+                    _ => unreachable!(),
                 })
             })))
         },

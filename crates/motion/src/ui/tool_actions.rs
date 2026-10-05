@@ -45,6 +45,9 @@ pub(super) fn draw(ui: &Ui, state: &mut State, host: &mut dyn DesktopClient) {
     };
     let _disabled = ui.begin_disabled_with_cond(object.locked);
     if let Some(_menu) = ui.begin_menu("Arrange") {
+        if ui.menu_item("Duplicate") {
+            state.change_scene(host, |m| assets::duplicate(m, object.id).map(Some));
+        }
         if let Some(_menu) = ui.begin_menu("Along path") {
             let paths: Vec<_> = state
                 .motion
@@ -84,11 +87,33 @@ pub(super) fn draw(ui: &Ui, state: &mut State, host: &mut dyn DesktopClient) {
         }
     }
     if let Some(_menu) = ui.begin_menu("Animate") {
+        if state
+            .motion
+            .as_ref()
+            .is_some_and(|m| assets::is_duplicator(m, object.id))
+            && ui.menu_item("Position Oscillator")
+        {
+            state.change_scene(host, |m| {
+                assets::attach_oscillator(m, object.id, "offset_y")?;
+                Ok(Some(object.id))
+            });
+        }
         if ui.menu_item("Oscillate") {
             state.change_scene(host, |m| assets::oscillate(m, object.id).map(Some));
         }
     }
     if let Some(_menu) = ui.begin_menu("Style") {
+        if state
+            .motion
+            .as_ref()
+            .is_some_and(|m| assets::is_duplicator(m, object.id))
+            && ui.menu_item("Color Ramp across copies")
+        {
+            state.change_scene(host, |m| {
+                assets::attach_color_ramp(m, object.id, "color")?;
+                Ok(Some(object.id))
+            });
+        }
         for (label, kind) in [
             ("Fill", "fold.motion.fill"),
             ("Stroke", "fold.motion.stroke"),

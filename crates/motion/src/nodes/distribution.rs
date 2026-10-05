@@ -23,6 +23,24 @@ fn points(n: &Node, positions: impl Iterator<Item = ([f64; 2], f64)>) -> Outputs
 pub fn definitions() -> Vec<Definition> {
     vec![
         definition(
+            "fold.motion.linear_points",
+            "Linear Points",
+            "Distribution",
+            vec![
+                scalar("count", 32., "integer"),
+                vector("spacing", [8., 0.], "px"),
+            ],
+            vec![("points", Kind::Points)],
+            |e, n| {
+                let count = bounded_count(e.scalar(n, "count")?, 16384)?;
+                let spacing = e.vector(n, "spacing")?;
+                Ok(points(
+                    n,
+                    (0..count).map(|i| ([spacing[0] * i as f64, spacing[1] * i as f64], 0.)),
+                ))
+            },
+        ),
+        definition(
             "fold.motion.line_points",
             "Line Points",
             "Distribution",

@@ -51,6 +51,10 @@ impl Animation {
                     parent: object.parent,
                     label: object.name.clone(),
                     layer: Some(fold_ui::sdk::animation_editor::LayerControls {
+                        accepts_children: motion
+                            .graph
+                            .node(object.source.node)
+                            .is_ok_and(|n| n.kind == "fold.motion.scene_children"),
                         visible: object.visible,
                         icon: match motion
                             .graph
@@ -318,9 +322,16 @@ impl Animation {
         if response.edit.cancelled {
             state.cancel(host);
         } else {
+            if let Some((source, parent)) = response.reparent {
+                state.change_scene(host, |m| {
+                    crate::authoring::scene::place_object(m, source, parent, None, time)?;
+                    Ok(Some(source))
+                });
+                return;
+            }
             if let Some((source, target, after)) = response.reorder {
                 state.change_scene(host, |m| {
-                    crate::authoring::scene::reorder(m, source, target, after)?;
+                    crate::authoring::scene::drop_beside(m, source, target, after, time)?;
                     Ok(Some(source))
                 });
                 return;

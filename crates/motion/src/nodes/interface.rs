@@ -273,6 +273,11 @@ pub fn signature(
                 "Hz" => "Hz",
                 "cycles/s" => "cycles/s",
                 "factor" => "factor",
+                "0–1" => "0–1",
+                "BPM" => "BPM",
+                "cycles" => "cycles",
+                "cycles across copies" => "cycles across copies",
+                "cycles / channel" => "cycles / channel",
                 _ => "",
             },
         })

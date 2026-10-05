@@ -101,6 +101,8 @@ impl Datum {
 }
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Sample {
+    /// Exact offset from the requested evaluation time; None means no delay.
+    pub time_offset: Option<fold_foundation::Time>,
     pub position: [f64; 2],
     pub index: usize,
     pub id: u64,

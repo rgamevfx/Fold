@@ -83,6 +83,7 @@ pub struct GraphCanvas {
     hit_map: HitMap,
     search: String,
     popup_position: [f32; 2],
+    context_node: Option<ObjectId>,
     moving: bool,
     cancel_move: bool,
     error: String,
@@ -546,6 +547,13 @@ impl GraphCanvas {
             self.fit = 1;
         }
         open_search |= active && ui.is_key_pressed(Key::Tab);
+        let node_context = editor.show_node_context_menu().and_then(|id| {
+            graph
+                .nodes
+                .iter()
+                .find(|n| self.ids.nodes[&n.id] == id.raw())
+                .map(|n| n.id)
+        });
         open_search |= editor.show_background_context_menu();
         if open_search {
             self.popup_position = editor.screen_to_canvas(ui.io().mouse_pos());
@@ -585,6 +593,25 @@ impl GraphCanvas {
         }
         {
             let _suspend = editor.suspend();
+            if let Some(node) = node_context {
+                self.context_node = Some(node);
+                ui.open_popup("Node actions");
+            }
+            if let Some(_popup) = ui.begin_popup("Node actions")
+                && let Some(node) = self.context_node
+                && let Some(view) = graph.nodes.iter().find(|n| n.id == node)
+            {
+                if view.can_open && ui.menu_item("Edit contents") {
+                    events.push(GraphEvent::Navigate(Some(node)));
+                }
+                for (action, label) in context.node_actions(node) {
+                    if ui.menu_item(label) {
+                        if let Err(error) = context.node_action(node, &action) {
+                            self.error = error;
+                        }
+                    }
+                }
+            }
             if open_search {
                 self.search.clear();
                 ui.open_popup("Add graph node");

@@ -74,8 +74,8 @@ impl GraphContext for Context<'_> {
                     inputs: inputs
                         .iter()
                         .filter(|s| {
-                            node.kind != "fold.motion.group_instance"
-                                || self.state.parameter_sockets
+                            self.state.parameter_sockets
+                                || socket_exposed(node, &s.id)
                                 || matches!(
                                     s.kind,
                                     crate::fields::Kind::Content | crate::fields::Kind::Points
@@ -145,6 +145,32 @@ impl GraphContext for Context<'_> {
                 })
                 .collect(),
         }
+    }
+    fn node_actions(&self, node: ObjectId) -> Vec<(String, String)> {
+        if self
+            .state
+            .view_motion()
+            .and_then(|m| {
+                m.graph
+                    .node(node)
+                    .ok()
+                    .and_then(|n| n.settings::<GroupSettings>().ok())
+                    .and_then(|s| s.group)
+            })
+            .is_some()
+        {
+            vec![("interface".into(), "Edit node interface".into())]
+        } else {
+            vec![]
+        }
+    }
+    fn node_action(&mut self, node: ObjectId, action: &str) -> Result<(), String> {
+        if action == "interface" {
+            let motion = self.state.view_motion().ok_or("No motion graph")?;
+            self.state.interface_target =
+                motion.graph.node(node)?.settings::<GroupSettings>()?.group;
+        }
+        Ok(())
     }
     fn catalog(&self) -> Vec<NodeTemplate> {
         registry::definitions()
@@ -245,7 +271,7 @@ pub(super) fn visible_nodes(
         .map(|id| super::network_scope::members(m, id))
         .unwrap_or_default()
 }
-fn node_label(m: &Motion, n: &crate::graph::Node) -> String {
+pub(super) fn node_label(m: &Motion, n: &crate::graph::Node) -> String {
     if n.kind == "fold.motion.group_instance" {
         if let Some(g) = n
             .settings::<GroupSettings>()
@@ -447,4 +473,22 @@ mod scope_tests {
             m.graph.nodes.len()
         );
     }
+}
+
+/// Per-node presentation overrides never remove inputs or alter their values.
+pub(super) fn socket_exposed(node: &crate::graph::Node, key: &str) -> bool {
+    node.extensions
+        .get("fold.motion.input_visibility")
+        .and_then(|v| v.get(key))
+        .and_then(|v| v.as_bool())
+        .unwrap_or_else(|| {
+            node.kind != "fold.motion.group_instance"
+                || (node.settings.get("asset").and_then(|v| v.as_str())
+                    == Some("fold.motion.duplicator")
+                    && node.inputs.contains_key("offset_y")
+                    && matches!(
+                        key,
+                        "offset_x" | "offset_y" | "rotation" | "scale" | "color"
+                    ))
+        })
 }

@@ -11,7 +11,7 @@ use crate::{
 };
 pub use controls::{expose_input, keyframe_input};
 use fold_foundation::ObjectId;
-pub use groups::{assign_group, group_node};
+pub use groups::{add_group_input, assign_group, group_node};
 pub fn add_node(motion: &mut Motion, kind: &str) -> Result<ObjectId, String> {
     let mut node = Node::new(kind)?;
     node.position = [

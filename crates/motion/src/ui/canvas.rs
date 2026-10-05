@@ -125,7 +125,7 @@ impl Panel for Canvas {
             }
         }
         ui.same_line();
-        super::group_interface::draw(ui, host, &mut state);
+        super::group_interface::draw(ui, &mut state);
         if state.group.is_some() {
             ui.same_line();
         }

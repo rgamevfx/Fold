@@ -47,3 +47,7 @@ fn input_label(motion: &crate::Motion, node: &crate::graph::Node, key: &str) -> 
 }
 
 mod network_scope;
+
+mod oscillator;
+
+mod color_ramp;

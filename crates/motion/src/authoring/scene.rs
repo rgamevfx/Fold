@@ -252,6 +252,87 @@ pub fn reorder(
     reconnect_modifiers(m, id)
 }
 
+/// Place a scene object in a group or at root, optionally beside a sibling.
+/// Validate on a proposal so rejected drops leave the document untouched.
+pub fn place_object(
+    m: &mut Motion,
+    source: ObjectId,
+    parent: Option<ObjectId>,
+    beside: Option<(ObjectId, bool)>,
+    time: Time,
+) -> Result<(), String> {
+    let scene = m.scene.as_ref().ok_or("no scene")?;
+    let object = scene
+        .objects
+        .iter()
+        .find(|o| o.id == source)
+        .ok_or("missing object")?;
+    if object.locked {
+        return Err("unlock this object before moving it".into());
+    }
+    let changes_parent = object.parent != parent;
+    if let Some(parent) = parent {
+        let group = scene
+            .objects
+            .iter()
+            .find(|o| o.id == parent)
+            .ok_or("missing group")?;
+        if group.locked {
+            return Err("unlock the destination group first".into());
+        }
+        if m.graph.node(group.source.node)?.kind != "fold.motion.scene_children" {
+            return Err("drop onto a group to add a child".into());
+        }
+    }
+    let mut proposal = m.clone();
+    if changes_parent {
+        reparent(&mut proposal, source, parent, time, true)?;
+    }
+    if let Some((target, after)) = beside {
+        reorder(&mut proposal, source, target, after)?;
+    } else {
+        let objects = &mut proposal.scene.as_mut().unwrap().objects;
+        let index = objects
+            .iter()
+            .position(|o| o.id == source)
+            .ok_or("missing object")?;
+        let object = objects.remove(index);
+        objects.push(object);
+    }
+    proposal.validate()?;
+    *m = proposal;
+    Ok(())
+}
+
+/// Row-edge drops may change an object's parent; modifiers stay on their owner.
+pub fn drop_beside(
+    m: &mut Motion,
+    source: ObjectId,
+    target: ObjectId,
+    after: bool,
+    time: Time,
+) -> Result<(), String> {
+    if source == target {
+        return Ok(());
+    }
+    let scene = m.scene.as_ref().ok_or("no scene")?;
+    if let Some(object) = scene.objects.iter().find(|o| o.id == source) {
+        let parent = scene
+            .objects
+            .iter()
+            .find(|o| o.id == target)
+            .ok_or("drop an object beside another object")?
+            .parent;
+        if object.parent == parent {
+            reorder(m, source, target, after)
+        } else {
+            place_object(m, source, parent, Some((target, after)), time)
+        }
+    } else {
+        reorder(m, source, target, after)
+    }
+}
+
 /// Preserve current placement through an explicit affine offset, without baking animation.
 pub fn reparent(
     m: &mut Motion,
