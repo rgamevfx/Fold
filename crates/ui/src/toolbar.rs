@@ -14,6 +14,7 @@ pub enum ToolbarIcon {
     Pen,
     Add,
     FrameAll,
+    Arrange,
     More,
     Help,
     Back,
@@ -163,6 +164,16 @@ pub fn draw_icon_on(
                     line([x, y * 0.4], [x, y]);
                     line([x, y], [x * 0.4, y]);
                 }
+            }
+        }
+        ToolbarIcon::Arrange => {
+            line([-0.5, 0.], [0., 0.]);
+            line([0., -0.7], [0., 0.7]);
+            line([0., -0.7], [0.5, -0.7]);
+            line([0., 0.7], [0.5, 0.7]);
+            for (x, y) in [(-1., 0.), (1., -0.7), (1., 0.7)] {
+                draw.add_rect(point(x - 0.45, y - 0.35), point(x + 0.45, y + 0.35), color)
+                    .build();
             }
         }
         ToolbarIcon::More => {

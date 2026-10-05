@@ -206,41 +206,46 @@ impl GraphCanvas {
             ui.same_line();
         }
         let mut open_search = false;
+        let mut arrange_nodes = false;
         if !compact {
             open_search = icon_button(ui, "add-node", ToolbarIcon::Add, "Add node (Tab)");
             ui.same_line();
-            if icon_button(ui, "frame-all", ToolbarIcon::FrameAll, "Frame all (F)") {
+            if icon_button(
+                ui,
+                "frame-all",
+                ToolbarIcon::FrameAll,
+                "Frame all (F)\nDrag background: pan\nShift+drag: box select\nScroll: zoom\nDelete: remove selection",
+            ) {
                 self.fit = 1;
             }
             ui.same_line();
+            arrange_nodes = icon_button(ui, "arrange", ToolbarIcon::Arrange, "Arrange nodes (L)");
         }
-        if let Some(_menu) = icon_menu(ui, "graph-actions", "Graph actions and navigation help") {
-            if compact {
-                if graph.has_parent && ui.menu_item("Return to parent graph") {
-                    self.error = context
-                        .event(GraphEvent::Navigate(None))
-                        .err()
-                        .unwrap_or_default();
-                    return;
-                }
-                if can_open && ui.menu_item("Open group") {
-                    self.error = context
-                        .event(GraphEvent::Navigate(Some(graph.selected[0])))
-                        .err()
-                        .unwrap_or_default();
-                    return;
-                }
-                if ui.menu_item("Add node (Tab)") {
-                    open_search = true;
-                }
-                if ui.menu_item("Frame all (F)") {
-                    self.fit = 1;
-                }
-                ui.separator();
+        if compact
+            && let Some(_menu) = icon_menu(ui, "graph-actions", "Graph actions and navigation help")
+        {
+            if graph.has_parent && ui.menu_item("Return to parent graph") {
+                self.error = context
+                    .event(GraphEvent::Navigate(None))
+                    .err()
+                    .unwrap_or_default();
+                return;
             }
-            if ui.menu_item("Arrange nodes") {
-                actions.push(GraphChange::Positions(arrange(ui, &graph, text)));
+            if can_open && ui.menu_item("Open group") {
+                self.error = context
+                    .event(GraphEvent::Navigate(Some(graph.selected[0])))
+                    .err()
+                    .unwrap_or_default();
+                return;
             }
+            if ui.menu_item("Add node (Tab)") {
+                open_search = true;
+            }
+            if ui.menu_item("Frame all (F)") {
+                self.fit = 1;
+            }
+            ui.separator();
+            arrange_nodes = ui.menu_item("Arrange nodes (L)");
             ui.separator();
             ui.text_disabled("Drag background: pan");
             ui.text_disabled("Shift+drag: box select");
@@ -546,6 +551,11 @@ impl GraphCanvas {
         if active && ui.is_key_pressed(Key::F) {
             self.fit = 1;
         }
+        arrange_nodes |= active
+            && !ui.io().key_ctrl()
+            && !ui.io().key_alt()
+            && !ui.io().key_super()
+            && ui.is_key_pressed_with_repeat(Key::L, false);
         open_search |= active && ui.is_key_pressed(Key::Tab);
         let node_context = editor.show_node_context_menu().and_then(|id| {
             graph
@@ -644,6 +654,10 @@ impl GraphCanvas {
         }
         drop(_font);
         editor.end();
+        drop(_layout_font);
+        if arrange_nodes {
+            actions.push(GraphChange::Positions(arrange(ui, &graph, text)));
+        }
         if !ui.is_mouse_down(MouseButton::Left) {
             self.cancel_move = false;
         }

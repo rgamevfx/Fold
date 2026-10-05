@@ -96,7 +96,19 @@ impl GraphContext for Context {
                         .position = Some(p);
                 }
             }
-            GraphEvent::Commit(_) => {
+            GraphEvent::Commit(changes) => {
+                for change in changes {
+                    if let GraphChange::Positions(positions) = change {
+                        for (id, position) in positions {
+                            self.graph
+                                .nodes
+                                .iter_mut()
+                                .find(|n| n.id == id)
+                                .unwrap()
+                                .position = Some(position);
+                        }
+                    }
+                }
                 self.commits += 1;
                 self.original = self.graph.clone();
                 self.graph.generation += 1;
@@ -126,6 +138,111 @@ fn frames(imgui: &mut imgui::Context, canvas: &mut GraphCanvas, graph: &mut Cont
 }
 fn scale(canvas: &GraphCanvas) -> f32 {
     canvas.view[1][0] - canvas.view[0][0]
+}
+
+#[test]
+fn arrange_button_and_shortcut_commit_layout_once_and_allow_text_entry() {
+    let _guard = crate::IMGUI_TEST_LOCK.lock().unwrap();
+    let mut context = imgui::Context::create();
+    context.set_ini_filename(None::<String>).unwrap();
+    context
+        .font_atlas()
+        .try_claim_legacy_renderer()
+        .unwrap()
+        .build();
+    context.io_mut().set_display_size([1200., 800.]);
+    context.io_mut().set_delta_time(1. / 60.);
+    let mut canvas = GraphCanvas::default();
+    canvas.initialize(&context, None);
+    let mut graph = Context::new();
+    for node in &mut graph.graph.nodes {
+        node.position = Some([0., 0.]);
+    }
+    let mut input = String::new();
+    let mut draw = |context: &mut imgui::Context, graph: &mut Context, typing: bool| {
+        let mut button = [0.; 2];
+        let ui = context.frame();
+        ui.window("graph")
+            .position([0.; 2], imgui::Condition::Always)
+            .size([850., 800.], imgui::Condition::Always)
+            .build(|| {
+                if typing {
+                    ui.set_keyboard_focus_here();
+                    ui.input_text("Name", &mut input).build();
+                }
+                let p = ui.cursor_screen_pos();
+                let height = ui.frame_height();
+                let width = height + 4.;
+                button = [
+                    p[0] + 2. * (width + ui.clone_style().item_spacing()[0]) + width / 2.,
+                    p[1] + height / 2.,
+                ];
+                canvas.draw(ui, graph);
+            });
+        assert!(context.render_legacy().total_vtx_count() > 100);
+        button
+    };
+    for _ in 0..3 {
+        draw(&mut context, &mut graph, false);
+    }
+    let button = draw(&mut context, &mut graph, false);
+    context.io_mut().add_mouse_pos_event(button);
+    draw(&mut context, &mut graph, false);
+    context
+        .io_mut()
+        .add_mouse_button_event(imgui::MouseButton::Left, true);
+    draw(&mut context, &mut graph, false);
+    context
+        .io_mut()
+        .add_mouse_button_event(imgui::MouseButton::Left, false);
+    draw(&mut context, &mut graph, false);
+    assert_eq!(
+        graph.commits, 1,
+        "Arrange is directly accessible on the toolbar"
+    );
+    assert!(
+        graph
+            .graph
+            .nodes
+            .windows(2)
+            .all(|pair| pair[0].position != pair[1].position)
+    );
+
+    context.io_mut().add_mouse_pos_event([420., 650.]);
+    context
+        .io_mut()
+        .add_mouse_button_event(imgui::MouseButton::Left, true);
+    draw(&mut context, &mut graph, false);
+    context
+        .io_mut()
+        .add_mouse_button_event(imgui::MouseButton::Left, false);
+    draw(&mut context, &mut graph, false);
+    context.io_mut().add_key_event(imgui::Key::L, true);
+    for _ in 0..40 {
+        draw(&mut context, &mut graph, false);
+    }
+    assert_eq!(
+        graph.commits, 2,
+        "holding L must not repeat the transaction"
+    );
+    context.io_mut().add_key_event(imgui::Key::L, false);
+    draw(&mut context, &mut graph, false);
+
+    context.io_mut().add_key_event(imgui::Key::ModCtrl, true);
+    context.io_mut().add_key_event(imgui::Key::L, true);
+    draw(&mut context, &mut graph, false);
+    assert_eq!(graph.commits, 2, "Ctrl+L must not arrange nodes");
+    context.io_mut().add_key_event(imgui::Key::L, false);
+    context.io_mut().add_key_event(imgui::Key::ModCtrl, false);
+    for _ in 0..3 {
+        draw(&mut context, &mut graph, true);
+    }
+    assert!(context.io().want_text_input());
+    context.io_mut().add_key_event(imgui::Key::L, true);
+    context.io_mut().add_input_character('l');
+    draw(&mut context, &mut graph, true);
+    assert_eq!(graph.commits, 2, "typing L must not arrange nodes");
+    assert_eq!(input, "l");
 }
 
 #[test]
