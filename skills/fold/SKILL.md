@@ -1,30 +1,40 @@
 ---
 name: fold
-description: Create and edit Fold motion graphics, compositing networks, reusable groups and timeline sequences through a running Fold session. Design artist-editable setups and verify their output and controls. Use for operating Fold; repository implementation work follows the repository's development instructions.
+description: Create and edit artwork in a running Fold project through MCP or fold-cli agent. Use for motion graphics, compositing, timelines, and reusable artist-editable setups; repository implementation follows the repository's development instructions.
 ---
 
-Connect through the Fold MCP tools or `fold-cli agent`. Enable Agent → Allow local connections in Fold, or launch with `--agent`. Discover sessions and select the intended project by its path and documents. If several sessions match, ask which one to use.
+Operate Fold through its public tools. Use the live catalog, inspected documents, and this skill's references as the authoring contract. Routine artwork must not require reading Rust crates, editing project archives, or calling private native APIs. If the contract leaves a capability unclear, inspect a tool-created example or make a small reversible probe; report a missing capability when neither resolves it.
 
-CLI discovery starts with `fold-cli agent sessions`, then `fold-cli agent call SESSION state '{}'`. Discover an operation's JSON schema with `fold-cli agent call SESSION catalog '{"method":"render"}'`. For long arguments pass `-` in place of JSON and write the JSON to stdin.
+## Establish the task
 
-Read `state` and the relevant package `catalog` before editing. The catalog supplies current operation examples, typed node sockets and defaults. Use scoped `inspect` requests with JSON pointers and array pagination. Inspection returns a job: poll `jobs` and check the nested outcome before using results.
+1. Discover `sessions`; select the intended project by path and documents. Resolve ambiguity between matching sessions. Connections require Agent → Allow local connections, or launch with `--agent`.
+2. Read `state`, then scope `catalog` by `method` for request schemas or `type` and `query` for package operations and nodes. Inspect existing targets with JSON pointers and pagination. Poll inspection jobs and read their nested outcome before using the data.
+3. For a visual reference, inspect actual images and multiple animation times. Establish composition, timing, and likely artist edits before construction. If the reference is inaccessible, obtain the missing visual evidence rather than inventing its contents.
 
-Design for the artist's next edit before constructing the setup:
+For CLI access: `fold-cli agent sessions`, then `fold-cli agent call SESSION METHOD '{}'`. Pass `-` instead of JSON to read long arguments from stdin. MCP tool names have the `fold_` prefix; both transports use the same authoring contract.
 
-- Infer likely revisions from the brief: text, source shape, count, spacing, timing, color. Give those edits a short, obvious path through named objects and published controls.
-- Prefer available shipped tools and editable groups; use primitives inside them where needed. Use catalog-supported operations; report missing conveniences rather than inventing commands.
-- Keep content, distribution and drivers independently editable. Badge illustrates the pattern: a text/shape group feeds a Duplicator; an Oscillator drives Y; Copy Progress feeds a Color Ramp. Adapt the pattern to the task.
-- Publish only useful controls, with artist-facing names, units and sensible defaults; set ranges where supported. Group related settings and place advanced options behind progressive disclosure. Make whole-object versus per-copy scope clear.
-- In Motion, organize source objects in scene groups and label references. Keep the outer graph focused on meaningful tools, with editable internals inside groups. Reuse sources so an artist's changes propagate to their copies.
+## Prove the construction
 
-Submit related edits as one `batch` with the current revision and project_epoch, a meaningful label and a unique request_id. Allocate new identities through `ids` and refer to them using `{"$ref":"name"}`. Keep ordinary artwork strings literal. Reuse a request_id only when retrying the identical request after a lost response. After a conflict, inspect current state and construct a new proposal with a new request_id.
+For Motion objects, text, copies, or group interfaces, read [Motion authoring](references/motion.md) before building. It supplies the coordinates, resource setup, and typed wiring conventions that node signatures alone do not explain.
 
-Preserve the user's construction, disconnected work, animation and unknown data. Prefer node/property operations and object merges over replacing whole graphs. Change instance inputs for local edits; change shared definitions only when all instances should change. Preserve world placement when reparenting. Replace existing drivers or animation only when the requested edit calls for it. Motion supports editable groups and published interfaces; the current compositor catalog states its own supported operations. Keep times as exact rational seconds and use declared color values.
+Build the smallest useful part first: one visible source, its placement, and one driver or published control. Render it before multiplying copies or assembling a large graph. A successful validation proves structure, not appearance or editability.
 
-Acceptance of a job is not completion. Poll its outcome; cancellation cannot undo an already committed edit. Completed jobs have bounded retention, so consume their results promptly. Global undo can include user work: inspect the current state and undo label before requesting it.
+Design around the artist's next edit. Keep content, distribution, and drivers independently editable; reuse sources across copies. Prefer shipped tools and editable groups. Name scene objects and expose useful controls with units, sections, and sensible defaults. Keep internals inside groups and distinguish whole-object from per-copy changes. Change instance inputs for local revisions; edit shared definitions only when all instances should change.
 
-Verify both output and editability. Where an isolated copy is available, exercise the likely next edits through the published controls and check propagation and undo. Keep test edits out of the deliverable; report editability as unverified when these checks cannot be performed. Verify artwork with `render` at representative times, including animation boundaries. To see the user's displayed result, list `viewers`, choose a viewer ID and request `capture`. Check displayed/requested identities and stale status. Viewer captures are display-transformed image thumbnails without chrome, gizmos or window zoom. `navigate` explicitly changes only the specified viewer. Use `screenshot` for whole-window/desktop review through the user-controlled Wayland portal. Portal permission or backend failure is not a black frame.
+## Commit against observed state
 
-MCP `fold_jobs` returns image content directly. CLI results contain PNG base64; decode it to a file and inspect that image using the harness's image tool. Report visual and interaction checks separately from graph validity, including anything untested. At handoff, briefly identify the main objects and controls the artist should edit. Save only to the destination requested or agreed with the user; saving writes the named file.
+Submit related edits in one labeled `batch`, using the observed `revision` and `project_epoch`. Allocate identities through `ids` and `{"$ref":"name"}`; artwork strings remain literal. Prefer targeted property and connection operations, preserving user animation, disconnected work, unknown data, and world placement.
 
-For a complete cross-feature construction example, read or run [scripts/demo.py](scripts/demo.py). It creates new named documents, publishes an editable group interface, animates a title, connects Motion → Composite → Sequence, cuts a clip, and renders a preview. Run it only when those additions match the user's task. Promote constructions into reusable groups or shared commands after verifying their output and editing workflow.
+Every distinct proposal gets a new `request_id`, including committing a previously validated proposal. Reuse an ID only for an identical retry after a lost response. Poll `jobs` until completion and inspect `outcome.ok`; acceptance is not commitment. Consume results promptly because retention is bounded.
+
+On a conflict, refresh state **and affected content**, reconcile the user's changes, then propose a new batch. Refresh IDs after project replacement or reopening. During an active user edit, continue independent reads and retry once it finishes. Global undo may include user work: check the current revision and undo label first. Cancellation cannot reverse committed work.
+
+## Verify and hand back
+
+- Render representative times and animation boundaries. For loops, compare the start and one full period at the same revision and dimensions. Exact rational times avoid rounding drift.
+- Exercise likely control edits in an isolated copy when practical, then remove test work. Otherwise distinguish rendered behavior from untested control interactions.
+- Use `viewers` and `capture` to inspect the displayed result; check identities and stale status. Captures exclude chrome, overlays, and window zoom. `navigate` deliberately changes the named viewer and stops its playback. Use portal `screenshot` when the actual interface needs review.
+- MCP `jobs` returns images directly; CLI image results contain PNG base64 to decode and view. Report rendering/runtime failures as errors, not black artwork. Keep environment repair separate from creative edits; use documented installation guidance instead of reconstructing runtime internals.
+- Save to the requested or agreed destination with a fresh revision guard and verify the save outcome. Identify the objects and controls to edit, and disclose material unverified behavior.
+
+For Motion → Composite → Sequence authoring, adapt [the executable cross-feature example](scripts/demo.py). Running it adds documents; use it only when those additions fit the task. The [animated grid example](references/motion.md#example-animated-grid-with-cell-text) explains the reusable construction from a reference-recreation exercise without baking in that project's IDs or dimensions.
