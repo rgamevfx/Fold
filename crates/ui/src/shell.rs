@@ -36,6 +36,8 @@ struct RuntimeEditor {
     initialized: bool,
 }
 pub(crate) struct Shell {
+    pub(crate) settings: Option<crate::settings::Settings>,
+    pub(crate) typography: Option<crate::sdk::typography::Typography>,
     viewer: WindowKey,
     delivery: WindowKey,
     empty: WindowKey,
@@ -89,6 +91,8 @@ impl Shell {
         let delivery = WindowKey::new("fold.delivery.main", "Delivery").unwrap();
         let empty = WindowKey::new("fold.editors.empty", "Editors").unwrap();
         let mut shell = Self {
+            settings: None,
+            typography: None,
             viewer,
             delivery,
             empty,
@@ -351,11 +355,20 @@ impl Shell {
         }
     }
     pub fn prepare_frame(&mut self, context: &mut dear_imgui_rs::Context) {
+        if let Some(settings) = &mut self.settings {
+            settings.prepare_frame(context);
+        }
         self.sync_instances();
         for editor in self.editors.values_mut() {
             if !editor.initialized {
-                editor.panels.editor.initialize(context);
-                editor.panels.inspector.initialize(context);
+                editor
+                    .panels
+                    .editor
+                    .initialize(context, self.typography.as_ref());
+                editor
+                    .panels
+                    .inspector
+                    .initialize(context, self.typography.as_ref());
                 editor.initialized = true;
             }
             editor.panels.editor.prepare_frame(context);
@@ -675,7 +688,13 @@ impl Shell {
         let mut reveal_animation = false;
         let mut reveal_network = false;
         ui.main_menu_bar(|| {
-            ui.text("Fold");
+            if let Some(_menu) = ui.begin_menu("Fold") {
+                if ui.menu_item("Settings…")
+                    && let Some(settings) = &mut self.settings
+                {
+                    settings.show();
+                }
+            }
             if let Some(_menu) = ui.begin_menu("Panels") {
                 for panel in self
                     .panels
@@ -724,6 +743,12 @@ impl Shell {
                 client.command(DesktopCommand::Redo);
             }
         });
+        if let Some(settings) = &mut self.settings {
+            if ui.is_key_down(Key::ModCtrl) && ui.is_key_pressed(Key::Comma) {
+                settings.show();
+            }
+            settings.draw(ui);
+        }
         if self.workspace.panels.len() + self.workspace.editors.len() + self.workspace.viewers.len()
             < 64
         {

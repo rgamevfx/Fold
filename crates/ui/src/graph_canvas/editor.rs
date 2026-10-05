@@ -4,8 +4,10 @@ use super::{
 };
 use crate::sdk::{
     GRAPH_COLORS,
+    appearance::GraphText,
     imgui::{self, Key, MouseButton},
     toolbar::{ToolbarIcon, icon_button, icon_menu},
+    typography::{self, TextRole},
 };
 use dear_node_editor::{self as nodes, NodeEditorUiExt};
 use std::collections::BTreeMap;
@@ -70,6 +72,7 @@ impl Ids {
 }
 #[derive(Default)]
 pub struct GraphCanvas {
+    typography: Option<crate::sdk::typography::Typography>,
     editor: Option<nodes::EditorContext>,
     ids: Ids,
     key: Option<GraphKey>,
@@ -86,12 +89,19 @@ pub struct GraphCanvas {
     #[cfg(test)]
     pub(super) framed: bool,
     #[cfg(test)]
+    pub(super) raster_font: Option<imgui::FontId>,
+    #[cfg(test)]
     pub(super) view: [[f32; 2]; 2],
     #[cfg(test)]
     pub(super) wire_probe: ([f32; 2], usize),
 }
 impl GraphCanvas {
-    pub fn initialize(&mut self, context: &imgui::Context) {
+    pub fn initialize(
+        &mut self,
+        context: &imgui::Context,
+        typography: Option<&crate::sdk::typography::Typography>,
+    ) {
+        self.typography = typography.cloned();
         let editor = nodes::EditorContext::create_with_config(
             context,
             nodes::EditorConfig::new()
@@ -100,10 +110,6 @@ impl GraphCanvas {
                 .smooth_zoom(true, 1.3)
                 .navigate_button(MouseButton::Middle),
         );
-        editor.set_style_color(nodes::StyleColor::Background, GRAPH_COLORS.background);
-        editor.set_style_color(nodes::StyleColor::Grid, GRAPH_COLORS.grid);
-        editor.set_style_color(nodes::StyleColor::NodeBackground, GRAPH_COLORS.node);
-        editor.set_style_color(nodes::StyleColor::SelectedNodeBorder, GRAPH_COLORS.selected);
         let mut style = editor.style();
         style.node_rounding = 6.;
         style.selected_node_border_width = 2.5;
@@ -152,6 +158,11 @@ impl GraphCanvas {
             self.moving = false;
             self.cancel_move = true;
         }
+        let text = self
+            .typography
+            .as_ref()
+            .map(|t| t.appearance().graph)
+            .unwrap_or_default();
         let mut actions = Vec::new();
         if inline {
             ui.same_line();
@@ -227,7 +238,7 @@ impl GraphCanvas {
                 ui.separator();
             }
             if ui.menu_item("Arrange nodes") {
-                actions.push(GraphChange::Positions(arrange(ui, &graph)));
+                actions.push(GraphChange::Positions(arrange(ui, &graph, text)));
             }
             ui.separator();
             ui.text_disabled("Drag background: pan");
@@ -242,12 +253,13 @@ impl GraphCanvas {
             ui.text_colored(GRAPH_COLORS.invalid, &self.error);
         }
         if graph.nodes.iter().any(|n| n.position.is_none()) {
-            let layout: BTreeMap<_, _> = arrange(ui, &graph).into_iter().collect();
+            let layout: BTreeMap<_, _> = arrange(ui, &graph, text).into_iter().collect();
             for node in &mut graph.nodes {
                 node.position.get_or_insert(layout[&node.id]);
             }
         }
         self.ids.register(&graph);
+        let _layout_font = ui.push_font_with_size(None, text.spacing);
         let Some(native) = &self.editor else {
             ui.text("Node editor is not initialized");
             return;
@@ -261,23 +273,77 @@ impl GraphCanvas {
             self.fit = 2;
         }
         self.size = size;
+        let colors = crate::sdk::EditorColors::from_ui(ui);
+        native.set_style_color(nodes::StyleColor::Background, colors.background);
+        let mut grid = colors.grid;
+        grid[3] *= 0.2;
+        let mut surface = ui.style_color(imgui::StyleColor::PopupBg);
+        surface[3] = 1.;
+        native.set_style_color(nodes::StyleColor::Grid, grid);
+        native.set_style_color(nodes::StyleColor::NodeBackground, surface);
+        native.set_style_color(nodes::StyleColor::NodeBorder, colors.grid);
+        native.set_style_color(nodes::StyleColor::SelectedNodeBorder, colors.selected);
+        let unit = ui.current_font_size();
+        let mut style = native.style();
+        style.node_padding = [unit * 0.65; 4];
+        style.node_rounding = unit * 0.4;
+        native.set_style(&style);
         let origin = ui.cursor_screen_pos();
         if ui.is_window_hovered() && !ui.io().want_text_input() && !ui.is_any_item_active() {
             self.hit_map.bounds = Some([origin, [origin[0] + size[0], origin[1] + size[1]]]);
         }
         let editor = ui.node_editor(native, "fold-graph-canvas", size);
+        // Native GetCurrentZoom reports inverse scale. Use the actual canvas
+        // transform so raster density and detail thresholds track magnification.
+        let zero = editor.canvas_to_screen([0., 0.]);
+        let one = editor.canvas_to_screen([1., 0.]);
+        let zoom = one[0] - zero[0];
+        // Density changes glyph coverage only, not layout size. The native
+        // canvas still owns geometry transforms, clipping and node draw order.
+        let _font = self
+            .typography
+            .as_ref()
+            .map(|fonts| ui.push_font_with_size(Some(fonts.canvas_font(zoom)), 0.));
+        #[cfg(test)]
+        {
+            self.raster_font = Some(ui.current_font());
+        }
+        let details = !text.hide_details
+            || typography::text_size(ui, TextRole::Body, "Ag", text)[1] * zoom >= 8.;
+        let header = colors.header;
+        let header_height = header_height(ui, text);
         let mut pivots = BTreeMap::new();
         for node in &graph.nodes {
             let id = nodes::NodeId::new(self.ids.nodes[&node.id]);
             if reset {
                 editor.set_node_position(id, node.position.unwrap());
             }
-            let _border = editor.push_style_color(nodes::StyleColor::NodeBorder, node.color);
             editor.node(id, |token| {
                 let origin = ui.cursor_pos();
-                let [width, height] = node_size(ui, node);
-                ui.text_colored(node.color, &node.label);
-                ui.dummy([width, 5.]);
+                let p = ui.cursor_screen_pos();
+                let [width, height] = node_size(ui, node, text);
+                {
+                    let draw = ui.get_window_draw_list();
+                    draw.add_rect(
+                        [p[0] - unit * 0.25, p[1] - unit * 0.25],
+                        [
+                            p[0] + width + unit * 0.25,
+                            p[1] + header_height - unit * 0.6,
+                        ],
+                        header,
+                    )
+                    .filled(true)
+                    .rounding(unit * 0.2)
+                    .build();
+                    draw.add_line(
+                        [p[0], p[1] + header_height - unit * 0.55],
+                        [p[0] + width, p[1] + header_height - unit * 0.55],
+                        node.color,
+                    )
+                    .thickness(unit * 0.12)
+                    .build();
+                }
+                label(ui, TextRole::Title, &node.label, colors.text, true, text);
                 for (ports, output) in [(&node.inputs, false), (&node.outputs, true)] {
                     for (i, port) in ports.iter().enumerate() {
                         let socket = Socket {
@@ -286,11 +352,16 @@ impl GraphCanvas {
                         };
                         let raw = self.ids.pins[&(socket.clone(), output)];
                         let x = if output {
-                            width - ui.calc_text_size(&port.label)[0] - 18.
+                            width
+                                - typography::text_size(ui, TextRole::Body, &port.label, text)[0]
+                                - unit * 1.3
                         } else {
                             0.
                         };
-                        ui.set_cursor_pos([origin[0] + x, origin[1] + 30. + i as f32 * 22.]);
+                        ui.set_cursor_pos([
+                            origin[0] + x,
+                            origin[1] + header_height + port_row_height(ui, text) * i as f32,
+                        ]);
                         let connected = graph.wires.iter().any(|w| {
                             if output {
                                 w.source == socket
@@ -305,22 +376,30 @@ impl GraphCanvas {
                             } else {
                                 nodes::PinKind::Input
                             },
-                            |pin| draw_socket(ui, pin, &port.label, output, connected, port.color),
+                            |pin| draw_socket(ui, pin, port, output, connected, details, text),
                         );
                         pivots.insert(raw, pivot);
                     }
                 }
                 ui.set_cursor_pos([origin[0], origin[1] + height]);
                 if !node.summary.is_empty() {
-                    ui.text_disabled(&node.summary);
+                    label(
+                        ui,
+                        TextRole::Secondary,
+                        &node.summary,
+                        colors.muted,
+                        !text.hide_details || unit * zoom >= 11.,
+                        text,
+                    );
                 }
-                ui.dummy([width, 2.]);
+                ui.dummy([width, unit * 0.15]);
             });
             let p = editor.node_position(id);
             let s = editor.node_size(id);
+            let socket_radius = unit * 0.4;
             self.hit_map.nodes.push([
-                editor.canvas_to_screen(p),
-                editor.canvas_to_screen([p[0] + s[0], p[1] + s[1]]),
+                editor.canvas_to_screen([p[0] - socket_radius, p[1]]),
+                editor.canvas_to_screen([p[0] + s[0] + socket_radius, p[1] + s[1]]),
             ]);
         }
         if reset || self.selection != graph.selected {
@@ -359,7 +438,7 @@ impl GraphCanvas {
                 2.5,
             );
         }
-        if let Some(create) = editor.begin_create(GRAPH_COLORS.selected, 2.5)
+        if let Some(create) = editor.begin_create(colors.selected, 2.5)
             && let Some((a, b)) = create.query_new_link()
         {
             let result = self.ids.connection(a, b).and_then(|wire| {
@@ -536,6 +615,7 @@ impl GraphCanvas {
                 }
             }
         }
+        drop(_font);
         editor.end();
         if !ui.is_mouse_down(MouseButton::Left) {
             self.cancel_move = false;
@@ -583,27 +663,39 @@ impl GraphCanvas {
         }
     }
 }
-fn node_size(ui: &imgui::Ui, node: &NodeView) -> [f32; 2] {
+// Geometry uses an independent spacing unit; text only enlarges its own row or
+// column when necessary to avoid overlap. Font size never scales the sockets.
+fn port_row_height(ui: &imgui::Ui, text: GraphText) -> f32 {
+    (ui.current_font_size() * 1.4).max(typography::text_size(ui, TextRole::Body, "Ag", text)[1])
+}
+fn header_height(ui: &imgui::Ui, text: GraphText) -> f32 {
+    typography::text_size(ui, TextRole::Title, "Ag", text)[1] + ui.current_font_size() * 0.9
+}
+fn node_size(ui: &imgui::Ui, node: &NodeView, text: GraphText) -> [f32; 2] {
+    let _font = ui.push_font_with_size(None, text.spacing);
+    let unit = ui.current_font_size();
     let ports_width = |ports: &[PortView]| {
         ports
             .iter()
-            .map(|p| ui.calc_text_size(&p.label)[0] + 20.)
+            .map(|p| typography::text_size(ui, TextRole::Body, &p.label, text)[0] + unit * 1.3)
             .fold(0., f32::max)
     };
-    let width = (ports_width(&node.inputs) + ports_width(&node.outputs) + 30.)
-        .max(190.)
-        .max(ui.calc_text_size(&node.label)[0])
-        .max(ui.calc_text_size(&node.summary)[0]);
+    let width = (ports_width(&node.inputs) + ports_width(&node.outputs) + unit * 0.8)
+        .max(unit * 10.)
+        .max(typography::text_size(ui, TextRole::Title, &node.label, text)[0] + unit)
+        .max(typography::text_size(ui, TextRole::Secondary, &node.summary, text)[0]);
     [
         width,
-        36. + node.inputs.len().max(node.outputs.len()).max(1) as f32 * 22.,
+        header_height(ui, text)
+            + unit * 0.25
+            + port_row_height(ui, text) * node.inputs.len().max(node.outputs.len()).max(1) as f32,
     ]
 }
-fn arrange(ui: &imgui::Ui, graph: &GraphView) -> Vec<(ObjectId, [f32; 2])> {
+fn arrange(ui: &imgui::Ui, graph: &GraphView, text: GraphText) -> Vec<(ObjectId, [f32; 2])> {
     let spacing = graph
         .nodes
         .iter()
-        .map(|n| node_size(ui, n))
+        .map(|n| node_size(ui, n, text))
         .fold([260_f32, 160_f32], |s, n| {
             [s[0].max(n[0] + 70.), s[1].max(n[1] + 70.)]
         });
@@ -612,36 +704,129 @@ fn arrange(ui: &imgui::Ui, graph: &GraphView) -> Vec<(ObjectId, [f32; 2])> {
 fn draw_socket(
     ui: &imgui::Ui,
     pin: &nodes::PinToken<'_>,
-    label: &str,
+    port: &PortView,
     output: bool,
     connected: bool,
-    color: [f32; 4],
+    visible: bool,
+    sizes: GraphText,
 ) -> [f32; 2] {
-    let _group = ui.begin_group();
-    if output {
-        ui.text_colored(color, label);
-        ui.same_line();
-    }
-    let p = ui.cursor_screen_pos();
-    let pivot = [p[0] + 5., p[1] + 7.];
+    let unit = ui.current_font_size();
+    let start = ui.cursor_screen_pos();
+    let text_size = typography::text_size(ui, TextRole::Body, &port.label, sizes);
+    let row_height = port_row_height(ui, sizes);
+    let row_width = text_size[0] + unit * 1.3;
+    let pivot = [
+        if output {
+            start[0] + row_width + unit * 0.65
+        } else {
+            start[0] - unit * 0.65
+        },
+        start[1] + row_height * 0.5,
+    ];
     ui.get_window_draw_list()
-        .add_circle(pivot, 4.5, color)
+        .add_circle(pivot, unit * 0.3, port.color)
+        .num_segments(std::num::NonZeroUsize::new(32).unwrap())
         .filled(connected)
         .thickness(1.5)
         .build();
-    ui.dummy([10., 14.]);
-    pin.pivot_rect(pivot, pivot);
-    pin.pivot_alignment([0.5, 0.5]);
-    if !output {
-        ui.same_line();
-        ui.text_colored(color, label);
+    if visible {
+        let _font = typography::push_role(ui, TextRole::Body, sizes);
+        ui.get_window_draw_list().add_text(
+            [
+                start[0] + if output { 0. } else { unit * 1.3 },
+                start[1] + (row_height - text_size[1]) * 0.5,
+            ],
+            ui.style_color(imgui::StyleColor::Text),
+            &port.label,
+        );
     }
+    ui.dummy([row_width, row_height]);
+    pin.rect(
+        [start[0].min(pivot[0] - unit * 0.5), start[1]],
+        [
+            (start[0] + row_width).max(pivot[0] + unit * 0.5),
+            start[1] + row_height,
+        ],
+    );
+    pin.pivot_rect(pivot, pivot);
+    // Explicit pivots keep wire endpoints independent of label bounds.
     pivot
+}
+
+fn label(
+    ui: &imgui::Ui,
+    role: TextRole,
+    text: &str,
+    color: [f32; 4],
+    visible: bool,
+    sizes: GraphText,
+) {
+    let _role = typography::push_role(ui, role, sizes);
+    if visible {
+        ui.get_window_draw_list()
+            .add_text(ui.cursor_screen_pos(), color, text);
+    }
+    // Keep bounds and pins stationary when overview detail disappears.
+    ui.dummy(ui.calc_text_size(text));
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn port_text_uses_available_space_before_growing_the_node() {
+        let _guard = crate::IMGUI_TEST_LOCK.lock().unwrap();
+        let mut context = imgui::Context::create();
+        context.set_ini_filename(None::<String>).unwrap();
+        crate::sdk::typography::Typography::install(&mut context);
+        context
+            .font_atlas()
+            .try_claim_legacy_renderer()
+            .unwrap()
+            .build();
+        context.io_mut().set_display_size([800., 600.]);
+        context.io_mut().set_delta_time(1. / 60.);
+        let port = |label: &str| PortView {
+            key: label.into(),
+            label: label.into(),
+            color: GRAPH_COLORS.image,
+        };
+        let node = NodeView {
+            id: ObjectId::new(),
+            label: "Text".into(),
+            summary: String::new(),
+            color: GRAPH_COLORS.image,
+            position: None,
+            inputs: vec![port("In")],
+            outputs: vec![port("Out")],
+            can_open: false,
+        };
+        let ui = context.frame();
+        ui.window("layout").build(|| {
+            let mut text = GraphText::default();
+            text.labels = 12.;
+            let compact = node_size(ui, &node, text);
+            for labels in [18., 22., 24.] {
+                text.labels = labels;
+                assert_eq!(
+                    node_size(ui, &node, text),
+                    compact,
+                    "label size must not scale the card when text fits"
+                );
+            }
+            text.spacing = 24.;
+            let roomy = node_size(ui, &node, text);
+            assert!(roomy[0] > compact[0] && roomy[1] > compact[1]);
+            text.spacing = 18.;
+            text.labels = 28.;
+            assert!(
+                node_size(ui, &node, text)[1] > compact[1],
+                "oversized labels still reserve enough vertical room"
+            );
+        });
+        drop(context.render_legacy());
+    }
+
     #[test]
     fn dynamic_sockets_have_stable_noncolliding_native_ids() {
         let node = ObjectId::new();

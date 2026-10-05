@@ -133,6 +133,7 @@ fn native_navigation_selection_and_gesture_lifetime_are_shared() {
     let _guard = crate::IMGUI_TEST_LOCK.lock().unwrap();
     let mut context = imgui::Context::create();
     context.set_ini_filename(None::<String>).unwrap();
+    let typography = crate::sdk::typography::Typography::install(&mut context);
     context
         .font_atlas()
         .try_claim_legacy_renderer()
@@ -141,7 +142,7 @@ fn native_navigation_selection_and_gesture_lifetime_are_shared() {
     context.io_mut().set_display_size([1200., 800.]);
     context.io_mut().set_delta_time(1. / 60.);
     let mut canvas = GraphCanvas::default();
-    canvas.initialize(&context);
+    canvas.initialize(&context, Some(&typography));
     let mut graph = Context::new();
     frames(&mut context, &mut canvas, &mut graph, 20);
     assert!(canvas.framed, "all nodes must fit on first appearance");
@@ -319,6 +320,7 @@ fn clicking_an_already_selected_node_reasserts_inspection_without_editing() {
     let _guard = crate::IMGUI_TEST_LOCK.lock().unwrap();
     let mut context = imgui::Context::create();
     context.set_ini_filename(None::<String>).unwrap();
+    let typography = crate::sdk::typography::Typography::install(&mut context);
     context
         .font_atlas()
         .try_claim_legacy_renderer()
@@ -327,7 +329,7 @@ fn clicking_an_already_selected_node_reasserts_inspection_without_editing() {
     context.io_mut().set_display_size([1200., 800.]);
     context.io_mut().set_delta_time(1. / 60.);
     let mut canvas = GraphCanvas::default();
-    canvas.initialize(&context);
+    canvas.initialize(&context, Some(&typography));
     let mut graph = Context::new();
     frames(&mut context, &mut canvas, &mut graph, 20);
     let unit = scale(&canvas) / 100.;
@@ -355,3 +357,6 @@ fn clicking_an_already_selected_node_reasserts_inspection_without_editing() {
     }
     assert_eq!(graph.commits, 0);
 }
+
+#[path = "render_tests.rs"]
+mod rendering;

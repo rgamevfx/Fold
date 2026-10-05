@@ -334,6 +334,7 @@ impl Desktop {
         }
         surface.configure(&device, &config);
         let mut context = Context::create();
+        let typography = crate::sdk::typography::Typography::install(&mut context);
         // Workspace state must never leak into the current project directory.
         context.set_ini_filename(None::<String>)?;
         context
@@ -346,9 +347,16 @@ impl Desktop {
             &mut context,
         )?;
         for registered in &mut panels {
-            registered.panel.initialize(&context);
+            registered.panel.initialize(&context, Some(&typography));
         }
-        let shell = Shell::new(panels);
+        let mut shell = Shell::new(panels);
+        shell.settings = Some(crate::settings::Settings::new(
+            typography.clone(),
+            Some(crate::settings_store::Store::new(
+                crate::settings_store::config_path(),
+            )),
+        ));
+        shell.typography = Some(typography);
         #[cfg(feature = "native-probe")]
         let shell = {
             let mut shell = shell;

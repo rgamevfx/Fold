@@ -58,8 +58,12 @@ impl Panel for Canvas {
     fn document_type(&self) -> Option<&'static str> {
         Some(crate::MOTION)
     }
-    fn initialize(&mut self, context: &imgui::Context) {
-        self.canvas.initialize(context);
+    fn initialize(
+        &mut self,
+        context: &imgui::Context,
+        typography: Option<&fold_ui::sdk::typography::Typography>,
+    ) {
+        self.canvas.initialize(context, typography);
     }
     fn accepts_background_pan(&self, position: [f32; 2]) -> bool {
         self.canvas.accepts_background_pan(position)

@@ -19,9 +19,13 @@ impl Panel for Inspector {
             .iter()
             .any(|p| p.document_type() == Some(kind))
     }
-    fn initialize(&mut self, context: &imgui::Context) {
+    fn initialize(
+        &mut self,
+        context: &imgui::Context,
+        typography: Option<&crate::sdk::typography::Typography>,
+    ) {
         for provider in &mut self.providers {
-            provider.initialize(context);
+            provider.initialize(context, typography);
         }
     }
     fn draw(&mut self, context: ExtensionUi<'_>) {

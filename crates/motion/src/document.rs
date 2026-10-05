@@ -10,7 +10,7 @@ use fold_project::{Document, Revision};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 pub const MOTION: &str = "fold.motion.document";
-pub const FONT_LICENSE: &str = include_str!("../resources/fonts/OFL.txt");
+pub const FONT_LICENSE: &str = include_str!("../../../resources/fonts/OFL.txt");
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Font {
     pub name: String,
@@ -26,7 +26,7 @@ impl Font {
     pub fn bytes(&self) -> &[u8] {
         match &self.source {
             FontSource::NotoSansRegularV1 => {
-                include_bytes!("../resources/fonts/NotoSans-Regular.ttf")
+                include_bytes!("../../../resources/fonts/NotoSans-Regular.ttf")
             }
             FontSource::Embedded(bytes) => bytes,
         }

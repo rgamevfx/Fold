@@ -89,6 +89,7 @@ fn compositor_graph_and_inspector_draw_without_authoring() {
     let selected = state.borrow().graph.as_ref().unwrap().nodes[0].id;
     state.borrow_mut().selected = vec![selected];
     let mut context = imgui::Context::create();
+    let typography = fold_ui::sdk::typography::Typography::install(&mut context);
     context.set_ini_filename(None::<String>).unwrap();
     context
         .font_atlas()
@@ -98,7 +99,7 @@ fn compositor_graph_and_inspector_draw_without_authoring() {
     context.io_mut().set_display_size([1200., 800.]);
     context.io_mut().set_delta_time(1. / 60.);
     let mut canvas = canvas::Canvas::new(state.clone());
-    canvas.initialize(&context);
+    canvas.initialize(&context, Some(&typography));
     let mut inspector = inspector::Inspector(state, Default::default());
     for frame in 0..20 {
         let width = if frame >= 10 { 320. } else { 850. };

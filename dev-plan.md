@@ -325,3 +325,19 @@ The following is a code/document inspection baseline, not a fresh test or perfor
   - Release the image draw-list wrapper after restoring its sampler and before invoking feature overlays. Preserve image/overlay ordering, navigation and render quality.
   - Added a real viewer-instance regression with a ready texture and an editor overlay that draws into the same window. It reproduced the original panic before the fix; all 15 focused shell tests now pass, including repeated overlay frames at normal/narrow widths. Pixel-exact callbacks require a real renderer and are outside this CPU-only UI fixture.
   - Release desktop rebuild passes; reopened Chroma Parade directly in Motion with the shared GTX 1070 GPU backend. The process remains running without a panic after several minutes. Touched-file formatting and diff checks pass. Native visual/gesture verification is incomplete: the accessibility provider cannot enumerate Fold, and direct X11 capture failed. Workspace-wide checks remain deferred.
+
+## Shared UI typography and graph readability
+
+- [x] 32. Establish shared scalable typography and readable node presentation.
+  - Shared 15px Noto Sans typography with body/title/secondary roles and bounded raster-density tiers keeps node text sharp through zoom. Layout and drawing use the same ImGui metrics; application scale and framebuffer DPI remain separate from graph magnification. The existing pinned font bytes/license moved to workspace resources without changing authored Motion text.
+  - Motion and Compositing share theme-derived opaque node bodies, distinct headers, neutral labels, category accents, font-relative spacing, and overview detail suppression without moving sockets. Socket centers sit on the body boundary; removing a native pivot-alignment override keeps wires attached to the visible sockets.
+  - Validation: five graph interaction/layout tests, the density selection test, eight feature UI tests, and a real-backend render regression pass. Desktop-feature compilation passes. Rendered normal/narrow panels, fractional zoom, 150% UI scale and 2× framebuffer DPI were reviewed on Vulkan llvmpipe; this is not NVIDIA hardware or live desktop acceptance.
+  - Evidence, reproduction and limits: [phase 32](docs/phase-32.md). Future appearance preferences UI/persistence and live reference-hardware verification remain outside this slice; workspace checks and Clippy remain deferred.
+
+- [x] 33. Add application UI settings and larger graph defaults.
+  - Floating Settings window with a left UI category, opened through Fold → Settings or Ctrl+,. Live application/node role sizes, seven shared color tokens, optional distant-detail hiding, and Restore defaults.
+  - Graph defaults are 22 px titles, 22 px port labels and 15 px secondary text. Independent 18 px Node spacing controls geometry; text only expands its row/column when needed to prevent overlap. Labels remain visible at distant zoom by default, superseding phase 32’s automatic suppression.
+  - Validated versioned preferences save outside projects through a coalescing worker; unknown fields survive and malformed/newer files are preserved. Existing and new panels share appearance values.
+  - Validation: 74 UI tests and the explicit real-backend rendering regression pass; normal/narrow Settings and an eight-node graph reviewed on Vulkan llvmpipe. Release desktop rebuilt and Chroma Parade launched on GTX 1070. Native interaction/DPI acceptance remains unverified; workspace checks and Clippy deferred.
+  - Follow-up verification: six graph tests, five settings tests and updated real-backend captures pass after decoupling port labels from node geometry. Release build passes.
+  - Evidence and overview readability limits: [phase 33](docs/phase-33.md).

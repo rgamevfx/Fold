@@ -5,10 +5,14 @@
 #[path = "sdk_tests.rs"]
 mod tests;
 pub use dear_imgui_rs as imgui;
+#[path = "appearance.rs"]
+pub mod appearance;
 #[path = "canvas_pan.rs"]
 mod canvas_pan;
 #[path = "color_controls.rs"]
 pub mod color_controls;
+#[path = "typography.rs"]
+pub mod typography;
 pub use canvas_pan::CanvasPan;
 #[path = "animated_property.rs"]
 pub mod animated_property;
@@ -93,7 +97,13 @@ pub trait Panel {
     /// Coordinates describe the displayed image; no render/device ownership is exposed.
     fn draw_viewer_overlay(&mut self, _context: ExtensionUi<'_>, _rect: ViewerRect) {}
     /// Called once after ImGui initialization. Panels are dropped before ImGui.
-    fn initialize(&mut self, _context: &imgui::Context) {}
+    /// The desktop supplies shared fonts; embedded/test hosts may retain their own.
+    fn initialize(
+        &mut self,
+        _context: &imgui::Context,
+        _typography: Option<&typography::Typography>,
+    ) {
+    }
     /// CPU thumbnail publication before NewFrame; renderer/device remain private.
     fn prepare_frame(&mut self, _context: &mut imgui::Context) {}
     fn external_drag(&mut self, _position: Option<[f32; 2]>) {}
@@ -239,12 +249,9 @@ impl PanelRegistry {
     }
 }
 
-/// Shared graph palette. Types and selection also have labels/outlines, so
-/// color is never the only indication of socket compatibility or focus.
+/// Shared graph accents. Surfaces and text follow the active UI theme.
+/// Socket labels and selection outlines supplement color.
 pub struct GraphColors {
-    pub background: [f32; 4],
-    pub grid: [f32; 4],
-    pub node: [f32; 4],
     pub image: [f32; 4],
     pub mask: [f32; 4],
     pub source: [f32; 4],
@@ -253,9 +260,6 @@ pub struct GraphColors {
     pub invalid: [f32; 4],
 }
 pub const GRAPH_COLORS: GraphColors = GraphColors {
-    background: [0.075, 0.083, 0.10, 1.0],
-    grid: [0.13, 0.145, 0.17, 0.65],
-    node: [0.13, 0.145, 0.175, 1.0],
     image: [0.30, 0.74, 0.83, 1.0],
     mask: [0.76, 0.57, 0.94, 1.0],
     source: [0.40, 0.78, 0.55, 1.0],

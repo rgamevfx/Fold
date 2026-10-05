@@ -9,6 +9,8 @@ mod native_shared_probe;
 mod preview;
 mod review;
 pub mod sdk;
+mod settings;
+mod settings_store;
 mod shell;
 mod target_selector;
 mod transport;

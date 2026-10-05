@@ -61,7 +61,7 @@ single global operation enum. Runtime dynamic-library loading is not supported.
   color/coverage precision** and expands to premultiplied RGBA32F for compositing.
   This is not a claim of high-precision vector rasterization.
 - The bundled Noto font is an explicitly versioned resource, with license and
-  fingerprint under `resources/fonts/`. No ambient system-font fallback occurs.
+  fingerprint under the workspace’s `resources/fonts/`. No ambient system-font fallback occurs.
 - Unknown node settings and extension values survive roundtrips. Unavailable
   implementations fail explicitly if demanded; incomplete wiring remains editable.
 - Authoring helpers mutate candidate feature models; committed edits must go through

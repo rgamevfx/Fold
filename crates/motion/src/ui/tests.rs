@@ -133,6 +133,7 @@ fn drawing_motion_graph_inspector_and_handles_does_not_mutate_project() {
     });
     let revision = host.project.snapshot().revision();
     let mut context = imgui::Context::create();
+    let typography = fold_ui::sdk::typography::Typography::install(&mut context);
     context.set_ini_filename(None::<String>).unwrap();
     context
         .font_atlas()
@@ -148,7 +149,7 @@ fn drawing_motion_graph_inspector_and_handles_does_not_mutate_project() {
         animation: Default::default(),
         network_animation: Default::default(),
     };
-    canvas.initialize(&context);
+    canvas.initialize(&context, Some(&typography));
     let mut inspector = inspector::Inspector {
         state: state.clone(),
     };
