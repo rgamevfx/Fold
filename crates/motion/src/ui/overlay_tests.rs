@@ -25,6 +25,8 @@ impl DesktopClient for Host {
 fn another_viewer_cannot_continue_or_cancel_an_owned_overlay_gesture() {
     let _guard = super::super::IMGUI_TEST_LOCK.lock().unwrap();
     let mut overlay = Overlay {
+        tools: Default::default(),
+        picking: Default::default(),
         gesture: Some(Gesture {
             handle: Handle {
                 node: ObjectId::new(),
@@ -59,6 +61,10 @@ fn another_viewer_cannot_continue_or_cancel_an_owned_overlay_gesture() {
                 host: &mut host,
             },
             ViewerRect {
+                editable: true,
+                image_current: true,
+                canvas_origin: [0., 0.],
+                canvas_size: [640., 480.],
                 origin: [0., 0.],
                 size: [100., 100.],
                 dimensions: [100, 100],

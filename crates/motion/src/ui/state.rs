@@ -13,6 +13,9 @@ pub struct State {
     pub motion: Option<Motion>,
     pub selected: Vec<ObjectId>,
     pub group: Option<ObjectId>,
+    pub network_object: Option<ObjectId>,
+    pub document_network: bool,
+    pub parameter_sockets: bool,
     pub parents: Vec<Option<ObjectId>>,
     pub error: String,
     pub editing: bool,
@@ -23,6 +26,11 @@ pub struct State {
     pub property_editing: bool,
     pub interface_editing: bool,
     pub generation: u64,
+    pub visual_revision: u64,
+    pub scene_scope: Option<ObjectId>,
+    pub source_history: Vec<ObjectId>,
+    pub point_edit_requested: bool,
+    pub reference_pick: Option<(ObjectId, String)>,
     base: Revision,
     original: Option<Motion>,
 }
@@ -62,6 +70,11 @@ impl State {
             }
             if chosen != self.document {
                 self.group = None;
+                self.network_object = None;
+                self.scene_scope = None;
+                self.source_history.clear();
+                self.reference_pick = None;
+                self.document_network = false;
                 self.parents.clear();
                 self.selected.clear();
             }
@@ -75,6 +88,7 @@ impl State {
             self.interface_editing = false;
             self.path_attribute_names.clear();
             self.generation += 1;
+            self.visual_revision += 1;
             if self.group.is_some_and(|id| {
                 !self
                     .motion
@@ -82,6 +96,11 @@ impl State {
                     .is_some_and(|m| m.groups.contains_key(&id))
             }) {
                 self.group = None;
+                self.network_object = None;
+                self.scene_scope = None;
+                self.source_history.clear();
+                self.reference_pick = None;
+                self.document_network = false;
                 self.parents.clear();
             }
             let view = self.view_motion();
@@ -127,6 +146,7 @@ impl State {
         })
     }
     pub fn preview(&mut self, host: &mut dyn DesktopClient) {
+        self.visual_revision += 1;
         self.editing = true;
         match self
             .motion
@@ -149,6 +169,9 @@ impl State {
         if self.motion == self.original {
             self.cancel(host);
             return;
+        }
+        if let (Some(before), Some(after)) = (&self.original, &mut self.motion) {
+            super::network_scope::retain(before, after);
         }
         match self
             .motion
@@ -184,6 +207,7 @@ impl State {
         self.property_editing = false;
         self.interface_editing = false;
         self.generation += 1;
+        self.visual_revision += 1;
     }
     pub fn change_scene(
         &mut self,

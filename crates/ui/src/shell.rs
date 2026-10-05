@@ -1705,17 +1705,23 @@ impl Shell {
                     .size([available[0], image_height])
                     .flags(dear_imgui_rs::WindowFlags::NO_SCROLLBAR | dear_imgui_rs::WindowFlags::NO_SCROLL_WITH_MOUSE)
                     .build(ui, || {
-                        let canvas = ui.cursor_screen_pos();
-                        let area = ui.content_region_avail();
+                        let canvas_origin = ui.cursor_screen_pos();
+                        let canvas_size = ui.content_region_avail();
+                        let insets = self.workspace.editor_for_viewer(id)
+                            .filter(|editor| self.workspace.editors.get(editor).and_then(|b| b.output()).as_ref() == output.as_ref())
+                            .and_then(|editor| self.editors.get(&editor))
+                            .map(|e| e.panels.editor.viewer_tool_insets(ui)).unwrap_or([0.; 2]);
+                        let canvas = [canvas_origin[0] + insets[0], canvas_origin[1] + insets[1]];
+                        let area = [canvas_size[0] - insets[0], canvas_size[1] - insets[1]];
                         if area[0] <= 0. || area[1] <= 0. { return; }
                         self.viewport_pixels.insert(id, [area[0]*scale[0], area[1]*scale[1]]);
                         let dimensions = output.as_ref().map(|output| client.preview_state(output, self.workspace.viewers[&id].time).dimensions)
                             .unwrap_or([1, 1]);
                         let fitted = fitted_size(dimensions, area);
+                        let (image_origin, size) = self.navigation.entry(id).or_default().rect(canvas, area, fitted);
+                        let rect = crate::sdk::ViewerRect { editable: true, image_current: matches!(preview, Preview::Ready { .. }), canvas_origin, canvas_size, origin: image_origin, size, dimensions };
                         if let Preview::Ready { texture, dimensions: tile_dimensions, uv_max } = preview {
                             debug_assert!(tile_dimensions.iter().all(|n| *n > 0));
-                            let (image_origin, size) = self.navigation.entry(id).or_default().rect(canvas, area, fitted);
-                            let rect = crate::sdk::ViewerRect { origin: image_origin, size, dimensions };
                             // A held tile remains at its original image-space location
                             // while a new demand renders; never stretch it over the frame.
                             let presented = self.presentation.get(&id).and_then(|p| p.0.as_ref());
@@ -1735,8 +1741,8 @@ impl Shell {
                             if self.workspace.viewers[&id].pixel_exact { draw.set_sampler_linear(); }
                             // Feature overlays acquire their own draw-list wrapper.
                             drop(draw);
-                            self.viewer_overlay(ui, id, rect, client);
                         }
+                        self.viewer_overlay(ui, id, rect, client);
                         self.navigation.entry(id).or_default().input(ui, canvas, area, fitted);
                         if let Some(presented) = self.presentation.get(&id).and_then(|p| p.0.as_ref()) {
                             let mut expected = presented.clone(); expected.dimensions = dimensions; expected.region = None;
@@ -1833,7 +1839,7 @@ impl Shell {
         &mut self,
         ui: &Ui,
         id: PanelInstanceId,
-        rect: crate::sdk::ViewerRect,
+        mut rect: crate::sdk::ViewerRect,
         client: &mut dyn DesktopClient,
     ) {
         let Some(viewer) = self.workspace.viewers.get(&id) else {
@@ -1845,9 +1851,7 @@ impl Shell {
         let Some(output) = self.workspace.resolve(id) else {
             return;
         };
-        if viewer.playing {
-            return;
-        }
+        rect.editable = !viewer.playing;
         if let Some((presented, _)) = self.presentation.get(&id) {
             let state = client.preview_state(&output, viewer.time);
             let expected = state
@@ -1859,7 +1863,7 @@ impl Shell {
                     key
                 });
             if presented.is_none() || *presented != expected {
-                return;
+                rect.image_current = false;
             }
         }
         let Some(binding) = self.workspace.editors.get(&editor_id) else {

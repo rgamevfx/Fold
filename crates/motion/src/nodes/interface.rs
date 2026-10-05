@@ -17,6 +17,10 @@ pub struct Port {
     pub default: Option<Datum>,
     #[serde(default)]
     pub unit: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub section: String,
+    #[serde(default)]
+    pub advanced: bool,
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct GroupDefinition {
@@ -122,6 +126,14 @@ pub fn definitions() -> Vec<Definition> {
         vec![],
         vec![],
         |e, n| {
+            if n.settings
+                .get("bypass")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false)
+                && n.inputs.contains_key("content")
+            {
+                return Ok(output("content", e.input(n, "content")?));
+            }
             let id = n
                 .settings::<GroupSettings>()?
                 .group
@@ -164,6 +176,22 @@ pub fn definitions() -> Vec<Definition> {
                     .ok_or("choose a scene object")?,
             )
             .map_err(|e| e.to_string())?;
+            if n.settings
+                .get("local")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false)
+            {
+                let content = e.world_content(id)?;
+                let mut wrapper = crate::geometry::Element::new(
+                    n.seed(),
+                    crate::geometry::Geometry::Group(content),
+                );
+                wrapper.transform = crate::geometry::inverse(e.world_matrix(id)?)?;
+                return Ok(output(
+                    "content",
+                    Value::Content(std::sync::Arc::new(vec![wrapper])),
+                ));
+            }
             if n.settings
                 .get("world")
                 .and_then(|v| v.as_bool())

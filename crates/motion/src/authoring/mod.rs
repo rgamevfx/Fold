@@ -1,6 +1,7 @@
 //! Direct tools edit the same persistent graph as socket wiring. No hidden evaluator.
 mod controls;
 mod groups;
+pub mod path;
 pub mod scene;
 use crate::{
     Motion,

@@ -28,6 +28,8 @@ pub fn group_node(motion: &mut Motion, id: ObjectId) -> Result<ObjectId, String>
         inside.connect(&input.id, node.id, "value");
         nodes.push(node);
         ports.push(Port {
+            section: String::new(),
+            advanced: false,
             id: input.id.clone(),
             name: input.id,
             kind: input.kind,

@@ -29,6 +29,10 @@ pub(super) fn draw(ui: &Ui, host: &mut dyn DesktopClient, state: &mut State) {
             ui.separator();
             let changed = ui.input_text("Control name", &mut port.name).build();
             response.item(ui, changed);
+            let changed = ui.input_text("Section", &mut port.section).build();
+            response.item(ui, changed);
+            let changed = ui.checkbox("Collapsed initially", &mut port.advanced);
+            response.item(ui, changed);
             if let Some(default) = &mut port.default {
                 ui.text_disabled("Default for new instances");
                 super::inspector::datum(ui, default, aces, &mut response);

@@ -49,6 +49,9 @@ impl Panel for Canvas {
             state.cancel(host);
         }
     }
+    fn viewer_tool_insets(&self, ui: &imgui::Ui) -> [f32; 2] {
+        super::tools::insets(ui)
+    }
     fn draw_viewer_overlay(&mut self, context: ExtensionUi<'_>, rect: fold_ui::sdk::ViewerRect) {
         self.overlay.draw(&self.state, context, rect);
     }
@@ -80,9 +83,37 @@ impl Panel for Canvas {
             ui.text_disabled("Create a Motion document in MoGraph or Project.");
             return;
         }
+        if state.group.is_none() {
+            let owner = state
+                .selected
+                .first()
+                .and_then(|id| {
+                    state
+                        .motion
+                        .as_ref()?
+                        .scene
+                        .as_ref()?
+                        .objects
+                        .iter()
+                        .find(|o| o.owns(*id))
+                })
+                .map(|o| o.id);
+            if owner.is_some() && owner != state.network_object {
+                state.network_object = owner;
+            }
+        }
         if let Some(_menu) =
             fold_ui::sdk::toolbar::menu_button(ui, "Network", "Procedural graph actions")
         {
+            ui.checkbox("Show parameter sockets", &mut state.parameter_sockets);
+            if ui.menu_item(if state.document_network {
+                "Selected construction"
+            } else {
+                "Full document network"
+            }) {
+                state.document_network = !state.document_network;
+                state.generation += 1;
+            }
             if let Some(&selected) = state.selected.first().filter(|_| state.selected.len() == 1) {
                 if ui.menu_item("Create reusable group from node") {
                     state.change(host, |m| {
@@ -102,7 +133,25 @@ impl Panel for Canvas {
             .group
             .and_then(|id| state.motion.as_ref()?.groups.get(&id))
             .map(|g| g.name.as_str())
-            .unwrap_or("Document network");
+            .or_else(|| {
+                if state.document_network {
+                    return Some("Document network");
+                }
+                state
+                    .motion
+                    .as_ref()?
+                    .scene
+                    .as_ref()?
+                    .objects
+                    .iter()
+                    .find(|o| Some(o.id) == state.network_object)
+                    .map(|o| o.name.as_str())
+            })
+            .unwrap_or(if state.document_network {
+                "Document network"
+            } else {
+                "Select a construction"
+            });
         ui.text(format!("MoGraph / {label}"));
         let drop_origin = ui.cursor_screen_pos();
         let drop_size = ui.content_region_avail();

@@ -294,6 +294,17 @@ impl Animation {
                 state.parents.clear();
             }
             state.selected = vec![node];
+            if !scoped {
+                state.scene_scope = state.motion.as_ref().and_then(|m| {
+                    m.scene
+                        .as_ref()?
+                        .objects
+                        .iter()
+                        .find(|o| o.owns(node))?
+                        .parent
+                });
+                state.source_history.clear();
+            }
             host.command(DesktopCommand::Select(Selection {
                 document: Some(document),
                 objects: vec![node],

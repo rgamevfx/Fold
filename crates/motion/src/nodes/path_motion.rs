@@ -84,10 +84,14 @@ pub fn definitions() -> Vec<Definition> {
                 Socket::required("content", Kind::Content),
                 Socket::value("attribute", Datum::Text("color".into()), ""),
                 boolean("text_only", true),
+                boolean("enabled", true),
             ],
             vec![("content", Kind::Content)],
             |e, n| {
                 let source = e.content(n, "content")?;
+                if !e.uniform(n, "enabled")?.boolean()? {
+                    return Ok(content(source));
+                }
                 let name = e.uniform(n, "attribute")?.text()?.to_owned();
                 let text_only = e.uniform(n, "text_only")?.boolean()?;
                 fn walk(

@@ -34,7 +34,7 @@ fn small() -> Motion {
 #[test]
 fn catalog_includes_scene_nodes_with_unique_stable_sockets() {
     let catalog = fold_motion::graph::registry::definitions();
-    assert_eq!(catalog.len(), 44);
+    assert_eq!(catalog.len(), 46);
     let mut ids = std::collections::BTreeSet::new();
     for d in catalog {
         assert!(ids.insert(d.id));
@@ -310,6 +310,8 @@ fn reusable_groups_bind_values_without_copying_their_construction() {
             name: "Identity".into(),
             version: 1,
             inputs: vec![Port {
+                section: String::new(),
+                advanced: false,
                 id: "amount".into(),
                 name: "Amount".into(),
                 kind: Kind::Scalar,

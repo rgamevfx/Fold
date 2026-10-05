@@ -341,3 +341,15 @@ The following is a code/document inspection baseline, not a fresh test or perfor
   - Validation: 74 UI tests and the explicit real-backend rendering regression pass; normal/narrow Settings and an eight-node graph reviewed on Vulkan llvmpipe. Release desktop rebuilt and Chroma Parade launched on GTX 1070. Native interaction/DPI acceptance remains unverified; workspace checks and Clippy deferred.
   - Follow-up verification: six graph tests, five settings tests and updated real-backend captures pass after decoupling port labels from node geometry. Release build passes.
   - Evidence and overview readability limits: [phase 33](docs/phase-33.md).
+
+## Motion UX overhaul and shipped procedural tools
+
+- [ ] 34. Deliver object-first Motion authoring and Chroma Parade v2 (implementation complete; native acceptance pending).
+  - Authorized scope and acceptance: [phase 34](docs/phase-34.md).
+  - Shipped tools are editable node groups with useful published controls and explicit source references. Preserve Motion → Composite → Sequence and existing project semantics.
+  - Implement independent distribution/travel, Copy to Points attribute propagation, compact source/path/color controls, scoped Network navigation, and an intent-based Motion viewer shelf.
+  - Refine object/source selection, operation controls, viewport gestures, and creation defaults together; validate the complete create/revise/undo workflow, not only rendered output.
+  - Preserve legacy Chroma Parade; deliver a separate v2 project and record focused tests, visual review, and remaining acceptance honestly.
+  - Implemented Badge/Along Path/Oscillate assets, reference pick/edit controls, scoped construction graphs, gradient editing, modifier controls, and Motion-only text/shape/Bézier/transform tools with preview/undo/cancel.
+  - Generated `/tmp/fold-chroma-parade-v2-final.fold`; original retained. 50 Motion tests, 75 shared UI tests and three app integration tests pass; release desktop builds; real-backend normal/narrow/network captures reviewed. Software-Vulkan profile and native-runtime limitations are recorded in phase 34.
+  - Follow-up: fixed scoped Network hiding detached branches on output rewires. Construction membership is retained transactionally across reload; explicit deletion/undo and newly added disconnected nodes have regression coverage. Full document network remains available for previously hidden nodes.

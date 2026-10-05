@@ -89,7 +89,9 @@ impl Navigation {
         if hovered && !ui.is_any_item_active() {
             for button in [MouseButton::Middle, MouseButton::Left] {
                 if ui.is_mouse_clicked(button)
-                    && (button == MouseButton::Middle || !ui.is_any_item_hovered())
+                    && (button == MouseButton::Middle
+                        || !ui.is_any_item_hovered()
+                        || ui.is_key_down(Key::Space))
                 {
                     self.drag = Some(button);
                     self.width = Some(self.size(fitted)[0]);

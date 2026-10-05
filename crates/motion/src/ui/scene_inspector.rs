@@ -32,7 +32,7 @@ pub(super) fn draw(
     let info = state.motion.as_ref().unwrap().info.clone();
     let mut start = time_view::frame(object.start, info.rate) as i32;
     let mut end = time_view::frame(object.end, info.rate) as i32;
-    {
+    if ui.collapsing_header("Timing", fold_ui::sdk::imgui::TreeNodeFlags::empty()) {
         let _disabled = ui.begin_disabled_with_cond(object.locked);
         if ui.input_int("In frame", &mut start)
             && let Ok(t) = time_view::time(i64::from(start), info.rate)
@@ -50,20 +50,27 @@ pub(super) fn draw(
         finished |= ui.is_item_deactivated_after_edit();
     }
     let mut relationship_response = fold_ui::sdk::EditResponse::default();
-    let action = super::relationships::draw(
-        ui,
-        state.motion.as_ref().unwrap(),
-        &mut object,
-        &mut relationship_response,
-        (
-            host.state()
-                .navigation
-                .last()
-                .map(|n| n.time)
-                .unwrap_or(fold_foundation::Time::ZERO),
-            state.auto_key,
-        ),
-    );
+    let action = if ui.collapsing_header(
+        "Relationships and opacity",
+        fold_ui::sdk::imgui::TreeNodeFlags::empty(),
+    ) {
+        super::relationships::draw(
+            ui,
+            state.motion.as_ref().unwrap(),
+            &mut object,
+            &mut relationship_response,
+            (
+                host.state()
+                    .navigation
+                    .last()
+                    .map(|n| n.time)
+                    .unwrap_or(fold_foundation::Time::ZERO),
+                state.auto_key,
+            ),
+        )
+    } else {
+        None
+    };
     changed |= relationship_response.changed;
     finished |= relationship_response.finished;
     if let Some(action) = action {
@@ -134,21 +141,47 @@ pub(super) fn draw(
         .find(|(id, _)| *id == selected)
         .map(|(_, s)| s.as_str())
         .unwrap_or("Content");
-    if let Some(_combo) = ui.begin_combo("Properties", label) {
-        for (id, label) in choices {
-            let _id = ui.push_id(&format!("{id:?}"));
-            if ui.selectable(label) {
-                state.cancel(host);
-                state.selected = vec![id];
-                host.command(DesktopCommand::Select(Selection {
-                    document: state.document,
-                    objects: vec![id],
-                }));
-                return true;
-            }
+    ui.text_disabled(format!("{} / {label}", object.name));
+    for (index, (id, label)) in choices.into_iter().enumerate() {
+        if index > 0 && index < 3 {
+            ui.same_line();
         }
+        let _id = ui.push_id(&format!("{id:?}"));
+        let active = (id == selected).then(|| {
+            ui.push_style_color(
+                fold_ui::sdk::imgui::StyleColor::Button,
+                ui.style_color(fold_ui::sdk::imgui::StyleColor::ButtonActive),
+            )
+        });
+        if ui.small_button(&label) {
+            state.cancel(host);
+            state.selected = vec![id];
+            host.command(DesktopCommand::Select(Selection {
+                document: state.document,
+                objects: vec![id],
+            }));
+            return true;
+        }
+        drop(active);
     }
     if object.modifiers.contains(&selected) && !object.locked {
+        let mut enabled = !state
+            .motion
+            .as_ref()
+            .unwrap()
+            .graph
+            .node(selected)
+            .ok()
+            .and_then(|n| n.settings.get("bypass"))
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        if ui.checkbox("Enabled", &mut enabled) {
+            state.change_scene(host, |m| {
+                crate::authoring::node(m, selected)?.settings["bypass"] = (!enabled).into();
+                Ok(Some(selected))
+            });
+            return true;
+        }
         for (label, delta) in [("Earlier", -1), ("Later", 1)] {
             if ui.small_button(label) {
                 state.change_scene(host, |m| {

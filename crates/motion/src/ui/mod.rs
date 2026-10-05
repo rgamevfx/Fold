@@ -1,17 +1,23 @@
 //! UI-only presentation over transactional graph edits.
 mod animation;
 mod canvas;
+mod gradient;
 mod graph;
 mod group_interface;
 mod inspector;
 mod overlay;
 mod path_attributes;
+mod picking;
 mod relationships;
+#[cfg(test)]
+mod render_tests;
 mod scene;
 mod scene_inspector;
 mod state;
 #[cfg(test)]
 mod tests;
+mod tool_actions;
+mod tools;
 #[cfg(test)]
 static IMGUI_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 use fold_ui::sdk::PanelRegistry;
@@ -39,3 +45,5 @@ fn input_label(motion: &crate::Motion, node: &crate::graph::Node, key: &str) -> 
         .map(|p| inspector::property_label(&p.name))
         .unwrap_or_else(|| inspector::property_label(key))
 }
+
+mod network_scope;

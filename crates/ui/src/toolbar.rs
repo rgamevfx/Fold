@@ -4,6 +4,14 @@ use super::imgui::{PopupToken, StyleColor, Ui};
 
 #[derive(Clone, Copy)]
 pub enum ToolbarIcon {
+    Select,
+    Move,
+    Rotate,
+    Scale,
+    Text,
+    Rectangle,
+    Ellipse,
+    Pen,
     Add,
     FrameAll,
     More,
@@ -59,6 +67,50 @@ pub fn draw_icon_on(
             .build();
     };
     match icon {
+        ToolbarIcon::Select => {
+            line([-0.7, -1.], [-0.7, 1.]);
+            line([-0.7, -1.], [0.9, 0.3]);
+            line([-0.7, 1.], [0., 0.3]);
+            line([0., 0.3], [0.9, 0.3]);
+        }
+        ToolbarIcon::Move => {
+            line([-1., 0.], [1., 0.]);
+            line([0., -1.], [0., 1.]);
+            for (x, y) in [(-1., 0.), (1., 0.), (0., -1.), (0., 1.)] {
+                line([x, y], [x * 0.6 - y * 0.3, y * 0.6 + x * 0.3]);
+                line([x, y], [x * 0.6 + y * 0.3, y * 0.6 - x * 0.3]);
+            }
+        }
+        ToolbarIcon::Rotate => {
+            draw.add_circle(center, unit, color).build();
+            line([0.5, -0.8], [1., -0.8]);
+            line([1., -0.8], [1., -0.2]);
+        }
+        ToolbarIcon::Scale => {
+            draw.add_rect(point(-0.9, -0.9), point(0.9, 0.9), color)
+                .build();
+            line([-0.5, 0.5], [1., -1.]);
+        }
+        ToolbarIcon::Text => {
+            line([-1., -0.9], [1., -0.9]);
+            line([0., -0.9], [0., 1.]);
+            line([-0.5, 1.], [0.5, 1.]);
+        }
+        ToolbarIcon::Rectangle => {
+            draw.add_rect(point(-1., -0.8), point(1., 0.8), color)
+                .rounding(2.)
+                .build();
+        }
+        ToolbarIcon::Ellipse => {
+            draw.add_circle(center, unit, color).build();
+        }
+        ToolbarIcon::Pen => {
+            line([0., -1.], [-0.8, 0.4]);
+            line([-0.8, 0.4], [0., 1.]);
+            line([0., 1.], [0.8, 0.4]);
+            line([0.8, 0.4], [0., -1.]);
+            line([0., -1.], [0., 0.3]);
+        }
         ToolbarIcon::Unlink => {
             line([-1., 0.2], [-1., -0.7]);
             line([-1., -0.7], [-0.2, -0.7]);

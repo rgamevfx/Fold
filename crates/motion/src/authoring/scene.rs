@@ -1,5 +1,7 @@
 //! Scene commands reuse ordinary graph nodes; the scene owns ordering and visibility.
 use super::*;
+#[path = "assets.rs"]
+pub mod assets;
 #[path = "modifiers.rs"]
 mod modifiers;
 use crate::{

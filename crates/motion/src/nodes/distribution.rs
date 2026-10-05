@@ -124,7 +124,7 @@ pub fn definitions() -> Vec<Definition> {
         ),
         definition(
             "fold.motion.instance_on_points",
-            "Instance on Points",
+            "Copy to Points",
             "Instances",
             vec![
                 Socket::required("source", Kind::Content),
@@ -143,6 +143,7 @@ pub fn definitions() -> Vec<Definition> {
                                 Geometry::Instance(source.clone()),
                             );
                             item.transform = p.transform;
+                            item.attributes = p.attributes.clone();
                             item
                         })
                         .collect(),

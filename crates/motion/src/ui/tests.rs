@@ -4,13 +4,13 @@ use fold_foundation::{DocumentId, Time};
 use fold_platform::{desktop::*, packages::PackageRegistry};
 use fold_project::{CommittedSnapshot, Project};
 use fold_ui::sdk::{ExtensionUi, Panel, imgui};
-struct Host {
-    project: Project,
+pub(super) struct Host {
+    pub(super) project: Project,
     state: DesktopState,
     registry: PackageRegistry,
 }
 impl Host {
-    fn new() -> Self {
+    pub(super) fn new() -> Self {
         let mut registry = PackageRegistry::default();
         crate::package::register(&mut registry).unwrap();
         Self {
@@ -203,6 +203,10 @@ fn drawing_motion_graph_inspector_and_handles_does_not_mutate_project() {
             .build(|| {
                 let size = ui.content_region_avail();
                 rect = Some(fold_ui::sdk::ViewerRect {
+                    editable: true,
+                    image_current: true,
+                    canvas_origin: [0., 0.],
+                    canvas_size: [640., 480.],
                     origin: ui.cursor_screen_pos(),
                     size,
                     dimensions: [640, 240],

@@ -91,6 +91,15 @@ impl Panel for Inspector {
             .ok()
             .and_then(|n| n.settings::<crate::nodes::interface::GroupSettings>().ok())
             .and_then(|s| s.group);
+        let port_sections: std::collections::BTreeMap<_, _> = group_id
+            .and_then(|id| motion.groups.get(&id))
+            .map(|g| {
+                g.inputs
+                    .iter()
+                    .map(|p| (p.id.clone(), (p.section.clone(), p.advanced)))
+                    .collect()
+            })
+            .unwrap_or_default();
         let port_labels: std::collections::BTreeMap<_, _> = group_id
             .and_then(|id| motion.groups.get(&id))
             .map(|g| {
@@ -100,26 +109,106 @@ impl Panel for Inspector {
                     .collect()
             })
             .unwrap_or_default();
+        let gradient_path = crate::authoring::scene::assets::reference(&motion, selected, "path");
+        // Content references are edited through their actual reference nodes.
+        // This works for any published group content port, not only shipped assets.
+        if group_id.is_some() && state.group.is_none() {
+            let ports: Vec<_> = signature
+                .as_ref()
+                .ok()
+                .map(|s| {
+                    s.0.iter()
+                        .filter(|p| p.kind == crate::fields::Kind::Content && p.id != "content")
+                        .map(|p| p.id.clone())
+                        .collect()
+                })
+                .unwrap_or_default();
+            for port in ports {
+                let _id = ui.push_id(&port);
+                let current = crate::authoring::scene::assets::reference(&motion, selected, &port);
+                let label = objects
+                    .iter()
+                    .find(|(id, _)| Some(*id) == current)
+                    .map(|(_, name)| name.as_str())
+                    .unwrap_or("Choose object");
+                let port_label = port_labels.get(&port).map(String::as_str).unwrap_or(&port);
+                ui.set_next_item_width(
+                    (ui.content_region_avail()[0] - ui.calc_text_size(port_label)[0] - 94.)
+                        .max(50.),
+                );
+                if let Some(_combo) = ui.begin_combo(port_label, label) {
+                    for (id, name) in &objects {
+                        if *id != selected && ui.selectable(format!("{name}##{id:?}")) {
+                            state.change_scene(host, |m| {
+                                crate::authoring::scene::assets::set_reference(
+                                    m,
+                                    selected,
+                                    &port,
+                                    *id,
+                                    port == "source",
+                                )?;
+                                Ok(Some(selected))
+                            });
+                            return;
+                        }
+                    }
+                }
+                ui.same_line();
+                if ui.small_button("Pick") {
+                    state.reference_pick = Some((selected, port.clone()));
+                    state.scene_scope = None;
+                    return;
+                }
+                if let Some(id) = current {
+                    ui.same_line();
+                    if ui.small_button("Edit") {
+                        state.cancel(host);
+                        state.selected = vec![id];
+                        state.source_history.push(selected);
+                        state.scene_scope = state
+                            .motion
+                            .as_ref()
+                            .and_then(|m| m.graph.node(id).ok())
+                            .filter(|n| n.kind == "fold.motion.scene_children")
+                            .map(|_| id);
+                        state.network_object = Some(id);
+                        host.command(fold_platform::desktop::DesktopCommand::Select(
+                            fold_platform::desktop::Selection {
+                                document: state.document,
+                                objects: vec![id],
+                            },
+                        ));
+                        return;
+                    }
+                }
+            }
+        }
         let Some(node) = motion.graph.nodes.iter_mut().find(|n| n.id == selected) else {
             return;
         };
         ui.text(
-            registry::find(&node.kind)
-                .map(|d| d.name)
-                .unwrap_or(&node.kind),
+            group_id
+                .and_then(|id| motion.groups.get(&id))
+                .map(|g| g.name.as_str())
+                .unwrap_or_else(|| {
+                    registry::find(&node.kind)
+                        .map(|d| d.name)
+                        .unwrap_or(&node.kind)
+                }),
         );
         ui.separator();
         if let Some(group) = group_id {
             if ui.button("Edit Graph") {
                 state.cancel(host);
-                state.parents.push(None);
+                let parent = state.group;
+                state.parents.push(parent);
                 state.group = Some(group);
                 state.network_requested = true;
                 state.selected.clear();
                 return;
             }
             ui.same_line();
-            if ui.button("Make unique") {
+            if ui.small_button("Make unique") {
                 state.change(host, |m| {
                     let mut definition = m.groups.get(&group).ok_or("missing group")?.clone();
                     definition.name.push_str(" Copy");
@@ -131,7 +220,10 @@ impl Panel for Inspector {
                 });
                 return;
             }
-            ui.text_disabled("Graph edits affect every instance of this group. Make unique for a local variation.");
+            tooltip(
+                ui,
+                "Graph edits are shared. Make unique creates an independent tool definition.",
+            );
         }
         if node.kind == "fold.motion.output"
             && aces
@@ -222,8 +314,33 @@ impl Panel for Inspector {
             }
         }
         if let Ok((sockets, _)) = signature {
+            let mut section = String::new();
+            let mut section_open = true;
             for socket in sockets {
                 let key = socket.id;
+                if group_id.is_some()
+                    && state.group.is_none()
+                    && socket.kind == crate::fields::Kind::Content
+                {
+                    continue;
+                }
+                if let Some((name, advanced)) = port_sections.get(&key)
+                    && *name != section
+                {
+                    section = name.clone();
+                    section_open = name.is_empty()
+                        || ui.collapsing_header(
+                            name,
+                            if *advanced {
+                                fold_ui::sdk::imgui::TreeNodeFlags::empty()
+                            } else {
+                                fold_ui::sdk::imgui::TreeNodeFlags::DEFAULT_OPEN
+                            },
+                        );
+                }
+                if !section_open {
+                    continue;
+                }
                 if !node.inputs.contains_key(&key)
                     && let Some(default) = &socket.default
                 {
@@ -258,7 +375,23 @@ impl Panel for Inspector {
                     crate::animation::parameters::set_components(value, &values);
                     continue;
                 }
-                ui.text(property_label(&key));
+                if let Some(Input::Value(Datum::Bool(value))) = node.inputs.get_mut(&key) {
+                    let changed = ui.checkbox(
+                        port_labels
+                            .get(&key)
+                            .cloned()
+                            .unwrap_or_else(|| property_label(&key)),
+                        value,
+                    );
+                    response.item(ui, changed);
+                    continue;
+                }
+                ui.text(
+                    port_labels
+                        .get(&key)
+                        .cloned()
+                        .unwrap_or_else(|| property_label(&key)),
+                );
                 if !socket.unit.is_empty() && key != "alignment" {
                     ui.same_line();
                     ui.text_disabled(&socket.unit);
@@ -323,10 +456,12 @@ impl Panel for Inspector {
                 }
             }
         } else if node.kind == "fold.motion.group_instance" {
-            if let Some(_combo) = ui.begin_combo("Group", "Choose reusable group") {
-                for (id, name) in groups {
-                    if ui.selectable(name) {
-                        assign_group = Some(id);
+            if let Some(_menu) = icon_menu(ui, "definition", "Replace tool definition") {
+                if let Some(_combo) = ui.begin_combo("Definition", "Choose reusable group") {
+                    for (id, name) in groups {
+                        if ui.selectable(name) {
+                            assign_group = Some(id);
+                        }
                     }
                 }
             }
@@ -350,29 +485,51 @@ impl Panel for Inspector {
                     }
                 }
             }
-            let mut world = node
+            let local = node
+                .settings
+                .get("local")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            let world = node
                 .settings
                 .get("world")
                 .and_then(|v| v.as_bool())
                 .unwrap_or(false);
-            if ui.checkbox("Use world coordinates", &mut world) {
-                node.settings["world"] = world.into();
-                response.changed = true;
-                response.finished = true;
-            }
-            if world {
-                let mut owner = node
-                    .settings
-                    .get("owner_space")
-                    .and_then(|v| v.as_bool())
-                    .unwrap_or(false);
-                if ui.checkbox("Relative to modifier owner", &mut owner) {
-                    node.settings["owner_space"] = owner.into();
-                    response.changed = true;
-                    response.finished = true;
+            let owner = node
+                .settings
+                .get("owner_space")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            let label = if local {
+                "Source local"
+            } else if world && owner {
+                "Relative to owner"
+            } else if world {
+                "Scene world"
+            } else {
+                "Source parent"
+            };
+            if let Some(_combo) = ui.begin_combo("Coordinates", label) {
+                for (label, local, world, owner) in [
+                    ("Source local", true, false, false),
+                    ("Source parent", false, false, false),
+                    ("Scene world", false, true, false),
+                    ("Relative to owner", false, true, true),
+                ] {
+                    if ui.selectable(label) {
+                        node.settings["local"] = local.into();
+                        node.settings["world"] = world.into();
+                        node.settings["owner_space"] = owner.into();
+                        response.changed = true;
+                        response.finished = true;
+                    }
                 }
             }
         } else if node.kind == "fold.motion.path" {
+            if ui.small_button("Edit points in viewer") {
+                state.point_edit_requested = true;
+            }
+            super::gradient::draw(ui, &mut node.settings, aces, &mut response);
             super::path_attributes::draw(
                 ui,
                 &mut node.settings,
@@ -381,7 +538,9 @@ impl Panel for Inspector {
                 node.id,
                 &mut state.path_attribute_names,
             );
-            if let Some(segments) = node.settings.get_mut("segments") {
+            if ui.collapsing_header("Geometry data", fold_ui::sdk::imgui::TreeNodeFlags::empty())
+                && let Some(segments) = node.settings.get_mut("segments")
+            {
                 settings(ui, segments, &mut response, 0);
             }
         } else if node.kind == "fold.motion.keyframes" {
@@ -415,6 +574,16 @@ impl Panel for Inspector {
                 )
                 .unwrap()
             });
+        if let Some(path) = gradient_path
+            && let Ok(path) = crate::authoring::node(&mut motion, path)
+        {
+            if ui.collapsing_header(
+                "Path gradient · shared source",
+                fold_ui::sdk::imgui::TreeNodeFlags::DEFAULT_OPEN,
+            ) {
+                super::gradient::draw(ui, &mut path.settings, aces, &mut response);
+            }
+        }
         let action = if let Some(group) = assign_group {
             Some(crate::authoring::assign_group(&mut motion, selected, group).map(|_| selected))
         } else if let Some(key) = animate {

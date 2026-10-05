@@ -50,6 +50,13 @@ impl ExtensionUi<'_> {
 }
 #[derive(Clone, Copy)]
 pub struct ViewerRect {
+    /// Editing is suspended during playback; tool chrome remains visible.
+    pub editable: bool,
+    /// Artwork corresponds to the current source/time/revision.
+    pub image_current: bool,
+    /// Fixed viewer canvas, independent of image pan/zoom.
+    pub canvas_origin: [f32; 2],
+    pub canvas_size: [f32; 2],
     pub origin: [f32; 2],
     pub size: [f32; 2],
     pub dimensions: [u32; 2],
@@ -96,6 +103,10 @@ pub trait Panel {
     /// Optional direct-authoring overlay, restricted to the active document's editor.
     /// Coordinates describe the displayed image; no render/device ownership is exposed.
     fn draw_viewer_overlay(&mut self, _context: ExtensionUi<'_>, _rect: ViewerRect) {}
+    /// Space reserved for a provider's left shelf and top tool options.
+    fn viewer_tool_insets(&self, _ui: &imgui::Ui) -> [f32; 2] {
+        [0.; 2]
+    }
     /// Called once after ImGui initialization. Panels are dropped before ImGui.
     /// The desktop supplies shared fonts; embedded/test hosts may retain their own.
     fn initialize(

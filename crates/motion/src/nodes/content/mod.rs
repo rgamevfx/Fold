@@ -1,3 +1,4 @@
+pub mod background;
 pub mod ellipse;
 pub mod path;
 pub mod rectangle;

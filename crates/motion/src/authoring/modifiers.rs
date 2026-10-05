@@ -8,7 +8,7 @@ use crate::{
 };
 use fold_foundation::ObjectId;
 use std::collections::BTreeMap;
-fn group_input(
+pub(super) fn group_input(
     nodes: &mut Vec<Node>,
     ports: &mut Vec<Port>,
     id: &str,
@@ -22,6 +22,8 @@ fn group_input(
     n.position = [0., nodes.len() as f32 * 160.];
     nodes.push(n);
     ports.push(Port {
+        section: String::new(),
+        advanced: false,
         id: id.into(),
         name: name.into(),
         kind,
@@ -197,6 +199,8 @@ pub fn expose_group_input(
         .ok_or("missing group")?
         .inputs
         .push(Port {
+            section: String::new(),
+            advanced: false,
             id: port,
             name: key.into(),
             kind: value.kind(),

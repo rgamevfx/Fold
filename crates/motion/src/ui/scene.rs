@@ -32,23 +32,9 @@ pub(super) fn draw(shared: &Shared, animation: &mut Animation, context: Extensio
             return;
         }
         ui.same_line();
-        if let Some(_menu) = menu_button(ui, "Add", "Create a scene object") {
-            for (label, kind) in [
-                ("Text", "fold.motion.text"),
-                ("Rectangle", "fold.motion.rectangle"),
-                ("Ellipse", "fold.motion.ellipse"),
-                ("Path", "fold.motion.path"),
-            ] {
-                if ui.menu_item(label) {
-                    state.change_scene(host, |m| a::create_object(m, kind).map(Some));
-                }
-            }
-            if ui.menu_item("Group") {
-                state.change_scene(host, |m| a::create_group(m).map(Some));
-            }
-            if ui.menu_item("Procedural Object") {
-                state.change_scene(host, |m| a::create_procedural(m).map(Some));
-            }
+        if let Some(_menu) = menu_button(ui, "Tools", "Create, arrange, animate, style and connect")
+        {
+            super::tool_actions::draw(ui, &mut state, host);
         }
         let selected = state.selected.first().copied();
         let object = state
@@ -106,67 +92,6 @@ pub(super) fn draw(shared: &Shared, animation: &mut Animation, context: Extensio
                     });
                 }
                 let _disabled = ui.begin_disabled_with_cond(object.locked);
-                for (label, radial) in [("Add Radial Array", true), ("New Modifier", false)] {
-                    if ui.menu_item(label) {
-                        state.change_scene(host, |m| {
-                            let group = a::new_modifier_definition(m, radial)?;
-                            a::add_modifier(m, object.id, group).map(Some)
-                        });
-                    }
-                }
-                if let Some(_menu) = ui.begin_menu("Add Path Motion") {
-                    let paths: Vec<_> = state
-                        .motion
-                        .as_ref()
-                        .unwrap()
-                        .scene
-                        .as_ref()
-                        .unwrap()
-                        .objects
-                        .iter()
-                        .filter(|o| {
-                            o.id != object.id
-                                && state
-                                    .motion
-                                    .as_ref()
-                                    .unwrap()
-                                    .graph
-                                    .node(o.source.node)
-                                    .is_ok_and(|n| n.kind == "fold.motion.path")
-                        })
-                        .map(|o| (o.id, o.name.clone()))
-                        .collect();
-                    for (id, name) in paths {
-                        if ui.menu_item(format!("{name}##{id:?}")) {
-                            state.change_scene(host, |m| {
-                                let group = a::new_path_modifier_definition(m, id)?;
-                                a::add_modifier(m, object.id, group).map(Some)
-                            });
-                        }
-                    }
-                }
-                if let Some(_menu) = ui.begin_menu("Add reusable modifier") {
-                    let groups: Vec<_> = state
-                        .motion
-                        .as_ref()
-                        .unwrap()
-                        .groups
-                        .iter()
-                        .filter(|(_, g)| {
-                            g.inputs.iter().any(|p| p.id == "content")
-                                && g.outputs.contains_key("content")
-                        })
-                        .map(|(&id, g)| (id, g.name.clone()))
-                        .collect();
-                    for (id, name) in groups {
-                        let _id = ui.push_id(&format!("{id:?}"));
-                        if ui.menu_item(name) {
-                            state.change_scene(host, |m| {
-                                a::add_modifier(m, object.id, id).map(Some)
-                            });
-                        }
-                    }
-                }
                 if let Some(_menu) = ui.begin_menu("Move into group") {
                     let groups: Vec<_> = state
                         .motion
