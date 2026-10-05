@@ -247,7 +247,22 @@ pub struct GpuPreviewResult {
     pub frame: Result<crate::gpu::Display, String>,
     pub consumers: Vec<(crate::workspace::PanelInstanceId, u64)>,
 }
+/// A bounded on-demand capture of a viewer's retained presentation image.
+pub struct AgentCapture {
+    pub viewer: crate::workspace::PanelInstanceId,
+    pub cancel: fold_media::Cancel,
+    pub reply: std::sync::mpsc::SyncSender<Result<(DisplayFrame, serde_json::Value), String>>,
+}
 pub trait DesktopClient {
+    fn agent_access(&self) -> serde_json::Value {
+        serde_json::Value::Null
+    }
+    fn set_agent_access(&mut self, _enabled: bool) {}
+    fn agent_viewers(&mut self, _viewers: serde_json::Value) {}
+    fn take_agent_captures(&mut self) -> Vec<AgentCapture> {
+        vec![]
+    }
+
     /// Nonblocking notification after a result is published; no frame ownership crosses this callback.
     fn set_preview_wake(&mut self, _wake: std::sync::Arc<dyn Fn() + Send + Sync>) {}
     #[cfg(feature = "gpu")]

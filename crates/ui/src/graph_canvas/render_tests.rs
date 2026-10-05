@@ -45,6 +45,8 @@ fn graph_typography_renders_across_zoom_dpi_and_ui_scale() {
         ("menu-file", 1024., 1., 1., 0.),
         ("menu-file-narrow", 440., 1., 1., 0.),
         ("menu-edit", 1024., 1., 1., 0.),
+        ("menu-agent", 1024., 1., 1., 0.),
+        ("menu-agent-narrow", 440., 1., 1., 0.),
         ("menu-workspace", 1024., 1., 1., 0.),
         ("menu-unsaved", 440., 1., 1., 0.),
     ] {
@@ -153,6 +155,8 @@ fn graph_typography_renders_across_zoom_dpi_and_ui_scale() {
                     if frame == 10 && name != "menu-unsaved" {
                         ui.open_popup(if name == "menu-edit" {
                             "Edit"
+                        } else if name.starts_with("menu-agent") {
+                            "Agent"
                         } else if name == "menu-workspace" {
                             "Workspace"
                         } else {
@@ -296,6 +300,10 @@ struct MenuHost {
     state: fold_platform::desktop::DesktopState,
 }
 impl fold_platform::desktop::DesktopClient for MenuHost {
+    fn agent_access(&self) -> serde_json::Value {
+        serde_json::json!({"enabled":true,"session":"test","error":null})
+    }
+
     fn state(&self) -> &fold_platform::desktop::DesktopState {
         &self.state
     }

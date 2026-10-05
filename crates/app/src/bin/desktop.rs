@@ -2,7 +2,11 @@
 use fold_platform::desktop::{DesktopClient, DesktopCommand};
 fn main() -> std::process::ExitCode {
     let mut session = fold_app::session::Session::default();
-    let args: Vec<_> = std::env::args_os().skip(1).collect();
+    let mut args: Vec<_> = std::env::args_os().skip(1).collect();
+    if args.iter().any(|a| a == "--agent") {
+        args.retain(|a| a != "--agent");
+        session.set_agent_access(true);
+    }
     if !args.is_empty() {
         if args[0] == "--project" && args.len() == 2 {
             session.command(DesktopCommand::Open(args[1].clone().into()));

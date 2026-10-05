@@ -134,3 +134,5 @@ impl VideoProvider for SolidProvider {
 }
 
 pub mod edits;
+
+mod automation;

@@ -78,6 +78,7 @@ impl Prepared {
 pub(crate) struct PreviewHost {
     pub state: Preview,
     render_host: Option<u64>,
+    capture_host: Option<fold_platform::gpu::Host>,
     compression: Option<compression::Compression>,
     compression_error: Option<String>,
     result_key: Option<PreviewKey>,
@@ -106,6 +107,7 @@ impl PreviewHost {
         Self {
             state: Preview::Pending,
             render_host: None,
+            capture_host: None,
             compression: None,
             compression_error: None,
             result_key: None,
@@ -130,6 +132,7 @@ impl PreviewHost {
     }
     pub fn attach_host(&mut self, host: &fold_platform::gpu::Host) {
         self.render_host = Some(host.id());
+        self.capture_host = Some(host.clone());
         if host
             .device()
             .features()
@@ -842,3 +845,6 @@ impl PreviewHost {
         Ok(())
     }
 }
+
+#[path = "preview_capture.rs"]
+mod capture;

@@ -72,6 +72,7 @@ impl EditSession {
 }
 
 struct HistoryEntry {
+    label: String,
     before: Arc<ProjectState>,
     after: Arc<ProjectState>,
 }
@@ -120,6 +121,15 @@ impl Project {
             }
         }
         result
+    }
+    /// Isolated proposal workspace sharing immutable roots; no live writer is borrowed.
+    pub fn fork(snapshot: &CommittedSnapshot) -> Self {
+        Self {
+            current: snapshot.0.0.clone(),
+            undo: VecDeque::new(),
+            redo: Vec::new(),
+            history_limit: 0,
+        }
     }
     pub fn new(history_limit: usize) -> Self {
         Self::from_state(ProjectState::default(), history_limit)
@@ -245,12 +255,29 @@ impl Project {
         Ok(Arc::new(state))
     }
 
+    pub fn undo_label(&self) -> Option<&str> {
+        self.undo.back().map(|e| e.label.as_str())
+    }
+    pub fn redo_label(&self) -> Option<&str> {
+        self.redo.last().map(|e| e.label.as_str())
+    }
     pub fn commit(&mut self, batch: EditBatch) -> Result<CommittedSnapshot, ProjectError> {
+        self.commit_named(batch, String::new())
+    }
+    pub fn commit_named(
+        &mut self,
+        batch: EditBatch,
+        label: String,
+    ) -> Result<CommittedSnapshot, ProjectError> {
         let after = self.stage(&batch)?;
         let before = std::mem::replace(&mut self.current, after.clone());
         self.redo.clear();
         if self.history_limit > 0 {
-            self.undo.push_back(HistoryEntry { before, after });
+            self.undo.push_back(HistoryEntry {
+                before,
+                after,
+                label,
+            });
             if self.undo.len() > self.history_limit {
                 self.undo.pop_front();
             }

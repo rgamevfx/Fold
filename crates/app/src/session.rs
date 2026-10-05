@@ -50,6 +50,7 @@ impl Drop for Background {
 }
 
 pub struct Session {
+    automation: crate::automation::host::Host,
     project: Project,
     saved_project: fold_project::CommittedSnapshot,
     state: DesktopState,
@@ -77,6 +78,7 @@ impl Default for Session {
 impl Session {
     pub fn new(project: Project) -> Self {
         let mut session = Self {
+            automation: Default::default(),
             saved_project: crate::color::new_project(32).snapshot(),
             project,
             state: DesktopState::default(),
@@ -278,6 +280,23 @@ impl Session {
     }
 }
 impl DesktopClient for Session {
+    fn agent_access(&self) -> serde_json::Value {
+        serde_json::json!({"enabled":self.automation.server.is_some() || self.automation.starting.is_some(),"session":self.automation.server.as_ref().map(|s|&s.session),"error":self.automation.last_error})
+    }
+    fn set_agent_access(&mut self, enabled: bool) {
+        if enabled {
+            self.automation.enable();
+        } else {
+            self.automation.disable();
+        }
+    }
+    fn agent_viewers(&mut self, viewers: serde_json::Value) {
+        self.automation.viewers = viewers;
+    }
+    fn take_agent_captures(&mut self) -> Vec<fold_platform::desktop::AgentCapture> {
+        std::mem::take(&mut self.automation.captures)
+    }
+
     fn set_preview_wake(&mut self, wake: std::sync::Arc<dyn Fn() + Send + Sync>) {
         self.preview.set_wake(wake);
     }
@@ -466,6 +485,7 @@ impl DesktopClient for Session {
         crate::packages::builtins().supports(document)
     }
     fn poll(&mut self) {
+        self.poll_automation();
         if let Some(choices) = self.preview.shared.0.lock().unwrap().colors.take() {
             self.state.color_choices = choices;
         }
@@ -508,8 +528,9 @@ impl DesktopClient for Session {
             // their token and must not cancel themselves on worker teardown.
             job.completed = true;
             drop(job);
-            self.state.busy = !self.background.is_empty();
-            self.state.file_busy = self.background.iter().any(|job| !job.export);
+            self.state.busy = !self.background.is_empty() || self.automation.file_busy();
+            self.state.file_busy =
+                self.background.iter().any(|job| !job.export) || self.automation.file_busy();
             // Discard cancelled proposals, but never claim that an already
             // finalized save/export was rolled back by a late cancel click.
             let result = if cancelled
@@ -953,3 +974,6 @@ fn choose_project(
         Err("Native project dialogs require desktop support".into())
     }
 }
+
+#[path = "session_automation.rs"]
+mod automation;

@@ -1212,3 +1212,5 @@ impl Renderer {
         })
     }
 }
+
+mod capture;

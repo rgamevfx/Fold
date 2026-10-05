@@ -6,6 +6,9 @@ use std::{error::Error, io::Write, path::Path};
 
 fn run() -> Result<(), Box<dyn Error>> {
     let args: Vec<_> = std::env::args_os().skip(1).collect();
+    if args.first().is_some_and(|arg| arg == "agent") {
+        return fold_app::automation::cli::run(&args[1..]).map_err(Into::into);
+    }
     if args.first().is_some_and(|arg| arg == "color-config") {
         if args.len() != 3 {
             return Err(

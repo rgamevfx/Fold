@@ -46,6 +46,16 @@ fn edit(snapshot: &Snapshot, args: &[u8], _: &Cancel) -> Result<EditBatch, Strin
 }
 struct Documents(Arc<prepared::Cache>);
 impl DocumentProvider for Documents {
+    fn authoring_catalog(&self) -> serde_json::Value {
+        crate::automation::catalog()
+    }
+    fn inspect(&self, document: &Document) -> Result<serde_json::Value, String> {
+        crate::automation::inspect(document)
+    }
+    fn author(&self, document: &Document, edits: &[serde_json::Value]) -> Result<Document, String> {
+        crate::automation::author(document, edits)
+    }
+
     fn browser_kind(&self) -> Option<fold_platform::browser::DocumentKind> {
         Some(fold_platform::browser::DocumentKind {
             type_id: crate::document::MOTION,

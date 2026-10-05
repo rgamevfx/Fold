@@ -256,3 +256,84 @@ fn native_aces_signed_hdr_and_alpha() {
         .readback(&cancel)
         .unwrap();
 }
+
+#[test]
+#[ignore = "requires a native Vulkan adapter"]
+fn agent_presentation_capture_matches_rgba_and_decodes_compressed_cache() {
+    let (host, _) = pollster::block_on(Host::headless(32 * 1024 * 1024)).unwrap();
+    let mut gpu = Renderer::new(host.clone()).unwrap();
+    let cancel = fold_media::Cancel::default();
+    let mut decoder = fold_media::Decoder::default();
+    let frame = gpu
+        .evaluate(fixture(false), None, &mut decoder, &cancel)
+        .unwrap();
+    let mut display = gpu.output(&frame, None, &cancel).unwrap();
+    let expected = display.readback(&cancel).unwrap();
+    let captured = host
+        .capture_presentation(
+            display.texture(),
+            display.dimensions(),
+            display.transform_identity().into(),
+            &cancel,
+        )
+        .unwrap();
+    assert_eq!(captured.rgba(), expected.rgba());
+    if host
+        .device()
+        .features()
+        .contains(wgpu::Features::TEXTURE_COMPRESSION_BC)
+    {
+        // The patterned fixture can correctly fail the compression quality gate.
+        let simple = gpu
+            .evaluate(
+                RenderGraph {
+                    width: 19,
+                    height: 13,
+                    nodes: vec![ImageOp::Solid {
+                        rgba: [0.2, 0.4, 0.1, 1.],
+                    }],
+                    output: 0,
+                },
+                None,
+                &mut decoder,
+                &cancel,
+            )
+            .unwrap();
+        let mut display = gpu.output(&simple, None, &cancel).unwrap();
+        let expected = display.readback(&cancel).unwrap();
+        let mut compressor = fold_render::gpu::PresentationCompressor::new(host.clone()).unwrap();
+        let compressed = compressor.compress(&display).unwrap();
+        while !compressed.is_ready().unwrap() {
+            host.poll().unwrap();
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+        let captured = host
+            .capture_presentation(
+                compressed.texture(),
+                compressed.dimensions(),
+                compressed.transform_identity().into(),
+                &cancel,
+            )
+            .unwrap();
+        assert_eq!(captured.dimensions(), expected.dimensions());
+        let max = captured
+            .rgba()
+            .iter()
+            .zip(expected.rgba())
+            .map(|(a, b)| a.abs_diff(*b))
+            .max()
+            .unwrap();
+        assert!(max <= 32, "compressed capture max error {max}");
+    }
+    cancel.cancel();
+    assert!(
+        host.capture_presentation(
+            display.texture(),
+            display.dimensions(),
+            String::new(),
+            &cancel
+        )
+        .is_err()
+    );
+    assert!(host.memory().peak <= host.memory().budget);
+}

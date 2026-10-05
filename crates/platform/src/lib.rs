@@ -296,3 +296,5 @@ impl VideoRegistry {
         Ok(graph)
     }
 }
+
+pub mod authoring;

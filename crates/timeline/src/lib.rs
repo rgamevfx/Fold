@@ -215,3 +215,5 @@ impl VideoProvider for ImageSequenceProvider {
         })
     }
 }
+
+mod automation;

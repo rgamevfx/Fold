@@ -518,6 +518,8 @@ impl Desktop {
             &mut self.renderer,
         )?;
         self.preview.present_viewers(self.client.as_mut());
+        self.preview
+            .agent_capture(self.client.as_mut(), self.shell.workspace.inspector_viewer);
         #[cfg(feature = "native-probe")]
         let preview_done = std::time::Instant::now();
         for (id, _) in demands {

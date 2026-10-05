@@ -16,3 +16,5 @@ pub mod session;
 pub mod timeline_workflow;
 
 mod read_source;
+
+pub mod automation;

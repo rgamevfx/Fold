@@ -8,12 +8,15 @@ default-run = "fold-cli"
 [features]
 default = []
 native-probe = ["desktop", "fold-ui/native-probe"]
-gpu = ["fold-render/gpu", "fold-platform/gpu", "dep:pollster"]
+gpu = ["fold-render/gpu", "fold-platform/gpu"]
 native-video = ["gpu", "fold-render/native-video"]
 desktop = ["native-video", "dep:rfd", "dep:fold-ui", "dep:cpal", "dep:rtrb", "fold-timeline/ui", "fold-compositor/ui", "fold-motion/ui"]
 
 [dependencies]
-pollster = { version = "0.4", optional = true }
+png = "0.17.16"
+base64 = "0.22"
+ashpd = { version = "0.11.1", default-features = false, features = ["async-std"] }
+pollster = "0.4"
 serde.workspace = true
 serde_json.workspace = true
 fold-foundation.workspace = true

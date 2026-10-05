@@ -49,6 +49,21 @@ pub struct CommandRegistration {
     pub handler: CommandHandler,
 }
 pub trait DocumentProvider: Send + Sync {
+    /// Package-owned automation metadata and edits; host never interprets payloads.
+    fn authoring_catalog(&self) -> serde_json::Value {
+        serde_json::Value::Null
+    }
+    fn inspect(&self, _document: &Document) -> Result<serde_json::Value, String> {
+        Err("provider does not expose authoring inspection".into())
+    }
+    fn author(
+        &self,
+        _document: &Document,
+        _edits: &[serde_json::Value],
+    ) -> Result<Document, String> {
+        Err("provider does not expose authoring operations".into())
+    }
+
     fn package_id(&self) -> &'static str;
     fn type_id(&self) -> &'static str;
     fn schema(&self) -> u32;
@@ -256,6 +271,40 @@ impl PackageRegistry {
     }
     pub fn manifests(&self) -> impl Iterator<Item = &Manifest> {
         self.manifests.values()
+    }
+    pub fn authoring_catalog(&self) -> Vec<serde_json::Value> {
+        self.documents
+            .iter()
+            .filter_map(|p| {
+                let catalog = p.authoring_catalog();
+                (!catalog.is_null())
+                    .then(|| serde_json::json!({"type":p.type_id(),"catalog":catalog}))
+            })
+            .collect()
+    }
+    pub fn inspect(&self, document: &Document) -> Result<serde_json::Value, String> {
+        self.documents
+            .iter()
+            .find(|p| p.type_id() == document.type_id && p.package_id() == document.package_id)
+            .ok_or("missing provider")?
+            .inspect(document)
+    }
+    pub fn author(
+        &self,
+        document: &Document,
+        edits: &[serde_json::Value],
+    ) -> Result<Document, String> {
+        let provider = self
+            .documents
+            .iter()
+            .find(|p| p.type_id() == document.type_id && p.package_id() == document.package_id)
+            .ok_or("missing provider")?;
+        let result = provider.author(document, edits)?;
+        provider.validate(&result)?;
+        Ok(result)
+    }
+    pub fn commands(&self) -> impl Iterator<Item = &CommandRegistration> {
+        self.commands.values()
     }
     pub fn command(&self, id: &str) -> Result<&CommandRegistration, String> {
         self.commands

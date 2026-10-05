@@ -410,3 +410,17 @@ Phases 34–40 are complete per user acceptance. Validation evidence and unverif
   - Validation: 86 Motion tests, four app integration tests, explicit normal/narrow native-renderer captures and release desktop build pass. Live desktop interaction and real-time playback remain unverified; workspace-wide checks and Clippy deferred. Evidence and deliberate limits: [phase 42](docs/phase-42.md).
 
   - Follow-up: reproduced and fixed the embedded-font command-size failure in the launched demo. Existing Motion edits now send revision-bound sparse changes; unchanged resources stay out of command arguments. The 1 MiB host limit remains. All 88 Motion tests and the saved-demo command replay pass; release desktop rebuilt and opened. Regression coverage exercises UI preview/commit/cancel/undo; details in phase 42.
+
+## Live agent access and reusable workflows
+
+- [x] 43. Connect external agents to the running Fold application.
+  - User-authorized implementation of [agent interface research](docs/agent-interface-research.md): versioned live-session interface, protected local discovery/IPC, JSON CLI and stdio MCP adapter. Keep protocol compatibility outside creative models.
+  - Package-owned discovery and authoring for Motion/compositor networks, animation, reusable groups/published interfaces and timeline edits. Scoped inspection, bounded responses, atomic batches, stable IDs, revision conflicts and retry-safe mutations share normal validation/undo.
+  - Background render jobs with cancellation and image retrieval; explicit viewer inspection/capture distinguishes displayed from requested content. Add Wayland portal screenshot access for whole-window/monitor review, with honest permission/backend errors.
+  - Connection controls and independently addressable sessions/viewers; preserve unsaved state and user edits. Keep file I/O and rendering off the UI thread.
+  - Ship a portable Fold operational skill, connection instructions and an executable cross-feature example. Proven workflows can subsequently become shared commands and task-specific skills.
+  - Acceptance: external process connects to an open project, constructs/edits a network and published group, performs timeline edits, reviews images, saves/reopens, undoes, and handles conflicts/retries without partial changes. Test transport bounds, disconnects, cancellation and MCP compatibility; record native/Wayland verification limits in `docs/phase-43.md`.
+
+  - Delivered: same-user Linux live API, JSON CLI, 15-tool MCP adapter, package-owned authoring, atomic revision-checked batches, async render/save/capture, Agent connection menu, portable skill and executable cross-feature demo. [Connection guide and validation](docs/phase-43.md).
+  - Native acceptance passed for external CLI/MCP connection, published Motion group, compositor/timeline construction, cut, render, save/reopen, live edit/viewer capture and undo. Direct RGBA8/BC7 capture is verified; the interactive Wayland portal flow remains unverified.
+  - Checkpoint: desktop compilation and workspace Clippy completed (existing warnings remain). Workspace tests passed the agent suite, then stopped at the existing `media_sequence::input_output_transfer_roundtrips_every_rgb8_value` dimension-mismatch assertion; that rendering path is unchanged. Focused tests and remaining validation evidence are recorded in the phase note.
