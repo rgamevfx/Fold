@@ -1,6 +1,8 @@
 //! Release Chroma Parade GPU benchmark: PROJECT [FRAMES] [WIDTH] [HEIGHT].
 //! Samples the 24 fps demo every other frame; excludes viewer caching and UI latency.
 //! FOLD_PROFILE_MAX_MS enforces a warm-frame mean; FOLD_PROFILE_VERIFY checks CPU parity.
+//! FOLD_PROFILE_SOURCE=motion selects the uncomposited document. FOLD_PROFILE_START,
+//! FOLD_PROFILE_STEP and FOLD_PROFILE_RATE select sample times (defaults 0, 2, 24).
 use fold_foundation::Time;
 use fold_project::DocumentRef;
 use std::time::Instant;
@@ -16,20 +18,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         args.get(3).map(|v| v.parse()).transpose()?.unwrap_or(540),
     ];
     let snapshot = project.snapshot();
+    let source_type = if std::env::var("FOLD_PROFILE_SOURCE").as_deref() == Ok("motion") {
+        "fold.motion.document"
+    } else {
+        "fold.compositor.composite"
+    };
     let document = snapshot
         .state()
-        .organization
-        .items
+        .documents
         .iter()
-        .find_map(|item| {
-            if item.name.contains("Composite") {
-                if let fold_project::ItemId::Document(id) = item.id {
-                    return Some(id);
-                }
-            }
-            None
-        })
-        .ok_or("no Composite document")?;
+        .find_map(|(id, document)| (document.type_id == source_type).then_some(*id))
+        .ok_or("no matching source document")?;
+    let setting = |name, fallback| -> Result<i64, Box<dyn std::error::Error>> {
+        Ok(std::env::var(name)
+            .ok()
+            .map(|v| v.parse())
+            .transpose()?
+            .unwrap_or(fallback))
+    };
+    let start = setting("FOLD_PROFILE_START", 0)?;
+    let step = setting("FOLD_PROFILE_STEP", 2)?;
+    let rate = u32::try_from(setting("FOLD_PROFILE_RATE", 24)?)?;
     let source = DocumentRef {
         document,
         output: "video".into(),
@@ -49,7 +58,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let graph = packages.video_with(
             &snapshot,
             &source,
-            Time::new(i64::from(frame * 2), 24)?,
+            Time::new(start + i64::from(frame) * step, rate)?,
             size,
             &cancel,
         )?;

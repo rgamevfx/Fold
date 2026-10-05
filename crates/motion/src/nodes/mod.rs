@@ -3,12 +3,14 @@
 pub mod animation;
 pub mod content;
 pub mod distribution;
+pub mod format_text;
 pub mod influence;
 pub mod interface;
 pub mod path_motion;
 pub mod path_points;
 pub mod response;
 pub mod scene;
+pub mod text_on_points;
 pub mod values;
 use crate::{
     evaluation::{Evaluator, Outputs},

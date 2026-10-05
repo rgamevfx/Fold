@@ -524,6 +524,16 @@ impl Shell {
         if let Some(transport) = client.viewer_transport(id)
             && let Some(viewer) = self.workspace.viewers.get_mut(&id)
         {
+            if viewer.last_output.as_ref() != Some(&transport.output) {
+                // An external retarget is scoped to this viewer, not its linked editor.
+                // Adopt it before the next demand instead of requesting the old source
+                // against a clock that now accepts only the new source's frames.
+                viewer.binding = ViewerBinding::Pinned(transport.output.clone());
+                viewer.last_output = Some(transport.output.clone());
+                viewer.last_editor = None;
+                viewer.editor = None;
+                viewer.range = transport.range;
+            }
             viewer.time = transport.time;
             viewer.playing = transport.playing;
         }

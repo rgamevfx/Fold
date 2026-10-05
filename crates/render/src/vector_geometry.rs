@@ -306,15 +306,22 @@ pub(crate) fn prepare(
                 if triangles.len() % 4096 == 0 {
                     cancel.check()?;
                 }
-                let p = Polygon::triangle(triangle.map(|[x, y]| {
+                let mut p = Polygon::triangle(triangle.map(|[x, y]| {
                     let x = f64::from(x);
                     let y = f64::from(y);
                     [a * x + c * y + tx, b * x + e * y + ty]
-                }))
-                .clip(0, 0., true)
-                .clip(0, f64::from(width), false)
-                .clip(1, 0., true)
-                .clip(1, f64::from(height), false);
+                }));
+                // Most scene triangles lie wholly inside the viewport. Preserve
+                // them directly; clipping is only needed at its boundary.
+                if !p.points[..3].iter().all(|v| {
+                    v[0] >= 0. && v[0] < f64::from(width) && v[1] >= 0. && v[1] < f64::from(height)
+                }) {
+                    p = p
+                        .clip(0, 0., true)
+                        .clip(0, f64::from(width), false)
+                        .clip(1, 0., true)
+                        .clip(1, f64::from(height), false);
+                }
                 for i in 1..p.count.saturating_sub(1) {
                     total += 1;
                     if total > MAX_TRIANGLES {
@@ -551,6 +558,45 @@ mod tests {
         let cancel = Cancel::default();
         cancel.cancel();
         assert!(prepare(&mut cache, &[d], [16, 16], &cancel).is_err());
+    }
+    #[test]
+    fn viewport_fast_path_preserves_clipped_geometry() {
+        let cancel = Cancel::default();
+        let mut cache = GeometryCache::default();
+        // Interior, boundary, partial clipping, reflection/shear, and offscreen.
+        for transform in [
+            [1., 0., 0., 1., 2., 2.],
+            [1., 0., 0., 1., 12., 12.],
+            [1., 0., 0., 1., -2., -2.],
+            [-2., 0.5, 0.3, 2., 5., 12.],
+            [1., 0., 0., 1., 20., 20.],
+        ] {
+            let mut d = shape(square(0., 0., 4.));
+            d.transform = transform;
+            let [a, b, c, e, tx, ty] = transform;
+            let mut expected = Vec::new();
+            for t in cache.get(&d, None, &cancel).unwrap().iter() {
+                let p = Polygon::triangle(t.map(|[x, y]| {
+                    let (x, y) = (f64::from(x), f64::from(y));
+                    [a * x + c * y + tx, b * x + e * y + ty]
+                }))
+                .clip(0, 0., true)
+                .clip(0, 16., false)
+                .clip(1, 0., true)
+                .clip(1, 16., false);
+                for i in 1..p.count.saturating_sub(1) {
+                    expected.push(
+                        [p.points[0], p.points[i], p.points[i + 1]].map(|v| v.map(|v| v as f32)),
+                    );
+                }
+            }
+            let actual: Vec<_> = prepare(&mut cache, &[d], [16, 16], &cancel)
+                .unwrap()
+                .into_iter()
+                .flat_map(|p| p.triangles)
+                .collect();
+            assert_eq!(actual, expected, "transform {transform:?}");
+        }
     }
     #[test]
     fn excessive_subdivision_is_rejected_before_tessellation() {

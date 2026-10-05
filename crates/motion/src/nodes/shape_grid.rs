@@ -3,12 +3,18 @@ use super::*;
 use crate::{
     evaluation::content,
     fields::Budget,
-    geometry::{Content, Geometry, sampling},
+    geometry::{Content, Geometry, IDENTITY, multiply, sampling},
 };
 use fold_render::vector::Segment;
 use std::sync::Arc;
+struct Grid {
+    size: f64,
+    scale: f64,
+    circular: bool,
+    world_aligned: bool,
+}
 pub fn definition_grid() -> Definition {
-    definition(
+    let mut def = definition(
         "fold.motion.shape_grid",
         "Shape Grid",
         "Geometry",
@@ -16,6 +22,8 @@ pub fn definition_grid() -> Definition {
             Socket::required("content", Kind::Content),
             scalar("cell_size", 6., "px"),
             scalar("cell_scale", 1., "factor"),
+            boolean("circular", false),
+            boolean("world_aligned", false),
         ],
         vec![("content", Kind::Content)],
         |e, n| {
@@ -30,19 +38,26 @@ pub fn definition_grid() -> Definition {
             }
             Ok(content(grid(
                 &source,
-                size,
-                scale,
+                &Grid {
+                    size,
+                    scale,
+                    circular: e.uniform(n, "circular")?.boolean()?,
+                    world_aligned: e.uniform(n, "world_aligned")?.boolean()?,
+                },
+                IDENTITY,
                 &mut e.budget,
                 0,
                 &mut 0,
             )?))
         },
-    )
+    );
+    def.description = "Sample filled geometry into cells. Circular cells produce stipple; world_aligned applies upstream transforms before sampling on one shared grid. Default local square cells preserve existing projects.";
+    def
 }
 fn grid(
     source: &Content,
-    size: f64,
-    scale: f64,
+    options: &Grid,
+    parent: [f64; 6],
     budget: &mut Budget,
     depth: usize,
     cells: &mut usize,
@@ -51,18 +66,44 @@ fn grid(
         return Err("Shape Grid nesting limit".into());
     }
     let mut result = Vec::new();
+    let Grid { size, scale, .. } = *options;
     for item in source.iter() {
         budget.spend()?;
         let mut item = item.clone();
+        let world = multiply(parent, item.transform);
+        if options.world_aligned {
+            item.transform = IDENTITY;
+        }
         match &item.geometry {
             Geometry::Group(c) => {
-                item.geometry = Geometry::Group(grid(c, size, scale, budget, depth + 1, cells)?)
+                item.geometry = Geometry::Group(grid(c, options, world, budget, depth + 1, cells)?)
             }
             Geometry::Instance(c) => {
-                item.geometry = Geometry::Instance(grid(c, size, scale, budget, depth + 1, cells)?)
+                item.geometry =
+                    Geometry::Instance(grid(c, options, world, budget, depth + 1, cells)?)
             }
             Geometry::Path(path) | Geometry::Glyph { path, .. } => {
-                let contours = sampling::contours(path, (size * 0.025).max(0.05), budget)?;
+                let tolerance = if options.world_aligned {
+                    (size * 0.025).max(0.05)
+                        / world[0]
+                            .hypot(world[1])
+                            .max(world[2].hypot(world[3]))
+                            .max(1.)
+                } else {
+                    (size * 0.025).max(0.05)
+                };
+                let mut contours = sampling::contours(path, tolerance, budget)?;
+                if options.world_aligned {
+                    for p in contours.iter_mut().flatten() {
+                        *p = [
+                            world[0] * p[0] + world[2] * p[1] + world[4],
+                            world[1] * p[0] + world[3] * p[1] + world[5],
+                        ];
+                        if p.iter().any(|v| !v.is_finite() || v.abs() > 1e12) {
+                            return Err("Shape Grid transformed coordinates exceed bounds".into());
+                        }
+                    }
+                }
                 let mut min = [f64::INFINITY; 2];
                 let mut max = [f64::NEG_INFINITY; 2];
                 for p in contours.iter().flatten() {
@@ -91,13 +132,41 @@ fn grid(
                                 }
                                 let half = size * scale * 0.5;
                                 let [x, y] = center;
-                                path.extend([
-                                    Segment::Move([x - half, y - half]),
-                                    Segment::Line([x + half, y - half]),
-                                    Segment::Line([x + half, y + half]),
-                                    Segment::Line([x - half, y + half]),
-                                    Segment::Close,
-                                ]);
+                                if options.circular {
+                                    let k = half * 0.5522847498307936;
+                                    path.extend([
+                                        Segment::Move([x, y - half]),
+                                        Segment::Cubic(
+                                            [x + k, y - half],
+                                            [x + half, y - k],
+                                            [x + half, y],
+                                        ),
+                                        Segment::Cubic(
+                                            [x + half, y + k],
+                                            [x + k, y + half],
+                                            [x, y + half],
+                                        ),
+                                        Segment::Cubic(
+                                            [x - k, y + half],
+                                            [x - half, y + k],
+                                            [x - half, y],
+                                        ),
+                                        Segment::Cubic(
+                                            [x - half, y - k],
+                                            [x - k, y - half],
+                                            [x, y - half],
+                                        ),
+                                        Segment::Close,
+                                    ]);
+                                } else {
+                                    path.extend([
+                                        Segment::Move([x - half, y - half]),
+                                        Segment::Line([x + half, y - half]),
+                                        Segment::Line([x + half, y + half]),
+                                        Segment::Line([x - half, y + half]),
+                                        Segment::Close,
+                                    ]);
+                                }
                             }
                         }
                     }

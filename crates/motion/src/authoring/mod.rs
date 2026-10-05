@@ -62,7 +62,7 @@ pub(super) fn content_nodes(
     kind: &str,
 ) -> Result<(ObjectId, ObjectId, ObjectId), String> {
     let source = add_node(motion, kind)?;
-    if kind == "fold.motion.text" {
+    if matches!(kind, "fold.motion.text" | "fold.motion.text_on_points") {
         let font = motion.fonts.keys().next().copied().unwrap_or_default();
         motion
             .fonts

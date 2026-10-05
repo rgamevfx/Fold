@@ -538,7 +538,11 @@ impl Panel for Inspector {
                         }
                     }
                     Some(Input::Value(value)) => {
-                        if node.kind == "fold.motion.text" && key == "alignment" {
+                        if matches!(
+                            node.kind.as_str(),
+                            "fold.motion.text" | "fold.motion.text_on_points"
+                        ) && key == "alignment"
+                        {
                             alignment(ui, value, aces, &mut response);
                         } else {
                             datum(ui, value, aces, &mut response);
@@ -563,7 +567,10 @@ impl Panel for Inspector {
                 }
             }
         }
-        if node.kind == "fold.motion.text" {
+        if matches!(
+            node.kind.as_str(),
+            "fold.motion.text" | "fold.motion.text_on_points"
+        ) {
             let current = node
                 .settings
                 .get("font")

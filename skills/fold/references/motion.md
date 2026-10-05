@@ -31,6 +31,8 @@ Within a batch's `edit` operation, these operations address a node in the main g
 
 `set` writes a literal; `connect` installs a link. They replace the socket's prior input. Inspected graph inputs serialize as `{"Value":{"Scalar":64}}` or `{"Link":{"node":"UUID","socket":"value"}}`. These are mutually exclusive variants. A `node` merge that adds `Link` over an existing `Value` can leave both tags and fail decoding. Use the dedicated operations to change input modes. `disconnect` removes the input; follow with a literal when that socket needs a value.
 
+Math and Mix use Scalar signatures unless `settings.value_type` selects Vector or Color. Math operands must have identical types; combine two scalar channels when scaling a vector by a scalar. Mix weight is Scalar, while Compare outputs Bool: use selection sockets for comparisons or a scalar Map Range for blend weights. Color Ramp interpolation uses `Linear`, `Smooth`, or `Stepped`.
+
 For new raw nodes in group definitions, use `version: 1`, declared defaults from the catalog, `settings`, and a two-number `position`. Required sockets without defaults need connections. Each input contains exactly one `Value` or `Link` variant.
 
 ## Editable group interfaces
@@ -56,6 +58,8 @@ An outer `group_instance` has `settings.group` set to the definition ID. Set its
 
 Extend existing definitions with `add`, `set`, and `connect` scoped by `group`. Port arrays need a freshly inspected complete list with existing entries retained. Whole graph/scene array replacement is a last resort: merge with the observed contents and guard that exact revision. Preserve node IDs, animation, layout, and extension data rather than rebuilding the user's construction.
 
+When replacing an extracted definition's interface, disconnect obsolete overrides on the outer instance in the same batch. An instance retaining an input removed from the definition fails validation.
+
 ## Copies and deformation
 
 Content → distribution → copies → response is the reusable pattern:
@@ -66,6 +70,10 @@ Content → distribution → copies → response is the reusable pattern:
 4. Share field nodes between content that must stay aligned. Share the point order too: index-based selection only matches across identical distributions.
 
 Use `set_position` with `combine: "Replace"` for absolute cell centers. Normalize the source before the copy transforms; changing size around an unintended origin creates moving gaps and offsets. Verify one source and a few copies before scaling the distribution up.
+
+For live numeric labels, use `format_text` with `{value}`, `{x}`, or `{y}` and integer `decimals` from 0 to 6. `text_on_points` consumes this Text field at each selected point; ordinary Text expects a uniform string. Drive label points from the same position field as the artwork, reuse its point order/selection, and supply an embedded font ID from the same document. Position fields sample the point's upstream coordinates; include any later authored center offset when the label should report composition coordinates.
+
+Shape Grid with `circular: true` and `world_aligned: true` samples live filled geometry after upstream transforms on a shared lattice. Use `cell_size` for spacing and `cell_scale` for dot diameter relative to spacing. This differs from copying a fixed dot patch onto each object. For outline-only marker rectangles, apply a transparent Fill before Stroke; a raw stroked rectangle otherwise retains its default fill.
 
 ## Example: animated grid with cell text
 

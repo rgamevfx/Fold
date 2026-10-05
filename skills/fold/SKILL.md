@@ -9,11 +9,13 @@ Operate Fold through its public tools. Use the live catalog, inspected documents
 
 1. Discover `sessions`; select the intended project by path and documents. Resolve ambiguity between matching sessions. Connections require Agent → Allow local connections, or launch with `--agent`.
 2. Read `state`, then scope `catalog` by `method` for request schemas or `type` and `query` for package operations and nodes. Inspect existing targets with JSON pointers and pagination. Poll inspection jobs and read their nested outcome before using the data.
-3. For a visual reference, inspect actual images and multiple animation times. Establish composition, timing, and likely artist edits before construction. If the reference is inaccessible, obtain the missing visual evidence rather than inventing its contents.
+3. For a visual reference, inspect actual images and multiple animation times. Match cached media to the supplied source before using it. Establish composition, timing, and likely artist edits before construction; resolve whether visible labels, guides, and selection markers belong in the recreation. If the reference is inaccessible, obtain the missing visual evidence rather than inventing its contents.
 
 For CLI access: `fold-cli agent sessions`, then `fold-cli agent call SESSION METHOD '{}'`. Pass `-` instead of JSON to read long arguments from stdin. MCP tool names have the `fold_` prefix; both transports use the same authoring contract.
 
 ## Prove the construction
+
+For unfamiliar concepts or a new procedural design, read the [authoring glossary](references/glossary.md). It distinguishes fields from uniform values, sampling domains, coordinate spaces, and reusable definitions from instances.
 
 For Motion objects, text, copies, or group interfaces, read [Motion authoring](references/motion.md) before building. It supplies the coordinates, resource setup, and typed wiring conventions that node signatures alone do not explain.
 
@@ -35,6 +37,8 @@ On a conflict, refresh state **and affected content**, reconcile the user's chan
 - Exercise likely control edits in an isolated copy when practical, then remove test work. Otherwise distinguish rendered behavior from untested control interactions.
 - Use `viewers` and `capture` to inspect the displayed result; check identities and stale status. Captures exclude chrome, overlays, and window zoom. `navigate` deliberately changes the named viewer and stops its playback. Use portal `screenshot` when the actual interface needs review.
 - MCP `jobs` returns images directly; CLI image results contain PNG base64 to decode and view. Report rendering/runtime failures as errors, not black artwork. Keep environment repair separate from creative edits; use documented installation guidance instead of reconstructing runtime internals.
-- Save to the requested or agreed destination with a fresh revision guard and verify the save outcome. Identify the objects and controls to edit, and disclose material unverified behavior.
+- Save to the requested or agreed destination with a fresh revision guard and verify the save outcome. Saving can change `project_epoch`; refresh state afterward. When reopening is requested, reopen the saved file, rediscover the session, inspect retained controls/resources, and render it again before claiming completion. Identify the objects and controls to edit, and disclose material unverified behavior.
 
 For Motion → Composite → Sequence authoring, adapt [the executable cross-feature example](scripts/demo.py). Running it adds documents; use it only when those additions fit the task. The [animated grid example](references/motion.md#example-animated-grid-with-cell-text) explains the reusable construction from a reference-recreation exercise without baking in that project's IDs or dimensions.
+
+For morphing layouts, live coordinate labels, sampled stipple, synchronized overlays, or editable glow, read [the procedural dot-study workflow](references/procedural-dot-study.md). It supplies the demo's controls, formulas, timing, typed edit fragments, and verification steps. Adapt its shared relationships to the brief; its counts and aesthetics are example choices.

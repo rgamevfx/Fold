@@ -4,6 +4,8 @@ For product scope, architecture, or workflow decisions, consult the relevant sec
 
 Before creating or changing UI, read and apply the [fold-ui skill](.agents/skills/fold-ui/SKILL.md), including UI work within larger features.
 
+When creating or refining `demos/` workflows or MCP skills, use and update the [Fold agent skill](skills/fold/SKILL.md) and its references with verified public-tool examples and reusable lessons; track missing MCP capabilities in `dev-plan.md` so artwork workflows can run without reading Rust crates.
+
 
 
 \# Development rules

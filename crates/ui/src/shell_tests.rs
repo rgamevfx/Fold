@@ -8,6 +8,72 @@ use std::{
 };
 
 #[test]
+fn external_viewer_retarget_updates_binding_without_moving_other_viewers() {
+    use fold_platform::desktop::ViewerTransport;
+    struct External {
+        state: DesktopState,
+        id: PanelInstanceId,
+        transport: ViewerTransport,
+    }
+    impl DesktopClient for External {
+        fn state(&self) -> &DesktopState {
+            &self.state
+        }
+        fn poll(&mut self) {}
+        fn command(&mut self, _: DesktopCommand) {}
+        fn request_preview(&mut self, _: PreviewKey) {}
+        fn cancel_preview(&mut self) {}
+        fn take_preview(&mut self) -> Option<PreviewResult> {
+            None
+        }
+        fn viewer_transport(&self, id: PanelInstanceId) -> Option<ViewerTransport> {
+            (id == self.id).then(|| self.transport.clone())
+        }
+    }
+    let reference = || workspace::DocumentRef {
+        document: DocumentId::new(),
+        output: "video".into(),
+        extensions: Default::default(),
+    };
+    let old = reference();
+    let new = reference();
+    let mut shell = Shell::new(vec![]);
+    let viewer = *shell.workspace.viewers.keys().next().unwrap();
+    let original = ViewerInstance {
+        binding: ViewerBinding::Pinned(old.clone()),
+        last_output: Some(old.clone()),
+        time: Time::new(6, 1).unwrap(),
+        ..Default::default()
+    };
+    shell.workspace.viewers.insert(viewer, original.clone());
+    let other = shell.workspace.add_viewer(original);
+    let host = External {
+        state: Default::default(),
+        id: viewer,
+        transport: ViewerTransport {
+            output: new.clone(),
+            time: Time::new(3, 1).unwrap(),
+            playing: false,
+            looping: false,
+            mode: Default::default(),
+            range: Default::default(),
+        },
+    };
+    shell.presentation(viewer, None, None, &host);
+    assert_eq!(shell.workspace.resolve(viewer), Some(new.clone()));
+    assert_eq!(shell.workspace.viewers[&viewer].last_output, Some(new));
+    assert_eq!(
+        shell.workspace.viewers[&viewer].time,
+        Time::new(3, 1).unwrap()
+    );
+    assert_eq!(shell.workspace.resolve(other), Some(old));
+    assert_eq!(
+        shell.workspace.viewers[&other].time,
+        Time::new(6, 1).unwrap()
+    );
+}
+
+#[test]
 fn preview_resolution_tracks_viewport_pixels_quality_and_aspect() {
     let preview_dimensions = |dimensions, viewport, divisor| {
         crate::viewer_navigation::Navigation::default()

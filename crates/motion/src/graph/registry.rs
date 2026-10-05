@@ -18,6 +18,8 @@ pub fn definitions() -> &'static [Definition] {
         result.extend(nodes::path_motion::definitions());
         result.push(nodes::path_points::definition_points());
         result.extend(nodes::values::definitions());
+        result.push(nodes::format_text::definition_format());
+        result.push(nodes::text_on_points::definition_labels());
         result.extend(nodes::animation::definitions());
         result.push(nodes::oscillator::definition_oscillator());
         result.extend(nodes::influence::definitions());
