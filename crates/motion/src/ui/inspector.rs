@@ -121,7 +121,13 @@ impl Panel for Inspector {
         let gradient_path = crate::authoring::scene::assets::reference(&motion, selected, "path");
         // Content references are edited through their actual reference nodes.
         // This works for any published group content port, not only shipped assets.
-        if group_id.is_some() && state.group.is_none() {
+        if group_id.is_some()
+            && state.group.is_none()
+            && motion
+                .graph
+                .node(selected)
+                .is_ok_and(|n| n.kind == "fold.motion.group_instance")
+        {
             let ports: Vec<_> = signature
                 .as_ref()
                 .ok()
@@ -187,6 +193,26 @@ impl Panel for Inspector {
                                 objects: vec![id],
                             },
                         ));
+                        return;
+                    }
+                }
+            }
+        }
+        if motion
+            .graph
+            .node(selected)
+            .is_ok_and(|n| n.kind == "fold.motion.solver")
+        {
+            let current = motion.graph.node(selected).unwrap().settings["state_kind"]
+                .as_str()
+                .unwrap_or("Content");
+            if let Some(_combo) = ui.begin_combo("State type", current) {
+                for kind in [crate::fields::Kind::Content, crate::fields::Kind::Points] {
+                    if ui.selectable(format!("{kind:?}")) {
+                        state.change(host, |m| {
+                            crate::authoring::solver::set_state_kind(m, selected, kind)?;
+                            Ok(Some(selected))
+                        });
                         return;
                     }
                 }
@@ -644,6 +670,7 @@ impl Panel for Inspector {
             {
                 settings(ui, segments, &mut response, 0);
             }
+        } else if super::simulation::draw(ui, node, &mut response) {
         } else if node.kind == "fold.motion.keyframes" {
             ui.text_disabled("Edit keys in the Animation panel.");
         } else if !matches!(
@@ -930,14 +957,14 @@ fn settings(ui: &Ui, value: &mut serde_json::Value, response: &mut Response, dep
         }
         serde_json::Value::String(text) => {
             let choices: &[&str] = if [
-                "Add", "Subtract", "Multiply", "Divide", "Min", "Max", "Absolute", "Negate",
-                "Round", "Floor", "Ceil", "Truncate",
+                "Add", "Subtract", "Multiply", "Divide", "Modulo", "Min", "Max", "Absolute",
+                "Negate", "Round", "Floor", "Ceil", "Truncate",
             ]
             .contains(&text.as_str())
             {
                 &[
-                    "Add", "Subtract", "Multiply", "Divide", "Min", "Max", "Absolute", "Negate",
-                    "Round", "Floor", "Ceil", "Truncate",
+                    "Add", "Subtract", "Multiply", "Divide", "Modulo", "Min", "Max", "Absolute",
+                    "Negate", "Round", "Floor", "Ceil", "Truncate",
                 ]
             } else if ["Replace"].contains(&text.as_str()) {
                 &["Replace", "Add", "Multiply"]

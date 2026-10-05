@@ -96,12 +96,14 @@ impl GraphContext for Context<'_> {
                             color: GRAPH_COLORS.image,
                         })
                         .collect(),
-                    can_open: node.kind == "fold.motion.group_instance"
-                        && node
-                            .settings::<GroupSettings>()
-                            .ok()
-                            .and_then(|s| s.group)
-                            .is_some(),
+                    can_open: matches!(
+                        node.kind.as_str(),
+                        "fold.motion.group_instance" | "fold.motion.solver"
+                    ) && node
+                        .settings::<GroupSettings>()
+                        .ok()
+                        .and_then(|s| s.group)
+                        .is_some(),
                 }
             })
             .collect();

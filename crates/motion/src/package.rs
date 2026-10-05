@@ -10,7 +10,8 @@ use serde::{Deserialize, Serialize};
 mod prepared;
 use std::sync::Arc;
 pub const EDIT: &str = "fold.motion.edit";
-const BUILD: &str = "motion-schema4-evaluator4-vector-linear8-noto-b85c38ec";
+pub const CHANGE: &str = "fold.motion.change.v1";
+const BUILD: &str = "motion-schema4-evaluator5-solver1-noto-b85c38ec";
 pub const PANEL: &str = "fold.motion.editor";
 pub const INSPECTOR: &str = "fold.motion.inspector";
 pub const PANELS: &[PanelDescriptor] = &[
@@ -70,11 +71,11 @@ impl DocumentProvider for Documents {
         self.0.get(d).map(|_| ())
     }
     fn evaluation_identity(&self, d: &Document) -> Result<Vec<u8>, String> {
-        Ok(self.0.get(d)?.identity.clone())
+        Ok(self.0.get(d)?.identity.as_ref().clone())
     }
 }
 #[derive(Default)]
-pub struct Provider(Arc<prepared::Cache>);
+pub struct Provider(Arc<prepared::Cache>, Arc<crate::simulation::Runtime>);
 impl VideoProvider for Provider {
     fn playback_mode(&self) -> fold_platform::desktop::PlaybackMode {
         fold_platform::desktop::PlaybackMode::EveryFrame
@@ -131,7 +132,12 @@ impl VideoProvider for Provider {
                 motion.to_mut().controls.insert(id, value);
             }
         }
-        crate::evaluation::compile_prepared(&motion, time, dimensions[0], dimensions[1], cancel)
+        let mut evaluator = crate::evaluation::Evaluator::for_graph(&motion, &motion.graph, time)?;
+        evaluator.runtime = self.1.clone();
+        if !reference.extensions.contains_key("fold.controls") {
+            evaluator.identity = Some(prepared.identity.clone());
+        }
+        crate::evaluation::compile_evaluator(evaluator, dimensions[0], dimensions[1], cancel)
     }
 }
 pub fn register(registry: &mut PackageRegistry) -> Result<(), String> {
@@ -149,13 +155,27 @@ pub fn register(registry: &mut PackageRegistry) -> Result<(), String> {
             Box::new(Documents(prepared.clone())),
             Box::new(crate::SolidProvider),
         ],
-        commands: vec![CommandRegistration {
-            id: EDIT,
-            title: "Edit motion",
-            execution: Execution::Immediate,
-            handler: edit,
-        }],
-        video: vec![Box::new(Provider(prepared)), Box::new(crate::SolidProvider)],
+        commands: vec![
+            CommandRegistration {
+                id: EDIT,
+                title: "Edit motion",
+                execution: Execution::Immediate,
+                handler: edit,
+            },
+            CommandRegistration {
+                id: CHANGE,
+                title: "Edit motion",
+                execution: Execution::Immediate,
+                handler: crate::edits::stage,
+            },
+        ],
+        video: vec![
+            Box::new(Provider(
+                prepared,
+                Arc::new(crate::simulation::Runtime::default()),
+            )),
+            Box::new(crate::SolidProvider),
+        ],
         audio: vec![],
     })
 }

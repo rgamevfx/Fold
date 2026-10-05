@@ -148,6 +148,11 @@ pub fn definitions() -> Vec<Definition> {
             }
             let mut nested = Evaluator::for_graph(e.motion, &group.graph, e.time)?;
             nested.bindings = bindings;
+            nested.runtime = e.runtime.clone();
+            nested.identity = e.identity.clone();
+            nested.scope = e.scope.clone();
+            nested.scope.push(n.id);
+            nested.step_context = e.step_context.clone();
             nested.group_depth = e.group_depth + 1;
             nested.object_path = e.object_path.clone();
             nested.current_object = e.current_object;

@@ -145,7 +145,10 @@ impl Motion {
         }
         let group = self.groups.get(&id).ok_or("missing group")?;
         for n in &group.graph.nodes {
-            if n.kind == "fold.motion.group_instance" {
+            if matches!(
+                n.kind.as_str(),
+                "fold.motion.group_instance" | "fold.motion.solver"
+            ) {
                 if let Some(id) = n.settings::<GroupSettings>()?.group {
                     self.validate_group_references(id, path)?;
                 }
@@ -249,12 +252,31 @@ impl Motion {
         Ok(())
     }
     pub fn signature(&self, node: &Node) -> Result<(Vec<Socket>, Vec<(String, Kind)>), String> {
-        if node.kind == "fold.motion.group_instance" {
+        if node.kind == "fold.motion.solver" {
+            crate::nodes::solver::signature(self, node)
+        } else if node.kind == "fold.motion.group_instance" {
             crate::nodes::interface::signature(self, node)
         } else {
             registry::find(&node.kind)?.signature(node)
         }
     }
+    /// Canonical authored identity used by prepared roots and disposable state caches.
+    /// Presentation-only node placement does not invalidate evaluation.
+    pub(crate) fn evaluation_identity(&self) -> Result<Vec<u8>, String> {
+        let mut semantic = self.clone();
+        for node in &mut semantic.graph.nodes {
+            node.position = [0.; 2];
+        }
+        semantic.graph.nodes.sort_by_key(|node| node.id);
+        for group in semantic.groups.values_mut() {
+            for node in &mut group.graph.nodes {
+                node.position = [0.; 2];
+            }
+            group.graph.nodes.sort_by_key(|node| node.id);
+        }
+        serde_json::to_vec(&semantic).map_err(|e| e.to_string())
+    }
+
     pub fn document(&self, id: DocumentId) -> Result<Document, String> {
         self.validate()?;
         Ok(Document {

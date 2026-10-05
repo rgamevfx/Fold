@@ -9,6 +9,7 @@ pub mod graph;
 pub mod nodes;
 pub mod package;
 pub mod scene;
+pub mod simulation;
 #[cfg(feature = "ui")]
 pub mod ui;
 pub use document::{MOTION, Motion};
@@ -131,3 +132,5 @@ impl VideoProvider for SolidProvider {
         .into())
     }
 }
+
+pub mod edits;

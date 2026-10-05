@@ -141,16 +141,29 @@ impl State {
         self.motion = Some(view);
     }
     fn request(&self) -> Result<CommandRequest, String> {
+        let document = self.document.ok_or("no motion document")?;
+        let motion = self.motion.as_ref().ok_or("no motion graph")?;
+        let (id, arguments) = if let Some(before) = &self.original {
+            (
+                package::CHANGE,
+                serde_json::to_vec(&crate::edits::Changes::between(document, before, motion)?),
+            )
+        } else {
+            (
+                package::EDIT,
+                serde_json::to_vec(&package::EditArgs {
+                    document,
+                    motion: motion.clone(),
+                }),
+            )
+        };
         Ok(CommandRequest {
-            id: package::EDIT.into(),
+            id: id.into(),
             base: self.base,
-            arguments: serde_json::to_vec(&package::EditArgs {
-                document: self.document.ok_or("no motion document")?,
-                motion: self.motion.clone().ok_or("no motion graph")?,
-            })
-            .map_err(|e| e.to_string())?,
+            arguments: arguments.map_err(|e| e.to_string())?,
         })
     }
+
     pub fn preview(&mut self, host: &mut dyn DesktopClient) {
         self.visual_revision += 1;
         self.editing = true;

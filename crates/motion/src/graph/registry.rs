@@ -24,6 +24,12 @@ pub fn definitions() -> &'static [Definition] {
         result.extend(nodes::response::definitions());
         result.extend(nodes::scene::definitions());
         result.extend(nodes::interface::definitions());
+        result.extend(nodes::solver::definitions());
+        result.extend(nodes::attributes::definitions());
+        result.push(nodes::history::definition_history());
+        result.push(nodes::shape_grid::definition_grid());
+        result.push(nodes::convex_sweep::definition_sweep());
+        result.push(nodes::direction::definition_direction());
         result
     })
 }

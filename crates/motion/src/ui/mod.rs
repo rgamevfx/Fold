@@ -51,3 +51,5 @@ mod network_scope;
 mod oscillator;
 
 mod color_ramp;
+
+mod simulation;

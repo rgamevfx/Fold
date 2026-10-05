@@ -24,7 +24,10 @@ pub fn save(
             },
             start: Time::ZERO,
             source_start: Time::ZERO,
-            duration: Time::new(10, 1)?,
+            duration: Time::new(
+                i64::from(m.info.frames) * i64::from(m.info.rate[1]),
+                m.info.rate[0],
+            )?,
         },
         vec![],
     );
@@ -96,9 +99,15 @@ pub fn save(
     }
     let mut renderer = fold_app::output::OutputRenderer::from_environment()?;
     let frames: Vec<_> = if preview.is_some() {
-        (0..240).step_by(2).collect()
+        (0..m.info.frames).step_by(2).collect()
     } else {
-        vec![0, 120, 48, 200, 0]
+        vec![
+            0,
+            m.info.frames / 2,
+            m.info.frames / 5,
+            m.info.frames * 5 / 6,
+            0,
+        ]
     };
     for frame in frames {
         let image = renderer.evaluate(
@@ -112,7 +121,7 @@ pub fn save(
                     extensions: Default::default(),
                 },
                 time: m.info.time(frame)?,
-                dimensions: [960, 540],
+                dimensions: [m.info.width, m.info.height],
             },
             &Default::default(),
         )?;
@@ -121,7 +130,7 @@ pub fn save(
                 "{dir}/{:04}.ppm",
                 frame / 2
             ))?);
-            writeln!(f, "P6\n960 540\n255")?;
+            writeln!(f, "P6\n{} {}\n255", m.info.width, m.info.height)?;
             for pixel in image.rgba().chunks_exact(4) {
                 f.write_all(&pixel[..3])?;
             }

@@ -87,6 +87,11 @@ pub(super) fn draw(ui: &Ui, state: &mut State, host: &mut dyn DesktopClient) {
         }
     }
     if let Some(_menu) = ui.begin_menu("Animate") {
+        if ui.menu_item("Drifting Shapes") {
+            state.change_scene(host, |m| {
+                crate::authoring::drift::from_object(m, object.id).map(Some)
+            });
+        }
         if state
             .motion
             .as_ref()

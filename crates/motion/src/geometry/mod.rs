@@ -242,3 +242,5 @@ pub fn blend_transform(a: [f64; 6], b: [f64; 6], weight: f64) -> Result<[f64; 6]
         a[5] + (b[5] - a[5]) * weight,
     ])
 }
+
+pub mod sampling;

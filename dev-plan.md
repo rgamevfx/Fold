@@ -14,7 +14,7 @@
 ### Reference platform and scope
 
 - Target this Linux machine with an NVIDIA GTX 1070 and 8 GB VRAM. Record the actual OS, CPU, RAM, driver, graphics backend, codec/runtime versions, and build for measurements. This is a modest reference configuration, not a claim of broad hardware support.
-- Keep one native window with internal docking, static packages, and a narrow verified media profile initially. Multiple editor/viewer panels are in scope; multiple native windows, runtime plugins, general 3D, simulations, and broad codec/platform coverage remain deferred.
+- Keep one native window with internal docking, static packages, and a narrow verified media profile initially. Multiple editor/viewer panels are in scope; multiple native windows, runtime plugins, general 3D, broad physics simulation, and broad codec/platform coverage remain deferred. Phase 42 brings bounded 2D motion Solver regions into scope for the user-requested Cavalry reference workflow.
 - GPU evaluation is a first-class delivery requirement, not satisfied by uploading CPU-rendered frames to a GPU viewer cache. Hardware decoding, hardware encoding, and codec/GPU interoperability are separate capabilities, each requiring measured correctness on the reference machine.
 - Do not assume portable zero-copy interoperability. Keep a measured CPU decode/upload and readback/encode fallback, without allowing unnecessary round trips between supported GPU operations.
 
@@ -397,3 +397,16 @@ Phases 34–40 are complete per user acceptance. Validation evidence and unverif
   - Surface-specific export design is explicitly deferred to a separate task. Existing Delivery export controls remain unchanged.
   - Implemented and verified: initial UI checkpoint 81 passing tests; final focused checks include 19 shell/preset tests, six Settings/store tests, two menu-guard tests, two application lifecycle tests, and platform/media budget and preset checks. Explicit real-backend normal/narrow rendering and GPU cache-lifetime checks pass on Vulkan llvmpipe. Release desktop build, touched-file formatting and diff checks pass.
   - Evidence, reviewed captures, resource-budget scope and follow-ups: [phase 41](docs/phase-41.md). Native file-chooser/window-close interaction remains unverified; workspace-wide checks and Clippy are deferred. Autosave/recovery and action-specific history labels remain separate follow-ups.
+
+## Stateful motion and reference-driven authoring
+
+- [x] 42. Add a reusable Solver and recreate the Cavalry typography reference.
+  - User-authorized scope: [reference research](docs/research/cavalry-solver-workflows.md). This brings explicit 2D motion simulation regions into scope; broader physics/3D simulation remains deferred.
+  - Solver owns initial state, exact fixed steps, previous-state/update-graph execution, bounded checkpoints and deterministic replay. Ordinary editable nodes define the effect; preserve immutable results and shared preview/export/headless semantics.
+  - Add reusable typed attribute access, temporal geometry/history operations and a shape-grid treatment where needed by the reference. Reuse existing fields, groups, glyph animation, instancing and transactions.
+  - Deliver an editable portrait project and rendered preview, plus a second substantially different solver graph proving reuse.
+  - Verify seeking/order independence, input edits, identity/isolation, cancellation, resource limits, persistence/undo and affected UI. Record implementation details and remaining limits in `docs/phase-42.md`.
+  - Implemented: editable Solver regions, bounded replay/checkpoints, typed attributes, Geometry History, Convex Sweep, Shape Grid and Drifting Shapes. Delivered `/tmp/fold-typography-demo.fold` and its rendered preview; a separate heat accumulation/decay graph proves reuse.
+  - Validation: 86 Motion tests, four app integration tests, explicit normal/narrow native-renderer captures and release desktop build pass. Live desktop interaction and real-time playback remain unverified; workspace-wide checks and Clippy deferred. Evidence and deliberate limits: [phase 42](docs/phase-42.md).
+
+  - Follow-up: reproduced and fixed the embedded-font command-size failure in the launched demo. Existing Motion edits now send revision-bound sparse changes; unchanged resources stay out of command arguments. The 1 MiB host limit remains. All 88 Motion tests and the saved-demo command replay pass; release desktop rebuilt and opened. Regression coverage exercises UI preview/commit/cancel/undo; details in phase 42.

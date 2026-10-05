@@ -1,6 +1,7 @@
 //! Headless demand evaluation. Node dispatch is registry-driven; fields remain
 //! expressions until a geometry operation selects an explicit element domain.
 mod relationships;
+mod temporal;
 use crate::{
     document::Motion,
     fields::{Budget, Datum, Field, Kind},
@@ -47,6 +48,10 @@ pub struct Evaluator<'a> {
     pub(crate) object_path: BTreeSet<ObjectId>,
     pub(crate) current_object: Option<ObjectId>,
     pub budget: Budget,
+    pub(crate) runtime: Arc<crate::simulation::Runtime>,
+    pub(crate) identity: Option<Arc<Vec<u8>>>,
+    pub(crate) scope: Vec<ObjectId>,
+    pub(crate) step_context: Option<crate::nodes::solver::StepContext>,
     cache: BTreeMap<ObjectId, Outputs>,
     active: BTreeSet<ObjectId>,
 }
@@ -69,6 +74,10 @@ impl<'a> Evaluator<'a> {
             object_path: BTreeSet::new(),
             current_object: None,
             budget: Budget::default(),
+            runtime: Arc::new(crate::simulation::Runtime::default()),
+            identity: None,
+            scope: Vec::new(),
+            step_context: None,
             cache: BTreeMap::new(),
             active: BTreeSet::new(),
         })
@@ -88,6 +97,9 @@ impl<'a> Evaluator<'a> {
         nested.object_path = self.object_path.clone();
         nested.object_path.insert(id);
         nested.current_object = Some(id);
+        nested.runtime = self.runtime.clone();
+        nested.identity = self.identity.clone();
+        nested.step_context = self.step_context.clone();
         nested.group_depth = self.group_depth;
         nested.budget = std::mem::take(&mut self.budget);
         let result = nested.resolve(&object.output).and_then(|value| {
@@ -264,25 +276,42 @@ pub fn compile_with(
     height: u32,
     cancel: &fold_media::Cancel,
 ) -> Result<RenderGraph, String> {
-    cancel.check()?;
-    motion.validate()?;
-    compile_prepared(motion, time, width, height, cancel)
+    compile_runtime(
+        motion,
+        time,
+        width,
+        height,
+        cancel,
+        Arc::new(crate::simulation::Runtime::default()),
+    )
 }
 
-/// Only called after provider preparation or public-entry validation.
-pub(crate) fn compile_prepared(
+pub fn compile_runtime(
     motion: &Motion,
     time: Time,
     width: u32,
     height: u32,
     cancel: &fold_media::Cancel,
+    runtime: Arc<crate::simulation::Runtime>,
 ) -> Result<RenderGraph, String> {
     cancel.check()?;
-    motion.info.frame_at(time)?;
+    let evaluator = Evaluator::with_runtime(motion, time, runtime)?;
+    compile_evaluator(evaluator, width, height, cancel)
+}
+
+/// The provider supplies a validated immutable root and its cached identity.
+pub(crate) fn compile_evaluator(
+    mut evaluator: Evaluator<'_>,
+    width: u32,
+    height: u32,
+    cancel: &fold_media::Cancel,
+) -> Result<RenderGraph, String> {
+    cancel.check()?;
+    let motion = evaluator.motion;
+    motion.info.frame_at(evaluator.time)?;
     if width == 0 || height == 0 || u64::from(width) * u64::from(height) > 4_194_304 {
         return Err("invalid motion output resolution".into());
     }
-    let mut evaluator = Evaluator::for_graph(motion, &motion.graph, time)?;
     evaluator.budget = Budget::cancellable(cancel);
     let value = evaluator.scene()?;
     let Value::Content(content) = value else {

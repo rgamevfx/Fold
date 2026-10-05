@@ -8,6 +8,7 @@ fn motion_tools_and_inspector_render_normal_and_narrow() {
     let _guard = IMGUI_TEST_LOCK.lock().unwrap();
     let instance = wgpu::Instance::default();
     let adapter = pollster::block_on(instance.request_adapter(&Default::default())).unwrap();
+    eprintln!("Motion UI capture adapter: {:?}", adapter.get_info());
     let (device, queue) = pollster::block_on(adapter.request_device(&Default::default())).unwrap();
     let mut context = imgui::Context::create();
     context.set_ini_filename(None::<String>).unwrap();
@@ -78,7 +79,30 @@ fn motion_tools_and_inspector_render_normal_and_narrow() {
         ("color-ramp-normal", 850., 400.),
         ("color-ramp-narrow", 390., 280.),
         ("color-ramp-network", 850., 400.),
+        ("solver-normal", 850., 400.),
+        ("solver-narrow", 390., 280.),
+        ("drift-normal", 850., 400.),
+        ("drift-narrow", 390., 280.),
     ] {
+        if let Ok(filter) = std::env::var("FOLD_MOTION_CAPTURE_FILTER") {
+            if !name.starts_with(&filter) {
+                continue;
+            }
+        }
+        if name == "solver-normal" || name == "drift-normal" {
+            let mut state = inspector.state.borrow_mut();
+            state.create(&mut host);
+            state.change_scene(&mut host, |m| {
+                let source = crate::authoring::scene::create_object(m, "fold.motion.rectangle")?;
+                if name == "solver-normal" {
+                    let solver = crate::authoring::add_node(m, "fold.motion.solver")?;
+                    crate::authoring::node(m, solver)?.connect("initial", source, "content");
+                    Ok(Some(solver))
+                } else {
+                    crate::authoring::drift::from_object(m, source).map(Some)
+                }
+            });
+        }
         if name == "duplicator-normal" {
             let mut state = inspector.state.borrow_mut();
             state.create(&mut host);

@@ -66,3 +66,13 @@ pub mod stagger;
 pub mod oscillator;
 
 pub mod color_ramp;
+
+pub mod solver;
+
+pub mod attributes;
+pub mod history;
+
+pub mod convex_sweep;
+pub mod shape_grid;
+
+pub mod direction;

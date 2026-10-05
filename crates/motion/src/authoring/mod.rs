@@ -3,6 +3,7 @@ mod controls;
 mod groups;
 pub mod path;
 pub mod scene;
+pub mod solver;
 use crate::{
     Motion,
     fields::Datum,
@@ -13,6 +14,9 @@ pub use controls::{expose_input, keyframe_input};
 use fold_foundation::ObjectId;
 pub use groups::{add_group_input, assign_group, group_node};
 pub fn add_node(motion: &mut Motion, kind: &str) -> Result<ObjectId, String> {
+    if kind == "fold.motion.solver" {
+        return solver::create(motion, crate::fields::Kind::Content);
+    }
     let mut node = Node::new(kind)?;
     node.position = [
         (motion.graph.nodes.len() % 5) as f32 * 240.,
@@ -177,3 +181,5 @@ pub fn radial_influence(motion: &mut Motion, response: ObjectId) -> Result<Objec
     node(motion, response)?.connect("weight", falloff, "value");
     Ok(falloff)
 }
+
+pub mod drift;

@@ -13,7 +13,8 @@ Phase 9 is **in progress**; see `../../docs/phase-9.md` for acceptance and limit
 - `geometry/`: native paths, shaped glyphs, instances, transforms and style algorithms.
 - `fields/`: typed values and pure, bounded element-domain field evaluation.
 - `animation/`: exact authored key times and interpolation.
-- `evaluation/`: demand dispatch and immutable render-plan compilation.
+- `evaluation/`: demand dispatch, exact temporal scope sampling and immutable render-plan compilation.
+- `simulation/`: bounded disposable checkpoints, shared by provider requests; state and update nodes remain Motion-owned.
 - `authoring/`: direct tools implemented as actual graph edits, group extraction,
   animation and published-control bindings. They never render.
 - `package.rs`: static document/video/transaction contributions.
@@ -89,3 +90,14 @@ Its architecture informed the split between nodes and geometry algorithms; Fold
 has not embedded Graphite's application or executor. The current text adapter uses
 Rustybuzz and Unicode bidi rather than copying Graphite's Parley adapter. Broader
 script/layout/fallback coverage still needs explicit tests before support claims.
+
+## Stateful motion
+
+Solver is an explicit fixed-step region with an editable group, Initial input,
+Previous State node and State output. Attributes carry numeric state; ordinary
+nodes implement each update. Geometry History can sample either pure animation
+or solved geometry. Preview, export and headless evaluation use the same code.
+
+Select a scene object and choose **Animate → Drifting Shapes** for an editable
+example using these primitives. See [phase 42](../../docs/phase-42.md) for timing,
+resource bounds, supported operations, limitations and the portrait fixture.

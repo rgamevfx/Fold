@@ -12,7 +12,7 @@ const MAX_PAYLOAD_BYTES: usize = 8 * 1024 * 1024;
 
 pub(super) struct Prepared {
     pub motion: Motion,
-    pub identity: Vec<u8>,
+    pub identity: Arc<Vec<u8>>,
 }
 #[derive(Default)]
 pub(super) struct Cache(Mutex<VecDeque<(Document, Arc<Prepared>)>>);
@@ -31,20 +31,12 @@ impl Cache {
             }
         }
         let motion = Motion::from_document(document)?;
-        let mut semantic = motion.clone();
-        for node in &mut semantic.graph.nodes {
-            node.position = [0.; 2];
-        }
-        semantic.graph.nodes.sort_by_key(|n| n.id);
-        for group in semantic.groups.values_mut() {
-            for node in &mut group.graph.nodes {
-                node.position = [0.; 2];
-            }
-            group.graph.nodes.sort_by_key(|n| n.id);
-        }
         let mut identity = super::BUILD.as_bytes().to_vec();
-        identity.extend(serde_json::to_vec(&semantic).map_err(|e| e.to_string())?);
-        let result = Arc::new(Prepared { motion, identity });
+        identity.extend(motion.evaluation_identity()?);
+        let result = Arc::new(Prepared {
+            motion,
+            identity: Arc::new(identity),
+        });
         // This bounds retained source payloads, not an exact allocator byte count.
         // Large valid documents still evaluate, but are not retained here.
         if document.payload.len() > MAX_PAYLOAD_BYTES {

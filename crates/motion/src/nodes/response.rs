@@ -88,6 +88,14 @@ pub fn definitions() -> Vec<Definition> {
             |e, n| apply(e, n, color_response),
         ),
     ];
+    definitions.push(definition_response(
+        "fold.motion.set_opacity",
+        "Set Opacity",
+        scalar("value", 1., "factor"),
+        |e, n| apply(e, n, opacity),
+    ));
+    definitions.last_mut().unwrap().defaults =
+        || serde_json::json!({"domain":"Instances","combine":"Replace"});
     definitions[2].defaults = || {
         serde_json::to_value(Settings {
             domain: Domain::Instances,
@@ -149,6 +157,19 @@ fn scale(e: &mut Element, value: Datum, w: f64, mode: Combine) -> Result<(), Str
         Combine::Add => return Err("scale supports Replace or Multiply".into()),
     };
     e.transform = multiply(e.transform, transform([0., 0.], 0., factors, [0., 0.]));
+    Ok(())
+}
+fn opacity(e: &mut Element, value: Datum, weight: f64, mode: Combine) -> Result<(), String> {
+    let value = value.scalar()?;
+    let next = match mode {
+        Combine::Replace => e.opacity + (value - e.opacity) * weight,
+        Combine::Add => e.opacity + value * weight,
+        Combine::Multiply => e.opacity * (1. + (value - 1.) * weight),
+    };
+    if !(0. ..=1.).contains(&next) {
+        return Err("opacity must be in 0..1".into());
+    }
+    e.opacity = next;
     Ok(())
 }
 fn color_response(e: &mut Element, value: Datum, w: f64, mode: Combine) -> Result<(), String> {

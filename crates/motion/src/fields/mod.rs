@@ -127,6 +127,10 @@ impl Budget {
             ..Self::default()
         }
     }
+    pub(crate) fn cancel(&self) -> &fold_media::Cancel {
+        &self.cancel
+    }
+
     pub fn spend(&mut self) -> Result<(), String> {
         self.cancel.check()?;
         self.remaining = self

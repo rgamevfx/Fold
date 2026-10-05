@@ -744,3 +744,123 @@ fn scene_drop_is_one_undoable_edit() {
         before.state().documents
     );
 }
+
+#[test]
+fn drifting_shapes_action_and_solver_graph_edits_share_undo_history() {
+    let mut host = Host::new();
+    let mut state = state::State::default();
+    state.create(&mut host);
+    state.change_scene(&mut host, |m| {
+        a::scene::create_object(m, "fold.motion.rectangle").map(Some)
+    });
+    let source = state.selected[0];
+    let before = host.project.snapshot();
+    state.change_scene(&mut host, |m| a::drift::from_object(m, source).map(Some));
+    assert!(state.error.is_empty(), "{}", state.error);
+    let created = host.project.snapshot();
+    assert_eq!(created.revision().0, before.revision().0 + 1);
+    let owner = state.selected[0];
+    let root_output = state.motion.as_ref().unwrap().graph.output.clone();
+    let outer = state
+        .motion
+        .as_ref()
+        .unwrap()
+        .graph
+        .node(owner)
+        .unwrap()
+        .settings::<crate::nodes::interface::GroupSettings>()
+        .unwrap()
+        .group
+        .unwrap();
+    state.group = Some(outer);
+    let solver = state
+        .view_motion()
+        .unwrap()
+        .graph
+        .nodes
+        .iter()
+        .find(|n| n.kind == "fold.motion.solver")
+        .unwrap()
+        .id;
+    let update = state
+        .view_motion()
+        .unwrap()
+        .graph
+        .node(solver)
+        .unwrap()
+        .settings::<crate::nodes::solver::Settings>()
+        .unwrap()
+        .group
+        .unwrap();
+    state.group = Some(update);
+    state.change(&mut host, |m| {
+        a::add_node(m, "fold.motion.read_attribute").map(Some)
+    });
+    assert!(state.error.is_empty(), "{}", state.error);
+    assert_eq!(state.motion.as_ref().unwrap().graph.output, root_output);
+    host.project.undo().unwrap();
+    assert_eq!(
+        host.project.snapshot().state().documents,
+        created.state().documents
+    );
+    host.project.undo().unwrap();
+    assert_eq!(
+        host.project.snapshot().state().documents,
+        before.state().documents
+    );
+    host.project.redo().unwrap();
+    assert_eq!(
+        host.project.snapshot().state().documents,
+        created.state().documents
+    );
+}
+
+#[test]
+fn embedded_font_document_supports_preview_cancel_commit_and_undo() {
+    let mut host = Host::new();
+    let id = DocumentId::new();
+    let mut motion = Motion::empty();
+    let mut font = crate::document::Font::builtin();
+    font.source = crate::document::FontSource::Embedded(font.bytes().to_vec());
+    motion.fonts.insert(fold_foundation::ObjectId::new(), font);
+    assert!(serde_json::to_vec(&motion).unwrap().len() > 1024 * 1024);
+    host.project
+        .commit(fold_project::EditBatch {
+            base: host.project.snapshot().revision(),
+            mutations: vec![fold_project::Mutation::PutDocument(
+                motion.document(id).unwrap(),
+            )],
+        })
+        .unwrap();
+    let before = host.project.snapshot();
+    let mut state = state::State::default();
+    state.sync(&mut host);
+    state.motion.as_mut().unwrap().graph.nodes[0].position[0] += 10.;
+    state.preview(&mut host);
+    assert!(host.state.transient);
+    assert_eq!(
+        host.project.snapshot().state().documents,
+        before.state().documents
+    );
+    state.cancel(&mut host);
+    assert_eq!(state.motion.as_ref().unwrap(), &motion);
+    state.motion.as_mut().unwrap().graph.nodes[0].position[0] += 20.;
+    state.preview(&mut host);
+    state.commit(&mut host);
+    assert_eq!(
+        host.project.snapshot().revision().0,
+        before.revision().0 + 1
+    );
+    assert_eq!(state.motion.as_ref().unwrap().fonts, motion.fonts);
+    let after = host.project.snapshot();
+    host.project.undo().unwrap();
+    assert_eq!(
+        host.project.snapshot().state().documents,
+        before.state().documents
+    );
+    host.project.redo().unwrap();
+    assert_eq!(
+        host.project.snapshot().state().documents,
+        after.state().documents
+    );
+}
