@@ -22,14 +22,51 @@ pub fn query_cancellable(
     cancel: &fold_media::Cancel,
 ) -> Result<Value, String> {
     cancel.check()?;
+    validate_query(q)?;
+    if q["mode"] == "fonts" {
+        return super::fonts::discover(q, cancel);
+    }
     let m = Motion::from_document(document)?;
+    if q["mode"] == "construction" {
+        let id: ObjectId = serde_json::from_value(q["node"].clone()).map_err(|e| e.to_string())?;
+        let n = m.graph.node(id)?;
+        let object = m
+            .scene
+            .as_ref()
+            .and_then(|s| s.objects.iter().find(|o| o.id == id));
+        let label = |id| {
+            m.scene
+                .as_ref()
+                .and_then(|s| s.objects.iter().find(|o| o.id == id))
+                .map(|o| o.name.clone())
+        };
+        let links:Vec<_>=n.inputs.iter().filter_map(|(input,value)|if let Input::Link(l)=value {
+            let source=m.graph.node(l.node).ok()?;
+            Some(json!({"input":input,"node":l.node,"socket":l.socket,"name":label(l.node),"kind":source.kind,"asset":source.settings.get("asset"),"object_reference":source.settings.get("object")}))
+        } else {None}).collect();
+        return Ok(
+            json!({"node":id,"object":object,"signature":signature(&m,n)?,"drivers_and_sources":links,"children":m.scene.as_ref().map(|s|s.objects.iter().filter(|o|o.parent==Some(id)).map(|o|json!({"id":o.id,"name":o.name})).collect::<Vec<_>>()),"actions":["set an input","inspect a driver or source","edit group contents","publish controls"]}),
+        );
+    }
+    if q["mode"] == "text_metrics" {
+        return super::observation::text_metrics(&m, q, cancel);
+    }
+    if q["mode"] == "parameters" {
+        return super::observation::parameters(&m, q, cancel);
+    }
+    if q["mode"] == "verify" {
+        return super::verification::verify(&m, q, cancel);
+    }
+    if q["mode"] == "evaluated" {
+        return super::observation::evaluate(&m, q, cancel);
+    }
     if q["mode"] == "signature" {
         let kind = q["kind"]
             .as_str()
             .ok_or("kind required for a candidate signature")?;
         let mut node = Node::new(kind)?;
         if let Some(settings) = q.get("settings") {
-            fold_platform::authoring::merge(&mut node.settings, settings);
+            node.patch_settings(settings)?;
         }
         if node.kind == "fold.motion.wrangle" {
             crate::wrangle::sync_controls(&mut node)?;
@@ -166,7 +203,7 @@ pub fn metadata(id: &str, defaults: &Value) -> Value {
             choices["keys[].interpolation"] = json!(["Hold", "Linear", "Ease"]);
         }
         "fold.motion.published_control" => {
-            choices["value_type"] = json!(["Scalar", "Vector", "Color", "Bool"]);
+            choices["value_type"] = json!(["Scalar", "Vector", "Color", "Bool", "Text"]);
         }
         "fold.motion.group_input" | "fold.motion.group_output" => {
             choices["value_type"] = json!([
@@ -320,4 +357,51 @@ fn shape(value: &Value) -> Value {
         Value::Number(_) => json!({"type":"number","default":value}),
         Value::Null => json!({"nullable":true,"default":null}),
     }
+}
+
+/// Mode-specific arguments: rejecting typos is preferable to returning unrelated evidence.
+fn validate_query(q: &Value) -> Result<(), String> {
+    let object = q.as_object().ok_or("query must be an object")?;
+    let mode = match q.get("mode") {
+        Some(v) => v.as_str().ok_or("mode must be a string")?,
+        None => "nodes",
+    };
+    let keys: &[&str] = match mode {
+        "nodes" => &["mode", "group", "node", "limit", "offset"],
+        "upstream" | "downstream" => &["mode", "group", "node", "depth", "limit", "offset"],
+        "handles" => &["mode", "group", "nodes"],
+        "construction" => &["mode", "node"],
+        "signature" => &["mode", "kind", "settings"],
+        "validate" => &["mode", "edits"],
+        "parameters" => &["mode", "node", "time"],
+        "text_metrics" => &["mode", "node", "time", "limit"],
+        "fonts" => &["mode", "query", "offset", "limit"],
+        "verify" => &["mode", "check", "times", "target", "tolerance", "expected", "relative_to", "relation", "control", "values"],
+        "evaluated" => &[
+            "mode", "time", "object", "node", "output", "fields", "limit",
+        ],
+        _ => return Err(
+            "mode must be nodes, upstream, downstream, handles, signature, validate, fonts, parameters, text_metrics, verify or evaluated"
+                .into(),
+        ),
+    };
+    for key in object.keys() {
+        if !keys.contains(&key.as_str()) {
+            return Err(format!("query.{key}: unsupported for mode {mode}"));
+        }
+    }
+    for (key, min, max) in [("limit", 1, 200), ("offset", 0, u64::MAX), ("depth", 0, 32)] {
+        if let Some(value) = q.get(key) {
+            let n = value
+                .as_u64()
+                .ok_or_else(|| format!("query.{key}: expected unsigned integer"))?;
+            if n < min || n > max {
+                return Err(format!("query.{key}: expected {min}..{max}"));
+            }
+        }
+    }
+    if q.get("settings").is_some_and(|v| !v.is_object()) {
+        return Err("query.settings must be an object".into());
+    }
+    Ok(())
 }

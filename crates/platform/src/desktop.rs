@@ -253,7 +253,27 @@ pub struct AgentCapture {
     pub cancel: fold_media::Cancel,
     pub reply: std::sync::mpsc::SyncSender<Result<(DisplayFrame, serde_json::Value), String>>,
 }
+/// Dedicated preview consumer; independent of artist viewer transports.
+pub const AGENT_PREVIEW_VIEWER: crate::workspace::PanelInstanceId =
+    crate::workspace::PanelInstanceId(u64::MAX);
+#[derive(Clone)]
+pub struct AgentPreview {
+    pub candidate: u64,
+    pub generation: u64,
+    pub key: PreviewKey,
+    pub frames: u32,
+    pub conflict: bool,
+    pub original: bool,
+    pub can_compare: bool,
+}
 pub trait DesktopClient {
+    fn agent_preview(&self) -> Option<AgentPreview> {
+        None
+    }
+    fn agent_preview_action(&mut self, _action: &str, _frame: Option<u32>) -> Result<(), String> {
+        Err("candidate preview unavailable".into())
+    }
+
     fn agent_access(&self) -> serde_json::Value {
         serde_json::Value::Null
     }

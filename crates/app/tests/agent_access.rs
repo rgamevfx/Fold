@@ -248,3 +248,361 @@ fn rust_wrangle_batch_is_atomic_and_undoable() {
     project.redo().unwrap();
     assert_eq!(project.snapshot().state().documents.len(), 1);
 }
+
+#[test]
+#[cfg(unix)]
+fn candidates_observe_privately_reject_stale_generations_and_commit_once() {
+    let mut session = Session::new(Project::new(8));
+    session.set_agent_access(true);
+    let start = Instant::now();
+    let id = loop {
+        session.poll();
+        let access = session.agent_access();
+        assert!(access["error"].is_null(), "{access}");
+        if let Some(id) = access["session"].as_str() {
+            break id.to_owned();
+        }
+        assert!(start.elapsed() < Duration::from_secs(5));
+        std::thread::sleep(Duration::from_millis(2));
+    };
+    let begin = pump_call(
+        &mut session,
+        &id,
+        "candidate",
+        json!({"action":"begin","request_id":"begin","revision":0,"project_epoch":0}),
+    );
+    assert_eq!(begin["ok"], true, "{begin}");
+    let candidate = begin["result"]["candidate"].clone();
+    let edit = pump_call(
+        &mut session,
+        &id,
+        "candidate",
+        json!({"action":"edit","request_id":"private-edit","candidate":candidate,"generation":0,"project_epoch":0,"batch":batch(Revision(0))}),
+    );
+    assert_eq!(edit["ok"], true, "{edit}");
+    let result = wait_job(&mut session, &id, edit["result"]["job"].clone());
+    assert_eq!(result["ok"], true, "{result}");
+    assert_eq!(result["result"]["generation"], 1);
+    assert!(session.snapshot().unwrap().state().documents.is_empty());
+    let document = result["result"]["ids"]["motion"].clone();
+    let inspect = pump_call(
+        &mut session,
+        &id,
+        "inspect",
+        json!({"document":document,"candidate":candidate,"generation":0,"project_epoch":0}),
+    );
+    assert_eq!(inspect["ok"], false);
+    let inspect = pump_call(
+        &mut session,
+        &id,
+        "inspect",
+        json!({"document":document,"candidate":candidate,"generation":1,"project_epoch":0}),
+    );
+    let inspect = wait_job(&mut session, &id, inspect["result"]["job"].clone());
+    assert_eq!(inspect["ok"], true, "{inspect}");
+    assert_eq!(inspect["result"]["outputs"][0]["source"]["output"], "video");
+    assert_eq!(inspect["result"]["outputs"][0]["available"], true);
+    let observed = pump_call(
+        &mut session,
+        &id,
+        "observe",
+        json!({"source":{"document":document,"output":"video"},"times":[{"numerator":0,"denominator":1},{"numerator":1,"denominator":2}],"dimensions":[96,54],"candidate":candidate,"generation":1,"project_epoch":0,"queries":[{"mode":"evaluated","fields":["counts"],"limit":1}]}),
+    );
+    assert_eq!(observed["ok"], true, "{observed}");
+    let observed = wait_job(&mut session, &id, observed["result"]["job"].clone());
+    assert_eq!(observed["ok"], true, "{observed}");
+    let metadata = &observed["result"]["metadata"];
+    assert_eq!(metadata["generation"], 1);
+    assert_eq!(metadata["frames"].as_array().unwrap().len(), 2);
+    assert_eq!(
+        metadata["frames"][0]["measurements"][0]["status"],
+        "evaluated"
+    );
+    assert!(
+        metadata["frames"][0]["measurements"][0]["data"]["counts"]["glyphs"]
+            .as_u64()
+            .unwrap()
+            > 0
+    );
+    assert!(session.snapshot().unwrap().state().documents.is_empty());
+    // A failed later edit preserves the complete prior candidate generation.
+    let mut bad = batch(Revision(1));
+    bad.operations = vec![json!({"op":"remove","document":"not-a-uuid"})];
+    let failed = pump_call(
+        &mut session,
+        &id,
+        "candidate",
+        json!({"action":"edit","request_id":"failed-edit","candidate":candidate,"generation":1,"project_epoch":0,"batch":bad}),
+    );
+    let failed = wait_job(&mut session, &id, failed["result"]["job"].clone());
+    assert_eq!(failed["ok"], false);
+    let commit_args = json!({"action":"commit","request_id":"commit","candidate":candidate,"generation":1,"revision":0,"project_epoch":0,"label":"Observed title"});
+    let committed = pump_call(&mut session, &id, "candidate", commit_args.clone());
+    assert_eq!(committed["ok"], true, "{committed}");
+    assert_eq!(
+        committed,
+        pump_call(&mut session, &id, "candidate", commit_args)
+    );
+    assert_eq!(session.snapshot().unwrap().revision(), Revision(1));
+    let undo = pump_call(
+        &mut session,
+        &id,
+        "undo",
+        json!({"request_id":"undo-candidate","revision":1,"project_epoch":0}),
+    );
+    assert_eq!(undo["ok"], true, "{undo}");
+    assert!(session.snapshot().unwrap().state().documents.is_empty());
+    session.set_agent_access(false);
+}
+
+#[test]
+fn discovery_filters_and_request_validation_are_public_contracts() {
+    let result = automation::catalog(&json!({"query":"oscillator"})).unwrap();
+    let catalogs = result["catalogs"].as_array().unwrap();
+    let motion = catalogs
+        .iter()
+        .find(|c| c["type"] == "fold.motion.document")
+        .unwrap();
+    assert_eq!(motion["catalog"]["nodes"].as_array().unwrap().len(), 1);
+    assert!(automation::catalog(&json!({"typo":true})).is_err());
+    assert!(automation::catalog(&json!({"nodes":"no"})).is_err());
+    assert!(automation::catalog(&json!({"method":"render","query":"ignored"})).is_err());
+    let tools = automation::mcp::tools();
+    for name in ["fold_candidate", "fold_observe"] {
+        assert!(tools.as_array().unwrap().iter().any(|t| t["name"] == name));
+    }
+    let batch_schema = automation::catalog(&json!({"method":"batch"})).unwrap();
+    assert!(
+        !batch_schema.to_string().contains("#/$defs/"),
+        "embedded operation schema must resolve its local references"
+    );
+    let candidate_schema = automation::catalog(&json!({"method":"candidate"})).unwrap();
+    assert_eq!(
+        candidate_schema["inputSchema"]["properties"]["batch"],
+        batch_schema["inputSchema"]
+    );
+    let request = automation::Request {
+        version: 1,
+        method: "observe".into(),
+        params: json!({"source":{"document":"x","output":"video"},"times":[],"dimensions":[0,20]}),
+    };
+    assert!(automation::validate_request(&request).is_err());
+}
+
+#[test]
+fn binding_patch_replaces_variant_and_query_typos_fail() {
+    let mut project = Project::new(8);
+    let (proposal, result) = automation::stage(
+        &project.snapshot(),
+        &batch(Revision(0)),
+        &Default::default(),
+    )
+    .unwrap();
+    project.commit(proposal).unwrap();
+    let snapshot = project.snapshot();
+    let document_id: fold_foundation::DocumentId =
+        serde_json::from_value(result["ids"]["motion"].clone()).unwrap();
+    let document = &snapshot.state().documents[&document_id];
+    let node = result["ids"]["text"].clone();
+    let source = fold_foundation::ObjectId::new();
+    let registry = fold_app::packages::builtins();
+    let changed=registry.author(document,&[
+        json!({"op":"create_node","id":source,"kind":"fold.motion.value","settings":{"value_type":"Scalar"}}),
+        json!({"op":"node","node":node,"value":{"inputs":{"size":{"Link":{"node":source,"socket":"value"}}}}}),
+    ]).unwrap();
+    let changed = registry
+        .author(
+            &changed,
+            &[json!({"op":"node","node":node,"value":{"inputs":{"size":{"Value":{"Scalar":72}}}}})],
+        )
+        .unwrap();
+    let motion = fold_motion::Motion::from_document(&changed).unwrap();
+    let node = serde_json::from_value(node).unwrap();
+    assert_eq!(
+        motion.graph.node(node).unwrap().inputs["size"],
+        fold_motion::graph::Input::Value(fold_motion::fields::Datum::Scalar(72.))
+    );
+    assert!(
+        registry
+            .query(&changed, &json!({"mode":"nodes","nod":"typo"}))
+            .is_err()
+    );
+    assert!(
+        registry
+            .query(&changed, &json!({"mode":"nodes","limit":0}))
+            .is_err()
+    );
+    assert!(
+        registry
+            .query(
+                &changed,
+                &json!({"mode":"signature","kind":"fold.motion.math","node":node})
+            )
+            .is_err()
+    );
+}
+
+#[test]
+#[cfg(unix)]
+fn native_code_authoring_is_atomic_retry_safe_and_preserves_untargeted_properties() {
+    let mut session = Session::new(Project::new(8));
+    session.set_agent_access(true);
+    let start = Instant::now();
+    let id = loop {
+        session.poll();
+        let access = session.agent_access();
+        assert!(access["error"].is_null(), "{access}");
+        if let Some(id) = access["session"].as_str() {
+            break id.to_owned();
+        }
+        assert!(start.elapsed() < Duration::from_secs(5));
+        std::thread::sleep(Duration::from_millis(2));
+    };
+    let private = pump_call(
+        &mut session,
+        &id,
+        "candidate",
+        json!({"action":"begin","request_id":"begin-code","revision":0,"project_epoch":0}),
+    );
+    let candidate = private["result"]["candidate"].clone();
+    let args = json!({"request_id":"code","candidate":candidate,"generation":0,"project_epoch":0,"label":"SDK title","source":"const d=plan.document('title'); d.text('text','Hello',{size:72,position:[25,40]});"});
+    let accepted = pump_call(&mut session, &id, "author", args.clone());
+    assert_eq!(accepted["ok"], true, "{accepted}");
+    let result = wait_job(&mut session, &id, accepted["result"]["job"].clone());
+    assert_eq!(result["ok"], true, "{result}");
+    assert_eq!(accepted, pump_call(&mut session, &id, "author", args));
+    assert!(session.snapshot().unwrap().state().documents.is_empty());
+    let handles = result["result"]["ids"].clone();
+    let document = handles["title"].clone();
+    let failed = pump_call(
+        &mut session,
+        &id,
+        "author",
+        json!({"request_id":"throw","candidate":candidate,"generation":1,"project_epoch":0,"label":"Fail","source":"plan.document('discarded'); throw Error('abort');"}),
+    );
+    assert_eq!(
+        wait_job(&mut session, &id, failed["result"]["job"].clone())["ok"],
+        false
+    );
+    let update = pump_call(
+        &mut session,
+        &id,
+        "author",
+        json!({"request_id":"update","candidate":candidate,"generation":1,"project_epoch":0,"label":"Continue","handles":handles,"source":"plan.document('title').text('text','ignored default').set('text','Updated');"}),
+    );
+    let updated = wait_job(&mut session, &id, update["result"]["job"].clone());
+    assert_eq!(updated["ok"], true, "{updated}");
+    assert_eq!(updated["result"]["generation"], 2);
+    let committed = pump_call(
+        &mut session,
+        &id,
+        "candidate",
+        json!({"action":"commit","request_id":"commit-code","candidate":candidate,"generation":2,"project_epoch":0,"revision":0,"label":"SDK title"}),
+    );
+    assert_eq!(committed["ok"], true, "{committed}");
+    let snapshot = session.snapshot().unwrap();
+    assert_eq!(snapshot.state().documents.len(), 1);
+    let doc = serde_json::from_value(document).unwrap();
+    let motion = fold_motion::Motion::from_document(&snapshot.state().documents[&doc]).unwrap();
+    let node = motion
+        .graph
+        .node(serde_json::from_value(handles["title/text"].clone()).unwrap())
+        .unwrap();
+    assert_eq!(
+        node.inputs["size"],
+        fold_motion::graph::Input::Value(fold_motion::fields::Datum::Scalar(72.))
+    );
+    assert_eq!(
+        node.inputs["text"],
+        fold_motion::graph::Input::Value(fold_motion::fields::Datum::Text("Updated".into()))
+    );
+    session.set_agent_access(false);
+}
+
+#[test]
+fn candidate_preview_is_separate_conflict_checked_and_undoable() {
+    let mut session = Session::new(Project::new(16));
+    session.set_agent_access(true);
+    let start = Instant::now();
+    let id = loop {
+        session.poll();
+        let access = session.agent_access();
+        assert!(access["error"].is_null(), "{access}");
+        if let Some(id) = access["session"].as_str() {
+            break id.to_owned();
+        };
+        assert!(start.elapsed() < Duration::from_secs(5));
+        std::thread::sleep(Duration::from_millis(2));
+    };
+    let begin = pump_call(
+        &mut session,
+        &id,
+        "candidate",
+        json!({"action":"begin","request_id":"preview-begin","revision":0,"project_epoch":0}),
+    );
+    let candidate = begin["result"]["candidate"].clone();
+    let accepted = pump_call(
+        &mut session,
+        &id,
+        "author",
+        json!({"request_id":"preview-author","candidate":candidate,"generation":0,"project_epoch":0,"namespace":"preview","label":"Title","source":"plan.document('title').text('label','Preview');"}),
+    );
+    let result = wait_job(&mut session, &id, accepted["result"]["job"].clone());
+    assert_eq!(result["ok"], true, "{result}");
+    let source = json!({"document":result["result"]["handles"]["title"],"output":"video"});
+    let show = pump_call(
+        &mut session,
+        &id,
+        "candidate",
+        json!({"action":"preview","request_id":"show-preview","candidate":candidate,"generation":1,"project_epoch":0,"source":source,"time":{"numerator":0,"denominator":1}}),
+    );
+    assert_eq!(show["ok"], true, "{show}");
+    let navigation = session.state().navigation.clone();
+    assert!(session.snapshot().unwrap().state().documents.is_empty());
+    let preview = session.agent_preview().unwrap();
+    assert_eq!(preview.generation, 1);
+    assert!(!preview.can_compare);
+    assert!(!preview.conflict);
+    session.agent_preview_action("frame", Some(10)).unwrap();
+    assert_eq!(session.agent_preview().unwrap().key.frame, 10);
+    assert_eq!(session.state().navigation, navigation);
+    session.agent_preview_action("apply", None).unwrap();
+    assert!(session.agent_preview().is_none());
+    assert_eq!(session.snapshot().unwrap().state().documents.len(), 1);
+    let state = pump_call(&mut session, &id, "state", json!({}))["result"].clone();
+    let begin = pump_call(
+        &mut session,
+        &id,
+        "candidate",
+        json!({"action":"begin","request_id":"begin-stale","revision":state["revision"],"project_epoch":0}),
+    );
+    let candidate = begin["result"]["candidate"].clone();
+    let show = pump_call(
+        &mut session,
+        &id,
+        "candidate",
+        json!({"action":"preview","request_id":"show-stale","candidate":candidate,"generation":0,"project_epoch":0,"source":source,"time":{"numerator":0,"denominator":1}}),
+    );
+    assert_eq!(show["ok"], true, "{show}");
+    assert!(session.agent_preview().unwrap().can_compare);
+    session.agent_preview_action("compare", None).unwrap();
+    assert!(session.agent_preview().unwrap().original);
+    let undo = pump_call(
+        &mut session,
+        &id,
+        "undo",
+        json!({"request_id":"undo-preview","revision":state["revision"],"project_epoch":0}),
+    );
+    assert_eq!(undo["ok"], true, "{undo}");
+    assert!(session.snapshot().unwrap().state().documents.is_empty());
+    assert!(session.agent_preview().unwrap().conflict);
+    assert!(
+        !session.agent_preview().unwrap().original,
+        "deleting the live source must leave the candidate visible"
+    );
+    assert!(session.agent_preview_action("apply", None).is_err());
+    session.agent_preview_action("discard", None).unwrap();
+    assert!(session.agent_preview().is_none());
+    assert!(session.snapshot().unwrap().state().documents.is_empty());
+    session.set_agent_access(false);
+}

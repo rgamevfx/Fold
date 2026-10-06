@@ -6,12 +6,12 @@ use crate::fields::Datum;
 use fold_foundation::ObjectId;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct Link {
     pub node: ObjectId,
     pub socket: String,
 }
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 pub enum Input {
     Value(Datum),
     Link(Link),
@@ -50,6 +50,21 @@ impl Node {
             position: [0.; 2],
             extensions: BTreeMap::new(),
         })
+    }
+    pub fn patch_settings(&mut self, patch: &serde_json::Value) -> Result<(), String> {
+        if !patch.is_object() {
+            return Err("settings patch must be object".into());
+        }
+        let mut rest = patch.clone();
+        if let Ok(definition) = registry::find(&self.kind) {
+            for key in definition.atomic_settings {
+                if let Some(value) = rest.as_object_mut().unwrap().remove(*key) {
+                    self.settings[*key] = value;
+                }
+            }
+        }
+        fold_platform::authoring::merge(&mut self.settings, &rest);
+        Ok(())
     }
     pub fn settings<T: serde::de::DeserializeOwned>(&self) -> Result<T, String> {
         serde_json::from_value(self.settings.clone())

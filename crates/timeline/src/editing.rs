@@ -5,7 +5,7 @@ use fold_foundation::{DocumentId, ObjectId, Time};
 use fold_project::{EditBatch, Mutation, Snapshot};
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
 pub enum ClipEdit {
     Move { start: Time },
     MoveTo { start: Time, track: ObjectId },
@@ -15,7 +15,7 @@ pub enum ClipEdit {
     Unlink,
     Level(f32),
 }
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
 pub enum SequenceEdit {
     Clip {
         id: ObjectId,

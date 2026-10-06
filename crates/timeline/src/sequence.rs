@@ -10,7 +10,7 @@ pub const SEQUENCE: &str = "fold.timeline.sequence";
 pub const SEQUENCE_SCHEMA: u32 = 3;
 const MAX_PAYLOAD: usize = 1024 * 1024;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 pub enum TrackKind {
     Video,
     Audio,

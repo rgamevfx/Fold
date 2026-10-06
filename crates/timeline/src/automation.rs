@@ -3,7 +3,8 @@ use fold_platform::authoring::{decode, encode};
 use fold_project::Document;
 use serde_json::{Value, json};
 pub fn catalog() -> Value {
-    fold_platform::authoring::examples(json!({"operations":[
+    fold_platform::authoring::examples(
+        json!({"operation_schemas":[fold_platform::authoring::reference_schema(serde_json::to_value(schemars::schema_for!(SequenceEdit)).expect("operation schema"))],"operations":[
     {"AddTrack":{"kind":"Video"}},
     {"Track":{"id":"$track","enabled":true,"solo":false,"locked":false}},
     {"RemoveTrack":{"id":"$track"}},
@@ -13,7 +14,8 @@ pub fn catalog() -> Value {
     {"Clip":{"id":"$clip","linked":true,"edit":"Lift"}},
     {"Clip":{"id":"$clip","linked":false,"edit":"Unlink"}},
     {"Clip":{"id":"$clip","linked":false,"edit":{"Level":0.5}}}
-],"notes":"Uses the same SequenceEdit as the UI, including linked edits and locked-track rules. Insert assets/documents through placement. Time is rational seconds."}))
+],"notes":"Uses the same SequenceEdit as the UI, including linked edits and locked-track rules. Insert assets/documents through placement. Time is rational seconds."}),
+    )
 }
 pub fn inspect(d: &Document) -> Result<Value, String> {
     encode(Sequence::from_document(d)?)

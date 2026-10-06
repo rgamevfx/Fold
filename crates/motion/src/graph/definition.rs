@@ -33,6 +33,8 @@ pub struct Definition {
     pub name: &'static str,
     pub category: &'static str,
     pub description: &'static str,
+    pub atomic_settings: &'static [&'static str],
+    pub settings_schema: Option<fn() -> serde_json::Value>,
     pub inputs: Vec<Socket>,
     pub outputs: Vec<(&'static str, Kind)>,
     pub signature: Option<fn(&Node) -> Result<(Vec<Socket>, Vec<(String, Kind)>), String>>,

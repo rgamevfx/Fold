@@ -569,7 +569,8 @@ impl Shell {
         Some(key)
     }
     pub fn keys(&self, client: &dyn DesktopClient) -> Vec<(PanelInstanceId, Option<PreviewKey>)> {
-        self.workspace
+        let mut keys: Vec<_> = self
+            .workspace
             .viewers
             .iter()
             .map(|(&id, viewer)| {
@@ -587,7 +588,11 @@ impl Shell {
                 });
                 (id, key)
             })
-            .collect()
+            .collect();
+        if let Some(p) = client.agent_preview() {
+            keys.push((fold_platform::desktop::AGENT_PREVIEW_VIEWER, Some(p.key)));
+        }
+        keys
     }
     fn open_host_target(&mut self, client: &dyn DesktopClient) {
         let state = client.state();
@@ -1630,6 +1635,10 @@ impl Shell {
         statistics: &str,
         client: &mut dyn DesktopClient,
     ) {
+        if id == fold_platform::desktop::AGENT_PREVIEW_VIEWER {
+            crate::candidate_preview::draw(ui, preview, client);
+            return;
+        }
         let Some(key) = self.viewers.get(&id).cloned() else {
             return;
         };

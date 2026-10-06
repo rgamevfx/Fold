@@ -17,6 +17,8 @@ For CLI access: `fold-cli agent sessions`, then `fold-cli agent call SESSION MET
 
 For unfamiliar concepts or a new procedural design, read the [authoring glossary](references/glossary.md). It distinguishes fields from uniform values, sampling domains, coordinate spaces, and reusable definitions from instances.
 
+For shipped tools, repeatable scripts, artist-preserving revisions or live candidate preview, read [Live SDK tools](references/live-tools.md), also available through `catalog guide="live-tools"`. Start there before assembling equivalent primitive graphs.
+
 For Motion objects, text, copies, or group interfaces, read [Motion authoring](references/motion.md) before building. It supplies the coordinates, resource setup, and typed wiring conventions that node signatures alone do not explain.
 
 For graph restructuring, combined node creation, control publication, graph queries, or Rust Wrangles, read [Graph authoring and Rust Wrangles](references/graph-authoring.md). Use resolved signatures and mutation receipts to avoid reconstructing node plumbing.
@@ -29,7 +31,9 @@ Design around the artist's next edit. Keep content, distribution, and drivers in
 
 ## Commit against observed state
 
-Submit related edits in one labeled `batch`, using the observed `revision` and `project_epoch`. Allocate identities through `ids` and `{"$ref":"name"}`; artwork strings remain literal. Prefer targeted property and connection operations, preserving user animation, disconnected work, unknown data, and world placement.
+Discover `candidate` and `observe` through `catalog` before relying on them; older running builds may lack these methods. When available, follow [candidate authoring and observation](references/candidates.md): stage privately, render and inspect the exact generation, then commit once. This guide is also available through `catalog` with `guide: "candidates"`; `guide: "workflow"`, `"motion"`, `"graph"`, and `"glossary"` retrieve the other shipped essentials without repository access. `sdk: true` retrieves the versioned JavaScript authoring SDK and TypeScript declarations.
+
+On older builds, submit related edits in one labeled `batch`, using the observed `revision` and `project_epoch`. Allocate identities through `ids` and `{"$ref":"name"}`; artwork strings remain literal. Prefer targeted property and connection operations, preserving user animation, disconnected work, unknown data, and world placement.
 
 Every distinct proposal gets a new `request_id`, including committing a previously validated proposal. Reuse an ID only for an identical retry after a lost response. Poll `jobs` until completion and inspect `outcome.ok`; acceptance is not commitment. Consume results promptly because retention is bounded.
 
@@ -37,7 +41,7 @@ On a conflict, refresh state **and affected content**, reconcile the user's chan
 
 ## Verify and hand back
 
-- Render representative times and animation boundaries. For loops, compare the start and one full period at the same revision and dimensions. Exact rational times avoid rounding drift.
+- Render representative times and animation boundaries. For loops, sample intermediate motion and both sides of wrap boundaries at the same revision and dimensions. Output times are half-open: the duration endpoint is invalid. If the document contains multiple periods, compare matching phases inside the valid range. Equal frames alone do not establish movement. Exact rational times avoid rounding drift.
 - Exercise likely control edits in an isolated copy when practical, then remove test work. Otherwise distinguish rendered behavior from untested control interactions.
 - Use `viewers` and `capture` to inspect the displayed result; check identities and stale status. Captures exclude chrome, overlays, and window zoom. `navigate` deliberately changes the named viewer and stops its playback. Use portal `screenshot` when the actual interface needs review.
 - MCP `jobs` returns images directly; CLI image results contain PNG base64 to decode and view. Report rendering/runtime failures as errors, not black artwork. Keep environment repair separate from creative edits; use documented installation guidance instead of reconstructing runtime internals.

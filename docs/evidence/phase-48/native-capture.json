@@ -1,0 +1,80 @@
+{
+  "metadata": {
+    "alpha": "opaque",
+    "candidate": {
+      "generation": 1,
+      "id": 1,
+      "original": false
+    },
+    "chrome": false,
+    "color": "display-transformed RGBA8; channel/data view is recorded in displayed.channels",
+    "dimensions": [
+      960,
+      540
+    ],
+    "displayed": {
+      "channels": {
+        "Rgb": {
+          "layer": "rgba"
+        }
+      },
+      "content": "8a6bef1f4045c0058d7ab370e22f2513b958cc4c5b3b7312e9aec2d5db6684b8",
+      "dimensions": [
+        960,
+        540
+      ],
+      "frame": 18,
+      "output": "video",
+      "region": null,
+      "target": [
+        "4f0b8a68-0797-4042-b6ed-22ebdda47d12",
+        {
+          "denominator": 4,
+          "numerator": 3
+        }
+      ],
+      "view_policy": 1
+    },
+    "kind": "viewer_capture",
+    "observed_project_revision": 6,
+    "original_dimensions": [
+      960,
+      540
+    ],
+    "overlays": false,
+    "requested": {
+      "channels": {
+        "Rgb": {
+          "layer": "rgba"
+        }
+      },
+      "content": "8a6bef1f4045c0058d7ab370e22f2513b958cc4c5b3b7312e9aec2d5db6684b8",
+      "dimensions": [
+        960,
+        540
+      ],
+      "frame": 18,
+      "output": "video",
+      "region": null,
+      "target": [
+        "4f0b8a68-0797-4042-b6ed-22ebdda47d12",
+        {
+          "denominator": 4,
+          "numerator": 3
+        }
+      ],
+      "view_policy": 1
+    },
+    "requested_generation": 1,
+    "resampling": "none",
+    "source_dimensions": [
+      960,
+      540
+    ],
+    "stale": false,
+    "transform_identity": "fold.legacy-linear-srgb-to-srgb.v1",
+    "transient_user_edit": false,
+    "viewer": 18446744073709551615,
+    "zoom_pan": "capture is the retained image/crop, not window pixels"
+  }
+}

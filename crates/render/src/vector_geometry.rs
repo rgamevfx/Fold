@@ -91,41 +91,43 @@ impl GeometryCache {
         }
         // Bound flattening before lyon builds its event queue: callbacks occur
         // after event generation and alone cannot bound pathological subdivision.
-        let tolerance = 2f64.powi(-8 - scale);
-        let mut previous = [0.; 2];
-        let mut estimated = 0f64;
-        for segment in d.path.iter() {
-            cancel.check()?;
-            let (points, end): (&[[f64; 2]], [f64; 2]) = match segment {
-                Segment::Move(p) | Segment::Line(p) => {
-                    previous = *p;
-                    estimated += 1.;
-                    continue;
-                }
-                Segment::Quad(a, b) => (std::slice::from_ref(a), *b),
-                Segment::Cubic(a, b, c) => {
-                    let span = (a[0] - b[0]).abs().max((a[1] - b[1]).abs());
-                    estimated += (8. * span / tolerance).sqrt();
-                    (std::slice::from_ref(a), *c)
-                }
-                Segment::Close => {
-                    estimated += 1.;
-                    continue;
-                }
-            };
-            let span = points
-                .iter()
-                .chain(std::iter::once(&end))
-                .map(|p| (p[0] - previous[0]).abs().max((p[1] - previous[1]).abs()))
-                .fold(0f64, f64::max);
-            estimated += (8. * span / tolerance).sqrt() + 1.;
-            previous = end;
-        }
-        if let Some(s) = stroke {
-            estimated += (64. * s.width / tolerance).sqrt();
-        }
-        if estimated > MAX_TRIANGLES as f64 / 4. {
-            return Err("vector subdivision work budget exceeded".into());
+        // Stroke expansion itself precedes bounded flattening, so retain its
+        // conservative preflight. Filled curves use the actual bounded iterator.
+        if let Some(stroke) = stroke {
+            let tolerance = 2f64.powi(-8 - scale);
+            let mut previous = [0.; 2];
+            let mut estimated = 0f64;
+            for segment in d.path.iter() {
+                cancel.check()?;
+                let (points, end): (&[[f64; 2]], [f64; 2]) = match segment {
+                    Segment::Move(p) | Segment::Line(p) => {
+                        previous = *p;
+                        estimated += 1.;
+                        continue;
+                    }
+                    Segment::Quad(a, b) => (std::slice::from_ref(a), *b),
+                    Segment::Cubic(a, b, c) => {
+                        let span = (a[0] - b[0]).abs().max((a[1] - b[1]).abs());
+                        estimated += (8. * span / tolerance).sqrt();
+                        (std::slice::from_ref(a), *c)
+                    }
+                    Segment::Close => {
+                        estimated += 1.;
+                        continue;
+                    }
+                };
+                let span = points
+                    .iter()
+                    .chain(std::iter::once(&end))
+                    .map(|p| (p[0] - previous[0]).abs().max((p[1] - previous[1]).abs()))
+                    .fold(0f64, f64::max);
+                estimated += (8. * span / tolerance).sqrt() + 1.;
+                previous = end;
+            }
+            estimated += (64. * stroke.width / tolerance).sqrt();
+            if estimated > MAX_TRIANGLES as f64 / 4. {
+                return Err("vector subdivision work budget exceeded".into());
+            }
         }
         let Some(mut path) = vector::build_path(d) else {
             return Ok(Arc::new(Vec::new()));
@@ -137,7 +139,23 @@ impl GeometryCache {
         }
         let mut builder = Path::builder();
         let mut open = false;
+        let mut previous = point(0., 0.);
+        let mut flattened_segments = 0usize;
+        let tolerance = 2f32.powi(-8 - scale);
+        let minimum = <f32 as lyon_tessellation::path::geom::Scalar>::EPSILON.powi(2);
+        if tolerance < minimum {
+            return Err("vector subdivision precision budget exceeded".into());
+        }
+        let mut spend = || -> Result<(), String> {
+            cancel.check()?;
+            flattened_segments += 1;
+            if flattened_segments > MAX_TRIANGLES / 4 {
+                return Err("vector subdivision work budget exceeded".into());
+            }
+            Ok(())
+        };
         for segment in path.segments() {
+            spend()?;
             use tiny_skia::PathSegment::*;
             match segment {
                 MoveTo(p) => {
@@ -145,16 +163,37 @@ impl GeometryCache {
                         builder.end(true);
                     }
                     builder.begin(point(p.x, p.y));
+                    previous = point(p.x, p.y);
                     open = true;
                 }
                 LineTo(p) => {
                     builder.line_to(point(p.x, p.y));
+                    previous = point(p.x, p.y);
                 }
                 QuadTo(a, b) => {
-                    builder.quadratic_bezier_to(point(a.x, a.y), point(b.x, b.y));
+                    let curve = lyon_tessellation::path::geom::QuadraticBezierSegment {
+                        from: previous,
+                        ctrl: point(a.x, a.y),
+                        to: point(b.x, b.y),
+                    };
+                    for p in curve.flattened(tolerance) {
+                        spend()?;
+                        builder.line_to(p);
+                    }
+                    previous = curve.to;
                 }
                 CubicTo(a, b, c) => {
-                    builder.cubic_bezier_to(point(a.x, a.y), point(b.x, b.y), point(c.x, c.y));
+                    let curve = lyon_tessellation::path::geom::CubicBezierSegment {
+                        from: previous,
+                        ctrl1: point(a.x, a.y),
+                        ctrl2: point(b.x, b.y),
+                        to: point(c.x, c.y),
+                    };
+                    for p in curve.flattened(tolerance) {
+                        spend()?;
+                        builder.line_to(p);
+                    }
+                    previous = curve.to;
                 }
                 Close => {
                     if open {
@@ -597,6 +636,30 @@ mod tests {
                 .collect();
             assert_eq!(actual, expected, "transform {transform:?}");
         }
+    }
+    #[test]
+    fn ordinary_circular_cells_fit_the_geometry_budget() {
+        let mut path = Vec::new();
+        for row in 0..10 {
+            for col in 0..20 {
+                let (x, y) = (col as f64 * 30. + 15., row as f64 * 30. + 15.);
+                let r = 10.;
+                let k = r * 0.5522847498307936;
+                path.extend([
+                    Segment::Move([x, y - r]),
+                    Segment::Cubic([x + k, y - r], [x + r, y - k], [x + r, y]),
+                    Segment::Cubic([x + r, y + k], [x + k, y + r], [x, y + r]),
+                    Segment::Cubic([x - k, y + r], [x - r, y + k], [x - r, y]),
+                    Segment::Cubic([x - r, y - k], [x - k, y - r], [x, y - r]),
+                    Segment::Close,
+                ]);
+            }
+        }
+        let triangles = GeometryCache::default()
+            .get(&shape(path), None, &Cancel::default())
+            .unwrap();
+        assert!(!triangles.is_empty());
+        assert!(triangles.len() < MAX_TRIANGLES / 4);
     }
     #[test]
     fn excessive_subdivision_is_rejected_before_tessellation() {

@@ -16,9 +16,18 @@ pub struct Batch {
     #[serde(default)]
     pub validate_only: bool,
 }
-#[derive(Deserialize)]
+#[derive(Deserialize, schemars::JsonSchema)]
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 enum Operation {
+    Forget {
+        namespace: String,
+        keys: Vec<String>,
+    },
+    Remember {
+        document: DocumentId,
+        namespace: String,
+        bindings: Value,
+    },
     Create {
         id: DocumentId,
         kind: String,
@@ -121,6 +130,18 @@ pub fn stage(
         let changes = match decode::<Operation>(&value)
             .map_err(|e| format!("operation {i}: {e}"))?
         {
+            Operation::Remember {
+                document,
+                namespace,
+                bindings,
+            } => {
+                vec![Mutation::SetSettings(super::handles::remember(
+                    &snap, document, &namespace, bindings,
+                )?)]
+            }
+            Operation::Forget { namespace, keys } => vec![Mutation::SetSettings(
+                super::handles::forget(&snap, &namespace, &keys)?,
+            )],
             Operation::Create { id, kind, name } => {
                 if snap.state().documents.contains_key(&id) {
                     return Err("document ID already exists".into());
@@ -268,4 +289,10 @@ pub fn examples() -> Value {
      {"op":"place_asset","source":"UUID","target":"UUID","at":{"numerator":0,"denominator":1},"audio_only":false},
      {"op":"command","id":"fold.app.insert-document","arguments":{"source":"UUID","sequence":"UUID","at":{"numerator":0,"denominator":1}}}
     ]})
+}
+
+pub fn operation_schema() -> Value {
+    fold_platform::authoring::reference_schema(
+        serde_json::to_value(schemars::schema_for!(Operation)).expect("operation schema"),
+    )
 }

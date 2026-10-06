@@ -1,5 +1,6 @@
 //! Native content independent of graph authoring and presentation.
 pub mod appearance;
+pub mod bounds;
 pub mod path;
 pub mod render;
 pub mod shapes;

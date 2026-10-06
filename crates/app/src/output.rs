@@ -44,6 +44,13 @@ impl OutputRenderer {
             None => Self::from_environment(),
         }
     }
+    pub fn backend(&self) -> &'static str {
+        #[cfg(feature = "gpu")]
+        if self.gpu.is_some() {
+            return "gpu";
+        }
+        "cpu"
+    }
     pub fn evaluate(
         &mut self,
         snapshot: &CommittedSnapshot,

@@ -1,11 +1,20 @@
 use super::*;
 use base64::Engine;
 use fold_media::Cancel;
-pub fn rgba(width: u32, height: u32, bytes: &[u8], mut metadata: Value) -> Result<Value, String> {
+pub fn rgba(width: u32, height: u32, bytes: &[u8], metadata: Value) -> Result<Value, String> {
+    rgba_detail(width, height, bytes, metadata, 1024)
+}
+pub fn rgba_detail(
+    width: u32,
+    height: u32,
+    bytes: &[u8],
+    mut metadata: Value,
+    max_dimension: u32,
+) -> Result<Value, String> {
     if width == 0 || height == 0 || bytes.len() != width as usize * height as usize * 4 {
         return Err("invalid captured image".into());
     }
-    let scale = (1024.0 / f64::from(width.max(height))).min(1.0);
+    let scale = (f64::from(max_dimension) / f64::from(width.max(height))).min(1.0);
     let w = (f64::from(width) * scale).round().max(1.0) as u32;
     let h = (f64::from(height) * scale).round().max(1.0) as u32;
     let mut pixels = Vec::with_capacity((w * h * 4) as usize);

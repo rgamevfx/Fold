@@ -1,0 +1,3397 @@
+{
+  "reference_sha256": "10861b01d6484d2db2d8d96be5ab5e5e865493ea81d0026bd0d80f73864fe682",
+  "revision": 1,
+  "project_epoch": 1,
+  "frames": [
+    {
+      "index": 0,
+      "reference_time_ms": 0,
+      "duration_ms": 80,
+      "sha256": "f06d9df5895bf9c9ba432b2bee56840bfc9ece8033e5ba82d93e6933354cce61",
+      "metadata": {
+        "alpha": "over black",
+        "backend": "gpu",
+        "build": "0.1.0",
+        "candidate": null,
+        "color": {
+          "display": "Rec.1886 Rec.709 - Display",
+          "look": null,
+          "view": "ACES 1.0 - SDR Video"
+        },
+        "cost_scope": "render_seconds includes rendering and selected measurement queries; per-stage costs unavailable",
+        "dimensions": [
+          1080,
+          1080
+        ],
+        "environment": {
+          "architecture": "x86_64",
+          "assets": [],
+          "desktop_feature": true,
+          "documents": [
+            {
+              "assets": [],
+              "dependencies": [],
+              "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+              "payload_sha256": "e6919ec464ee61b35a11f60c61aa787f4efc7713a1774c17c42b7d8210ca16f9",
+              "revision": 1,
+              "schema_version": 4,
+              "type": "fold.motion.document"
+            }
+          ],
+          "gpu_feature": true,
+          "os": "linux",
+          "profile": "debug",
+          "resource_scope": "document payloads include embedded fonts; external asset fingerprints are catalog records, not a new verification of file bytes",
+          "source_sha256": "9eb59fcb0c96dbd9379da37a4f2317622096ded75c3aacf9956228c8940e85d5",
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "frames": [
+          {
+            "index": 0,
+            "measurements": [],
+            "rect": [
+              0,
+              0,
+              1080,
+              1080
+            ],
+            "render_seconds": 1.067619544,
+            "time": {
+              "denominator": 1,
+              "numerator": 0
+            }
+          }
+        ],
+        "generation": null,
+        "kind": "observation",
+        "ordering": "row-major",
+        "original_dimensions": [
+          1080,
+          1080
+        ],
+        "overlays": false,
+        "project_epoch": 1,
+        "resampling": "none",
+        "revision": 1,
+        "source": {
+          "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+          "output": "video"
+        },
+        "verification": "sampled evidence only; no aesthetic or analytical guarantee"
+      }
+    },
+    {
+      "index": 1,
+      "reference_time_ms": 80,
+      "duration_ms": 90,
+      "sha256": "f06d9df5895bf9c9ba432b2bee56840bfc9ece8033e5ba82d93e6933354cce61",
+      "metadata": {
+        "alpha": "over black",
+        "backend": "gpu",
+        "build": "0.1.0",
+        "candidate": null,
+        "color": {
+          "display": "Rec.1886 Rec.709 - Display",
+          "look": null,
+          "view": "ACES 1.0 - SDR Video"
+        },
+        "cost_scope": "render_seconds includes rendering and selected measurement queries; per-stage costs unavailable",
+        "dimensions": [
+          1080,
+          1080
+        ],
+        "environment": {
+          "architecture": "x86_64",
+          "assets": [],
+          "desktop_feature": true,
+          "documents": [
+            {
+              "assets": [],
+              "dependencies": [],
+              "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+              "payload_sha256": "e6919ec464ee61b35a11f60c61aa787f4efc7713a1774c17c42b7d8210ca16f9",
+              "revision": 1,
+              "schema_version": 4,
+              "type": "fold.motion.document"
+            }
+          ],
+          "gpu_feature": true,
+          "os": "linux",
+          "profile": "debug",
+          "resource_scope": "document payloads include embedded fonts; external asset fingerprints are catalog records, not a new verification of file bytes",
+          "source_sha256": "9eb59fcb0c96dbd9379da37a4f2317622096ded75c3aacf9956228c8940e85d5",
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "frames": [
+          {
+            "index": 0,
+            "measurements": [],
+            "rect": [
+              0,
+              0,
+              1080,
+              1080
+            ],
+            "render_seconds": 1.062657308,
+            "time": {
+              "denominator": 25,
+              "numerator": 2
+            }
+          }
+        ],
+        "generation": null,
+        "kind": "observation",
+        "ordering": "row-major",
+        "original_dimensions": [
+          1080,
+          1080
+        ],
+        "overlays": false,
+        "project_epoch": 1,
+        "resampling": "none",
+        "revision": 1,
+        "source": {
+          "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+          "output": "video"
+        },
+        "verification": "sampled evidence only; no aesthetic or analytical guarantee"
+      }
+    },
+    {
+      "index": 2,
+      "reference_time_ms": 170,
+      "duration_ms": 80,
+      "sha256": "f06d9df5895bf9c9ba432b2bee56840bfc9ece8033e5ba82d93e6933354cce61",
+      "metadata": {
+        "alpha": "over black",
+        "backend": "gpu",
+        "build": "0.1.0",
+        "candidate": null,
+        "color": {
+          "display": "Rec.1886 Rec.709 - Display",
+          "look": null,
+          "view": "ACES 1.0 - SDR Video"
+        },
+        "cost_scope": "render_seconds includes rendering and selected measurement queries; per-stage costs unavailable",
+        "dimensions": [
+          1080,
+          1080
+        ],
+        "environment": {
+          "architecture": "x86_64",
+          "assets": [],
+          "desktop_feature": true,
+          "documents": [
+            {
+              "assets": [],
+              "dependencies": [],
+              "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+              "payload_sha256": "e6919ec464ee61b35a11f60c61aa787f4efc7713a1774c17c42b7d8210ca16f9",
+              "revision": 1,
+              "schema_version": 4,
+              "type": "fold.motion.document"
+            }
+          ],
+          "gpu_feature": true,
+          "os": "linux",
+          "profile": "debug",
+          "resource_scope": "document payloads include embedded fonts; external asset fingerprints are catalog records, not a new verification of file bytes",
+          "source_sha256": "9eb59fcb0c96dbd9379da37a4f2317622096ded75c3aacf9956228c8940e85d5",
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "frames": [
+          {
+            "index": 0,
+            "measurements": [],
+            "rect": [
+              0,
+              0,
+              1080,
+              1080
+            ],
+            "render_seconds": 0.890371864,
+            "time": {
+              "denominator": 100,
+              "numerator": 17
+            }
+          }
+        ],
+        "generation": null,
+        "kind": "observation",
+        "ordering": "row-major",
+        "original_dimensions": [
+          1080,
+          1080
+        ],
+        "overlays": false,
+        "project_epoch": 1,
+        "resampling": "none",
+        "revision": 1,
+        "source": {
+          "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+          "output": "video"
+        },
+        "verification": "sampled evidence only; no aesthetic or analytical guarantee"
+      }
+    },
+    {
+      "index": 3,
+      "reference_time_ms": 250,
+      "duration_ms": 80,
+      "sha256": "f06d9df5895bf9c9ba432b2bee56840bfc9ece8033e5ba82d93e6933354cce61",
+      "metadata": {
+        "alpha": "over black",
+        "backend": "gpu",
+        "build": "0.1.0",
+        "candidate": null,
+        "color": {
+          "display": "Rec.1886 Rec.709 - Display",
+          "look": null,
+          "view": "ACES 1.0 - SDR Video"
+        },
+        "cost_scope": "render_seconds includes rendering and selected measurement queries; per-stage costs unavailable",
+        "dimensions": [
+          1080,
+          1080
+        ],
+        "environment": {
+          "architecture": "x86_64",
+          "assets": [],
+          "desktop_feature": true,
+          "documents": [
+            {
+              "assets": [],
+              "dependencies": [],
+              "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+              "payload_sha256": "e6919ec464ee61b35a11f60c61aa787f4efc7713a1774c17c42b7d8210ca16f9",
+              "revision": 1,
+              "schema_version": 4,
+              "type": "fold.motion.document"
+            }
+          ],
+          "gpu_feature": true,
+          "os": "linux",
+          "profile": "debug",
+          "resource_scope": "document payloads include embedded fonts; external asset fingerprints are catalog records, not a new verification of file bytes",
+          "source_sha256": "9eb59fcb0c96dbd9379da37a4f2317622096ded75c3aacf9956228c8940e85d5",
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "frames": [
+          {
+            "index": 0,
+            "measurements": [],
+            "rect": [
+              0,
+              0,
+              1080,
+              1080
+            ],
+            "render_seconds": 0.9362711,
+            "time": {
+              "denominator": 4,
+              "numerator": 1
+            }
+          }
+        ],
+        "generation": null,
+        "kind": "observation",
+        "ordering": "row-major",
+        "original_dimensions": [
+          1080,
+          1080
+        ],
+        "overlays": false,
+        "project_epoch": 1,
+        "resampling": "none",
+        "revision": 1,
+        "source": {
+          "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+          "output": "video"
+        },
+        "verification": "sampled evidence only; no aesthetic or analytical guarantee"
+      }
+    },
+    {
+      "index": 4,
+      "reference_time_ms": 330,
+      "duration_ms": 90,
+      "sha256": "f06d9df5895bf9c9ba432b2bee56840bfc9ece8033e5ba82d93e6933354cce61",
+      "metadata": {
+        "alpha": "over black",
+        "backend": "gpu",
+        "build": "0.1.0",
+        "candidate": null,
+        "color": {
+          "display": "Rec.1886 Rec.709 - Display",
+          "look": null,
+          "view": "ACES 1.0 - SDR Video"
+        },
+        "cost_scope": "render_seconds includes rendering and selected measurement queries; per-stage costs unavailable",
+        "dimensions": [
+          1080,
+          1080
+        ],
+        "environment": {
+          "architecture": "x86_64",
+          "assets": [],
+          "desktop_feature": true,
+          "documents": [
+            {
+              "assets": [],
+              "dependencies": [],
+              "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+              "payload_sha256": "e6919ec464ee61b35a11f60c61aa787f4efc7713a1774c17c42b7d8210ca16f9",
+              "revision": 1,
+              "schema_version": 4,
+              "type": "fold.motion.document"
+            }
+          ],
+          "gpu_feature": true,
+          "os": "linux",
+          "profile": "debug",
+          "resource_scope": "document payloads include embedded fonts; external asset fingerprints are catalog records, not a new verification of file bytes",
+          "source_sha256": "9eb59fcb0c96dbd9379da37a4f2317622096ded75c3aacf9956228c8940e85d5",
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "frames": [
+          {
+            "index": 0,
+            "measurements": [],
+            "rect": [
+              0,
+              0,
+              1080,
+              1080
+            ],
+            "render_seconds": 1.102584511,
+            "time": {
+              "denominator": 100,
+              "numerator": 33
+            }
+          }
+        ],
+        "generation": null,
+        "kind": "observation",
+        "ordering": "row-major",
+        "original_dimensions": [
+          1080,
+          1080
+        ],
+        "overlays": false,
+        "project_epoch": 1,
+        "resampling": "none",
+        "revision": 1,
+        "source": {
+          "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+          "output": "video"
+        },
+        "verification": "sampled evidence only; no aesthetic or analytical guarantee"
+      }
+    },
+    {
+      "index": 5,
+      "reference_time_ms": 420,
+      "duration_ms": 80,
+      "sha256": "1a981bb96a294d0fbffa89eb9b6b9d9488b6130bfbe8b70f560353b224f72121",
+      "metadata": {
+        "alpha": "over black",
+        "backend": "gpu",
+        "build": "0.1.0",
+        "candidate": null,
+        "color": {
+          "display": "Rec.1886 Rec.709 - Display",
+          "look": null,
+          "view": "ACES 1.0 - SDR Video"
+        },
+        "cost_scope": "render_seconds includes rendering and selected measurement queries; per-stage costs unavailable",
+        "dimensions": [
+          1080,
+          1080
+        ],
+        "environment": {
+          "architecture": "x86_64",
+          "assets": [],
+          "desktop_feature": true,
+          "documents": [
+            {
+              "assets": [],
+              "dependencies": [],
+              "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+              "payload_sha256": "e6919ec464ee61b35a11f60c61aa787f4efc7713a1774c17c42b7d8210ca16f9",
+              "revision": 1,
+              "schema_version": 4,
+              "type": "fold.motion.document"
+            }
+          ],
+          "gpu_feature": true,
+          "os": "linux",
+          "profile": "debug",
+          "resource_scope": "document payloads include embedded fonts; external asset fingerprints are catalog records, not a new verification of file bytes",
+          "source_sha256": "9eb59fcb0c96dbd9379da37a4f2317622096ded75c3aacf9956228c8940e85d5",
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "frames": [
+          {
+            "index": 0,
+            "measurements": [],
+            "rect": [
+              0,
+              0,
+              1080,
+              1080
+            ],
+            "render_seconds": 1.26825826,
+            "time": {
+              "denominator": 50,
+              "numerator": 21
+            }
+          }
+        ],
+        "generation": null,
+        "kind": "observation",
+        "ordering": "row-major",
+        "original_dimensions": [
+          1080,
+          1080
+        ],
+        "overlays": false,
+        "project_epoch": 1,
+        "resampling": "none",
+        "revision": 1,
+        "source": {
+          "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+          "output": "video"
+        },
+        "verification": "sampled evidence only; no aesthetic or analytical guarantee"
+      }
+    },
+    {
+      "index": 6,
+      "reference_time_ms": 500,
+      "duration_ms": 80,
+      "sha256": "c054ab1bcdc76a3f2105c17515aa7ff9e7fcadc65c719925c2aa103e1b0b595f",
+      "metadata": {
+        "alpha": "over black",
+        "backend": "gpu",
+        "build": "0.1.0",
+        "candidate": null,
+        "color": {
+          "display": "Rec.1886 Rec.709 - Display",
+          "look": null,
+          "view": "ACES 1.0 - SDR Video"
+        },
+        "cost_scope": "render_seconds includes rendering and selected measurement queries; per-stage costs unavailable",
+        "dimensions": [
+          1080,
+          1080
+        ],
+        "environment": {
+          "architecture": "x86_64",
+          "assets": [],
+          "desktop_feature": true,
+          "documents": [
+            {
+              "assets": [],
+              "dependencies": [],
+              "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+              "payload_sha256": "e6919ec464ee61b35a11f60c61aa787f4efc7713a1774c17c42b7d8210ca16f9",
+              "revision": 1,
+              "schema_version": 4,
+              "type": "fold.motion.document"
+            }
+          ],
+          "gpu_feature": true,
+          "os": "linux",
+          "profile": "debug",
+          "resource_scope": "document payloads include embedded fonts; external asset fingerprints are catalog records, not a new verification of file bytes",
+          "source_sha256": "9eb59fcb0c96dbd9379da37a4f2317622096ded75c3aacf9956228c8940e85d5",
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "frames": [
+          {
+            "index": 0,
+            "measurements": [],
+            "rect": [
+              0,
+              0,
+              1080,
+              1080
+            ],
+            "render_seconds": 1.084633713,
+            "time": {
+              "denominator": 2,
+              "numerator": 1
+            }
+          }
+        ],
+        "generation": null,
+        "kind": "observation",
+        "ordering": "row-major",
+        "original_dimensions": [
+          1080,
+          1080
+        ],
+        "overlays": false,
+        "project_epoch": 1,
+        "resampling": "none",
+        "revision": 1,
+        "source": {
+          "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+          "output": "video"
+        },
+        "verification": "sampled evidence only; no aesthetic or analytical guarantee"
+      }
+    },
+    {
+      "index": 7,
+      "reference_time_ms": 580,
+      "duration_ms": 90,
+      "sha256": "ea173b1eadbfb608a816d1783ccd39d04dd43ee37f6d92f704c011d4bf1b508b",
+      "metadata": {
+        "alpha": "over black",
+        "backend": "gpu",
+        "build": "0.1.0",
+        "candidate": null,
+        "color": {
+          "display": "Rec.1886 Rec.709 - Display",
+          "look": null,
+          "view": "ACES 1.0 - SDR Video"
+        },
+        "cost_scope": "render_seconds includes rendering and selected measurement queries; per-stage costs unavailable",
+        "dimensions": [
+          1080,
+          1080
+        ],
+        "environment": {
+          "architecture": "x86_64",
+          "assets": [],
+          "desktop_feature": true,
+          "documents": [
+            {
+              "assets": [],
+              "dependencies": [],
+              "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+              "payload_sha256": "e6919ec464ee61b35a11f60c61aa787f4efc7713a1774c17c42b7d8210ca16f9",
+              "revision": 1,
+              "schema_version": 4,
+              "type": "fold.motion.document"
+            }
+          ],
+          "gpu_feature": true,
+          "os": "linux",
+          "profile": "debug",
+          "resource_scope": "document payloads include embedded fonts; external asset fingerprints are catalog records, not a new verification of file bytes",
+          "source_sha256": "9eb59fcb0c96dbd9379da37a4f2317622096ded75c3aacf9956228c8940e85d5",
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "frames": [
+          {
+            "index": 0,
+            "measurements": [],
+            "rect": [
+              0,
+              0,
+              1080,
+              1080
+            ],
+            "render_seconds": 0.980935292,
+            "time": {
+              "denominator": 50,
+              "numerator": 29
+            }
+          }
+        ],
+        "generation": null,
+        "kind": "observation",
+        "ordering": "row-major",
+        "original_dimensions": [
+          1080,
+          1080
+        ],
+        "overlays": false,
+        "project_epoch": 1,
+        "resampling": "none",
+        "revision": 1,
+        "source": {
+          "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+          "output": "video"
+        },
+        "verification": "sampled evidence only; no aesthetic or analytical guarantee"
+      }
+    },
+    {
+      "index": 8,
+      "reference_time_ms": 670,
+      "duration_ms": 80,
+      "sha256": "ea173b1eadbfb608a816d1783ccd39d04dd43ee37f6d92f704c011d4bf1b508b",
+      "metadata": {
+        "alpha": "over black",
+        "backend": "gpu",
+        "build": "0.1.0",
+        "candidate": null,
+        "color": {
+          "display": "Rec.1886 Rec.709 - Display",
+          "look": null,
+          "view": "ACES 1.0 - SDR Video"
+        },
+        "cost_scope": "render_seconds includes rendering and selected measurement queries; per-stage costs unavailable",
+        "dimensions": [
+          1080,
+          1080
+        ],
+        "environment": {
+          "architecture": "x86_64",
+          "assets": [],
+          "desktop_feature": true,
+          "documents": [
+            {
+              "assets": [],
+              "dependencies": [],
+              "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+              "payload_sha256": "e6919ec464ee61b35a11f60c61aa787f4efc7713a1774c17c42b7d8210ca16f9",
+              "revision": 1,
+              "schema_version": 4,
+              "type": "fold.motion.document"
+            }
+          ],
+          "gpu_feature": true,
+          "os": "linux",
+          "profile": "debug",
+          "resource_scope": "document payloads include embedded fonts; external asset fingerprints are catalog records, not a new verification of file bytes",
+          "source_sha256": "9eb59fcb0c96dbd9379da37a4f2317622096ded75c3aacf9956228c8940e85d5",
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "frames": [
+          {
+            "index": 0,
+            "measurements": [],
+            "rect": [
+              0,
+              0,
+              1080,
+              1080
+            ],
+            "render_seconds": 1.002697463,
+            "time": {
+              "denominator": 100,
+              "numerator": 67
+            }
+          }
+        ],
+        "generation": null,
+        "kind": "observation",
+        "ordering": "row-major",
+        "original_dimensions": [
+          1080,
+          1080
+        ],
+        "overlays": false,
+        "project_epoch": 1,
+        "resampling": "none",
+        "revision": 1,
+        "source": {
+          "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+          "output": "video"
+        },
+        "verification": "sampled evidence only; no aesthetic or analytical guarantee"
+      }
+    },
+    {
+      "index": 9,
+      "reference_time_ms": 750,
+      "duration_ms": 80,
+      "sha256": "ea173b1eadbfb608a816d1783ccd39d04dd43ee37f6d92f704c011d4bf1b508b",
+      "metadata": {
+        "alpha": "over black",
+        "backend": "gpu",
+        "build": "0.1.0",
+        "candidate": null,
+        "color": {
+          "display": "Rec.1886 Rec.709 - Display",
+          "look": null,
+          "view": "ACES 1.0 - SDR Video"
+        },
+        "cost_scope": "render_seconds includes rendering and selected measurement queries; per-stage costs unavailable",
+        "dimensions": [
+          1080,
+          1080
+        ],
+        "environment": {
+          "architecture": "x86_64",
+          "assets": [],
+          "desktop_feature": true,
+          "documents": [
+            {
+              "assets": [],
+              "dependencies": [],
+              "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+              "payload_sha256": "e6919ec464ee61b35a11f60c61aa787f4efc7713a1774c17c42b7d8210ca16f9",
+              "revision": 1,
+              "schema_version": 4,
+              "type": "fold.motion.document"
+            }
+          ],
+          "gpu_feature": true,
+          "os": "linux",
+          "profile": "debug",
+          "resource_scope": "document payloads include embedded fonts; external asset fingerprints are catalog records, not a new verification of file bytes",
+          "source_sha256": "9eb59fcb0c96dbd9379da37a4f2317622096ded75c3aacf9956228c8940e85d5",
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "frames": [
+          {
+            "index": 0,
+            "measurements": [],
+            "rect": [
+              0,
+              0,
+              1080,
+              1080
+            ],
+            "render_seconds": 0.87293163,
+            "time": {
+              "denominator": 4,
+              "numerator": 3
+            }
+          }
+        ],
+        "generation": null,
+        "kind": "observation",
+        "ordering": "row-major",
+        "original_dimensions": [
+          1080,
+          1080
+        ],
+        "overlays": false,
+        "project_epoch": 1,
+        "resampling": "none",
+        "revision": 1,
+        "source": {
+          "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+          "output": "video"
+        },
+        "verification": "sampled evidence only; no aesthetic or analytical guarantee"
+      }
+    },
+    {
+      "index": 10,
+      "reference_time_ms": 830,
+      "duration_ms": 90,
+      "sha256": "ea173b1eadbfb608a816d1783ccd39d04dd43ee37f6d92f704c011d4bf1b508b",
+      "metadata": {
+        "alpha": "over black",
+        "backend": "gpu",
+        "build": "0.1.0",
+        "candidate": null,
+        "color": {
+          "display": "Rec.1886 Rec.709 - Display",
+          "look": null,
+          "view": "ACES 1.0 - SDR Video"
+        },
+        "cost_scope": "render_seconds includes rendering and selected measurement queries; per-stage costs unavailable",
+        "dimensions": [
+          1080,
+          1080
+        ],
+        "environment": {
+          "architecture": "x86_64",
+          "assets": [],
+          "desktop_feature": true,
+          "documents": [
+            {
+              "assets": [],
+              "dependencies": [],
+              "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+              "payload_sha256": "e6919ec464ee61b35a11f60c61aa787f4efc7713a1774c17c42b7d8210ca16f9",
+              "revision": 1,
+              "schema_version": 4,
+              "type": "fold.motion.document"
+            }
+          ],
+          "gpu_feature": true,
+          "os": "linux",
+          "profile": "debug",
+          "resource_scope": "document payloads include embedded fonts; external asset fingerprints are catalog records, not a new verification of file bytes",
+          "source_sha256": "9eb59fcb0c96dbd9379da37a4f2317622096ded75c3aacf9956228c8940e85d5",
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "frames": [
+          {
+            "index": 0,
+            "measurements": [],
+            "rect": [
+              0,
+              0,
+              1080,
+              1080
+            ],
+            "render_seconds": 0.960163907,
+            "time": {
+              "denominator": 100,
+              "numerator": 83
+            }
+          }
+        ],
+        "generation": null,
+        "kind": "observation",
+        "ordering": "row-major",
+        "original_dimensions": [
+          1080,
+          1080
+        ],
+        "overlays": false,
+        "project_epoch": 1,
+        "resampling": "none",
+        "revision": 1,
+        "source": {
+          "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+          "output": "video"
+        },
+        "verification": "sampled evidence only; no aesthetic or analytical guarantee"
+      }
+    },
+    {
+      "index": 11,
+      "reference_time_ms": 920,
+      "duration_ms": 80,
+      "sha256": "ea173b1eadbfb608a816d1783ccd39d04dd43ee37f6d92f704c011d4bf1b508b",
+      "metadata": {
+        "alpha": "over black",
+        "backend": "gpu",
+        "build": "0.1.0",
+        "candidate": null,
+        "color": {
+          "display": "Rec.1886 Rec.709 - Display",
+          "look": null,
+          "view": "ACES 1.0 - SDR Video"
+        },
+        "cost_scope": "render_seconds includes rendering and selected measurement queries; per-stage costs unavailable",
+        "dimensions": [
+          1080,
+          1080
+        ],
+        "environment": {
+          "architecture": "x86_64",
+          "assets": [],
+          "desktop_feature": true,
+          "documents": [
+            {
+              "assets": [],
+              "dependencies": [],
+              "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+              "payload_sha256": "e6919ec464ee61b35a11f60c61aa787f4efc7713a1774c17c42b7d8210ca16f9",
+              "revision": 1,
+              "schema_version": 4,
+              "type": "fold.motion.document"
+            }
+          ],
+          "gpu_feature": true,
+          "os": "linux",
+          "profile": "debug",
+          "resource_scope": "document payloads include embedded fonts; external asset fingerprints are catalog records, not a new verification of file bytes",
+          "source_sha256": "9eb59fcb0c96dbd9379da37a4f2317622096ded75c3aacf9956228c8940e85d5",
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "frames": [
+          {
+            "index": 0,
+            "measurements": [],
+            "rect": [
+              0,
+              0,
+              1080,
+              1080
+            ],
+            "render_seconds": 0.980222823,
+            "time": {
+              "denominator": 25,
+              "numerator": 23
+            }
+          }
+        ],
+        "generation": null,
+        "kind": "observation",
+        "ordering": "row-major",
+        "original_dimensions": [
+          1080,
+          1080
+        ],
+        "overlays": false,
+        "project_epoch": 1,
+        "resampling": "none",
+        "revision": 1,
+        "source": {
+          "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+          "output": "video"
+        },
+        "verification": "sampled evidence only; no aesthetic or analytical guarantee"
+      }
+    },
+    {
+      "index": 12,
+      "reference_time_ms": 1000,
+      "duration_ms": 80,
+      "sha256": "ea173b1eadbfb608a816d1783ccd39d04dd43ee37f6d92f704c011d4bf1b508b",
+      "metadata": {
+        "alpha": "over black",
+        "backend": "gpu",
+        "build": "0.1.0",
+        "candidate": null,
+        "color": {
+          "display": "Rec.1886 Rec.709 - Display",
+          "look": null,
+          "view": "ACES 1.0 - SDR Video"
+        },
+        "cost_scope": "render_seconds includes rendering and selected measurement queries; per-stage costs unavailable",
+        "dimensions": [
+          1080,
+          1080
+        ],
+        "environment": {
+          "architecture": "x86_64",
+          "assets": [],
+          "desktop_feature": true,
+          "documents": [
+            {
+              "assets": [],
+              "dependencies": [],
+              "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+              "payload_sha256": "e6919ec464ee61b35a11f60c61aa787f4efc7713a1774c17c42b7d8210ca16f9",
+              "revision": 1,
+              "schema_version": 4,
+              "type": "fold.motion.document"
+            }
+          ],
+          "gpu_feature": true,
+          "os": "linux",
+          "profile": "debug",
+          "resource_scope": "document payloads include embedded fonts; external asset fingerprints are catalog records, not a new verification of file bytes",
+          "source_sha256": "9eb59fcb0c96dbd9379da37a4f2317622096ded75c3aacf9956228c8940e85d5",
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "frames": [
+          {
+            "index": 0,
+            "measurements": [],
+            "rect": [
+              0,
+              0,
+              1080,
+              1080
+            ],
+            "render_seconds": 0.989972694,
+            "time": {
+              "denominator": 1,
+              "numerator": 1
+            }
+          }
+        ],
+        "generation": null,
+        "kind": "observation",
+        "ordering": "row-major",
+        "original_dimensions": [
+          1080,
+          1080
+        ],
+        "overlays": false,
+        "project_epoch": 1,
+        "resampling": "none",
+        "revision": 1,
+        "source": {
+          "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+          "output": "video"
+        },
+        "verification": "sampled evidence only; no aesthetic or analytical guarantee"
+      }
+    },
+    {
+      "index": 13,
+      "reference_time_ms": 1080,
+      "duration_ms": 90,
+      "sha256": "ea173b1eadbfb608a816d1783ccd39d04dd43ee37f6d92f704c011d4bf1b508b",
+      "metadata": {
+        "alpha": "over black",
+        "backend": "gpu",
+        "build": "0.1.0",
+        "candidate": null,
+        "color": {
+          "display": "Rec.1886 Rec.709 - Display",
+          "look": null,
+          "view": "ACES 1.0 - SDR Video"
+        },
+        "cost_scope": "render_seconds includes rendering and selected measurement queries; per-stage costs unavailable",
+        "dimensions": [
+          1080,
+          1080
+        ],
+        "environment": {
+          "architecture": "x86_64",
+          "assets": [],
+          "desktop_feature": true,
+          "documents": [
+            {
+              "assets": [],
+              "dependencies": [],
+              "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+              "payload_sha256": "e6919ec464ee61b35a11f60c61aa787f4efc7713a1774c17c42b7d8210ca16f9",
+              "revision": 1,
+              "schema_version": 4,
+              "type": "fold.motion.document"
+            }
+          ],
+          "gpu_feature": true,
+          "os": "linux",
+          "profile": "debug",
+          "resource_scope": "document payloads include embedded fonts; external asset fingerprints are catalog records, not a new verification of file bytes",
+          "source_sha256": "9eb59fcb0c96dbd9379da37a4f2317622096ded75c3aacf9956228c8940e85d5",
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "frames": [
+          {
+            "index": 0,
+            "measurements": [],
+            "rect": [
+              0,
+              0,
+              1080,
+              1080
+            ],
+            "render_seconds": 0.983887124,
+            "time": {
+              "denominator": 25,
+              "numerator": 27
+            }
+          }
+        ],
+        "generation": null,
+        "kind": "observation",
+        "ordering": "row-major",
+        "original_dimensions": [
+          1080,
+          1080
+        ],
+        "overlays": false,
+        "project_epoch": 1,
+        "resampling": "none",
+        "revision": 1,
+        "source": {
+          "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+          "output": "video"
+        },
+        "verification": "sampled evidence only; no aesthetic or analytical guarantee"
+      }
+    },
+    {
+      "index": 14,
+      "reference_time_ms": 1170,
+      "duration_ms": 80,
+      "sha256": "b9d83b9e13cec0992e0b0941599f0bdfff4488c725e32212e4442e3acde31b38",
+      "metadata": {
+        "alpha": "over black",
+        "backend": "gpu",
+        "build": "0.1.0",
+        "candidate": null,
+        "color": {
+          "display": "Rec.1886 Rec.709 - Display",
+          "look": null,
+          "view": "ACES 1.0 - SDR Video"
+        },
+        "cost_scope": "render_seconds includes rendering and selected measurement queries; per-stage costs unavailable",
+        "dimensions": [
+          1080,
+          1080
+        ],
+        "environment": {
+          "architecture": "x86_64",
+          "assets": [],
+          "desktop_feature": true,
+          "documents": [
+            {
+              "assets": [],
+              "dependencies": [],
+              "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+              "payload_sha256": "e6919ec464ee61b35a11f60c61aa787f4efc7713a1774c17c42b7d8210ca16f9",
+              "revision": 1,
+              "schema_version": 4,
+              "type": "fold.motion.document"
+            }
+          ],
+          "gpu_feature": true,
+          "os": "linux",
+          "profile": "debug",
+          "resource_scope": "document payloads include embedded fonts; external asset fingerprints are catalog records, not a new verification of file bytes",
+          "source_sha256": "9eb59fcb0c96dbd9379da37a4f2317622096ded75c3aacf9956228c8940e85d5",
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "frames": [
+          {
+            "index": 0,
+            "measurements": [],
+            "rect": [
+              0,
+              0,
+              1080,
+              1080
+            ],
+            "render_seconds": 1.135479029,
+            "time": {
+              "denominator": 100,
+              "numerator": 117
+            }
+          }
+        ],
+        "generation": null,
+        "kind": "observation",
+        "ordering": "row-major",
+        "original_dimensions": [
+          1080,
+          1080
+        ],
+        "overlays": false,
+        "project_epoch": 1,
+        "resampling": "none",
+        "revision": 1,
+        "source": {
+          "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+          "output": "video"
+        },
+        "verification": "sampled evidence only; no aesthetic or analytical guarantee"
+      }
+    },
+    {
+      "index": 15,
+      "reference_time_ms": 1250,
+      "duration_ms": 80,
+      "sha256": "2cacbcb5f247142912b45eb528e0df71c1a7829198ff1f5637ce4a7a31a3578e",
+      "metadata": {
+        "alpha": "over black",
+        "backend": "gpu",
+        "build": "0.1.0",
+        "candidate": null,
+        "color": {
+          "display": "Rec.1886 Rec.709 - Display",
+          "look": null,
+          "view": "ACES 1.0 - SDR Video"
+        },
+        "cost_scope": "render_seconds includes rendering and selected measurement queries; per-stage costs unavailable",
+        "dimensions": [
+          1080,
+          1080
+        ],
+        "environment": {
+          "architecture": "x86_64",
+          "assets": [],
+          "desktop_feature": true,
+          "documents": [
+            {
+              "assets": [],
+              "dependencies": [],
+              "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+              "payload_sha256": "e6919ec464ee61b35a11f60c61aa787f4efc7713a1774c17c42b7d8210ca16f9",
+              "revision": 1,
+              "schema_version": 4,
+              "type": "fold.motion.document"
+            }
+          ],
+          "gpu_feature": true,
+          "os": "linux",
+          "profile": "debug",
+          "resource_scope": "document payloads include embedded fonts; external asset fingerprints are catalog records, not a new verification of file bytes",
+          "source_sha256": "9eb59fcb0c96dbd9379da37a4f2317622096ded75c3aacf9956228c8940e85d5",
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "frames": [
+          {
+            "index": 0,
+            "measurements": [],
+            "rect": [
+              0,
+              0,
+              1080,
+              1080
+            ],
+            "render_seconds": 0.998064458,
+            "time": {
+              "denominator": 4,
+              "numerator": 5
+            }
+          }
+        ],
+        "generation": null,
+        "kind": "observation",
+        "ordering": "row-major",
+        "original_dimensions": [
+          1080,
+          1080
+        ],
+        "overlays": false,
+        "project_epoch": 1,
+        "resampling": "none",
+        "revision": 1,
+        "source": {
+          "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+          "output": "video"
+        },
+        "verification": "sampled evidence only; no aesthetic or analytical guarantee"
+      }
+    },
+    {
+      "index": 16,
+      "reference_time_ms": 1330,
+      "duration_ms": 90,
+      "sha256": "2cacbcb5f247142912b45eb528e0df71c1a7829198ff1f5637ce4a7a31a3578e",
+      "metadata": {
+        "alpha": "over black",
+        "backend": "gpu",
+        "build": "0.1.0",
+        "candidate": null,
+        "color": {
+          "display": "Rec.1886 Rec.709 - Display",
+          "look": null,
+          "view": "ACES 1.0 - SDR Video"
+        },
+        "cost_scope": "render_seconds includes rendering and selected measurement queries; per-stage costs unavailable",
+        "dimensions": [
+          1080,
+          1080
+        ],
+        "environment": {
+          "architecture": "x86_64",
+          "assets": [],
+          "desktop_feature": true,
+          "documents": [
+            {
+              "assets": [],
+              "dependencies": [],
+              "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+              "payload_sha256": "e6919ec464ee61b35a11f60c61aa787f4efc7713a1774c17c42b7d8210ca16f9",
+              "revision": 1,
+              "schema_version": 4,
+              "type": "fold.motion.document"
+            }
+          ],
+          "gpu_feature": true,
+          "os": "linux",
+          "profile": "debug",
+          "resource_scope": "document payloads include embedded fonts; external asset fingerprints are catalog records, not a new verification of file bytes",
+          "source_sha256": "9eb59fcb0c96dbd9379da37a4f2317622096ded75c3aacf9956228c8940e85d5",
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "frames": [
+          {
+            "index": 0,
+            "measurements": [],
+            "rect": [
+              0,
+              0,
+              1080,
+              1080
+            ],
+            "render_seconds": 0.91502965,
+            "time": {
+              "denominator": 100,
+              "numerator": 133
+            }
+          }
+        ],
+        "generation": null,
+        "kind": "observation",
+        "ordering": "row-major",
+        "original_dimensions": [
+          1080,
+          1080
+        ],
+        "overlays": false,
+        "project_epoch": 1,
+        "resampling": "none",
+        "revision": 1,
+        "source": {
+          "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+          "output": "video"
+        },
+        "verification": "sampled evidence only; no aesthetic or analytical guarantee"
+      }
+    },
+    {
+      "index": 17,
+      "reference_time_ms": 1420,
+      "duration_ms": 80,
+      "sha256": "2cacbcb5f247142912b45eb528e0df71c1a7829198ff1f5637ce4a7a31a3578e",
+      "metadata": {
+        "alpha": "over black",
+        "backend": "gpu",
+        "build": "0.1.0",
+        "candidate": null,
+        "color": {
+          "display": "Rec.1886 Rec.709 - Display",
+          "look": null,
+          "view": "ACES 1.0 - SDR Video"
+        },
+        "cost_scope": "render_seconds includes rendering and selected measurement queries; per-stage costs unavailable",
+        "dimensions": [
+          1080,
+          1080
+        ],
+        "environment": {
+          "architecture": "x86_64",
+          "assets": [],
+          "desktop_feature": true,
+          "documents": [
+            {
+              "assets": [],
+              "dependencies": [],
+              "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+              "payload_sha256": "e6919ec464ee61b35a11f60c61aa787f4efc7713a1774c17c42b7d8210ca16f9",
+              "revision": 1,
+              "schema_version": 4,
+              "type": "fold.motion.document"
+            }
+          ],
+          "gpu_feature": true,
+          "os": "linux",
+          "profile": "debug",
+          "resource_scope": "document payloads include embedded fonts; external asset fingerprints are catalog records, not a new verification of file bytes",
+          "source_sha256": "9eb59fcb0c96dbd9379da37a4f2317622096ded75c3aacf9956228c8940e85d5",
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "frames": [
+          {
+            "index": 0,
+            "measurements": [],
+            "rect": [
+              0,
+              0,
+              1080,
+              1080
+            ],
+            "render_seconds": 0.934805413,
+            "time": {
+              "denominator": 50,
+              "numerator": 71
+            }
+          }
+        ],
+        "generation": null,
+        "kind": "observation",
+        "ordering": "row-major",
+        "original_dimensions": [
+          1080,
+          1080
+        ],
+        "overlays": false,
+        "project_epoch": 1,
+        "resampling": "none",
+        "revision": 1,
+        "source": {
+          "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+          "output": "video"
+        },
+        "verification": "sampled evidence only; no aesthetic or analytical guarantee"
+      }
+    },
+    {
+      "index": 18,
+      "reference_time_ms": 1500,
+      "duration_ms": 80,
+      "sha256": "2cacbcb5f247142912b45eb528e0df71c1a7829198ff1f5637ce4a7a31a3578e",
+      "metadata": {
+        "alpha": "over black",
+        "backend": "gpu",
+        "build": "0.1.0",
+        "candidate": null,
+        "color": {
+          "display": "Rec.1886 Rec.709 - Display",
+          "look": null,
+          "view": "ACES 1.0 - SDR Video"
+        },
+        "cost_scope": "render_seconds includes rendering and selected measurement queries; per-stage costs unavailable",
+        "dimensions": [
+          1080,
+          1080
+        ],
+        "environment": {
+          "architecture": "x86_64",
+          "assets": [],
+          "desktop_feature": true,
+          "documents": [
+            {
+              "assets": [],
+              "dependencies": [],
+              "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+              "payload_sha256": "e6919ec464ee61b35a11f60c61aa787f4efc7713a1774c17c42b7d8210ca16f9",
+              "revision": 1,
+              "schema_version": 4,
+              "type": "fold.motion.document"
+            }
+          ],
+          "gpu_feature": true,
+          "os": "linux",
+          "profile": "debug",
+          "resource_scope": "document payloads include embedded fonts; external asset fingerprints are catalog records, not a new verification of file bytes",
+          "source_sha256": "9eb59fcb0c96dbd9379da37a4f2317622096ded75c3aacf9956228c8940e85d5",
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "frames": [
+          {
+            "index": 0,
+            "measurements": [],
+            "rect": [
+              0,
+              0,
+              1080,
+              1080
+            ],
+            "render_seconds": 0.960937845,
+            "time": {
+              "denominator": 2,
+              "numerator": 3
+            }
+          }
+        ],
+        "generation": null,
+        "kind": "observation",
+        "ordering": "row-major",
+        "original_dimensions": [
+          1080,
+          1080
+        ],
+        "overlays": false,
+        "project_epoch": 1,
+        "resampling": "none",
+        "revision": 1,
+        "source": {
+          "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+          "output": "video"
+        },
+        "verification": "sampled evidence only; no aesthetic or analytical guarantee"
+      }
+    },
+    {
+      "index": 19,
+      "reference_time_ms": 1580,
+      "duration_ms": 90,
+      "sha256": "2cacbcb5f247142912b45eb528e0df71c1a7829198ff1f5637ce4a7a31a3578e",
+      "metadata": {
+        "alpha": "over black",
+        "backend": "gpu",
+        "build": "0.1.0",
+        "candidate": null,
+        "color": {
+          "display": "Rec.1886 Rec.709 - Display",
+          "look": null,
+          "view": "ACES 1.0 - SDR Video"
+        },
+        "cost_scope": "render_seconds includes rendering and selected measurement queries; per-stage costs unavailable",
+        "dimensions": [
+          1080,
+          1080
+        ],
+        "environment": {
+          "architecture": "x86_64",
+          "assets": [],
+          "desktop_feature": true,
+          "documents": [
+            {
+              "assets": [],
+              "dependencies": [],
+              "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+              "payload_sha256": "e6919ec464ee61b35a11f60c61aa787f4efc7713a1774c17c42b7d8210ca16f9",
+              "revision": 1,
+              "schema_version": 4,
+              "type": "fold.motion.document"
+            }
+          ],
+          "gpu_feature": true,
+          "os": "linux",
+          "profile": "debug",
+          "resource_scope": "document payloads include embedded fonts; external asset fingerprints are catalog records, not a new verification of file bytes",
+          "source_sha256": "9eb59fcb0c96dbd9379da37a4f2317622096ded75c3aacf9956228c8940e85d5",
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "frames": [
+          {
+            "index": 0,
+            "measurements": [],
+            "rect": [
+              0,
+              0,
+              1080,
+              1080
+            ],
+            "render_seconds": 0.948024754,
+            "time": {
+              "denominator": 50,
+              "numerator": 79
+            }
+          }
+        ],
+        "generation": null,
+        "kind": "observation",
+        "ordering": "row-major",
+        "original_dimensions": [
+          1080,
+          1080
+        ],
+        "overlays": false,
+        "project_epoch": 1,
+        "resampling": "none",
+        "revision": 1,
+        "source": {
+          "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+          "output": "video"
+        },
+        "verification": "sampled evidence only; no aesthetic or analytical guarantee"
+      }
+    },
+    {
+      "index": 20,
+      "reference_time_ms": 1670,
+      "duration_ms": 80,
+      "sha256": "2cacbcb5f247142912b45eb528e0df71c1a7829198ff1f5637ce4a7a31a3578e",
+      "metadata": {
+        "alpha": "over black",
+        "backend": "gpu",
+        "build": "0.1.0",
+        "candidate": null,
+        "color": {
+          "display": "Rec.1886 Rec.709 - Display",
+          "look": null,
+          "view": "ACES 1.0 - SDR Video"
+        },
+        "cost_scope": "render_seconds includes rendering and selected measurement queries; per-stage costs unavailable",
+        "dimensions": [
+          1080,
+          1080
+        ],
+        "environment": {
+          "architecture": "x86_64",
+          "assets": [],
+          "desktop_feature": true,
+          "documents": [
+            {
+              "assets": [],
+              "dependencies": [],
+              "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+              "payload_sha256": "e6919ec464ee61b35a11f60c61aa787f4efc7713a1774c17c42b7d8210ca16f9",
+              "revision": 1,
+              "schema_version": 4,
+              "type": "fold.motion.document"
+            }
+          ],
+          "gpu_feature": true,
+          "os": "linux",
+          "profile": "debug",
+          "resource_scope": "document payloads include embedded fonts; external asset fingerprints are catalog records, not a new verification of file bytes",
+          "source_sha256": "9eb59fcb0c96dbd9379da37a4f2317622096ded75c3aacf9956228c8940e85d5",
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "frames": [
+          {
+            "index": 0,
+            "measurements": [],
+            "rect": [
+              0,
+              0,
+              1080,
+              1080
+            ],
+            "render_seconds": 1.024335786,
+            "time": {
+              "denominator": 100,
+              "numerator": 167
+            }
+          }
+        ],
+        "generation": null,
+        "kind": "observation",
+        "ordering": "row-major",
+        "original_dimensions": [
+          1080,
+          1080
+        ],
+        "overlays": false,
+        "project_epoch": 1,
+        "resampling": "none",
+        "revision": 1,
+        "source": {
+          "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+          "output": "video"
+        },
+        "verification": "sampled evidence only; no aesthetic or analytical guarantee"
+      }
+    },
+    {
+      "index": 21,
+      "reference_time_ms": 1750,
+      "duration_ms": 80,
+      "sha256": "2cacbcb5f247142912b45eb528e0df71c1a7829198ff1f5637ce4a7a31a3578e",
+      "metadata": {
+        "alpha": "over black",
+        "backend": "gpu",
+        "build": "0.1.0",
+        "candidate": null,
+        "color": {
+          "display": "Rec.1886 Rec.709 - Display",
+          "look": null,
+          "view": "ACES 1.0 - SDR Video"
+        },
+        "cost_scope": "render_seconds includes rendering and selected measurement queries; per-stage costs unavailable",
+        "dimensions": [
+          1080,
+          1080
+        ],
+        "environment": {
+          "architecture": "x86_64",
+          "assets": [],
+          "desktop_feature": true,
+          "documents": [
+            {
+              "assets": [],
+              "dependencies": [],
+              "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+              "payload_sha256": "e6919ec464ee61b35a11f60c61aa787f4efc7713a1774c17c42b7d8210ca16f9",
+              "revision": 1,
+              "schema_version": 4,
+              "type": "fold.motion.document"
+            }
+          ],
+          "gpu_feature": true,
+          "os": "linux",
+          "profile": "debug",
+          "resource_scope": "document payloads include embedded fonts; external asset fingerprints are catalog records, not a new verification of file bytes",
+          "source_sha256": "9eb59fcb0c96dbd9379da37a4f2317622096ded75c3aacf9956228c8940e85d5",
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "frames": [
+          {
+            "index": 0,
+            "measurements": [],
+            "rect": [
+              0,
+              0,
+              1080,
+              1080
+            ],
+            "render_seconds": 0.97534962,
+            "time": {
+              "denominator": 4,
+              "numerator": 7
+            }
+          }
+        ],
+        "generation": null,
+        "kind": "observation",
+        "ordering": "row-major",
+        "original_dimensions": [
+          1080,
+          1080
+        ],
+        "overlays": false,
+        "project_epoch": 1,
+        "resampling": "none",
+        "revision": 1,
+        "source": {
+          "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+          "output": "video"
+        },
+        "verification": "sampled evidence only; no aesthetic or analytical guarantee"
+      }
+    },
+    {
+      "index": 22,
+      "reference_time_ms": 1830,
+      "duration_ms": 90,
+      "sha256": "2cacbcb5f247142912b45eb528e0df71c1a7829198ff1f5637ce4a7a31a3578e",
+      "metadata": {
+        "alpha": "over black",
+        "backend": "gpu",
+        "build": "0.1.0",
+        "candidate": null,
+        "color": {
+          "display": "Rec.1886 Rec.709 - Display",
+          "look": null,
+          "view": "ACES 1.0 - SDR Video"
+        },
+        "cost_scope": "render_seconds includes rendering and selected measurement queries; per-stage costs unavailable",
+        "dimensions": [
+          1080,
+          1080
+        ],
+        "environment": {
+          "architecture": "x86_64",
+          "assets": [],
+          "desktop_feature": true,
+          "documents": [
+            {
+              "assets": [],
+              "dependencies": [],
+              "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+              "payload_sha256": "e6919ec464ee61b35a11f60c61aa787f4efc7713a1774c17c42b7d8210ca16f9",
+              "revision": 1,
+              "schema_version": 4,
+              "type": "fold.motion.document"
+            }
+          ],
+          "gpu_feature": true,
+          "os": "linux",
+          "profile": "debug",
+          "resource_scope": "document payloads include embedded fonts; external asset fingerprints are catalog records, not a new verification of file bytes",
+          "source_sha256": "9eb59fcb0c96dbd9379da37a4f2317622096ded75c3aacf9956228c8940e85d5",
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "frames": [
+          {
+            "index": 0,
+            "measurements": [],
+            "rect": [
+              0,
+              0,
+              1080,
+              1080
+            ],
+            "render_seconds": 0.945439747,
+            "time": {
+              "denominator": 100,
+              "numerator": 183
+            }
+          }
+        ],
+        "generation": null,
+        "kind": "observation",
+        "ordering": "row-major",
+        "original_dimensions": [
+          1080,
+          1080
+        ],
+        "overlays": false,
+        "project_epoch": 1,
+        "resampling": "none",
+        "revision": 1,
+        "source": {
+          "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+          "output": "video"
+        },
+        "verification": "sampled evidence only; no aesthetic or analytical guarantee"
+      }
+    },
+    {
+      "index": 23,
+      "reference_time_ms": 1920,
+      "duration_ms": 80,
+      "sha256": "2cacbcb5f247142912b45eb528e0df71c1a7829198ff1f5637ce4a7a31a3578e",
+      "metadata": {
+        "alpha": "over black",
+        "backend": "gpu",
+        "build": "0.1.0",
+        "candidate": null,
+        "color": {
+          "display": "Rec.1886 Rec.709 - Display",
+          "look": null,
+          "view": "ACES 1.0 - SDR Video"
+        },
+        "cost_scope": "render_seconds includes rendering and selected measurement queries; per-stage costs unavailable",
+        "dimensions": [
+          1080,
+          1080
+        ],
+        "environment": {
+          "architecture": "x86_64",
+          "assets": [],
+          "desktop_feature": true,
+          "documents": [
+            {
+              "assets": [],
+              "dependencies": [],
+              "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+              "payload_sha256": "e6919ec464ee61b35a11f60c61aa787f4efc7713a1774c17c42b7d8210ca16f9",
+              "revision": 1,
+              "schema_version": 4,
+              "type": "fold.motion.document"
+            }
+          ],
+          "gpu_feature": true,
+          "os": "linux",
+          "profile": "debug",
+          "resource_scope": "document payloads include embedded fonts; external asset fingerprints are catalog records, not a new verification of file bytes",
+          "source_sha256": "9eb59fcb0c96dbd9379da37a4f2317622096ded75c3aacf9956228c8940e85d5",
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "frames": [
+          {
+            "index": 0,
+            "measurements": [],
+            "rect": [
+              0,
+              0,
+              1080,
+              1080
+            ],
+            "render_seconds": 1.000172014,
+            "time": {
+              "denominator": 25,
+              "numerator": 48
+            }
+          }
+        ],
+        "generation": null,
+        "kind": "observation",
+        "ordering": "row-major",
+        "original_dimensions": [
+          1080,
+          1080
+        ],
+        "overlays": false,
+        "project_epoch": 1,
+        "resampling": "none",
+        "revision": 1,
+        "source": {
+          "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+          "output": "video"
+        },
+        "verification": "sampled evidence only; no aesthetic or analytical guarantee"
+      }
+    },
+    {
+      "index": 24,
+      "reference_time_ms": 2000,
+      "duration_ms": 80,
+      "sha256": "ee5c3a3ede18c61196420a80c92c4fd1943f74f17e644db3d274796219da5e54",
+      "metadata": {
+        "alpha": "over black",
+        "backend": "gpu",
+        "build": "0.1.0",
+        "candidate": null,
+        "color": {
+          "display": "Rec.1886 Rec.709 - Display",
+          "look": null,
+          "view": "ACES 1.0 - SDR Video"
+        },
+        "cost_scope": "render_seconds includes rendering and selected measurement queries; per-stage costs unavailable",
+        "dimensions": [
+          1080,
+          1080
+        ],
+        "environment": {
+          "architecture": "x86_64",
+          "assets": [],
+          "desktop_feature": true,
+          "documents": [
+            {
+              "assets": [],
+              "dependencies": [],
+              "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+              "payload_sha256": "e6919ec464ee61b35a11f60c61aa787f4efc7713a1774c17c42b7d8210ca16f9",
+              "revision": 1,
+              "schema_version": 4,
+              "type": "fold.motion.document"
+            }
+          ],
+          "gpu_feature": true,
+          "os": "linux",
+          "profile": "debug",
+          "resource_scope": "document payloads include embedded fonts; external asset fingerprints are catalog records, not a new verification of file bytes",
+          "source_sha256": "9eb59fcb0c96dbd9379da37a4f2317622096ded75c3aacf9956228c8940e85d5",
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "frames": [
+          {
+            "index": 0,
+            "measurements": [],
+            "rect": [
+              0,
+              0,
+              1080,
+              1080
+            ],
+            "render_seconds": 1.176117667,
+            "time": {
+              "denominator": 1,
+              "numerator": 2
+            }
+          }
+        ],
+        "generation": null,
+        "kind": "observation",
+        "ordering": "row-major",
+        "original_dimensions": [
+          1080,
+          1080
+        ],
+        "overlays": false,
+        "project_epoch": 1,
+        "resampling": "none",
+        "revision": 1,
+        "source": {
+          "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+          "output": "video"
+        },
+        "verification": "sampled evidence only; no aesthetic or analytical guarantee"
+      }
+    },
+    {
+      "index": 25,
+      "reference_time_ms": 2080,
+      "duration_ms": 90,
+      "sha256": "16eadec16a12c919964751e7bbe4447c9f8ce5e6fcb95967bcb6a0fb520de7f8",
+      "metadata": {
+        "alpha": "over black",
+        "backend": "gpu",
+        "build": "0.1.0",
+        "candidate": null,
+        "color": {
+          "display": "Rec.1886 Rec.709 - Display",
+          "look": null,
+          "view": "ACES 1.0 - SDR Video"
+        },
+        "cost_scope": "render_seconds includes rendering and selected measurement queries; per-stage costs unavailable",
+        "dimensions": [
+          1080,
+          1080
+        ],
+        "environment": {
+          "architecture": "x86_64",
+          "assets": [],
+          "desktop_feature": true,
+          "documents": [
+            {
+              "assets": [],
+              "dependencies": [],
+              "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+              "payload_sha256": "e6919ec464ee61b35a11f60c61aa787f4efc7713a1774c17c42b7d8210ca16f9",
+              "revision": 1,
+              "schema_version": 4,
+              "type": "fold.motion.document"
+            }
+          ],
+          "gpu_feature": true,
+          "os": "linux",
+          "profile": "debug",
+          "resource_scope": "document payloads include embedded fonts; external asset fingerprints are catalog records, not a new verification of file bytes",
+          "source_sha256": "9eb59fcb0c96dbd9379da37a4f2317622096ded75c3aacf9956228c8940e85d5",
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "frames": [
+          {
+            "index": 0,
+            "measurements": [],
+            "rect": [
+              0,
+              0,
+              1080,
+              1080
+            ],
+            "render_seconds": 1.07646809,
+            "time": {
+              "denominator": 25,
+              "numerator": 52
+            }
+          }
+        ],
+        "generation": null,
+        "kind": "observation",
+        "ordering": "row-major",
+        "original_dimensions": [
+          1080,
+          1080
+        ],
+        "overlays": false,
+        "project_epoch": 1,
+        "resampling": "none",
+        "revision": 1,
+        "source": {
+          "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+          "output": "video"
+        },
+        "verification": "sampled evidence only; no aesthetic or analytical guarantee"
+      }
+    },
+    {
+      "index": 26,
+      "reference_time_ms": 2170,
+      "duration_ms": 80,
+      "sha256": "715959f989682e9b0d824abfcf1a55bcad1da0fc91d79b00dd5857472b736564",
+      "metadata": {
+        "alpha": "over black",
+        "backend": "gpu",
+        "build": "0.1.0",
+        "candidate": null,
+        "color": {
+          "display": "Rec.1886 Rec.709 - Display",
+          "look": null,
+          "view": "ACES 1.0 - SDR Video"
+        },
+        "cost_scope": "render_seconds includes rendering and selected measurement queries; per-stage costs unavailable",
+        "dimensions": [
+          1080,
+          1080
+        ],
+        "environment": {
+          "architecture": "x86_64",
+          "assets": [],
+          "desktop_feature": true,
+          "documents": [
+            {
+              "assets": [],
+              "dependencies": [],
+              "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+              "payload_sha256": "e6919ec464ee61b35a11f60c61aa787f4efc7713a1774c17c42b7d8210ca16f9",
+              "revision": 1,
+              "schema_version": 4,
+              "type": "fold.motion.document"
+            }
+          ],
+          "gpu_feature": true,
+          "os": "linux",
+          "profile": "debug",
+          "resource_scope": "document payloads include embedded fonts; external asset fingerprints are catalog records, not a new verification of file bytes",
+          "source_sha256": "9eb59fcb0c96dbd9379da37a4f2317622096ded75c3aacf9956228c8940e85d5",
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "frames": [
+          {
+            "index": 0,
+            "measurements": [],
+            "rect": [
+              0,
+              0,
+              1080,
+              1080
+            ],
+            "render_seconds": 1.175094058,
+            "time": {
+              "denominator": 100,
+              "numerator": 217
+            }
+          }
+        ],
+        "generation": null,
+        "kind": "observation",
+        "ordering": "row-major",
+        "original_dimensions": [
+          1080,
+          1080
+        ],
+        "overlays": false,
+        "project_epoch": 1,
+        "resampling": "none",
+        "revision": 1,
+        "source": {
+          "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+          "output": "video"
+        },
+        "verification": "sampled evidence only; no aesthetic or analytical guarantee"
+      }
+    },
+    {
+      "index": 27,
+      "reference_time_ms": 2250,
+      "duration_ms": 80,
+      "sha256": "715959f989682e9b0d824abfcf1a55bcad1da0fc91d79b00dd5857472b736564",
+      "metadata": {
+        "alpha": "over black",
+        "backend": "gpu",
+        "build": "0.1.0",
+        "candidate": null,
+        "color": {
+          "display": "Rec.1886 Rec.709 - Display",
+          "look": null,
+          "view": "ACES 1.0 - SDR Video"
+        },
+        "cost_scope": "render_seconds includes rendering and selected measurement queries; per-stage costs unavailable",
+        "dimensions": [
+          1080,
+          1080
+        ],
+        "environment": {
+          "architecture": "x86_64",
+          "assets": [],
+          "desktop_feature": true,
+          "documents": [
+            {
+              "assets": [],
+              "dependencies": [],
+              "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+              "payload_sha256": "e6919ec464ee61b35a11f60c61aa787f4efc7713a1774c17c42b7d8210ca16f9",
+              "revision": 1,
+              "schema_version": 4,
+              "type": "fold.motion.document"
+            }
+          ],
+          "gpu_feature": true,
+          "os": "linux",
+          "profile": "debug",
+          "resource_scope": "document payloads include embedded fonts; external asset fingerprints are catalog records, not a new verification of file bytes",
+          "source_sha256": "9eb59fcb0c96dbd9379da37a4f2317622096ded75c3aacf9956228c8940e85d5",
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "frames": [
+          {
+            "index": 0,
+            "measurements": [],
+            "rect": [
+              0,
+              0,
+              1080,
+              1080
+            ],
+            "render_seconds": 1.53506294,
+            "time": {
+              "denominator": 4,
+              "numerator": 9
+            }
+          }
+        ],
+        "generation": null,
+        "kind": "observation",
+        "ordering": "row-major",
+        "original_dimensions": [
+          1080,
+          1080
+        ],
+        "overlays": false,
+        "project_epoch": 1,
+        "resampling": "none",
+        "revision": 1,
+        "source": {
+          "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+          "output": "video"
+        },
+        "verification": "sampled evidence only; no aesthetic or analytical guarantee"
+      }
+    },
+    {
+      "index": 28,
+      "reference_time_ms": 2330,
+      "duration_ms": 90,
+      "sha256": "715959f989682e9b0d824abfcf1a55bcad1da0fc91d79b00dd5857472b736564",
+      "metadata": {
+        "alpha": "over black",
+        "backend": "gpu",
+        "build": "0.1.0",
+        "candidate": null,
+        "color": {
+          "display": "Rec.1886 Rec.709 - Display",
+          "look": null,
+          "view": "ACES 1.0 - SDR Video"
+        },
+        "cost_scope": "render_seconds includes rendering and selected measurement queries; per-stage costs unavailable",
+        "dimensions": [
+          1080,
+          1080
+        ],
+        "environment": {
+          "architecture": "x86_64",
+          "assets": [],
+          "desktop_feature": true,
+          "documents": [
+            {
+              "assets": [],
+              "dependencies": [],
+              "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+              "payload_sha256": "e6919ec464ee61b35a11f60c61aa787f4efc7713a1774c17c42b7d8210ca16f9",
+              "revision": 1,
+              "schema_version": 4,
+              "type": "fold.motion.document"
+            }
+          ],
+          "gpu_feature": true,
+          "os": "linux",
+          "profile": "debug",
+          "resource_scope": "document payloads include embedded fonts; external asset fingerprints are catalog records, not a new verification of file bytes",
+          "source_sha256": "9eb59fcb0c96dbd9379da37a4f2317622096ded75c3aacf9956228c8940e85d5",
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "frames": [
+          {
+            "index": 0,
+            "measurements": [],
+            "rect": [
+              0,
+              0,
+              1080,
+              1080
+            ],
+            "render_seconds": 1.285462151,
+            "time": {
+              "denominator": 100,
+              "numerator": 233
+            }
+          }
+        ],
+        "generation": null,
+        "kind": "observation",
+        "ordering": "row-major",
+        "original_dimensions": [
+          1080,
+          1080
+        ],
+        "overlays": false,
+        "project_epoch": 1,
+        "resampling": "none",
+        "revision": 1,
+        "source": {
+          "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+          "output": "video"
+        },
+        "verification": "sampled evidence only; no aesthetic or analytical guarantee"
+      }
+    },
+    {
+      "index": 29,
+      "reference_time_ms": 2420,
+      "duration_ms": 80,
+      "sha256": "715959f989682e9b0d824abfcf1a55bcad1da0fc91d79b00dd5857472b736564",
+      "metadata": {
+        "alpha": "over black",
+        "backend": "gpu",
+        "build": "0.1.0",
+        "candidate": null,
+        "color": {
+          "display": "Rec.1886 Rec.709 - Display",
+          "look": null,
+          "view": "ACES 1.0 - SDR Video"
+        },
+        "cost_scope": "render_seconds includes rendering and selected measurement queries; per-stage costs unavailable",
+        "dimensions": [
+          1080,
+          1080
+        ],
+        "environment": {
+          "architecture": "x86_64",
+          "assets": [],
+          "desktop_feature": true,
+          "documents": [
+            {
+              "assets": [],
+              "dependencies": [],
+              "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+              "payload_sha256": "e6919ec464ee61b35a11f60c61aa787f4efc7713a1774c17c42b7d8210ca16f9",
+              "revision": 1,
+              "schema_version": 4,
+              "type": "fold.motion.document"
+            }
+          ],
+          "gpu_feature": true,
+          "os": "linux",
+          "profile": "debug",
+          "resource_scope": "document payloads include embedded fonts; external asset fingerprints are catalog records, not a new verification of file bytes",
+          "source_sha256": "9eb59fcb0c96dbd9379da37a4f2317622096ded75c3aacf9956228c8940e85d5",
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "frames": [
+          {
+            "index": 0,
+            "measurements": [],
+            "rect": [
+              0,
+              0,
+              1080,
+              1080
+            ],
+            "render_seconds": 1.036536129,
+            "time": {
+              "denominator": 50,
+              "numerator": 121
+            }
+          }
+        ],
+        "generation": null,
+        "kind": "observation",
+        "ordering": "row-major",
+        "original_dimensions": [
+          1080,
+          1080
+        ],
+        "overlays": false,
+        "project_epoch": 1,
+        "resampling": "none",
+        "revision": 1,
+        "source": {
+          "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+          "output": "video"
+        },
+        "verification": "sampled evidence only; no aesthetic or analytical guarantee"
+      }
+    },
+    {
+      "index": 30,
+      "reference_time_ms": 2500,
+      "duration_ms": 80,
+      "sha256": "715959f989682e9b0d824abfcf1a55bcad1da0fc91d79b00dd5857472b736564",
+      "metadata": {
+        "alpha": "over black",
+        "backend": "gpu",
+        "build": "0.1.0",
+        "candidate": null,
+        "color": {
+          "display": "Rec.1886 Rec.709 - Display",
+          "look": null,
+          "view": "ACES 1.0 - SDR Video"
+        },
+        "cost_scope": "render_seconds includes rendering and selected measurement queries; per-stage costs unavailable",
+        "dimensions": [
+          1080,
+          1080
+        ],
+        "environment": {
+          "architecture": "x86_64",
+          "assets": [],
+          "desktop_feature": true,
+          "documents": [
+            {
+              "assets": [],
+              "dependencies": [],
+              "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+              "payload_sha256": "e6919ec464ee61b35a11f60c61aa787f4efc7713a1774c17c42b7d8210ca16f9",
+              "revision": 1,
+              "schema_version": 4,
+              "type": "fold.motion.document"
+            }
+          ],
+          "gpu_feature": true,
+          "os": "linux",
+          "profile": "debug",
+          "resource_scope": "document payloads include embedded fonts; external asset fingerprints are catalog records, not a new verification of file bytes",
+          "source_sha256": "9eb59fcb0c96dbd9379da37a4f2317622096ded75c3aacf9956228c8940e85d5",
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "frames": [
+          {
+            "index": 0,
+            "measurements": [],
+            "rect": [
+              0,
+              0,
+              1080,
+              1080
+            ],
+            "render_seconds": 1.075135163,
+            "time": {
+              "denominator": 2,
+              "numerator": 5
+            }
+          }
+        ],
+        "generation": null,
+        "kind": "observation",
+        "ordering": "row-major",
+        "original_dimensions": [
+          1080,
+          1080
+        ],
+        "overlays": false,
+        "project_epoch": 1,
+        "resampling": "none",
+        "revision": 1,
+        "source": {
+          "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+          "output": "video"
+        },
+        "verification": "sampled evidence only; no aesthetic or analytical guarantee"
+      }
+    },
+    {
+      "index": 31,
+      "reference_time_ms": 2580,
+      "duration_ms": 90,
+      "sha256": "715959f989682e9b0d824abfcf1a55bcad1da0fc91d79b00dd5857472b736564",
+      "metadata": {
+        "alpha": "over black",
+        "backend": "gpu",
+        "build": "0.1.0",
+        "candidate": null,
+        "color": {
+          "display": "Rec.1886 Rec.709 - Display",
+          "look": null,
+          "view": "ACES 1.0 - SDR Video"
+        },
+        "cost_scope": "render_seconds includes rendering and selected measurement queries; per-stage costs unavailable",
+        "dimensions": [
+          1080,
+          1080
+        ],
+        "environment": {
+          "architecture": "x86_64",
+          "assets": [],
+          "desktop_feature": true,
+          "documents": [
+            {
+              "assets": [],
+              "dependencies": [],
+              "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+              "payload_sha256": "e6919ec464ee61b35a11f60c61aa787f4efc7713a1774c17c42b7d8210ca16f9",
+              "revision": 1,
+              "schema_version": 4,
+              "type": "fold.motion.document"
+            }
+          ],
+          "gpu_feature": true,
+          "os": "linux",
+          "profile": "debug",
+          "resource_scope": "document payloads include embedded fonts; external asset fingerprints are catalog records, not a new verification of file bytes",
+          "source_sha256": "9eb59fcb0c96dbd9379da37a4f2317622096ded75c3aacf9956228c8940e85d5",
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "frames": [
+          {
+            "index": 0,
+            "measurements": [],
+            "rect": [
+              0,
+              0,
+              1080,
+              1080
+            ],
+            "render_seconds": 0.918129238,
+            "time": {
+              "denominator": 50,
+              "numerator": 129
+            }
+          }
+        ],
+        "generation": null,
+        "kind": "observation",
+        "ordering": "row-major",
+        "original_dimensions": [
+          1080,
+          1080
+        ],
+        "overlays": false,
+        "project_epoch": 1,
+        "resampling": "none",
+        "revision": 1,
+        "source": {
+          "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+          "output": "video"
+        },
+        "verification": "sampled evidence only; no aesthetic or analytical guarantee"
+      }
+    },
+    {
+      "index": 32,
+      "reference_time_ms": 2670,
+      "duration_ms": 80,
+      "sha256": "0a3df4c2018b4eb3729962ca7fcbbd8585bcc0b14cc46ad424355fb91b120405",
+      "metadata": {
+        "alpha": "over black",
+        "backend": "gpu",
+        "build": "0.1.0",
+        "candidate": null,
+        "color": {
+          "display": "Rec.1886 Rec.709 - Display",
+          "look": null,
+          "view": "ACES 1.0 - SDR Video"
+        },
+        "cost_scope": "render_seconds includes rendering and selected measurement queries; per-stage costs unavailable",
+        "dimensions": [
+          1080,
+          1080
+        ],
+        "environment": {
+          "architecture": "x86_64",
+          "assets": [],
+          "desktop_feature": true,
+          "documents": [
+            {
+              "assets": [],
+              "dependencies": [],
+              "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+              "payload_sha256": "e6919ec464ee61b35a11f60c61aa787f4efc7713a1774c17c42b7d8210ca16f9",
+              "revision": 1,
+              "schema_version": 4,
+              "type": "fold.motion.document"
+            }
+          ],
+          "gpu_feature": true,
+          "os": "linux",
+          "profile": "debug",
+          "resource_scope": "document payloads include embedded fonts; external asset fingerprints are catalog records, not a new verification of file bytes",
+          "source_sha256": "9eb59fcb0c96dbd9379da37a4f2317622096ded75c3aacf9956228c8940e85d5",
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "frames": [
+          {
+            "index": 0,
+            "measurements": [],
+            "rect": [
+              0,
+              0,
+              1080,
+              1080
+            ],
+            "render_seconds": 1.04346552,
+            "time": {
+              "denominator": 100,
+              "numerator": 267
+            }
+          }
+        ],
+        "generation": null,
+        "kind": "observation",
+        "ordering": "row-major",
+        "original_dimensions": [
+          1080,
+          1080
+        ],
+        "overlays": false,
+        "project_epoch": 1,
+        "resampling": "none",
+        "revision": 1,
+        "source": {
+          "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+          "output": "video"
+        },
+        "verification": "sampled evidence only; no aesthetic or analytical guarantee"
+      }
+    },
+    {
+      "index": 33,
+      "reference_time_ms": 2750,
+      "duration_ms": 80,
+      "sha256": "a4ca33dc27520dc56b291a5b97e55ae8437a8dfd386304eab64a9acb2df0aa80",
+      "metadata": {
+        "alpha": "over black",
+        "backend": "gpu",
+        "build": "0.1.0",
+        "candidate": null,
+        "color": {
+          "display": "Rec.1886 Rec.709 - Display",
+          "look": null,
+          "view": "ACES 1.0 - SDR Video"
+        },
+        "cost_scope": "render_seconds includes rendering and selected measurement queries; per-stage costs unavailable",
+        "dimensions": [
+          1080,
+          1080
+        ],
+        "environment": {
+          "architecture": "x86_64",
+          "assets": [],
+          "desktop_feature": true,
+          "documents": [
+            {
+              "assets": [],
+              "dependencies": [],
+              "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+              "payload_sha256": "e6919ec464ee61b35a11f60c61aa787f4efc7713a1774c17c42b7d8210ca16f9",
+              "revision": 1,
+              "schema_version": 4,
+              "type": "fold.motion.document"
+            }
+          ],
+          "gpu_feature": true,
+          "os": "linux",
+          "profile": "debug",
+          "resource_scope": "document payloads include embedded fonts; external asset fingerprints are catalog records, not a new verification of file bytes",
+          "source_sha256": "9eb59fcb0c96dbd9379da37a4f2317622096ded75c3aacf9956228c8940e85d5",
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "frames": [
+          {
+            "index": 0,
+            "measurements": [],
+            "rect": [
+              0,
+              0,
+              1080,
+              1080
+            ],
+            "render_seconds": 0.9844557,
+            "time": {
+              "denominator": 4,
+              "numerator": 11
+            }
+          }
+        ],
+        "generation": null,
+        "kind": "observation",
+        "ordering": "row-major",
+        "original_dimensions": [
+          1080,
+          1080
+        ],
+        "overlays": false,
+        "project_epoch": 1,
+        "resampling": "none",
+        "revision": 1,
+        "source": {
+          "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+          "output": "video"
+        },
+        "verification": "sampled evidence only; no aesthetic or analytical guarantee"
+      }
+    },
+    {
+      "index": 34,
+      "reference_time_ms": 2830,
+      "duration_ms": 90,
+      "sha256": "2cacbcb5f247142912b45eb528e0df71c1a7829198ff1f5637ce4a7a31a3578e",
+      "metadata": {
+        "alpha": "over black",
+        "backend": "gpu",
+        "build": "0.1.0",
+        "candidate": null,
+        "color": {
+          "display": "Rec.1886 Rec.709 - Display",
+          "look": null,
+          "view": "ACES 1.0 - SDR Video"
+        },
+        "cost_scope": "render_seconds includes rendering and selected measurement queries; per-stage costs unavailable",
+        "dimensions": [
+          1080,
+          1080
+        ],
+        "environment": {
+          "architecture": "x86_64",
+          "assets": [],
+          "desktop_feature": true,
+          "documents": [
+            {
+              "assets": [],
+              "dependencies": [],
+              "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+              "payload_sha256": "e6919ec464ee61b35a11f60c61aa787f4efc7713a1774c17c42b7d8210ca16f9",
+              "revision": 1,
+              "schema_version": 4,
+              "type": "fold.motion.document"
+            }
+          ],
+          "gpu_feature": true,
+          "os": "linux",
+          "profile": "debug",
+          "resource_scope": "document payloads include embedded fonts; external asset fingerprints are catalog records, not a new verification of file bytes",
+          "source_sha256": "9eb59fcb0c96dbd9379da37a4f2317622096ded75c3aacf9956228c8940e85d5",
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "frames": [
+          {
+            "index": 0,
+            "measurements": [],
+            "rect": [
+              0,
+              0,
+              1080,
+              1080
+            ],
+            "render_seconds": 0.946043308,
+            "time": {
+              "denominator": 100,
+              "numerator": 283
+            }
+          }
+        ],
+        "generation": null,
+        "kind": "observation",
+        "ordering": "row-major",
+        "original_dimensions": [
+          1080,
+          1080
+        ],
+        "overlays": false,
+        "project_epoch": 1,
+        "resampling": "none",
+        "revision": 1,
+        "source": {
+          "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+          "output": "video"
+        },
+        "verification": "sampled evidence only; no aesthetic or analytical guarantee"
+      }
+    },
+    {
+      "index": 35,
+      "reference_time_ms": 2920,
+      "duration_ms": 80,
+      "sha256": "2cacbcb5f247142912b45eb528e0df71c1a7829198ff1f5637ce4a7a31a3578e",
+      "metadata": {
+        "alpha": "over black",
+        "backend": "gpu",
+        "build": "0.1.0",
+        "candidate": null,
+        "color": {
+          "display": "Rec.1886 Rec.709 - Display",
+          "look": null,
+          "view": "ACES 1.0 - SDR Video"
+        },
+        "cost_scope": "render_seconds includes rendering and selected measurement queries; per-stage costs unavailable",
+        "dimensions": [
+          1080,
+          1080
+        ],
+        "environment": {
+          "architecture": "x86_64",
+          "assets": [],
+          "desktop_feature": true,
+          "documents": [
+            {
+              "assets": [],
+              "dependencies": [],
+              "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+              "payload_sha256": "e6919ec464ee61b35a11f60c61aa787f4efc7713a1774c17c42b7d8210ca16f9",
+              "revision": 1,
+              "schema_version": 4,
+              "type": "fold.motion.document"
+            }
+          ],
+          "gpu_feature": true,
+          "os": "linux",
+          "profile": "debug",
+          "resource_scope": "document payloads include embedded fonts; external asset fingerprints are catalog records, not a new verification of file bytes",
+          "source_sha256": "9eb59fcb0c96dbd9379da37a4f2317622096ded75c3aacf9956228c8940e85d5",
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "frames": [
+          {
+            "index": 0,
+            "measurements": [],
+            "rect": [
+              0,
+              0,
+              1080,
+              1080
+            ],
+            "render_seconds": 0.997637987,
+            "time": {
+              "denominator": 25,
+              "numerator": 73
+            }
+          }
+        ],
+        "generation": null,
+        "kind": "observation",
+        "ordering": "row-major",
+        "original_dimensions": [
+          1080,
+          1080
+        ],
+        "overlays": false,
+        "project_epoch": 1,
+        "resampling": "none",
+        "revision": 1,
+        "source": {
+          "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+          "output": "video"
+        },
+        "verification": "sampled evidence only; no aesthetic or analytical guarantee"
+      }
+    },
+    {
+      "index": 36,
+      "reference_time_ms": 3000,
+      "duration_ms": 80,
+      "sha256": "2cacbcb5f247142912b45eb528e0df71c1a7829198ff1f5637ce4a7a31a3578e",
+      "metadata": {
+        "alpha": "over black",
+        "backend": "gpu",
+        "build": "0.1.0",
+        "candidate": null,
+        "color": {
+          "display": "Rec.1886 Rec.709 - Display",
+          "look": null,
+          "view": "ACES 1.0 - SDR Video"
+        },
+        "cost_scope": "render_seconds includes rendering and selected measurement queries; per-stage costs unavailable",
+        "dimensions": [
+          1080,
+          1080
+        ],
+        "environment": {
+          "architecture": "x86_64",
+          "assets": [],
+          "desktop_feature": true,
+          "documents": [
+            {
+              "assets": [],
+              "dependencies": [],
+              "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+              "payload_sha256": "e6919ec464ee61b35a11f60c61aa787f4efc7713a1774c17c42b7d8210ca16f9",
+              "revision": 1,
+              "schema_version": 4,
+              "type": "fold.motion.document"
+            }
+          ],
+          "gpu_feature": true,
+          "os": "linux",
+          "profile": "debug",
+          "resource_scope": "document payloads include embedded fonts; external asset fingerprints are catalog records, not a new verification of file bytes",
+          "source_sha256": "9eb59fcb0c96dbd9379da37a4f2317622096ded75c3aacf9956228c8940e85d5",
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "frames": [
+          {
+            "index": 0,
+            "measurements": [],
+            "rect": [
+              0,
+              0,
+              1080,
+              1080
+            ],
+            "render_seconds": 1.044798404,
+            "time": {
+              "denominator": 1,
+              "numerator": 3
+            }
+          }
+        ],
+        "generation": null,
+        "kind": "observation",
+        "ordering": "row-major",
+        "original_dimensions": [
+          1080,
+          1080
+        ],
+        "overlays": false,
+        "project_epoch": 1,
+        "resampling": "none",
+        "revision": 1,
+        "source": {
+          "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+          "output": "video"
+        },
+        "verification": "sampled evidence only; no aesthetic or analytical guarantee"
+      }
+    },
+    {
+      "index": 37,
+      "reference_time_ms": 3080,
+      "duration_ms": 90,
+      "sha256": "2cacbcb5f247142912b45eb528e0df71c1a7829198ff1f5637ce4a7a31a3578e",
+      "metadata": {
+        "alpha": "over black",
+        "backend": "gpu",
+        "build": "0.1.0",
+        "candidate": null,
+        "color": {
+          "display": "Rec.1886 Rec.709 - Display",
+          "look": null,
+          "view": "ACES 1.0 - SDR Video"
+        },
+        "cost_scope": "render_seconds includes rendering and selected measurement queries; per-stage costs unavailable",
+        "dimensions": [
+          1080,
+          1080
+        ],
+        "environment": {
+          "architecture": "x86_64",
+          "assets": [],
+          "desktop_feature": true,
+          "documents": [
+            {
+              "assets": [],
+              "dependencies": [],
+              "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+              "payload_sha256": "e6919ec464ee61b35a11f60c61aa787f4efc7713a1774c17c42b7d8210ca16f9",
+              "revision": 1,
+              "schema_version": 4,
+              "type": "fold.motion.document"
+            }
+          ],
+          "gpu_feature": true,
+          "os": "linux",
+          "profile": "debug",
+          "resource_scope": "document payloads include embedded fonts; external asset fingerprints are catalog records, not a new verification of file bytes",
+          "source_sha256": "9eb59fcb0c96dbd9379da37a4f2317622096ded75c3aacf9956228c8940e85d5",
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "frames": [
+          {
+            "index": 0,
+            "measurements": [],
+            "rect": [
+              0,
+              0,
+              1080,
+              1080
+            ],
+            "render_seconds": 0.956672307,
+            "time": {
+              "denominator": 25,
+              "numerator": 77
+            }
+          }
+        ],
+        "generation": null,
+        "kind": "observation",
+        "ordering": "row-major",
+        "original_dimensions": [
+          1080,
+          1080
+        ],
+        "overlays": false,
+        "project_epoch": 1,
+        "resampling": "none",
+        "revision": 1,
+        "source": {
+          "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+          "output": "video"
+        },
+        "verification": "sampled evidence only; no aesthetic or analytical guarantee"
+      }
+    },
+    {
+      "index": 38,
+      "reference_time_ms": 3170,
+      "duration_ms": 80,
+      "sha256": "2cacbcb5f247142912b45eb528e0df71c1a7829198ff1f5637ce4a7a31a3578e",
+      "metadata": {
+        "alpha": "over black",
+        "backend": "gpu",
+        "build": "0.1.0",
+        "candidate": null,
+        "color": {
+          "display": "Rec.1886 Rec.709 - Display",
+          "look": null,
+          "view": "ACES 1.0 - SDR Video"
+        },
+        "cost_scope": "render_seconds includes rendering and selected measurement queries; per-stage costs unavailable",
+        "dimensions": [
+          1080,
+          1080
+        ],
+        "environment": {
+          "architecture": "x86_64",
+          "assets": [],
+          "desktop_feature": true,
+          "documents": [
+            {
+              "assets": [],
+              "dependencies": [],
+              "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+              "payload_sha256": "e6919ec464ee61b35a11f60c61aa787f4efc7713a1774c17c42b7d8210ca16f9",
+              "revision": 1,
+              "schema_version": 4,
+              "type": "fold.motion.document"
+            }
+          ],
+          "gpu_feature": true,
+          "os": "linux",
+          "profile": "debug",
+          "resource_scope": "document payloads include embedded fonts; external asset fingerprints are catalog records, not a new verification of file bytes",
+          "source_sha256": "9eb59fcb0c96dbd9379da37a4f2317622096ded75c3aacf9956228c8940e85d5",
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "frames": [
+          {
+            "index": 0,
+            "measurements": [],
+            "rect": [
+              0,
+              0,
+              1080,
+              1080
+            ],
+            "render_seconds": 0.987774941,
+            "time": {
+              "denominator": 100,
+              "numerator": 317
+            }
+          }
+        ],
+        "generation": null,
+        "kind": "observation",
+        "ordering": "row-major",
+        "original_dimensions": [
+          1080,
+          1080
+        ],
+        "overlays": false,
+        "project_epoch": 1,
+        "resampling": "none",
+        "revision": 1,
+        "source": {
+          "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+          "output": "video"
+        },
+        "verification": "sampled evidence only; no aesthetic or analytical guarantee"
+      }
+    },
+    {
+      "index": 39,
+      "reference_time_ms": 3250,
+      "duration_ms": 80,
+      "sha256": "2cacbcb5f247142912b45eb528e0df71c1a7829198ff1f5637ce4a7a31a3578e",
+      "metadata": {
+        "alpha": "over black",
+        "backend": "gpu",
+        "build": "0.1.0",
+        "candidate": null,
+        "color": {
+          "display": "Rec.1886 Rec.709 - Display",
+          "look": null,
+          "view": "ACES 1.0 - SDR Video"
+        },
+        "cost_scope": "render_seconds includes rendering and selected measurement queries; per-stage costs unavailable",
+        "dimensions": [
+          1080,
+          1080
+        ],
+        "environment": {
+          "architecture": "x86_64",
+          "assets": [],
+          "desktop_feature": true,
+          "documents": [
+            {
+              "assets": [],
+              "dependencies": [],
+              "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+              "payload_sha256": "e6919ec464ee61b35a11f60c61aa787f4efc7713a1774c17c42b7d8210ca16f9",
+              "revision": 1,
+              "schema_version": 4,
+              "type": "fold.motion.document"
+            }
+          ],
+          "gpu_feature": true,
+          "os": "linux",
+          "profile": "debug",
+          "resource_scope": "document payloads include embedded fonts; external asset fingerprints are catalog records, not a new verification of file bytes",
+          "source_sha256": "9eb59fcb0c96dbd9379da37a4f2317622096ded75c3aacf9956228c8940e85d5",
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "frames": [
+          {
+            "index": 0,
+            "measurements": [],
+            "rect": [
+              0,
+              0,
+              1080,
+              1080
+            ],
+            "render_seconds": 0.954381656,
+            "time": {
+              "denominator": 4,
+              "numerator": 13
+            }
+          }
+        ],
+        "generation": null,
+        "kind": "observation",
+        "ordering": "row-major",
+        "original_dimensions": [
+          1080,
+          1080
+        ],
+        "overlays": false,
+        "project_epoch": 1,
+        "resampling": "none",
+        "revision": 1,
+        "source": {
+          "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+          "output": "video"
+        },
+        "verification": "sampled evidence only; no aesthetic or analytical guarantee"
+      }
+    },
+    {
+      "index": 40,
+      "reference_time_ms": 3330,
+      "duration_ms": 90,
+      "sha256": "6d02dd2d4485e6f688aeff7637f4536784c19f247569bb0f8e3312994bc5f317",
+      "metadata": {
+        "alpha": "over black",
+        "backend": "gpu",
+        "build": "0.1.0",
+        "candidate": null,
+        "color": {
+          "display": "Rec.1886 Rec.709 - Display",
+          "look": null,
+          "view": "ACES 1.0 - SDR Video"
+        },
+        "cost_scope": "render_seconds includes rendering and selected measurement queries; per-stage costs unavailable",
+        "dimensions": [
+          1080,
+          1080
+        ],
+        "environment": {
+          "architecture": "x86_64",
+          "assets": [],
+          "desktop_feature": true,
+          "documents": [
+            {
+              "assets": [],
+              "dependencies": [],
+              "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+              "payload_sha256": "e6919ec464ee61b35a11f60c61aa787f4efc7713a1774c17c42b7d8210ca16f9",
+              "revision": 1,
+              "schema_version": 4,
+              "type": "fold.motion.document"
+            }
+          ],
+          "gpu_feature": true,
+          "os": "linux",
+          "profile": "debug",
+          "resource_scope": "document payloads include embedded fonts; external asset fingerprints are catalog records, not a new verification of file bytes",
+          "source_sha256": "9eb59fcb0c96dbd9379da37a4f2317622096ded75c3aacf9956228c8940e85d5",
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "frames": [
+          {
+            "index": 0,
+            "measurements": [],
+            "rect": [
+              0,
+              0,
+              1080,
+              1080
+            ],
+            "render_seconds": 1.025356702,
+            "time": {
+              "denominator": 100,
+              "numerator": 333
+            }
+          }
+        ],
+        "generation": null,
+        "kind": "observation",
+        "ordering": "row-major",
+        "original_dimensions": [
+          1080,
+          1080
+        ],
+        "overlays": false,
+        "project_epoch": 1,
+        "resampling": "none",
+        "revision": 1,
+        "source": {
+          "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+          "output": "video"
+        },
+        "verification": "sampled evidence only; no aesthetic or analytical guarantee"
+      }
+    },
+    {
+      "index": 41,
+      "reference_time_ms": 3420,
+      "duration_ms": 80,
+      "sha256": "7328b4cd3a72225e87b3b9878229fe28ad9d05dee0a87fb47993c365fceb5e63",
+      "metadata": {
+        "alpha": "over black",
+        "backend": "gpu",
+        "build": "0.1.0",
+        "candidate": null,
+        "color": {
+          "display": "Rec.1886 Rec.709 - Display",
+          "look": null,
+          "view": "ACES 1.0 - SDR Video"
+        },
+        "cost_scope": "render_seconds includes rendering and selected measurement queries; per-stage costs unavailable",
+        "dimensions": [
+          1080,
+          1080
+        ],
+        "environment": {
+          "architecture": "x86_64",
+          "assets": [],
+          "desktop_feature": true,
+          "documents": [
+            {
+              "assets": [],
+              "dependencies": [],
+              "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+              "payload_sha256": "e6919ec464ee61b35a11f60c61aa787f4efc7713a1774c17c42b7d8210ca16f9",
+              "revision": 1,
+              "schema_version": 4,
+              "type": "fold.motion.document"
+            }
+          ],
+          "gpu_feature": true,
+          "os": "linux",
+          "profile": "debug",
+          "resource_scope": "document payloads include embedded fonts; external asset fingerprints are catalog records, not a new verification of file bytes",
+          "source_sha256": "9eb59fcb0c96dbd9379da37a4f2317622096ded75c3aacf9956228c8940e85d5",
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "frames": [
+          {
+            "index": 0,
+            "measurements": [],
+            "rect": [
+              0,
+              0,
+              1080,
+              1080
+            ],
+            "render_seconds": 1.104119302,
+            "time": {
+              "denominator": 50,
+              "numerator": 171
+            }
+          }
+        ],
+        "generation": null,
+        "kind": "observation",
+        "ordering": "row-major",
+        "original_dimensions": [
+          1080,
+          1080
+        ],
+        "overlays": false,
+        "project_epoch": 1,
+        "resampling": "none",
+        "revision": 1,
+        "source": {
+          "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+          "output": "video"
+        },
+        "verification": "sampled evidence only; no aesthetic or analytical guarantee"
+      }
+    },
+    {
+      "index": 42,
+      "reference_time_ms": 3500,
+      "duration_ms": 80,
+      "sha256": "8899ee36184b5764b27592ad6394f0d2bbd34e5199edceee9a75bb384ec8a046",
+      "metadata": {
+        "alpha": "over black",
+        "backend": "gpu",
+        "build": "0.1.0",
+        "candidate": null,
+        "color": {
+          "display": "Rec.1886 Rec.709 - Display",
+          "look": null,
+          "view": "ACES 1.0 - SDR Video"
+        },
+        "cost_scope": "render_seconds includes rendering and selected measurement queries; per-stage costs unavailable",
+        "dimensions": [
+          1080,
+          1080
+        ],
+        "environment": {
+          "architecture": "x86_64",
+          "assets": [],
+          "desktop_feature": true,
+          "documents": [
+            {
+              "assets": [],
+              "dependencies": [],
+              "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+              "payload_sha256": "e6919ec464ee61b35a11f60c61aa787f4efc7713a1774c17c42b7d8210ca16f9",
+              "revision": 1,
+              "schema_version": 4,
+              "type": "fold.motion.document"
+            }
+          ],
+          "gpu_feature": true,
+          "os": "linux",
+          "profile": "debug",
+          "resource_scope": "document payloads include embedded fonts; external asset fingerprints are catalog records, not a new verification of file bytes",
+          "source_sha256": "9eb59fcb0c96dbd9379da37a4f2317622096ded75c3aacf9956228c8940e85d5",
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "frames": [
+          {
+            "index": 0,
+            "measurements": [],
+            "rect": [
+              0,
+              0,
+              1080,
+              1080
+            ],
+            "render_seconds": 1.006093506,
+            "time": {
+              "denominator": 2,
+              "numerator": 7
+            }
+          }
+        ],
+        "generation": null,
+        "kind": "observation",
+        "ordering": "row-major",
+        "original_dimensions": [
+          1080,
+          1080
+        ],
+        "overlays": false,
+        "project_epoch": 1,
+        "resampling": "none",
+        "revision": 1,
+        "source": {
+          "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+          "output": "video"
+        },
+        "verification": "sampled evidence only; no aesthetic or analytical guarantee"
+      }
+    },
+    {
+      "index": 43,
+      "reference_time_ms": 3580,
+      "duration_ms": 80,
+      "sha256": "f06d9df5895bf9c9ba432b2bee56840bfc9ece8033e5ba82d93e6933354cce61",
+      "metadata": {
+        "alpha": "over black",
+        "backend": "gpu",
+        "build": "0.1.0",
+        "candidate": null,
+        "color": {
+          "display": "Rec.1886 Rec.709 - Display",
+          "look": null,
+          "view": "ACES 1.0 - SDR Video"
+        },
+        "cost_scope": "render_seconds includes rendering and selected measurement queries; per-stage costs unavailable",
+        "dimensions": [
+          1080,
+          1080
+        ],
+        "environment": {
+          "architecture": "x86_64",
+          "assets": [],
+          "desktop_feature": true,
+          "documents": [
+            {
+              "assets": [],
+              "dependencies": [],
+              "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+              "payload_sha256": "e6919ec464ee61b35a11f60c61aa787f4efc7713a1774c17c42b7d8210ca16f9",
+              "revision": 1,
+              "schema_version": 4,
+              "type": "fold.motion.document"
+            }
+          ],
+          "gpu_feature": true,
+          "os": "linux",
+          "profile": "debug",
+          "resource_scope": "document payloads include embedded fonts; external asset fingerprints are catalog records, not a new verification of file bytes",
+          "source_sha256": "9eb59fcb0c96dbd9379da37a4f2317622096ded75c3aacf9956228c8940e85d5",
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "frames": [
+          {
+            "index": 0,
+            "measurements": [],
+            "rect": [
+              0,
+              0,
+              1080,
+              1080
+            ],
+            "render_seconds": 0.922913729,
+            "time": {
+              "denominator": 50,
+              "numerator": 179
+            }
+          }
+        ],
+        "generation": null,
+        "kind": "observation",
+        "ordering": "row-major",
+        "original_dimensions": [
+          1080,
+          1080
+        ],
+        "overlays": false,
+        "project_epoch": 1,
+        "resampling": "none",
+        "revision": 1,
+        "source": {
+          "document": "d4c800ee-02ac-49dc-b1e1-64c46d1a68a2",
+          "output": "video"
+        },
+        "verification": "sampled evidence only; no aesthetic or analytical guarantee"
+      }
+    }
+  ],
+  "duration_ms": 3660,
+  "verdict": "ungraded; full-cycle image evidence only; controls, persistence and native editing need separate checks"
+}

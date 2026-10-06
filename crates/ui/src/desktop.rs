@@ -522,7 +522,7 @@ impl Desktop {
             .agent_capture(self.client.as_mut(), self.shell.workspace.inspector_viewer);
         #[cfg(feature = "native-probe")]
         let preview_done = std::time::Instant::now();
-        for (id, _) in demands {
+        for (id, key) in demands {
             self.shell.review_state(id, self.preview.review_state(id));
             self.shell.presentation(
                 id,
@@ -530,7 +530,11 @@ impl Desktop {
                 self.preview.viewer_error(id).map(str::to_owned),
                 self.client.as_ref(),
             );
-            let preview = self.preview.state_for_viewer(id);
+            let preview = if id == fold_platform::desktop::AGENT_PREVIEW_VIEWER {
+                self.preview.state_for(key.as_ref())
+            } else {
+                self.preview.state_for_viewer(id)
+            };
             self.shell.viewer_instance(
                 ui,
                 id,

@@ -1,6 +1,10 @@
 //! Agent authoring uses the same typed graph and direct tools as the editor.
 pub mod discovery;
+mod fonts;
 mod graph_edits;
+mod observation;
+mod tools;
+mod verification;
 use crate::{
     Motion,
     fields::Datum,
@@ -12,9 +16,30 @@ use fold_project::Document;
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-#[derive(Deserialize)]
+#[derive(Deserialize, schemars::JsonSchema)]
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 enum Edit {
+    ObjectInputs {
+        object: ObjectId,
+        role: String,
+        inputs: std::collections::BTreeMap<String, Input>,
+    },
+    ObjectProperties {
+        object: ObjectId,
+        value: Value,
+    },
+    Reorder {
+        object: ObjectId,
+        target: ObjectId,
+        #[serde(default)]
+        after: bool,
+    },
+    ImportFont {
+        id: ObjectId,
+        path: std::path::PathBuf,
+        #[serde(default)]
+        face_index: u32,
+    },
     Info {
         value: Value,
     },
@@ -80,7 +105,12 @@ enum Edit {
     },
 }
 pub fn catalog() -> Value {
-    fold_platform::authoring::examples(json!({"operations": [
+    fold_platform::authoring::examples(
+        json!({"query_schemas":{"verify":verification::schema(),"evaluated":observation::schema()},"verification":{"checks":["movement","direction","displacement","periodicity","nonempty","relative_position","control_response"],"relative_position":"relative_to is another object or node/output target; relation left/right/above/below compares outline edges, offset compares centers to expected [dx,dy] at every sampled time","control_response":"control is a Published Control node; values contains two tagged Datum values. Evaluates both on private clones, with no project mutation. Bounded geometric/paint or uniform-field change is sampled evidence; intended magnitude and pixel visibility need separate checks."},"operation_schemas":[fold_platform::authoring::reference_schema(serde_json::to_value(schemars::schema_for!(Edit)).expect("operation schema")),graph_edits::schema(),tools::schema()],"queries":{"construction":{"mode":"construction","node":"UUID"},"fonts":{"mode":"fonts","query":"sans","offset":0,"limit":50},"text_metrics":{"mode":"text_metrics","node":"UUID","time":{"numerator":0,"denominator":1}},"parameters":{"mode":"parameters","node":"UUID","time":{"numerator":0,"denominator":1}},"evaluated":{"mode":"evaluated","time":{"numerator":0,"denominator":1},"fields":["counts","elements"],"limit":32},"signature":{"mode":"signature","kind":"fold.motion.math","settings":{"value_type":"Vector"}},"verify":{"mode":"verify","check":"movement","times":[{"numerator":0,"denominator":1},{"numerator":1,"denominator":1}],"tolerance":0.01},"validate":{"mode":"validate","edits":[]}},"query_notes":{"evaluated":"Defaults to the scene. Optionally select object UUID, or node UUID plus output socket; object and node are exclusive. Supported fields are counts, elements and bounds; limit is 1..200. Bounds measure outlines/points, excluding stroke, effects and clipping. Pixel visibility requires rendered evidence. Unknown fields are errors."},"operations": [
+        {"op":"object_inputs","object":"$object","role":"transform","inputs":{"translation":{"Value":{"Vector":[100,100]}}}},
+        {"op":"object_properties","object":"$object","value":{"visible":true,"name":"Title"}},
+        {"op":"reorder","object":"$front","target":"$back","after":false},
+        {"op":"import_font","id":"$font","path":"/absolute/font.ttf","face_index":0},
         {"op":"create_node","id":"$node","kind":"fold.motion.math","settings":{"operation":"Multiply","value_type":"Vector"},"inputs":{"a":{"Value":{"Vector":[1,2]}},"b":{"Value":{"Vector":[2,2]}}}},
         {"op":"publish","group":"$group","node":"$node","input":"a","port":"amplitude","name":"Amplitude","section":"Motion"},
         {"op":"port","group":"$group","port":"amplitude","name":"Height","advanced":false},
@@ -107,16 +137,17 @@ pub fn catalog() -> Value {
     "wrangle":{"language":"Rust 2024","abi":1,"channels":{"chf":"Scalar","chv":"Vector","chc":"Color","chb":"Bool"},"attributes":{"read":["attrf","attrv","attrc","attrb"],"write":["set_attrf","set_attrv","set_attrc","set_attrb"],"names":"literal strings; writes take a second typed argument"},"context":["position: [f64;2] (writable)","color: [f64;4] (writable)","opacity: f64 (writable)","time.seconds: f64","time.numerator: i64","time.denominator: u32","index: usize","count: usize","id: u64","delta_time: f64","tau: f64"],"limits":{"source_bytes":32768,"open_delimiters":128,"punctuation":1024,"words":512,"channels":64,"attributes":64,"memory_bytes":16777216,"fuel_per_element":100000,"fuel_per_node":10000000},"compiler":"rustc with wasm32-unknown-unknown, prlimit; optional FOLD_RUSTC","notes":"Source is a Rust function body. No macros, attributes, modules, imports, static state or external dependencies. Channels require literal names. wrangle synchronizes controls and compiles before commit. Existing unused controls are preserved."},
     "nodes": crate::graph::registry::definitions().iter().map(|d| json!({
         "id":d.id,"name":d.name,"category":d.category,"description":d.description,
-        "settings":(d.defaults)(),"metadata":discovery::metadata(d.id,&(d.defaults)()),
+        "settings":(d.defaults)(),"settings_schema":d.settings_schema.map(|f|f()),"atomic_settings":d.atomic_settings,"metadata":discovery::metadata(d.id,&(d.defaults)()),
         "inputs":d.inputs.iter().map(|p|json!({"id":p.id,"kind":p.kind,"default":p.default,"unit":p.unit,"sampling":discovery::sampling(d.id,&p.id,p.kind)})).collect::<Vec<_>>(),
         "outputs":d.outputs
-    })).collect::<Vec<_>>()}))
+    })).collect::<Vec<_>>()}),
+    )
 }
 pub fn inspect(document: &Document) -> Result<Value, String> {
     let m = Motion::from_document(document)?;
     Ok(
         json!({"info":m.info,"graph":m.graph,"groups":m.groups,"scene":m.scene,"controls":m.controls,
-        "fonts":m.fonts.iter().map(|(id,f)|json!({"id":id,"name":f.name})).collect::<Vec<_>>()}),
+        "fonts":m.fonts.iter().map(|(id,f)|json!({"id":id,"name":f.name,"face_index":f.face_index,"bytes":f.bytes().len(),"fingerprint":font_identity(f)})).collect::<Vec<_>>()}),
     )
 }
 fn graph(m: &mut Motion, group: Option<ObjectId>) -> Result<&mut crate::graph::Graph, String> {
@@ -137,11 +168,101 @@ pub fn author_cancellable(
     let before = m.clone();
     for (index, value) in edits.iter().enumerate() {
         cancel.check()?;
+        if value["op"].as_str().is_some_and(tools::accepts) {
+            tools::apply(&mut m, value).map_err(|e| format!("edit {index}: {e}"))?;
+            continue;
+        }
         if value["op"].as_str().is_some_and(graph_edits::accepts) {
             graph_edits::apply(&mut m, value, cancel).map_err(|e| format!("edit {index}: {e}"))?;
             continue;
         }
         match decode::<Edit>(value)? {
+            Edit::ObjectInputs {
+                object,
+                role,
+                inputs,
+            } => {
+                let o = m
+                    .scene
+                    .as_ref()
+                    .and_then(|s| s.objects.iter().find(|o| o.id == object))
+                    .ok_or("missing scene object")?;
+                let target = match role.as_str() {
+                    "source" => o.source.node,
+                    "transform" => o.transform.ok_or("object has no transform")?,
+                    "appearance" => o.appearance.ok_or("object has no appearance")?,
+                    _ => return Err("role must be source, transform or appearance".into()),
+                };
+                let n = m
+                    .graph
+                    .nodes
+                    .iter_mut()
+                    .find(|n| n.id == target)
+                    .ok_or("missing role node")?;
+                n.inputs.extend(inputs);
+            }
+            Edit::ObjectProperties { object, value } => {
+                let allowed = [
+                    "name", "visible", "locked", "opacity", "start", "end", "masks", "isolated",
+                ];
+                if value
+                    .as_object()
+                    .is_none_or(|v| v.keys().any(|k| !allowed.contains(&k.as_str())))
+                {
+                    return Err("object_properties accepts name, visible, locked, opacity, start, end, masks, isolated".into());
+                }
+                let o = m
+                    .scene
+                    .as_mut()
+                    .and_then(|s| s.objects.iter_mut().find(|o| o.id == object))
+                    .ok_or("missing scene object")?;
+                patch(o, &value)?;
+            }
+            Edit::Reorder {
+                object,
+                target,
+                after,
+            } => crate::authoring::scene::reorder(&mut m, object, target, after)?,
+            Edit::ImportFont {
+                id,
+                path,
+                face_index,
+            } => {
+                if !path.is_absolute() {
+                    return Err("font import requires an absolute path".into());
+                }
+                let metadata =
+                    std::fs::metadata(&path).map_err(|e| format!("font resource: {e}"))?;
+                if !metadata.is_file() || metadata.len() > 8 * 1024 * 1024 {
+                    return Err("font import requires a file of at most 8 MiB".into());
+                }
+                use std::io::Read;
+                let mut bytes = Vec::new();
+                std::fs::File::open(&path)
+                    .map_err(|e| e.to_string())?
+                    .take(8 * 1024 * 1024 + 1)
+                    .read_to_end(&mut bytes)
+                    .map_err(|e| e.to_string())?;
+                if bytes.len() > 8 * 1024 * 1024 {
+                    return Err("font exceeds 8 MiB".into());
+                }
+                let face = rustybuzz::Face::from_slice(&bytes, face_index)
+                    .ok_or("invalid font face/index")?;
+                let name = face
+                    .names()
+                    .into_iter()
+                    .find(|n| n.name_id == rustybuzz::ttf_parser::name_id::FULL_NAME)
+                    .and_then(|n| n.to_string())
+                    .unwrap_or_else(|| "Imported font".into());
+                m.fonts.insert(
+                    id,
+                    crate::document::Font {
+                        name,
+                        face_index,
+                        source: crate::document::FontSource::Embedded(bytes),
+                    },
+                );
+            }
             Edit::Info { value } => patch(&mut m.info, &value)?,
             Edit::Add { id, kind, group } => {
                 let g = graph(&mut m, group)?;
@@ -220,13 +341,22 @@ pub fn author_cancellable(
                     );
                 }
                 let g = graph(&mut m, group)?;
-                patch(
-                    g.nodes
-                        .iter_mut()
-                        .find(|n| n.id == node)
-                        .ok_or("missing node")?,
-                    &value,
-                )?;
+                let target = g
+                    .nodes
+                    .iter_mut()
+                    .find(|n| n.id == node)
+                    .ok_or("missing node")?;
+                // Input is a tagged union. Replacing a binding must remove the old
+                // variant (Link/Value), while settings retain recursive patch semantics.
+                let mut patch_value = value.clone();
+                if let Some(inputs) = patch_value.as_object_mut().unwrap().remove("inputs") {
+                    let inputs: std::collections::BTreeMap<String, Input> = decode(&inputs)?;
+                    target.inputs.extend(inputs);
+                }
+                if let Some(settings) = patch_value.as_object_mut().unwrap().remove("settings") {
+                    target.patch_settings(&settings)?;
+                }
+                patch(target, &patch_value)?;
             }
             Edit::Remove { node, group } => {
                 let g = graph(&mut m, group)?;
@@ -345,4 +475,17 @@ mod tests {
             })
             .unwrap();
     }
+}
+
+/// Stable diagnostic identity; FNV-1a is explicitly not a cryptographic integrity claim.
+fn font_identity(font: &crate::document::Font) -> String {
+    let mut hash = 0xcbf29ce484222325u64;
+    for byte in font
+        .bytes()
+        .iter()
+        .chain(font.face_index.to_le_bytes().iter())
+    {
+        hash = (hash ^ u64::from(*byte)).wrapping_mul(0x100000001b3);
+    }
+    format!("fnv1a64:{hash:016x}")
 }

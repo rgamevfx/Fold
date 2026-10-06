@@ -1,8 +1,10 @@
 //! Built-in node implementations. Ordinary additions need one module and one
 //! catalog entry; the evaluator does not match over node types.
+pub mod align_content;
 pub mod animation;
 pub mod content;
 pub mod distribution;
+pub mod expression;
 pub mod format_text;
 pub mod influence;
 pub mod interface;
@@ -11,6 +13,7 @@ pub mod path_points;
 pub mod response;
 pub mod scene;
 pub mod text_on_points;
+pub mod text_select;
 pub mod values;
 use crate::{
     evaluation::{Evaluator, Outputs},
@@ -45,6 +48,8 @@ pub fn definition(
         name,
         category,
         description: name,
+        atomic_settings: &[],
+        settings_schema: None,
         inputs,
         outputs,
         signature: None,
@@ -76,6 +81,7 @@ pub mod history;
 
 pub mod convex_sweep;
 pub mod shape_grid;
+pub mod shape_points;
 
 pub mod direction;
 pub mod particle_targets;

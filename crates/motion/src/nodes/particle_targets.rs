@@ -2,7 +2,7 @@
 use super::*;
 use crate::{
     evaluation::{Value, output},
-    geometry::{drawings_with, sampling},
+    geometry::sampling,
 };
 use std::sync::Arc;
 
@@ -24,29 +24,13 @@ pub fn definition_targets() -> Definition {
             }
             let attractor = e.content(n, "attractor")?;
             let seed = e.scalar(n, "seed")?.to_bits();
-            let drawings = drawings_with(&attractor, [1., 1.], e.budget.cancel())?;
             let mut shapes = vec![];
             let mut area = 0.;
-            for drawing in drawings {
-                e.budget.spend()?;
-                let m = drawing.transform;
-                let scale = m[0].hypot(m[1]).max(m[2].hypot(m[3])).max(1.);
-                let mut contours = sampling::contours(&drawing.path, 0.25 / scale, &mut e.budget)?;
-                let mut min = [f64::INFINITY; 2];
-                let mut max = [f64::NEG_INFINITY; 2];
-                for p in contours.iter_mut().flatten() {
-                    *p = [
-                        m[0] * p[0] + m[2] * p[1] + m[4],
-                        m[1] * p[0] + m[3] * p[1] + m[5],
-                    ];
-                    for i in 0..2 {
-                        if !p[i].is_finite() || p[i].abs() > 1e9 {
-                            return Err("Attractor exceeds coordinate bounds".into());
-                        }
-                        min[i] = min[i].min(p[i]);
-                        max[i] = max[i].max(p[i]);
-                    }
-                }
+            for drawing in sampling::filled_shapes(&attractor, &mut e.budget)? {
+                let [x0, y0, x1, y1] = drawing.bounds;
+                let min = [x0, y0];
+                let max = [x1, y1];
+                let contours = drawing.contours;
                 let weight = (max[0] - min[0]) * (max[1] - min[1]);
                 if weight.is_finite() && weight > 0. {
                     area += weight;

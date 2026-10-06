@@ -31,6 +31,9 @@ fn graph_typography_renders_across_zoom_dpi_and_ui_scale() {
     std::fs::create_dir_all("/tmp/fold-node-ui").unwrap();
     let mut surfaces = Vec::new();
     for (name, width, dpi, scale, wheel) in [
+        ("candidate-normal", 680., 1., 1., 0.),
+        ("candidate-narrow", 340., 1., 1., 0.),
+        ("candidate-conflict", 340., 1., 1., 0.),
         ("normal", 1000., 1., 1., 0.),
         ("zoom-in", 1000., 1., 1., 3.),
         ("overview", 1000., 1., 1., -5.),
@@ -113,6 +116,7 @@ fn graph_typography_renders_across_zoom_dpi_and_ui_scale() {
             serde_json::to_value(fold_platform::workspace::Workspace::default()).unwrap(),
         );
         let mut host = MenuHost::default();
+        host.conflict = name == "candidate-conflict";
         host.state.dirty = true;
         host.state.can_undo = true;
         if name == "menu-unsaved" {
@@ -174,6 +178,12 @@ fn graph_typography_renders_across_zoom_dpi_and_ui_scale() {
                 });
                 project_menu.confirmation(ui, &mut host);
                 workspace_menu.dialog(ui, Some(&settings));
+            } else if name.starts_with("candidate") {
+                ui.window("Agent preview")
+                    .position([0.; 2], imgui::Condition::Always)
+                    .size([width, 460.], imgui::Condition::Always)
+                    .build(|| {});
+                crate::candidate_preview::draw(ui, &crate::shell::Preview::Pending, &mut host);
             } else if name.starts_with("settings") {
                 ui.window("Settings##fold.settings")
                     .position([0.; 2], imgui::Condition::Always)
@@ -297,9 +307,31 @@ fn graph_typography_renders_across_zoom_dpi_and_ui_scale() {
 
 #[derive(Default)]
 struct MenuHost {
+    conflict: bool,
     state: fold_platform::desktop::DesktopState,
 }
 impl fold_platform::desktop::DesktopClient for MenuHost {
+    fn agent_preview(&self) -> Option<fold_platform::desktop::AgentPreview> {
+        Some(fold_platform::desktop::AgentPreview {
+            candidate: 1,
+            generation: 3,
+            frames: 240,
+            conflict: self.conflict,
+            original: false,
+            can_compare: true,
+            key: fold_platform::desktop::PreviewKey {
+                region: None,
+                target: None,
+                output: "video".into(),
+                content: "candidate".into(),
+                frame: 18,
+                dimensions: [960, 540],
+                view: 1,
+                channels: Default::default(),
+            },
+        })
+    }
+
     fn agent_access(&self) -> serde_json::Value {
         serde_json::json!({"enabled":true,"session":"test","error":null})
     }

@@ -1,8 +1,9 @@
 //! Pure typed fields. Evaluation context is explicit and bounded; no playhead state.
+pub mod expression;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 pub enum Kind {
     Scalar,
     Vector,
@@ -14,7 +15,7 @@ pub enum Kind {
     Points,
     Generic,
 }
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 pub enum Datum {
     Scalar(f64),
     Vector([f64; 2]),

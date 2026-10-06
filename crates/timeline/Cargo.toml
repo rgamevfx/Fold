@@ -9,6 +9,7 @@ default = []
 ui = ["dep:fold-ui"]
 
 [dependencies]
+schemars.workspace = true
 fold-foundation.workspace = true
 fold-project.workspace = true
 fold-media.workspace = true

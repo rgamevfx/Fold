@@ -1,0 +1,33 @@
+# Phase 48 — Live procedural authoring and artist handoff
+
+Accepted goal: an agent writes a compact program through public MCP, shows its result inside Fold, and revises the same editable construction alongside the artist. Extend phase 47's existing bounded JavaScript SDK and candidate machinery. Keep phase 47's broader gates independent.
+
+## Delivered
+
+- SDK v2 uses shared Rust authoring for Badge, Duplicator, Oscillator, Color Ramp, grouping, parenting, styles and source references. Existing generated graph/interface operations remain available through `Document.edit`. These create ordinary editable constructions, with no separate evaluator.
+- Namespaced handles live in project settings and survive rename, reconnect and save/reopen. Constructors initialize new identities only; explicit setters update existing ones. Deleted objects **and documents** reject reuse. The public `forget` transaction explicitly releases selected identities without deleting artwork.
+- `catalog guide="live-tools"`, versioned module/declarations, construction inspection and an executable public-tool demo provide a short starting path.
+- Native **Agent preview** uses the existing bounded renderer/cache with an immutable candidate root, independent frame scrubber, Original comparison, Apply and Discard. Changed project revisions/active artist edits disable Apply. Applying produces one undo entry. Pending candidate captures cannot misrepresent an older frame as the current generation.
+- [`demos/badge-live.js`](../demos/badge-live.js), [`fold-badge-live.fold`](../demos/fold-badge-live.fold), [artist guide](../demos/fold-badge-live.md), and [public MCP reproduction/verification script](../skills/fold/scripts/live_badge.py). The existing artist-edited Badge demo was not overwritten.
+
+## Acceptance evidence
+
+1. **Public-only construction:** reproduction uses MCP author/candidate/render/inspect/save, never project-archive edits or Rust helpers. A fresh independent agent used only public catalog/SDK guidance; its first run required no implementation coaching.
+2. **Native handoff:** Badge children, independent Duplicator, Oscillator and Color Ramp, with Motion → Composite → Sequence. Independent inspection counted 52 instances and 52 paths; source/driver links remain distinct.
+3. **Reference parity:** pixel-identical 960×540 composite frames at 0, 3/8, 3/4, 5/4 and 5 seconds against the committed original Badge. Sequence output matches Composite. Comparison preserves the reference's legacy color policy: the original file is loaded into an isolated session, all artwork removed through public transactions, then reconstructed. New managed-color projects intentionally display the same authored numbers differently.
+4. **Live preview:** a real release desktop under an isolated X11 virtual display rendered a ±20 oscillator candidate at 3/4 seconds on GPU. Public capture reported the correct candidate/generation and `stale:false`; live revision stayed unchanged and the candidate was discarded. [Image](evidence/phase-48/native-preview.png), [capture metadata](evidence/phase-48/native-capture.json).
+5. **Artist preservation:** replacement text, renamed Badge and authored placement survive repeat construction, save/reopen, and an explicit oscillator-only update. The independent trial also compared complete inspected Motion data before/after replay and after final reopen; all 12 handles stayed stable, with no new nodes/objects.
+6. **Identity/deletion safety:** native SDK tests cover saved bindings and published-control identities, deleted-node rejection, deleted-document rejection and explicit binding release. Project-level storage prevents deleting a document from silently erasing its identity history.
+7. **Transaction safety:** public socket tests cover failed code/edit, stale generation and revision rejection, private observation, discard, active preview comparison, and one-entry application/undo. When the live source is deleted during Original comparison, the candidate remains visible and conflicted. Queue tests verify live and candidate demands retain different immutable roots.
+8. **Independent agent:** [first cold trial](evidence/phase-48/fresh-agent-first.md) and [repeat against the final persistence build](evidence/phase-48/fresh-agent-final.md). The repeat started empty and benefited from its own first-trial learning: 106 public invocations including polling, 57.05 logged seconds, no failed requests/retries. Six of ten rendered frames were visually inspected, including [final reopened artwork](evidence/phase-48/fresh-agent-reopened.png). This is workflow evidence, not a broad success-rate or performance benchmark.
+
+The agent's discovery feedback hardened public guidance: discoverable live-tools topic, explicit image payload format, full-canvas rectangle placement, local source versus visible-copy placement, and color-policy differences. A regression check found a collision with existing graph `duplicate`; the shipped creative operation is now `duplicator`, while SDK `.duplicate()` stays concise. Existing independent graph duplication tests pass.
+
+## Checks and limits
+
+- App library: 23 tests passed; public agent-access integration: 11 passed; focused comparison/deletion case passed after its final change.
+- Motion public graph regression: 11 passed. UI library: 85 passed, 3 native/GPU tests ignored by default; the relevant native GPU capture test was run explicitly and passed.
+- SDK JavaScript tests passed. Release desktop and CLI built with desktop features. Touched Rust formatted; diff whitespace check passed. Workspace-wide checks and Clippy deferred; no unrelated source cleanup.
+- Native preview chrome visually checked at [normal](evidence/phase-48/candidate-normal.png), [narrow](evidence/phase-48/candidate-narrow.png), and [conflicted](evidence/phase-48/candidate-conflict.png) sizes. Rendering was exercised in a real desktop; buttons/scrubbing/comparison were exercised through their native host actions, not manual pointer interaction on the user's desktop. Wayland/manual UX review remains the user's next-session trial.
+- Remaining public capability gaps: no MCP project color-policy mutation; `agent serve PATH` loads correct saved content but currently reports `path:null, dirty:true` until an explicit save. Tracked in dev-plan. These do not invalidate saved identity/content checks.
+- Preview is video/frame scrubbing, with a 960-pixel longest-edge preview; exact/full-resolution evidence remains `render`/`observe`. Entirely new documents have no Original image. Automatic rebase, arbitrary Rust scene compilation, a full script-editor UI, audio preview and broader phase-47 qualification are outside this phase.

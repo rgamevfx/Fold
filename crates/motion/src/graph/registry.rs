@@ -6,6 +6,9 @@ pub fn definitions() -> &'static [Definition] {
     REGISTRY.get_or_init(|| {
         let mut result = vec![
             crate::wrangle::definition(),
+            nodes::expression::definition_expression(),
+            nodes::text_select::definition_select(),
+            nodes::align_content::definition_align(),
             nodes::content::rectangle::definition(),
             nodes::content::background::definition_background(),
             nodes::content::ellipse::definition(),
@@ -31,6 +34,7 @@ pub fn definitions() -> &'static [Definition] {
         result.extend(nodes::attributes::definitions());
         result.push(nodes::history::definition_history());
         result.push(nodes::shape_grid::definition_grid());
+        result.push(nodes::shape_points::definition_points());
         result.push(nodes::convex_sweep::definition_sweep());
         result.push(nodes::direction::definition_direction());
         result.extend(nodes::particles::definitions());

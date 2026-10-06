@@ -2,16 +2,18 @@ use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, fmt};
 
 /// Normalized rational seconds. Denominators are positive; arithmetic never wraps.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(try_from = "TimeRepr", into = "TimeRepr")]
 pub struct Time {
     numerator: i64,
+    #[schemars(range(min = 1))]
     denominator: u32,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, schemars::JsonSchema)]
 struct TimeRepr {
     numerator: i64,
+    #[schemars(range(min = 1))]
     denominator: u32,
 }
 

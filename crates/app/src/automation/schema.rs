@@ -29,20 +29,20 @@ pub fn methods() -> Value {
         ),
         (
             "catalog",
-            "Discover package operations and node signatures on demand.",
-            json!({"method":string,"type":string,"query":string,"nodes":{"type":"boolean"}}),
+            "Call without query arguments first for exact package type IDs and workflow guidance. Then discover method schemas, package operations, configured node signatures, shipped guides, or the SDK on demand.",
+            json!({"method":string,"type":string,"query":string,"nodes":{"type":"boolean"},"sdk":{"type":"boolean"},"guide":{"type":"string","enum":["workflow","motion","graph","glossary","candidates","live-tools"]}}),
             vec![],
         ),
         (
             "inspect",
             "Inspect a document through its provider. Returns a job; poll jobs. Arrays support offset/limit and JSON pointer selection.",
-            json!({"document":string,"since_revision":integer,"project_epoch":integer,"query":{"type":"object","description":"Package-owned graph query: mode nodes/upstream/downstream/handles, node, group, depth, limit, offset; handles accepts nodes."},"pointer":string,"offset":integer,"limit":{"type":"integer","minimum":1,"maximum":200}}),
+            json!({"document":string,"since_revision":integer,"project_epoch":integer,"query":{"type":"object","description":"Package-owned query. Motion modes: nodes, upstream, downstream, handles, signature (kind/settings), validate (edits), evaluated (time and optional object or node/output, fields, limit). Call catalog type for query examples."},"candidate":integer,"generation":integer,"pointer":string,"offset":integer,"limit":{"type":"integer","minimum":1,"maximum":200}}),
             vec!["document"],
         ),
         (
             "batch",
             "Stage validated edits and publish one undo step. Discover operations with catalog. Poll returned job for commitment.",
-            json!({"request_id":string,"revision":integer,"project_epoch":integer,"label":string,"ids":{"type":"array","items":string},"operations":{"type":"array","items":{"type":"object"},"minItems":1,"maxItems":128},"validate_only":{"type":"boolean"}}),
+            json!({"request_id":string,"revision":integer,"project_epoch":integer,"label":string,"ids":{"type":"array","items":string},"operations":{"type":"array","items":fold_platform::authoring::inline_schema(&super::batch::operation_schema()),"minItems":1,"maxItems":128},"validate_only":{"type":"boolean"}}),
             vec![
                 "request_id",
                 "revision",
@@ -50,6 +50,25 @@ pub fn methods() -> Value {
                 "label",
                 "operations",
             ],
+        ),
+        (
+            "author",
+            "Execute bounded JavaScript SDK code against a private candidate. A prebound plan is a FoldPlan; use plan.document/existingDocument and catalog sdk=true for the reference. Use a stable namespace; saved handles reload automatically after reconnect/reopen. Constructors apply creation defaults only; setters explicitly update. Jobs return full handles and binding signatures. catalog guide=live-tools explains shipped tools and preview. The code only emits native batch operations, with no filesystem, network or process access. Any exception leaves the candidate unchanged. Poll the job. Limits: 64 KiB source, 32 MiB JS heap, 2 seconds, 1 MiB batch output.",
+            json!({"request_id":string,"project_epoch":integer,"candidate":integer,"generation":integer,"label":string,"source":string,"namespace":string,"handles":{"type":"object","additionalProperties":{"type":"string"}}}),
+            vec![
+                "request_id",
+                "project_epoch",
+                "candidate",
+                "generation",
+                "label",
+                "source",
+            ],
+        ),
+        (
+            "candidate",
+            "Private edits: preview with source and time opens a separate native Agent preview viewer with Apply/Discard; it does not move artist playback. begin at live revision; edit using batch at candidate revision; inspect/render at candidate+generation+project_epoch; commit once at base revision or discard. Declare every batch {$ref:name} in batch.ids. Every mutation needs a new request_id; poll edit jobs. Retained for 15 idle minutes, at most four candidates. Conflicts require rebuilding.",
+            json!({"action":{"type":"string","enum":["begin","edit","commit","discard","preview"]},"request_id":string,"project_epoch":integer,"revision":integer,"candidate":integer,"generation":integer,"label":string,"source":{"type":"object"},"time":{"type":"object"},"batch":{"type":"object"}}),
+            vec!["action", "request_id", "project_epoch"],
         ),
         (
             "undo",
@@ -77,9 +96,15 @@ pub fn methods() -> Value {
         ),
         (
             "render",
-            "Render a pinned committed output at an exact time without moving a viewer. Returns an image job.",
-            json!({"source":reference,"time":time,"dimensions":{"type":"array","items":{"type":"integer","minimum":1,"maximum":4096},"minItems":2,"maxItems":2}}),
+            "Render a pinned committed output or candidate generation at an exact time without moving a viewer. Returns an image job.",
+            json!({"candidate":integer,"generation":integer,"project_epoch":integer,"source":reference,"time":time,"dimensions":{"type":"array","items":{"type":"integer","minimum":1,"maximum":4096},"minItems":2,"maxItems":2}}),
             vec!["source", "time", "dimensions"],
+        ),
+        (
+            "observe",
+            "Render 1..12 exact-time frames as a row-major strip with timestamped evaluated queries from the same pinned root. Does not move playback. Queries use the source package; unsupported measurements are explicit. At most 2000000 pixels total. Optional candidate/generation/project_epoch selects private artwork.",
+            json!({"source":reference,"times":{"type":"array","items":time,"minItems":1,"maxItems":12},"dimensions":{"type":"array","items":{"type":"integer","minimum":1,"maximum":2048},"minItems":2,"maxItems":2},"queries":{"type":"array","items":{"type":"object"},"maxItems":8},"candidate":integer,"generation":integer,"project_epoch":integer}),
+            vec!["source", "times", "dimensions"],
         ),
         (
             "viewers",
@@ -112,7 +137,77 @@ pub fn methods() -> Value {
             vec![],
         ),
     ];
-    json!(specs.into_iter().map(|(name,description,properties,required)|{
-        json!({"name":name,"description":description,"inputSchema":object(properties,&required),"annotations":{"readOnlyHint":matches!(name,"sessions"|"state"|"catalog"|"inspect"|"viewers"|"jobs"),"openWorldHint":false}})
-    }).collect::<Vec<_>>())
+    let mut methods=specs.into_iter().map(|(name,description,properties,required)|{
+        json!({"name":name,"description":description,"inputSchema":object(properties,&required),"annotations":{"readOnlyHint":matches!(name,"sessions"|"state"|"catalog"|"inspect"|"observe"|"render"|"viewers"|"jobs"),"openWorldHint":false}})
+    }).collect::<Vec<_>>();
+    let batch = methods.iter().find(|m| m["name"] == "batch").unwrap()["inputSchema"].clone();
+    methods
+        .iter_mut()
+        .find(|m| m["name"] == "candidate")
+        .unwrap()["inputSchema"]["properties"]["batch"] = batch;
+    json!(methods)
+}
+
+/// Validate the subset used by the public request definitions at the transport seam.
+/// Package-owned payloads are decoded by their owners, not guessed here.
+pub fn validate(schema: &Value, value: &Value, path: &str) -> Result<(), String> {
+    let kind = schema["type"].as_str().unwrap_or("");
+    let matches = match kind {
+        "object" => value.is_object(),
+        "array" => value.is_array(),
+        "string" => value.is_string(),
+        "boolean" => value.is_boolean(),
+        "integer" => value.is_i64() || value.is_u64(),
+        "number" => value.is_number(),
+        "" => true,
+        _ => return Err(format!("unsupported schema type {kind}")),
+    };
+    if !matches {
+        return Err(format!("{path}: expected {kind}"));
+    }
+    if let Some(choices) = schema["enum"].as_array()
+        && !choices.contains(value)
+    {
+        return Err(format!("{path}: expected one of {}", schema["enum"]));
+    }
+    if let Some(object) = value.as_object() {
+        if let Some(required) = schema["required"].as_array() {
+            for key in required.iter().filter_map(Value::as_str) {
+                if !object.contains_key(key) {
+                    return Err(format!("{path}.{key}: required"));
+                }
+            }
+        }
+        for (key, v) in object {
+            if let Some(def) = schema["properties"].get(key) {
+                validate(def, v, &format!("{path}.{key}"))?;
+            } else if schema["additionalProperties"] == false {
+                return Err(format!(
+                    "{path}.{key}: unknown argument; discover supported arguments with catalog"
+                ));
+            }
+        }
+    }
+    if let Some(array) = value.as_array() {
+        for (key, test) in [("minItems", true), ("maxItems", false)] {
+            if let Some(bound) = schema[key].as_u64()
+                && ((test && array.len() < (bound as usize))
+                    || (!test && array.len() > (bound as usize)))
+            {
+                return Err(format!("{path}: {key}={bound}"));
+            }
+        }
+        if let Some(item) = schema.get("items") {
+            for (i, v) in array.iter().enumerate() {
+                validate(item, v, &format!("{path}[{i}]"))?;
+            }
+        }
+    }
+    if let Some(n) = value.as_f64()
+        && (schema["minimum"].as_f64().is_some_and(|b| n < b)
+            || schema["maximum"].as_f64().is_some_and(|b| n > b))
+    {
+        return Err(format!("{path}: outside supported range"));
+    }
+    Ok(())
 }

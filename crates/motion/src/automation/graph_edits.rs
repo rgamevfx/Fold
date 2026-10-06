@@ -10,7 +10,7 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, BTreeSet};
 
-#[derive(Deserialize)]
+#[derive(Deserialize, schemars::JsonSchema)]
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 pub(super) enum Edit {
     Wrangle {
@@ -128,7 +128,7 @@ fn configured(
     let mut n = Node::new(kind)?;
     n.id = id;
     if let Some(settings) = settings {
-        fold_platform::authoring::merge(&mut n.settings, &settings);
+        n.patch_settings(&settings)?;
     }
     // Instantiate defaults after specialization, not before (e.g. Vector Math).
     n.inputs = m
@@ -602,4 +602,10 @@ fn group_nodes(
         },
     );
     Ok(())
+}
+
+pub(super) fn schema() -> Value {
+    fold_platform::authoring::reference_schema(
+        serde_json::to_value(schemars::schema_for!(Edit)).expect("operation schema"),
+    )
 }

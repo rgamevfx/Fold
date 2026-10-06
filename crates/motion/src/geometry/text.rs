@@ -46,6 +46,17 @@ impl OutlineBuilder for Outline {
         self.segments.push(Segment::Close);
     }
 }
+#[derive(Clone, Debug, serde::Serialize)]
+pub struct LineMetrics {
+    pub index: usize,
+    pub baseline: f64,
+    pub advance: f64,
+    pub bounds: [f64; 4],
+}
+pub struct Layout {
+    pub content: Content,
+    pub lines: Vec<LineMetrics>,
+}
 pub fn shape(
     text: &str,
     font: &Font,
@@ -54,6 +65,16 @@ pub fn shape(
     alignment: f64,
     seed: u64,
 ) -> Result<Content, String> {
+    Ok(shape_layout(text, font, size, line_spacing, alignment, seed)?.content)
+}
+pub fn shape_layout(
+    text: &str,
+    font: &Font,
+    size: f64,
+    line_spacing: f64,
+    alignment: f64,
+    seed: u64,
+) -> Result<Layout, String> {
     if text.len() > 65536
         || !size.is_finite()
         || !(0. ..=10000.).contains(&size)
@@ -67,6 +88,7 @@ pub fn shape(
         Face::from_slice(font.bytes(), font.face_index).ok_or("invalid embedded font face")?;
     let scale = size / f64::from(face.units_per_em());
     let mut elements = Vec::new();
+    let mut lines = Vec::new();
     let mut byte_offset = 0usize;
     let mut segments = 0usize;
     for (line_index, line) in text.split('\n').enumerate() {
@@ -125,6 +147,17 @@ pub fn shape(
                     element.transform[4] = x + position.x_offset as f64 * scale;
                     element.transform[5] = size + line_index as f64 * size * line_spacing
                         - position.y_offset as f64 * scale;
+                    element.attributes.insert(
+                        "fold.text.advance".into(),
+                        crate::fields::Datum::Vector([
+                            position.x_advance as f64 * scale,
+                            position.y_advance as f64 * scale,
+                        ]),
+                    );
+                    element.attributes.insert(
+                        "fold.text.glyph_id".into(),
+                        crate::fields::Datum::Id(glyph.glyph_id as u64),
+                    );
                     x += position.x_advance as f64 * scale;
                     elements.push(element);
                 }
@@ -133,7 +166,22 @@ pub fn shape(
         for glyph in &mut elements[start..] {
             glyph.transform[4] -= x * alignment;
         }
+        let baseline = size + line_index as f64 * size * line_spacing;
+        lines.push(LineMetrics {
+            index: line_index,
+            baseline,
+            advance: x,
+            bounds: [
+                -x * alignment,
+                baseline - f64::from(face.ascender()) * scale,
+                x * (1. - alignment),
+                baseline - f64::from(face.descender()) * scale,
+            ],
+        });
         byte_offset += line.len() + 1;
     }
-    Ok(Arc::new(elements))
+    Ok(Layout {
+        content: Arc::new(elements),
+        lines,
+    })
 }

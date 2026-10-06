@@ -30,3 +30,5 @@ pub fn run_desktop(
 ) -> Result<(), Box<dyn std::error::Error>> {
     desktop::run(client, panels.finish()?)
 }
+
+mod candidate_preview;

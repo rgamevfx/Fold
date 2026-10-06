@@ -236,3 +236,51 @@ mod tests {
         );
     }
 }
+
+/// Filled outlines in input coordinates, with upstream affine transforms applied.
+/// Paint, strokes and image effects do not define occupancy.
+pub struct FilledShape {
+    pub contours: Vec<Vec<[f64; 2]>>,
+    pub bounds: [f64; 4],
+    pub even_odd: bool,
+}
+pub fn filled_shapes(
+    content: &super::Content,
+    budget: &mut Budget,
+) -> Result<Vec<FilledShape>, String> {
+    let drawings = super::drawings_with(content, [1., 1.], budget.cancel())?;
+    let mut shapes = vec![];
+    for drawing in drawings {
+        budget.spend()?;
+        let m = drawing.transform;
+        let scale = m[0].hypot(m[1]).max(m[2].hypot(m[3])).max(1.);
+        let mut contours = contours(&drawing.path, 0.25 / scale, budget)?;
+        let mut bounds = [
+            f64::INFINITY,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+            f64::NEG_INFINITY,
+        ];
+        for p in contours.iter_mut().flatten() {
+            *p = [
+                m[0] * p[0] + m[2] * p[1] + m[4],
+                m[1] * p[0] + m[3] * p[1] + m[5],
+            ];
+            for axis in 0..2 {
+                if !p[axis].is_finite() || p[axis].abs() > 1e9 {
+                    return Err("filled geometry exceeds coordinate bounds".into());
+                }
+                bounds[axis] = bounds[axis].min(p[axis]);
+                bounds[axis + 2] = bounds[axis + 2].max(p[axis]);
+            }
+        }
+        if bounds[0] < bounds[2] && bounds[1] < bounds[3] {
+            shapes.push(FilledShape {
+                contours,
+                bounds,
+                even_odd: drawing.even_odd,
+            });
+        }
+    }
+    Ok(shapes)
+}

@@ -51,7 +51,7 @@ pub fn definition_grid() -> Definition {
             )?))
         },
     );
-    def.description = "Sample filled geometry into cells. Circular cells produce stipple; world_aligned applies upstream transforms before sampling on one shared grid. Default local square cells preserve existing projects.";
+    def.description = "Sample filled geometry into cells. Output preserves each input element as one path/glyph with many subpaths; it does not create Instances or Points. Inspect path_segments/subpaths rather than instance count. Circular cells produce stipple; world_aligned applies upstream transforms before sampling on one shared grid. Cell size <=1 passes through unchanged. Dense circular subpaths can exceed renderer subdivision limits; increase cell_size to reduce geometry. Default local square cells preserve existing projects.";
     def
 }
 fn grid(

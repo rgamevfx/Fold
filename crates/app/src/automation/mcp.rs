@@ -52,6 +52,11 @@ pub fn tool_call(params: &Value) -> Result<Value, String> {
     let method = name.strip_prefix("fold_").ok_or("unknown tool")?;
     let mut args = params.get("arguments").cloned().unwrap_or(json!({}));
     let result = if method == "sessions" {
+        validate_request(&Request {
+            version: VERSION,
+            method: method.into(),
+            params: args.clone(),
+        })?;
         client::sessions().map(success)
     } else {
         let session: String = required(&args, "session")?;
@@ -102,7 +107,7 @@ pub fn serve(reader: &mut impl BufRead, writer: &mut impl Write) -> Result<(), S
                     };
                     initialized = true;
                     Ok(
-                        json!({"protocolVersion":version,"capabilities":{"tools":{}},"serverInfo":{"name":"fold","version":env!("CARGO_PKG_VERSION")},"instructions":"Discover a running Fold session, inspect state and relevant catalog entries. Edits and images return jobs; poll completion and inspect outcome. Preserve user edits with revision checks. Use the same request_id only for identical retries."}),
+                        json!({"protocolVersion":version,"capabilities":{"tools":{}},"serverInfo":{"name":"fold","version":env!("CARGO_PKG_VERSION")},"instructions":"Start with fold_sessions and fold_state. fold_catalog supplies exact method schemas, package operations and configured node queries. Fetch catalog guide=workflow or guide=candidates for shipped instructions, and sdk=true for native SDK authoring. fold_author executes a JavaScript body with prebound plan and expr against a private candidate; it emits editable native operations without host filesystem/process/network access. Prefer fold_candidate: begin at current revision, edit privately, inspect and fold_observe at returned candidate generation, then commit once at base revision. Poll every job and check its outcome; accepted is not completed. fold_observe returns timestamped frames and evaluated measurements without moving playback. Evidence applies only to its exact generation. Structural validation is not runtime or visual verification. Use identical request_id only for identical retries; conflicts require reinspection. Unsupported capabilities are reported by catalog."}),
                     )
                 }
                 "ping" => Ok(json!({})),

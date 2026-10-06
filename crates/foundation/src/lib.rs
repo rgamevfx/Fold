@@ -9,7 +9,17 @@ use uuid::Uuid;
 macro_rules! stable_id {
     ($name:ident) => {
         #[derive(
-            Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
+            Clone,
+            Copy,
+            Debug,
+            PartialEq,
+            Eq,
+            PartialOrd,
+            Ord,
+            Hash,
+            Serialize,
+            Deserialize,
+            schemars::JsonSchema,
         )]
         #[serde(transparent)]
         pub struct $name(Uuid);

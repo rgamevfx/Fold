@@ -183,3 +183,193 @@ fn independent_copy_remaps_control_overrides_and_reports_interface_changes() {
             .is_err()
     );
 }
+
+#[test]
+fn evaluated_queries_report_nested_domains_and_reject_unavailable_fields() {
+    let d = Motion::empty().document(Default::default()).unwrap();
+    let text = ObjectId::new();
+    let d = automation::author(
+        &d,
+        &[
+            json!({"op":"object","id":text,"kind":"fold.motion.text","name":"Text"}),
+            json!({"op":"set","node":text,"input":"text","value":{"Text":"abc"}}),
+        ],
+    )
+    .unwrap();
+    let q = json!({"mode":"evaluated","time":{"numerator":0,"denominator":1},"fields":["counts","elements"],"limit":1});
+    let result = automation::discovery::query(&d, &q).unwrap();
+    assert_eq!(result["counts"]["glyphs"], 3);
+    assert_eq!(result["top_level_domains"]["glyphs"], 0);
+    assert_eq!(result["diagnostics"][0]["kind"], "nested_glyphs");
+    assert_eq!(result["elements"].as_array().unwrap().len(), 1);
+    assert_eq!(result["truncated"], true);
+    let mut unavailable = q.clone();
+    unavailable["fields"] = json!(["ink_bounds"]);
+    assert!(
+        automation::discovery::query(&d, &unavailable)
+            .unwrap_err()
+            .contains("unsupported evaluated field")
+    );
+    let cancel = fold_media::Cancel::default();
+    cancel.cancel();
+    let mut registry = fold_platform::packages::PackageRegistry::default();
+    fold_motion::package::register(&mut registry).unwrap();
+    assert!(registry.query_cancellable(&d, &q, &cancel).is_err());
+}
+
+#[test]
+fn typed_expression_drives_whole_phrase_and_sampled_verification_rejects_static_motion() {
+    let d = Motion::empty().document(Default::default()).unwrap();
+    let text = ObjectId::new();
+    let driver = ObjectId::new();
+    let expression = json!({"op":"vector","x":{"op":"binary","operation":"multiply","a":{"op":"time"},"b":{"op":"input","name":"speed"}},"y":{"op":"literal","value":{"Scalar":0}}});
+    let d=automation::author(&d,&[
+        json!({"op":"object","id":text,"kind":"fold.motion.text","name":"Phrase"}),
+        json!({"op":"set","node":text,"input":"text","value":{"Text":"i love katie"}}),
+        json!({"op":"create_node","id":driver,"kind":"fold.motion.expression","settings":{"expression":expression,"inputs":{"speed":{"Scalar":-50}}}}),
+        json!({"op":"object_inputs","object":text,"role":"transform","inputs":{"translation":{"Link":{"node":driver,"socket":"value"}}}}),
+    ]).unwrap();
+    let q = json!({"mode":"verify","check":"displacement","times":[{"numerator":0,"denominator":1},{"numerator":1,"denominator":1}],"expected":[-50,0]});
+    let result = automation::discovery::query(&d, &q).unwrap();
+    assert_eq!(result["status"], "pass", "{result}");
+    let mut direction = q.clone();
+    direction["check"] = json!("direction");
+    direction["expected"] = json!([-1, 0]);
+    assert_eq!(
+        automation::discovery::query(&d, &direction).unwrap()["status"],
+        "pass"
+    );
+    let inputs = automation::discovery::query(
+        &d,
+        &json!({"mode":"parameters","node":driver,"time":{"numerator":1,"denominator":1}}),
+    )
+    .unwrap();
+    assert_eq!(
+        inputs["parameters"][0]["evaluated"]["value"],
+        json!({"Scalar":-50.0})
+    );
+    let stationary = automation::author(
+        &d,
+        &[json!({"op":"set","node":driver,"input":"speed","value":{"Scalar":0}})],
+    )
+    .unwrap();
+    let mut movement = q;
+    movement["check"] = json!("movement");
+    assert_eq!(
+        automation::discovery::query(&stationary, &movement).unwrap()["status"],
+        "fail"
+    );
+    let wrong = json!({"op":"create_node","id":ObjectId::new(),"kind":"fold.motion.expression","settings":{"expression":{"op":"binary","operation":"add","a":{"op":"literal","value":{"Scalar":1}},"b":{"op":"literal","value":{"Vector":[0,0]}}}}});
+    assert!(automation::author(&d, &[wrong]).is_err());
+}
+
+#[test]
+fn periodicity_does_not_accept_changed_paths_with_unchanged_transforms() {
+    let d = Motion::empty().document(Default::default()).unwrap();
+    let shape = ObjectId::new();
+    let width = ObjectId::new();
+    let d = automation::author(&d, &[
+        json!({"op":"object","id":shape,"kind":"fold.motion.ellipse","name":"Changing shape"}),
+        json!({"op":"create_node","id":width,"kind":"fold.motion.expression","settings":{"expression":{"op":"binary","operation":"add","a":{"op":"literal","value":{"Scalar":100}},"b":{"op":"time"}}}}),
+        json!({"op":"connect","node":shape,"input":"width","source":{"node":width,"socket":"value"}}),
+    ]).unwrap();
+    let result = automation::discovery::query(&d, &json!({"mode":"verify","check":"periodicity","times":[{"numerator":0,"denominator":1},{"numerator":1,"denominator":2},{"numerator":1,"denominator":1}]})).unwrap();
+    assert_eq!(result["status"], "fail", "{result}");
+}
+
+#[test]
+fn editable_text_sequence_layout_and_shape_points_use_native_evaluation() {
+    let d = Motion::empty().document(Default::default()).unwrap();
+    let text = ObjectId::new();
+    let selection = ObjectId::new();
+    let time = ObjectId::new();
+    let align = ObjectId::new();
+    let points = ObjectId::new();
+    let d = automation::author(&d, &[
+        json!({"op":"object","id":text,"kind":"fold.motion.text","name":"Editable sequence"}),
+        json!({"op":"create_node","id":time,"kind":"fold.motion.time"}),
+        json!({"op":"create_node","id":selection,"kind":"fold.motion.text_select","inputs":{"text":{"Value":{"Text":"A \nWW"}},"index":{"Link":{"node":time,"socket":"value"}}}}),
+        json!({"op":"connect","node":text,"input":"text","source":{"node":selection,"socket":"value"}}),
+        json!({"op":"create_node","id":align,"kind":"fold.motion.align_content","inputs":{"content":{"Link":{"node":text,"socket":"content"}},"target":{"Value":{"Vector":[100,80]}}}}),
+        json!({"op":"create_node","id":points,"kind":"fold.motion.shape_points","inputs":{"content":{"Link":{"node":align,"socket":"content"}},"spacing":{"Value":{"Scalar":8}}}}),
+    ]).unwrap();
+    let metrics = automation::discovery::query(
+        &d,
+        &json!({"mode":"text_metrics","node":text,"time":{"numerator":0,"denominator":1}}),
+    )
+    .unwrap();
+    let width = |value: &serde_json::Value| value[2].as_f64().unwrap() - value[0].as_f64().unwrap();
+    assert!(width(&metrics["layout_bounds"]) > width(&metrics["ink_bounds"]));
+    assert_eq!(metrics["text"], "A ");
+    for second in [0, 1, 2] {
+        let aligned = automation::discovery::query(&d, &json!({"mode":"evaluated","node":align,"output":"content","time":{"numerator":second,"denominator":1},"fields":["bounds"]})).unwrap();
+        let b = aligned["bounds"].as_array().unwrap();
+        assert!(((b[0].as_f64().unwrap() + b[2].as_f64().unwrap()) / 2. - 100.).abs() < 1e-8);
+        assert!(((b[1].as_f64().unwrap() + b[3].as_f64().unwrap()) / 2. - 80.).abs() < 1e-8);
+    }
+    let q = json!({"mode":"evaluated","node":points,"output":"points","time":{"numerator":0,"denominator":1},"fields":["counts","elements"],"limit":200});
+    let initial = automation::discovery::query(&d, &q).unwrap();
+    assert!(initial["counts"]["points"].as_u64().unwrap() > 5);
+    assert_eq!(initial["counts"]["groups"], 0);
+    let mut later = q.clone();
+    later["time"] = json!({"numerator":1,"denominator":1});
+    let changed = automation::discovery::query(&d, &later).unwrap();
+    assert_ne!(initial["elements"], changed["elements"]);
+    let mut wrapped = q;
+    wrapped["time"] = json!({"numerator":2,"denominator":1});
+    let repeated = automation::discovery::query(&d, &wrapped).unwrap();
+    assert_eq!(initial["elements"], repeated["elements"]);
+}
+
+#[test]
+fn relative_position_checks_bounds_and_center_offsets() {
+    let mut m = Motion::empty();
+    let a = Node::new("fold.motion.ellipse").unwrap();
+    let mut b = Node::new("fold.motion.align_content").unwrap();
+    b.connect("content", a.id, "content");
+    b.set("target", Datum::Vector([250., 50.]));
+    let (aid, bid) = (a.id, b.id);
+    m.graph.nodes.extend([a, b]);
+    let d = m.document(Default::default()).unwrap();
+    let mut query = json!({"mode":"verify","check":"relative_position","target":{"node":aid,"output":"content"},"relative_to":{"node":bid,"output":"content"},"relation":"left","times":[{"numerator":0,"denominator":1},{"numerator":1,"denominator":1}]});
+    assert_eq!(
+        automation::discovery::query(&d, &query).unwrap()["status"],
+        "pass"
+    );
+    query["relation"] = json!("right");
+    assert_eq!(
+        automation::discovery::query(&d, &query).unwrap()["status"],
+        "fail"
+    );
+    query["relation"] = json!("offset");
+    query["expected"] = json!([-200., 0.]);
+    assert_eq!(
+        automation::discovery::query(&d, &query).unwrap()["status"],
+        "pass"
+    );
+}
+
+#[test]
+fn control_response_requires_a_connected_effect_and_preserves_the_document() {
+    let d = Motion::empty().document(Default::default()).unwrap();
+    let shape = ObjectId::new();
+    let control = ObjectId::new();
+    let control_id = ObjectId::new();
+    let d = automation::author(&d, &[
+        json!({"op":"object","id":shape,"kind":"fold.motion.ellipse","name":"Controlled width"}),
+        json!({"op":"create_node","id":control,"kind":"fold.motion.published_control","settings":{"id":control_id,"name":"Width","value_type":"Scalar"},"inputs":{"default":{"Value":{"Scalar":100}}}}),
+    ]).unwrap();
+    let q = json!({"mode":"verify","check":"control_response","control":control,"values":[{"Scalar":80},{"Scalar":160}],"times":[{"numerator":0,"denominator":1},{"numerator":1,"denominator":1}]});
+    assert_eq!(
+        automation::discovery::query(&d, &q).unwrap()["status"],
+        "fail"
+    );
+    let d = automation::author(&d,&[json!({"op":"connect","node":shape,"input":"width","source":{"node":control,"socket":"value"}})]).unwrap();
+    let original = d.payload.clone();
+    assert_eq!(
+        automation::discovery::query(&d, &q).unwrap()["status"],
+        "pass"
+    );
+    assert_eq!(d.payload, original);
+    assert!(Motion::from_document(&d).unwrap().controls.is_empty());
+}

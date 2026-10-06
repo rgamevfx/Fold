@@ -1,6 +1,8 @@
 //! Feature-neutral project state. Only the coordinator publishes committed roots.
 //! Opaque payloads and extension metadata survive without their owning providers.
 
+mod candidate;
+pub use candidate::Candidate;
 mod coordinator;
 mod model;
 mod organization;

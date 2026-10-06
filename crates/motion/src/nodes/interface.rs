@@ -77,7 +77,7 @@ pub fn definitions() -> Vec<Definition> {
         let s = n.settings::<ControlSettings>()?;
         if !matches!(
             s.value_type,
-            Kind::Scalar | Kind::Vector | Kind::Color | Kind::Bool
+            Kind::Scalar | Kind::Vector | Kind::Color | Kind::Bool | Kind::Text
         ) {
             return Err("unsupported published control type".into());
         }

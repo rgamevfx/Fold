@@ -13,8 +13,9 @@ impl PreviewHost {
             return;
         }
         let views:Vec<_>=self.demands.iter().map(|(id,requested)|{
-            let displayed=self.held.get(id);
-            json!({"viewer":id,"active":Some(*id)==active,"requested":describe(requested),"displayed":displayed.map(describe),"stale":displayed!=Some(requested),"requested_generation":self.generations.get(id),"error":self.viewer_error(*id)})
+            let displayed=self.held.get(id).filter(|key|*id!=fold_platform::desktop::AGENT_PREVIEW_VIEWER||*key==requested);
+            let candidate=if *id==fold_platform::desktop::AGENT_PREVIEW_VIEWER {client.agent_preview().map(|p|json!({"id":p.candidate,"generation":p.generation,"original":p.original}))}else{None};
+            json!({"candidate":candidate,"viewer":id,"active":Some(*id)==active,"requested":describe(requested),"displayed":displayed.map(describe),"stale":displayed!=Some(requested),"requested_generation":self.generations.get(id),"error":self.viewer_error(*id)})
         }).collect();
         client.agent_viewers(json!(views));
         for request in client.take_agent_captures() {
@@ -24,11 +25,21 @@ impl PreviewHost {
                     .held
                     .get(&request.viewer)
                     .ok_or("viewer has no displayed image")?;
+                if request.viewer == fold_platform::desktop::AGENT_PREVIEW_VIEWER
+                    && self.demands.get(&request.viewer) != Some(displayed)
+                {
+                    return Err("candidate preview is rendering the current generation".into());
+                }
                 let texture = self
                     .cache
                     .peek(displayed)
                     .ok_or("displayed image has been evicted")?;
-                let metadata = json!({"kind":"viewer_capture","observed_project_revision":client.snapshot().map(|s|s.revision()),"transient_user_edit":client.state().transient,"viewer":request.viewer,"displayed":describe(displayed),"requested":self.demands.get(&request.viewer).map(describe),"stale":self.demands.get(&request.viewer)!=Some(displayed),"requested_generation":self.generations.get(&request.viewer),"color":"display-transformed RGBA8; channel/data view is recorded in displayed.channels","alpha":"opaque","overlays":false,"chrome":false,"zoom_pan":"capture is the retained image/crop, not window pixels","source_dimensions":texture.dimensions});
+                let candidate = if request.viewer == fold_platform::desktop::AGENT_PREVIEW_VIEWER {
+                    client.agent_preview().map(|p|json!({"id":p.candidate,"generation":p.generation,"original":p.original}))
+                } else {
+                    None
+                };
+                let metadata = json!({"candidate":candidate,"kind":"viewer_capture","observed_project_revision":client.snapshot().map(|s|s.revision()),"transient_user_edit":client.state().transient,"viewer":request.viewer,"displayed":describe(displayed),"requested":self.demands.get(&request.viewer).map(describe),"stale":self.demands.get(&request.viewer)!=Some(displayed),"requested_generation":self.generations.get(&request.viewer),"color":"display-transformed RGBA8; channel/data view is recorded in displayed.channels","alpha":"opaque","overlays":false,"chrome":false,"zoom_pan":"capture is the retained image/crop, not window pixels","source_dimensions":texture.dimensions});
                 Ok::<_, String>((
                     host,
                     texture._texture.clone(),

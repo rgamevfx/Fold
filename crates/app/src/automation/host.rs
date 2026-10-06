@@ -5,6 +5,12 @@ use fold_project::{CommittedSnapshot, EditBatch};
 use std::{collections::BTreeMap, sync::mpsc};
 pub enum Outcome {
     Value(Value),
+    Candidate {
+        id: u64,
+        expected: u64,
+        candidate: fold_project::Candidate,
+        result: Value,
+    },
     Edit {
         batch: EditBatch,
         result: Value,
@@ -21,7 +27,23 @@ pub struct Job {
     pub result: Option<Value>,
     pub epoch: u64,
 }
+pub struct CandidateEntry {
+    pub value: fold_project::Candidate,
+    pub epoch: u64,
+    pub touched: std::time::Instant,
+}
+#[derive(Clone)]
+pub struct CandidatePreview {
+    pub candidate: u64,
+    pub generation: u64,
+    pub source: fold_project::DocumentRef,
+    pub time: fold_foundation::Time,
+    pub original: bool,
+}
 pub struct Host {
+    pub preview: Option<CandidatePreview>,
+    pub candidates: BTreeMap<u64, CandidateEntry>,
+    next_candidate: u64,
     pub server: Option<wire::Server>,
     pub starting: Option<mpsc::Receiver<Result<wire::Server, String>>>,
     pub jobs: BTreeMap<u64, Job>,
@@ -36,6 +58,9 @@ pub struct Host {
 impl Default for Host {
     fn default() -> Self {
         Self {
+            preview: None,
+            candidates: BTreeMap::new(),
+            next_candidate: 0,
             server: None,
             starting: None,
             jobs: BTreeMap::new(),
@@ -50,6 +75,48 @@ impl Default for Host {
     }
 }
 impl Host {
+    pub fn expire_candidates(&mut self, epoch: u64) {
+        self.candidates
+            .retain(|_, c| c.epoch == epoch && c.touched.elapsed().as_secs() < 900);
+    }
+    pub fn candidate(
+        &mut self,
+        id: u64,
+        generation: u64,
+    ) -> Result<fold_project::Candidate, String> {
+        let entry = self
+            .candidates
+            .get_mut(&id)
+            .ok_or("candidate expired or missing; begin again")?;
+        if entry.value.generation() != generation {
+            return Err("candidate generation conflict; inspect current candidate".into());
+        }
+        entry.touched = std::time::Instant::now();
+        Ok(entry.value.clone())
+    }
+    pub fn begin_candidate(
+        &mut self,
+        snapshot: CommittedSnapshot,
+        epoch: u64,
+    ) -> Result<Value, String> {
+        if self.candidates.len() >= 4 {
+            return Err("four candidates retained; discard or commit one".into());
+        }
+        self.next_candidate += 1;
+        let id = self.next_candidate;
+        let base = snapshot.revision();
+        self.candidates.insert(
+            id,
+            CandidateEntry {
+                value: fold_project::Candidate::new(snapshot),
+                epoch,
+                touched: std::time::Instant::now(),
+            },
+        );
+        Ok(
+            json!({"candidate":id,"generation":0,"revision":base,"base_revision":base,"project_epoch":epoch,"expires_after_idle_seconds":900}),
+        )
+    }
     pub fn enable(&mut self) {
         if self.server.is_some() || self.starting.is_some() {
             return;
@@ -67,6 +134,8 @@ impl Host {
             job.cancel.cancel();
         }
         self.jobs.clear();
+        self.candidates.clear();
+        self.preview = None;
         self.saving = None;
         self.captures.clear();
         self.replay.clear();
@@ -162,5 +231,30 @@ impl Host {
 impl Drop for Host {
     fn drop(&mut self) {
         self.disable();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn candidate_retention_is_bounded_scoped_and_cleared_on_disable() {
+        let mut host = Host::default();
+        let snapshot = fold_project::Project::new(1).snapshot();
+        for _ in 0..4 {
+            host.begin_candidate(snapshot.clone(), 7).unwrap();
+        }
+        assert!(host.begin_candidate(snapshot.clone(), 7).is_err());
+        assert!(host.candidate(1, 1).is_err());
+        host.candidates.get_mut(&1).unwrap().touched =
+            std::time::Instant::now() - std::time::Duration::from_secs(901);
+        host.expire_candidates(7);
+        assert!(host.candidate(1, 0).is_err());
+        host.begin_candidate(snapshot.clone(), 7).unwrap();
+        host.expire_candidates(8);
+        assert!(host.candidates.is_empty());
+        host.begin_candidate(snapshot, 8).unwrap();
+        host.disable();
+        assert!(host.candidates.is_empty());
     }
 }

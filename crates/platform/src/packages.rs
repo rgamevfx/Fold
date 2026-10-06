@@ -487,10 +487,26 @@ impl PackageRegistry {
         if !snapshot.state().documents.contains_key(&source.document) {
             return Err("missing document".into());
         }
-        self.outputs(snapshot, source.document)
+        let outputs = self.outputs(snapshot, source.document);
+        let available = outputs
+            .iter()
+            .map(|o| o.reference.output.as_str())
+            .collect::<Vec<_>>()
+            .join(", ");
+        outputs
             .into_iter()
             .find(|o| o.reference.output == source.output)
-            .ok_or_else(|| format!("missing output port {}", source.output))?
+            .ok_or_else(|| {
+                format!(
+                    "missing output port {:?}; available output ports: {}",
+                    source.output,
+                    if available.is_empty() {
+                        "none"
+                    } else {
+                        &available
+                    }
+                )
+            })?
             .info
     }
     pub fn output(&self, snapshot: &Snapshot, id: DocumentId) -> Result<VideoInfo, String> {

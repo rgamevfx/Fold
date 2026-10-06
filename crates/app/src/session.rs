@@ -279,7 +279,16 @@ impl Session {
         });
     }
 }
+#[path = "session_candidate.rs"]
+mod candidate_preview;
 impl DesktopClient for Session {
+    fn agent_preview(&self) -> Option<fold_platform::desktop::AgentPreview> {
+        self.candidate_preview_info().ok().flatten()
+    }
+    fn agent_preview_action(&mut self, action: &str, frame: Option<u32>) -> Result<(), String> {
+        self.candidate_preview_action(action, frame)
+    }
+
     fn agent_access(&self) -> serde_json::Value {
         serde_json::json!({"enabled":self.automation.server.is_some() || self.automation.starting.is_some(),"session":self.automation.server.as_ref().map(|s|&s.session),"error":self.automation.last_error})
     }
@@ -355,6 +364,11 @@ impl DesktopClient for Session {
         &self,
         viewer: fold_platform::workspace::PanelInstanceId,
     ) -> Option<(u64, fold_foundation::Time)> {
+        if viewer == fold_platform::desktop::AGENT_PREVIEW_VIEWER {
+            return self
+                .agent_preview()
+                .map(|p| (p.generation, p.key.target.unwrap().1));
+        }
         self.viewer_request_state(viewer)
     }
     fn present_viewer(
@@ -363,6 +377,9 @@ impl DesktopClient for Session {
         generation: u64,
         key: &PreviewKey,
     ) -> bool {
+        if viewer == fold_platform::desktop::AGENT_PREVIEW_VIEWER {
+            return self.agent_preview().is_some_and(|p| p.key == *key);
+        }
         self.present_viewer_frame(viewer, generation, key)
     }
     fn viewer_audio_error(
@@ -906,10 +923,23 @@ impl DesktopClient for Session {
                 .collect(),
         );
         let snapshot = self.preview_snapshot();
+        let candidate = self.agent_preview();
+        let mut forks = std::collections::BTreeMap::new();
+        if candidate.is_some()
+            && let Ok(Some(root)) = self.candidate_preview_snapshot()
+        {
+            forks.insert(
+                fold_platform::desktop::AGENT_PREVIEW_VIEWER,
+                root.evaluation(),
+            );
+        }
         let valid = demands
             .into_iter()
             .take(128)
             .filter(|demand| {
+                if demand.consumer == fold_platform::desktop::AGENT_PREVIEW_VIEWER {
+                    return candidate.as_ref().is_some_and(|p| p.key == demand.key);
+                }
                 demand.key.target.is_some_and(|(id, _)| {
                     self.metadata
                         .borrow_mut()
@@ -920,7 +950,7 @@ impl DesktopClient for Session {
                 })
             })
             .collect();
-        self.preview.demands(snapshot, valid);
+        self.preview.demands_forks(snapshot, valid, forks);
     }
     fn begin_preview_update(&mut self) {
         self.preview.begin_update();
