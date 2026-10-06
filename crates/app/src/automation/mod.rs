@@ -24,7 +24,17 @@ pub struct Request {
     pub params: Value,
 }
 pub fn error(message: impl ToString) -> Value {
-    json!({"ok":false,"error":message.to_string()})
+    let message = message.to_string();
+    let mut result = json!({"ok":false,"error":message});
+    if let Some(start) = message.find('{') {
+        if let Ok(detail) = serde_json::from_str::<Value>(&message[start..]) {
+            if detail["kind"] == "rust_compile" {
+                result["diagnostics"] = detail["diagnostics"].clone();
+                result["kind"] = detail["kind"].clone();
+            }
+        }
+    }
+    result
 }
 pub fn success(value: Value) -> Value {
     json!({"ok":true,"result":value})
@@ -71,13 +81,24 @@ pub fn catalog(params: &Value) -> Result<Value, String> {
     )
 }
 pub fn inspect(snapshot: &CommittedSnapshot, params: &Value) -> Result<Value, String> {
+    inspect_cancellable(snapshot, params, &fold_media::Cancel::default())
+}
+pub fn inspect_cancellable(
+    snapshot: &CommittedSnapshot,
+    params: &Value,
+    cancel: &fold_media::Cancel,
+) -> Result<Value, String> {
     let id = required(params, "document")?;
     let d = snapshot
         .state()
         .documents
         .get(&id)
         .ok_or("missing document")?;
-    let value = crate::packages::builtins().inspect(d)?;
+    let value = if let Some(query) = params.get("query") {
+        crate::packages::builtins().query_cancellable(d, query, cancel)?
+    } else {
+        crate::packages::builtins().inspect(d)?
+    };
     let pointer = params.get("pointer").and_then(Value::as_str).unwrap_or("");
     let value = value
         .pointer(pointer)
@@ -105,6 +126,31 @@ pub fn inspect(snapshot: &CommittedSnapshot, params: &Value) -> Result<Value, St
         return Err(
             "inspection exceeds 256 KiB; select a narrower pointer or smaller limit".into(),
         );
+    }
+    Ok(result)
+}
+
+pub fn inspect_changes(
+    before: &CommittedSnapshot,
+    after: &CommittedSnapshot,
+    params: &Value,
+) -> Result<Value, String> {
+    let id = required(params, "document")?;
+    let new = after.state().documents.get(&id);
+    let old = before.state().documents.get(&id);
+    let changes = match (old, new) {
+        (Some(a), Some(b)) => crate::packages::builtins().authoring_receipt(a, b)?,
+        (None, Some(_)) => json!({"created":true}),
+        (Some(_), None) => json!({"removed":true}),
+        (None, None) => return Err("missing document in both revisions".into()),
+    };
+    let result = json!({"document":id,"since_revision":before.revision(),"revision":after.revision(),"changes":changes});
+    if serde_json::to_vec(&result)
+        .map_err(|e| e.to_string())?
+        .len()
+        > 256 * 1024
+    {
+        return Err("change summary exceeds 256 KiB; inspect narrower graph queries".into());
     }
     Ok(result)
 }

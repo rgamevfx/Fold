@@ -1,6 +1,6 @@
 ---
 name: fold
-description: Create and edit artwork in a running Fold project through MCP or fold-cli agent. Use for motion graphics, compositing, timelines, and reusable artist-editable setups; repository implementation follows the repository's development instructions.
+description: Create and edit artwork in a running Fold project through MCP or fold-cli agent. Use for motion graphics, compositing, timelines, reusable artist-editable setups, and investigating slow artwork playback; repository implementation follows the repository's development instructions.
 ---
 
 Operate Fold through its public tools. Use the live catalog, inspected documents, and this skill's references as the authoring contract. Routine artwork must not require reading Rust crates, editing project archives, or calling private native APIs. If the contract leaves a capability unclear, inspect a tool-created example or make a small reversible probe; report a missing capability when neither resolves it.
@@ -19,7 +19,11 @@ For unfamiliar concepts or a new procedural design, read the [authoring glossary
 
 For Motion objects, text, copies, or group interfaces, read [Motion authoring](references/motion.md) before building. It supplies the coordinates, resource setup, and typed wiring conventions that node signatures alone do not explain.
 
-Build the smallest useful part first: one visible source, its placement, and one driver or published control. Render it before multiplying copies or assembling a large graph. A successful validation proves structure, not appearance or editability.
+For graph restructuring, combined node creation, control publication, graph queries, or Rust Wrangles, read [Graph authoring and Rust Wrangles](references/graph-authoring.md). Use resolved signatures and mutation receipts to avoid reconstructing node plumbing.
+
+For slow playback, large instance counts, Wrangle/native performance choices, or output equivalence after optimization, read [Performance and output equivalence](references/performance.md). It separates artwork checks through MCP from engineering profiling and defines the evidence needed for a speed claim.
+
+Build the smallest useful part first: one visible source, its placement, and one driver or published control. Render it before multiplying copies or assembling a large graph. A successful validation proves structure, not appearance or editability. Before finalizing an instance-heavy effect, repeat the render check at its intended count and resolution; the small probe does not establish production throughput.
 
 Design around the artist's next edit. Keep content, distribution, and drivers independently editable; reuse sources across copies. Prefer shipped tools and editable groups. Name scene objects and expose useful controls with units, sections, and sensible defaults. Keep internals inside groups and distinguish whole-object from per-copy changes. Make referenced sources reachable from the artist-facing controls, including hidden text/shape targets. Put key moments on the layer's native animation track. Change instance inputs for local revisions; edit shared definitions only when all instances should change.
 
@@ -45,3 +49,5 @@ For Motion → Composite → Sequence authoring, adapt [the executable cross-fea
 For morphing layouts, live coordinate labels, sampled stipple, synchronized overlays, or editable glow, read [the procedural dot-study workflow](references/procedural-dot-study.md). It supplies the demo's controls, formulas, timing, typed edit fragments, and verification steps. Adapt its shared relationships to the brief; its counts and aesthetics are example choices.
 
 For particle attraction into editable text or shapes, read [the particle workflow](references/particles.md). It covers the shipped tool, independent point/attractor/palette inputs, layer keyframes, Solver limits, and reuse checks.
+
+For animated barcode text or independently varying strips inside a text mask, read [the barcode-text workflow](references/barcode-text.md). It covers per-bar Wrangle attributes, native scale consumption, mask registration, scene order and editable controls.

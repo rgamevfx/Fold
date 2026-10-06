@@ -6,7 +6,7 @@ Use `catalog(type="fold.motion.document", query=...)` for current sockets and se
 
 | Task | Construction and check |
 | --- | --- |
-| Visible source | `object` creates a scene object and its appearance/transform nodes. Inspect `/scene/objects` and `/graph` to obtain their IDs and placement. `add` creates only a graph node; it needs an output path to become visible. |
+| Visible source | `object` creates a scene object and its appearance/transform nodes. Use batch edit receipts for the created source/appearance/transform IDs; inspect the relevant graph neighborhood for existing objects. `add` creates only a graph node; it needs an output path to become visible. |
 | Rectangle placement | A raw rectangle spans `(0,0)` to `(width,height)`. To use a centered unit cell, transform a 1×1 rectangle by `[-0.5,-0.5]` **before** copying and scaling it. Pixel coordinates increase right and down. |
 | Text resource | Create text with `object`, which embeds a font and sets `settings.font`. A raw `add` text node defaults to `font: null` and cannot render. Inspection exposes font IDs/names, not resource bytes. Keep the embedded font in the document. |
 | Text alignment | Text `alignment` is 0 left, 0.5 center, 1 right. This aligns horizontal advance; it does not vertically center visible glyphs. Render and adjust a source transform for the chosen font/text. A fixed vertical offset is not an automatic fit for arbitrary multiline text. |
@@ -56,7 +56,7 @@ For a content output, an internal `group_output` has `settings: {"value_type":"C
 
 An outer `group_instance` has `settings.group` set to the definition ID. Set its inputs by stable port key, e.g. `set(node=INSTANCE, input="label", value={"Text":"MOVE"})`. The definition provides defaults; the instance provides local overrides. Publishing a control requires the port **and its wiring**. Verify a changed value reaches the intended copies.
 
-Extend existing definitions with `add`, `set`, and `connect` scoped by `group`. Port arrays need a freshly inspected complete list with existing entries retained. Whole graph/scene array replacement is a last resort: merge with the observed contents and guard that exact revision. Preserve node IDs, animation, layout, and extension data rather than rebuilding the user's construction.
+Extend existing definitions with `add`, `set`, and `connect` scoped by `group`. Use `publish` to create a port and its wiring, and `port` for targeted metadata edits (see [graph authoring](graph-authoring.md)). For unsupported interface migrations, port arrays need a freshly inspected complete list with existing entries retained. Whole graph/scene array replacement is a last resort: merge with the observed contents and guard that exact revision. Preserve node IDs, animation, layout, and extension data rather than rebuilding the user's construction.
 
 When replacing an extracted definition's interface, disconnect obsolete overrides on the outer instance in the same batch. An instance retaining an input removed from the definition fails validation.
 

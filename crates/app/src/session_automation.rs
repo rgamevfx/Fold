@@ -102,9 +102,27 @@ impl Session {
             "catalog" => api::catalog(params),
             "inspect" => {
                 let snapshot = self.project.snapshot();
+                let before = if let Some(revision) = params.get("since_revision") {
+                    if required::<u64>(params, "project_epoch")? != epoch {
+                        return Err("project epoch changed; inspect current state".into());
+                    }
+                    let revision =
+                        serde_json::from_value(revision.clone()).map_err(|e| e.to_string())?;
+                    Some(
+                        self.project
+                            .retained_snapshot(revision)
+                            .ok_or("revision no longer retained; inspect current state")?,
+                    )
+                } else {
+                    None
+                };
                 let params = params.clone();
-                self.automation.spawn(epoch, move |_| {
-                    api::inspect(&snapshot, &params).map(Outcome::Value)
+                self.automation.spawn(epoch, move |cancel| {
+                    match before {
+                        Some(before) => api::inspect_changes(&before, &snapshot, &params),
+                        None => api::inspect_cancellable(&snapshot, &params, &cancel),
+                    }
+                    .map(Outcome::Value)
                 })
             }
             "batch" => {

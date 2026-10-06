@@ -183,3 +183,68 @@ fn mcp_negotiates_versions_lists_tools_and_reports_errors() {
     assert_eq!(responses[2]["error"]["code"], -32602);
     assert!(automation::wire::line(&mut &b"12345\n"[..], 5).is_err());
 }
+
+#[test]
+fn graph_receipts_queries_and_revision_changes_share_transactions() {
+    let mut project = Project::new(8);
+    let before = project.snapshot();
+    let request = batch(before.revision());
+    let (edit, result) = automation::stage(&before, &request, &Default::default()).unwrap();
+    let object = &result["receipts"][0]["changes"]["objects"][0];
+    assert!(!object["transform"].is_null());
+    assert!(!object["appearance"].is_null());
+    project.commit(edit).unwrap();
+    let created = project.snapshot();
+    let document = result["ids"]["motion"].clone();
+    let text = result["ids"]["text"].clone();
+    let inspected = automation::inspect(
+        &created,
+        &json!({"document":document,"query":{"node":text}}),
+    )
+    .unwrap();
+    assert_eq!(inspected["data"]["total"], 1);
+    let req:Batch=serde_json::from_value(json!({"request_id":"edit-font-size","revision":created.revision(),"project_epoch":0,"label":"Size","operations":[{"op":"edit","document":document,"edits":[{"op":"set","node":text,"input":"size","value":{"Scalar":60}}]}]})).unwrap();
+    let (edit, _) = automation::stage(&created, &req, &Default::default()).unwrap();
+    project.commit(edit).unwrap();
+    let changes = automation::inspect_changes(
+        &project.retained_snapshot(created.revision()).unwrap(),
+        &project.snapshot(),
+        &json!({"document":document}),
+    )
+    .unwrap();
+    assert_eq!(changes["changes"]["total_changed_nodes"], 1);
+    project.undo().unwrap();
+    let undo =
+        automation::inspect_changes(&created, &project.snapshot(), &json!({"document":document}))
+            .unwrap();
+    assert_eq!(undo["changes"]["total_changed_nodes"], 0);
+}
+
+#[test]
+fn rust_wrangle_batch_is_atomic_and_undoable() {
+    let mut project = Project::new(8);
+    let req:Batch=serde_json::from_value(json!({"request_id":"wrangle-create","revision":project.snapshot().revision(),"project_epoch":0,"label":"Rust Wrangle","ids":["motion","points","code"],"operations":[
+        {"op":"create","id":{"$ref":"motion"},"kind":"fold.motion.document","name":"Wrangle"},
+        {"op":"edit","document":{"$ref":"motion"},"edits":[
+            {"op":"create_node","id":{"$ref":"points"},"kind":"fold.motion.linear_points"},
+            {"op":"create_node","id":{"$ref":"code"},"kind":"fold.motion.wrangle","settings":{"source":"position[1] += chf(\"height\");"},"inputs":{"content":{"Link":{"node":{"$ref":"points"},"socket":"points"}}}}
+        ]}
+    ]})).unwrap();
+    let (edit, result) = automation::stage(&project.snapshot(), &req, &Default::default()).unwrap();
+    project.commit_named(edit, "Rust Wrangle".into()).unwrap();
+    let before = project.snapshot();
+    let bad:Batch=serde_json::from_value(json!({"request_id":"bad-code","revision":before.revision(),"project_epoch":0,"label":"Bad source","operations":[{"op":"edit","document":result["ids"]["motion"],"edits":[{"op":"wrangle","node":result["ids"]["code"],"source":"position[0] = missing_value;"}]}]})).unwrap();
+    let error = automation::stage(&before, &bad, &Default::default()).unwrap_err();
+    let error = automation::error(error);
+    assert_eq!(error["kind"], "rust_compile");
+    assert!(
+        error["diagnostics"]
+            .as_array()
+            .is_some_and(|v| !v.is_empty())
+    );
+    assert_eq!(project.snapshot().revision(), before.revision());
+    project.undo().unwrap();
+    assert!(project.snapshot().state().documents.is_empty());
+    project.redo().unwrap();
+    assert_eq!(project.snapshot().state().documents.len(), 1);
+}

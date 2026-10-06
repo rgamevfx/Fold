@@ -5,6 +5,7 @@ pub fn definitions() -> &'static [Definition] {
     static REGISTRY: OnceLock<Vec<Definition>> = OnceLock::new();
     REGISTRY.get_or_init(|| {
         let mut result = vec![
+            crate::wrangle::definition(),
             nodes::content::rectangle::definition(),
             nodes::content::background::definition_background(),
             nodes::content::ellipse::definition(),

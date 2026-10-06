@@ -291,6 +291,8 @@ impl Panel for Inspector {
             }
         }
         let mut response = Response::default();
+        let group = state.group;
+        super::wrangle::draw(ui, node, group, &mut state.wrangle_drafts, &mut response);
         let mut assign_group = None;
         let mut animate = None;
         let mut publish = None;
@@ -682,7 +684,7 @@ impl Panel for Inspector {
             ui.text_disabled("Edit keys in the Animation panel.");
         } else if !matches!(
             node.kind.as_str(),
-            "fold.motion.oscillator" | "fold.motion.color_ramp"
+            "fold.motion.oscillator" | "fold.motion.color_ramp" | "fold.motion.wrangle"
         ) {
             settings(ui, &mut node.settings, &mut response, 0);
         }

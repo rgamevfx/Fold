@@ -89,11 +89,24 @@ fn motion_tools_and_inspector_render_normal_and_narrow() {
         ("particles-source-narrow", 390., 280.),
         ("particles-palette-normal", 850., 400.),
         ("particles-palette-narrow", 390., 280.),
+        ("wrangle-normal", 850., 400.),
+        ("wrangle-narrow", 390., 280.),
     ] {
         if let Ok(filter) = std::env::var("FOLD_MOTION_CAPTURE_FILTER") {
             if !name.starts_with(&filter) {
                 continue;
             }
+        }
+        if name == "wrangle-normal" {
+            let mut state = inspector.state.borrow_mut();
+            state.create(&mut host);
+            state.change_scene(&mut host, |m| {
+                let points = crate::authoring::add_node(m, "fold.motion.linear_points")?;
+                let code = crate::authoring::add_node(m, "fold.motion.wrangle")?;
+                crate::authoring::node(m, code)?.connect("content", points, "points");
+                Ok(Some(code))
+            });
+            assert!(state.error.is_empty(), "{}", state.error);
         }
         if name == "particles-source-normal" || name == "particles-palette-normal" {
             let mut state = inspector.state.borrow_mut();

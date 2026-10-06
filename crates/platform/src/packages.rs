@@ -56,6 +56,13 @@ pub trait DocumentProvider: Send + Sync {
     fn inspect(&self, _document: &Document) -> Result<serde_json::Value, String> {
         Err("provider does not expose authoring inspection".into())
     }
+    fn query(
+        &self,
+        _document: &Document,
+        _query: &serde_json::Value,
+    ) -> Result<serde_json::Value, String> {
+        Err("provider does not support graph queries".into())
+    }
     fn author(
         &self,
         _document: &Document,
@@ -64,6 +71,32 @@ pub trait DocumentProvider: Send + Sync {
         Err("provider does not expose authoring operations".into())
     }
 
+    fn query_cancellable(
+        &self,
+        document: &Document,
+        query: &serde_json::Value,
+        cancel: &Cancel,
+    ) -> Result<serde_json::Value, String> {
+        cancel.check()?;
+        self.query(document, query)
+    }
+
+    fn author_cancellable(
+        &self,
+        document: &Document,
+        edits: &[serde_json::Value],
+        cancel: &Cancel,
+    ) -> Result<Document, String> {
+        cancel.check()?;
+        self.author(document, edits)
+    }
+    fn authoring_receipt(
+        &self,
+        _before: &Document,
+        _after: &Document,
+    ) -> Result<serde_json::Value, String> {
+        Ok(serde_json::Value::Null)
+    }
     fn package_id(&self) -> &'static str;
     fn type_id(&self) -> &'static str;
     fn schema(&self) -> u32;
@@ -289,6 +322,25 @@ impl PackageRegistry {
             .ok_or("missing provider")?
             .inspect(document)
     }
+    pub fn query(
+        &self,
+        document: &Document,
+        query: &serde_json::Value,
+    ) -> Result<serde_json::Value, String> {
+        self.query_cancellable(document, query, &Cancel::default())
+    }
+    pub fn query_cancellable(
+        &self,
+        document: &Document,
+        query: &serde_json::Value,
+        cancel: &Cancel,
+    ) -> Result<serde_json::Value, String> {
+        self.documents
+            .iter()
+            .find(|p| p.type_id() == document.type_id && p.package_id() == document.package_id)
+            .ok_or("missing provider")?
+            .query_cancellable(document, query, cancel)
+    }
     pub fn author(
         &self,
         document: &Document,
@@ -302,6 +354,33 @@ impl PackageRegistry {
         let result = provider.author(document, edits)?;
         provider.validate(&result)?;
         Ok(result)
+    }
+    pub fn author_cancellable(
+        &self,
+        document: &Document,
+        edits: &[serde_json::Value],
+        cancel: &Cancel,
+    ) -> Result<(Document, serde_json::Value), String> {
+        let provider = self
+            .documents
+            .iter()
+            .find(|p| p.type_id() == document.type_id && p.package_id() == document.package_id)
+            .ok_or("missing provider")?;
+        let result = provider.author_cancellable(document, edits, cancel)?;
+        provider.validate(&result)?;
+        let receipt = provider.authoring_receipt(document, &result)?;
+        Ok((result, receipt))
+    }
+    pub fn authoring_receipt(
+        &self,
+        before: &Document,
+        after: &Document,
+    ) -> Result<serde_json::Value, String> {
+        self.documents
+            .iter()
+            .find(|p| p.type_id() == after.type_id && p.package_id() == after.package_id)
+            .ok_or("missing provider")?
+            .authoring_receipt(before, after)
     }
     pub fn commands(&self) -> impl Iterator<Item = &CommandRegistration> {
         self.commands.values()

@@ -9,6 +9,7 @@ use std::{cell::RefCell, rc::Rc};
 pub type Shared = Rc<RefCell<State>>;
 #[derive(Default)]
 pub struct State {
+    pub wrangle_drafts: super::wrangle::Drafts,
     pub document: Option<DocumentId>,
     pub motion: Option<Motion>,
     pub selected: Vec<ObjectId>,
@@ -71,6 +72,7 @@ impl State {
                 host.command(DesktopCommand::CancelPreviewEdit);
             }
             if chosen != self.document {
+                self.wrangle_drafts.clear();
                 self.group = None;
                 self.network_object = None;
                 self.scene_scope = None;
@@ -86,6 +88,19 @@ impl State {
             self.base = snapshot.revision();
             self.motion =
                 chosen.and_then(|id| Motion::from_document(&snapshot.state().documents[&id]).ok());
+            self.wrangle_drafts.retain(|(group, node), _| {
+                self.motion.as_ref().is_some_and(|m| {
+                    let graph = match group {
+                        Some(id) => m.groups.get(id).map(|g| &g.graph),
+                        None => Some(&m.graph),
+                    };
+                    graph.is_some_and(|g| {
+                        g.nodes
+                            .iter()
+                            .any(|n| n.id == *node && n.kind == "fold.motion.wrangle")
+                    })
+                })
+            });
             self.original = self.motion.clone();
             self.editing = false;
             self.property_editing = false;

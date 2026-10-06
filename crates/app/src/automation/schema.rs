@@ -36,7 +36,7 @@ pub fn methods() -> Value {
         (
             "inspect",
             "Inspect a document through its provider. Returns a job; poll jobs. Arrays support offset/limit and JSON pointer selection.",
-            json!({"document":string,"pointer":string,"offset":integer,"limit":{"type":"integer","minimum":1,"maximum":200}}),
+            json!({"document":string,"since_revision":integer,"project_epoch":integer,"query":{"type":"object","description":"Package-owned graph query: mode nodes/upstream/downstream/handles, node, group, depth, limit, offset; handles accepts nodes."},"pointer":string,"offset":integer,"limit":{"type":"integer","minimum":1,"maximum":200}}),
             vec!["document"],
         ),
         (

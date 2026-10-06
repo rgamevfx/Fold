@@ -52,10 +52,40 @@ impl DocumentProvider for Documents {
     fn inspect(&self, document: &Document) -> Result<serde_json::Value, String> {
         crate::automation::inspect(document)
     }
+    fn query(
+        &self,
+        document: &Document,
+        query: &serde_json::Value,
+    ) -> Result<serde_json::Value, String> {
+        crate::automation::discovery::query(document, query)
+    }
+    fn query_cancellable(
+        &self,
+        document: &fold_project::Document,
+        query: &serde_json::Value,
+        cancel: &fold_media::Cancel,
+    ) -> Result<serde_json::Value, String> {
+        crate::automation::discovery::query_cancellable(document, query, cancel)
+    }
     fn author(&self, document: &Document, edits: &[serde_json::Value]) -> Result<Document, String> {
         crate::automation::author(document, edits)
     }
 
+    fn author_cancellable(
+        &self,
+        document: &Document,
+        edits: &[serde_json::Value],
+        cancel: &Cancel,
+    ) -> Result<Document, String> {
+        crate::automation::author_cancellable(document, edits, cancel)
+    }
+    fn authoring_receipt(
+        &self,
+        before: &Document,
+        after: &Document,
+    ) -> Result<serde_json::Value, String> {
+        crate::automation::discovery::receipt(before, after)
+    }
     fn browser_kind(&self) -> Option<fold_platform::browser::DocumentKind> {
         Some(fold_platform::browser::DocumentKind {
             type_id: crate::document::MOTION,

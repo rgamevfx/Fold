@@ -12,6 +12,7 @@ pub mod scene;
 pub mod simulation;
 #[cfg(feature = "ui")]
 pub mod ui;
+pub mod wrangle;
 pub use document::{MOTION, Motion};
 use fold_foundation::DocumentId;
 use fold_platform::VideoProvider;

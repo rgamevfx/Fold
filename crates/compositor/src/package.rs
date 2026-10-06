@@ -46,6 +46,20 @@ impl DocumentProvider for Documents {
     fn inspect(&self, document: &Document) -> Result<serde_json::Value, String> {
         crate::automation::inspect(document)
     }
+    fn query(
+        &self,
+        document: &Document,
+        query: &serde_json::Value,
+    ) -> Result<serde_json::Value, String> {
+        crate::automation::query(document, query)
+    }
+    fn authoring_receipt(
+        &self,
+        before: &Document,
+        after: &Document,
+    ) -> Result<serde_json::Value, String> {
+        crate::automation::receipt(before, after)
+    }
     fn author(&self, document: &Document, edits: &[serde_json::Value]) -> Result<Document, String> {
         crate::automation::author(document, edits)
     }

@@ -151,3 +151,88 @@ pub fn hull(mut points: Vec<[f64; 2]>) -> Vec<[f64; 2]> {
     lower.extend(upper);
     lower
 }
+
+/// Reuse the edges crossing one grid row. Keep the original cross-product test
+/// (rather than rounded x intersections) so boundary coverage stays identical.
+pub struct Scanline {
+    y: f64,
+    edges: Vec<([f64; 2], [f64; 2], i32)>,
+}
+impl Scanline {
+    pub fn new(contours: &[Vec<[f64; 2]>], y: f64, budget: &mut Budget) -> Result<Self, String> {
+        let mut edges = Vec::new();
+        for contour in contours.iter().filter(|c| c.len() >= 3) {
+            for (a, b) in contour
+                .iter()
+                .zip(contour.iter().cycle().skip(1))
+                .take(contour.len())
+            {
+                budget.spend()?;
+                if a[1] <= y && b[1] > y {
+                    edges.push((*a, *b, 1));
+                } else if a[1] > y && b[1] <= y {
+                    edges.push((*a, *b, -1));
+                }
+            }
+        }
+        Ok(Self { y, edges })
+    }
+    pub fn contains(&self, x: f64, even_odd: bool, budget: &mut Budget) -> Result<bool, String> {
+        budget.spend()?;
+        let mut winding = 0;
+        for (a, b, direction) in &self.edges {
+            budget.spend()?;
+            let cross = (b[0] - a[0]) * (self.y - a[1]) - (x - a[0]) * (b[1] - a[1]);
+            if (*direction == 1 && cross > 0.) || (*direction == -1 && cross < 0.) {
+                winding += direction;
+            }
+        }
+        Ok(if even_odd {
+            winding % 2 != 0
+        } else {
+            winding != 0
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn grid_scanlines_match_point_winding_including_holes_and_boundaries() {
+        let outlines = vec![
+            vec![[0., 0.], [10., 0.], [10., 10.], [0., 10.]],
+            vec![[2., 2.], [2., 8.], [8., 8.], [8., 2.]],
+            vec![[0., 0.], [10., 10.], [0., 10.], [10., 0.]],
+        ];
+        for reflect in [-1., 1.] {
+            let contours: Vec<Vec<_>> = outlines
+                .iter()
+                .map(|c| c.iter().map(|p| [p[0] * reflect, p[1]]).collect())
+                .collect();
+            for even_odd in [false, true] {
+                for row in -2..=22 {
+                    let y = row as f64 / 2.;
+                    let scan = Scanline::new(&contours, y, &mut Budget::default()).unwrap();
+                    for column in -22..=22 {
+                        let x = column as f64 / 2.;
+                        assert_eq!(
+                            scan.contains(x, even_odd, &mut Budget::default()).unwrap(),
+                            contains(&contours, [x, y], even_odd, &mut Budget::default()).unwrap()
+                        );
+                    }
+                }
+            }
+        }
+    }
+    #[test]
+    fn grid_scanline_checks_cancellation_even_without_crossing_edges() {
+        let cancel = fold_media::Cancel::default();
+        let scan = Scanline::new(&[], 0., &mut Budget::default()).unwrap();
+        cancel.cancel();
+        assert!(
+            scan.contains(0., false, &mut Budget::cancellable(&cancel))
+                .is_err()
+        );
+    }
+}

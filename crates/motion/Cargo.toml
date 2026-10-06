@@ -20,6 +20,9 @@ fold-platform.workspace = true
 fold-ui = { workspace = true, optional = true }
 rustybuzz = "0.20"
 unicode-bidi = "0.3"
+wasmtime = { version = "43.0", default-features = false, features = ["cranelift", "runtime", "std", "pooling-allocator"] }
+syn = { version = "2", features = ["full", "visit"] }
+tempfile.workspace = true
 
 [lints]
 workspace = true

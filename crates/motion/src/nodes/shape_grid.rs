@@ -123,9 +123,11 @@ fn grid(
                         return Err("Shape Grid exceeds 65536 candidate cells".into());
                     }
                     for y in start[1]..end[1] {
+                        let scan =
+                            sampling::Scanline::new(&contours, (y as f64 + 0.5) * size, budget)?;
                         for x in start[0]..end[0] {
                             let center = [(x as f64 + 0.5) * size, (y as f64 + 0.5) * size];
-                            if sampling::contains(&contours, center, item.even_odd, budget)? {
+                            if scan.contains(center[0], item.even_odd, budget)? {
                                 *cells += 1;
                                 if *cells > 16384 {
                                     return Err("Shape Grid exceeds 16384 occupied cells".into());

@@ -112,6 +112,7 @@ pub fn stage(
     let registry = crate::packages::builtins();
     let mut workspace = Project::fork(snapshot);
     let mut mutations = Vec::new();
+    let mut receipts = Vec::new();
     for (i, operation) in batch.operations.iter().enumerate() {
         cancel.check()?;
         let mut value = operation.clone();
@@ -144,11 +145,11 @@ pub fn stage(
                     .documents
                     .get(&document)
                     .ok_or("missing document")?;
-                vec![Mutation::PutDocument(
-                    registry
-                        .author(old, &edits)
-                        .map_err(|e| format!("operation {i}: {e}"))?,
-                )]
+                let (document, receipt) = registry
+                    .author_cancellable(old, &edits, cancel)
+                    .map_err(|e| format!("operation {i}: {e}"))?;
+                receipts.push(json!({"operation":i,"document":document.id,"changes":receipt}));
+                vec![Mutation::PutDocument(document)]
             }
             Operation::Command { id, arguments } => {
                 registry
@@ -253,7 +254,7 @@ pub fn stage(
             base: snapshot.revision(),
             mutations,
         },
-        json!({"ids":ids,"label":batch.label,"validated":true}),
+        json!({"ids":ids,"label":batch.label,"validated":true,"receipts":receipts}),
     ))
 }
 pub fn examples() -> Value {

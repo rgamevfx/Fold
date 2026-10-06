@@ -7,6 +7,31 @@ use serde_json::{Value, json};
 #[derive(Deserialize)]
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 enum Edit {
+    CreateNode {
+        id: ObjectId,
+        parameters: Parameters,
+        #[serde(default)]
+        inputs: std::collections::BTreeMap<String, ObjectId>,
+    },
+    Insert {
+        node: ObjectId,
+        input: String,
+        modifier: ObjectId,
+        modifier_input: String,
+    },
+    Duplicate {
+        node: ObjectId,
+        id: ObjectId,
+    },
+    Replace {
+        node: ObjectId,
+        parameters: Parameters,
+    },
+    LayoutNodes {
+        nodes: Vec<ObjectId>,
+        #[serde(default)]
+        origin: [f32; 2],
+    },
     Add {
         id: ObjectId,
         parameters: Parameters,
@@ -37,6 +62,11 @@ enum Edit {
 }
 pub fn catalog() -> Value {
     fold_platform::authoring::examples(json!({"operations":[
+        {"op":"create_node","id":"$node","parameters":{"GaussianBlur":{"size":[5,5],"edges":"Clamp"}},"inputs":{"image":"$source"}},
+        {"op":"insert","node":"$target","input":"image","modifier":"$modifier","modifier_input":"image"},
+        {"op":"duplicate","node":"$node","id":"$copy"},
+        {"op":"replace","node":"$node","parameters":{"Grade":{"gain":[1,1,1]}}},
+        {"op":"layout_nodes","nodes":["$a","$b"],"origin":[0,0]},
         {"op":"add","id":"$node","parameters":{"Solid":{"rgba":[0.2,0.3,0.4,1]}}},
         {"op":"node","node":"$node","value":{"parameters":{"Solid":{"rgba":[1,0,0,1]}}}},
         {"op":"connect","source":"$source","node":"$node","input":"image"},
@@ -58,6 +88,80 @@ pub fn author(d: &Document, edits: &[Value]) -> Result<Document, String> {
     let mut c = Composite::from_document(d)?;
     for v in edits {
         match decode::<Edit>(v)? {
+            Edit::CreateNode {
+                id,
+                parameters,
+                inputs,
+            } => {
+                if c.nodes.iter().any(|n| n.id == id) {
+                    return Err("node ID already exists".into());
+                }
+                let mut n = Node::disconnected(parameters);
+                n.id = id;
+                c.nodes.push(n);
+                for (input, source) in inputs {
+                    c.connect(source, id, &input)?;
+                }
+            }
+            Edit::Insert {
+                node,
+                input,
+                modifier,
+                modifier_input,
+            } => {
+                if node == modifier {
+                    return Err("cannot insert a node into itself".into());
+                }
+                let n = c.node(node)?;
+                let op = n.parameters.operator();
+                let slot = (0..op.inputs.len())
+                    .find(|&i| op.input_key(i) == input)
+                    .ok_or("missing input")?;
+                let previous = n.inputs[slot].ok_or("input is disconnected")?;
+                c.connect(previous, modifier, &modifier_input)?;
+                c.connect(modifier, node, &input)?;
+            }
+            Edit::Duplicate { node, id } => {
+                if c.nodes.iter().any(|n| n.id == id) {
+                    return Err("node ID already exists".into());
+                }
+                let mut n = c.node(node)?.clone();
+                n.id = id;
+                if let Some(p) = &mut n.position {
+                    p[0] += 40.;
+                    p[1] += 40.;
+                }
+                c.nodes.push(n);
+            }
+            Edit::Replace { node, parameters } => {
+                let n = c.node(node)?;
+                let a = n.parameters.operator();
+                let b = parameters.operator();
+                if a.inputs != b.inputs
+                    || a.output != b.output
+                    || (0..a.inputs.len()).any(|i| a.input_key(i) != b.input_key(i))
+                {
+                    return Err("replacement has an incompatible socket interface".into());
+                }
+                if !n.animation.is_empty() && a.id != b.id {
+                    return Err(
+                        "replacement would reinterpret animation; migrate channels explicitly"
+                            .into(),
+                    );
+                }
+                c.node_mut(node)?.parameters = parameters;
+            }
+            Edit::LayoutNodes { nodes, origin } => {
+                if nodes.len() > 4096 || !origin.iter().all(|v| v.is_finite()) {
+                    return Err("invalid layout request".into());
+                }
+                for (i, id) in nodes.iter().enumerate() {
+                    c.node_mut(*id)?.position = Some([
+                        origin[0] + (i % 4) as f32 * 250.,
+                        origin[1] + (i / 4) as f32 * 180.,
+                    ]);
+                }
+            }
             Edit::Add { id, parameters } => {
                 if c.nodes.iter().any(|n| n.id == id) {
                     return Err("node ID already exists".into());
@@ -94,4 +198,69 @@ pub fn author(d: &Document, edits: &[Value]) -> Result<Document, String> {
     let mut result = c.document(d.id)?;
     result.extensions = d.extensions.clone();
     Ok(result)
+}
+
+pub fn query(d: &Document, q: &Value) -> Result<Value, String> {
+    let c = Composite::from_document(d)?;
+    let node: Option<ObjectId> =
+        serde_json::from_value(q.get("node").cloned().unwrap_or(Value::Null))
+            .map_err(|e| e.to_string())?;
+    let mut ids = std::collections::BTreeSet::new();
+    if let Some(id) = node {
+        c.node(id)?;
+        ids.insert(id);
+    }
+    let mode = q["mode"].as_str().unwrap_or("nodes");
+    match mode {
+        "upstream" | "downstream" => {
+            if node.is_none() {
+                return Err("node required for neighborhood query".into());
+            }
+            for _ in 0..q["depth"].as_u64().unwrap_or(1).min(32) {
+                let mut next = ids.clone();
+                for n in &c.nodes {
+                    for dep in n.dependencies() {
+                        if mode == "upstream" && ids.contains(&n.id) {
+                            next.insert(dep);
+                        }
+                        if mode == "downstream" && ids.contains(&dep) {
+                            next.insert(n.id);
+                        }
+                    }
+                }
+                if next.len() > 200 {
+                    return Err("neighborhood exceeds 200 nodes".into());
+                }
+                if next == ids {
+                    break;
+                }
+                ids = next;
+            }
+        }
+        "nodes" => {
+            if node.is_none() {
+                ids.extend(c.nodes.iter().map(|n| n.id));
+            }
+        }
+        _ => return Err("mode must be nodes, upstream or downstream".into()),
+    }
+    let offset = q["offset"].as_u64().unwrap_or(0) as usize;
+    let limit = q["limit"].as_u64().unwrap_or(50).clamp(1, 200) as usize;
+    let nodes:Vec<_>=c.nodes.iter().filter(|n|ids.contains(&n.id)).skip(offset).take(limit).map(|n|{
+        let op=n.parameters.operator();let consumers:Vec<_>=c.nodes.iter().filter(|o|o.dependencies().any(|id|id==n.id)).map(|o|o.id).collect();
+        json!({"node":n,"inputs":(0..op.inputs.len()).map(|i|json!({"id":op.input_key(i),"kind":format!("{:?}",op.inputs[i]),"source":n.inputs[i]})).collect::<Vec<_>>(),"output":{"id":op.output_key(),"kind":format!("{:?}",op.output)},"consumers":consumers})
+    }).collect();
+    Ok(json!({"nodes":nodes,"total":ids.len(),"offset":offset}))
+}
+pub fn receipt(before: &Document, after: &Document) -> Result<Value, String> {
+    let old = Composite::from_document(before)?;
+    let new = Composite::from_document(after)?;
+    let changed: Vec<_> = new
+        .nodes
+        .iter()
+        .filter(|n| old.nodes.iter().find(|o| o.id == n.id) != Some(n))
+        .collect();
+    Ok(
+        json!({"total_changed_nodes":changed.len(),"nodes":changed.iter().take(200).map(|n|json!({"node":n.id,"operator":n.parameters.operator().id})).collect::<Vec<_>>(),"removed":old.nodes.iter().filter(|n|!new.nodes.iter().any(|v|v.id==n.id)).take(200).map(|n|n.id).collect::<Vec<_>>(),"output":new.output,"truncated":changed.len()>200}),
+    )
 }

@@ -167,6 +167,20 @@ impl Project {
         CommittedSnapshot(Snapshot(self.current.clone()))
     }
 
+    /// Read a retained committed revision without changing history or the live root.
+    /// Callers must scope revision numbers to the same project/session epoch.
+    pub fn retained_snapshot(&self, revision: Revision) -> Option<CommittedSnapshot> {
+        std::iter::once(&self.current)
+            .chain(
+                self.undo
+                    .iter()
+                    .chain(&self.redo)
+                    .flat_map(|entry| [&entry.before, &entry.after]),
+            )
+            .find(|root| root.revision == revision)
+            .map(|root| CommittedSnapshot(Snapshot(root.clone())))
+    }
+
     fn next_revision(&self) -> Result<Revision, ProjectError> {
         self.current
             .revision

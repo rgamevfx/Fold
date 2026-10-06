@@ -1,5 +1,5 @@
-//! Release Chroma Parade GPU benchmark: PROJECT [FRAMES] [WIDTH] [HEIGHT].
-//! Samples the 24 fps demo every other frame; excludes viewer caching and UI latency.
+//! Release GPU motion/compositor benchmark: PROJECT [FRAMES] [WIDTH] [HEIGHT].
+//! Excludes viewer caching and UI latency; defaults to every other frame at 24 fps.
 //! FOLD_PROFILE_MAX_MS enforces a warm-frame mean; FOLD_PROFILE_VERIFY checks CPU parity.
 //! FOLD_PROFILE_SOURCE=motion selects the uncomposited document. FOLD_PROFILE_START,
 //! FOLD_PROFILE_STEP and FOLD_PROFILE_RATE select sample times (defaults 0, 2, 24).
@@ -23,11 +23,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         "fold.compositor.composite"
     };
+    let requested_document: Option<fold_foundation::DocumentId> =
+        std::env::var("FOLD_PROFILE_DOCUMENT")
+            .ok()
+            .map(|id| serde_json::from_value(serde_json::Value::String(id)))
+            .transpose()?;
     let document = snapshot
         .state()
         .documents
         .iter()
-        .find_map(|(id, document)| (document.type_id == source_type).then_some(*id))
+        .find_map(|(id, document)| {
+            (document.type_id == source_type
+                && requested_document.is_none_or(|wanted| wanted == *id))
+            .then_some(*id)
+        })
         .ok_or("no matching source document")?;
     let setting = |name, fallback| -> Result<i64, Box<dyn std::error::Error>> {
         Ok(std::env::var(name)
@@ -53,6 +62,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut renderer = fold_render::gpu::Renderer::new(host.clone())?;
     let mut decoder = fold_media::Decoder::default();
     let mut total = 0.;
+    let mut ready_total = 0.;
     for frame in 0..count {
         let begin = Instant::now();
         let graph = packages.video_with(
@@ -94,11 +104,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let ms = begin.elapsed().as_secs_f64() * 1000.;
         if frame > 0 {
             total += ms;
+            ready_total += ready_ms;
         }
         println!(
             "{}",
             serde_json::json!({"frame":frame,"nodes":nodes,"wall_ms":ms,"ready_ms":ready_ms,"output_cpu_ms":output.statistics.output_cpu_nanoseconds as f64/1e6,"cpu_adapter_nodes":stats.cpu_adapter_nodes,"compile_ms":compile_ms,"gpu_ms":scene.gpu_nanoseconds()?.map(|n|n/1e6),"vector_prepare_ms":stats.vector_prepare_nanoseconds as f64/1e6,"evaluate_ms":stats.evaluate_cpu_nanoseconds as f64/1e6,"passes":stats.compute_passes,"vector_upload_bytes":stats.vector_upload_bytes,"upload_bytes":stats.upload_bytes,"peak_bytes":host.memory().peak,"allocated_bytes":host.memory().allocated})
         );
+        if let Some(directory) = std::env::var_os("FOLD_PROFILE_IMAGES") {
+            use std::io::Write;
+            let path = std::path::Path::new(&directory).join(format!("frame-{frame}.ppm"));
+            let mut file = std::io::BufWriter::new(std::fs::File::create_new(path)?);
+            writeln!(file, "P6\n{} {}\n255", size[0], size[1])?;
+            for pixel in image.rgba().chunks_exact(4) {
+                file.write_all(&pixel[..3])?;
+            }
+            file.flush()?;
+        }
         if let Some(graph) = reference {
             let expected_frame = fold_app::color::with_config(&snapshot, |config| {
                 let frame = match config {
@@ -125,7 +146,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
     let mean = total / f64::from(count - 1);
-    eprintln!("warm_mean_ms={mean:.3}");
+    let ready_mean = ready_total / f64::from(count - 1);
+    eprintln!("warm_mean_ms={mean:.3} warm_ready_mean_ms={ready_mean:.3}");
+    if let Ok(limit) = std::env::var("FOLD_PROFILE_READY_MAX_MS") {
+        if ready_mean > limit.parse::<f64>()? {
+            return Err("display-ready frame performance target exceeded".into());
+        }
+    }
     if let Ok(limit) = std::env::var("FOLD_PROFILE_MAX_MS") {
         if mean > limit.parse::<f64>()? {
             return Err("warm frame performance target exceeded".into());

@@ -1,0 +1,41 @@
+# Phase 45 graph authoring and Rust Wrangle
+
+User-authorized scope: reduce node bookkeeping in Motion and Compositing; expose richer discovery, graph queries and structural edits through the existing API/MCP; add a single inline Rust Wrangle with channel-generated controls and runtime compilation.
+
+## Implementation
+
+Motion now offers configured `create_node`, `publish`, targeted `port` metadata edits, `insert`, interface-compatible `replace`, `duplicate` with explicit shared/independent definitions, `group_nodes`, and selected-node `layout`. Publishing moves compatible animation to existing instances. Compositing offers configured creation, insertion, compatible replacement, duplication and local layout; group interfaces remain Motion-owned.
+
+Package-owned `inspect.query` returns resolved signatures, upstream/downstream neighborhoods, Motion role handles and candidate validation. Batches return bounded package edit receipts. `inspect.since_revision` compares retained roots, requires the matching project epoch, and reports expired history instead of guessing. Catalogs expose setting shapes/choices, input sampling semantics, and the Rust guest interface. Shapes describe existing defaults, not exhaustive JSON schemas for every nested extension.
+
+One `fold.motion.wrangle` node contains Rust source, ABI version, scope and persistent channel declarations. The normal inspector displays source directly, Create Controls, Apply and Run Over. Compilation is asynchronous; draft failures preserve the committed executable source. Node changes during compilation reject a stale result. Channel synchronization preserves unused controls and rejects implicit type changes. Parameters use normal wiring and animation; the node can be packaged in an existing group.
+
+The guest is compiled by rustc for `wasm32-unknown-unknown`, then compiled/executed by Wasmtime. No application rebuild or relaunch is required for source changes. Tested toolchain installation: Rust 1.95.0, Wasmtime 43.0.2. The current compiler launcher requires Linux `prlimit`, and optionally honors `FOLD_RUSTC`. Other platforms need equivalent process resource enforcement before support can be claimed.
+
+The version-1 guest interface exposes translation, working-space RGBA color, opacity, stable ID/index/count, exact request-time numerator/denominator, seconds, Solver delta time, typed channels and numeric attributes. Each element receives fresh logical guest state; phase 46 adds verified numeric guest reuse with reset inputs and a fresh-instance fallback for other Rust. Topology/neighbor operations, implicit instance realization, external crates, macros, module imports, persistent globals, file/network access and native pointers are outside this interface. Existing native nodes supply operations that are not exposed to Rust.
+
+Compiler jobs are serialized, cancellable and bounded by source/parsing complexity, address space, CPU/wall time, output file size and file descriptors. Child process groups are terminated on cancellation/timeout. The guest has memory, stack and per-element/per-node instruction limits; only bounded numeric exchange is available, without WASI. Cache entries are process-local and bounded; saved source and ABI remain authoritative. These controls do not constitute an independently audited security sandbox.
+
+## Verification
+
+- Full Motion checkpoint: 113 tests passed, plus later focused checks for independent control copies/interface receipts and editor drafts (115 distinct non-ignored Motion tests in total). The stale catalog count was corrected to include the already-shipped particle nodes and the new Wrangle.
+- Six app agent tests, the compositor graph test, 18 Platform tests, and 14 Project tests including its doc test pass. These exercise atomic batches, extensions, revisions, creation handles, graph inspection, retained changes, undo, failed Rust proposals, cancellation, live IPC and MCP negotiation. IPC tests require access outside the filesystem sandbox.
+- Rust tests compile and execute real guest code, recompile changed source, preserve channels and numeric attributes, animate channels, exercise delayed field sampling and out-of-order exact-time requests, survive serialization, match a native rendered result, return compiler source spans and stop an infinite loop with fuel.
+- Native Vulkan/llvmpipe inspector captures pass and were visually reviewed at normal and narrow widths: [normal](media/phase-45-wrangle-normal.png), [narrow](media/phase-45-wrangle-narrow.png). Editor tests cover dropped-job cancellation, preserving newer draft text when a previous compile completes, and distinct group editor state. A first all-captures attempt exposed fixture ordering; Wrangle cases now come last, and the relevant captures were rerun in isolation. Manual pointer/keyboard interaction with the desktop and the complete older capture suite were not repeated.
+- Release desktop/CLI builds pass. The [public CLI workflow](../skills/fold/scripts/wrangle.py) created the [Rust Orbit demo](../demos/fold-rust-orbit.md), used receipt roles without an extra graph read, grouped the custom node, published Radius/Speed, tested control/source changes, invalid-source atomicity, undo and out-of-order rendering, then saved through the API. A fresh CLI load rendered the saved project pixel-for-pixel identically to the live API PNG at 1/2 second.
+- Live MCP smoke check negotiated the protocol, listed 15 tools, and obtained a specialized Wrangle signature including the source-discovered `radius` channel. The first probe used an older running server and exposed its older signature behavior; reopening with the rebuilt binary passed.
+- The finalized sample's first creation batch (including runtime compilation) took 151 ms on this machine. Its four 640×360 render API round trips took 201–263 ms under concurrent build load; these include process/IPC polling, rendering and encoding, and are **not** isolated evaluator timings.
+- Isolated release evaluator comparison (1,000 points, 30 fresh-time evaluations, identical translated positions): cold Wrangle **107.99 ms**, warm Wrangle **11.62 ms/frame**, native Set Position **0.25 ms/frame**. This implementation is roughly 46× slower for that simple operation, primarily reflecting the conservative per-element guest lifecycle; it does not justify replacing an existing native node. Reproduce with `cargo test -p fold-motion --features ui --release --test wrangle compare_native_and_wrangle_translation -- --ignored --nocapture`.
+- Workspace-wide tests and Clippy are deferred. No claim of VEX-equivalent speed, independent sandbox audit, or cross-platform bitwise floating-point equivalence.
+
+The initial performance measurements above are superseded by the [phase 46 optimization and GPU architecture proposal](phase-46-motion-performance.md).
+
+## Authoring comparison and limits
+
+The old primitive sequence for a configured Vector Math node required add, settings patch, and two input edits (four package operations). Configured creation expresses the same result in one edit. Publishing a group control now creates its port and wiring in one edit; returned roles avoid a follow-up full-document read. Neighborhood queries and retained-change summaries bound what an agent needs to inspect. Primitive operations remain available.
+
+The orbit's custom per-element logic is five Rust lines in one node, inside an ordinary reusable group. Native point generation, appearance and copying remain editable graph nodes. A simple native response is already one node and can be much faster; Wrangle is an authoring escape hatch for custom logic, not a universal replacement for native nodes.
+
+Version 1 deliberately limits the guest to the documented numeric element interface. New topology, arbitrary package services, external dependencies, persistent guest state and native in-process Rust plugins are not implemented. Port replacement/migration rejects incompatible bindings instead of guessing. Node layout is a selected-node grid, not a new global graph-layout engine. Catalog setting shapes cover current defaults/choices rather than exhaustive nested schemas.
+
+Public usage is documented in [the Fold graph-authoring reference](../skills/fold/references/graph-authoring.md).
