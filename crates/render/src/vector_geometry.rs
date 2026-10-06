@@ -10,6 +10,8 @@ use lyon_tessellation::{
 use std::{collections::VecDeque, sync::Arc};
 
 pub(crate) const MAX_TRIANGLES: usize = 262_144;
+/// Expanded execution is bounded separately from unique local geometry.
+pub(crate) const MAX_INSTANCE_TRIANGLES: usize = 4 * 1024 * 1024;
 type Point = [f64; 2];
 pub(crate) type Triangle = [[f32; 2]; 3];
 #[derive(Clone, PartialEq)]
@@ -61,7 +63,7 @@ impl FillGeometryBuilder for Builder<'_> {
     }
 }
 impl GeometryCache {
-    fn get(
+    pub(crate) fn get(
         &mut self,
         d: &Drawing,
         stroke: Option<&Stroke>,
@@ -286,6 +288,40 @@ impl Polygon {
     }
 }
 pub(crate) fn pixel_area(t: &Triangle, x: u32, y: u32) -> f32 {
+    // Classify the pixel before clipping. This is an exact half-plane test,
+    // not a sampling approximation; boundary pixels still use polygon area.
+    let p = t.map(|v| {
+        [
+            f64::from(v[0]) - f64::from(x),
+            f64::from(v[1]) - f64::from(y),
+        ]
+    });
+    let cross = |a: Point, b: Point| a[0] * b[1] - a[1] * b[0];
+    let orientation = cross(
+        [p[1][0] - p[0][0], p[1][1] - p[0][1]],
+        [p[2][0] - p[0][0], p[2][1] - p[0][1]],
+    );
+    if orientation == 0. {
+        return 0.;
+    }
+    let mut inside = true;
+    for i in 0..3 {
+        let a = p[i];
+        let edge = [p[(i + 1) % 3][0] - a[0], p[(i + 1) % 3][1] - a[1]];
+        let base = cross(edge, [-a[0], -a[1]]) * orientation.signum();
+        let dx = -edge[1] * orientation.signum();
+        let dy = edge[0] * orientation.signum();
+        if base + dx.max(0.) + dy.max(0.) < 0. {
+            return 0.;
+        }
+        inside &= base + dx.min(0.) + dy.min(0.) >= 0.;
+    }
+    if inside {
+        return 1.;
+    }
+    clipped_pixel_area(t, x, y)
+}
+fn clipped_pixel_area(t: &Triangle, x: u32, y: u32) -> f32 {
     let p = Polygon::triangle(t.map(|p| {
         [
             f64::from(p[0]) - f64::from(x),
@@ -494,14 +530,55 @@ pub(crate) fn rasterize(
     height: u32,
     cancel: &Cancel,
 ) -> Result<Vec<[f32; 4]>, String> {
-    let prepared = prepare(
-        &mut GeometryCache::default(),
-        drawings,
-        [width, height],
-        cancel,
-    )?;
-    let packet = bin(prepared, [width, height], cancel)?;
+    vector::validate_working(drawings, true)?;
+    let mut cache = GeometryCache::default();
+    let mut pending = Vec::new();
+    let mut batch_triangles = 0;
+    let mut total = 0;
     let mut pixels = vec![[0.; 4]; width as usize * height as usize];
+    for drawing in drawings {
+        cancel.check()?;
+        let paints = prepare(
+            &mut cache,
+            std::slice::from_ref(drawing),
+            [width, height],
+            cancel,
+        )?;
+        for paint in paints {
+            let count = paint.triangles.len();
+            total += count;
+            if total > MAX_INSTANCE_TRIANGLES {
+                return Err(format!(
+                    "vector instance execution budget exceeded: {total} triangles, limit {MAX_INSTANCE_TRIANGLES}"
+                ));
+            }
+            if batch_triangles + count > MAX_TRIANGLES {
+                rasterize_batch(
+                    std::mem::take(&mut pending),
+                    width,
+                    height,
+                    &mut pixels,
+                    cancel,
+                )?;
+                batch_triangles = 0;
+            }
+            batch_triangles += count;
+            pending.push(paint);
+        }
+    }
+    if !pending.is_empty() {
+        rasterize_batch(pending, width, height, &mut pixels, cancel)?;
+    }
+    Ok(pixels)
+}
+fn rasterize_batch(
+    paints: Vec<Paint>,
+    width: u32,
+    height: u32,
+    pixels: &mut [[f32; 4]],
+    cancel: &Cancel,
+) -> Result<(), String> {
+    let packet = bin(paints, [width, height], cancel)?;
     for py in 0..height {
         for px in 0..width {
             if px % 64 == 0 {
@@ -531,7 +608,7 @@ pub(crate) fn rasterize(
             }
         }
     }
-    Ok(pixels)
+    Ok(())
 }
 
 #[cfg(test)]
@@ -554,6 +631,55 @@ mod tests {
             Segment::Line([x, y + w]),
             Segment::Close,
         ]
+    }
+    #[test]
+    fn pixel_classification_matches_unconditional_polygon_clipping() {
+        let mut seed = 7u32;
+        for _ in 0..2000 {
+            let triangle = std::array::from_fn(|_| {
+                std::array::from_fn(|_| {
+                    seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
+                    (seed >> 8) as f32 / 16777216. * 32. - 8.
+                })
+            });
+            for y in 0..16 {
+                for x in 0..16 {
+                    let actual = pixel_area(&triangle, x, y);
+                    let expected = clipped_pixel_area(&triangle, x, y);
+                    assert!(
+                        (actual - expected).abs() < 1e-6,
+                        "{triangle:?} at {x},{y}: {actual} != {expected}"
+                    );
+                }
+            }
+        }
+    }
+    #[test]
+    fn repeated_curves_render_beyond_expanded_triangle_limit() {
+        let r = 6.;
+        let k = r * 0.5522847498307936;
+        let mut d = shape(vec![
+            Segment::Move([8., 8. - r]),
+            Segment::Cubic([8. + k, 8. - r], [8. + r, 8. - k], [8. + r, 8.]),
+            Segment::Cubic([8. + r, 8. + k], [8. + k, 8. + r], [8., 8. + r]),
+            Segment::Cubic([8. - k, 8. + r], [8. - r, 8. + k], [8. - r, 8.]),
+            Segment::Cubic([8. - r, 8. - k], [8. - k, 8. - r], [8., 8. - r]),
+            Segment::Close,
+        ]);
+        d.stroke = Some(Stroke {
+            color: [0.2, 0.3, 0.4, 0.5],
+            width: 0.5,
+            cap: vector::Cap::Round,
+            join: vector::Join::Round,
+        });
+        let cancel = Cancel::default();
+        let mut cache = GeometryCache::default();
+        let triangles = cache.get(&d, None, &cancel).unwrap().len()
+            + cache.get(&d, d.stroke.as_ref(), &cancel).unwrap().len();
+        let count = MAX_TRIANGLES / triangles + 1;
+        let pixels = rasterize(&vec![d; count], 16, 16, &cancel).unwrap();
+        assert_eq!(pixels[8 * 16 + 8], [1.; 4]);
+        assert_eq!(pixels[0], [0.; 4]);
     }
     #[test]
     fn winding_holes_self_intersections_and_fractional_area() {

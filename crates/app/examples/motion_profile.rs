@@ -10,8 +10,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<_> = std::env::args().skip(1).collect();
     let project = fold_project::load(args.first().ok_or("PROJECT [FRAMES] [WIDTH] [HEIGHT]")?, 1)?;
     let count: u32 = args.get(1).map(|v| v.parse()).transpose()?.unwrap_or(12);
-    if !(2..=120).contains(&count) {
-        return Err("frame count must be 2..=120 for the ten-second demo".into());
+    if !(2..=1200).contains(&count) {
+        return Err("frame count must be 2..=1200".into());
     }
     let size = [
         args.get(2).map(|v| v.parse()).transpose()?.unwrap_or(960),
@@ -108,7 +108,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         println!(
             "{}",
-            serde_json::json!({"frame":frame,"nodes":nodes,"wall_ms":ms,"ready_ms":ready_ms,"output_cpu_ms":output.statistics.output_cpu_nanoseconds as f64/1e6,"cpu_adapter_nodes":stats.cpu_adapter_nodes,"compile_ms":compile_ms,"gpu_ms":scene.gpu_nanoseconds()?.map(|n|n/1e6),"vector_prepare_ms":stats.vector_prepare_nanoseconds as f64/1e6,"evaluate_ms":stats.evaluate_cpu_nanoseconds as f64/1e6,"passes":stats.compute_passes,"vector_upload_bytes":stats.vector_upload_bytes,"upload_bytes":stats.upload_bytes,"peak_bytes":host.memory().peak,"allocated_bytes":host.memory().allocated})
+            serde_json::json!({"frame":frame,"nodes":nodes,"wall_ms":ms,"ready_ms":ready_ms,"output_cpu_ms":output.statistics.output_cpu_nanoseconds as f64/1e6,"cpu_adapter_nodes":stats.cpu_adapter_nodes,"compile_ms":compile_ms,"gpu_ms":scene.gpu_nanoseconds()?.map(|n|n/1e6),"vector_prepare_ms":stats.vector_prepare_nanoseconds as f64/1e6,"evaluate_ms":stats.evaluate_cpu_nanoseconds as f64/1e6,"passes":stats.compute_passes,"vector_upload_bytes":stats.vector_upload_bytes,"vector_geometry_upload_bytes":stats.vector_geometry_upload_bytes,"vector_instance_upload_bytes":stats.vector_instance_upload_bytes,"vector_instances":stats.vector_instances,"vector_unique_triangles":stats.vector_unique_triangles,"vector_execution_triangles":stats.vector_execution_triangles,"vector_cpu_transform_fallbacks":stats.vector_cpu_transform_fallbacks,"upload_bytes":stats.upload_bytes,"peak_bytes":host.memory().peak,"allocated_bytes":host.memory().allocated})
         );
         if let Some(directory) = std::env::var_os("FOLD_PROFILE_IMAGES") {
             use std::io::Write;

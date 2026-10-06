@@ -18,6 +18,7 @@ pub use display::Display;
 mod native_video;
 mod validation;
 mod vector;
+mod vector_legacy;
 mod yuv;
 use crate::{Frame, ImageOp, RenderGraph, WorkingSpace, graph};
 use host::Image;
@@ -51,6 +52,12 @@ pub struct Statistics {
     pub resident_video_nodes: u32,
     pub vector_prepare_nanoseconds: u128,
     pub vector_upload_bytes: u64,
+    pub vector_geometry_upload_bytes: u64,
+    pub vector_instance_upload_bytes: u64,
+    pub vector_instances: u64,
+    pub vector_unique_triangles: u64,
+    pub vector_execution_triangles: u64,
+    pub vector_cpu_transform_fallbacks: u32,
     pub native_decode_nanoseconds: u128,
     /// Inclusive helper call intervals, not isolated GPU codec/copy timestamps.
     pub native_codec_call_nanoseconds: u64,
@@ -85,6 +92,12 @@ impl Statistics {
         self.resident_video_nodes += other.resident_video_nodes;
         self.vector_prepare_nanoseconds += other.vector_prepare_nanoseconds;
         self.vector_upload_bytes += other.vector_upload_bytes;
+        self.vector_geometry_upload_bytes += other.vector_geometry_upload_bytes;
+        self.vector_instance_upload_bytes += other.vector_instance_upload_bytes;
+        self.vector_instances += other.vector_instances;
+        self.vector_unique_triangles += other.vector_unique_triangles;
+        self.vector_execution_triangles += other.vector_execution_triangles;
+        self.vector_cpu_transform_fallbacks += other.vector_cpu_transform_fallbacks;
         self.native_decode_nanoseconds += other.native_decode_nanoseconds;
         self.native_codec_call_nanoseconds += other.native_codec_call_nanoseconds;
         self.native_allocate_nanoseconds += other.native_allocate_nanoseconds;
@@ -934,7 +947,7 @@ impl Renderer {
                     compute = false;
                 }
                 ImageOp::Vector(drawings) => {
-                    let (bytes, elapsed) = self.vector.encode(
+                    let report = self.vector.encode(
                         &mut encoder,
                         drawings,
                         &output,
@@ -942,10 +955,16 @@ impl Renderer {
                         &mut buffers,
                         cancel,
                     )?;
-                    stats.upload_bytes += bytes;
-                    stats.vector_upload_bytes += bytes;
-                    stats.vector_prepare_nanoseconds += elapsed;
-                    stats.compute_passes += 1;
+                    stats.upload_bytes += report.upload_bytes;
+                    stats.vector_upload_bytes += report.upload_bytes;
+                    stats.vector_geometry_upload_bytes += report.geometry_upload_bytes;
+                    stats.vector_instance_upload_bytes += report.instance_upload_bytes;
+                    stats.vector_instances += report.instances;
+                    stats.vector_unique_triangles += report.unique_triangles;
+                    stats.vector_execution_triangles += report.execution_triangles;
+                    stats.vector_cpu_transform_fallbacks += report.cpu_transform_fallbacks;
+                    stats.vector_prepare_nanoseconds += report.prepare_nanoseconds;
+                    stats.compute_passes += report.passes;
                     compute = false;
                 }
                 ImageOp::Video { .. } | ImageOp::VideoInput { .. } if aces => {

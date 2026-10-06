@@ -46,7 +46,7 @@ fn native_float_coverage_matches_reference_without_full_image_upload() {
             let mut encoder = host.device().create_command_encoder(&Default::default());
             status.start(&mut encoder);
             let mut reservations = vec![];
-            let (bytes, _) = pipeline
+            let report = pipeline
                 .encode(
                     &mut encoder,
                     &drawings,
@@ -58,9 +58,14 @@ fn native_float_coverage_matches_reference_without_full_image_upload() {
                 .unwrap();
             // Geometric payload can exceed RGBA for tiny targets; it is not a
             // raster image. Repeated evaluation must not upload it again.
-            assert!(bytes < 64 * 1024);
+            assert!(report.upload_bytes < 64 * 1024);
             assert_eq!(
-                pipeline.packet(&drawings, dimensions, &cancel).unwrap().1,
+                pipeline
+                    .packet(&drawings, dimensions, &cancel)
+                    .unwrap()
+                    .unwrap()
+                    .1
+                    .upload_bytes,
                 0
             );
             status.encode(&mut encoder);
@@ -140,4 +145,214 @@ fn unconfigured_vectors_stay_on_gpu_with_float_coverage() {
         assert!((a - b).abs() < 0.0001, "{a} != {b}");
     }
     assert!((actual.pixels()[33][3] - 0.4321).abs() < 0.00001);
+}
+
+fn rectangle() -> Drawing {
+    Drawing {
+        path: Arc::new(vec![
+            Segment::Move([0.2, 0.3]),
+            Segment::Line([8.7, 0.3]),
+            Segment::Line([8.7, 9.2]),
+            Segment::Line([0.2, 9.2]),
+            Segment::Close,
+        ]),
+        transform: [1., 0., 0., 1., 1., 1.],
+        fill: Some([0.2, 0.4, 0.8, 0.3]),
+        stroke: None,
+        even_odd: false,
+    }
+}
+fn render(
+    pipeline: &mut VectorPipeline,
+    host: &Host,
+    drawings: &[Drawing],
+    size: [u32; 2],
+) -> (crate::Frame, Report) {
+    let cancel = fold_media::Cancel::default();
+    let output = host.image(size).unwrap();
+    let status = Status::new(host).unwrap();
+    let mut encoder = host.device().create_command_encoder(&Default::default());
+    status.start(&mut encoder);
+    let mut reservations = vec![];
+    let report = pipeline
+        .encode(
+            &mut encoder,
+            drawings,
+            &output,
+            &status,
+            &mut reservations,
+            &cancel,
+        )
+        .unwrap();
+    status.encode(&mut encoder);
+    host.submit(encoder, vec![output.clone()], reservations);
+    let mut frame = GpuFrame {
+        dependencies: vec![],
+        image: output,
+        host: host.clone(),
+        ready: status.submitted(),
+        working_space: crate::WorkingSpace::AcesCg,
+        config_identity: None,
+        timing: None,
+        lease_id: 1,
+        statistics: Default::default(),
+    };
+    (frame.readback(&cancel).unwrap(), report)
+}
+#[test]
+#[ignore = "requires native Vulkan"]
+fn native_instances_keep_order_across_tile_words_and_reuse_only_static_geometry() {
+    let (host, _) = pollster::block_on(Host::headless(8 * 1024 * 1024)).unwrap();
+    let mut pipeline = VectorPipeline::new(&host);
+    let mut drawings: Vec<_> = (0..97)
+        .map(|i| {
+            let mut d = rectangle();
+            d.transform[4] = (i % 7) as f64 - 2.4;
+            d.fill = Some([i as f64 / 96., 0.2, 0.8 - i as f64 / 120., 0.03]);
+            d
+        })
+        .collect();
+    let (first, report) = render(&mut pipeline, &host, &drawings, [16, 16]);
+    assert_eq!(report.instances, 97);
+    assert_eq!(report.unique_triangles, 2);
+    assert_eq!(report.cpu_transform_fallbacks, 0);
+    assert!(report.geometry_upload_bytes > 0);
+    let expected =
+        vector::rasterize(&drawings, 16, 16, &fold_media::Cancel::default(), true).unwrap();
+    let max = first
+        .pixels()
+        .iter()
+        .flatten()
+        .zip(expected.iter().flatten())
+        .map(|(a, b)| (a - b).abs())
+        .fold(0f32, f32::max);
+    assert!(max < 0.0001, "ordered alpha differs: {max}");
+    for d in &mut drawings {
+        d.transform[5] += 0.25;
+        d.fill.as_mut().unwrap()[0] *= 0.5;
+    }
+    let (_, animated) = render(&mut pipeline, &host, &drawings, [16, 16]);
+    assert_eq!(animated.geometry_upload_bytes, 0);
+    assert!(animated.instance_upload_bytes > 0);
+    assert_eq!(animated.upload_bytes, animated.instance_upload_bytes);
+    let (_, cached) = render(&mut pipeline, &host, &drawings, [16, 16]);
+    assert_eq!(cached.upload_bytes, 0);
+    let (empty, _) = render(&mut pipeline, &host, &[], [16, 16]);
+    assert!(empty.pixels().iter().all(|p| *p == [0.; 4]));
+}
+#[test]
+#[ignore = "requires native Vulkan"]
+fn native_repeated_geometry_exceeds_old_triangle_limit_without_repeated_uploads() {
+    let (host, _) = pollster::block_on(Host::headless(64 * 1024 * 1024)).unwrap();
+    let mut pipeline = VectorPipeline::new(&host);
+    let mut path = Vec::new();
+    for i in 0..96 {
+        let a = i as f64 * std::f64::consts::TAU / 96.;
+        let p = [8. + 6. * a.cos(), 8. + 6. * a.sin()];
+        path.push(if i == 0 {
+            Segment::Move(p)
+        } else {
+            Segment::Line(p)
+        });
+    }
+    path.push(Segment::Close);
+    let d = Drawing {
+        path: Arc::new(path),
+        transform: [1., 0., 0., 1., 0., 0.],
+        fill: Some([0.2, 0.4, 0.8, 1.]),
+        even_odd: false,
+        stroke: Some(Stroke {
+            color: [0.8, 0.2, 0.4, 0.5],
+            width: 0.7,
+            cap: Cap::Butt,
+            join: Join::Miter,
+        }),
+    };
+    let (actual, report) = render(&mut pipeline, &host, &vec![d; 1000], [16, 16]);
+    assert!(report.execution_triangles > crate::vector_geometry::MAX_TRIANGLES as u64);
+    assert!(report.unique_triangles < 1000);
+    assert!(report.geometry_upload_bytes < 32 * 1024);
+    assert_eq!(report.cpu_transform_fallbacks, 0);
+    assert_eq!(actual.pixels()[8 * 16 + 8], [0.2, 0.4, 0.8, 1.]);
+    assert_eq!(actual.pixels()[0], [0.; 4]);
+}
+#[test]
+#[ignore = "requires native Vulkan"]
+fn native_abandoned_encoder_and_budget_failure_leave_reusable_pipeline() {
+    let (host, _) = pollster::block_on(Host::headless(64 * 1024)).unwrap();
+    let mut pipeline = VectorPipeline::new(&host);
+    let cancel = fold_media::Cancel::default();
+    let drawings = vec![rectangle()];
+    {
+        let output = host.image([16, 16]).unwrap();
+        let status = Status::new(&host).unwrap();
+        let mut encoder = host.device().create_command_encoder(&Default::default());
+        pipeline
+            .encode(
+                &mut encoder,
+                &drawings,
+                &output,
+                &status,
+                &mut vec![],
+                &cancel,
+            )
+            .unwrap();
+        // Drop without submission: a cached packet must not imply prepared GPU contents.
+    }
+    let (first, _) = render(&mut pipeline, &host, &drawings, [16, 16]);
+    assert!(first.pixels()[5 * 16 + 5][3] > 0.29);
+    assert!(
+        pipeline
+            .packet(&vec![rectangle(); 2000], [16, 16], &cancel)
+            .is_err()
+    );
+    let (after, _) = render(&mut pipeline, &host, &drawings, [16, 16]);
+    assert_eq!(first.pixels(), after.pixels());
+    pipeline.clear();
+    let (cleared, report) = render(&mut pipeline, &host, &drawings, [16, 16]);
+    assert_eq!(first.pixels(), cleared.pixels());
+    assert!(report.geometry_upload_bytes > 0);
+}
+
+#[test]
+#[ignore = "requires native Vulkan"]
+fn native_extreme_coordinates_use_clipped_preparation_and_remain_equivalent() {
+    let (host, _) = pollster::block_on(Host::headless(8 * 1024 * 1024)).unwrap();
+    let mut pipeline = VectorPipeline::new(&host);
+    let mut d = rectangle();
+    d.transform = [100000., 0., 0., 100000., -500000., -500000.];
+    let (actual, report) = render(&mut pipeline, &host, &[d.clone()], [16, 16]);
+    assert_eq!(report.cpu_transform_fallbacks, 1);
+    let expected = vector::rasterize(&[d], 16, 16, &fold_media::Cancel::default(), true).unwrap();
+    for (a, b) in actual
+        .pixels()
+        .iter()
+        .flatten()
+        .zip(expected.iter().flatten())
+    {
+        assert!((a - b).abs() < 0.0001, "{a} != {b}");
+    }
+}
+
+#[test]
+#[ignore = "requires native Vulkan"]
+fn native_retained_gpu_atlas_does_not_pin_evicted_cpu_geometry() {
+    let (host, _) = pollster::block_on(Host::headless(8 * 1024 * 1024)).unwrap();
+    let mut pipeline = VectorPipeline::new(&host);
+    let drawings = vec![rectangle()];
+    let scene = pipeline
+        .sources
+        .prepare(&drawings, [16, 16], &fold_media::Cancel::default())
+        .unwrap();
+    let source = Arc::downgrade(&scene.sources[0]);
+    drop(scene);
+    let (first, _) = render(&mut pipeline, &host, &drawings, [16, 16]);
+    pipeline.sources = Sources::default();
+    assert!(
+        source.upgrade().is_none(),
+        "GPU retention must not bypass CPU cache eviction"
+    );
+    let (cached, report) = render(&mut pipeline, &host, &drawings, [16, 16]);
+    assert_eq!(report.upload_bytes, 0);
+    assert_eq!(first.pixels(), cached.pixels());
 }

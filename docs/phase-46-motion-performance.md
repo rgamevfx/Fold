@@ -1,6 +1,6 @@
 # Phase 46: Wrangle execution and procedural generation performance
 
-Status: CPU/runtime optimizations implemented and verified; optimized release desktop running. The native-graph/GPU stages below are a proposal, not shipped capabilities.
+Status: CPU/runtime optimizations implemented and verified. Shared-geometry GPU rendering subsequently landed in [phase 46A](phase-46A-shared-vector-rendering.md); native graph generation and GPU field evaluation below remain proposals.
 
 ## Reproduction and diagnosis
 
@@ -62,7 +62,7 @@ An initial image comparison used a direct 1024×576 render against MCP's nearest
 
 ## Proposed native-graph and GPU architecture
 
-The current authored graph is not an executable GPU language. Motion fields contain opaque Rust closures (`fields::Field`), and `geometry::drawings_with` flattens instances into CPU drawing records. The shared vector renderer already computes coverage on the GPU, but it prepares transformed triangles, paints and tile bins on the CPU. Merely replacing a Wrangle with native nodes therefore does not move its arithmetic to the GPU.
+The authored graph is not an executable GPU language. Motion fields contain opaque Rust closures (`fields::Field`), and `geometry::drawings_with` lowers instances to shared paths plus CPU drawing records. At the phase-46 baseline, the GPU coverage renderer prepared transformed triangles and tile bins on the CPU. [Phase 46A](phase-46A-shared-vector-rendering.md) now retains local geometry and performs instance triangle transforms and tile visibility on the GPU. Merely replacing a Wrangle with native nodes still does not move its field arithmetic to the GPU.
 
 Keep code inside the Wrangle inspector, with an explicit graph-generation execution mode. Rust graph-building code should run when its source or structural inputs change and return a bounded, typed native graph. Exposed channels become parameter references rather than baked numbers; time and element-dependent operations remain in the generated graph. Validate types, cycles, capabilities and budgets before publishing a new immutable compiled artifact. Retain the last successful artifact during an unsuccessful draft, preserve undoable source/channel edits, and never serialize runtime caches as authoritative data. Existing element Rust remains a fallback; arbitrary Rust is not promised automatic translation.
 

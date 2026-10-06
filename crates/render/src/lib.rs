@@ -15,6 +15,8 @@ mod sampling;
 pub mod scheduling;
 pub mod vector;
 mod vector_geometry;
+#[cfg(feature = "gpu")]
+mod vector_instances;
 pub mod view;
 pub use graph::{Affine, ImageId, ImageOp, RenderGraph};
 
