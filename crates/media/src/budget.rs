@@ -71,6 +71,17 @@ pub struct Usage {
     pub peak: u64,
     pub budget: u64,
 }
+static PREPARATION: Budget = Budget::new(128 * 1024 * 1024);
+
+/// Admission allowance, not additional physical storage: prepared samples also
+/// retain their normal decoded leases. Leave half the decode budget for demand.
+pub fn reserve_preparation(bytes: u64) -> Result<Arc<Lease>, &'static str> {
+    PREPARATION.reserve(bytes)
+}
+pub fn preparation_usage() -> Usage {
+    PREPARATION.usage()
+}
+
 pub(crate) static DECODED: Budget = Budget::new(256 * 1024 * 1024);
 pub(crate) static PIPE: Budget = Budget::new(64 * 1024 * 1024);
 pub fn pipe_usage() -> Usage {
@@ -141,5 +152,6 @@ pub fn reserve_delivery_pcm(bytes: u64) -> Result<Arc<Lease>, &'static str> {
 /// Pipe, output, project/history and allocator overhead remain separately bounded.
 pub fn configure_image_memory(bytes: u64) {
     DECODED.limit.store(bytes / 3, Ordering::Release);
+    PREPARATION.limit.store(bytes / 6, Ordering::Release);
     WORKING.limit.store(bytes - bytes / 3, Ordering::Release);
 }

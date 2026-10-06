@@ -274,7 +274,14 @@ pub fn mux_audio(
             "-movflags",
             "+faststart",
             "-f",
-            "mp4",
+            if destination
+                .extension()
+                .is_some_and(|e| e.eq_ignore_ascii_case("mov"))
+            {
+                "mov"
+            } else {
+                "mp4"
+            },
         ])
         .arg(output.path());
     Process::spawn(

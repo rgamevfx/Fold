@@ -228,6 +228,7 @@ fn data_rgb_without_alpha_can_be_processed_without_being_zeroed() {
 #[test]
 fn read_does_not_infer_color_processing_for_rgb_utility_layers() {
     let image = fold_media::exr::Info {
+        sequence: None,
         dimensions: [3, 2],
         display_origin: [0; 2],
         data_origin: [0; 2],
@@ -282,4 +283,60 @@ fn disabled_mask_does_not_evaluate_an_incomplete_mask_branch() {
     );
     composite.node_mut(id).unwrap().effect.mask_disabled = false;
     assert!(compile(&composite).unwrap_err().contains("connect"));
+}
+
+#[test]
+fn long_sequence_manifest_stays_on_the_asset_and_read_serialization_stays_small() {
+    let sequence = fold_media::exr_sequence::Sequence {
+        frames: (1..=18000)
+            .map(|frame| {
+                (
+                    frame,
+                    fold_media::exr_sequence::Frame {
+                        file: format!("shot.{frame:05}.exr"),
+                        fingerprint: format!("sha256:{}", "0".repeat(64)),
+                    },
+                )
+            })
+            .collect(),
+    };
+    let image = fold_media::exr::Info {
+        dimensions: [16, 16],
+        display_origin: [0, 0],
+        data_origin: [0, 0],
+        data_dimensions: [16, 16],
+        channels: vec![fold_media::exr::Channel {
+            name: "depth.Z".into(),
+            source: "Z".into(),
+            color: false,
+        }],
+        sequence: Some(sequence.clone()),
+    };
+    let source = fold_compositor::source_from_profile(
+        fold_foundation::AssetId::new(),
+        fold_media::ingest::SourceProfile::Exr(image),
+        &fold_media::VideoInfo {
+            width: 16,
+            height: 16,
+            rate: [24, 1],
+            frames: 24,
+        },
+    )
+    .unwrap();
+    assert!(serde_json::to_vec(&source).unwrap().len() < 2048);
+    let fold_compositor::Source::Exr {
+        image,
+        sequence: Some(summary),
+        info,
+        ..
+    } = source
+    else {
+        panic!()
+    };
+    assert!(image.sequence.is_none());
+    assert!(summary.matches(&sequence));
+    assert_eq!(info.frames, 18001);
+    let mut changed = sequence;
+    changed.frames.remove(&1000);
+    assert!(!summary.matches(&changed));
 }

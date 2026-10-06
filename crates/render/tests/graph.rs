@@ -303,3 +303,61 @@ fn live_pixel_budget_releases_intermediates_and_skips_dead_work() {
     plan.output = 0;
     assert_eq!(render(plan).unwrap().pixels()[0], RED);
 }
+
+#[test]
+fn dci_4k_scene_and_alpha_delivery_share_the_bounded_working_allowance() {
+    let frame = render(RenderGraph {
+        width: 4096,
+        height: 2160,
+        nodes: vec![solid([0.125, 0.0625, 0.25, 0.5])],
+        output: 0,
+    })
+    .unwrap();
+    assert_eq!(frame.dimensions(), [4096, 2160]);
+    let output = frame.into_rgba16(None).unwrap();
+    assert_eq!(output.bytes().len(), 4096 * 2160 * 8);
+    let expected = [35200u16, 25465, 48192, 32768];
+    for (i, expected) in expected.into_iter().enumerate() {
+        let actual = u16::from_le_bytes([output.bytes()[2 * i], output.bytes()[2 * i + 1]]);
+        assert!((i32::from(actual) - i32::from(expected)).abs() <= 1);
+    }
+}
+#[test]
+fn worker_multilayer_graph_uses_the_configured_working_allowance() {
+    let mut nodes = vec![
+        fold_render::ImageOp::Solid {
+            rgba: [0.25, 0., 0., 1.]
+        };
+        5
+    ];
+    let mut output = 0;
+    for foreground in 1..5 {
+        nodes.push(fold_render::ImageOp::Over {
+            foreground,
+            background: output,
+        });
+        output = nodes.len() - 1;
+    }
+    // Six live 1080p frames exceed the old 128 MiB worker cap. Each allocation
+    // must still fit the shared configured working budget, including scratch.
+    let result = fold_render::render_with(
+        fold_render::RenderGraph {
+            width: 1920,
+            height: 1080,
+            nodes,
+            output,
+        },
+        &mut fold_media::Decoder::default(),
+        &fold_media::Cancel::default(),
+    )
+    .unwrap();
+    assert!(
+        result
+            .pixels()
+            .iter()
+            .all(|pixel| *pixel == [0.25, 0., 0., 1.])
+    );
+    assert!(
+        fold_media::budget::working_usage().bytes <= fold_media::budget::working_usage().budget
+    );
+}

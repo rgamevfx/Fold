@@ -12,6 +12,7 @@ mod host;
 mod preparation;
 mod sampling;
 mod still;
+mod upload;
 pub use display::Display;
 #[cfg(all(feature = "native-video", target_os = "linux"))]
 mod native_video;
@@ -28,11 +29,14 @@ use wgpu::util::DeviceExt;
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Statistics {
     pub upload_bytes: u64,
+    pub upload_allocations: u32,
+    pub upload_reuses: u32,
     pub lut_upload_bytes: u64,
     pub readback_bytes: u64,
     pub status_readback_bytes: u64,
     /// Full-frame CPU RGB/RGBA adapters. Native decode and geometry preparation are
-    /// measured separately below; zero here does not mean zero CPU work.
+    /// measured separately below; zero here does not mean zero CPU work. EXR
+    /// timing includes demand wait; source workers may already have decoded it.
     pub cpu_adapter_nodes: u32,
     pub resident_still_nodes: u32,
     pub cpu_adapter_nanoseconds: u128,
@@ -62,6 +66,8 @@ pub struct Statistics {
 impl Statistics {
     fn accumulate(&mut self, other: &Self) {
         self.upload_bytes += other.upload_bytes;
+        self.upload_allocations += other.upload_allocations;
+        self.upload_reuses += other.upload_reuses;
         self.lut_upload_bytes += other.lut_upload_bytes;
         self.readback_bytes += other.readback_bytes;
         self.status_readback_bytes += other.status_readback_bytes;
@@ -281,6 +287,7 @@ struct Params {
 /// Worker-owned pipeline state, sharing host allocations with other workers.
 /// Explicit selection: constructing this renderer never changes CPU entry points.
 pub struct Renderer {
+    uploads: upload::Pool,
     host: Host,
     pipeline: wgpu::ComputePipeline,
     data_display: wgpu::ComputePipeline,
@@ -289,7 +296,6 @@ pub struct Renderer {
     planes: wgpu::ComputePipeline,
     yuv: yuv::YuvPipeline,
     vector: vector::VectorPipeline,
-    still: still::Cache,
     gaussian: gaussian::Gaussian,
     sampling: sampling::Sampling,
     #[cfg(all(feature = "native-video", target_os = "linux"))]
@@ -394,6 +400,7 @@ impl Renderer {
             cache: None,
         });
         Ok(Self {
+            uploads: Default::default(),
             data_display,
             gaussian,
             sampling,
@@ -406,7 +413,6 @@ impl Renderer {
             layout,
             planes,
             colors: Default::default(),
-            still: Default::default(),
         })
     }
     fn pass(
@@ -555,8 +561,8 @@ impl Renderer {
         self.evaluate_admitted(graph, config, decoder, cancel, None)
     }
 
-    /// Source preparation holds no graphics permit. Admission covers recording
-    /// and submission only; queued/held inputs retain their allocation leases.
+    /// Source preparation and recording hold no graphics permit. Admission
+    /// orders submission only; queued/held inputs retain their allocation leases.
     pub fn evaluate_scheduled(
         &mut self,
         graph: RenderGraph,
@@ -581,10 +587,11 @@ impl Renderer {
         // Retained inputs are expendable under host pressure; displayed and
         // submitted resources remain protected by their independent leases.
         let memory = self.host.memory();
-        if memory.allocated > memory.budget.saturating_mul(3) / 4 {
-            self.still.clear();
+        if memory.allocated.saturating_sub(memory.reusable) > memory.budget.saturating_mul(3) / 4 {
+            self.host.sources().clear();
             self.yuv.clear();
             self.vector.clear();
+            self.uploads.clear();
             #[cfg(all(feature = "native-video", target_os = "linux"))]
             if let Some(native) = self.native_video.as_mut() {
                 native.clear();
@@ -627,6 +634,41 @@ impl Renderer {
                 sources[id] = Some(frame);
             }
         }
+        let dimensions = [graph.width, graph.height];
+        let mut keys = Vec::with_capacity(graph.nodes.len());
+        let mut resident = Vec::with_capacity(graph.nodes.len());
+        let mut requests = Vec::new();
+        for (id, op) in graph.nodes.iter().enumerate() {
+            let key = if needed[id] {
+                still::Key::new(op, dimensions, &processors)?
+                    .filter(|key| still::Cache::eligible(key, self.host.memory().budget))
+            } else {
+                None
+            };
+            let image = key
+                .as_ref()
+                .map(|key| self.host.sources().get(key, cancel))
+                .transpose()?
+                .flatten();
+            if needed[id] && image.is_none() {
+                if let ImageOp::Exr {
+                    source, channels, ..
+                } = op
+                {
+                    requests.push((
+                        id,
+                        fold_media::exr::cache::Request {
+                            source: source.clone(),
+                            channels: channels.clone(),
+                            dimensions,
+                        },
+                    ));
+                }
+            }
+            keys.push(key);
+            resident.push(image);
+        }
+        let mut exr = crate::preparation::SourcePipeline::new(requests, cancel)?;
         let dependencies = sources
             .iter()
             .flatten()
@@ -637,12 +679,6 @@ impl Renderer {
         } else {
             Vec::new()
         };
-        let begin = std::time::Instant::now();
-        let _permit = class
-            .map(|class| crate::scheduling::Scheduler::shared().enter(class, cancel))
-            .transpose()?;
-        stats.graphics_queue_nanoseconds += begin.elapsed().as_nanos();
-        let dimensions = [graph.width, graph.height];
         // At most two parameter buffers per reachable node (separable blur).
         // Reserve before recording so even a long graph is aggregate bounded.
         let parameter_bytes =
@@ -655,6 +691,7 @@ impl Renderer {
         // read: distinct passes provide barriers. It does not escape to the host
         // pool until the entire submission completes.
         let mut scratch = Vec::<Arc<Image>>::new();
+        let mut uploads = Vec::new();
         let mut immutable = vec![false; graph.nodes.len()];
         let mut retained = Vec::new();
         let mut encoder = self
@@ -669,11 +706,8 @@ impl Renderer {
                 continue;
             }
             cancel.check()?;
-            let still_key = still::Key::new(op, dimensions, &processors)?
-                .filter(|key| still::Cache::eligible(key, self.host.memory().budget));
-            if let Some(key) = &still_key
-                && let Some(image) = self.still.get(key, cancel)?
-            {
+            let still_key = keys[id].take();
+            if let Some(image) = resident[id].take() {
                 leases.push(image.clone());
                 frames[id] = Some(image);
                 immutable[id] = true;
@@ -981,59 +1015,52 @@ impl Renderer {
                     let begin = std::time::Instant::now();
                     let mut input_space = None;
                     let mut native_planes = None;
-                    let mut exr_pixels;
-                    let pixels: Vec<[f32; 4]> = if let ImageOp::Exr {
-                        source,
-                        channels,
-                        space,
-                    } = op
-                    {
-                        exr_pixels = fold_media::exr::decode(
-                            source,
-                            channels.each_ref().map(|c| c.as_deref()),
-                            dimensions,
-                            cancel,
-                        )?;
-                        input_space = space.as_deref();
-                        std::mem::take(&mut exr_pixels.pixels)
-                    } else if aces {
-                        let decoded;
-                        let source = match op {
-                            ImageOp::Media(source) => source,
-                            ImageOp::Video { source, time }
-                            | ImageOp::VideoInput { source, time, .. } => {
-                                decoded =
-                                    decoder.decode_signal(source, *time, dimensions, cancel)?;
-                                &decoded
+                    let exr_pixels;
+                    let pixels: std::borrow::Cow<'_, [[f32; 4]]> =
+                        if let ImageOp::Exr { space, .. } = op {
+                            exr_pixels = exr.take(id, cancel)?;
+                            input_space = space.as_deref();
+                            std::borrow::Cow::Borrowed(&exr_pixels.pixels)
+                        } else if aces {
+                            let decoded;
+                            let source = match op {
+                                ImageOp::Media(source) => source,
+                                ImageOp::Video { source, time }
+                                | ImageOp::VideoInput { source, time, .. } => {
+                                    decoded =
+                                        decoder.decode_signal(source, *time, dimensions, cancel)?;
+                                    &decoded
+                                }
+                                _ => unreachable!(),
+                            };
+                            input_space = Some(match op {
+                                ImageOp::VideoInput { space, .. } => space.as_str(),
+                                _ if source.is_signal() => fold_color::settings::VIDEO_INPUT,
+                                _ => fold_color::settings::SRGB_INPUT,
+                            });
+                            if source.native_gbr_planes().is_some() {
+                                native_planes = Some(source.clone());
+                                std::borrow::Cow::Owned(Vec::new())
+                            } else {
+                                source.encoded_pixels().collect()
                             }
-                            _ => unreachable!(),
-                        };
-                        input_space = Some(match op {
-                            ImageOp::VideoInput { space, .. } => space.as_str(),
-                            _ if source.is_signal() => fold_color::settings::VIDEO_INPUT,
-                            _ => fold_color::settings::SRGB_INPUT,
-                        });
-                        if source.native_gbr_planes().is_some() {
-                            native_planes = Some(source.clone());
-                            Vec::new()
                         } else {
-                            source.encoded_pixels().collect()
-                        }
-                    } else {
-                        graph::evaluate(
-                            RenderGraph {
-                                width: graph.width,
-                                height: graph.height,
-                                nodes: vec![op.clone()],
-                                output: 0,
-                            },
-                            decoder,
-                            cancel,
-                            128 * 1024 * 1024,
-                            config,
-                        )?
-                        .pixels
-                    };
+                            std::borrow::Cow::Owned(
+                                graph::evaluate(
+                                    RenderGraph {
+                                        width: graph.width,
+                                        height: graph.height,
+                                        nodes: vec![op.clone()],
+                                        output: 0,
+                                    },
+                                    decoder,
+                                    cancel,
+                                    128 * 1024 * 1024,
+                                    config,
+                                )?
+                                .pixels,
+                            )
+                        };
                     stats.cpu_adapter_nanoseconds += begin.elapsed().as_nanos();
                     stats.cpu_adapter_nodes += 1;
                     // Upload through an encoded copy, NOT queue.write_texture:
@@ -1045,25 +1072,6 @@ impl Renderer {
                         .map_or(u64::from(stride) * u64::from(graph.height), |p| {
                             p.storage_bytes()
                         });
-                    buffers.push(self.host.reserve(upload_bytes)?);
-                    let mut bytes = Vec::new();
-                    if native_planes.is_none() {
-                        bytes
-                            .try_reserve_exact(upload_bytes as usize)
-                            .map_err(|_| "source upload CPU allocation failed")?;
-                        bytes.resize(upload_bytes as usize, 0u8);
-                        for (row, pixels) in bytes
-                            .chunks_exact_mut(stride as usize)
-                            .zip(pixels.chunks_exact(graph.width as usize))
-                        {
-                            row[..graph.width as usize * 16]
-                                .copy_from_slice(bytemuck::cast_slice(pixels));
-                        }
-                    }
-                    let contents: &[u8] = match &native_planes {
-                        Some(p) => bytemuck::cast_slice(p.native_gbr_planes().unwrap()),
-                        None => &bytes,
-                    };
                     let encoded = if input_space.is_some() {
                         let image = match scratch.pop() {
                             Some(image) => image,
@@ -1077,19 +1085,15 @@ impl Renderer {
                     } else {
                         None
                     };
-                    let upload =
-                        self.host
-                            .device()
-                            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                                label: Some("Fold CPU adapter upload"),
-                                contents,
-                                usage: if native_planes.is_some() {
-                                    wgpu::BufferUsages::STORAGE
-                                } else {
-                                    wgpu::BufferUsages::COPY_SRC
-                                },
-                            });
-                    if native_planes.is_some() {
+                    if let Some(planes) = native_planes.as_ref() {
+                        buffers.push(self.host.reserve(upload_bytes)?);
+                        let upload = self.host.device().create_buffer_init(
+                            &wgpu::util::BufferInitDescriptor {
+                                label: Some("Fold native planes upload"),
+                                contents: bytemuck::cast_slice(planes.native_gbr_planes().unwrap()),
+                                usage: wgpu::BufferUsages::STORAGE,
+                            },
+                        );
                         let target = encoded.as_ref().unwrap_or(&output);
                         let group =
                             self.host
@@ -1120,18 +1124,16 @@ impl Renderer {
                         );
                         stats.compute_passes += 1;
                     } else {
-                        encoder.copy_buffer_to_texture(
-                            wgpu::TexelCopyBufferInfo {
-                                buffer: &upload,
-                                layout: wgpu::TexelCopyBufferLayout {
-                                    offset: 0,
-                                    bytes_per_row: Some(stride),
-                                    rows_per_image: Some(graph.height),
-                                },
-                            },
-                            encoded.as_ref().unwrap_or(&output).texture.as_image_copy(),
-                            output.texture.size(),
-                        );
+                        let (upload, reused) = self.uploads.write(
+                            &self.host,
+                            &pixels,
+                            dimensions,
+                            &mut encoder,
+                            &encoded.as_ref().unwrap_or(&output).texture,
+                        )?;
+                        stats.upload_allocations += u32::from(!reused);
+                        stats.upload_reuses += u32::from(reused);
+                        uploads.push(upload);
                     }
                     if let Some(space) = input_space {
                         let (pipeline, uploaded) =
@@ -1184,12 +1186,19 @@ impl Renderer {
         cancel.check()?;
         self.host.check()?;
         status.encode(&mut encoder);
+        let begin = std::time::Instant::now();
+        let _permit = class
+            .map(|class| crate::scheduling::Scheduler::shared().enter(class, cancel))
+            .transpose()?;
+        stats.graphics_queue_nanoseconds += begin.elapsed().as_nanos();
         let submit_begin = std::time::Instant::now();
         self.host.submit(encoder, leases, buffers);
+        drop(uploads);
         stats.queue_submit_nanoseconds += submit_begin.elapsed().as_nanos();
         let ready = status.submitted();
         for (key, image) in retained {
-            self.still
+            self.host
+                .sources()
                 .insert(key, image, ready.clone(), self.host.memory().budget);
         }
         stats.evaluate_cpu_nanoseconds = evaluate_begin.elapsed().as_nanos();

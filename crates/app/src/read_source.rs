@@ -1,5 +1,5 @@
 //! Worker-side Read source replacement, committed with imported assets as one edit.
-use fold_foundation::{DocumentId, ObjectId, Time};
+use fold_foundation::{DocumentId, ObjectId};
 use fold_project::{EditBatch, Mutation, Snapshot};
 use serde::Deserialize;
 pub const REPLACE: &str = "fold.app.read-source";
@@ -84,11 +84,21 @@ pub fn replace(
     )
     .map_err(|e| e.to_string())?;
     let source = fold_compositor::source_from_profile(asset_id, metadata.profile, &composite.info)?;
-    let duration = source.info().time(source.info().frames)?;
+    let sequence_first = match &source {
+        fold_compositor::Source::Exr { sequence, .. } => sequence.as_ref().map(|s| s.first),
+        _ => None,
+    };
+    let first = sequence_first.unwrap_or(0);
+    let first_time = source.info().time(first)?;
+    let duration = source.info().time(source.info().frames - first)?;
+    if sequence_first.is_some() {
+        composite.info.frames = composite.info.frames.max(source.info().frames);
+    }
     let node = composite.node_mut(args.node)?;
     let fold_compositor::Parameters::Read {
         source: old_source,
         source_start,
+        start,
         duration: old_duration,
         ..
     } = &mut node.parameters
@@ -96,7 +106,10 @@ pub fn replace(
         unreachable!()
     };
     *old_source = source;
-    *source_start = Time::ZERO;
+    *source_start = first_time;
+    if sequence_first.is_some() {
+        *start = first_time;
+    }
     *old_duration = duration;
     // Per-use input color interpretation is retained deliberately.
     let mut document = composite.document(args.document)?;

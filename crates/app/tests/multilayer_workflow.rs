@@ -362,10 +362,10 @@ fn unchanged_exr_reuses_gpu_input_across_time_and_effect_edits() {
         &cancel,
     )
     .unwrap();
-    assert_eq!(resized.statistics.cpu_adapter_nodes, 1);
+    assert_eq!(resized.statistics.cpu_adapter_nodes, 0);
     resized.readback(&cancel).unwrap();
-    // The byte cap also evicts before the entry cap: each tuple almost fills
-    // the 256 KiB retention allowance on this 2 MiB host.
+    // Reconstruction happens at native resolution. Changing preview dimensions
+    // must reuse the same source samples and apply resizing afterward.
     for dimensions in [[128, 128], [127, 128], [128, 128]] {
         demand.dimensions = dimensions;
         let mut frame = media_workflow::evaluate_scene_gpu(
@@ -376,11 +376,12 @@ fn unchanged_exr_reuses_gpu_input_across_time_and_effect_edits() {
             &cancel,
         )
         .unwrap();
-        assert_eq!(frame.statistics.cpu_adapter_nodes, 1);
+        assert_eq!(frame.statistics.cpu_adapter_nodes, 0);
         frame.readback(&cancel).unwrap();
         assert!(host.memory().allocated <= host.memory().budget);
     }
-    // Selecting more tuples than the retention cap evicts inputs, never held frames.
+    // Small channel tuples fit the shared byte budget without an eight-entry
+    // cliff. Full-size source eviction is exercised in exr_execution.
     for layer in 0..10 {
         let view = View::Channel {
             name: format!("aov{layer}.Z").try_into().unwrap(),
@@ -398,7 +399,7 @@ fn unchanged_exr_reuses_gpu_input_across_time_and_effect_edits() {
         assert!(host.memory().allocated <= host.memory().budget);
     }
     demand.dimensions = [3, 2];
-    let mut evicted = media_workflow::evaluate_scene_gpu(
+    let mut retained = media_workflow::evaluate_scene_gpu(
         &project.snapshot(),
         &demand,
         &mut renderer,
@@ -406,8 +407,8 @@ fn unchanged_exr_reuses_gpu_input_across_time_and_effect_edits() {
         &cancel,
     )
     .unwrap();
-    assert_eq!(evicted.statistics.cpu_adapter_nodes, 1);
-    evicted.readback(&cancel).unwrap();
+    assert_eq!(retained.statistics.cpu_adapter_nodes, 0);
+    retained.readback(&cancel).unwrap();
     let mut warm = media_workflow::evaluate_scene_gpu(
         &project.snapshot(),
         &demand,

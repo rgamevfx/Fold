@@ -81,3 +81,15 @@ Render representative times through public `render`, then edit one published cha
 Verified example: [Rust Orbit](../scripts/wrangle.py) builds and publishes a Rust tool using receipts and targeted operations, tests failed/hot edits and undo, and saves a project copy. Run it only in a session where adding its Motion document fits the task. The resulting [editable demo](../../../demos/fold-rust-orbit.md) explains the artist controls.
 
 For selecting native operations versus custom code, verifying runtime cost at the intended element count, or checking a proposed GPU path, use [Performance and output equivalence](performance.md#choose-the-execution-model-deliberately). It is the authoritative workflow for numeric guest reuse, isolated fallback execution and current versus proposed capabilities.
+
+## Multilayer EXR color and routing
+
+For a numbered EXR sequence, import one representative frame and place that asset into a composition. Inspect the resulting Read: sequence discovery supplies the actual channel names, frame range and rate mapping. Multipart files may include both the part name and channel prefix; use the inspected full names rather than guessing from Blender's view-layer labels. Placing an EXR does not automatically connect it to Output.
+
+The compositor catalog advertises `input_color` to set a Read's per-use OCIO interpretation:
+
+```json
+{"op":"input_color","node":"READ_UUID","space":"Linear Rec.709 (sRGB)"}
+```
+
+Set `space:null` to restore the asset/default interpretation. Set the Read's `source.Exr.color_layers` to the inspected RGB layer names that need this conversion. Route their red/green/blue/alpha channels into `rgba` with the catalog's Shuffle mappings. Preserve `source_start` when moving Read `start` to zero to avoid a leading empty frame; retain the source's actual FPS. Validate color through a rendered frame, not merely a successful edit. A missing OCIO space fails at render time.

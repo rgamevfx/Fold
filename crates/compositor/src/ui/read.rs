@@ -32,6 +32,79 @@ pub(super) fn draw(
     if !matches!(source, Source::Document { .. }) && ui.button("Choose file…") {
         actions.choose_source = true;
     }
+    if let Source::Exr {
+        sequence,
+        info,
+        options,
+        ..
+    } = source
+    {
+        if let Some(sequence) = sequence {
+            ui.text(format!(
+                "Sequence • {}–{} • {} files",
+                sequence.first, sequence.last, sequence.count
+            ));
+            if ui.checkbox("Read selected file as still", &mut options.still) {
+                let first = if options.still { 0 } else { sequence.first };
+                *source_start = info.time(first).unwrap();
+                *start = *source_start;
+                *duration = info.time(info.frames - first).unwrap();
+                response.changed = true;
+                response.finished = true;
+            }
+            if !options.still
+                && let Some(_advanced) = ui.tree_node("Sequence options")
+            {
+                for (label, value) in [
+                    ("Missing frames", &mut options.missing),
+                    ("Outside range", &mut options.outside),
+                ] {
+                    use fold_media::exr_sequence::Policy;
+                    let label_of = |p: Policy| match p {
+                        Policy::Error => "Error",
+                        Policy::Black => "Black",
+                        Policy::Hold => "Hold",
+                    };
+                    if let Some(_combo) = ui.begin_combo(label, label_of(*value)) {
+                        for policy in [Policy::Error, Policy::Black, Policy::Hold] {
+                            if ui
+                                .selectable_config(label_of(policy))
+                                .selected(*value == policy)
+                                .build()
+                            {
+                                *value = policy;
+                                response.changed = true;
+                                response.finished = true;
+                            }
+                        }
+                    }
+                }
+                let old = info.rate;
+                let mut rate = [old[0] as i32, old[1] as i32];
+                let numerator = ui.input_int("FPS numerator", &mut rate[0]);
+                let denominator = ui.input_int("FPS denominator", &mut rate[1]);
+                if (numerator || denominator) && rate.iter().all(|v| *v > 0) {
+                    let new_rate = [rate[0] as u32, rate[1] as u32];
+                    let remap = |time: Time| {
+                        time.to_ticks(old[0], old[1], fold_foundation::Rounding::Floor)
+                            .ok()
+                            .and_then(|frame| frame.checked_mul(i64::from(new_rate[1])))
+                            .and_then(|n| Time::new(n, new_rate[0]).ok())
+                    };
+                    if let (Some(at), Some(first), Some(length)) =
+                        (remap(*start), remap(*source_start), remap(*duration))
+                    {
+                        *start = at;
+                        *source_start = first;
+                        *duration = length;
+                        info.rate = new_rate;
+                        response.changed = true;
+                        response.finished = true;
+                    }
+                }
+            }
+        }
+    }
     frame_range(
         ui,
         source.info().rate,

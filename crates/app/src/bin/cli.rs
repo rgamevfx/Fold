@@ -196,7 +196,7 @@ fn run() -> Result<(), Box<dyn Error>> {
     }
     if args.first().is_some_and(|arg| arg == "export-video") {
         if args.len() != 5 {
-            return Err("usage: fold-cli export-video <project.fold> <new-output.mp4> <start-frame> <end-frame-exclusive>".into());
+            return Err("usage: fold-cli export-video <project.fold> <new-output.mp4|new-output.mov> <start-frame> <end-frame-exclusive>".into());
         }
         let project = load(Path::new(&args[1]), 0)?;
         fold_app::media_workflow::export(

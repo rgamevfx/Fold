@@ -65,7 +65,11 @@ pub fn inspect_linked(path: &Path, cancel: &Cancel) -> Result<LinkedSource, Stri
         .unwrap_or("")
         .to_ascii_lowercase();
     let profile = match extension.as_str() {
-        "exr" => SourceProfile::Exr(crate::exr::inspect(&path, cancel)?),
+        "exr" => {
+            let mut info = crate::exr::inspect(&path, cancel)?;
+            info.sequence = crate::exr_sequence::discover(&path, &info, cancel)?;
+            SourceProfile::Exr(info)
+        }
         "wav" => SourceProfile::Wave(crate::inspect_wave(&path, cancel)?.info),
         "mp4" => SourceProfile::Video(crate::inspect(&path, cancel)?.info),
         "ppm" => {
@@ -97,11 +101,14 @@ pub fn inspect_linked(path: &Path, cancel: &Cancel) -> Result<LinkedSource, Stri
             serde_json::Value::Null,
         )
     } else if let SourceProfile::Exr(info) = &profile {
+        // The asset profile owns the manifest once; stream facts describe pixels.
+        let mut stream_info = info.clone();
+        stream_info.sequence = None;
         (
             vec![StreamMetadata {
                 index: 0,
                 kind: "video".into(),
-                facts: serde_json::to_value(info).map_err(|e| e.to_string())?,
+                facts: serde_json::to_value(stream_info).map_err(|e| e.to_string())?,
                 bit_depth: None,
                 planes: None,
                 alpha: None,
@@ -174,6 +181,9 @@ pub fn inspect_linked(path: &Path, cancel: &Cancel) -> Result<LinkedSource, Stri
     let timing_policy = match &profile {
         SourceProfile::Video(_) => "verified exact CFR, zero origin",
         SourceProfile::Wave(_) => "exact sample frames, zero origin",
+        SourceProfile::Exr(info) if info.sequence.is_some() => {
+            "exact numbered EXR frames; rate assigned per use"
+        }
         SourceProfile::Ppm { .. } | SourceProfile::Exr(_) => "still image",
     }
     .into();
@@ -219,8 +229,10 @@ impl SourceMetadata {
             "chroma_location",
             "side_data_list",
         ];
-        self.profile == other.profile
-            && self.timing_policy == other.timing_policy
+        (match (&self.profile, &other.profile) {
+            (SourceProfile::Exr(a), SourceProfile::Exr(b)) => a.compatible_with(b),
+            (a, b) => a == b,
+        }) && self.timing_policy == other.timing_policy
             && self.streams.len() == other.streams.len()
             && self.streams.iter().zip(&other.streams).all(|(a, b)| {
                 a.index == b.index

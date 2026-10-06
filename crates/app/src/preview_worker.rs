@@ -9,6 +9,9 @@ use std::{
     sync::{Arc, Condvar, Mutex},
 };
 
+#[path = "source_preparation.rs"]
+pub(super) mod source_preparation;
+
 type Request = (Snapshot, PreviewDemand);
 struct Active {
     key: PreviewKey,
@@ -37,6 +40,7 @@ pub(super) struct Mailbox {
     stop: bool,
 }
 pub(super) struct PreviewWorker {
+    pub preparation: source_preparation::Worker,
     pub shared: Arc<(Mutex<Mailbox>, Condvar)>,
     thread: Option<std::thread::JoinHandle<()>>,
 }
@@ -394,6 +398,7 @@ impl PreviewWorker {
             }
         });
         Self {
+            preparation: source_preparation::Worker::new(),
             shared,
             thread: Some(thread),
         }
@@ -402,6 +407,7 @@ impl PreviewWorker {
         self.shared.0.lock().unwrap().wake = Some(wake);
     }
     pub fn cancel(&mut self) {
+        self.preparation.cancel();
         let mut queue = self.shared.0.lock().unwrap();
         if let Some(active) = &queue.active {
             active.cancel.cancel();
@@ -417,6 +423,7 @@ impl PreviewWorker {
         self.shared.1.notify_one();
     }
     pub fn begin_update(&mut self) {
+        self.preparation.cancel();
         self.shared.0.lock().unwrap().updating = true;
     }
     pub fn end_update(&mut self) {

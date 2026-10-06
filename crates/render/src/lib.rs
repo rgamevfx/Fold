@@ -8,6 +8,8 @@ pub mod frame;
 pub mod gpu;
 mod graph;
 pub mod operations;
+mod preparation;
+pub use preparation::{PreparedSources, prepare_sources};
 pub mod region;
 mod sampling;
 pub mod scheduling;
@@ -87,6 +89,18 @@ impl DisplayFrame {
 
     pub fn rgba(&self) -> &[u8] {
         &self.rgba
+    }
+}
+
+/// Straight (unassociated), output-transformed RGBA16 little-endian delivery.
+/// Owned independently of display caches; RGB and alpha have 16-bit precision.
+pub struct Rgba16Output {
+    bytes: Vec<u8>,
+    _storage: std::sync::Arc<fold_media::budget::Lease>,
+}
+impl Rgba16Output {
+    pub fn bytes(&self) -> &[u8] {
+        &self.bytes
     }
 }
 
@@ -210,6 +224,61 @@ impl Frame {
         })
     }
 
+    /// Consume scene pixels into an alpha-preserving delivery buffer. The color
+    /// processor handles premultiplied input; the encoder receives straight RGB.
+    pub fn into_rgba16(
+        mut self,
+        processor: Option<&fold_color::Processor>,
+    ) -> Result<Rgba16Output, String> {
+        if let Some(processor) = processor {
+            let source = match self.working_space {
+                WorkingSpace::LegacyLinearSrgb => fold_color::LINEAR_SRGB,
+                WorkingSpace::AcesCg => fold_color::WORKING_SPACE,
+            };
+            if processor.source() != source
+                || self
+                    .config_identity
+                    .as_deref()
+                    .is_some_and(|id| id != processor.config_identity())
+            {
+                return Err("output processor does not match scene color identity".into());
+            }
+            processor.apply(&mut self.pixels)?;
+        } else if self.working_space != WorkingSpace::LegacyLinearSrgb {
+            return Err("ACES delivery requires an output processor".into());
+        }
+        let storage = fold_media::budget::reserve_working(self.pixels.len() as u64 * 8)?;
+        let mut bytes = Vec::new();
+        bytes
+            .try_reserve_exact(self.pixels.len() * 8)
+            .map_err(|_| "RGBA16 output allocation failed")?;
+        for mut pixel in self.pixels {
+            if pixel.iter().any(|v| !v.is_finite()) || !(0. ..=1.).contains(&pixel[3]) {
+                return Err("Invalid RGBA delivery sample".into());
+            }
+            let alpha = pixel[3];
+            for channel in &mut pixel[..3] {
+                *channel = if alpha > 0. { *channel / alpha } else { 0. };
+                if processor.is_none() {
+                    *channel = if *channel <= 0.0031308 {
+                        *channel * 12.92
+                    } else {
+                        1.055 * channel.powf(1. / 2.4) - 0.055
+                    };
+                }
+            }
+            for value in pixel {
+                bytes.extend_from_slice(
+                    &((value.clamp(0., 1.) * 65535.).round() as u16).to_le_bytes(),
+                );
+            }
+        }
+        Ok(Rgba16Output {
+            bytes,
+            _storage: storage,
+        })
+    }
+
     /// Explicit opaque-black delivery matte, consuming this owned frame without
     /// allocating another full-size image. Premultiplied RGB is unchanged over black.
     pub fn over_black(mut self) -> Self {
@@ -303,26 +372,42 @@ fn encode_reference(linear: f32) -> u8 {
     (srgb * 255.0).round() as u8
 }
 
+fn cpu_working_budget() -> usize {
+    usize::try_from(fold_media::budget::working_usage().budget).unwrap_or(usize::MAX)
+}
+fn cpu_pixel_budget(plan: &RenderGraph, baseline: usize) -> usize {
+    // Retain the existing small-raster limits; larger rasters need room for a
+    // source, destination and scratch frame. Aggregate leases still bound all
+    // concurrent evaluation, decoding and caller-held outputs.
+    let three_frames = (plan.width as usize)
+        .saturating_mul(plan.height as usize)
+        .saturating_mul(48);
+    baseline.max(three_frames).min(cpu_working_budget())
+}
+
 /// Executes the shared image graph. SolidPlan is a one-node convenience adapter.
 pub fn render(plan: impl Into<RenderGraph>) -> Result<Frame, String> {
+    let plan = plan.into();
+    let budget = cpu_pixel_budget(&plan, 64 * 1024 * 1024);
     graph::evaluate(
-        plan.into(),
+        plan,
         &mut fold_media::Decoder::default(),
         &fold_media::Cancel::default(),
-        64 * 1024 * 1024,
+        budget,
         None,
     )
 }
 
 /// Worker entry point with retained source handles and cooperative cancellation.
-/// 128 MiB working pixels accommodates two 1080p layers plus opacity/merge.
+/// Live pixels share the configured working allowance, including DCI 4K frames.
 /// Caller-retained outputs, source bytes and display copies have separate budgets.
 pub fn render_with(
     plan: RenderGraph,
     decoder: &mut fold_media::Decoder,
     cancel: &fold_media::Cancel,
 ) -> Result<Frame, String> {
-    graph::evaluate(plan, decoder, cancel, 128 * 1024 * 1024, None)
+    let budget = cpu_working_budget();
+    graph::evaluate(plan, decoder, cancel, budget, None)
 }
 
 /// Explicit ACEScg CPU path. Authored colors are already ACEScg. Video arrives
@@ -335,7 +420,8 @@ pub fn render_aces_with(
     decoder: &mut fold_media::Decoder,
     cancel: &fold_media::Cancel,
 ) -> Result<Frame, String> {
-    graph::evaluate(plan, decoder, cancel, 128 * 1024 * 1024, Some(config))
+    let budget = cpu_working_budget();
+    graph::evaluate(plan, decoder, cancel, budget, Some(config))
 }
 
 #[cfg(test)]

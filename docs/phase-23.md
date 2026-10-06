@@ -80,7 +80,7 @@ Keying, tracking, paint, denoising, optical flow and 3D remain separate designs.
 1. [x] Introduce validated named-channel and interpretation contracts, explicit
    channel routing/dependency planning, and tests for AOV preservation. Keep
    authored graph types in compositor and neutral execution types in render/media.
-2. [ ] Integrate source metadata and multilayer EXR/image-sequence ingest with
+2. [x] Integrate source metadata and multilayer EXR/image-sequence ingest with
    bounded, cancellable worker decoding, source verification and exact frame maps.
 3. [x] Implement Shuffle and channel management end to end, with GPU execution and
    CPU reference equivalence. Preserve data values and only evaluate demanded work.
@@ -168,8 +168,7 @@ remain open until their integrated acceptance evidence is recorded here.
 
 ### Remaining implementation — phase is not complete
 
-- Sequence discovery/decoding, missing/out-of-range frame policies and the complete
-  Read advanced controls. Current EXR import is a still-image source.
+- Sequence discovery/decoding and frame policies are implemented in the 2026-10-06 slice below. Additional Read alpha-interpretation controls remain future work.
 - Distinct signed data bounds and format throughout CPU/GPU execution; overscan
   preservation; production Crop/Reformat semantics. Current execution uses a fixed
   document raster and clips outside it.
@@ -254,3 +253,47 @@ remain open until their integrated acceptance evidence is recorded here.
   the selected RGB tuple with 448 MiB of the 512 MiB working budget occupied;
   retaining all source planes would require 120 MiB. Three media regressions
   passed. This change postdates the workspace checkpoint above.
+
+
+### Multilayer sequences, Shuffle and alpha delivery (2026-10-06)
+
+- Read discovers numbered EXR siblings on its ingest worker and stores a verified,
+  relative filename/hash manifest on the imported asset. Read nodes retain only a
+  compact range/numbering summary, keeping long sequences out of the 1 MiB graph
+  payload limit. Compositor schema 5 reads legacy schemas 1–4. First/last source numbers, rational rate and
+  offset drive the same evaluation in preview and export. Missing frames default
+  to Error; outside-range frames default to Black. Hold and a selected-file still
+  mode are explicit options. Relink replaces the manifest only when channel,
+  window and frame-number contracts remain compatible; old snapshots remain pinned.
+- Flat single-part named channels and named multipart images now share the channel
+  catalog. Scanline and tiled inputs are supported. Part names prefix their channel
+  names; multipart catalogs have stable ordering. Decoding selects each required
+  part and retains only the requested tuple, including cross-part channel routing.
+  Deep/subsampled data and differing display windows remain explicitly unsupported.
+- Shuffle presents aligned Input → Output / optional Input 2 → Output 2 pairs.
+  Outputs include existing layers and New layer; Channels retains custom A/B,
+  constant and individual-channel mappings. Changes replace the selected route
+  rather than accumulating obsolete destinations, and retain transactional undo.
+  Actual shared-backend inspector captures were reviewed at [420 px](media/phase-23-shuffle-normal.png)
+  and [280 px](media/phase-23-shuffle-narrow.png).
+- Desktop delivery offers ProRes 4444 with alpha. CLI `export-video` selects this
+  profile for `.mov`, retaining H.264 for `.mp4`. Delivery reads scene float pixels,
+  applies the explicit output transform with alpha-aware math and supplies straight
+  RGBA16 to software `prores_ks`. The codec consumes 10-bit 4:4:4+alpha samples and
+  writes a 16-bit alpha plane; effective alpha precision is bounded by that 10-bit
+  input. Neither backend uses a viewer cache or an opaque matte. GPU delivery
+  explicitly reads back float scene pixels for output conversion and encoding;
+  this is not a zero-copy encoder path. sRGB and Rec.1886/Rec.709 SDR outputs are
+  supported. Audio muxing copies the encoded video/alpha unchanged. ProRes video
+  import remains outside this slice.
+- DCI 4K (4096×2160) fits the image contract. Larger CPU rasters receive a bounded
+  live-frame allowance under the existing aggregate working-memory budget; small
+  raster limits remain intact. EXR files remain capped at 256 MiB compressed and
+  256 channels, with a maximum 18,000 files per sequence. Frames must retain their
+  channel catalog and display/data windows. The existing 2 GiB encoded-file cap
+  also applies to ProRes delivery. Complex/high-memory
+  sources may still fail their resource budget explicitly.
+- Verification and any remaining qualifications are tracked in `dev-plan.md`.
+  Earlier 128 MiB/4,194,304-pixel and still-only statements above describe the
+  original foundation, not the limits of this slice. This work does not close the
+  other phase-23 tools/overscan obligations or the full phases 20–21 checkpoint.

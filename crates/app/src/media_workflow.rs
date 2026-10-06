@@ -276,7 +276,7 @@ pub(crate) fn evaluate_scene_gpu_admitted(
     .with_timing(request.time, duration)
 }
 
-fn compile_scene(
+pub(crate) fn compile_scene(
     snapshot: &Snapshot,
     request: &SceneRequest,
     cancel: &Cancel,
@@ -450,7 +450,11 @@ fn export_inner(
     plan.preflight(&mut decoder, cancel)?;
     let _video_scratch = fold_media::budget::reserve_delivery(2 * 1024 * 1024 * 1024)?;
     let temporary = tempfile::tempdir().map_err(|e| e.to_string())?;
-    let video = temporary.path().join("video.mp4");
+    let video = temporary.path().join(if prores_destination(path)? {
+        "video.mov"
+    } else {
+        "video.mp4"
+    });
     let pcm = temporary.path().join("audio.f32");
     let mut file = std::fs::File::create(&pcm).map_err(|e| e.to_string())?;
     let mut sample = info
@@ -489,6 +493,19 @@ fn export_inner(
     fold_media::audio::mux_audio(&video, &pcm, path, cancel)
 }
 
+fn prores_destination(path: &Path) -> Result<bool, String> {
+    match path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(str::to_ascii_lowercase)
+        .as_deref()
+    {
+        Some("mov") => Ok(true),
+        Some("mp4") => Ok(false),
+        _ => Err("Choose .mp4 (H.264) or .mov (ProRes 4444 with alpha)".into()),
+    }
+}
+
 fn export_video(
     snapshot: &fold_project::CommittedSnapshot,
     path: &Path,
@@ -512,6 +529,34 @@ fn export_video(
         time: info.time(start)?,
         dimensions: [info.width, info.height],
     };
+    let prores = prores_destination(path)?;
+    if prores {
+        let mut first = Some(evaluator.evaluate_rgba16(snapshot, &request, cancel)?);
+        let output_color = fold_platform::color::project(snapshot)?
+            .map(|_| fold_platform::color::output(snapshot, request.source.document))
+            .transpose()?;
+        let rec709 = match output_color.as_ref().map(|c| c.display.as_str()) {
+            Some("Rec.1886 Rec.709 - Display") => true,
+            Some("sRGB - Display") | None => false,
+            _ => {
+                return Err(
+                    "ProRes 4444 requires an sRGB or Rec.1886 Rec.709 output transform".into(),
+                );
+            }
+        };
+        let mut encoder =
+            Encoder::new_prores4444(path, &info, end - start, cancel.clone(), rec709)?;
+        for frame in start..end {
+            cancel.check()?;
+            request.time = info.time(frame)?;
+            let output = match first.take() {
+                Some(frame) => frame,
+                None => evaluator.evaluate_rgba16(snapshot, &request, cancel)?,
+            };
+            encoder.write_rgba16(output.bytes())?;
+        }
+        return encoder.finish();
+    }
     let mut evaluate_output =
         |request: &SceneRequest| evaluator.evaluate(snapshot, request, cancel);
     // Preflight decode AND the explicit output transform before any destination.

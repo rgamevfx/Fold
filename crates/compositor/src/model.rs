@@ -171,6 +171,10 @@ pub enum Source {
         info: VideoInfo,
         image: fold_media::exr::Info,
         #[serde(default)]
+        options: fold_media::exr_sequence::Options,
+        #[serde(default)]
+        sequence: Option<fold_media::exr_sequence::Summary>,
+        #[serde(default)]
         color_layers: Vec<String>,
     },
     Asset {
@@ -324,6 +328,7 @@ impl Parameters {
                 if let Source::Exr {
                     image,
                     color_layers,
+                    sequence,
                     ..
                 } = source
                 {
@@ -340,6 +345,18 @@ impl Parameters {
                         return Err("EXR color assignments require complete RGB layers".into());
                     }
                     image.validate()?;
+                    if image.sequence.is_some() {
+                        return Err(
+                            "Read stores a sequence summary; manifests belong to imported assets"
+                                .into(),
+                        );
+                    }
+                    if let Some(sequence) = sequence {
+                        sequence.validate()?;
+                        if sequence.last >= info.frames {
+                            return Err("EXR sequence exceeds source frame range".into());
+                        }
+                    }
                     if image.dimensions != [info.width, info.height] {
                         return Err("EXR source dimensions disagree".into());
                     }
@@ -534,7 +551,7 @@ impl Composite {
             id,
             package_id: crate::PACKAGE.into(),
             type_id: crate::COMPOSITE.into(),
-            schema_version: 4,
+            schema_version: 5,
             revision: Revision::default(),
             dependencies: self.dependencies(),
             assets: self.assets(),
@@ -545,7 +562,7 @@ impl Composite {
     pub fn from_document(document: &Document) -> Result<Self, String> {
         if document.package_id != crate::PACKAGE
             || document.type_id != crate::COMPOSITE
-            || ![1, 2, 3, 4].contains(&document.schema_version)
+            || ![1, 2, 3, 4, 5].contains(&document.schema_version)
             || document.payload.len() > 1024 * 1024
         {
             return Err("unsupported composite document".into());

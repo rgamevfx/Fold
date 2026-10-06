@@ -7,6 +7,7 @@ mod decoded;
 pub mod scratch;
 pub use decoded::{PlaneLayout, YuvEncoding, YuvFrame};
 pub mod exr;
+pub mod exr_sequence;
 pub mod ingest;
 #[cfg(all(feature = "native-video", target_os = "linux"))]
 pub mod native;
@@ -29,7 +30,7 @@ pub fn content_hash(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
 }
 
-pub const MAX_PIXELS: usize = 4_194_304;
+pub const MAX_PIXELS: usize = 4096 * 2160;
 pub const MAX_SOURCE_BYTES: usize = MAX_PIXELS * 3 + 4096;
 
 /// Validated immutable RGB: sRGB RGB8 fixtures/legacy decode, or reconstructed BT.709

@@ -933,7 +933,7 @@ impl DesktopClient for Session {
                 root.evaluation(),
             );
         }
-        let valid = demands
+        let valid: Vec<_> = demands
             .into_iter()
             .take(128)
             .filter(|demand| {
@@ -950,6 +950,21 @@ impl DesktopClient for Session {
                 })
             })
             .collect();
+        self.preview.preparation.replace(
+            valid
+                .iter()
+                .filter_map(|demand| {
+                    let clock = self.viewers.clocks.get(&demand.consumer)?;
+                    (!demand.background && clock.transport.playing).then(|| {
+                        preview_worker::source_preparation::Request {
+                            snapshot: forks.get(&demand.consumer).unwrap_or(&snapshot).clone(),
+                            key: demand.key.clone(),
+                            transport: clock.transport.clone(),
+                        }
+                    })
+                })
+                .collect(),
+        );
         self.preview.demands_forks(snapshot, valid, forks);
     }
     fn begin_preview_update(&mut self) {

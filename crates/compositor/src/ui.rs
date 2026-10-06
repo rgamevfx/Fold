@@ -6,6 +6,8 @@ mod channels;
 mod graph;
 mod inspector;
 mod read;
+#[cfg(test)]
+mod render_tests;
 mod state;
 #[cfg(test)]
 mod tests;

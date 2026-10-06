@@ -733,6 +733,8 @@ pub struct Encoder {
     output: Option<tempfile::NamedTempFile>,
     destination: PathBuf,
     pixels: usize,
+    bytes_per_pixel: usize,
+    prores_srgb: bool,
     expected: u32,
     written: u32,
     _disk: Arc<crate::budget::Lease>,
@@ -745,7 +747,7 @@ impl Encoder {
         frames: u32,
         cancel: Cancel,
     ) -> Result<Self, String> {
-        Self::new_with_signal(destination, info, frames, cancel, false)
+        Self::new_with_signal(destination, info, frames, cancel, false, false)
     }
     /// Display-rendered Rec.709 RGB: only RGB-to-YUV reconstruction is applied,
     /// never a second sRGB/scene transfer. Rec.1886 display signal is retained.
@@ -755,7 +757,18 @@ impl Encoder {
         frames: u32,
         cancel: Cancel,
     ) -> Result<Self, String> {
-        Self::new_with_signal(destination, info, frames, cancel, true)
+        Self::new_with_signal(destination, info, frames, cancel, true, false)
+    }
+    /// ProRes 4444 in MOV, straight RGBA64 input; 10-bit 4:4:4 color and alpha
+    /// input are the supported prores_ks interface (16-bit encoded alpha plane).
+    pub fn new_prores4444(
+        destination: &Path,
+        info: &VideoInfo,
+        frames: u32,
+        cancel: Cancel,
+        rec709: bool,
+    ) -> Result<Self, String> {
+        Self::new_with_signal(destination, info, frames, cancel, rec709, true)
     }
     fn new_with_signal(
         destination: &Path,
@@ -763,11 +776,14 @@ impl Encoder {
         frames: u32,
         cancel: Cancel,
         rec709: bool,
+        prores: bool,
     ) -> Result<Self, String> {
         info.validate()?;
         let mut delivery = info.clone();
         delivery.frames = frames;
-        delivery.validate_media_profile()?;
+        if !prores {
+            delivery.validate_media_profile()?;
+        }
         if frames == 0 || frames > info.frames || destination.exists() {
             return Err("invalid export range or destination already exists".into());
         }
@@ -778,9 +794,13 @@ impl Encoder {
         let disk = crate::budget::reserve_delivery(MAX_FILE)?;
         let output = tempfile::NamedTempFile::new_in(parent).map_err(|e| e.to_string())?;
         let transfer = if rec709 { "709" } else { "iec61966-2-1" };
-        let filter = format!(
-            "format=gbrpf32le,zscale=matrixin=gbr:transferin={transfer}:primariesin=709:rangein=full:matrix=709:transfer=709:primaries=709:range=limited,format=yuv420p,setsar=1"
-        );
+        let filter = if prores {
+            "scale=in_range=full:out_range=limited:out_color_matrix=bt709,format=yuva444p10le,setsar=1".to_owned()
+        } else {
+            format!(
+                "format=gbrpf32le,zscale=matrixin=gbr:transferin={transfer}:primariesin=709:rangein=full:matrix=709:transfer=709:primaries=709:range=limited,format=yuv420p,setsar=1"
+            )
+        };
         let mut cmd = base("ffmpeg");
         cmd.args([
             "-y",
@@ -791,7 +811,7 @@ impl Encoder {
             "-f",
             "rawvideo",
             "-pix_fmt",
-            "rgb24",
+            if prores { "rgba64le" } else { "rgb24" },
             "-video_size",
             &format!("{}x{}", info.width, info.height),
             "-framerate",
@@ -802,13 +822,23 @@ impl Encoder {
             "-vf",
             &filter,
             "-c:v",
-            "libx264",
+            if prores { "prores_ks" } else { "libx264" },
             "-threads",
             "1",
-            "-preset",
-            "veryfast",
-            "-crf",
-            "18",
+        ]);
+        if prores {
+            cmd.args([
+                "-profile:v",
+                "4",
+                "-alpha_bits",
+                "16",
+                "-pix_fmt",
+                "yuva444p10le",
+            ]);
+        } else {
+            cmd.args(["-preset", "veryfast", "-crf", "18"]);
+        }
+        cmd.args([
             "-color_range",
             "tv",
             "-colorspace",
@@ -820,7 +850,7 @@ impl Encoder {
             "-movflags",
             "+faststart",
             "-f",
-            "mp4",
+            if prores { "mov" } else { "mp4" },
         ])
         .arg(output.path())
         .stdin(Stdio::piped());
@@ -830,6 +860,8 @@ impl Encoder {
             output: Some(output),
             destination: destination.into(),
             pixels: info.width as usize * info.height as usize,
+            bytes_per_pixel: if prores { 8 } else { 3 },
+            prores_srgb: prores && !rec709,
             expected: frames,
             written: 0,
             _disk: disk,
@@ -837,8 +869,54 @@ impl Encoder {
         })
     }
     pub fn write_rgb(&mut self, rgb: &[u8]) -> Result<(), String> {
+        if self.bytes_per_pixel != 3 {
+            return Err("Encoder requires RGBA16 input".into());
+        }
+        self.write_bytes(rgb)
+    }
+    pub fn write_rgba16(&mut self, rgba: &[u8]) -> Result<(), String> {
         self.cancel.check()?;
-        if rgb.len() != self.pixels * 3 || self.written >= self.expected {
+        if rgba.len() != self.pixels * 8 || self.written >= self.expected {
+            return Err("export frame length/count mismatch".into());
+        }
+        if self.bytes_per_pixel != 8 {
+            return Err("Encoder requires RGB8 input".into());
+        }
+        if self.prores_srgb {
+            // Convert RGB transfer only. Passing RGBA through zscale also maps
+            // alpha into limited range; swscale's matrix conversion preserves
+            // full-range coverage. The Rec.709 OETF uses continuous constants.
+            let _lease = crate::budget::reserve_working(rgba.len() as u64)?;
+            let mut signal = rgba.to_vec();
+            for (index, pixel) in signal.chunks_exact_mut(8).enumerate() {
+                if index % 4096 == 0 {
+                    self.cancel.check()?;
+                }
+                for channel in pixel[..6].chunks_exact_mut(2) {
+                    let encoded = f64::from(u16::from_le_bytes([channel[0], channel[1]])) / 65535.;
+                    let linear = if encoded <= 0.04045 {
+                        encoded / 12.92
+                    } else {
+                        ((encoded + 0.055) / 1.055).powf(2.4)
+                    };
+                    let value = if linear < 0.018053968510807 {
+                        4.5 * linear
+                    } else {
+                        1.09929682680944 * linear.powf(0.45) - 0.09929682680944
+                    };
+                    channel.copy_from_slice(
+                        &((value.clamp(0., 1.) * 65535.).round() as u16).to_le_bytes(),
+                    );
+                }
+            }
+            self.write_bytes(&signal)
+        } else {
+            self.write_bytes(rgba)
+        }
+    }
+    fn write_bytes(&mut self, rgb: &[u8]) -> Result<(), String> {
+        self.cancel.check()?;
+        if rgb.len() != self.pixels * self.bytes_per_pixel || self.written >= self.expected {
             return Err("export frame length/count mismatch".into());
         }
         if let Err(error) = self

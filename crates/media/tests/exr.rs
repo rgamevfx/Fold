@@ -149,3 +149,133 @@ fn twenty_rgb_layers_decode_one_tuple_under_working_memory_pressure() {
     );
     drop(pressure);
 }
+
+#[test]
+fn parallel_blocks_match_sequential_decoder_for_lossy_and_lossless_sources() {
+    let dir = tempfile::tempdir().unwrap();
+    for compression in [
+        Compression::DWAA(Some(45.)),
+        Compression::ZIP16,
+        Compression::PIZ,
+    ] {
+        let path = dir.path().join("blocks.exr");
+        Image::from_layer(Layer::new(
+            (128, 96),
+            LayerAttributes::default(),
+            Encoding {
+                compression,
+                blocks: Blocks::ScanLines,
+                line_order: LineOrder::Increasing,
+            },
+            SpecificChannels::rgba(|Vec2(x, y)| {
+                (
+                    f16::from_f32(x as f32 / 64. - 0.5),
+                    f16::from_f32(y as f32 / 48.),
+                    f16::from_f32((x + y) as f32 / 128.),
+                    f16::from_f32((x % 5) as f32 / 4.),
+                )
+            }),
+        ))
+        .write()
+        .non_parallel()
+        .to_file(&path)
+        .unwrap();
+        let expected = read()
+            .no_deep_data()
+            .largest_resolution_level()
+            .rgba_channels(
+                |size, _| (size.width(), vec![[0f32; 4]; size.area()]),
+                |pixels, pos, value: (f32, f32, f32, f32)| {
+                    pixels.1[pos.y() * pixels.0 + pos.x()] = [value.0, value.1, value.2, value.3]
+                },
+            )
+            .first_valid_layer()
+            .all_attributes()
+            .non_parallel()
+            .pedantic()
+            .from_file(&path)
+            .unwrap();
+        let cancel = Cancel::default();
+        let source = media::Source {
+            path: path.clone(),
+            info: media::inspect(&path, &cancel).unwrap(),
+            fingerprint: fold_media::fingerprint(&path, &cancel).unwrap(),
+        };
+        let actual = media::decode(
+            &source,
+            [Some("R"), Some("G"), Some("B"), Some("A")],
+            [128, 96],
+            &cancel,
+        )
+        .unwrap();
+        assert_eq!(
+            actual.pixels, expected.layer_data.channel_data.pixels.1,
+            "{compression:?}"
+        );
+        let mapped = media::decode(
+            &source,
+            [Some("R"), Some("R"), None, None],
+            [64, 48],
+            &cancel,
+        )
+        .unwrap();
+        for y in 0..48 {
+            for x in 0..64 {
+                let value = actual.pixels[y * 2 * 128 + x * 2][0];
+                assert_eq!(mapped.pixels[y * 64 + x], [value, value, 0., 1.]);
+            }
+        }
+    }
+}
+
+#[test]
+fn shared_source_tickets_isolate_cancellation_and_reject_replaced_files() {
+    use media::cache::{self, Request};
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("shared.exr");
+    fixture(&path);
+    let cancel = Cancel::default();
+    let source = media::Source {
+        info: media::inspect(&path, &cancel).unwrap(),
+        fingerprint: fold_media::fingerprint(&path, &cancel).unwrap(),
+        path: path.clone(),
+    };
+    let request = Request {
+        source,
+        channels: [
+            Some("R".into()),
+            Some("G".into()),
+            Some("B".into()),
+            Some("A".into()),
+        ],
+        dimensions: [3, 2],
+    };
+    let first = cache::request(request.clone(), false, &cancel).unwrap();
+    let second = cache::request(request.clone(), true, &cancel).unwrap();
+    drop(first);
+    let held = second.wait(&cancel).unwrap();
+    let again = cache::request(request.clone(), true, &cancel)
+        .unwrap()
+        .wait(&cancel)
+        .unwrap();
+    assert!(std::sync::Arc::ptr_eq(&held, &again));
+    cache::clear();
+    assert_eq!(held.pixels, vec![[-0.5, -0.5, -0.5, 1.]; 6]);
+    // A cache hit cannot hide replacement, even when the old result is held.
+    let modified = std::fs::metadata(&path).unwrap().modified().unwrap();
+    let mut bytes = std::fs::read(&path).unwrap();
+    *bytes.last_mut().unwrap() ^= 1;
+    std::fs::write(&path, bytes).unwrap();
+    std::fs::File::options()
+        .write(true)
+        .open(&path)
+        .unwrap()
+        .set_times(std::fs::FileTimes::new().set_modified(modified))
+        .unwrap();
+    let changed = cache::request(request, true, &cancel)
+        .unwrap()
+        .wait(&cancel)
+        .unwrap_err();
+    assert!(changed.contains("fingerprint"), "{changed}");
+    assert_eq!(held.pixels.len(), 6);
+}

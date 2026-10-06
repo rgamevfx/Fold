@@ -1,6 +1,9 @@
 //! Bounded flat OpenEXR adapter. Only requested sample channels are retained.
 //! Compression blocks may contain additional channels; that decompression cost
 //! is distinct from retained decoded planes and the viewer playback cache.
+mod blocks;
+pub mod cache;
+
 use crate::{Cancel, budget};
 use ::exr::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -11,7 +14,7 @@ use std::{
     sync::Arc,
 };
 
-const MAX_FILE_BYTES: u64 = 128 * 1024 * 1024;
+const MAX_FILE_BYTES: u64 = 256 * 1024 * 1024;
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Channel {
     pub name: String,
@@ -26,8 +29,27 @@ pub struct Info {
     pub data_origin: [i32; 2],
     pub data_dimensions: [u32; 2],
     pub channels: Vec<Channel>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sequence: Option<crate::exr_sequence::Sequence>,
 }
 impl Info {
+    /// Relink may replace file names and bytes, but not the authored channel,
+    /// window or frame-number contract.
+    pub fn compatible_with(&self, other: &Self) -> bool {
+        self.compatible_pixels(other)
+            && match (&self.sequence, &other.sequence) {
+                (None, None) => true,
+                (Some(a), Some(b)) => a.frames.keys().eq(b.frames.keys()),
+                _ => false,
+            }
+    }
+    pub fn compatible_pixels(&self, other: &Self) -> bool {
+        self.dimensions == other.dimensions
+            && self.display_origin == other.display_origin
+            && self.data_origin == other.data_origin
+            && self.data_dimensions == other.data_dimensions
+            && self.channels == other.channels
+    }
     pub fn validate(&self) -> Result<(), String> {
         for dimensions in [self.dimensions, self.data_dimensions] {
             let count = u64::from(dimensions[0]) * u64::from(dimensions[1]);
@@ -44,56 +66,122 @@ impl Info {
                 return Err("EXR has duplicate or oversized channel names".into());
             }
         }
+        if let Some(sequence) = &self.sequence {
+            sequence.validate()?;
+        }
         Ok(())
     }
 }
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Source {
     pub path: PathBuf,
     pub fingerprint: String,
     pub info: Info,
 }
 
-struct Layout {
-    info: Info,
+struct Part {
+    header: ::exr::meta::header::Header,
+    sources: Vec<String>,
     scratch: u64,
     retained_scratch: u64,
+}
+struct Layout {
+    info: Info,
+    parts: Vec<Part>,
 }
 
 fn metadata(reader: impl Read) -> Result<Layout, String> {
     let metadata = MetaData::read_from_buffered(reader, true).map_err(|e| e.to_string())?;
-    if metadata.headers.len() != 1 {
-        return Err(
-            "Multipart EXR is not supported yet; use named channels in one flat part".into(),
-        );
-    }
-    let header = &metadata.headers[0];
-    if header.deep {
-        return Err("Deep EXR requires a deep-image operator".into());
-    }
-    let display = header.shared_attributes.display_window;
+    let first = metadata.headers.first().ok_or("EXR has no parts")?;
+    let display = first.shared_attributes.display_window;
+    let multipart = metadata.requirements.has_multiple_layers;
     let mut channels = Vec::new();
-    for channel in &header.channels.list {
-        if channel.sampling != Vec2(1, 1) {
-            return Err("Subsampled EXR channels are not supported".into());
+    let mut parts = Vec::new();
+    let mut minimum = [i32::MAX; 2];
+    let mut maximum = [i64::MIN; 2];
+    for header in metadata.headers {
+        if header.deep {
+            return Err("Deep EXR requires a deep-image operator".into());
         }
-        let source = channel.name.to_string();
-        let (layer, component) = source.rsplit_once('.').unwrap_or((
-            if source == "Z" { "depth" } else { "rgba" },
-            source.as_str(),
-        ));
-        let (component, color) = match component {
-            "R" | "red" => ("red", true),
-            "G" | "green" => ("green", true),
-            "B" | "blue" => ("blue", true),
-            "A" | "alpha" => ("alpha", false),
-            value => (value, false),
+        if header.shared_attributes.display_window != display {
+            return Err("EXR parts must share a display window".into());
+        }
+        let prefix = if multipart {
+            header
+                .own_attributes
+                .layer_name
+                .as_ref()
+                .ok_or("Multipart EXR requires named parts")?
+                .to_string()
+        } else {
+            String::new()
         };
-        channels.push(Channel {
-            name: format!("{layer}.{component}"),
-            source,
-            color,
+        let mut sources = Vec::new();
+        for channel in &header.channels.list {
+            if channel.sampling != Vec2(1, 1) {
+                return Err("Subsampled EXR channels are not supported".into());
+            }
+            let raw = channel.name.to_string();
+            let source = if multipart {
+                format!("{prefix}.{raw}")
+            } else {
+                raw
+            };
+            let (layer, component) = source.rsplit_once('.').unwrap_or((
+                if source == "Z" { "depth" } else { "rgba" },
+                source.as_str(),
+            ));
+            let (component, color) = match component {
+                "R" | "red" => ("red", true),
+                "G" | "green" => ("green", true),
+                "B" | "blue" => ("blue", true),
+                "A" | "alpha" => ("alpha", false),
+                value => (value, false),
+            };
+            channels.push(Channel {
+                name: format!("{layer}.{component}"),
+                source: source.clone(),
+                color,
+            });
+            sources.push(source);
+        }
+        let origin = header.own_attributes.layer_position;
+        let size = header.layer_size;
+        let area = (size.0 as u64)
+            .checked_mul(size.1 as u64)
+            .ok_or("EXR part size overflow")?;
+        if area == 0 || area > crate::MAX_PIXELS as u64 {
+            return Err("EXR part exceeds pixel budget".into());
+        }
+        for axis in 0..2 {
+            let position = [origin.0, origin.1][axis];
+            minimum[axis] = minimum[axis].min(position);
+            maximum[axis] = maximum[axis].max(i64::from(position) + [size.0, size.1][axis] as i64);
+        }
+        let block = header.max_block_pixel_size();
+        let block_bytes = (block.0 as u64)
+            .checked_mul(block.1 as u64)
+            .and_then(|n| n.checked_mul(header.channels.bytes_per_pixel as u64))
+            .ok_or("EXR block size overflow")?;
+        let scratch = match header.compression {
+            Compression::Uncompressed
+            | Compression::ZIP1
+            | Compression::ZIP16
+            | Compression::RLE => block_bytes.checked_mul(4),
+            _ => (area * header.channels.list.len() as u64 * 4)
+                .checked_add(block_bytes.saturating_mul(4)),
+        }
+        .and_then(|n| n.checked_add(1024 * 1024))
+        .ok_or("EXR scratch size overflow")?;
+        parts.push(Part {
+            header,
+            sources,
+            scratch,
+            retained_scratch: block_bytes.saturating_add(128),
         });
+    }
+    if multipart {
+        channels.sort_by(|a, b| a.name.cmp(&b.name));
     }
     let info = Info {
         dimensions: [
@@ -101,43 +189,16 @@ fn metadata(reader: impl Read) -> Result<Layout, String> {
             u32::try_from(display.size.1).map_err(|_| "EXR height overflow")?,
         ],
         display_origin: [display.position.0, display.position.1],
-        data_origin: [
-            header.own_attributes.layer_position.0,
-            header.own_attributes.layer_position.1,
-        ],
+        data_origin: minimum,
         data_dimensions: [
-            u32::try_from(header.layer_size.0).map_err(|_| "EXR data width overflow")?,
-            u32::try_from(header.layer_size.1).map_err(|_| "EXR data height overflow")?,
+            u32::try_from(maximum[0] - i64::from(minimum[0])).map_err(|_| "EXR bounds overflow")?,
+            u32::try_from(maximum[1] - i64::from(minimum[1])).map_err(|_| "EXR bounds overflow")?,
         ],
         channels,
+        sequence: None,
     };
     info.validate()?;
-    let block = header.max_block_pixel_size();
-    let block_bytes = (block.0 as u64)
-        .checked_mul(block.1 as u64)
-        .and_then(|n| n.checked_mul(header.channels.bytes_per_pixel as u64))
-        .ok_or("EXR block size overflow")?;
-    let part_bytes = u64::from(info.data_dimensions[0])
-        * u64::from(info.data_dimensions[1])
-        * info.channels.len() as u64
-        * 4;
-    // The pinned decoder reads blocks sequentially. ZIP/RLE need the compressed
-    // block, an expanding output buffer, and a retained byte-interleave buffer.
-    // Other codecs retain the conservative whole-part reservation pending their
-    // individual resource qualification. Include fixed codec/table overhead.
-    let scratch = match header.compression {
-        Compression::Uncompressed | Compression::ZIP1 | Compression::ZIP16 | Compression::RLE => {
-            block_bytes.checked_mul(4)
-        }
-        _ => part_bytes.checked_add(block_bytes.saturating_mul(4)),
-    }
-    .and_then(|n| n.checked_add(1024 * 1024))
-    .ok_or("EXR scratch size overflow")?;
-    Ok(Layout {
-        info,
-        scratch,
-        retained_scratch: block_bytes.saturating_add(128),
-    })
+    Ok(Layout { info, parts })
 }
 
 thread_local! {
@@ -148,22 +209,21 @@ thread_local! {
         std::cell::RefCell::new((0, Vec::new()))
     };
 }
-fn reserve_retained_scratch(bytes: u64) -> Result<(), String> {
+fn retain_scratch(bytes: u64, lease: Arc<budget::Lease>) {
     RETAINED_SCRATCH.with(|state| {
         let mut state = state.borrow_mut();
         if bytes > state.0 {
-            let lease = budget::reserve_working(bytes - state.0)?;
-            state.1.push(lease);
+            let growth = bytes - state.0;
+            state.1.push(lease.shrink(growth));
             state.0 = bytes;
         }
-        Ok(())
     })
 }
 pub fn inspect(path: &Path, cancel: &Cancel) -> Result<Info, String> {
     cancel.check()?;
     let file = std::fs::File::open(path).map_err(|e| e.to_string())?;
     if file.metadata().map_err(|e| e.to_string())?.len() > MAX_FILE_BYTES {
-        return Err("EXR exceeds 128 MiB compressed source limit".into());
+        return Err("EXR exceeds 256 MiB compressed source limit".into());
     }
     let result = metadata(std::io::BufReader::new(file))?;
     cancel.check()?;
@@ -192,7 +252,7 @@ pub fn decode(
     let mut file = std::fs::File::open(&source.path).map_err(|e| e.to_string())?;
     let size = file.metadata().map_err(|e| e.to_string())?.len();
     if size > MAX_FILE_BYTES {
-        return Err("EXR exceeds 128 MiB compressed source limit".into());
+        return Err("EXR exceeds 256 MiB compressed source limit".into());
     }
     let _source_lease = budget::reserve_working(size)?;
     let mut bytes = Vec::new();
@@ -223,86 +283,120 @@ pub fn decode(
             return Err(format!("Missing EXR channel '{name}'"));
         }
     }
-    let data_count =
-        u64::from(source.info.data_dimensions[0]) * u64::from(source.info.data_dimensions[1]);
-    let _scratch = budget::reserve_working(data_count * 16 + layout.scratch)?;
-    reserve_retained_scratch(layout.retained_scratch)?;
     let output_lease = budget::DECODED.reserve(count * 16)?;
-    // A missing name is guaranteed absent after checking the channel catalog.
+    let mut pixels = Vec::new();
+
     let missing = [
         "fold.__absent_r__",
         "fold.__absent_g__",
         "fold.__absent_b__",
         "fold.__absent_a__",
     ];
-    let remap: [usize; 4] = std::array::from_fn(|i| {
-        channels[i]
-            .and_then(|name| channels[..i].iter().position(|c| *c == Some(name)))
-            .unwrap_or(i)
-    });
-    let selected: [Option<&str>; 4] =
-        std::array::from_fn(|i| if remap[i] == i { channels[i] } else { None });
-    if source
-        .info
-        .channels
-        .iter()
-        .any(|c| missing.contains(&c.source.as_str()))
-    {
-        return Err("EXR contains reserved missing-channel marker".into());
-    }
-    let reader_cancel = cancel.clone();
-    let image = read()
-        .no_deep_data()
-        .largest_resolution_level()
-        .specific_channels()
-        .optional(selected[0].unwrap_or(missing[0]), 0f32)
-        .optional(selected[1].unwrap_or(missing[1]), 0f32)
-        .optional(selected[2].unwrap_or(missing[2]), 0f32)
-        .optional(selected[3].unwrap_or(missing[3]), 1f32)
-        .collect_pixels(
-            |size, _| (size.width(), vec![[0f32; 4]; size.area()]),
-            |pixels, position, (r, g, b, a): (f32, f32, f32, f32)| {
-                pixels.1[position.y() * pixels.0 + position.x()] = [r, g, b, a];
+    for (part_index, part) in layout.parts.into_iter().enumerate() {
+        cancel.check()?;
+        let selected: [Option<&str>; 4] = std::array::from_fn(|i| {
+            channels[i]
+                .and_then(|name| part.sources.iter().position(|s| s == name))
+                .map(|index| part.header.channels.list[index].name.as_slice())
+                .and_then(|bytes| std::str::from_utf8(bytes).ok())
+        });
+        if selected.iter().all(Option::is_none)
+            && !(part_index == 0 && channels.iter().all(Option::is_none))
+        {
+            continue;
+        }
+        if part
+            .header
+            .channels
+            .list
+            .iter()
+            .any(|c| missing.iter().any(|m| c.name == **m))
+        {
+            return Err("EXR contains reserved missing-channel marker".into());
+        }
+        let remap: [usize; 4] = std::array::from_fn(|i| {
+            selected[i]
+                .and_then(|name| selected[..i].iter().position(|c| *c == Some(name)))
+                .unwrap_or(i)
+        });
+        let unique: [Option<&str>; 4] =
+            std::array::from_fn(|i| if remap[i] == i { selected[i] } else { None });
+        let size = part.header.layer_size;
+        let origin = part.header.own_attributes.layer_position;
+        let direct = dimensions == source.info.dimensions
+            && dimensions == [size.0 as u32, size.1 as u32]
+            && source.info.display_origin == [origin.0, origin.1]
+            && (0..4).all(|i| selected[i].is_some() == channels[i].is_some());
+        let _samples = if direct {
+            None
+        } else {
+            Some(budget::reserve_working(size.area() as u64 * 16)?)
+        };
+        let chunks = ::exr::block::read(
+            Cancellable {
+                inner: Cursor::new(&bytes),
+                cancel: cancel.clone(),
             },
+            true,
         )
-        .first_valid_layer()
-        .all_attributes()
-        .non_parallel()
-        .pedantic()
-        .from_buffered(Cancellable {
-            inner: Cursor::new(bytes),
-            cancel: reader_cancel,
+        .map_err(|e| e.to_string())?
+        .filter_chunks(true, |_, _, block| {
+            block.layer == part_index && block.level == Vec2(0, 0)
         })
         .map_err(|e| e.to_string())?;
-    let samples = image.layer_data.channel_data.pixels.1;
-    let mut pixels = Vec::new();
-    pixels
-        .try_reserve_exact(count as usize)
-        .map_err(|_| "EXR output allocation failed")?;
-    for y in 0..dimensions[1] {
-        cancel.check()?;
-        let sy = i64::from(y) * i64::from(source.info.dimensions[1]) / i64::from(dimensions[1])
-            + i64::from(source.info.display_origin[1])
-            - i64::from(source.info.data_origin[1]);
-        for x in 0..dimensions[0] {
-            let sx = i64::from(x) * i64::from(source.info.dimensions[0]) / i64::from(dimensions[0])
-                + i64::from(source.info.display_origin[0])
-                - i64::from(source.info.data_origin[0]);
-            let pixel = if sx >= 0
-                && sy >= 0
-                && sx < i64::from(source.info.data_dimensions[0])
-                && sy < i64::from(source.info.data_dimensions[1])
-            {
-                let pixel =
-                    samples[sy as usize * source.info.data_dimensions[0] as usize + sx as usize];
-                remap.map(|c| pixel[c])
-            } else {
-                [0.; 4]
-            };
-            if pixel.iter().any(|v| !v.is_finite()) {
-                return Err("EXR contains nonfinite requested samples".into());
+        let block = part.header.max_block_pixel_size();
+        let samples = blocks::read(
+            chunks,
+            blocks::Selection {
+                names: unique.map(|name| name.map(str::to_owned)),
+                remap,
+                opaque: channels[3].is_none(),
+            },
+            size,
+            part.scratch + (block.area() as u64 * 16),
+            part.retained_scratch,
+            cancel,
+        )?;
+        if direct {
+            return Ok(Pixels {
+                pixels: samples,
+                _lease: output_lease,
+            });
+        }
+        if pixels.is_empty() {
+            pixels
+                .try_reserve_exact(count as usize)
+                .map_err(|_| "EXR output allocation failed")?;
+            pixels.resize(count as usize, [0.; 4]);
+        }
+        for y in 0..dimensions[1] {
+            cancel.check()?;
+            let sy = i64::from(y) * i64::from(source.info.dimensions[1]) / i64::from(dimensions[1])
+                + i64::from(source.info.display_origin[1])
+                - i64::from(origin.1);
+            for x in 0..dimensions[0] {
+                let sx = i64::from(x) * i64::from(source.info.dimensions[0])
+                    / i64::from(dimensions[0])
+                    + i64::from(source.info.display_origin[0])
+                    - i64::from(origin.0);
+                if sx < 0 || sy < 0 || sx >= size.0 as i64 || sy >= size.1 as i64 {
+                    continue;
+                }
+                let sample = samples[sy as usize * size.0 + sx as usize];
+                let pixel = &mut pixels[y as usize * dimensions[0] as usize + x as usize];
+                if channels[3].is_none() {
+                    pixel[3] = 1.;
+                }
+                for i in 0..4 {
+                    if selected[i].is_some() {
+                        let value = sample[i];
+                        if !value.is_finite() {
+                            return Err("EXR contains nonfinite requested samples".into());
+                        }
+                        pixel[i] = value;
+                    }
+                }
             }
-            pixels.push(pixel);
         }
     }
     Ok(Pixels {

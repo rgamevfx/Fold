@@ -41,6 +41,7 @@ struct Shared {
     queue: wgpu::Queue,
     budget: u64,
     pool: Mutex<Pool>,
+    sources: Mutex<super::still::Cache>,
     stopped: Arc<Mutex<Option<String>>>,
 }
 
@@ -96,6 +97,8 @@ impl Pool {
 #[derive(Clone, Copy, Debug)]
 pub struct Memory {
     pub allocated: u64,
+    /// Idle pooled textures can be reclaimed without evicting source caches.
+    pub reusable: u64,
     pub peak: u64,
     pub budget: u64,
     pub working: u64,
@@ -168,8 +171,12 @@ impl Host {
                 bytes: 0,
                 peak: 0,
             }),
+            sources: Mutex::new(Default::default()),
             stopped,
         })))
+    }
+    pub(super) fn sources(&self) -> std::sync::MutexGuard<'_, super::still::Cache> {
+        self.0.sources.lock().unwrap()
     }
     pub fn id(&self) -> u64 {
         self.0.id
@@ -197,6 +204,12 @@ impl Host {
         let pool = self.0.pool.lock().unwrap();
         Memory {
             allocated: pool.bytes,
+            reusable: pool
+                .images
+                .iter()
+                .filter(|image| Arc::strong_count(image) == 1)
+                .map(|image| image.bytes)
+                .sum(),
             peak: pool.peak,
             budget: self.0.budget,
             working: pool.by_kind[0],

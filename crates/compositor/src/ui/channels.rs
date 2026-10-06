@@ -62,88 +62,75 @@ pub(super) fn effect(
 
 #[derive(Default)]
 pub(super) struct ShuffleDraft {
-    source_layer: String,
-    second: bool,
-    destination_layer: String,
+    new_layer: String,
     channel: String,
+    second: bool,
+    pending_input: Option<(bool, String)>,
+    selection: Option<(fold_foundation::DocumentId, fold_foundation::ObjectId)>,
 }
-
-fn layer_mapping(
-    ui: &Ui,
-    mappings: &mut Vec<ChannelMapping>,
-    a: &[ChannelName],
-    b: &[ChannelName],
-    draft: &mut ShuffleDraft,
-    response: &mut EditResponse,
-) {
-    let layers = |names: &[ChannelName]| {
-        names
-            .iter()
-            .map(|name| name.as_str().rsplit_once('.').unwrap().0.to_owned())
-            .collect::<std::collections::BTreeSet<_>>()
-    };
-    if draft.source_layer.is_empty() {
-        draft.source_layer = layers(a).into_iter().next().unwrap_or_default();
-    }
-    let label = format!(
-        "{}: {}",
-        if draft.second { "B" } else { "A" },
-        draft.source_layer
-    );
-    if let Some(_combo) = ui.begin_combo("Source layer", &label) {
-        for (second, names) in [(false, a), (true, b)] {
-            for layer in layers(names) {
-                if ui.selectable(format!("{}: {layer}", if second { "B" } else { "A" })) {
-                    draft.source_layer = layer;
-                    draft.second = second;
-                }
-            }
+impl ShuffleDraft {
+    pub fn select(
+        &mut self,
+        selection: Option<(fold_foundation::DocumentId, fold_foundation::ObjectId)>,
+    ) {
+        if self.selection != selection {
+            *self = Self {
+                selection,
+                ..Default::default()
+            };
         }
     }
-    ui.input_text("Destination layer", &mut draft.destination_layer)
-        .hint("rgba")
-        .build();
-    let destination = if draft.destination_layer.is_empty() {
-        "rgba"
-    } else {
-        &draft.destination_layer
-    };
-    let names = if draft.second { b } else { a };
-    let additions: Result<Vec<_>, _> = names
+}
+fn layer(name: &ChannelName) -> &str {
+    name.as_str().rsplit_once('.').unwrap().0
+}
+fn layers(names: &[ChannelName]) -> std::collections::BTreeSet<&str> {
+    names.iter().map(layer).collect()
+}
+
+/// Replace a displayed route, removing its previous destinations. All sources
+/// still refer to the original A/B images, preserving simultaneous Shuffle math.
+fn route(
+    mappings: &mut Vec<ChannelMapping>,
+    names: &[ChannelName],
+    second: bool,
+    input: &str,
+    old_output: &str,
+    output: &str,
+) -> Result<(), String> {
+    let additions: Vec<_> = names
         .iter()
-        .filter_map(|name| {
-            let (layer, component) = name.as_str().rsplit_once('.').unwrap();
-            (layer == draft.source_layer).then(|| {
-                ChannelName::try_from(format!("{destination}.{component}")).map(|destination| {
-                    ChannelMapping {
-                        destination,
-                        source: if draft.second {
-                            ChannelSource::B(name.clone())
-                        } else {
-                            ChannelSource::A(name.clone())
-                        },
-                    }
-                })
+        .filter(|name| layer(name) == input)
+        .map(|name| {
+            let component = name.as_str().rsplit_once('.').unwrap().1;
+            Ok(ChannelMapping {
+                destination: ChannelName::try_from(format!("{output}.{component}"))?,
+                source: if second {
+                    ChannelSource::B(name.clone())
+                } else {
+                    ChannelSource::A(name.clone())
+                },
             })
         })
-        .collect();
-    let merged = additions
-        .ok()
-        .filter(|items| !items.is_empty())
-        .map(|items| {
-            let mut result = mappings.clone();
-            result.retain(|old| !items.iter().any(|new| new.destination == old.destination));
-            result.extend(items);
-            result
-        })
-        .filter(|items| items.len() <= 256);
-    let _disabled = ui.begin_disabled_with_cond(merged.is_none());
-    if ui.button("Map layer")
-        && let Some(merged) = merged
-    {
-        *mappings = merged;
-        changed(response);
+        .collect::<Result<_, String>>()?;
+    if additions.is_empty() {
+        return Err("Select an input layer".into());
     }
+    let position = mappings
+        .iter()
+        .position(|m| layer(&m.destination) == old_output)
+        .unwrap_or(mappings.len());
+    let mut next = mappings.clone();
+    next.retain(|m| layer(&m.destination) != old_output && layer(&m.destination) != output);
+    next.splice(
+        position.min(next.len())..position.min(next.len()),
+        additions,
+    );
+    if next.len() > 256 {
+        return Err("Shuffle supports at most 256 channel mappings".into());
+    }
+    *mappings = next;
+    Ok(())
 }
 
 pub(super) fn shuffle(
@@ -154,8 +141,196 @@ pub(super) fn shuffle(
     draft: &mut ShuffleDraft,
     response: &mut EditResponse,
 ) {
-    layer_mapping(ui, mappings, a, b, draft, response);
-    ui.separator();
+    let mut seen = std::collections::BTreeSet::new();
+    let destinations: Vec<String> = mappings
+        .iter()
+        .map(|m| layer(&m.destination).to_owned())
+        .filter(|name| seen.insert(name.clone()))
+        .collect();
+    let second_visible = destinations.len() > 1 || draft.second;
+    for row in 0..if second_visible { 2 } else { 1 } {
+        let _id = ui.push_id(&row.to_string());
+        let old_output = destinations
+            .get(row)
+            .map(String::as_str)
+            .unwrap_or(if row == 0 { "rgba" } else { "" });
+        let first = mappings
+            .iter()
+            .find(|m| layer(&m.destination) == old_output);
+        let (mut second, mut input) = match first.map(|m| &m.source) {
+            Some(ChannelSource::A(name)) => (false, layer(name).to_owned()),
+            Some(ChannelSource::B(name)) => (true, layer(name).to_owned()),
+            _ => (
+                false,
+                layers(a)
+                    .into_iter()
+                    .find(|l| *l == "rgba")
+                    .or_else(|| layers(a).into_iter().next())
+                    .unwrap_or("")
+                    .to_owned(),
+            ),
+        };
+        if row == 1
+            && old_output.is_empty()
+            && let Some(pending) = &draft.pending_input
+        {
+            (second, input) = pending.clone();
+        }
+        let mut output = old_output.to_owned();
+        let spacing = ui.clone_style().item_spacing()[0];
+        let width = ((ui.content_region_avail()[0] - spacing) * 0.5).max(40.);
+        let left = ui.cursor_pos()[0];
+        ui.text(if row == 0 { "Input" } else { "Input 2" });
+        ui.same_line_with_pos(left + width + spacing);
+        ui.text(if row == 0 { "Output" } else { "Output 2" });
+        let mut edited = false;
+        let mut create_layer = false;
+        {
+            let _width = ui.push_item_width(width);
+            let custom = mappings
+                .iter()
+                .filter(|m| layer(&m.destination) == old_output)
+                .any(|m| match &m.source {
+                    ChannelSource::A(name) => second || layer(name) != input,
+                    ChannelSource::B(name) => !second || layer(name) != input,
+                    _ => true,
+                });
+            let label = if custom {
+                "Custom".into()
+            } else if second {
+                format!("B: {input}")
+            } else {
+                input.clone()
+            };
+            if let Some(_combo) = ui.begin_combo(
+                "##input",
+                if label.is_empty() {
+                    "Select layer"
+                } else {
+                    &label
+                },
+            ) {
+                for (is_b, names) in [(false, a), (true, b)] {
+                    for name in layers(names) {
+                        let label = if is_b {
+                            format!("B: {name}")
+                        } else {
+                            name.to_owned()
+                        };
+                        if ui
+                            .selectable_config(&label)
+                            .selected(is_b == second && name == input)
+                            .build()
+                        {
+                            second = is_b;
+                            input = name.to_owned();
+                            edited = true;
+                            if row == 1 && old_output.is_empty() {
+                                draft.pending_input = Some((second, input.clone()));
+                            }
+                        }
+                    }
+                }
+            }
+            ui.same_line();
+            if let Some(_combo) = ui.begin_combo(
+                "##output",
+                if output.is_empty() {
+                    "Select layer"
+                } else {
+                    &output
+                },
+            ) {
+                let outputs: std::collections::BTreeSet<_> = layers(a)
+                    .into_iter()
+                    .chain(destinations.iter().map(String::as_str))
+                    .chain(["rgba"])
+                    .collect();
+                for name in outputs {
+                    if destinations
+                        .iter()
+                        .enumerate()
+                        .any(|(i, n)| i != row && n == name)
+                    {
+                        continue;
+                    }
+                    if ui.selectable_config(name).selected(name == output).build() {
+                        output = name.to_owned();
+                        edited = true;
+                    }
+                }
+                if ui.selectable("New layer…") {
+                    draft.new_layer.clear();
+                    create_layer = true;
+                }
+            }
+        }
+        if create_layer {
+            ui.open_popup("New layer");
+        }
+        if let Some(_popup) = ui.begin_popup("New layer") {
+            ui.input_text("Name", &mut draft.new_layer).build();
+            let valid = ChannelName::try_from(format!("{}.red", draft.new_layer)).is_ok()
+                && !draft.new_layer.is_empty()
+                && !destinations.contains(&draft.new_layer);
+            let _disabled = ui.begin_disabled_with_cond(!valid || input.is_empty());
+            if ui.button("Create") {
+                output = draft.new_layer.clone();
+                edited = true;
+                ui.close_current_popup();
+            }
+        }
+        if edited && !output.is_empty() {
+            match route(
+                mappings,
+                if second { b } else { a },
+                second,
+                &input,
+                old_output,
+                &output,
+            ) {
+                Ok(()) => changed(response),
+                Err(error) => ui.text_wrapped(error),
+            }
+        }
+        if row == 1 && ui.small_button("Remove second route") {
+            mappings.retain(|m| layer(&m.destination) != old_output);
+            draft.second = false;
+            changed(response);
+        }
+        if destinations.len() > 2 {
+            ui.text_wrapped("Additional routes are available in Channels.");
+        }
+    }
+    if !second_visible {
+        let _disabled = ui.begin_disabled_with_cond(a.is_empty());
+        if ui.small_button("Add second route") {
+            if mappings.is_empty() {
+                let names = layers(a);
+                let input = names
+                    .get("rgba")
+                    .copied()
+                    .or_else(|| names.first().copied())
+                    .unwrap_or("");
+                if route(mappings, a, false, input, "", "rgba").is_ok() {
+                    changed(response);
+                }
+            }
+            draft.second = true;
+        }
+    }
+    if let Some(_channels) = ui.tree_node("Channels") {
+        channel_routes(ui, mappings, a, b, draft, response);
+    }
+}
+fn channel_routes(
+    ui: &Ui,
+    mappings: &mut Vec<ChannelMapping>,
+    a: &[ChannelName],
+    b: &[ChannelName],
+    draft: &mut ShuffleDraft,
+    response: &mut EditResponse,
+) {
     let destination = &mut draft.channel;
     let mut remove = None;
     for (index, mapping) in mappings.iter_mut().enumerate() {
@@ -239,5 +414,43 @@ pub(super) fn remove(
             }
             changed(response);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn changing_layer_routes_preserves_second_route_order_and_unmapped_channels() {
+        let names: Vec<ChannelName> = [
+            "diffuse.red",
+            "diffuse.green",
+            "diffuse.blue",
+            "diffuse.alpha",
+            "specular.red",
+            "specular.green",
+            "specular.blue",
+        ]
+        .into_iter()
+        .map(|n| n.to_owned().try_into().unwrap())
+        .collect();
+        let mut mappings = Vec::new();
+        route(&mut mappings, &names, false, "diffuse", "", "rgba").unwrap();
+        route(&mut mappings, &names, true, "specular", "", "reflection").unwrap();
+        route(&mut mappings, &names, false, "specular", "rgba", "rgba").unwrap();
+        assert_eq!(layer(&mappings[0].destination), "rgba");
+        assert_eq!(mappings.len(), 6);
+        assert!(
+            mappings[3..]
+                .iter()
+                .all(|m| layer(&m.destination) == "reflection"
+                    && matches!(m.source, ChannelSource::B(_)))
+        );
+        route(&mut mappings, &names, false, "diffuse", "rgba", "new_layer").unwrap();
+        assert!(mappings.iter().all(|m| layer(&m.destination) != "rgba"));
+        assert_eq!(layer(&mappings[0].destination), "new_layer");
+        let before = mappings.clone();
+        assert!(route(&mut mappings, &names, false, "missing", "new_layer", "rgba").is_err());
+        assert_eq!(mappings, before);
     }
 }

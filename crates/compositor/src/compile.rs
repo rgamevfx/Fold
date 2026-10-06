@@ -86,11 +86,13 @@ fn compile(request: VideoCompile<'_>) -> Result<ChannelGraph, String> {
                     asset,
                     image,
                     color_layers,
-                    ..
+                    options,
+                    sequence,
+                    info,
                 },
             start,
+            source_start,
             duration,
-            ..
         } = &parameters
         {
             let asset = snapshot
@@ -107,16 +109,61 @@ fn compile(request: VideoCompile<'_>) -> Result<ChannelGraph, String> {
             } else {
                 None
             };
+            let local = time
+                .checked_sub(*start)
+                .and_then(|t| t.checked_add(*source_start))
+                .map_err(|e| e.to_string())?;
+            let outside =
+                time < *start || time >= start.checked_add(*duration).map_err(|e| e.to_string())?;
+            let mut frame = local
+                .to_ticks(info.rate[0], info.rate[1], fold_foundation::Rounding::Floor)
+                .map_err(|e| e.to_string())?;
+            if outside && options.outside == fold_media::exr_sequence::Policy::Hold {
+                let first = source_start
+                    .to_ticks(info.rate[0], info.rate[1], fold_foundation::Rounding::Floor)
+                    .map_err(|e| e.to_string())?;
+                let end = source_start
+                    .checked_add(*duration)
+                    .map_err(|e| e.to_string())?
+                    .to_ticks(info.rate[0], info.rate[1], fold_foundation::Rounding::Ceil)
+                    .map_err(|e| e.to_string())?;
+                frame = frame.clamp(first, end - 1);
+            }
+            let mut current_image = image.clone();
+            if let Some(value) = asset.extensions.get(fold_media::ingest::METADATA_KEY) {
+                let metadata: fold_media::ingest::SourceMetadata =
+                    serde_json::from_value(value.clone()).map_err(|e| e.to_string())?;
+                if let fold_media::ingest::SourceProfile::Exr(new) = metadata.profile {
+                    new.validate()?;
+                    if !image.compatible_pixels(&new)
+                        || match (sequence, &new.sequence) {
+                            (None, None) => false,
+                            (Some(expected), Some(actual)) => !expected.matches(actual),
+                            _ => true,
+                        }
+                    {
+                        return Err("EXR source channel/frame contract changed".into());
+                    }
+                    current_image = new;
+                } else {
+                    return Err("Read requires EXR asset metadata".into());
+                }
+            } else if sequence.is_some() {
+                return Err("Missing EXR sequence manifest".into());
+            }
+            let original = fold_media::exr::Source {
+                path: asset.location.clone().into(),
+                fingerprint: asset.fingerprint.clone(),
+                info: current_image,
+            };
+            let selected = fold_media::exr_sequence::resolve(&original, frame, options, outside)?;
+            let active = selected.is_some();
             let channels = crate::source_channels::exr(
                 &mut graph,
-                fold_media::exr::Source {
-                    path: asset.location.clone().into(),
-                    fingerprint: asset.fingerprint.clone(),
-                    info: image.clone(),
-                },
+                selected.unwrap_or(original),
                 space,
                 color_layers,
-                time >= *start && time < start.checked_add(*duration).map_err(|e| e.to_string())?,
+                active,
             )?;
             ids.insert(id, channels);
             continue;

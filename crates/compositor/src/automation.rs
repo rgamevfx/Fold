@@ -40,6 +40,10 @@ enum Edit {
         node: ObjectId,
         value: Value,
     },
+    InputColor {
+        node: ObjectId,
+        space: Option<String>,
+    },
     Connect {
         source: ObjectId,
         node: ObjectId,
@@ -69,6 +73,7 @@ pub fn catalog() -> Value {
         {"op":"layout_nodes","nodes":["$a","$b"],"origin":[0,0]},
         {"op":"add","id":"$node","parameters":{"Solid":{"rgba":[0.2,0.3,0.4,1]}}},
         {"op":"node","node":"$node","value":{"parameters":{"Solid":{"rgba":[1,0,0,1]}}}},
+        {"op":"input_color","node":"$read","space":"Linear Rec.709 (sRGB)"},
         {"op":"connect","source":"$source","node":"$node","input":"image"},
         {"op":"disconnect","node":"$node","input":"image"},
         {"op":"remove","nodes":["$node"]},{"op":"output","node":"$node"},
@@ -77,8 +82,9 @@ pub fn catalog() -> Value {
         {"Solid":{"rgba":[0,0,0,1]}},{"GaussianBlur":{"size":[5,5],"edges":"Clamp"}},
         {"Composite":{"mode":"Over"}},"Output",{"Grade":{"gain":[1,1,1]}},
         {"Transform":{"translate":[0,0],"scale":[1,1],"opacity":1}},
-        {"Read":{"source":{"Document":{"source":{"document":"$motion","output":"video"},"info":{"width":960,"height":540,"rate":[24,1],"frames":120}}},"start":{"numerator":0,"denominator":1},"source_start":{"numerator":0,"denominator":1},"duration":{"numerator":5,"denominator":1}}}
-    ],"notes":"node merges parameters/animation/effect/position while retaining extensions. Groups are currently provided by Motion, not the compositor model.",
+        {"Read":{"source":{"Document":{"source":{"document":"$motion","output":"video"},"info":{"width":960,"height":540,"rate":[24,1],"frames":120}}},"start":{"numerator":0,"denominator":1},"source_start":{"numerator":0,"denominator":1},"duration":{"numerator":5,"denominator":1}}},
+        {"Shuffle":{"mappings":[{"destination":"rgba.red","source":{"A":"diffuse.red"}},{"destination":"rgba.green","source":{"A":"diffuse.green"}},{"destination":"rgba.blue","source":{"A":"diffuse.blue"}},{"destination":"rgba.alpha","source":{"A":"diffuse.alpha"}}]}}
+    ],"notes":"node merges parameters/animation/effect/position while retaining extensions. input_color sets a Read's per-use OCIO input space; null restores the asset/default interpretation. EXR Read color_layers selects which named RGB layers receive that transform. Groups are currently provided by Motion, not the compositor model.",
     "operators":crate::OPERATORS.iter().map(|o|json!({"id":o.id,"version":o.version,"inputs":(0..o.inputs.len()).map(|i|json!({"id":o.input_key(i),"type":format!("{:?}",o.inputs[i])})).collect::<Vec<_>>(),"output":o.output_key()})).collect::<Vec<_>>()}))
 }
 pub fn inspect(d: &Document) -> Result<Value, String> {
@@ -183,6 +189,21 @@ pub fn author(d: &Document, edits: &[Value]) -> Result<Document, String> {
                 }
                 patch(c.node_mut(node)?, &value)?;
             }
+            Edit::InputColor { node, space } => {
+                let n = c.node_mut(node)?;
+                if !matches!(n.parameters, Parameters::Read { .. }) {
+                    return Err("input_color requires a Read node".into());
+                }
+                let key = fold_platform::color::INPUT_KEY;
+                if let Some(space) = space {
+                    if space.trim().is_empty() || space.len() > 256 {
+                        return Err("input color space must contain 1..256 bytes".into());
+                    }
+                    n.extensions.insert(key.into(), Value::String(space));
+                } else {
+                    n.extensions.remove(key);
+                }
+            }
             Edit::Connect {
                 source,
                 node,
@@ -263,4 +284,81 @@ pub fn receipt(before: &Document, after: &Document) -> Result<Value, String> {
     Ok(
         json!({"total_changed_nodes":changed.len(),"nodes":changed.iter().take(200).map(|n|json!({"node":n.id,"operator":n.parameters.operator().id})).collect::<Vec<_>>(),"removed":old.nodes.iter().filter(|n|!new.nodes.iter().any(|v|v.id==n.id)).take(200).map(|n|n.id).collect::<Vec<_>>(),"output":new.output,"truncated":changed.len()>200}),
     )
+}
+
+#[cfg(test)]
+mod color_tests {
+    use super::*;
+    use fold_foundation::{DocumentId, Time};
+
+    #[test]
+    fn read_color_override_preserves_extensions_and_can_be_cleared() {
+        let info = fold_media::VideoInfo {
+            width: 16,
+            height: 16,
+            rate: [24, 1],
+            frames: 24,
+        };
+        let mut read = Node::new(
+            Parameters::Read {
+                source: crate::Source::Unassigned { info: info.clone() },
+                start: Time::ZERO,
+                source_start: Time::ZERO,
+                duration: Time::new(1, 1).unwrap(),
+            },
+            vec![],
+        );
+        read.extensions
+            .insert("vendor.extra".into(), json!({"keep":true}));
+        let output = Node::new(Parameters::Output, vec![read.id]);
+        let c = Composite {
+            info,
+            nodes: vec![read.clone(), output.clone()],
+            output: output.id,
+            extensions: Default::default(),
+        };
+        let d = c.document(DocumentId::new()).unwrap();
+        let changed = author(
+            &d,
+            &[json!({"op":"input_color","node":read.id,"space":"Linear Rec.709 (sRGB)"})],
+        )
+        .unwrap();
+        let c = Composite::from_document(&changed).unwrap();
+        assert_eq!(
+            fold_platform::color::input(&c.node(read.id).unwrap().extensions)
+                .unwrap()
+                .as_deref(),
+            Some("Linear Rec.709 (sRGB)")
+        );
+        assert_eq!(
+            c.node(read.id).unwrap().extensions["vendor.extra"],
+            json!({"keep":true})
+        );
+        let reset = author(
+            &changed,
+            &[json!({"op":"input_color","node":read.id,"space":null})],
+        )
+        .unwrap();
+        assert_eq!(
+            Composite::from_document(&reset)
+                .unwrap()
+                .node(read.id)
+                .unwrap(),
+            &read
+        );
+        assert!(
+            author(
+                &d,
+                &[json!({"op":"input_color","node":output.id,"space":"ACEScg"})]
+            )
+            .is_err()
+        );
+        assert!(
+            author(
+                &d,
+                &[json!({"op":"input_color","node":read.id,"space":" "})]
+            )
+            .is_err()
+        );
+    }
 }

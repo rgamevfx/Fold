@@ -51,16 +51,78 @@ impl OutputRenderer {
         }
         "cpu"
     }
+    /// Alpha delivery reads scene precision, never opaque/quantized presentation.
+    pub fn evaluate_rgba16(
+        &mut self,
+        snapshot: &CommittedSnapshot,
+        request: &SceneRequest,
+        cancel: &Cancel,
+    ) -> Result<fold_render::Rgba16Output, String> {
+        self.with_budget_retry(cancel, |renderer| {
+            renderer.evaluate_rgba16_once(snapshot, request, cancel)
+        })
+    }
+    fn evaluate_rgba16_once(
+        &mut self,
+        snapshot: &CommittedSnapshot,
+        request: &SceneRequest,
+        cancel: &Cancel,
+    ) -> Result<fold_render::Rgba16Output, String> {
+        cancel.check()?;
+        #[cfg(feature = "gpu")]
+        let scene = if let Some(renderer) = self.gpu.as_mut() {
+            let mut scene = crate::media_workflow::evaluate_scene_gpu_admitted(
+                snapshot,
+                request,
+                renderer,
+                &mut self.decoder,
+                cancel,
+                Some(fold_render::scheduling::Class::Export),
+            )?;
+            scene.readback(cancel)?
+        } else {
+            let _permit = fold_render::scheduling::Scheduler::shared()
+                .enter(fold_render::scheduling::Class::Export, cancel)?;
+            evaluate_scene(snapshot, request, &mut self.decoder, cancel)?
+        };
+        #[cfg(not(feature = "gpu"))]
+        let scene = {
+            let _permit = fold_render::scheduling::Scheduler::shared()
+                .enter(fold_render::scheduling::Class::Export, cancel)?;
+            evaluate_scene(snapshot, request, &mut self.decoder, cancel)?
+        };
+        crate::color::with_config(snapshot, |config| {
+            let processor = config
+                .map(|config| {
+                    config.display(
+                        fold_color::WORKING_SPACE,
+                        &fold_platform::color::output(snapshot, request.source.document)?
+                            .display_transform(),
+                    )
+                })
+                .transpose()?;
+            scene.into_rgba16(processor.as_ref())
+        })
+    }
     pub fn evaluate(
         &mut self,
         snapshot: &CommittedSnapshot,
         request: &SceneRequest,
         cancel: &Cancel,
     ) -> Result<DisplayFrame, String> {
+        self.with_budget_retry(cancel, |renderer| {
+            renderer.evaluate_once(snapshot, request, cancel)
+        })
+    }
+    fn with_budget_retry<T>(
+        &mut self,
+        cancel: &Cancel,
+        mut evaluate: impl FnMut(&mut Self) -> Result<T, String>,
+    ) -> Result<T, String> {
         let began = std::time::Instant::now();
         loop {
             cancel.check()?;
-            match self.evaluate_once(snapshot, request, cancel) {
+            match evaluate(self) {
                 Err(error)
                     if error.contains("GPU working budget exhausted")
                         && began.elapsed().as_secs() < 30 =>

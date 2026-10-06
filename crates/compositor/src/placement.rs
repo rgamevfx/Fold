@@ -48,12 +48,39 @@ pub fn place(
             info: info.ok_or("missing output capability")?,
         },
     };
-    let duration = request.range(source.info().time(source.info().frames)?)?;
+    let mut timing = request.clone();
+    if let Source::Exr {
+        sequence: Some(sequence),
+        ..
+    } = &source
+        && timing.source_start == fold_foundation::Time::ZERO
+        && timing.duration.is_none()
+    {
+        timing.source_start = source.info().time(sequence.first)?;
+        if timing.at == fold_foundation::Time::ZERO {
+            timing.at = timing.source_start;
+        }
+        let end = timing
+            .at
+            .checked_add(source.info().time(source.info().frames - sequence.first)?)
+            .map_err(|e| e.to_string())?
+            .to_ticks(
+                graph.info.rate[0],
+                graph.info.rate[1],
+                fold_foundation::Rounding::Ceil,
+            )
+            .map_err(|e| e.to_string())?;
+        graph.info.frames = graph
+            .info
+            .frames
+            .max(u32::try_from(end).map_err(|_| "EXR placement duration overflow")?);
+    }
+    let duration = timing.range(source.info().time(source.info().frames)?)?;
     let mut node = Node::new(
         Parameters::Read {
             source,
-            start: request.at,
-            source_start: request.source_start,
+            start: timing.at,
+            source_start: timing.source_start,
             duration,
         },
         vec![],
@@ -73,35 +100,41 @@ pub fn source_from_profile(
 ) -> Result<Source, String> {
     match profile {
         fold_media::ingest::SourceProfile::Video(info) => Ok(Source::Asset { asset, info }),
-        fold_media::ingest::SourceProfile::Exr(image) => Ok(Source::Exr {
-            color_layers: image
-                .channels
-                .iter()
-                .filter(|c| c.color)
-                .filter_map(|c| c.name.rsplit_once('.').map(|(layer, _)| layer.to_owned()))
-                .filter(|layer| {
-                    // RGB spelling alone cannot distinguish lighting from
-                    // normals, positions or other utility AOVs.
-                    layer == "rgba"
-                        && ["red", "green", "blue"].iter().all(|component| {
-                            image
-                                .channels
-                                .iter()
-                                .any(|c| c.name == format!("{layer}.{component}"))
-                        })
-                })
-                .collect::<std::collections::BTreeSet<_>>()
-                .into_iter()
-                .collect(),
-            asset,
-            info: fold_media::VideoInfo {
-                width: image.dimensions[0],
-                height: image.dimensions[1],
-                rate: composition.rate,
-                frames: composition.frames,
-            },
-            image,
-        }),
+        fold_media::ingest::SourceProfile::Exr(mut image) => {
+            image.validate()?;
+            let sequence = image.sequence.take().map(|s| s.summary());
+            Ok(Source::Exr {
+                options: Default::default(),
+                color_layers: image
+                    .channels
+                    .iter()
+                    .filter(|c| c.color)
+                    .filter_map(|c| c.name.rsplit_once('.').map(|(layer, _)| layer.to_owned()))
+                    .filter(|layer| {
+                        // RGB spelling alone cannot distinguish lighting from
+                        // normals, positions or other utility AOVs.
+                        layer == "rgba"
+                            && ["red", "green", "blue"].iter().all(|component| {
+                                image
+                                    .channels
+                                    .iter()
+                                    .any(|c| c.name == format!("{layer}.{component}"))
+                            })
+                    })
+                    .collect::<std::collections::BTreeSet<_>>()
+                    .into_iter()
+                    .collect(),
+                asset,
+                info: fold_media::VideoInfo {
+                    width: image.dimensions[0],
+                    height: image.dimensions[1],
+                    rate: composition.rate,
+                    frames: sequence.as_ref().map_or(composition.frames, |s| s.last + 1),
+                },
+                image,
+                sequence,
+            })
+        }
         _ => Err("Read requires video or OpenEXR".into()),
     }
 }

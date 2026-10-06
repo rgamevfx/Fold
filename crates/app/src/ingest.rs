@@ -111,7 +111,14 @@ pub fn import(
             .values()
             .filter(|a| same_location(a, &source.path))
             .collect();
-        if matches.iter().any(|a| a.fingerprint != source.fingerprint) {
+        if matches.iter().any(|a| {
+            a.fingerprint != source.fingerprint
+                || (matches!(
+                    &source.metadata.profile,
+                    fold_media::ingest::SourceProfile::Exr(_)
+                ) && a.extensions.get(METADATA_KEY)
+                    != serde_json::to_value(&source.metadata).ok().as_ref())
+        }) {
             return Err(format!(
                 "{} changed: explicit relink required",
                 source.path.display()

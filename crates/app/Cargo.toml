@@ -42,6 +42,10 @@ name = "fold-cli"
 path = "src/bin/cli.rs"
 
 [[example]]
+name = "exr_profile"
+required-features = ["gpu"]
+
+[[example]]
 name = "render_profile"
 required-features = ["gpu"]
 

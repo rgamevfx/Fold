@@ -14,7 +14,7 @@ pub(super) struct Key {
     processor: Option<String>,
     dimensions: [u32; 2],
     path: std::path::PathBuf,
-    stamp: Stamp,
+    stamp: fold_media::exr::cache::Stamp,
 }
 impl Key {
     pub fn new(
@@ -40,7 +40,10 @@ impl Key {
                 .map(|p| p.identity().to_owned()),
             dimensions,
             path: source.path.clone(),
-            stamp: stamp(&source.path)?,
+            stamp: fold_media::exr::cache::Stamp::read(
+                &source.path,
+                &fold_media::Cancel::default(),
+            )?,
         }))
     }
     fn bytes(&self) -> u64 {
@@ -88,52 +91,26 @@ impl Cache {
         key.bytes() <= Self::limit(budget)
     }
     fn limit(budget: u64) -> u64 {
-        (budget / 8).min(128 * 1024 * 1024)
+        (budget / 3).min(384 * 1024 * 1024)
     }
     pub fn insert(&mut self, key: Key, image: Arc<Image>, ready: Completion, budget: u64) {
         // Do not publish a stamp sampled after a concurrent source replacement.
         // Decode verified the bytes; the pre/post stamps must also agree.
-        if !Self::eligible(&key, budget) || stamp(&key.path).ok().as_ref() != Some(&key.stamp) {
+        if !Self::eligible(&key, budget)
+            || fold_media::exr::cache::Stamp::read(&key.path, &fold_media::Cancel::default())
+                .ok()
+                .as_ref()
+                != Some(&key.stamp)
+        {
             return;
         }
         if let Some(index) = self.entries.iter().position(|e| e.key == key) {
             self.bytes -= self.entries.remove(index).unwrap().image.bytes;
         }
-        while self.entries.len() >= 8 || self.bytes + image.bytes > Self::limit(budget) {
+        while self.entries.len() >= 64 || self.bytes + image.bytes > Self::limit(budget) {
             self.bytes -= self.entries.pop_front().unwrap().image.bytes;
         }
         self.bytes += image.bytes;
         self.entries.push_back(Entry { key, image, ready });
     }
-}
-
-#[cfg(unix)]
-#[derive(Clone, PartialEq, Eq)]
-struct Stamp {
-    device: u64,
-    inode: u64,
-    size: u64,
-    modified: (i64, i64),
-    changed: (i64, i64),
-}
-#[cfg(unix)]
-fn stamp(path: &std::path::Path) -> Result<Stamp, String> {
-    use std::os::unix::fs::MetadataExt;
-    let metadata = std::fs::metadata(path).map_err(|e| e.to_string())?;
-    if !metadata.is_file() {
-        return Err("EXR source must be a regular file".into());
-    }
-    Ok(Stamp {
-        device: metadata.dev(),
-        inode: metadata.ino(),
-        size: metadata.len(),
-        modified: (metadata.mtime(), metadata.mtime_nsec()),
-        changed: (metadata.ctime(), metadata.ctime_nsec()),
-    })
-}
-#[cfg(not(unix))]
-type Stamp = ();
-#[cfg(not(unix))]
-fn stamp(_path: &std::path::Path) -> Result<Stamp, String> {
-    Ok(())
 }

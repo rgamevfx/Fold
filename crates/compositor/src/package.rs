@@ -88,10 +88,10 @@ impl DocumentProvider for Documents {
         crate::COMPOSITE
     }
     fn schema(&self) -> u32 {
-        4
+        5
     }
     fn supports_schema(&self, schema: u32) -> bool {
-        [1, 2, 3, 4].contains(&schema)
+        [1, 2, 3, 4, 5].contains(&schema)
     }
     fn validate(&self, document: &Document) -> Result<(), String> {
         Composite::from_document(document).map(|_| ())
@@ -106,12 +106,15 @@ impl DocumentProvider for Documents {
             if let crate::Parameters::Read {
                 source:
                     crate::Source::Exr {
-                        asset: id, image, ..
+                        asset: id,
+                        image,
+                        sequence,
+                        ..
                     },
                 ..
             } = &node.parameters
                 && *id == asset
-                && metadata.profile != fold_media::ingest::SourceProfile::Exr(image.clone())
+                && !matches!(&metadata.profile, fold_media::ingest::SourceProfile::Exr(new) if image.compatible_pixels(new) && match (sequence, &new.sequence) { (None,None) => true, (Some(expected),Some(actual)) => expected.matches(actual), _ => false })
             {
                 return Err("Relink changes the EXR channel catalog or image windows".into());
             }

@@ -2,7 +2,7 @@
 use crate::{Frame, SolidPlan};
 
 const MAX_NODES: usize = 4096;
-const MAX_PIXELS: u64 = 4_194_304;
+const MAX_PIXELS: u64 = fold_media::MAX_PIXELS as u64;
 const PIXEL_BUDGET: usize = 64 * 1024 * 1024;
 
 /// Transient index in a topologically ordered graph, not an authoring identity.
@@ -314,7 +314,7 @@ impl From<SolidPlan> for RenderGraph {
 pub(crate) fn validate(graph: &RenderGraph, aces: bool) -> Result<usize, String> {
     let count = u64::from(graph.width) * u64::from(graph.height);
     if count == 0 || count > MAX_PIXELS {
-        return Err("resolution must contain 1..=4194304 pixels".into());
+        return Err(format!("resolution must contain 1..={MAX_PIXELS} pixels"));
     }
     if graph.nodes.len() > MAX_NODES || graph.output >= graph.nodes.len() {
         return Err("graph requires a valid output and at most 4096 nodes".into());
@@ -618,12 +618,16 @@ pub(crate) fn evaluate(
                 ref channels,
                 ref space,
             } => {
-                let decoded = fold_media::exr::decode(
-                    source,
-                    channels.each_ref().map(|c| c.as_deref()),
-                    [graph.width, graph.height],
+                let decoded = fold_media::exr::cache::request(
+                    fold_media::exr::cache::Request {
+                        source: source.clone(),
+                        channels: channels.clone(),
+                        dimensions: [graph.width, graph.height],
+                    },
+                    true,
                     cancel,
-                )?;
+                )?
+                .wait(cancel)?;
                 pixels.extend_from_slice(&decoded.pixels);
                 if let Some(space) = space {
                     processors[space].apply(&mut pixels)?;

@@ -4,8 +4,8 @@ use fold_foundation::DocumentId;
 use fold_platform::{desktop::*, packages::PackageRegistry};
 use fold_project::{CommittedSnapshot, EditBatch, Mutation, Project};
 use fold_ui::sdk::{ExtensionUi, Panel, graph_canvas::*, imgui};
-struct Host {
-    project: Project,
+pub(super) struct Host {
+    pub(super) project: Project,
     state: DesktopState,
     registry: PackageRegistry,
 }
@@ -42,7 +42,7 @@ impl DesktopClient for Host {
         None
     }
 }
-fn setup() -> (Host, state::State) {
+pub(super) fn setup() -> (Host, state::State) {
     let mut registry = PackageRegistry::default();
     crate::package::register(&mut registry).unwrap();
     let mut host = Host {

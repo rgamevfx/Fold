@@ -1278,8 +1278,35 @@ impl Shell {
                     Err(error) => ui.text_wrapped(error),
                 }
             }
-            ui.input_text("New MP4 output", &mut self.export_path)
-                .build();
+            let mut prores = std::path::Path::new(&self.export_path)
+                .extension()
+                .is_some_and(|e| e.eq_ignore_ascii_case("mov"));
+            if let Some(_combo) = ui.begin_combo(
+                "Format",
+                if prores {
+                    "ProRes 4444 • Alpha (.mov)"
+                } else {
+                    "H.264 (.mp4)"
+                },
+            ) {
+                for (value, label) in [
+                    (false, "H.264 (.mp4)"),
+                    (true, "ProRes 4444 • Alpha (.mov)"),
+                ] {
+                    if ui
+                        .selectable_config(label)
+                        .selected(value == prores)
+                        .build()
+                    {
+                        prores = value;
+                        self.export_path = std::path::Path::new(&self.export_path)
+                            .with_extension(if prores { "mov" } else { "mp4" })
+                            .to_string_lossy()
+                            .into_owned();
+                    }
+                }
+            }
+            ui.input_text("Output file", &mut self.export_path).build();
             ui.input_int("Start frame", &mut self.start);
             ui.input_int("End (exclusive)", &mut self.end);
             if ui.button("Export range") && self.start >= 0 && self.end > self.start {
