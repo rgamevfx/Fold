@@ -13,6 +13,15 @@ pub fn thumbnail(
     profile: &SourceProfile,
     cancel: &Cancel,
 ) -> Result<Vec<u8>, String> {
+    thumbnail_range(path, fingerprint, profile, cancel, None)
+}
+pub fn thumbnail_range(
+    path: &Path,
+    fingerprint: &str,
+    profile: &SourceProfile,
+    cancel: &Cancel,
+    range: Option<(fold_foundation::Time, fold_foundation::Time, bool)>,
+) -> Result<Vec<u8>, String> {
     // Archives are not proof of decode safety. Revalidate the narrow source
     // profile on the worker before letting the codec allocate native planes.
     let inspected = crate::ingest::inspect_linked(path, cancel)?;
@@ -38,21 +47,40 @@ pub fn thumbnail(
             "-i",
         ])
         .arg(path);
-    match profile {
-        SourceProfile::Video(_) => {
-            command.args(["-an", "-vf", "scale=128:72:force_original_aspect_ratio=decrease:force_divisible_by=2:flags=bilinear,zscale=matrixin=709:transferin=709:primariesin=709:rangein=limited:matrix=gbr:transfer=iec61966-2-1:primaries=709:range=full,format=gbrpf32le,format=rgb24,pad=128:72:(ow-iw)/2:(oh-ih)/2"]);
+    let audio = range.is_some_and(|(_, _, audio)| audio);
+    if let Some((start, duration, _)) = range {
+        if start < fold_foundation::Time::ZERO
+            || duration <= fold_foundation::Time::ZERO
+            || duration > fold_foundation::Time::new(600, 1).unwrap()
+        {
+            return Err("Invalid preview range".into());
         }
-        SourceProfile::Exr(_) => {
-            return Err("EXR browser thumbnails require a selected color interpretation".into());
+        let seconds = |t: fold_foundation::Time| t.numerator() as f64 / f64::from(t.denominator());
+        if audio {
+            command.args(["-filter_complex", &format!("atrim=start={}:duration={},asetpts=PTS-STARTPTS,showwavespic=s=128x72:colors=68b394", seconds(start), seconds(duration))]);
+        } else {
+            command.args(["-ss", &seconds(start).to_string()]);
         }
-        SourceProfile::Ppm { .. } => {
-            command.args(["-vf", "scale=128:72:force_original_aspect_ratio=decrease:flags=bilinear,pad=128:72:(ow-iw)/2:(oh-ih)/2"]);
-        }
-        SourceProfile::Wave(_) => {
-            command.args([
-                "-filter_complex",
-                "atrim=duration=30,showwavespic=s=128x72:colors=68b394",
-            ]);
+    }
+    if !audio {
+        match profile {
+            SourceProfile::Video(_) => {
+                command.args(["-an", "-vf", "scale=128:72:force_original_aspect_ratio=decrease:force_divisible_by=2:flags=bilinear,zscale=matrixin=709:transferin=709:primariesin=709:rangein=limited:matrix=gbr:transfer=iec61966-2-1:primaries=709:range=full,format=gbrpf32le,format=rgb24,pad=128:72:(ow-iw)/2:(oh-ih)/2"]);
+            }
+            SourceProfile::Exr(_) => {
+                return Err(
+                    "EXR browser thumbnails require a selected color interpretation".into(),
+                );
+            }
+            SourceProfile::Ppm { .. } => {
+                command.args(["-vf", "scale=128:72:force_original_aspect_ratio=decrease:flags=bilinear,pad=128:72:(ow-iw)/2:(oh-ih)/2"]);
+            }
+            SourceProfile::Wave(_) => {
+                command.args([
+                    "-filter_complex",
+                    "atrim=duration=30,showwavespic=s=128x72:colors=68b394",
+                ]);
+            }
         }
     }
     command

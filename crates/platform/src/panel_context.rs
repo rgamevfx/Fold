@@ -6,6 +6,8 @@ use fold_foundation::Time;
 use fold_project::DocumentRef;
 
 pub struct PanelContext<'a> {
+    cache: Option<&'a [PreviewKey]>,
+    cache_reference: Option<PreviewKey>,
     host: &'a mut dyn DesktopClient,
     editor: Option<&'a mut EditorInstance>,
     state: DesktopState,
@@ -38,6 +40,8 @@ impl<'a> PanelContext<'a> {
         state.selection = editor.selection.clone();
         state.navigation = editor.navigation.clone();
         Self {
+            cache: None,
+            cache_reference: None,
             host,
             editor: Some(editor),
             state,
@@ -55,6 +59,8 @@ impl<'a> PanelContext<'a> {
     ) -> Self {
         let state = host.state().clone();
         Self {
+            cache: None,
+            cache_reference: None,
             host,
             editor: None,
             state,
@@ -64,6 +70,14 @@ impl<'a> PanelContext<'a> {
             selection_requested: false,
             layer_graph: None,
         }
+    }
+    pub fn with_cache_reference(mut self, key: Option<PreviewKey>) -> Self {
+        self.cache_reference = key;
+        self
+    }
+    pub fn with_cache(mut self, cache: &'a [PreviewKey]) -> Self {
+        self.cache = Some(cache);
+        self
     }
     pub fn instance(mut self, id: crate::workspace::PanelInstanceId) -> Self {
         self.instance = Some(id);
@@ -184,6 +198,15 @@ impl<'a> PanelContext<'a> {
     }
 }
 impl DesktopClient for PanelContext<'_> {
+    fn cache_reference(&self) -> Option<PreviewKey> {
+        self.cache_reference
+            .clone()
+            .or_else(|| self.state.preview_key(self.state.frame, 1))
+    }
+    fn cached_previews(&self) -> &[PreviewKey] {
+        self.cache.unwrap_or_else(|| self.host.cached_previews())
+    }
+
     fn state(&self) -> &DesktopState {
         &self.state
     }

@@ -1,5 +1,7 @@
 //! Custom immediate-mode NLE canvas: ruler, fixed headers, virtualized lanes,
 //! clip bodies/handles, playhead, and direct manipulation. No media work here.
+#[path = "paint.rs"]
+mod paint;
 #[cfg(test)]
 #[path = "canvas_tests.rs"]
 mod tests;
@@ -18,14 +20,26 @@ pub struct CanvasModel<'a> {
     pub revision: Revision,
     pub playhead: u32,
     pub selected: &'a [ObjectId],
+    pub placement: Option<
+        &'a dyn Fn(
+            fold_platform::browser::Entry,
+            Option<ObjectId>,
+            Time,
+            bool,
+            bool,
+        ) -> Result<Sequence, String>,
+    >,
     pub labels: &'a BTreeMap<AssetId, String>,
 }
 pub enum Action {
     Place {
         entry: fold_platform::browser::Entry,
-        track: ObjectId,
+        track: Option<ObjectId>,
+        new_track: bool,
+        audio_only: bool,
         at: Time,
     },
+    Open(ObjectId),
     Select(Vec<ObjectId>),
     Seek(u32),
     Pause,
@@ -34,7 +48,30 @@ pub enum Action {
         edit: SequenceEdit,
     },
 }
+pub struct ClipVisual {
+    pub name: String,
+    pub icon: fold_ui::sdk::toolbar::ToolbarIcon,
+    pub kind: &'static str,
+    pub error: Option<String>,
+    pub texture: Option<fold_ui::sdk::imgui::texture::ManagedTextureId>,
+}
 pub struct Canvas {
+    pub visuals: BTreeMap<ObjectId, ClipVisual>,
+    pub cache: BTreeMap<u32, fold_ui::sdk::cache_indicator::Coverage>,
+    pub blade: bool,
+    pub mode: crate::EditMode,
+    pub trim: interaction::TrimMode,
+    pub row_height: f32,
+    pub track_heights: BTreeMap<ObjectId, f32>,
+    pub header_width: f32,
+    pub media_previews: bool,
+    marquee: Option<([f32; 2], Vec<ObjectId>)>,
+    resize_header: bool,
+    resize_row: bool,
+    context_clip: Option<ObjectId>,
+    context_track: Option<ObjectId>,
+    rename: String,
+
     pub view: View,
     pub linked: bool,
     pub snapping: bool,
@@ -48,6 +85,21 @@ pub struct Canvas {
 impl Default for Canvas {
     fn default() -> Self {
         Self {
+            visuals: BTreeMap::new(),
+            cache: BTreeMap::new(),
+            blade: false,
+            mode: Default::default(),
+            trim: Default::default(),
+            row_height: 58.,
+            track_heights: BTreeMap::new(),
+            header_width: 156.,
+            media_previews: true,
+            marquee: None,
+            resize_header: false,
+            resize_row: false,
+            context_clip: None,
+            context_track: None,
+            rename: String::new(),
             view: View::default(),
             linked: true,
             snapping: true,
@@ -67,6 +119,7 @@ struct Layout {
     ruler: Rect,
     bar: Rect,
     row: f32,
+    heights: [f32; 32],
     header: f32,
     scale: f32,
 }
@@ -92,16 +145,22 @@ impl Layout {
                 min: [origin[0] + header, bottom],
                 max: [origin[0] + size[0], origin[1] + size[1]],
             },
-            row: 54.0 * scale,
+            row: 58.0 * scale,
+            heights: [58.0 * scale; 32],
             header,
             scale,
         }
     }
     fn row_rect(self, index: usize, scroll: f32) -> Rect {
-        let y = self.body.min[1] + index as f32 * self.row - scroll;
+        let y =
+            self.body.min[1] + 18. * self.scale + self.heights[..index.min(32)].iter().sum::<f32>()
+                - scroll;
         Rect {
             min: [self.body.min[0], y],
-            max: [self.body.max[0], y + self.row],
+            max: [
+                self.body.max[0],
+                y + self.heights.get(index).copied().unwrap_or(self.row),
+            ],
         }
     }
     fn control(self, row: Rect, index: usize) -> Rect {
@@ -139,6 +198,45 @@ fn clip_rect(clip: &Clip, row: Rect, view: View, rate: [u32; 2], scale: f32) -> 
     }
 }
 fn unchanged(sequence: &Sequence, edit: &SequenceEdit) -> bool {
+    if let SequenceEdit::Selection {
+        edit:
+            crate::SelectionEdit::Move {
+                delta,
+                anchor,
+                track,
+                new_track,
+                ..
+            },
+        ..
+    } = edit
+    {
+        return *delta == Time::ZERO
+            && new_track.is_none()
+            && sequence
+                .clips
+                .iter()
+                .any(|c| c.id == *anchor && c.track == *track);
+    }
+    if let SequenceEdit::Selection {
+        edit: crate::SelectionEdit::RippleTrim { id, start, end },
+        ..
+    } = edit
+    {
+        return sequence
+            .clips
+            .iter()
+            .any(|c| c.id == *id && c.start == *start && c.end().ok() == Some(*end));
+    }
+    if let SequenceEdit::Selection {
+        edit: crate::SelectionEdit::Roll { id, end },
+        ..
+    } = edit
+    {
+        return sequence
+            .clips
+            .iter()
+            .any(|c| c.id == *id && c.end().ok() == Some(*end));
+    }
     let SequenceEdit::Clip { id, edit, .. } = edit else {
         return false;
     };
@@ -161,8 +259,22 @@ impl Canvas {
             return actions;
         }
         let scale = (ui.text_line_height() / 13.0).max(0.75);
-        let layout = Layout::new(ui.cursor_screen_pos(), size, scale);
+        let mut layout = Layout::new(ui.cursor_screen_pos(), size, scale);
+        layout.row = self.row_height * scale;
+        let header = (self.header_width * scale).min(size[0] * 0.45);
+        layout.header = header;
+        layout.body.min[0] = layout.area.min[0] + header;
+        layout.ruler.min[0] = layout.body.min[0];
+        layout.bar.min[0] = layout.body.min[0];
         let track_rows = rows(sequence);
+        for (i, track) in track_rows.iter().enumerate() {
+            layout.heights[i] = self
+                .track_heights
+                .get(&track.id)
+                .copied()
+                .unwrap_or(self.row_height)
+                * scale;
+        }
         let width = f64::from(layout.body.max[0] - layout.body.min[0]);
         let end = interaction::frame(sequence.end().unwrap_or(Time::ZERO), sequence.rate).max(1.0);
         if self.fit {
@@ -170,7 +282,7 @@ impl Canvas {
             self.view.pixels_per_frame = (width / (end * 1.12).max(24.0)).clamp(0.05, 80.0);
             self.fit = false;
         }
-        let max_y = (track_rows.len() as f32 * layout.row
+        let max_y = (36. * scale + layout.heights[..track_rows.len()].iter().sum::<f32>()
             - (layout.body.max[1] - layout.body.min[1]))
             .max(0.0);
         ui.invisible_button("timeline-canvas", size);
@@ -206,6 +318,12 @@ impl Canvas {
         }
         if self.drag.is_some() && ui.is_mouse_down(MouseButton::Left) {
             let edge = 16.0 * scale;
+            if point[1] < layout.body.min[1] + edge {
+                self.view.scroll_y -= 5. * scale;
+            }
+            if point[1] > layout.body.max[1] - edge {
+                self.view.scroll_y += 5. * scale;
+            }
             if point[0] >= layout.body.min[0] && point[0] < layout.body.min[0] + edge {
                 self.view.first -= 4.0 / self.view.pixels_per_frame;
             }
@@ -224,7 +342,7 @@ impl Canvas {
         }
         if self.drag.is_some() && ui.is_key_pressed(Key::Escape) {
             self.drag = None;
-            self.message = "Drag cancelled.".into();
+            self.message.clear();
         }
         let hovered_row = track_rows.iter().enumerate().find(|(index, _)| {
             let row = layout.row_rect(*index, self.view.scroll_y);
@@ -233,33 +351,212 @@ impl Canvas {
                 && point[1] >= layout.body.min[1]
                 && point[1] < layout.body.max[1]
         });
-        if let Some(entry) = fold_ui::sdk::project_drop::target(ui) {
-            if let Some((_, track)) = hovered_row {
-                let frame = self
-                    .view
-                    .frame_at(point[0], layout.body.min[0])
-                    .round()
-                    .max(0.) as i64;
-                if let Ok(at) = interaction::time(frame, sequence.rate) {
-                    actions.push(Action::Place {
-                        entry,
-                        track: track.id,
-                        at,
-                    });
+        let mut placement_preview = None;
+        let project_drop = fold_ui::sdk::project_drop::preview_target(ui);
+        if let Some((entry, delivery)) = project_drop
+            && layout.body.contains(point)
+        {
+            let new_track = hovered_row.is_none();
+            let audio_only = hovered_row.is_some_and(|(_, t)| t.kind == TrackKind::Audio)
+                || point[1] >= layout.row_rect(track_rows.len(), self.view.scroll_y).min[1];
+            self.message = if new_track {
+                if audio_only {
+                    "New audio track"
+                } else {
+                    "New video track"
                 }
             } else {
-                self.message = "Drop onto a destination track".into();
+                "Place on track"
+            }
+            .into();
+            if let Ok(mut at) = interaction::time(
+                self.view
+                    .frame_at(point[0], layout.body.min[0])
+                    .round()
+                    .max(0.) as i64,
+                sequence.rate,
+            ) {
+                if self.snapping
+                    && !ui.io().key_shift()
+                    && let Some(offset) = interaction::snap_offset(
+                        sequence,
+                        &[],
+                        &[at],
+                        interaction::time(i64::from(model.playhead), sequence.rate).unwrap(),
+                        7. * f64::from(scale) / self.view.pixels_per_frame,
+                    )
+                    .ok()
+                    .flatten()
+                {
+                    at = at.checked_add(offset).unwrap();
+                }
+                let track = hovered_row.map(|(_, t)| t.id);
+                if let Some(validate) = model.placement {
+                    match validate(entry, track, at, new_track, audio_only) {
+                        Ok(preview) => {
+                            placement_preview = Some(preview);
+                            if delivery {
+                                actions.push(Action::Place {
+                                    entry,
+                                    track,
+                                    new_track,
+                                    audio_only,
+                                    at,
+                                });
+                                self.message.clear();
+                            }
+                        }
+                        Err(error) => self.message = format!("Cannot place: {error}"),
+                    }
+                }
+            }
+        }
+        if hovered && ui.is_mouse_clicked(MouseButton::Right) {
+            self.context_track = hovered_row.map(|(_, t)| t.id);
+            self.context_clip = hovered_row
+                .and_then(|(i, t)| {
+                    sequence.clips.iter().find(|c| {
+                        c.track == t.id
+                            && clip_rect(
+                                c,
+                                layout.row_rect(i, self.view.scroll_y),
+                                self.view,
+                                sequence.rate,
+                                scale,
+                            )
+                            .contains(point)
+                    })
+                })
+                .map(|c| c.id);
+            if let Some(id) = self.context_clip
+                && !model.selected.contains(&id)
+            {
+                actions.push(Action::Select(
+                    sequence.linked_ids(id, self.linked).unwrap_or(vec![id]),
+                ));
+            }
+            self.rename = self
+                .context_track
+                .and_then(|id| sequence.track(id).ok())
+                .map(|t| t.name.clone())
+                .unwrap_or_default();
+            ui.open_popup("timeline-context");
+        }
+        if let Some(_popup) = ui.begin_popup("timeline-context") {
+            if let Some(id) = self.context_clip {
+                if sequence
+                    .clips
+                    .iter()
+                    .any(|c| c.id == id && matches!(c.info, crate::SourceMedia::Document { .. }))
+                    && ui.menu_item("Open source")
+                {
+                    actions.push(Action::Open(id));
+                }
+                let ids = if model.selected.contains(&id) {
+                    model.selected.to_vec()
+                } else {
+                    vec![id]
+                };
+                if let Some(edit) = super::controls::edit_items(
+                    ui,
+                    self,
+                    sequence,
+                    &ids,
+                    interaction::time(i64::from(model.playhead), sequence.rate).unwrap(),
+                ) {
+                    actions.push(Action::Commit {
+                        base: model.revision,
+                        edit,
+                    });
+                }
+            } else if let Some(id) = self.context_track {
+                if ui
+                    .input_text("Name", &mut self.rename)
+                    .enter_returns_true(true)
+                    .build()
+                {
+                    actions.push(Action::Commit {
+                        base: model.revision,
+                        edit: SequenceEdit::RenameTrack {
+                            id,
+                            name: self.rename.clone(),
+                        },
+                    });
+                    ui.close_current_popup();
+                }
+                if ui.menu_item("Remove empty track") {
+                    actions.push(Action::Commit {
+                        base: model.revision,
+                        edit: SequenceEdit::RemoveTrack { id },
+                    });
+                }
+            }
+            ui.separator();
+            for kind in [TrackKind::Video, TrackKind::Audio] {
+                if ui.menu_item(if kind == TrackKind::Video {
+                    "Add video track"
+                } else {
+                    "Add audio track"
+                }) {
+                    actions.push(Action::Commit {
+                        base: model.revision,
+                        edit: SequenceEdit::AddTrack { kind },
+                    });
+                }
+            }
+        }
+        if hovered
+            && point[0] < layout.body.min[0]
+            && (point[0] - layout.body.min[0]).abs() < 4. * scale
+        {
+            ui.set_mouse_cursor(Some(MouseCursor::ResizeEW));
+        }
+        if hovered
+            && point[0] < layout.body.min[0]
+            && hovered_row.is_some_and(|(i, _)| {
+                point[1] > layout.row_rect(i, self.view.scroll_y).max[1] - 5. * scale
+            })
+        {
+            ui.set_mouse_cursor(Some(MouseCursor::ResizeNS));
+        }
+        if self.resize_header {
+            if ui.is_mouse_down(MouseButton::Left) {
+                self.header_width = ((point[0] - layout.area.min[0]) / scale).clamp(110., 300.);
+            } else {
+                self.resize_header = false;
+            }
+        }
+        if self.resize_row {
+            if ui.is_mouse_down(MouseButton::Left) {
+                if let Some(id) = self.context_track
+                    && let Some(i) = track_rows.iter().position(|t| t.id == id)
+                {
+                    self.track_heights.insert(
+                        id,
+                        ((point[1] - layout.row_rect(i, self.view.scroll_y).min[1]) / scale)
+                            .clamp(38., 140.),
+                    );
+                }
+            } else {
+                self.resize_row = false;
             }
         }
         if hovered && ui.is_mouse_clicked(MouseButton::Left) {
             self.message.clear();
-            if layout.ruler.contains(point) {
+            if point[0] < layout.body.min[0] && (point[0] - layout.body.min[0]).abs() < 4. * scale {
+                self.resize_header = true;
+            } else if layout.ruler.contains(point) {
                 self.scrub = true;
             } else if layout.bar.contains(point) {
                 self.scroll_bar = true;
             } else if let Some((index, track)) = hovered_row {
                 let row = layout.row_rect(index, self.view.scroll_y);
                 if point[0] < layout.body.min[0] {
+                    if point[1] > row.max[1] - 5. * scale {
+                        self.resize_row = true;
+                        self.context_track = Some(track.id);
+                        return actions;
+                    }
                     let mut edit = None;
                     for control in 0..3 {
                         if layout.control(row, control).contains(point) {
@@ -292,16 +589,62 @@ impl Canvas {
                         && clip_rect(c, row, self.view, sequence.rate, scale).contains(point)
                 }) {
                     let linked = self.linked && !ui.io().key_alt();
-                    actions.push(Action::Select(
-                        sequence
-                            .linked_ids(clip.id, linked)
-                            .unwrap_or_else(|_| vec![clip.id]),
-                    ));
+                    let mut selected = sequence
+                        .linked_ids(clip.id, linked)
+                        .unwrap_or_else(|_| vec![clip.id]);
+                    if ui.io().key_ctrl() && selected.iter().all(|id| model.selected.contains(id)) {
+                        actions.push(Action::Select(
+                            model
+                                .selected
+                                .iter()
+                                .copied()
+                                .filter(|id| !selected.contains(id))
+                                .collect(),
+                        ));
+                        return actions;
+                    }
+                    if ui.io().key_shift() || ui.io().key_ctrl() {
+                        for id in model.selected {
+                            if !selected.contains(id) {
+                                selected.push(*id);
+                            }
+                        }
+                    } else if model.selected.contains(&clip.id) {
+                        selected = model.selected.to_vec();
+                    }
+                    actions.push(Action::Select(selected.clone()));
+                    if ui.is_mouse_double_clicked(MouseButton::Left)
+                        && matches!(clip.info, crate::SourceMedia::Document { .. })
+                    {
+                        self.drag = None;
+                        actions.push(Action::Open(clip.id));
+                        return actions;
+                    }
+                    if self.blade {
+                        let at = interaction::time(
+                            self.view.frame_at(point[0], layout.body.min[0]).round() as i64,
+                            sequence.rate,
+                        )
+                        .unwrap();
+                        actions.push(Action::Commit {
+                            base: model.revision,
+                            edit: super::controls::selection(
+                                &selected,
+                                linked,
+                                crate::SelectionEdit::Split { at },
+                            ),
+                        });
+                        return actions;
+                    }
                     if track.locked {
                         self.message = "Track is locked.".into();
                     } else {
                         actions.push(Action::Pause);
                         self.drag = Some(Drag {
+                            selected,
+                            new_track: ObjectId::new(),
+                            mode: self.mode,
+                            trim: self.trim,
                             base: model.revision,
                             original: sequence.clone(),
                             clip: clip.id,
@@ -315,8 +658,54 @@ impl Canvas {
                         });
                     }
                 } else {
-                    actions.push(Action::Select(vec![track.id]));
+                    self.marquee = Some((
+                        point,
+                        if ui.io().key_shift() {
+                            model.selected.to_vec()
+                        } else {
+                            vec![]
+                        },
+                    ));
                 }
+            } else if layout.body.contains(point) {
+                self.marquee = Some((point, vec![]));
+            }
+        }
+        if let Some((start, initial)) = &self.marquee {
+            let rect = Rect {
+                min: [start[0].min(point[0]), start[1].min(point[1])],
+                max: [start[0].max(point[0]), start[1].max(point[1])],
+            };
+            let mut selected = initial.clone();
+            for (index, track) in track_rows.iter().enumerate() {
+                for c in sequence.clips.iter().filter(|c| c.track == track.id) {
+                    let r = clip_rect(
+                        c,
+                        layout.row_rect(index, self.view.scroll_y),
+                        self.view,
+                        sequence.rate,
+                        scale,
+                    );
+                    if r.min[0] < rect.max[0]
+                        && r.max[0] > rect.min[0]
+                        && r.min[1] < rect.max[1]
+                        && r.max[1] > rect.min[1]
+                    {
+                        for id in sequence.linked_ids(c.id, self.linked).unwrap_or_default() {
+                            if !selected.contains(&id) {
+                                selected.push(id);
+                            }
+                        }
+                    }
+                }
+            }
+            actions.push(Action::Select(if ui.is_key_pressed(Key::Escape) {
+                initial.clone()
+            } else {
+                selected
+            }));
+            if ui.is_mouse_released(MouseButton::Left) || ui.is_key_pressed(Key::Escape) {
+                self.marquee = None;
             }
         }
         if self.scrub {
@@ -340,7 +729,7 @@ impl Canvas {
                 self.scroll_bar = false;
             }
         }
-        let mut preview = None;
+        let mut preview = placement_preview;
         let mut proposed = None;
         if let Some(drag) = &self.drag {
             ui.set_mouse_cursor(Some(if drag.handle == Handle::Move {
@@ -348,14 +737,25 @@ impl Canvas {
             } else {
                 MouseCursor::ResizeEW
             }));
-            let track = hovered_row.map(|(_, t)| t.id).unwrap_or_else(|| {
-                drag.original
-                    .clips
-                    .iter()
-                    .find(|c| c.id == drag.clip)
-                    .unwrap()
-                    .track
-            });
+            let source = drag
+                .original
+                .clips
+                .iter()
+                .find(|c| c.id == drag.clip)
+                .unwrap();
+            let kind = drag.original.track(source.track).unwrap().kind;
+            let new_lane =
+                drag.handle == Handle::Move && hovered_row.is_none() && layout.body.contains(point);
+            let new_kind = if point[1] < layout.row_rect(0, self.view.scroll_y).min[1] {
+                TrackKind::Video
+            } else {
+                TrackKind::Audio
+            };
+            let track = if new_lane {
+                drag.new_track
+            } else {
+                hovered_row.map(|(_, t)| t.id).unwrap_or(source.track)
+            };
             let playhead = interaction::time(i64::from(model.playhead), sequence.rate).unwrap();
             let snap = (self.snapping && !ui.io().key_shift()).then_some((
                 playhead,
@@ -365,14 +765,43 @@ impl Canvas {
                 self.view.frame_at(point[0], layout.body.min[0]),
                 track,
                 snap,
+                new_lane.then_some(new_kind),
             ) {
                 Ok(edit) => {
                     match drag.original.edited(&edit) {
                         Ok(sequence) => {
+                            let clip = sequence.clips.iter().find(|c| c.id == drag.clip).unwrap();
+                            self.message = format!(
+                                "{}{}  ·  {} → {}  ·  Duration {}",
+                                if new_lane {
+                                    if kind == TrackKind::Video {
+                                        "New video track · "
+                                    } else {
+                                        "New audio track · "
+                                    }
+                                } else {
+                                    ""
+                                },
+                                if drag.handle == Handle::Move {
+                                    format!("{:?}", drag.mode)
+                                } else {
+                                    format!("{:?} trim", drag.trim)
+                                },
+                                interaction::timecode(
+                                    interaction::frame(clip.start, sequence.rate).round() as i64,
+                                    sequence.rate
+                                ),
+                                interaction::timecode(
+                                    interaction::frame(clip.end().unwrap(), sequence.rate).round()
+                                        as i64,
+                                    sequence.rate
+                                ),
+                                interaction::timecode(
+                                    interaction::frame(clip.duration, sequence.rate).round() as i64,
+                                    sequence.rate
+                                )
+                            );
                             preview = Some(sequence);
-                            self.message =
-                                "Release to commit • Escape to cancel • Shift bypasses snapping"
-                                    .into();
                         }
                         Err(error) => {
                             self.message = format!("Cannot drop: {error}");
@@ -421,240 +850,26 @@ impl Canvas {
             total,
             visible,
         );
-        actions
-    }
-    fn paint(
-        &self,
-        ui: &Ui,
-        model: &CanvasModel<'_>,
-        shown: &Sequence,
-        layout: Layout,
-        total: f64,
-        visible: f64,
-    ) {
-        let colors = EditorColors::from_ui(ui);
-        let draw = ui.get_window_draw_list();
-        let _clip = draw.push_clip_rect(layout.area.min, layout.area.max, true);
-        draw.add_rect(layout.area.min, layout.area.max, colors.background)
-            .filled(true)
-            .build();
-        draw.add_rect(
-            layout.area.min,
-            [layout.body.min[0], layout.body.max[1]],
-            colors.header,
-        )
-        .filled(true)
-        .build();
-        draw.add_text(
-            [layout.area.min[0] + 8.0, layout.area.min[1] + 6.0],
-            colors.text,
-            "TRACKS",
-        );
-        let mut step = 1.0;
-        while step * self.view.pixels_per_frame < 85.0 * f64::from(layout.scale) {
-            step *= 2.0;
+        if layout.ruler.contains(point) && point[1] > layout.ruler.max[1] - 6. {
+            ui.tooltip_text("Preview cache · green: ready at linked viewer settings · amber: other resolution/crop");
         }
-        let first_tick = (self.view.first / step).ceil() * step;
-        let last_frame = self.view.first + visible;
-        {
-            let _body_clip = draw.push_clip_rect(layout.ruler.min, layout.body.max, true);
-            let mut tick = first_tick;
-            while tick <= last_frame {
-                let x = self.view.x(tick, layout.body.min[0]);
-                draw.add_line(
-                    [x, layout.ruler.max[1] - 6.0],
-                    [x, layout.body.max[1]],
-                    colors.grid,
-                )
-                .build();
-                let seconds = tick * f64::from(shown.rate[1]) / f64::from(shown.rate[0]);
-                draw.add_text(
-                    [x + 4.0, layout.ruler.min[1] + 6.0],
-                    colors.muted,
-                    format!("{seconds:.2}s"),
-                );
-                tick += step;
-            }
-        }
-        for (index, track) in rows(shown).iter().enumerate() {
-            let row = layout.row_rect(index, self.view.scroll_y);
-            if row.max[1] <= layout.body.min[1] || row.min[1] >= layout.body.max[1] {
-                continue;
-            }
-            let _row_clip = draw.push_clip_rect(
-                [layout.area.min[0], row.min[1].max(layout.body.min[1])],
-                [row.max[0], row.max[1].min(layout.body.max[1])],
-                true,
-            );
-            let mut lane = colors.lane;
-            lane[3] = if index % 2 == 0 { 0.34 } else { 0.20 };
-            draw.add_rect(row.min, row.max, lane).filled(true).build();
-            draw.add_line([layout.area.min[0], row.max[1]], row.max, colors.grid)
-                .build();
-            draw.add_text(
-                [
-                    layout.area.min[0] + 9.0 * layout.scale,
-                    row.min[1] + 10.0 * layout.scale,
-                ],
-                if model.selected.contains(&track.id) {
-                    colors.selected
-                } else {
-                    colors.text
-                },
-                &track.name,
-            );
-            draw.add_text(
-                [
-                    layout.area.min[0] + 9.0 * layout.scale,
-                    row.min[1] + 30.0 * layout.scale,
-                ],
-                colors.muted,
-                if track.kind == TrackKind::Video {
-                    "Video"
-                } else {
-                    "Audio"
-                },
-            );
-            for (control, text, on) in [
-                (
-                    0,
-                    if track.kind == TrackKind::Video {
-                        "E"
-                    } else {
-                        "M"
-                    },
-                    if track.kind == TrackKind::Video {
-                        track.enabled
-                    } else {
-                        !track.enabled
-                    },
-                ),
-                (1, "S", track.solo),
-                (2, "L", track.locked),
-            ] {
-                if control == 1 && track.kind == TrackKind::Video {
-                    continue;
-                }
-                let rect = layout.control(row, control);
-                draw.add_rect(
-                    rect.min,
-                    rect.max,
-                    if on { colors.selected } else { colors.lane },
-                )
-                .filled(true)
-                .rounding(2.0)
-                .build();
-                draw.add_text(
-                    [
-                        rect.min[0] + 5.0 * layout.scale,
-                        rect.min[1] + 4.0 * layout.scale,
-                    ],
-                    colors.text,
-                    text,
-                );
-            }
-            let _lane_clip = draw.push_clip_rect(row.min, row.max, true);
-            for clip in shown.clips.iter().filter(|c| c.track == track.id) {
-                let rect = clip_rect(clip, row, self.view, shown.rate, layout.scale);
-                if rect.max[0] <= row.min[0] || rect.min[0] >= row.max[0] {
-                    continue;
-                }
-                let selected = model.selected.contains(&clip.id)
-                    || self.drag.as_ref().is_some_and(|d| {
-                        d.original
-                            .linked_ids(d.clip, d.linked)
-                            .is_ok_and(|ids| ids.contains(&clip.id))
-                    });
-                let mut color = if track.kind == TrackKind::Video {
-                    colors.video
-                } else {
-                    colors.audio
-                };
-                if !track.enabled || track.locked {
-                    color[3] = 0.45;
-                }
-                draw.add_rect(rect.min, rect.max, color)
-                    .filled(true)
-                    .rounding(3.0 * layout.scale)
-                    .build();
-                if selected {
-                    draw.add_rect(rect.min, rect.max, colors.selected)
-                        .thickness(2.0 * layout.scale)
-                        .rounding(3.0 * layout.scale)
-                        .build();
-                }
-                if rect.max[0].min(row.max[0]) - rect.min[0].max(row.min[0]) < 12.0 * layout.scale {
-                    continue;
-                }
-                let _label_clip = draw.push_clip_rect(
-                    [rect.min[0].max(row.min[0]) + 3.0, rect.min[1]],
-                    [rect.max[0].min(row.max[0]) - 2.0, rect.max[1]],
-                    true,
-                );
-                let x = rect.min[0].max(row.min[0]) + 8.0 * layout.scale;
-                let name = if let crate::SourceMedia::Document { .. } = &clip.info {
-                    "Nested source"
-                } else {
-                    model
-                        .labels
-                        .get(&clip.asset)
-                        .map(String::as_str)
-                        .unwrap_or("Unavailable media")
-                };
-                draw.add_text([x, rect.min[1] + 6.0 * layout.scale], colors.text, name);
-                draw.add_text(
-                    [x, rect.min[1] + 25.0 * layout.scale],
-                    colors.text,
-                    if clip.link.is_some() {
-                        "Linked A/V"
-                    } else if track.kind == TrackKind::Video {
-                        "Video"
-                    } else {
-                        "Audio"
-                    },
-                );
-            }
-        }
-        {
-            let _body = draw.push_clip_rect(layout.ruler.min, layout.body.max, true);
-            let x = self.view.x(f64::from(model.playhead), layout.body.min[0]);
-            draw.add_line(
-                [x, layout.ruler.min[1]],
-                [x, layout.body.max[1]],
-                colors.playhead,
-            )
-            .thickness(2.0 * layout.scale)
-            .build();
+        if !self.message.is_empty() {
+            let draw = ui.get_window_draw_list();
+            let text = &self.message;
+            let extent = ui.calc_text_size(text);
+            let p = [
+                layout.body.min[0] + 8.,
+                layout.body.max[1] - extent[1] - 10.,
+            ];
             draw.add_rect(
-                [x - 4.0 * layout.scale, layout.ruler.min[1]],
-                [
-                    x + 4.0 * layout.scale,
-                    layout.ruler.min[1] + 8.0 * layout.scale,
-                ],
-                colors.playhead,
+                [p[0] - 4., p[1] - 3.],
+                [p[0] + extent[0] + 4., p[1] + extent[1] + 3.],
+                EditorColors::from_ui(ui).header,
             )
             .filled(true)
             .build();
+            draw.add_text(p, EditorColors::from_ui(ui).text, text);
         }
-        draw.add_line(
-            [layout.body.min[0], layout.area.min[1]],
-            [layout.body.min[0], layout.body.max[1]],
-            colors.grid,
-        )
-        .build();
-        draw.add_rect(layout.bar.min, layout.bar.max, colors.header)
-            .filled(true)
-            .build();
-        let width = layout.bar.max[0] - layout.bar.min[0];
-        let left = layout.bar.min[0] + (self.view.first / total) as f32 * width;
-        let right = left + (visible / total) as f32 * width;
-        draw.add_rect(
-            [left, layout.bar.min[1] + 2.0],
-            [right, layout.bar.max[1] - 2.0],
-            colors.muted,
-        )
-        .filled(true)
-        .rounding(3.0)
-        .build();
+        actions
     }
 }

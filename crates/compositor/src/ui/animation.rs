@@ -57,6 +57,11 @@ pub(super) fn draw(editor: &mut Editor, shared: &Shared, context: ExtensionUi<'_
         ui,
         &mut channels,
         Context {
+            cache: &host
+                .cache_reference()
+                .filter(|key| key.target.is_some_and(|(id, _)| id == document))
+                .map(|key| fold_ui::sdk::cache_indicator::frames(host.cached_previews(), &key))
+                .unwrap_or_default(),
             document,
             generation: state.generation,
             time,

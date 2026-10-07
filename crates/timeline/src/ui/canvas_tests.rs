@@ -141,6 +141,7 @@ impl Harness {
                         playhead: self.playhead,
                         selected: &self.selected,
                         labels: &labels,
+                        placement: None,
                     },
                 );
             });
@@ -157,6 +158,7 @@ impl Harness {
                 Action::Select(ids) => self.selected = ids,
                 Action::Seek(frame) => self.playhead = frame,
                 Action::Pause => {}
+                Action::Open(_) => {}
                 Action::Place { .. } => panic!("unexpected Project placement in clip gesture test"),
             }
         }
@@ -231,4 +233,69 @@ fn actual_imgui_canvas_moves_trims_seeks_and_cancels_without_intermediate_histor
     assert_eq!(h.playhead, 100);
     h.tick(ruler, Some(false));
     assert_eq!(h.commits, 2);
+}
+
+#[test]
+fn dragging_above_video_creates_one_track_and_escape_creates_none() {
+    let mut h = Harness::new();
+    h.tick([0., 0.], None);
+    h.tick([0., 0.], None);
+    let press = h.point(12., 1);
+    h.tick(press, Some(true));
+    let mut destination = h.point(12., 0);
+    destination[1] = h.layout.unwrap().body.min[1] + 8.;
+    h.tick(destination, None);
+    assert_eq!(h.sequence().tracks.len(), 4);
+    h.tick(destination, Some(false));
+    assert_eq!(h.commits, 1);
+    assert_eq!(h.sequence().tracks.len(), 5);
+    h.project.undo().unwrap();
+    h.tick(destination, None);
+    h.tick(press, Some(true));
+    h.tick(destination, None);
+    h.context.io_mut().add_key_event(Key::Escape, true);
+    h.tick(destination, None);
+    h.tick(destination, Some(false));
+    assert_eq!(h.sequence().tracks.len(), 4);
+    assert_eq!(h.commits, 1);
+}
+
+#[test]
+fn marquee_selects_linked_clips_without_history_and_track_resize_is_local() {
+    let mut h = Harness::new();
+    h.tick([0., 0.], None);
+    h.tick([0., 0.], None);
+    let start = h.point(220., 0);
+    h.tick(start, Some(true));
+    let end = h.point(0., 3);
+    h.tick(end, None);
+    h.tick(end, Some(false));
+    assert_eq!(h.selected.len(), 3);
+    assert_eq!(h.commits, 0);
+    let layout = h.layout.unwrap();
+    let row = layout.row_rect(0, 0.);
+    let point = [layout.area.min[0] + 15., row.max[1] - 2.];
+    h.tick(point, Some(true));
+    let target = [point[0], point[1] + 25.];
+    h.tick(target, None);
+    h.tick(target, Some(false));
+    assert_eq!(h.canvas.track_heights.len(), 1);
+    assert_eq!(h.canvas.row_height, 58.);
+    assert_eq!(h.commits, 0);
+}
+
+#[test]
+fn snapping_uses_exact_clip_edges_and_excludes_the_moving_selection() {
+    let h = Harness::new();
+    let sequence = h.sequence();
+    let edge = Time::new(143, 24).unwrap();
+    assert_eq!(
+        interaction::snap_offset(&sequence, &[], &[edge], Time::ZERO, 2.).unwrap(),
+        Some(Time::new(1, 24).unwrap())
+    );
+    assert_eq!(
+        interaction::snap_offset(&sequence, &[sequence.clips[2].id], &[edge], Time::ZERO, 2.)
+            .unwrap(),
+        None
+    );
 }

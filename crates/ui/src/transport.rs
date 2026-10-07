@@ -53,6 +53,36 @@ impl Transport {
             }
         }
         ui.same_line();
+        let cache = host
+            .cache_reference()
+            .map(|key| crate::sdk::cache_indicator::frames(host.cached_previews(), &key))
+            .unwrap_or_default();
+        if ui.content_region_avail()[0] > 110. {
+            let p = ui.cursor_screen_pos();
+            ui.invisible_button("cache-status", [12., ui.frame_height()]);
+            let status = cache.get(&state.frame).copied();
+            ui.get_window_draw_list()
+                .add_circle(
+                    [p[0] + 6., p[1] + ui.frame_height() / 2.],
+                    3.,
+                    status
+                        .map(crate::sdk::cache_indicator::color)
+                        .unwrap_or(ui.style_color(StyleColor::TextDisabled)),
+                )
+                .filled(status.is_some())
+                .build();
+            crate::sdk::toolbar::tooltip(
+                ui,
+                match status {
+                    Some(crate::sdk::cache_indicator::Coverage::Ready) => {
+                        "Current frame cached at viewer settings"
+                    }
+                    Some(_) => "Current frame cached at another resolution or crop",
+                    None => "Current frame is not cached at viewer settings",
+                },
+            );
+            ui.same_line();
+        }
         if !self.editing {
             self.frame = state.frame.to_string();
         }
@@ -97,6 +127,21 @@ fn scrub_strip(ui: &Ui, host: &mut dyn DesktopClient) {
         }
     }
     let state = host.state();
+    let coverage = host
+        .cache_reference()
+        .map(|key| crate::sdk::cache_indicator::frames(host.cached_previews(), &key))
+        .unwrap_or_default();
+    crate::sdk::cache_indicator::strip(
+        ui,
+        [left, origin[1] + size[1] - 3.],
+        width,
+        0.,
+        f64::from(width) / f64::from(state.frames.max(1)),
+        &coverage,
+    );
+    if ui.is_item_hovered() {
+        ui.tooltip_text("Preview cache: green = ready at current settings; amber = other resolution or crop; blank = uncached");
+    }
     let draw = ui.get_window_draw_list();
     let y = origin[1] + size[1] * 0.5;
     draw.add_rect(

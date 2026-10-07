@@ -272,6 +272,14 @@ pub struct AgentPreview {
     pub can_compare: bool,
 }
 pub trait DesktopClient {
+    /// Retained presentation keys only; no render work or resource ownership.
+    fn cached_previews(&self) -> &[PreviewKey] {
+        &[]
+    }
+    fn cache_reference(&self) -> Option<PreviewKey> {
+        self.state().preview_key(self.state().frame, 1)
+    }
+
     fn image_inputs(
         &self,
         _document: fold_foundation::DocumentId,

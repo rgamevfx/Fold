@@ -218,6 +218,8 @@ fn nested_placement_moving_trimming_and_mixed_rate_local_time_are_exact() {
                 source_start,
                 duration: Some(duration),
                 audio_only: false,
+                new_track: false,
+                mode: Default::default(),
             },
         )
         .unwrap();
@@ -264,6 +266,8 @@ fn nested_placement_moving_trimming_and_mixed_rate_local_time_are_exact() {
             source_start: Time::ZERO,
             duration: None,
             audio_only: false,
+            new_track: false,
+            mode: Default::default(),
         },
     );
     assert!(cycle.is_err());

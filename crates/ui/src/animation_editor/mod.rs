@@ -60,6 +60,7 @@ pub struct Editor {
     time_scale: [i32; 2],
 }
 pub struct Context<'a> {
+    pub cache: &'a std::collections::BTreeMap<u32, crate::sdk::cache_indicator::Coverage>,
     pub document: DocumentId,
     pub generation: u64,
     pub time: Time,

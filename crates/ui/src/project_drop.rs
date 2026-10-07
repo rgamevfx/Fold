@@ -11,11 +11,14 @@ pub fn source(ui: &Ui, entry: Entry, label: &str) {
     }
 }
 pub fn target(ui: &Ui) -> Option<Entry> {
+    preview_target(ui).and_then(|(entry, delivery)| delivery.then_some(entry))
+}
+pub fn preview_target(ui: &Ui) -> Option<(Entry, bool)> {
     let target = ui.drag_drop_target()?;
     let payload = target
-        .accept_payload::<Entry, _>(PAYLOAD, DragDropTargetFlags::NONE)?
+        .accept_payload::<Entry, _>(PAYLOAD, DragDropTargetFlags::BEFORE_DELIVERY)?
         .ok()?;
-    payload.delivery.then_some(payload.data)
+    Some((payload.data, payload.delivery))
 }
 /// Overlay the canvas rectangle during drag-and-drop, accepting only Project
 /// payloads. ImGui's own docking drags also pass through this layout path.
@@ -55,5 +58,7 @@ pub fn place(
         source_start: Time::ZERO,
         duration: None,
         audio_only: false,
+        new_track: false,
+        mode: Default::default(),
     })));
 }

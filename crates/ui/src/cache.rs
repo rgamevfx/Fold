@@ -39,6 +39,9 @@ impl<K: PartialEq, V> Cache<K, V> {
             .find(|e| &e.key == key)
             .map(|e| &e.value)
     }
+    pub fn keys(&self) -> impl Iterator<Item = &K> {
+        self.entries.iter().map(|e| &e.key)
+    }
     pub fn entries_mut(&mut self) -> impl Iterator<Item = &mut Entry<K, V>> {
         self.entries.iter_mut()
     }

@@ -222,6 +222,8 @@ pub fn stage(
                             source_start: source_start.unwrap_or(Time::ZERO),
                             duration,
                             audio_only: false,
+                            new_track: false,
+                            mode: Default::default(),
                         },
                     )?
                     .mutations
@@ -243,6 +245,8 @@ pub fn stage(
                             source_start: Time::ZERO,
                             duration: None,
                             audio_only,
+                            new_track: false,
+                            mode: Default::default(),
                         },
                     )?
                     .mutations

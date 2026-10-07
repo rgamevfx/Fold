@@ -524,6 +524,7 @@ impl Desktop {
             .agent_capture(self.client.as_mut(), self.shell.workspace.inspector_viewer);
         #[cfg(feature = "native-probe")]
         let preview_done = std::time::Instant::now();
+        self.shell.cached_previews = self.preview.cached_keys();
         for (id, key) in demands {
             self.shell.review_state(id, self.preview.review_state(id));
             self.shell.presentation(

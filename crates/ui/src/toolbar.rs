@@ -4,6 +4,11 @@ use super::imgui::{PopupToken, StyleColor, Ui};
 
 #[derive(Clone, Copy)]
 pub enum ToolbarIcon {
+    Blade,
+    Snap,
+    Link,
+    Composition,
+    Audio,
     Select,
     Move,
     Rotate,
@@ -68,6 +73,38 @@ pub fn draw_icon_on(
             .build();
     };
     match icon {
+        ToolbarIcon::Blade => {
+            line([-1., 1.], [1., -1.]);
+            line([-1., -1.], [1., 1.]);
+            for x in [-0.8, 0.8] {
+                draw.add_circle(point(x, 0.8), unit * 0.35, color).build();
+            }
+        }
+        ToolbarIcon::Snap => {
+            line([-0.8, -1.], [-0.8, 0.6]);
+            line([-0.8, 0.6], [0.8, 0.6]);
+            line([0.8, 0.6], [0.8, -1.]);
+            line([-0.8, -0.3], [-0.3, -0.3]);
+            line([0.3, -0.3], [0.8, -0.3]);
+        }
+        ToolbarIcon::Link => {
+            for x in [-0.5, 0.5] {
+                draw.add_rect(point(x - 0.6, -0.5), point(x + 0.6, 0.5), color)
+                    .rounding(unit * 0.3)
+                    .build();
+            }
+        }
+        ToolbarIcon::Composition => {
+            draw.add_rect(point(-1., -0.6), point(0.6, 1.), color)
+                .build();
+            line([-0.6, -1.], [1., -1.]);
+            line([1., -1.], [1., 0.6]);
+        }
+        ToolbarIcon::Audio => {
+            for (x, h) in [(-1., 0.3), (-0.5, 0.8), (0., 1.), (0.5, 0.5), (1., 0.2)] {
+                line([x, -h], [x, h]);
+            }
+        }
         ToolbarIcon::Select => {
             line([-0.7, -1.], [-0.7, 1.]);
             line([-0.7, -1.], [0.9, 0.3]);
@@ -311,4 +348,24 @@ mod tests {
         assert!(!open);
         assert_eq!(calls, 1);
     }
+}
+
+/// Consistent persistent tool/toggle state, including a non-color underline.
+pub fn toggle_icon(ui: &Ui, id: &str, icon: ToolbarIcon, tip: &str, active: bool) -> bool {
+    let style = active
+        .then(|| ui.push_style_color(StyleColor::Button, ui.style_color(StyleColor::HeaderActive)));
+    let clicked = icon_button(ui, id, icon, tip);
+    if active {
+        let a = ui.item_rect_min();
+        let b = ui.item_rect_max();
+        ui.get_window_draw_list()
+            .add_line(
+                [a[0] + 4., b[1] - 2.],
+                [b[0] - 4., b[1] - 2.],
+                ui.style_color(StyleColor::Text),
+            )
+            .build();
+    }
+    drop(style);
+    clicked
 }

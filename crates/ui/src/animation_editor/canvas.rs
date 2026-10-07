@@ -682,6 +682,14 @@ impl Editor {
                     .build();
                 draw.add_text([x + 3., origin[1] + 2.], colors.muted, format!("{f:.0}"));
             }
+            crate::sdk::cache_indicator::strip_on(
+                &draw,
+                [body[0], body[1] - 3.],
+                end[0] - body[0],
+                self.view.first,
+                self.view.pixels_per_frame,
+                context.cache,
+            );
             let x = self.view.x(frame(context.time, context.rate), body[0]);
             if x >= body[0] && x <= end[0] {
                 draw.add_line([x, origin[1]], [x, end[1]], colors.playhead)

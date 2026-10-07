@@ -21,8 +21,12 @@ pub use canvas_pan::CanvasPan;
 pub mod animated_property;
 #[path = "animation_editor/mod.rs"]
 pub mod animation_editor;
+#[path = "cache_indicator.rs"]
+pub mod cache_indicator;
 #[path = "composition.rs"]
 pub(crate) mod composition;
+#[path = "media_thumbnails.rs"]
+pub mod media_thumbnails;
 #[path = "network.rs"]
 pub mod network;
 #[path = "project_drop.rs"]

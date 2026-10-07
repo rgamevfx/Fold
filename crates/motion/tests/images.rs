@@ -271,6 +271,8 @@ fn placement_is_undoable_and_rejects_document_cycles() {
             source_start: Time::ZERO,
             duration: None,
             audio_only: false,
+            new_track: false,
+            mode: Default::default(),
         },
         None,
     )
@@ -309,6 +311,8 @@ fn placement_is_undoable_and_rejects_document_cycles() {
         source_start: Time::ZERO,
         duration: None,
         audio_only: false,
+        new_track: false,
+        mode: Default::default(),
     };
     assert!(registry.place(&project.snapshot(), &request).is_err());
 }

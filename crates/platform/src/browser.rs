@@ -60,6 +60,13 @@ pub enum PlacementSource {
     Asset(AssetId),
     Output(DocumentRef),
 }
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum PlacementMode {
+    #[default]
+    Place,
+    Insert,
+    Overwrite,
+}
 #[derive(Clone, Debug)]
 pub struct Placement {
     pub source: PlacementSource,
@@ -70,6 +77,9 @@ pub struct Placement {
     /// None uses the remaining source duration.
     pub duration: Option<Time>,
     pub audio_only: bool,
+    /// Create a destination lane as part of this placement transaction.
+    pub new_track: bool,
+    pub mode: PlacementMode,
 }
 impl Placement {
     pub fn range(&self, total: Time) -> Result<Time, String> {

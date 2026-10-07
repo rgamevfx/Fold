@@ -299,3 +299,134 @@ fn track_visibility_solo_mute_opacity_and_audio_mix_lower_to_shared_plans() {
         1
     );
 }
+
+#[test]
+fn selection_new_track_is_atomic_and_preserves_link_and_extensions() {
+    let (mut project, document, original) = setup();
+    let id = original.clips[0].id;
+    let track = ObjectId::new();
+    let edit = SequenceEdit::Selection {
+        ids: vec![id],
+        linked: true,
+        edit: SelectionEdit::Move {
+            delta: t(2),
+            anchor: id,
+            track,
+            new_track: Some(TrackKind::Video),
+            mode: EditMode::Move,
+        },
+    };
+    project
+        .commit(edit_sequence(&project.snapshot(), document, &edit).unwrap())
+        .unwrap();
+    let changed =
+        Sequence::from_document(&project.snapshot().state().documents[&document]).unwrap();
+    assert_eq!(changed.tracks.len(), original.tracks.len() + 1);
+    assert_eq!(changed.clips[0].track, track);
+    assert_eq!(changed.clips[0].start, changed.clips[1].start);
+    project.undo().unwrap();
+    assert_eq!(
+        Sequence::from_document(&project.snapshot().state().documents[&document])
+            .unwrap()
+            .tracks
+            .len(),
+        original.tracks.len()
+    );
+    let mut locked = original.clone();
+    locked.tracks[2].locked = true;
+    assert!(locked.edited(&edit).is_err());
+    assert_eq!(locked.tracks.len(), original.tracks.len());
+}
+#[test]
+fn insert_and_overwrite_split_linked_material_without_losing_sync() {
+    let (_, _, mut original) = setup();
+    original.clips.pop(); // Remove independent bed for a focused collision fixture.
+    original.clips[0].duration = t(6);
+    original.clips[1].duration = t(6);
+    let id = original.clips[2].id;
+    let edit = |mode| SequenceEdit::Selection {
+        ids: vec![id],
+        linked: true,
+        edit: SelectionEdit::Move {
+            delta: Time::ZERO,
+            anchor: id,
+            track: original.tracks[0].id,
+            new_track: None,
+            mode,
+        },
+    };
+    assert!(original.edited(&edit(EditMode::Move)).is_err());
+    let inserted = original.edited(&edit(EditMode::Insert)).unwrap();
+    assert_eq!(inserted.end().unwrap(), t(8));
+    assert_eq!(inserted.clips.len(), 5);
+    inserted.validate().unwrap();
+    let overwritten = original.edited(&edit(EditMode::Overwrite)).unwrap();
+    assert_eq!(overwritten.end().unwrap(), t(6));
+    assert_eq!(overwritten.clips.len(), 5);
+    assert!(
+        overwritten
+            .clips
+            .iter()
+            .filter(|c| c.link.is_some())
+            .all(|c| c.end().unwrap() <= t(2) || c.start >= t(4))
+    );
+    let mut locked = original.clone();
+    locked.tracks[2].locked = true;
+    assert!(locked.edited(&edit(EditMode::Overwrite)).is_err());
+}
+#[test]
+fn roll_ripple_and_multi_selection_reject_invalid_ranges() {
+    let (_, _, mut original) = setup();
+    original.clips.truncate(3);
+    original.clips[2].track = original.tracks[0].id;
+    let left = original.clips[0].id;
+    let roll = SequenceEdit::Selection {
+        ids: vec![left],
+        linked: true,
+        edit: SelectionEdit::Roll {
+            id: left,
+            end: t(3),
+        },
+    };
+    let rolled = original.edited(&roll).unwrap();
+    assert_eq!(rolled.clips[0].duration, t(3));
+    assert_eq!(rolled.clips[2].start, t(3));
+    assert_eq!(rolled.end().unwrap(), t(4));
+    let ripple = SequenceEdit::Selection {
+        ids: vec![left],
+        linked: true,
+        edit: SelectionEdit::RippleTrim {
+            id: left,
+            start: t(0),
+            end: t(3),
+        },
+    };
+    let trimmed = original.edited(&ripple).unwrap();
+    assert_eq!(trimmed.clips[2].start, t(3));
+    assert_eq!(trimmed.end().unwrap(), t(5));
+    let deleted = original
+        .edited(&SequenceEdit::Selection {
+            ids: vec![left],
+            linked: true,
+            edit: SelectionEdit::RippleDelete,
+        })
+        .unwrap();
+    assert_eq!(deleted.clips.len(), 1);
+    assert_eq!(deleted.clips[0].start, t(0));
+    let both = vec![left, original.clips[2].id];
+    let moved = original
+        .edited(&SequenceEdit::Selection {
+            ids: both,
+            linked: true,
+            edit: SelectionEdit::Move {
+                delta: t(1),
+                anchor: left,
+                track: original.tracks[0].id,
+                new_track: None,
+                mode: EditMode::Move,
+            },
+        })
+        .unwrap();
+    assert_eq!(moved.clips[0].start, t(1));
+    assert_eq!(moved.clips[2].start, t(3));
+}

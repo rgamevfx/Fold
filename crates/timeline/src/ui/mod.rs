@@ -1,11 +1,14 @@
 //! Timeline-owned trusted panel contributions. The shared shell only docks and
 //! invokes them. Selection is host UI state; drag/zoom state stays panel-local.
 mod canvas;
+mod controls;
 mod inspector;
 mod interaction;
 #[cfg(test)]
+mod render_tests;
+#[cfg(test)]
 mod tests;
-use crate::{ClipEdit, Sequence, SequenceEdit, TrackKind, package};
+use crate::{Sequence, SequenceEdit, TrackKind, package};
 use canvas::{Action, Canvas, CanvasModel};
 use fold_foundation::{DocumentId, ObjectId};
 use fold_platform::{
@@ -13,11 +16,7 @@ use fold_platform::{
     packages::CommandRequest,
 };
 use fold_project::{Revision, Snapshot};
-use fold_ui::sdk::{
-    ExtensionUi, Panel, PanelRegistry,
-    imgui::{Key, Ui},
-    toolbar::{ToolbarIcon, icon_button, menu_button, tooltip},
-};
+use fold_ui::sdk::{ExtensionUi, Panel, PanelRegistry, imgui::Ui, toolbar::ToolbarIcon};
 use std::collections::BTreeMap;
 
 pub fn register(registry: &mut PanelRegistry) -> Result<(), String> {
@@ -55,6 +54,12 @@ fn request(
 }
 fn submit(host: &mut dyn DesktopClient, base: Revision, document: DocumentId, edit: SequenceEdit) {
     // These owned scalar/enum arguments have no fallible custom serializers.
+    if let Some(snapshot) = host.snapshot()
+        && let Err(error) = crate::edit_sequence(&snapshot, document, &edit)
+    {
+        host.command(DesktopCommand::Notify(error));
+        return;
+    }
     if let Ok(request) = request(base, document, edit) {
         host.command(DesktopCommand::Extension(request));
     }
@@ -62,6 +67,7 @@ fn submit(host: &mut dyn DesktopClient, base: Revision, document: DocumentId, ed
 #[derive(Default)]
 struct TimelinePanel {
     canvas: Canvas,
+    thumbnails: fold_ui::sdk::media_thumbnails::Thumbnails,
     document: Option<DocumentId>,
     cached: Option<(
         Revision,
@@ -71,6 +77,9 @@ struct TimelinePanel {
     )>,
 }
 impl Panel for TimelinePanel {
+    fn prepare_frame(&mut self, context: &mut fold_ui::sdk::imgui::Context) {
+        self.thumbnails.prepare(context);
+    }
     fn new_instance(&self) -> Option<fold_ui::sdk::EditorPanels> {
         Some(fold_ui::sdk::EditorPanels {
             editor: Box::new(Self::default()),
@@ -122,124 +131,145 @@ impl Panel for TimelinePanel {
             self.canvas = Canvas::default();
             self.document = Some(*document);
         }
-        let keyboard = ui.is_window_focused() && !ui.io().want_text_input();
-        let wide = ui.content_region_avail()[0] >= ui.current_font_size() * 42.;
-        let mut split = false;
-        let mut lift = false;
-        let mut unlink = false;
-        if let Some(_menu) = menu_button(ui, "Edit", "Clip editing actions") {
-            let _disabled =
-                ui.begin_disabled_with_cond(selected_clip(sequence, &state.selection).is_none());
-            split = ui.menu_item_with_shortcut("Split", "S / Ctrl+K");
-            lift = ui.menu_item_with_shortcut("Lift", "Delete");
-            unlink = ui.menu_item("Unlink audio and video");
-        }
-        ui.same_line();
-        if let Some(_menu) = menu_button(ui, "Tracks", "Add a track") {
-            for (label, kind) in [
-                ("Add video track", TrackKind::Video),
-                ("Add audio track", TrackKind::Audio),
-            ] {
-                if ui.menu_item(label) {
-                    submit(host, *revision, *document, SequenceEdit::AddTrack { kind });
-                }
-            }
-        }
-        ui.same_line();
-        if let Some(_menu) = menu_button(ui, "View", "Timeline view and editing options") {
-            if ui.menu_item("Fit sequence") {
-                self.canvas.fit = true;
-            }
-            if ui.menu_item("Zoom in") {
-                self.canvas.view.zoom(1.3, 0.0, 0.0);
-            }
-            if ui.menu_item("Zoom out") {
-                self.canvas.view.zoom(1.0 / 1.3, 0.0, 0.0);
-            }
-            ui.separator();
-            ui.menu_item_toggle_no_shortcut("Snapping", &mut self.canvas.snapping, true);
-            ui.menu_item_toggle_no_shortcut("Linked selection", &mut self.canvas.linked, true);
-        }
-        if wide {
-            ui.same_line();
-            {
-                let _disabled = ui
-                    .begin_disabled_with_cond(selected_clip(sequence, &state.selection).is_none());
-                split |= ui.button("Split");
-                tooltip(ui, "Split at playhead (S / Ctrl+K)");
-                ui.same_line();
-                lift |= ui.button("Lift");
-                tooltip(ui, "Remove selected clips without closing the gap (Delete)");
-            }
-            ui.same_line();
-            ui.checkbox("Snap", &mut self.canvas.snapping);
-            tooltip(ui, "Snap to clip edges and playhead");
-            ui.same_line();
-            ui.checkbox("Linked", &mut self.canvas.linked);
-            tooltip(ui, "Edit linked audio and video together");
-        }
-        ui.same_line();
-        if icon_button(ui, "fit-sequence", ToolbarIcon::FrameAll, "Fit sequence") {
-            self.canvas.fit = true;
-        }
-        ui.same_line();
-        icon_button(
+        if let Some(edit) = controls::toolbar(
             ui,
-            "timeline-help",
-            ToolbarIcon::Help,
-            "Drag clips or trim edges; click the ruler to seek.\nCtrl+wheel: zoom; Shift+wheel: pan; wheel: scroll tracks.\nTrack controls: E visibility, M mute, S solo, L lock.",
-        );
-        if (split
-            || (keyboard
-                && (ui.is_key_pressed(Key::S)
-                    || (ui.io().key_ctrl() && ui.is_key_pressed(Key::K)))))
-            && let Some(id) = selected_clip(sequence, &state.selection)
-            && let Ok(at) = interaction::time(i64::from(state.frame), sequence.rate)
-        {
-            submit(
-                host,
-                *revision,
-                *document,
-                SequenceEdit::Clip {
-                    id,
-                    linked: self.canvas.linked,
-                    edit: ClipEdit::Split {
-                        at,
-                        right_id: ObjectId::new(),
+            &mut self.canvas,
+            sequence,
+            &state.selection.objects,
+            state.frame,
+        ) {
+            submit(host, *revision, *document, edit);
+        }
+        self.canvas.visuals.clear();
+        for clip in &sequence.clips {
+            let track = sequence.track(clip.track).unwrap();
+            let (name, icon, kind) = match &clip.info {
+                crate::SourceMedia::Document { source, .. } => {
+                    let kind = snapshot
+                        .state()
+                        .documents
+                        .get(&source.document)
+                        .map(|d| d.type_id.as_str())
+                        .unwrap_or("");
+                    let graph =
+                        matches!(kind, "fold.compositor.composite" | "fold.motion.document");
+                    (
+                        fold_platform::browser::item_name(
+                            &snapshot,
+                            fold_project::ItemId::Document(source.document),
+                            if graph { "Node graph" } else { "Composition" },
+                        ),
+                        if graph {
+                            ToolbarIcon::Arrange
+                        } else {
+                            ToolbarIcon::Composition
+                        },
+                        if kind.is_empty() {
+                            "Missing source"
+                        } else if graph {
+                            "Node graph"
+                        } else {
+                            "Composition"
+                        },
+                    )
+                }
+                _ => (
+                    fold_platform::browser::item_name(
+                        &snapshot,
+                        fold_project::ItemId::Asset(clip.asset),
+                        labels
+                            .get(&clip.asset)
+                            .map(String::as_str)
+                            .unwrap_or("Missing media"),
+                    ),
+                    if track.kind == TrackKind::Audio {
+                        ToolbarIcon::Audio
+                    } else {
+                        ToolbarIcon::View
                     },
+                    if track.kind == TrackKind::Audio {
+                        "Audio"
+                    } else {
+                        "Video"
+                    },
+                ),
+            };
+            let visible = interaction::frame(clip.end().unwrap(), sequence.rate)
+                >= self.canvas.view.first
+                && interaction::frame(clip.start, sequence.rate)
+                    <= self.canvas.view.first
+                        + f64::from(ui.content_region_avail()[0])
+                            / self.canvas.view.pixels_per_frame;
+            let thumbnail = if self.canvas.media_previews && visible {
+                snapshot.state().assets.get(&clip.asset).and_then(|asset| {
+                    self.thumbnails.get_range(
+                        asset,
+                        Some((
+                            clip.source_start,
+                            clip.duration,
+                            track.kind == TrackKind::Audio,
+                        )),
+                    )
+                })
+            } else {
+                None
+            };
+            let (texture, error) = match thumbnail {
+                Some(Ok(texture)) => (Some(texture), None),
+                Some(Err(error)) => (None, Some(error)),
+                None => (
+                    None,
+                    if kind == "Missing source" {
+                        Some("Source document is unavailable".into())
+                    } else {
+                        None
+                    },
+                ),
+            };
+            self.canvas.visuals.insert(
+                clip.id,
+                canvas::ClipVisual {
+                    name,
+                    icon,
+                    kind,
+                    texture,
+                    error,
                 },
             );
         }
-        if (lift || (keyboard && ui.is_key_pressed(Key::Delete)))
-            && let Some(id) = selected_clip(sequence, &state.selection)
-        {
-            submit(
-                host,
-                *revision,
-                *document,
-                SequenceEdit::Clip {
-                    id,
-                    linked: self.canvas.linked,
-                    edit: ClipEdit::Lift,
-                },
-            );
-        }
-        if unlink && let Some(id) = selected_clip(sequence, &state.selection) {
-            submit(
-                host,
-                *revision,
-                *document,
-                SequenceEdit::Clip {
-                    id,
-                    linked: true,
-                    edit: ClipEdit::Unlink,
-                },
-            );
-        }
-        if !self.canvas.message.is_empty() {
-            ui.text_wrapped(&self.canvas.message);
-        }
+        self.canvas.cache = host
+            .cache_reference()
+            .filter(|key| key.target.is_some_and(|(id, _)| id == *document))
+            .map(|key| fold_ui::sdk::cache_indicator::frames(host.cached_previews(), &key))
+            .unwrap_or_default();
         ui.separator();
+        let placement_mode = match self.canvas.mode {
+            crate::EditMode::Move => fold_platform::browser::PlacementMode::Place,
+            crate::EditMode::Insert => fold_platform::browser::PlacementMode::Insert,
+            crate::EditMode::Overwrite => fold_platform::browser::PlacementMode::Overwrite,
+        };
+        let placement = |entry: fold_platform::browser::Entry, track, at, new_track, audio_only| {
+            let source = entry.source()?;
+            let output = match &source {
+                fold_platform::browser::PlacementSource::Output(source) => {
+                    Some(host.video_info(source.document)?)
+                }
+                _ => None,
+            };
+            let request = fold_platform::browser::Placement {
+                source,
+                target: *document,
+                track,
+                at,
+                source_start: fold_foundation::Time::ZERO,
+                duration: None,
+                audio_only,
+                new_track,
+                mode: placement_mode,
+            };
+            crate::placement::place(&snapshot, &request, output)
+                .and_then(|document| Sequence::from_document(&document))
+        };
         for action in self.canvas.draw(
             ui,
             CanvasModel {
@@ -248,11 +278,58 @@ impl Panel for TimelinePanel {
                 playhead: state.frame,
                 selected: &state.selection.objects,
                 labels,
+                placement: Some(&placement),
             },
         ) {
             match action {
-                Action::Place { entry, track, at } => {
-                    fold_ui::sdk::project_drop::place(host, entry, *document, Some(track), at)
+                Action::Place {
+                    entry,
+                    track,
+                    at,
+                    new_track,
+                    audio_only,
+                } => match entry.source() {
+                    Ok(source) => host.command(DesktopCommand::Browser(
+                        fold_platform::browser::BrowserCommand::Place(
+                            fold_platform::browser::Placement {
+                                source,
+                                target: *document,
+                                track,
+                                at,
+                                source_start: fold_foundation::Time::ZERO,
+                                duration: None,
+                                audio_only,
+                                new_track,
+                                mode: placement_mode,
+                            },
+                        ),
+                    )),
+                    Err(error) => host.command(DesktopCommand::Notify(error)),
+                },
+                Action::Open(id) => {
+                    if let Some(clip) = sequence.clips.iter().find(|c| c.id == id)
+                        && let crate::SourceMedia::Document { source, .. } = &clip.info
+                    {
+                        let at = interaction::time(i64::from(state.frame), sequence.rate)
+                            .unwrap_or(clip.start);
+                        let time = clip
+                            .source_time(at)
+                            .ok()
+                            .flatten()
+                            .unwrap_or(clip.source_start);
+                        host.command(DesktopCommand::Navigate(
+                            fold_platform::desktop::ViewLocation {
+                                document: source.document,
+                                time,
+                                label: self
+                                    .canvas
+                                    .visuals
+                                    .get(&id)
+                                    .map(|v| v.name.clone())
+                                    .unwrap_or_default(),
+                            },
+                        ));
+                    }
                 }
                 Action::Select(objects) => host.command(DesktopCommand::Select(Selection {
                     document: Some(*document),

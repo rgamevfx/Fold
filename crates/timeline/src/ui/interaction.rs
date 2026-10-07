@@ -20,7 +20,7 @@ pub enum Handle {
     Left,
     Right,
 }
-pub use fold_ui::sdk::time_view::{View, frame, time};
+pub use fold_ui::sdk::time_view::{View, frame, ruler_step, time, timecode};
 pub fn handle(rect: Rect, point: [f32; 2], scale: f32) -> Handle {
     let edge = (6.0 * scale).min((rect.max[0] - rect.min[0]) / 3.0);
     if point[0] - rect.min[0] < edge {
@@ -31,6 +31,13 @@ pub fn handle(rect: Rect, point: [f32; 2], scale: f32) -> Handle {
         Handle::Move
     }
 }
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum TrimMode {
+    #[default]
+    Normal,
+    Ripple,
+    Roll,
+}
 pub struct Drag {
     pub base: Revision,
     pub original: Sequence,
@@ -38,6 +45,10 @@ pub struct Drag {
     pub linked: bool,
     pub handle: Handle,
     pub grab_frame: f64,
+    pub selected: Vec<ObjectId>,
+    pub new_track: ObjectId,
+    pub mode: crate::EditMode,
+    pub trim: TrimMode,
 }
 impl Drag {
     pub fn proposal(
@@ -45,6 +56,7 @@ impl Drag {
         pointer_frame: f64,
         track: ObjectId,
         snap: Option<(Time, f64)>,
+        new_track: Option<crate::TrackKind>,
     ) -> Result<SequenceEdit, String> {
         let clip = self
             .original
@@ -65,33 +77,18 @@ impl Drag {
             end = end.checked_add(delta).map_err(|e| e.to_string())?;
         }
         if let Some((playhead, tolerance)) = snap {
-            let excluded = self.original.linked_ids(self.clip, self.linked)?;
-            let mut anchors = vec![Time::ZERO, playhead];
-            for other in self
-                .original
-                .clips
-                .iter()
-                .filter(|c| !excluded.contains(&c.id))
-            {
-                anchors.push(other.start);
-                anchors.push(other.end()?);
+            let mut excluded = Vec::new();
+            for id in &self.selected {
+                excluded.extend(self.original.linked_ids(*id, self.linked)?);
             }
             let edges = match self.handle {
                 Handle::Left => vec![start],
                 Handle::Right => vec![end],
                 Handle::Move => vec![start, end],
             };
-            let mut best: Option<(f64, Time)> = None;
-            for edge in edges {
-                for anchor in &anchors {
-                    let offset = anchor.checked_sub(edge).map_err(|e| e.to_string())?;
-                    let distance = frame(offset, self.original.rate).abs();
-                    if distance <= tolerance && best.as_ref().is_none_or(|(d, _)| distance < *d) {
-                        best = Some((distance, offset));
-                    }
-                }
-            }
-            if let Some((_, offset)) = best {
+            if let Some(offset) =
+                snap_offset(&self.original, &excluded, &edges, playhead, tolerance)?
+            {
                 if self.handle != Handle::Right {
                     start = start.checked_add(offset).map_err(|e| e.to_string())?;
                 }
@@ -105,10 +102,77 @@ impl Drag {
         } else {
             ClipEdit::Trim { start, end }
         };
+        if let ClipEdit::MoveTo { start, track } = edit {
+            return Ok(SequenceEdit::Selection {
+                ids: self.selected.clone(),
+                linked: self.linked,
+                edit: crate::SelectionEdit::Move {
+                    delta: start.checked_sub(clip.start).map_err(|e| e.to_string())?,
+                    anchor: clip.id,
+                    track,
+                    new_track,
+                    mode: self.mode,
+                },
+            });
+        }
+        if self.handle != Handle::Move && self.trim != TrimMode::Normal {
+            return Ok(SequenceEdit::Selection {
+                ids: vec![clip.id],
+                linked: self.linked,
+                edit: if self.trim == TrimMode::Ripple {
+                    crate::SelectionEdit::RippleTrim {
+                        id: clip.id,
+                        start,
+                        end,
+                    }
+                } else {
+                    if self.handle == Handle::Left {
+                        let left = self
+                            .original
+                            .clips
+                            .iter()
+                            .find(|c| c.track == clip.track && c.end().ok() == Some(clip.start))
+                            .ok_or("Roll requires an adjacent clip")?;
+                        crate::SelectionEdit::Roll {
+                            id: left.id,
+                            end: start,
+                        }
+                    } else {
+                        crate::SelectionEdit::Roll { id: clip.id, end }
+                    }
+                },
+            });
+        }
         Ok(SequenceEdit::Clip {
             id: self.clip,
             linked: self.linked,
             edit,
         })
     }
+}
+
+/// Shared pixel-tolerance snapping for existing clips and Project placement.
+pub fn snap_offset(
+    sequence: &Sequence,
+    excluded: &[ObjectId],
+    edges: &[Time],
+    playhead: Time,
+    tolerance: f64,
+) -> Result<Option<Time>, String> {
+    let mut anchors = vec![Time::ZERO, playhead];
+    for c in sequence.clips.iter().filter(|c| !excluded.contains(&c.id)) {
+        anchors.push(c.start);
+        anchors.push(c.end()?);
+    }
+    let mut best: Option<(f64, Time)> = None;
+    for edge in edges {
+        for anchor in &anchors {
+            let offset = anchor.checked_sub(*edge).map_err(|e| e.to_string())?;
+            let distance = frame(offset, sequence.rate).abs();
+            if distance <= tolerance && best.as_ref().is_none_or(|(d, _)| distance < *d) {
+                best = Some((distance, offset));
+            }
+        }
+    }
+    Ok(best.map(|(_, offset)| offset))
 }

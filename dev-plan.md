@@ -609,3 +609,21 @@ Phases 34–40 are complete per user acceptance. Validation evidence and unverif
   - Validation: 15 shared graph tests pass, including actual native-widget simulated input and software-Vulkan captures at normal/narrow widths, 150% UI scale and 2× DPI. Six Compositing UI/transaction tests, ten channel/render tests and four graph-authoring tests pass. Four Motion graph/scope/undo tests and `cargo build -p fold-app --features desktop --bin fold-desktop --release` pass. A concurrent Motion test compilation was terminated with SIGTERM; its isolated retry passed. Touched-file formatting and diff whitespace checks pass; workspace suites and Clippy deferred.
   - Static review captures: `/tmp/fold-node-ui/composite-normal.png`, `composite-narrow.png`, `composite-large-ui.png` and `composite-dpi-2.png`. These exercise the shared presentation on llvmpipe; they are not live desktop gesture or reference-hardware acceptance.
 - [x] User visual acceptance: reviewed the result, reported “looks good,” and requested the commit. Existing networks adopt the vertical layout through **Arrange (L)**. Detailed live gesture verification was not separately reported; automated coverage is recorded above. Computer-use left-click dragging remains unavailable on this machine.
+
+## Timeline editing and cache visibility
+
+- [x] 52. Refine the NLE timeline’s capabilities and presentation (user-authorized).
+  - [x] Minimal single-row toolbar with shared icons, overflow/context menus, shortcuts and clear tool/toggle states; compact resizable named track headers and video/audio separation.
+  - [x] Atomic drag-to-create video/audio tracks, typed Project placement, linked A/V preservation, destination ghosts, snap/trim feedback, invalid-drop feedback, cancellation and auto-scroll.
+  - [x] Multi/marquee selection, frame nudging and track moves preserving time; split/lift, insert/overwrite, ripple delete and ripple/roll trim using shared validated transaction semantics.
+  - [x] Frame-aware ruler/timecode, prominent playhead and smooth navigation; asynchronous media thumbnails/waveforms, readable clip names, type icons and honest missing-source states.
+  - [x] Double-click nested composition/network clips to navigate at mapped source time, with return navigation; preserve stable source references.
+  - [x] Thin timeline cache ranges and compact viewer cache feedback for the actual output/content/resolution/channel/region identity; distinguish full and partial coverage and never retain stale claims after edits/eviction.
+  - [x] Artist acceptance (2026-10-07): user reviewed the demo, reported “it looks good,” and requested completion and commit. Detailed gesture-by-gesture verification was not separately reported; the [manual checklist](docs/phase-52-timeline.md#artist-acceptance-checklist) remains a regression reference. Computer-use left-click dragging is unavailable on this machine.
+  - [x] Dedicated [Timeline Playground](demos/timeline-playground.md): saved editable project, generated linked A/V and pulse media, three footage cuts with trim handles, two video/two audio lanes, shared Composition and compositor graph clips. Public-agent structure inspection and four frame renders passed; nested title frames visually reviewed. User accepted the demo.
+
+  - Implementation and editing rules: [phase 52](docs/phase-52-timeline.md). Verified 19 timeline tests (including native 1024px/320px capture), 96 shared UI, three media preview and five application placement tests. The release desktop build and diff whitespace review pass. Three pre-existing GPU/native UI tests remain ignored. Phase completed following user acceptance; detailed manual gesture results were not separately reported.
+
+### Public authoring follow-up (outside Phase 52)
+
+- [ ] Public authoring follow-up: expose common Composition typed operations/inspection and command argument schemas (creation from timeline clips works through `fold.app.create-composition`); expose destination-track/new-track and insert/overwrite placement options in `place_asset`. Verified workaround documented in the Fold skill's timeline reference.

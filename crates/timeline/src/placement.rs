@@ -23,6 +23,23 @@ pub fn place(
     output: Option<fold_media::VideoInfo>,
 ) -> Result<Document, String> {
     use fold_media::ingest::SourceProfile;
+    if let PlacementSource::Output(source) = &request.source {
+        let mut pending = vec![source.document];
+        let mut visited = std::collections::BTreeSet::new();
+        while let Some(id) = pending.pop() {
+            if id == request.target {
+                return Err("Placement would create a document cycle".into());
+            }
+            if visited.insert(id) {
+                let document = snapshot
+                    .state()
+                    .documents
+                    .get(&id)
+                    .ok_or("Missing source document")?;
+                pending.extend(document.dependencies.iter().map(|r| r.document));
+            }
+        }
+    }
     let old = snapshot
         .state()
         .documents
@@ -54,10 +71,30 @@ pub fn place(
         ),
     };
     let duration = request.range(info.duration()?)?;
-    let selected = request
-        .track
-        .map(|id| sequence.track(id).cloned())
-        .transpose()?;
+    if request.new_track {
+        let kind = if request.audio_only || matches!(info, SourceMedia::Audio(_)) {
+            TrackKind::Audio
+        } else {
+            TrackKind::Video
+        };
+        let count = sequence.tracks.iter().filter(|t| t.kind == kind).count() + 1;
+        sequence.tracks.push(Track::new(
+            kind,
+            format!(
+                "{}{}",
+                if kind == TrackKind::Video { "V" } else { "A" },
+                count
+            ),
+        ));
+    }
+    let selected = if request.new_track {
+        sequence.tracks.last().cloned()
+    } else {
+        request
+            .track
+            .map(|id| sequence.track(id).cloned())
+            .transpose()?
+    };
     if selected
         .as_ref()
         .is_some_and(|t| t.kind == TrackKind::Video)
@@ -73,25 +110,53 @@ pub fn place(
     if audio_only && !has_audio {
         return Err("source has no supported audio stream".into());
     }
+    let mut placed = Vec::new();
     let link = (!audio_only && has_audio).then(ObjectId::new);
     for kind in [TrackKind::Video, TrackKind::Audio] {
         if (kind == TrackKind::Video && audio_only) || (kind == TrackKind::Audio && !has_audio) {
             continue;
         }
-        let track = if let Some(track) = selected.as_ref().filter(|t| t.kind == kind) {
+        let chosen = selected
+            .as_ref()
+            .filter(|t| t.kind == kind)
+            .cloned()
+            .or_else(|| {
+                sequence
+                    .tracks
+                    .iter()
+                    .find(|t| {
+                        t.kind == kind
+                            && !t.locked
+                            && !sequence.clips.iter().any(|c| {
+                                c.track == t.id
+                                    && c.start < request.at.checked_add(duration).unwrap()
+                                    && c.end().is_ok_and(|e| e > request.at)
+                            })
+                    })
+                    .cloned()
+            });
+        let track = if let Some(track) = chosen {
             track
         } else {
-            sequence
-                .tracks
-                .iter()
-                .find(|t| t.kind == kind && !t.locked)
-                .ok_or("add an unlocked destination track first")?
+            let count = sequence.tracks.iter().filter(|t| t.kind == kind).count() + 1;
+            let track = Track::new(
+                kind,
+                format!(
+                    "{}{}",
+                    if kind == TrackKind::Video { "V" } else { "A" },
+                    count
+                ),
+            );
+            sequence.tracks.push(track.clone());
+            track
         };
         if track.locked {
             return Err("destination track is locked".into());
         }
+        let id = ObjectId::new();
+        placed.push(id);
         sequence.clips.push(Clip {
-            id: ObjectId::new(),
+            id,
             track: track.id,
             link,
             asset,
@@ -102,6 +167,21 @@ pub fn place(
             level: 1.,
             extensions: Default::default(),
         });
+    }
+    if request.mode != fold_platform::browser::PlacementMode::Place {
+        let anchor = sequence.clips.iter().find(|c| c.id == placed[0]).unwrap();
+        let edit = crate::SelectionEdit::Move {
+            delta: fold_foundation::Time::ZERO,
+            anchor: anchor.id,
+            track: anchor.track,
+            new_track: None,
+            mode: if request.mode == fold_platform::browser::PlacementMode::Insert {
+                crate::EditMode::Insert
+            } else {
+                crate::EditMode::Overwrite
+            },
+        };
+        sequence.apply_selection(&placed, true, &edit)?;
     }
     let mut document = sequence.document(request.target)?;
     document.extensions = old.extensions.clone();

@@ -17,6 +17,15 @@ pub enum ClipEdit {
 }
 #[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
 pub enum SequenceEdit {
+    Selection {
+        ids: Vec<ObjectId>,
+        linked: bool,
+        edit: crate::SelectionEdit,
+    },
+    RenameTrack {
+        id: ObjectId,
+        name: String,
+    },
     Clip {
         id: ObjectId,
         linked: bool,
@@ -40,6 +49,17 @@ impl Sequence {
         self.validate()?;
         let mut result = self.clone();
         match edit {
+            SequenceEdit::Selection { ids, linked, edit } => {
+                result.apply_selection(ids, *linked, edit)?
+            }
+            SequenceEdit::RenameTrack { id, name } => {
+                result
+                    .tracks
+                    .iter_mut()
+                    .find(|t| t.id == *id)
+                    .ok_or("Missing track")?
+                    .name = name.trim().into();
+            }
             SequenceEdit::AddTrack { kind } => {
                 let count = self.tracks.iter().filter(|t| t.kind == *kind).count() + 1;
                 result.tracks.push(Track::new(
@@ -77,7 +97,12 @@ impl Sequence {
         result.validate()?;
         Ok(result)
     }
-    fn apply_clip(&mut self, id: ObjectId, linked: bool, edit: &ClipEdit) -> Result<(), String> {
+    pub(crate) fn apply_clip(
+        &mut self,
+        id: ObjectId,
+        linked: bool,
+        edit: &ClipEdit,
+    ) -> Result<(), String> {
         let original = self
             .clips
             .iter()

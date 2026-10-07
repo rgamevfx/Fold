@@ -36,6 +36,7 @@ struct RuntimeEditor {
     initialized: bool,
 }
 pub(crate) struct Shell {
+    pub(crate) cached_previews: Vec<PreviewKey>,
     pub(crate) settings: Option<crate::settings::Settings>,
     pub(crate) typography: Option<crate::sdk::typography::Typography>,
     viewer: WindowKey,
@@ -119,6 +120,7 @@ impl Shell {
             viewport_pixels: Default::default(),
             #[cfg(feature = "native-probe")]
             probe_full_resolution: false,
+            cached_previews: vec![],
             presentation: Default::default(),
             review_actions: vec![],
             review_states: Default::default(),
@@ -959,6 +961,21 @@ impl Shell {
                     .map(|viewer| (id, self.workspace.viewers[&viewer].time))
             })
             .collect();
+        let cache_references: BTreeMap<_, _> = self.keys(client).into_iter().collect();
+        let editor_cache: BTreeMap<_, _> = self
+            .workspace
+            .editors
+            .keys()
+            .map(|&id| {
+                (
+                    id,
+                    self.workspace
+                        .viewer_for_editor(id)
+                        .ok()
+                        .and_then(|v| cache_references.get(&v).cloned().flatten()),
+                )
+            })
+            .collect();
         let mut seeks = Vec::new();
         let mut close_editor = None;
         let mut group_changes = Vec::new();
@@ -1031,7 +1048,7 @@ impl Shell {
                     let mut scoped = binding.clone();
                     if let Some(time) = edit_times.get(&id) && let Some(location) = scoped.navigation.last_mut() { location.time = *time; }
                     let navigation = scoped.navigation.clone();
-                    let mut context = PanelContext::new(client, &mut scoped).instance(id);
+                    let mut context = PanelContext::new(client, &mut scoped).instance(id).with_cache(&self.cached_previews).with_cache_reference(editor_cache.get(&id).cloned().flatten());
                     editor.panels.editor.draw(ExtensionUi { ui, host: &mut context });
                     if let Some(time) = context.seek_request() { seeks.push((id, time)); }
                     if context.selection_requested() { publish.push(id); }
@@ -1384,7 +1401,10 @@ impl Shell {
                                 location.time = time;
                             }
                             let navigation = scoped.navigation.clone();
-                            let mut context = PanelContext::new(client, &mut scoped).instance(id);
+                            let mut context = PanelContext::new(client, &mut scoped)
+                                .instance(id)
+                                .with_cache(&self.cached_previews)
+                                .with_cache_reference(editor_cache.get(&id).cloned().flatten());
                             let _layer_lock = ui.begin_disabled_with_cond(
                                 graph_layer.is_some_and(|(_, locked)| locked),
                             );
@@ -2185,7 +2205,8 @@ impl Shell {
                     label: String::new(),
                 }];
                 binding.selection.document = Some(output.document);
-                let mut context = PanelContext::new(client, &mut binding)
+                let cache_reference = self.keys(client).into_iter().find(|(viewer,_)|*viewer==id).and_then(|(_,key)|key);
+                let mut context = PanelContext::new(client, &mut binding).with_cache_reference(cache_reference).with_cache(&self.cached_previews)
                     .instance(id)
                     .with_output(&output);
                 let before_time = viewer.time;
@@ -2219,7 +2240,9 @@ impl Shell {
                 && let Some(editor) = self.editors.get_mut(&editor_id)
                 && let Some(binding) = self.workspace.editors.get_mut(&editor_id)
             {
-                let mut context = PanelContext::new(client, binding).instance(id);
+                let mut context = PanelContext::new(client, binding)
+                    .instance(id)
+                    .with_cache(&self.cached_previews);
                 editor.panels.editor.cancel_interaction(&mut context);
             }
             client.command(DesktopCommand::CloseViewer(id));
@@ -2318,7 +2341,10 @@ fn breadcrumb_at(
         })
         .collect::<Vec<_>>()
         .join(" › ");
-    format!("{path} · {}/{} s", time.numerator(), time.denominator())
+    format!(
+        "{path} · {:.2} s",
+        time.numerator() as f64 / f64::from(time.denominator())
+    )
 }
 #[cfg(test)]
 #[path = "docking_tests.rs"]

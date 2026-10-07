@@ -150,6 +150,9 @@ impl PreviewHost {
         };
         (Some(key.frame), self.demands.get(&id) == Some(key))
     }
+    pub fn cached_keys(&self) -> Vec<PreviewKey> {
+        self.cache.keys().cloned().collect()
+    }
     pub fn statistics(&self) -> String {
         format!(
             "GPU RGBA8/BC7 cache: {:.1}/256 MiB | hits {} | misses {} | displayed frame {:?} | {}",

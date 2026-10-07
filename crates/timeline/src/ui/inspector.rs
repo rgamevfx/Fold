@@ -38,7 +38,7 @@ impl Panel for Inspector {
             .find_map(|id| sequence.tracks.iter().find(|t| t.id == *id))
         {
             ui.text(format!("{} — {:?}", track.name, track.kind));
-            ui.text_wrapped("Track header controls: E enables video; M mutes audio; S solos audio; L locks editing.");
+
             if ui.button("Remove empty track") {
                 submit(
                     host,

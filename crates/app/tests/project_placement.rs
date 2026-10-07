@@ -47,6 +47,8 @@ fn placement(source: PlacementSource, target: DocumentId) -> Placement {
         source_start: Time::ZERO,
         duration: None,
         audio_only: false,
+        new_track: false,
+        mode: Default::default(),
     }
 }
 fn output(document: DocumentId) -> PlacementSource {
@@ -445,4 +447,55 @@ fn common_composition_accepts_still_assets_as_full_duration_layers() {
     project.undo().unwrap();
     project.redo().unwrap();
     assert_eq!(project.snapshot().state().documents, before);
+}
+
+#[test]
+fn timeline_new_track_placement_and_collision_modes_share_atomic_history() {
+    let mut project = Project::new(16);
+    let sequence = create(&mut project, fold_timeline::SEQUENCE);
+    let source = create(&mut project, fold_motion::MOTION);
+    let mut request = placement(output(source), sequence);
+    request.new_track = true;
+    request.duration = Some(Time::new(2, 1).unwrap());
+    project
+        .commit(
+            packages::builtins()
+                .place(&project.snapshot(), &request)
+                .unwrap(),
+        )
+        .unwrap();
+    let read = |p: &Project| {
+        fold_timeline::Sequence::from_document(&p.snapshot().state().documents[&sequence]).unwrap()
+    };
+    let placed = read(&project);
+    assert_eq!(placed.tracks.len(), 3);
+    let track = placed.clips[0].track;
+    project.undo().unwrap();
+    assert_eq!(read(&project).tracks.len(), 2);
+    project.redo().unwrap();
+    request.new_track = false;
+    request.track = Some(track);
+    assert!(
+        packages::builtins()
+            .place(&project.snapshot(), &request)
+            .is_err()
+    );
+    request.mode = fold_platform::browser::PlacementMode::Insert;
+    project
+        .commit(
+            packages::builtins()
+                .place(&project.snapshot(), &request)
+                .unwrap(),
+        )
+        .unwrap();
+    assert_eq!(read(&project).end().unwrap(), Time::new(4, 1).unwrap());
+    request.mode = fold_platform::browser::PlacementMode::Overwrite;
+    project
+        .commit(
+            packages::builtins()
+                .place(&project.snapshot(), &request)
+                .unwrap(),
+        )
+        .unwrap();
+    assert_eq!(read(&project).clips.len(), 2);
 }

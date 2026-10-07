@@ -56,6 +56,7 @@ fn compact_views_fit_normal_and_narrow_panels_without_mutations() {
                             ui,
                             &mut channels,
                             super::Context {
+                                cache: &Default::default(),
                                 document,
                                 generation: 0,
                                 time: Time::ZERO,
@@ -117,6 +118,7 @@ fn dragging_keys_previews_releases_once_and_escape_restores_original() {
                     ui,
                     &mut channels,
                     super::Context {
+                        cache: &Default::default(),
                         document,
                         generation: 0,
                         time: Time::ZERO,
@@ -219,6 +221,7 @@ fn collapsed_parent_summary_retimes_all_descendant_keys_and_commits_once() {
                     ui,
                     channels,
                     super::Context {
+                        cache: &Default::default(),
                         document,
                         generation: 0,
                         time: Time::ZERO,
@@ -327,6 +330,7 @@ fn strip_gesture(animated: bool, trim: bool, cancel: bool) {
                         ui,
                         channels,
                         super::Context {
+                            cache: &Default::default(),
                             document,
                             generation: 0,
                             time: Time::ZERO,
@@ -451,6 +455,7 @@ fn layer_eye_and_lock_emit_discrete_actions_at_normal_and_narrow_widths() {
                         ui,
                         &mut [],
                         super::Context {
+                            cache: &Default::default(),
                             document,
                             generation: 0,
                             time: Time::ZERO,
@@ -540,6 +545,7 @@ fn scene_drag_targets_expand_commit_once_and_cancel_at_normal_and_narrow_widths(
                         ui,
                         &mut [],
                         super::Context {
+                            cache: &Default::default(),
                             document,
                             generation: 0,
                             time: Time::ZERO,

@@ -94,3 +94,45 @@ fn wave_preview_has_fixed_dimensions() {
     assert_eq!(pixels.len(), 128 * 72 * 4);
     assert!(pixels.chunks_exact(4).any(|p| p[1] > p[0]));
 }
+
+#[test]
+fn timeline_waveform_respects_trimmed_source_range() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("trim.wav");
+    assert!(
+        std::process::Command::new("ffmpeg")
+            .args([
+                "-v",
+                "error",
+                "-f",
+                "lavfi",
+                "-i",
+                "aevalsrc=if(lt(t\\,0.5)\\,0\\,sin(440*2*PI*t)):s=48000:d=1",
+                "-c:a",
+                "pcm_s16le"
+            ])
+            .arg(&path)
+            .status()
+            .unwrap()
+            .success()
+    );
+    let source = inspect_linked(&path, &Cancel::default()).unwrap();
+    let render = |start| {
+        fold_media::thumbnail::thumbnail_range(
+            &path,
+            &source.fingerprint,
+            &source.metadata.profile,
+            &Cancel::default(),
+            Some((
+                fold_foundation::Time::new(start, 2).unwrap(),
+                fold_foundation::Time::new(1, 2).unwrap(),
+                true,
+            )),
+        )
+        .unwrap()
+    };
+    let silent = render(0);
+    let tone = render(1);
+    assert_eq!(silent.len(), 128 * 72 * 4);
+    assert_ne!(silent, tone);
+}
