@@ -100,6 +100,14 @@ pub fn source_from_profile(
 ) -> Result<Source, String> {
     match profile {
         fold_media::ingest::SourceProfile::Video(info) => Ok(Source::Asset { asset, info }),
+        fold_media::ingest::SourceProfile::Ppm { dimensions } => Ok(Source::Asset {
+            asset,
+            info: fold_media::VideoInfo {
+                width: dimensions[0],
+                height: dimensions[1],
+                ..composition.clone()
+            },
+        }),
         fold_media::ingest::SourceProfile::Exr(mut image) => {
             image.validate()?;
             let sequence = image.sequence.take().map(|s| s.summary());
@@ -135,6 +143,31 @@ pub fn source_from_profile(
                 sequence,
             })
         }
-        _ => Err("Read requires video or OpenEXR".into()),
+        _ => Err("Read requires video or an image".into()),
+    }
+}
+
+/// Bind an existing authored source descriptor. Unlike new Project placement,
+/// legacy video references already supply their authored dimensions and timing.
+pub fn source_from_asset(
+    snapshot: &Snapshot,
+    asset: fold_foundation::AssetId,
+    authored: &fold_media::VideoInfo,
+) -> Result<Source, String> {
+    let record = snapshot
+        .state()
+        .assets
+        .get(&asset)
+        .ok_or("Missing source asset")?;
+    if record
+        .extensions
+        .contains_key(fold_media::ingest::METADATA_KEY)
+    {
+        source_from_profile(asset, asset_metadata(snapshot, asset)?.profile, authored)
+    } else {
+        Ok(Source::Asset {
+            asset,
+            info: authored.clone(),
+        })
     }
 }

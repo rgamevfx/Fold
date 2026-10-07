@@ -113,3 +113,23 @@ pub fn asset_metadata(
     )
     .map_err(|e| e.to_string())
 }
+
+/// Artist-facing name, hiding the storage fallback assigned to unnamed documents.
+pub fn item_name(snapshot: &Snapshot, id: fold_project::ItemId, fallback: &str) -> String {
+    snapshot
+        .state()
+        .organization
+        .items
+        .iter()
+        .find(|item| item.id == id)
+        .filter(|item| match id {
+            fold_project::ItemId::Document(id) => {
+                snapshot.state().documents.get(&id).is_none_or(|document| {
+                    item.name != format!("{} {:?}", document.type_id, document.id)
+                })
+            }
+            _ => true,
+        })
+        .map(|item| item.name.clone())
+        .unwrap_or_else(|| fallback.into())
+}

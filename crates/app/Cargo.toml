@@ -10,9 +10,10 @@ default = []
 native-probe = ["desktop", "fold-ui/native-probe"]
 gpu = ["fold-render/gpu", "fold-platform/gpu"]
 native-video = ["gpu", "fold-render/native-video"]
-desktop = ["native-video", "dep:rfd", "dep:fold-ui", "dep:cpal", "dep:rtrb", "fold-timeline/ui", "fold-compositor/ui", "fold-motion/ui"]
+desktop = ["native-video", "dep:rfd", "dep:fold-ui", "dep:cpal", "dep:rtrb", "fold-timeline/ui", "fold-compositor/ui", "fold-motion/ui", "fold-composition/ui"]
 
 [dependencies]
+fold-composition.workspace = true
 schemars.workspace = true
 sha2 = "0.10"
 png = "0.17.16"
@@ -62,6 +63,7 @@ required-features = ["desktop"]
 workspace = true
 
 [dev-dependencies]
+fold-animation.workspace = true
 exr = { version = "=1.74.2", default-features = false }
 
 [build-dependencies]

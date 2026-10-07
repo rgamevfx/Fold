@@ -1,9 +1,9 @@
 # Badge Wave — live SDK demo
 
-Open `fold-badge-live.fold`. It contains native **Motion → Composite → Sequence**, rebuilt through public MCP from [`badge-live.js`](badge-live.js).
+Open `fold-badge-live.fold`. It contains a shared **Composition → Finish → Sequence** chain. The main Composition exposes Duplicator, badge (hidden source) with Text and Background children, and the full-canvas Background layer. Finish contains a Compositing layer reading the main Composition.
 
-- **Badge:** expand it in the scene to edit the text or fitted background. The background follows replacement text.
-- **Duplicator:** change Count, Spacing and Stagger. Its Source points to Badge. Position the copies with the Duplicator transform; the source stays independently editable.
+- **Badge:** expand it directly in Composition. Select Text or Background to open that child’s actual MoGraph network and properties. The background follows replacement text.
+- **Duplicator:** select its layer to open its original network, then change Count, Spacing and Stagger. Its Source points to Badge. Position the copies with the Duplicator transform; the source stays independently editable.
 - **Oscillator:** drives the Duplicator's Y offset. Minimum/Maximum change the height; Duration changes the period. Other waveforms and time modes remain available.
 - **Color Ramp:** maps Copy Progress to color. Edit its stops independently of distribution and motion. Shapes Only keeps text readable.
 - Enter each tool's group for its native nodes and published interface.
@@ -16,11 +16,13 @@ For example: “Make the motion gentler, preserving my text, layout and palette.
 
 The script's constructor arguments initialize new work only. Repeating the script does not reset artist edits. Explicit setters are edits; wrap initialization setters in `.initialize(...)`.
 
-## Reproduce
+## Original source-graph generator
 
 ```sh
 python3 skills/fold/scripts/live_badge.py target/release/fold-cli /tmp/new-badge.fold
 ```
+
+The checked-in files have been updated directly to the common Composition model. This script still builds the original provider-graph chain; it does not recreate the shared layer stack. Public SDK support for creating that stack is tracked in phase 51.
 
 The script creates isolated sessions, renders five animation times, checks repetition and save/reopen, and tests artist-preserving updates. It saves the original artwork before running the follow-up edits.
 

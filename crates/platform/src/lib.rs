@@ -3,9 +3,11 @@ pub mod application;
 pub mod browser;
 pub mod color;
 pub mod desktop;
+pub mod layer_graph;
 pub mod packages;
 pub mod panel_context;
 pub mod workspace;
+
 use fold_foundation::Time;
 use fold_media::Cancel;
 pub use fold_media::VideoInfo;
@@ -38,9 +40,13 @@ pub struct VideoCompile<'a> {
     pub dimensions: [u32; 2],
     pub cancel: &'a Cancel,
     pub resolve: &'a VideoResolver<'a>,
+    pub graph_context: Option<&'a layer_graph::EvaluationContext>,
+    pub resolve_graph: &'a layer_graph::Resolver<'a>,
     pub resolve_image: &'a ImageResolver<'a>,
     /// Structural discovery for inactive sources; must not evaluate media.
     pub describe_channels: &'a ChannelResolver<'a>,
+    /// Current metadata of a declared nested output, without evaluating pixels.
+    pub describe_video: &'a dyn Fn(&DocumentRef) -> Result<fold_media::VideoInfo, String>,
 }
 
 pub trait VideoProvider: Send + Sync {
@@ -68,6 +74,9 @@ pub trait VideoProvider: Send + Sync {
         }]
     }
     /// Reference-local controls must be explicitly supported, never silently ignored.
+    fn supports_graph_context(&self, _kind: &str) -> bool {
+        false
+    }
     fn supports_controls(&self) -> bool {
         false
     }
@@ -148,7 +157,7 @@ impl VideoRegistry {
         dimensions: [u32; 2],
         cancel: &Cancel,
     ) -> Result<RenderGraph, String> {
-        self.compile_nested(snapshot, source, time, dimensions, cancel, &[])?
+        self.compile_nested(snapshot, source, time, dimensions, cancel, &[], None)?
             .select(None)
     }
 
@@ -213,7 +222,7 @@ impl VideoRegistry {
         cancel: &Cancel,
         selection: &fold_render::view::Selection,
     ) -> Result<RenderGraph, String> {
-        self.compile_nested(snapshot, source, time, dimensions, cancel, &[])?
+        self.compile_nested(snapshot, source, time, dimensions, cancel, &[], None)?
             .select(Some(selection))
     }
     fn compile_nested(
@@ -224,6 +233,7 @@ impl VideoRegistry {
         dimensions: [u32; 2],
         cancel: &Cancel,
         ancestors: &[fold_foundation::DocumentId],
+        graph_context: Option<&layer_graph::EvaluationContext>,
     ) -> Result<ChannelGraph, String> {
         cancel.check()?;
         if ancestors.contains(&source.document) || ancestors.len() >= 64 {
@@ -267,8 +277,27 @@ impl VideoRegistry {
                     nested.document
                 ));
             }
-            self.compile_nested(snapshot, nested, local_time, dimensions, cancel, &path)
+            self.compile_nested(
+                snapshot, nested, local_time, dimensions, cancel, &path, None,
+            )
         };
+        let resolve_graph =
+            |nested: &DocumentRef, local_time: Time, context: &layer_graph::EvaluationContext| {
+                cancel.check()?;
+                if !document.dependencies.contains(nested) {
+                    return Err("Undeclared layer graph dependency".into());
+                }
+                self.compile_nested(
+                    snapshot,
+                    nested,
+                    local_time,
+                    dimensions,
+                    cancel,
+                    &path,
+                    Some(context),
+                )?
+                .select(None)
+            };
         let resolve = |nested: &DocumentRef, local_time: Time| {
             resolve_image(nested, local_time)?.select(None)
         };
@@ -280,6 +309,25 @@ impl VideoRegistry {
             }
             self.channels_nested(snapshot, nested, &path, &catalog)
         };
+        let describe_video = |nested: &DocumentRef| {
+            cancel.check()?;
+            if !document.dependencies.contains(nested) {
+                return Err("Undeclared video metadata dependency".into());
+            }
+            let source = snapshot
+                .state()
+                .documents
+                .get(&nested.document)
+                .ok_or("Missing nested document")?;
+            self.outputs(source)
+                .into_iter()
+                .find(|o| o.reference.output == nested.output)
+                .ok_or("Unavailable nested video output")?
+                .info
+        };
+        if graph_context.is_some_and(|c| !provider.supports_graph_context(c.kind)) {
+            return Err("Graph provider does not support the supplied layer context".into());
+        }
         let request = VideoCompile {
             snapshot,
             document,
@@ -288,8 +336,11 @@ impl VideoRegistry {
             dimensions,
             cancel,
             resolve: &resolve,
+            graph_context,
+            resolve_graph: &resolve_graph,
             resolve_image: &resolve_image,
             describe_channels: &describe_channels,
+            describe_video: &describe_video,
         };
         let graph = provider.compile_image(request)?;
         cancel.check()?;

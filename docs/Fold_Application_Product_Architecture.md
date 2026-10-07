@@ -74,6 +74,13 @@ Enforce forbidden imports in CI: project and render cannot import creative packa
 
 Keep the kernel small. Shared animation value types may live in a deliberate contract crate; a motion graphics property stack remains owned by its feature package. A common contract does not require a single universal authoring graph.
 
+Phase 51 establishes **one Composition type** with a common layer stack. Each layer contains either a **MoGraph graph** or a **Compositing graph**; footage and nested compositions also fit in the stack. Visibility, lock, transforms, timing and layer animation belong to the common composition. Graph types are layer content, never alternative composition types. The artist creates a Composition, then adds either kind of layer directly. Project artifacts are updated directly to this model; Phase 51 adds no automatic adoption, legacy-project shims or conversion fallback on open.
+
+`fold-composition` owns the common document and layer state. Motion and Compositor retain their specialized graph models, editors and compilers. Composition resolves their outputs through platform capabilities and imports neither engine. Motion reuses the common layer-state contract for graph object metadata. Project and render remain free of these feature models.
+
+Selecting a layer opens that layer's actual MoGraph or Compositing network. There is no intermediate network of image-source wrappers. Composition retains the full layer hierarchy, including graph groups and their children. MoGraph groups evaluate child geometry and object references using the owning Composition's layer state and exact source clocks through an explicit graph-evaluation capability. The application commits shared layer edits and graph metadata together; native MoGraph authoring commits created layers and children back to the owning Composition in the same transaction. Common layer groups can mix graph types. A MoGraph graph group consumes children from its own geometry graph; independently typed layers can be grouped using a common layer group. Graph providers remain independent, with stable named image inputs for cross-graph references.
+
+
 # 4 State ownership and editing transactions
 
 Use a single project coordinator as the writer of committed project state. It owns a document store containing type erased, immutable document roots. Each registered document provider supplies validation, serialization, migration, and typed edit handling. Type erasure is an internal host mechanism, not a plugin ABI.

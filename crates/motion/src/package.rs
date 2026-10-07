@@ -11,13 +11,13 @@ mod prepared;
 use std::sync::Arc;
 pub const EDIT: &str = "fold.motion.edit";
 pub const CHANGE: &str = "fold.motion.change.v1";
-const BUILD: &str = "motion-schema6-evaluator6-solver1-noto-b85c38ec";
+const BUILD: &str = "motion-schema7-evaluator9-layer-context1-solver1-noto-b85c38ec";
 pub const PANEL: &str = "fold.motion.editor";
 pub const INSPECTOR: &str = "fold.motion.inspector";
 pub const PANELS: &[PanelDescriptor] = &[
     PanelDescriptor {
         id: PANEL,
-        title: "MoGraph",
+        title: "Composition",
         placement: PanelPlacement::Editor,
     },
     PanelDescriptor {
@@ -35,17 +35,44 @@ pub struct EditArgs {
 fn edit(snapshot: &Snapshot, args: &[u8], _: &Cancel) -> Result<EditBatch, String> {
     let args: EditArgs = serde_json::from_slice(args).map_err(|e| e.to_string())?;
     let mut document = args.motion.document(args.document)?;
+    let mut mutations = vec![];
     if let Some(previous) = snapshot.state().documents.get(&args.document) {
-        Motion::from_document(previous)?;
+        let before = Motion::from_document(previous)?;
+        crate::layer_edits::append(
+            snapshot,
+            args.document,
+            before.scene.as_ref(),
+            &args.motion,
+            &mut mutations,
+        )?;
         document.extensions = previous.extensions.clone();
     }
+    mutations.push(Mutation::PutDocument(document));
     Ok(EditBatch {
         base: snapshot.revision(),
-        mutations: vec![Mutation::PutDocument(document)],
+        mutations,
     })
 }
 struct Documents(Arc<prepared::Cache>);
 impl DocumentProvider for Documents {
+    fn image_inputs(
+        &self,
+        document: &Document,
+    ) -> Result<Vec<fold_platform::layer_graph::ImageInput>, String> {
+        crate::inputs::describe(&self.0.get(document)?.motion)
+    }
+    fn bind_image_input(
+        &self,
+        snapshot: &Snapshot,
+        document: &Document,
+        port: &str,
+        source: Option<fold_platform::image_source::Source>,
+        info: fold_media::VideoInfo,
+    ) -> Result<Document, String> {
+        let _ = snapshot;
+        crate::inputs::bind(document, port, source, info)
+    }
+
     fn authoring_catalog(&self) -> serde_json::Value {
         crate::automation::catalog()
     }
@@ -86,12 +113,6 @@ impl DocumentProvider for Documents {
     ) -> Result<serde_json::Value, String> {
         crate::automation::discovery::receipt(before, after)
     }
-    fn browser_kind(&self) -> Option<fold_platform::browser::DocumentKind> {
-        Some(fold_platform::browser::DocumentKind {
-            type_id: crate::document::MOTION,
-            title: "MoGraph",
-        })
-    }
     fn create(&self, id: fold_foundation::DocumentId) -> Result<Document, String> {
         crate::document::Motion::new_scene().document(id)
     }
@@ -110,10 +131,10 @@ impl DocumentProvider for Documents {
         MOTION
     }
     fn schema(&self) -> u32 {
-        6
+        7
     }
     fn supports_schema(&self, schema: u32) -> bool {
-        [1, 2, 3, 4, 5, 6].contains(&schema)
+        [1, 2, 3, 4, 5, 6, 7].contains(&schema)
     }
     fn validate(&self, d: &Document) -> Result<(), String> {
         self.0.get(d).map(|_| ())
@@ -137,6 +158,9 @@ impl VideoProvider for Provider {
     fn video_info(&self, d: &Document) -> Result<VideoInfo, String> {
         Ok(self.0.get(d)?.motion.info.clone())
     }
+    fn supports_graph_context(&self, kind: &str) -> bool {
+        kind == fold_composition::graph::CONTEXT
+    }
     fn supports_controls(&self) -> bool {
         true
     }
@@ -158,6 +182,7 @@ impl VideoProvider for Provider {
         }
         let prepared = self.0.get(d)?;
         let mut motion = std::borrow::Cow::Borrowed(&prepared.motion);
+        crate::nodes::composition::refresh_metadata(&mut motion, request.describe_video)?;
         if let Some(overrides) = reference.extensions.get("fold.controls") {
             let overrides: std::collections::BTreeMap<
                 fold_foundation::ObjectId,
@@ -183,9 +208,40 @@ impl VideoProvider for Provider {
                 motion.to_mut().controls.insert(id, value);
             }
         }
+        let scene_output = reference
+            .extensions
+            .get(fold_composition::graph::OBJECT)
+            .map(|value| {
+                serde_json::from_value(value.clone())
+                    .map_err(|e| format!("Invalid object output: {e}"))
+            })
+            .transpose()?;
+        if let Some(id) = scene_output {
+            if !motion
+                .scene
+                .as_ref()
+                .is_some_and(|scene| scene.objects.iter().any(|object| object.id == id))
+            {
+                return Err("Missing object output".into());
+            }
+        }
+        let layer_times = if let Some(value) = request.graph_context {
+            let context: fold_composition::graph::Context =
+                serde_json::from_value(value.data.clone()).map_err(|e| e.to_string())?;
+            if scene_output != Some(context.selected) {
+                return Err("Mismatched layer graph context".into());
+            }
+            crate::evaluation::layers::bind(motion.to_mut(), &context)?
+        } else {
+            Default::default()
+        };
         let mut evaluator = crate::evaluation::Evaluator::for_graph(&motion, &motion.graph, time)?;
+        evaluator.layer_times = Arc::new(layer_times);
+        evaluator.scene_output = scene_output;
         evaluator.runtime = self.1.clone();
-        if !reference.extensions.contains_key("fold.controls") {
+        if !reference.extensions.contains_key("fold.controls")
+            && matches!(motion, std::borrow::Cow::Borrowed(_))
+        {
             evaluator.identity = Some(prepared.identity.clone());
         }
         crate::evaluation::compile_evaluator_images(
@@ -213,6 +269,12 @@ pub fn register(registry: &mut PackageRegistry) -> Result<(), String> {
             Box::new(crate::SolidProvider),
         ],
         commands: vec![
+            CommandRegistration {
+                id: crate::authoring::composition::NEST,
+                title: "Precompose layers",
+                execution: Execution::Immediate,
+                handler: crate::authoring::composition::stage,
+            },
             CommandRegistration {
                 id: EDIT,
                 title: "Edit motion",

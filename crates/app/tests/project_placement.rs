@@ -9,6 +9,19 @@ fn edit(project: &mut Project, command: Command) {
     project.commit(batch).unwrap();
 }
 fn create(project: &mut Project, kind: &str) -> DocumentId {
+    // Graph providers are layer content, no longer standalone Project creation kinds.
+    if kind == fold_motion::MOTION || kind == fold_compositor::COMPOSITE {
+        let id = DocumentId::new();
+        project
+            .commit(fold_project::EditBatch {
+                base: project.snapshot().revision(),
+                mutations: vec![fold_project::Mutation::PutDocument(
+                    packages::builtins().create(kind, id).unwrap(),
+                )],
+            })
+            .unwrap();
+        return id;
+    }
     let before = project.snapshot();
     edit(
         project,
@@ -364,4 +377,72 @@ fn invalid_targets_ranges_locked_tracks_cycles_and_unavailable_providers_are_ato
             .create("unavailable.document", DocumentId::new())
             .is_err()
     );
+}
+
+#[test]
+fn common_composition_accepts_still_assets_as_full_duration_layers() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("background.ppm");
+    std::fs::write(&path, b"P6\n1 1\n255\n\xff\x00\x00").unwrap();
+    let mut project = Project::new(16);
+    let proposal = ingest::import(
+        &project.snapshot(),
+        &ingest::ImportRequest {
+            base: project.snapshot().revision(),
+            paths: vec![path],
+            destination: Parent::Root,
+        },
+        &Cancel::default(),
+    )
+    .unwrap();
+    proposal.commit(&mut project).unwrap();
+    let asset = *project.snapshot().state().assets.keys().next().unwrap();
+    let document = create(&mut project, fold_composition::COMPOSITION);
+    edit(
+        &mut project,
+        Command::Place(placement(PlacementSource::Asset(asset), document)),
+    );
+    let snapshot = project.snapshot();
+    let composition =
+        fold_composition::Composition::from_document(&snapshot.state().documents[&document])
+            .unwrap();
+    assert_eq!(composition.layers.len(), 1);
+    assert_eq!(
+        composition.layers[0].end,
+        composition.info.time(composition.info.frames).unwrap()
+    );
+    assert_eq!(composition.layers[0].name, "background.ppm");
+    let layer = composition.layers[0].id;
+    let request = fold_platform::packages::CommandRequest {
+        id: fold_app::composition_layers::ADD.into(),
+        base: project.snapshot().revision(),
+        arguments: serde_json::to_vec(
+            &serde_json::json!({"document":document,"kind":"process","layer":layer}),
+        )
+        .unwrap(),
+    };
+    let processing = packages::builtins()
+        .stage(&project.snapshot(), &request, &Cancel::default())
+        .unwrap();
+    project.commit(processing).unwrap();
+    let reference = DocumentRef {
+        document,
+        output: "video".into(),
+        extensions: Default::default(),
+    };
+    let graph = packages::builtins()
+        .video(&project.snapshot(), &reference, Time::ZERO, 1280, 720)
+        .unwrap();
+    assert!(
+        fold_render::render(graph)
+            .unwrap()
+            .pixels()
+            .iter()
+            .any(|pixel| pixel[0] > 0.9)
+    );
+
+    let before = project.snapshot().state().documents.clone();
+    project.undo().unwrap();
+    project.redo().unwrap();
+    assert_eq!(project.snapshot().state().documents, before);
 }

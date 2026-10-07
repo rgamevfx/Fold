@@ -250,7 +250,16 @@ impl Overlay {
             scope: state.scene_scope,
             selected: selected_object,
         };
-        self.picking.update(&motion, pick_key);
+        let mut picking_motion = std::borrow::Cow::Borrowed(&motion);
+        // Missing sources retain their authored bounds so the layer can still be selected.
+        if crate::nodes::composition::refresh_metadata(&mut picking_motion, &|source| {
+            host.video_info(source.document)
+        })
+        .is_err()
+        {
+            picking_motion = std::borrow::Cow::Borrowed(&motion);
+        }
+        self.picking.update(&picking_motion, pick_key);
         let Some(&selected) = state.selected.first().filter(|_| state.selected.len() == 1) else {
             self.pick(ui, &mut state, host, rect, &motion, time);
             return;

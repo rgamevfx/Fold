@@ -27,6 +27,9 @@ impl DesktopClient for Host {
     fn snapshot(&self) -> Option<CommittedSnapshot> {
         Some(self.project.snapshot())
     }
+    fn video_info(&self, document: DocumentId) -> Result<fold_media::VideoInfo, String> {
+        self.registry.output(&self.project.snapshot(), document)
+    }
     fn poll(&mut self) {}
     fn command(&mut self, command: DesktopCommand) {
         match command {
@@ -122,6 +125,156 @@ fn direct_ui_edits_are_one_transaction_and_group_edits_preserve_root_output() {
     );
     assert!(crate::evaluation::compile(&saved, Time::ZERO, 64, 64).is_ok());
 }
+
+#[test]
+fn composition_keys_modifier_internals_and_undo_preserves_root() {
+    use fold_ui::sdk::graph_canvas::{GraphContext, GraphEvent};
+    let _guard = super::IMGUI_TEST_LOCK.lock().unwrap();
+    let mut host = Host::new();
+    let shared = state::Shared::default();
+    let (group, rectangle) = {
+        let mut state = shared.borrow_mut();
+        state.create(&mut host);
+        state.change(&mut host, |m| {
+            a::add_content(m, "fold.motion.rectangle").map(Some)
+        });
+        let rectangle = state.selected[0];
+        state.change(&mut host, |m| a::group_node(m, rectangle).map(Some));
+        let instance = state.selected[0];
+        graph::Context {
+            state: &mut state,
+            host: &mut host,
+        }
+        .event(GraphEvent::Navigate(Some(instance)))
+        .unwrap();
+        state.change(&mut host, |m| {
+            let node = crate::authoring::node(m, rectangle)?;
+            node.set("width", Datum::Scalar(120.));
+            let mut curve = fold_animation::Curve::default();
+            curve.insert(Time::ZERO, 120.);
+            node.animation.insert("width.0".into(), curve);
+            Ok(Some(rectangle))
+        });
+        (state.group.unwrap(), rectangle)
+    };
+    let before = host.project.snapshot();
+    let document = shared.borrow().document.unwrap();
+    let root = Motion::from_document(&before.state().documents[&document]).unwrap();
+    host.state.navigation.last_mut().unwrap().time = Time::new(1, 2).unwrap();
+    let mut context = imgui::Context::create();
+    context.set_ini_filename(None::<String>).unwrap();
+    context
+        .font_atlas()
+        .try_claim_legacy_renderer()
+        .unwrap()
+        .build();
+    context.io_mut().set_display_size([900., 600.]);
+    context.io_mut().set_delta_time(1. / 60.);
+    let mut canvas = canvas::Canvas {
+        state: shared.clone(),
+        canvas: Default::default(),
+        overlay: Default::default(),
+        animation: Default::default(),
+    };
+    for frame in 0..6 {
+        context.io_mut().add_key_event(imgui::Key::I, frame == 3);
+        let ui = context.frame();
+        ui.window("Composition")
+            .focused(true)
+            .size([850., 500.], imgui::Condition::Always)
+            .build(|| {
+                canvas.draw(ExtensionUi {
+                    ui,
+                    host: &mut host,
+                });
+            });
+        context.end_frame();
+    }
+    let after = host.project.snapshot();
+    assert_eq!(after.revision().0, before.revision().0 + 1);
+    let edited = Motion::from_document(&after.state().documents[&document]).unwrap();
+    assert_eq!(edited.graph, root.graph);
+    let curve = &edited.groups[&group]
+        .graph
+        .node(rectangle)
+        .unwrap()
+        .animation["width.0"];
+    assert_eq!(curve.keys.len(), 2);
+    assert!(
+        curve
+            .keys
+            .iter()
+            .any(|key| key.time == Time::new(1, 2).unwrap())
+    );
+    host.project.undo().unwrap();
+    assert_eq!(
+        host.project.snapshot().state().documents,
+        before.state().documents
+    );
+    host.project.redo().unwrap();
+    assert_eq!(
+        host.project.snapshot().state().documents,
+        after.state().documents
+    );
+}
+
+#[test]
+fn nested_composition_opens_at_source_time_and_back_restores_parent_time() {
+    use fold_platform::{panel_context::PanelContext, workspace::Workspace};
+    let mut host = Host::new();
+    let mut state = state::State::default();
+    state.create(&mut host);
+    state.change_scene(&mut host, |m| {
+        a::scene::create_object(m, "fold.motion.rectangle").map(Some)
+    });
+    let parent = state.document.unwrap();
+    super::composition::nest(&mut state, &mut host, false);
+    let layer = state.selected[0];
+    let child = state
+        .motion
+        .as_ref()
+        .unwrap()
+        .graph
+        .node(layer)
+        .unwrap()
+        .settings::<crate::nodes::composition::Settings>()
+        .unwrap()
+        .source
+        .unwrap()
+        .document;
+    state.change_scene(&mut host, |m| {
+        a::composition::set_range(m, layer, Time::new(1, 1).unwrap(), Time::new(6, 1).unwrap())?;
+        Ok(Some(layer))
+    });
+    let parent_time = Time::new(7, 6).unwrap();
+    let mut workspace = Workspace::default();
+    let id = workspace.add_editor(crate::package::PANEL, crate::MOTION);
+    let mut editor = workspace.editors.remove(&id).unwrap();
+    editor.bind(ViewLocation {
+        document: parent,
+        time: parent_time,
+        label: "Parent".into(),
+    });
+    {
+        let mut context = PanelContext::new(&mut host, &mut editor);
+        super::composition::open(&mut state, &mut context, layer).unwrap();
+    }
+    assert_eq!(editor.document(), Some(child));
+    assert_eq!(editor.navigation.len(), 2);
+    assert_eq!(
+        editor.navigation.last().unwrap().time,
+        Time::new(1, 6).unwrap()
+    );
+    assert_eq!(state.document, Some(child));
+    {
+        let mut context = PanelContext::new(&mut host, &mut editor);
+        context.command(DesktopCommand::NavigateBack);
+        state.sync(&mut context);
+    }
+    assert_eq!(editor.document(), Some(parent));
+    assert_eq!(editor.navigation.last().unwrap().time, parent_time);
+    assert_eq!(state.document, Some(parent));
+}
 #[test]
 fn drawing_motion_graph_inspector_and_handles_does_not_mutate_project() {
     let _guard = super::IMGUI_TEST_LOCK.lock().unwrap();
@@ -147,7 +300,6 @@ fn drawing_motion_graph_inspector_and_handles_does_not_mutate_project() {
         canvas: Default::default(),
         overlay: Default::default(),
         animation: Default::default(),
-        network_animation: Default::default(),
     };
     canvas.initialize(&context, Some(&typography));
     let mut inspector = inspector::Inspector {
@@ -910,4 +1062,70 @@ fn attract_particles_action_and_animation_share_one_undo_step() {
             .node(owner)
             .is_ok()
     );
+}
+
+#[test]
+fn badge_layer_selection_opens_its_original_graph_and_leaves_modifier_scope() {
+    use fold_ui::sdk::graph_canvas::{GraphContext, GraphEvent};
+    let mut host = Host::new();
+    host.project = fold_project::load(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../demos/fold-badge-live.fold"),
+        32,
+    )
+    .unwrap();
+    let snapshot = host.project.snapshot();
+    let document = snapshot
+        .state()
+        .documents
+        .values()
+        .find(|d| d.type_id == crate::MOTION)
+        .unwrap();
+    let motion = Motion::from_document(document).unwrap();
+    let scene = motion.scene.as_ref().unwrap();
+    let copies = scene
+        .objects
+        .iter()
+        .find(|o| o.name == "Duplicator")
+        .unwrap();
+    let badge = scene
+        .objects
+        .iter()
+        .find(|o| o.name.to_lowercase() == "badge")
+        .unwrap();
+    let text = scene
+        .objects
+        .iter()
+        .find(|o| o.parent == Some(badge.id) && o.name == "Text")
+        .unwrap();
+    let mut state = state::State::default();
+    let mut graphs = vec![];
+    for object in [copies, badge, text] {
+        host.state.selection = Selection {
+            document: Some(document.id),
+            objects: vec![object.id],
+        };
+        state.sync(&mut host);
+        assert_eq!(
+            state.network_object,
+            Some(object.id),
+            "Layer selection must choose that layer's actual graph"
+        );
+        assert_eq!(state.group, None);
+        let mut context = graph::Context {
+            state: &mut state,
+            host: &mut host,
+        };
+        let graph = context.graph();
+        assert!(graph.nodes.iter().any(|node| node.id == object.source.node));
+        assert!(graph.nodes.iter().any(|node| node.id == object.output.node));
+        assert!(graph.nodes.iter().all(|node| node.summary != "Graph"));
+        graphs.push(graph.nodes.iter().map(|node| node.id).collect::<Vec<_>>());
+        if object.id == copies.id {
+            let group = graph.nodes.iter().find(|node| node.can_open).unwrap();
+            context.event(GraphEvent::Navigate(Some(group.id))).unwrap();
+            assert!(context.state.group.is_some());
+        }
+    }
+    assert_ne!(graphs[0], graphs[1]);
+    assert_ne!(graphs[1], graphs[2]);
 }

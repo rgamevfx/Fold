@@ -9,6 +9,7 @@ default = []
 ui = ["dep:fold-ui"]
 
 [dependencies]
+fold-composition.workspace = true
 schemars.workspace = true
 fold-animation.workspace = true
 serde.workspace = true

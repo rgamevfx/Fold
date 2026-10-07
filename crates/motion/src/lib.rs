@@ -6,6 +6,7 @@ pub mod evaluation;
 pub mod fields;
 pub mod geometry;
 pub mod graph;
+mod layer_edits;
 pub mod nodes;
 pub mod package;
 pub mod scene;
@@ -137,3 +138,5 @@ impl VideoProvider for SolidProvider {
 pub mod edits;
 
 mod automation;
+
+mod inputs;

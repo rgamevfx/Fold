@@ -155,6 +155,7 @@ pub fn definitions() -> Vec<Definition> {
             nested.step_context = e.step_context.clone();
             nested.group_depth = e.group_depth + 1;
             nested.object_path = e.object_path.clone();
+            nested.layer_times = e.layer_times.clone();
             nested.current_object = e.current_object;
             nested.budget = std::mem::take(&mut e.budget);
             let mut result = Outputs::new();

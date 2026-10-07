@@ -1,8 +1,9 @@
 //! Cross-feature assembly: one proposal creates a composite and replaces video
 //! clips. Neither creative package imports the other's implementation models.
-use fold_compositor::{Composite, Node, Parameters as P, Source};
+use fold_composition::{Composition, Layer};
 use fold_foundation::{DocumentId, ObjectId, Rounding, Time};
 use fold_media::Cancel;
+use fold_platform::image_source::Source;
 use fold_project::{DocumentRef, EditBatch, Mutation, Snapshot};
 use fold_timeline::{Clip, Sequence, SourceMedia, TrackKind};
 use serde::{Deserialize, Serialize};
@@ -104,49 +105,32 @@ pub fn create(snapshot: &Snapshot, args: &[u8], _: &Cancel) -> Result<EditBatch,
             .map_err(|e| e.to_string())?,
     )
     .map_err(|e| e.to_string())?;
-    let background = Node::new(P::Solid { rgba: [0.0; 4] }, vec![]);
-    let mut output = background.id;
-    let mut nodes = vec![background];
-    for clip in &selected {
+    let mut layers = vec![];
+    for clip in selected.iter().rev() {
         let source = match &clip.info {
-            SourceMedia::Video(info) => Source::Asset {
-                asset: clip.asset,
-                info: info.clone(),
-            },
-            SourceMedia::Document { source, info } => Source::Document {
-                source: source.clone(),
-                info: info.clone(),
-            },
-            _ => return Err("cannot nest audio into an image-only composite".into()),
+            SourceMedia::Video(_) => Source::Asset(clip.asset),
+            SourceMedia::Document { source, .. } => Source::Output(source.clone()),
+            _ => return Err("Cannot nest audio into a composition layer".into()),
         };
-        let read = Node::new(
-            P::Read {
-                source,
-                start: clip.start.checked_sub(start).map_err(|e| e.to_string())?,
-                source_start: clip.source_start,
-                duration: clip.duration,
-            },
-            vec![],
-        );
-        let transform = Node::new(
-            P::Transform {
-                translate: [0.0; 2],
-                scale: [1.0; 2],
-                opacity: clip.level,
-            },
-            vec![read.id],
-        );
-        let merge = Node::new(P::Merge, vec![transform.id, output]);
-        output = merge.id;
-        nodes.extend([read, transform, merge]);
+        let source_info = match &clip.info {
+            SourceMedia::Video(info) | SourceMedia::Document { info, .. } => info.clone(),
+            _ => unreachable!(),
+        };
+        let mut layer = Layer::new("Clip", Some(source), source_info)?;
+        layer.state.id = clip.id;
+        layer.state.start = clip.start.checked_sub(start).map_err(|e| e.to_string())?;
+        layer.state.end = layer
+            .start
+            .checked_add(clip.duration)
+            .map_err(|e| e.to_string())?;
+        layer.state.opacity = clip.level as f64;
+        layer.origin = layer.start;
+        layer.source_start = clip.source_start;
+        layers.push(layer);
     }
-    let output_node = Node::new(P::Output, vec![output]);
-    let output = output_node.id;
-    nodes.push(output_node);
-    let composite = Composite {
+    let composite = Composition {
         info: info.clone(),
-        nodes,
-        output,
+        layers,
         extensions: Default::default(),
     };
     let id = DocumentId::new();

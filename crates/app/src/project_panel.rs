@@ -52,6 +52,14 @@ fn contains(p: [f32; 2], min: [f32; 2], max: [f32; 2]) -> bool {
 impl ProjectPanel {
     fn rows(&self, snapshot: &Snapshot) -> Vec<Row> {
         let org = &snapshot.state().organization;
+        let visible = |id: ItemId| match id {
+            ItemId::Document(id) => snapshot
+                .state()
+                .documents
+                .get(&id)
+                .is_none_or(|d| !d.extensions.contains_key(fold_composition::LAYER_GRAPH)),
+            _ => true,
+        };
         let query = self.search.trim().to_lowercase();
         if !query.is_empty() {
             let mut rows: Vec<_> = org
@@ -62,7 +70,7 @@ impl ProjectPanel {
                     name: b.name.clone(),
                     depth: 0,
                 })
-                .chain(org.items.iter().map(|i| Row {
+                .chain(org.items.iter().filter(|i| visible(i.id)).map(|i| Row {
                     entry: Entry::Item(i.id),
                     name: i.name.clone(),
                     depth: 0,
@@ -86,7 +94,7 @@ impl ProjectPanel {
                 depth: 0,
             });
         }
-        for item in &org.items {
+        for item in org.items.iter().filter(|i| visible(i.id)) {
             children.entry(item.parent).or_default().push(Row {
                 entry: Entry::Item(item.id),
                 name: item.name.clone(),
@@ -407,7 +415,6 @@ impl ProjectPanel {
                 Entry::Item(ItemId::Document(_)) => match kind {
                     "Sequence" => "S",
                     "Composition" => "C",
-                    "MoGraph" => "G",
                     _ => "?",
                 },
                 _ => "M",

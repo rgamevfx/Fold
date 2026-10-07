@@ -115,6 +115,7 @@ fn create_composition_keeps_linked_audio_and_exports_the_same_video() {
         )
         .unwrap();
     let after = project.snapshot();
+    let nested_after = after.clone();
     let nested = Sequence::from_document(&after.state().documents[&reference.document]).unwrap();
     let audio = nested
         .clips
@@ -179,8 +180,33 @@ fn create_composition_keeps_linked_audio_and_exports_the_same_video() {
     else {
         panic!("expected nested clip")
     };
+    let composition =
+        fold_composition::Composition::from_document(&after.state().documents[&source.document])
+            .unwrap();
+    let layer = composition.layers[0].id;
+    let request = fold_platform::packages::CommandRequest {
+        id: fold_app::composition_layers::ADD.into(),
+        base: project.snapshot().revision(),
+        arguments: serde_json::to_vec(
+            &serde_json::json!({"document":source.document,"kind":"process","layer":layer}),
+        )
+        .unwrap(),
+    };
+    let batch = packages::builtins()
+        .stage(&project.snapshot(), &request, &Cancel::default())
+        .unwrap();
+    project.commit(batch).unwrap();
+    let after = project.snapshot();
+    let composition =
+        fold_composition::Composition::from_document(&after.state().documents[&source.document])
+            .unwrap();
+    let Some(fold_platform::image_source::Source::Output(processing)) =
+        &composition.layers[0].source
+    else {
+        panic!("expected processing graph");
+    };
     let mut composite =
-        Composite::from_document(&after.state().documents[&source.document]).unwrap();
+        Composite::from_document(&after.state().documents[&processing.document]).unwrap();
     let index = composite.nodes.len() - 1;
     let previous = composite.nodes[index].inputs[0].unwrap();
     let grade = Node::new(
@@ -196,7 +222,7 @@ fn create_composition_keeps_linked_audio_and_exports_the_same_video() {
         &after,
         fold_compositor::package::EDIT,
         &fold_compositor::package::EditArgs {
-            document: source.document,
+            document: processing.document,
             composite,
         },
     )
@@ -216,11 +242,16 @@ fn create_composition_keeps_linked_audio_and_exports_the_same_video() {
     let encoded = fold_media::inspect(&output, &Cancel::default()).unwrap();
     assert_eq!(encoded.info.frames, 48);
     assert!(fold_media::audio::has_audio(&output, &Cancel::default()).unwrap());
-    // Undo restores the nested graph edit, then the entire create/replace batch.
+    // Each graph edit, processing insertion and sequence replacement is one undo entry.
     project.undo().unwrap();
     assert_eq!(
         media_workflow::content(&project.snapshot()).unwrap(),
         media_workflow::content(&after).unwrap()
+    );
+    project.undo().unwrap();
+    assert_eq!(
+        project.snapshot().state().documents,
+        nested_after.state().documents
     );
     project.undo().unwrap();
     assert_eq!(
@@ -232,7 +263,12 @@ fn create_composition_keeps_linked_audio_and_exports_the_same_video() {
         before.state().documents
     );
     assert_eq!(project.snapshot().state().assets, before.state().assets);
-    // Redo must restore both documents as one batch, then the graph edit.
+    // Redo restores the same three atomic edits.
+    project.redo().unwrap();
+    assert_eq!(
+        project.snapshot().state().documents,
+        nested_after.state().documents
+    );
     project.redo().unwrap();
     assert_eq!(
         project.snapshot().state().documents,

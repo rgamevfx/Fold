@@ -1,4 +1,4 @@
-use crate::{Composite, Node, Parameters as P, package};
+use crate::{Composite, package};
 use fold_foundation::{DocumentId, ObjectId, Time};
 use fold_platform::{
     desktop::{DesktopClient, DesktopCommand, ViewLocation},
@@ -9,6 +9,7 @@ use std::{cell::RefCell, rc::Rc};
 pub type Shared = Rc<RefCell<State>>;
 #[derive(Default)]
 pub struct State {
+    pub graph_animation: bool,
     pub document: Option<DocumentId>,
     pub base: Revision,
     pub original: Option<Composite>,
@@ -167,52 +168,6 @@ impl State {
                 time: Time::ZERO,
                 label: "Composite".into(),
             }));
-        }
-    }
-    pub fn create(&mut self, host: &mut dyn DesktopClient) {
-        let Some(snapshot) = host.snapshot() else {
-            return;
-        };
-        let solid = Node::new(
-            P::Solid {
-                rgba: [0.08, 0.16, 0.3, 1.0],
-            },
-            vec![],
-        );
-        let output = Node::new(P::Output, vec![solid.id]);
-        let mut graph = Composite {
-            info: fold_media::VideoInfo {
-                width: 640,
-                height: 360,
-                rate: [24, 1],
-                frames: 120,
-            },
-            output: output.id,
-            nodes: vec![solid, output],
-            extensions: Default::default(),
-        };
-        let _ = graph.auto_layout();
-        let id = DocumentId::new();
-        let request = CommandRequest {
-            id: package::EDIT.into(),
-            base: snapshot.revision(),
-            arguments: serde_json::to_vec(&package::EditArgs {
-                document: id,
-                composite: graph,
-            })
-            .unwrap(),
-        };
-        host.command(DesktopCommand::Extension(request));
-        if host
-            .snapshot()
-            .is_some_and(|s| s.state().documents.contains_key(&id))
-        {
-            host.command(DesktopCommand::Navigate(ViewLocation {
-                document: id,
-                time: Time::ZERO,
-                label: "Composite".into(),
-            }));
-            self.sync(host);
         }
     }
 }

@@ -40,24 +40,19 @@ pub fn ensure_scene(m: &mut Motion) -> Result<(), String> {
         };
         m.graph.nodes.push(original.clone());
         scene.objects.push(Object {
-            id: original.id,
-            parent: None,
-            name: "Original construction".into(),
+            state: fold_composition::layer::LayerState {
+                id: original.id,
+                name: "Original graph".into(),
+                ..fold_composition::layer::LayerState::new("Layer", duration(m)?)
+            },
             source: link.clone(),
             output: link,
             transform: None,
             appearance: None,
             modifiers: vec![],
-            animation: Default::default(),
-            offset: crate::geometry::IDENTITY,
-            opacity: 1.,
             isolated: false,
             masks: vec![],
             constraints: vec![],
-            visible: true,
-            locked: false,
-            start: Time::ZERO,
-            end: duration(m)?,
             extensions: BTreeMap::new(),
         });
     }
@@ -79,9 +74,11 @@ pub fn create_object(m: &mut Motion, kind: &str) -> Result<ObjectId, String> {
     m.scene.as_mut().unwrap().objects.insert(
         0,
         Object {
-            id: source,
-            parent: None,
-            name,
+            state: fold_composition::layer::LayerState {
+                id: source,
+                name,
+                ..fold_composition::layer::LayerState::new("Layer", end)
+            },
             source: Link {
                 node: source,
                 socket: "content".into(),
@@ -93,16 +90,9 @@ pub fn create_object(m: &mut Motion, kind: &str) -> Result<ObjectId, String> {
             transform: Some(transform),
             appearance: Some(appearance),
             modifiers: vec![],
-            animation: Default::default(),
-            offset: crate::geometry::IDENTITY,
-            opacity: 1.,
             isolated: false,
             masks: vec![],
             constraints: vec![],
-            visible: true,
-            locked: false,
-            start: Time::ZERO,
-            end,
             extensions: BTreeMap::new(),
         },
     );
@@ -141,6 +131,7 @@ pub fn create_procedural(m: &mut Motion) -> Result<ObjectId, String> {
     let id = instance.id;
     m.graph.nodes.push(instance);
     let mut transform = Node::new("fold.motion.transform")?;
+    transform.position = [260., 0.];
     transform.connect("content", id, "content");
     let transform_id = transform.id;
     m.graph.nodes.push(transform);
@@ -148,9 +139,11 @@ pub fn create_procedural(m: &mut Motion) -> Result<ObjectId, String> {
     m.scene.as_mut().unwrap().objects.insert(
         0,
         Object {
-            id,
-            parent: None,
-            name: "Procedural Object".into(),
+            state: fold_composition::layer::LayerState {
+                id,
+                name: "Procedural Object".into(),
+                ..fold_composition::layer::LayerState::new("Layer", end)
+            },
             source: Link {
                 node: id,
                 socket: "content".into(),
@@ -162,16 +155,9 @@ pub fn create_procedural(m: &mut Motion) -> Result<ObjectId, String> {
             transform: Some(transform_id),
             appearance: None,
             modifiers: vec![],
-            animation: Default::default(),
-            offset: crate::geometry::IDENTITY,
-            opacity: 1.,
             isolated: false,
             masks: vec![],
             constraints: vec![],
-            visible: true,
-            locked: false,
-            start: Time::ZERO,
-            end,
             extensions: BTreeMap::new(),
         },
     );

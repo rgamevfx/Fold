@@ -444,7 +444,21 @@ Phases 34–40 are complete per user acceptance. Validation evidence and unverif
 
   - Follow-up: reproduced and fixed the embedded-font command-size failure in the launched demo. Existing Motion edits now send revision-bound sparse changes; unchanged resources stay out of command arguments. The 1 MiB host limit remains. All 88 Motion tests and the saved-demo command replay pass; release desktop rebuilt and opened. Regression coverage exercises UI preview/commit/cancel/undo; details in phase 42.
 
+## Unified composition authoring
+
+- [x] 51. Consolidate layer and animation authoring in Composition (user-authorized; extended to a common composition model).
+  - Implementation and acceptance: [phase 51 — Composition authoring](docs/phase-51.md).
+  - Hierarchy/graph correction (user rejected the wrapper-network implementation): restore Badge’s actual Text/Background child layers; selecting any layer opens its real graph directly. Delete the intermediate source-image network and its terminology. Keep shared layer controls, graph properties, source references and native tool creation connected through atomic edits. Do not certify this with pixel parity alone: verify hierarchy, distinct native graph scopes, selection, child-control propagation and normal/narrow panels against the actual demo.
+  - Direction: **one Composition type** owns layers containing either MoGraph or Compositing graphs, with shared visibility, lock, timing, transforms and animation. Nested compositions remain supported; Light Wrap is excluded.
+  - User adjustment: no legacy-project shims or automatic adoption. Update the project artifacts directly. Removed the automatic conversion module, command registration and background-open mutation.
+  - Badge Wave correction: update both checked-in Badge Wave files, preserve editable graphs and source relationships, restore the Composition editor context/group badge in saved workspaces, and create a missing editor on explicit document open.
+  - Retire standalone Animation and MoGraph windows; retain graph editing and graph-internal animation in Network. Common layer curves use the shared editor. Graph navigation preserves the parent stack, selection and exact clock.
+  - Mixed graph creation, named inputs, processing chains, Project placement, nested clocks and atomic precomposition remain in this phase; keep engines independent through provider capabilities.
+  - Hierarchy correction verification: 26 focused app tests and 135 affected UI/Motion/Composition library tests pass, including the original failing hierarchy/selection regressions. Actual native panels are captured at normal/narrow widths. Normal open preserves content and clean state. Details and limits: [phase 51](docs/phase-51.md). User accepted the corrected UI on 2026-10-07 and requested phase completion.
+
 ## Live agent access and reusable workflows
+
+- [ ] Follow-up from phase 51: provide and verify common Composition/layer creation in the public SDK before claiming the existing live Badge generator reproduces the updated demo. Its source-graph editing bindings are retained.
 
 - [x] 50. GPU-native Image Bake and ten-video performance (user-authorized).
   - Plan, benchmarks and acceptance: [phase 50](docs/phase-50-image-bake.md).

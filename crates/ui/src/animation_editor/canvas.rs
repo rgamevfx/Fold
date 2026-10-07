@@ -790,6 +790,9 @@ impl Editor {
                         Row::Node(id, ..) => Some(*id),
                         _ => indices.first().map(|&i| channels[i].object),
                     };
+                    if ui.is_mouse_double_clicked(MouseButton::Left) {
+                        response.open_node = response.select_node;
+                    }
                     match row {
                         Row::Node(id, _, _, _) => {
                             if mouse[0]

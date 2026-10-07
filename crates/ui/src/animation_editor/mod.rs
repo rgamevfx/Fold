@@ -74,6 +74,7 @@ pub struct Response {
     pub edit: EditResponse,
     pub seek: Option<Time>,
     pub select_node: Option<ObjectId>,
+    pub open_node: Option<ObjectId>,
     pub range: Option<(ObjectId, Time, Time)>,
     pub reorder: Option<(ObjectId, ObjectId, bool)>,
     pub reparent: Option<(ObjectId, Option<ObjectId>)>,
@@ -366,23 +367,6 @@ impl Editor {
         }
         response.edit.finished |= response.edit.changed;
         self.selected.clear();
-    }
-}
-
-/// Shell-owned surface, dispatched to the linked editor's animation capability.
-pub(crate) const PANEL_ID: &str = "fold.ui.animation";
-pub(crate) struct Surface;
-impl crate::sdk::Panel for Surface {
-    fn id(&self) -> &'static str {
-        PANEL_ID
-    }
-    fn supports_document_type(&self, _: &str) -> bool {
-        true
-    }
-    fn draw(&mut self, context: crate::sdk::ExtensionUi<'_>) {
-        context
-            .ui
-            .text_disabled("Choose a source editor for this group.");
     }
 }
 

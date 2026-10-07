@@ -1237,7 +1237,9 @@ dependencies = [
  "base64",
  "cpal",
  "exr",
+ "fold-animation",
  "fold-color",
+ "fold-composition",
  "fold-compositor",
  "fold-foundation",
  "fold-media",
@@ -1268,6 +1270,22 @@ dependencies = [
  "serde_json",
  "sha2",
  "tempfile",
+]
+
+[[package]]
+name = "fold-composition"
+version = "0.1.0"
+dependencies = [
+ "fold-animation",
+ "fold-foundation",
+ "fold-media",
+ "fold-platform",
+ "fold-project",
+ "fold-render",
+ "fold-ui",
+ "pollster",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -1315,6 +1333,7 @@ name = "fold-motion"
 version = "0.1.0"
 dependencies = [
  "fold-animation",
+ "fold-composition",
  "fold-foundation",
  "fold-media",
  "fold-platform",

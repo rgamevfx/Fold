@@ -7,7 +7,6 @@ pub struct Canvas {
     pub canvas: GraphCanvas,
     pub overlay: super::overlay::Overlay,
     pub(super) animation: super::animation::Animation,
-    pub(super) network_animation: super::animation::Animation,
 }
 impl Panel for Canvas {
     fn take_network_request(&mut self) -> bool {
@@ -17,18 +16,24 @@ impl Panel for Canvas {
     fn supports_network(&self) -> bool {
         true
     }
-    fn supports_animation(&self) -> bool {
+    fn is_layer_graph(&self) -> bool {
         true
     }
-    fn draw_animation(&mut self, context: ExtensionUi<'_>) {
-        let scoped = self.state.borrow().group.is_some();
-        if scoped {
-            self.network_animation.draw_scoped(&self.state, context);
-        } else {
-            context.ui.text_disabled("Motion animation is integrated into MoGraph. Open a modifier graph to edit its internal animation here.");
-        }
-    }
 
+    fn selected_layer_object(&self) -> Option<fold_foundation::ObjectId> {
+        let state = self.state.borrow();
+        state
+            .motion
+            .as_ref()
+            .and_then(|m| m.scene.as_ref())
+            .and_then(|s| {
+                s.objects
+                    .iter()
+                    .find(|o| state.selected.first().is_some_and(|id| o.owns(*id)))
+                    .map(|o| o.id)
+            })
+            .or(state.network_object)
+    }
     fn new_instance(&self) -> Option<fold_ui::sdk::EditorPanels> {
         let state = std::rc::Rc::new(std::cell::RefCell::new(super::state::State::default()));
         Some(fold_ui::sdk::EditorPanels {
@@ -37,7 +42,6 @@ impl Panel for Canvas {
                 canvas: Default::default(),
                 overlay: Default::default(),
                 animation: Default::default(),
-                network_animation: Default::default(),
             }),
             inspector: Box::new(super::inspector::Inspector { state }),
         })
@@ -72,15 +76,62 @@ impl Panel for Canvas {
         self.canvas.accepts_background_pan(position)
     }
     fn draw(&mut self, context: ExtensionUi<'_>) {
-        super::scene::draw(&self.state, &mut self.animation, context);
+        self.state.borrow_mut().sync(context.host);
+        let group = self.state.borrow().group;
+        if let Some(group) = group {
+            let label = self
+                .state
+                .borrow()
+                .motion
+                .as_ref()
+                .and_then(|m| m.groups.get(&group))
+                .map(|g| g.name.clone())
+                .unwrap_or_else(|| "Modifier".into());
+            if fold_ui::sdk::toolbar::icon_button(
+                context.ui,
+                "composition-root",
+                fold_ui::sdk::toolbar::ToolbarIcon::Back,
+                "Return to composition",
+            ) {
+                let mut state = self.state.borrow_mut();
+                state.cancel(context.host);
+                state.group = None;
+                state.parents.clear();
+                state.selected = state.network_object.into_iter().collect();
+                context
+                    .host
+                    .command(fold_platform::desktop::DesktopCommand::Select(
+                        fold_platform::desktop::Selection {
+                            document: state.document,
+                            objects: state.selected.clone(),
+                        },
+                    ));
+            }
+            context.ui.same_line();
+            context.ui.text(label);
+        }
+        if self.state.borrow().group.is_some() {
+            self.animation.draw_scoped(&self.state, context);
+        } else {
+            super::scene::draw(&self.state, &mut self.animation, context);
+        }
     }
     fn draw_network(&mut self, context: ExtensionUi<'_>) {
+        let animation = {
+            let mut state = self.state.borrow_mut();
+            context.ui.checkbox("Animation", &mut state.graph_animation);
+            state.graph_animation
+        };
+        if animation {
+            self.animation.draw_scoped(&self.state, context);
+            return;
+        }
         let ExtensionUi { ui, host } = context;
         self.canvas.clear_hit_map();
         let mut state = self.state.borrow_mut();
         state.sync(host);
         if state.motion.is_none() {
-            ui.text_disabled("Create a Motion document in MoGraph or Project.");
+            ui.text_disabled("Add a MoGraph layer in Composition.");
             return;
         }
         if state.group.is_none() {
@@ -102,12 +153,22 @@ impl Panel for Canvas {
                 state.network_object = owner;
             }
         }
+        if state.group.is_none() {
+            if let Some(_menu) = fold_ui::sdk::toolbar::menu_button(
+                ui,
+                "Tools",
+                "Create, arrange, animate and style layers",
+            ) {
+                super::tool_actions::draw(ui, &mut state, host);
+            }
+            ui.same_line();
+        }
         if let Some(_menu) =
             fold_ui::sdk::toolbar::menu_button(ui, "Network", "Procedural graph actions")
         {
             ui.checkbox("Show parameter sockets", &mut state.parameter_sockets);
             if ui.menu_item(if state.document_network {
-                "Selected construction"
+                "Selected graph"
             } else {
                 "Full document network"
             }) {
@@ -150,7 +211,7 @@ impl Panel for Canvas {
             .unwrap_or(if state.document_network {
                 "Document network"
             } else {
-                "Select a construction"
+                "Select a graph"
             });
         ui.text(format!("MoGraph / {label}"));
         let drop_origin = ui.cursor_screen_pos();

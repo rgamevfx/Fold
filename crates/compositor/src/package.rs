@@ -40,6 +40,23 @@ fn edit(snapshot: &Snapshot, args: &[u8], _: &Cancel) -> Result<EditBatch, Strin
 }
 struct Documents;
 impl DocumentProvider for Documents {
+    fn image_inputs(
+        &self,
+        document: &Document,
+    ) -> Result<Vec<fold_platform::layer_graph::ImageInput>, String> {
+        crate::inputs::describe(document)
+    }
+    fn bind_image_input(
+        &self,
+        snapshot: &Snapshot,
+        document: &Document,
+        port: &str,
+        source: Option<fold_platform::image_source::Source>,
+        info: fold_media::VideoInfo,
+    ) -> Result<Document, String> {
+        crate::inputs::bind(snapshot, document, port, source, info)
+    }
+
     fn authoring_catalog(&self) -> serde_json::Value {
         crate::automation::catalog()
     }
@@ -64,12 +81,6 @@ impl DocumentProvider for Documents {
         crate::automation::author(document, edits)
     }
 
-    fn browser_kind(&self) -> Option<fold_platform::browser::DocumentKind> {
-        Some(fold_platform::browser::DocumentKind {
-            type_id: crate::COMPOSITE,
-            title: "Composition",
-        })
-    }
     fn create(&self, id: fold_foundation::DocumentId) -> Result<Document, String> {
         crate::placement::create(id)
     }
@@ -123,7 +134,13 @@ impl DocumentProvider for Documents {
                 ..
             } = node.parameters
                 && id == asset
-                && metadata.profile != fold_media::ingest::SourceProfile::Video(info)
+                && !match &metadata.profile {
+                    fold_media::ingest::SourceProfile::Video(updated) => *updated == info,
+                    fold_media::ingest::SourceProfile::Ppm { dimensions } => {
+                        *dimensions == [info.width, info.height]
+                    }
+                    _ => false,
+                }
             {
                 return Err("relink changes compositor source duration/streams".into());
             }
@@ -147,7 +164,7 @@ pub fn register(registry: &mut PackageRegistry) -> Result<(), String> {
             host_api: HOST_API,
             dependencies: &[],
             panels: PANELS,
-            build: concat!(env!("CARGO_PKG_VERSION"), ":compositor-schema4-evaluator4"),
+            build: concat!(env!("CARGO_PKG_VERSION"), ":compositor-schema5-evaluator6"),
         },
         documents: vec![Box::new(Documents)],
         commands: vec![CommandRegistration {

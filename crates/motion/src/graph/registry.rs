@@ -7,6 +7,7 @@ pub fn definitions() -> &'static [Definition] {
         let mut result = vec![
             crate::wrangle::definition(),
             nodes::expression::definition_expression(),
+            nodes::composition::definition_composition(),
             nodes::text_select::definition_select(),
             nodes::align_content::definition_align(),
             nodes::content::rectangle::definition(),

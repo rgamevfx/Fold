@@ -1,0 +1,303 @@
+use super::*;
+use crate::{Composition, Layer};
+use fold_foundation::DocumentId;
+use fold_platform::{desktop::*, image_source::Source, packages::PackageRegistry};
+use fold_project::{CommittedSnapshot, DocumentRef, EditBatch, Mutation, Project};
+use sdk::imgui;
+pub(super) static IMGUI_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+pub(super) struct Host {
+    pub project: Project,
+    pub state: DesktopState,
+    registry: PackageRegistry,
+    pub previews: usize,
+}
+impl DesktopClient for Host {
+    fn state(&self) -> &DesktopState {
+        &self.state
+    }
+    fn snapshot(&self) -> Option<CommittedSnapshot> {
+        Some(self.project.snapshot())
+    }
+    fn poll(&mut self) {}
+    fn command(&mut self, command: DesktopCommand) {
+        match command {
+            DesktopCommand::Select(s) => self.state.selection = s,
+            DesktopCommand::Navigate(v) => {
+                self.state.selection = Selection {
+                    document: Some(v.document),
+                    objects: vec![],
+                };
+                self.state.navigation.push(v);
+            }
+            DesktopCommand::NavigateBack => {
+                self.state.navigation.pop();
+                self.state.selection.document = self.state.navigation.last().map(|v| v.document);
+            }
+            DesktopCommand::CancelPreviewEdit => {}
+            DesktopCommand::PreviewExtension(r) => {
+                self.registry
+                    .stage(&self.project.snapshot(), &r, &Default::default())
+                    .unwrap();
+                self.previews += 1;
+            }
+            DesktopCommand::Extension(r) => {
+                match self
+                    .registry
+                    .stage(&self.project.snapshot(), &r, &Default::default())
+                    .and_then(|b| {
+                        self.project
+                            .commit(b)
+                            .map(|_| ())
+                            .map_err(|e| e.to_string())
+                    }) {
+                    Ok(()) => {}
+                    Err(e) => self.state.status = e,
+                }
+            }
+            DesktopCommand::Notify(e) => self.state.status = e,
+            other => panic!("Unexpected command {other:?}"),
+        }
+    }
+    fn video_info(&self, id: DocumentId) -> Result<fold_media::VideoInfo, String> {
+        self.registry.output(&self.project.snapshot(), id)
+    }
+    fn request_preview(&mut self, _: PreviewKey) {}
+    fn cancel_preview(&mut self) {}
+    fn take_preview(&mut self) -> Option<PreviewResult> {
+        None
+    }
+}
+pub(super) fn setup() -> (Host, Shared) {
+    let mut registry = PackageRegistry::default();
+    crate::package::register(&mut registry).unwrap();
+    let child = DocumentId::new();
+    let id = DocumentId::new();
+    let nested = Composition::default();
+    let mut root = Composition::default();
+    let mut layer = Layer::new(
+        "Foreground graph",
+        Some(Source::Output(DocumentRef {
+            document: child,
+            output: "video".into(),
+            extensions: Default::default(),
+        })),
+        root.info.clone(),
+    )
+    .unwrap();
+    let selected = layer.id;
+    layer.animation.insert(
+        "scene.opacity.0".into(),
+        fold_animation::Curve {
+            keys: vec![
+                fold_animation::Key::new(fold_foundation::Time::ZERO, 0.),
+                fold_animation::Key::new(fold_foundation::Time::new(1, 1).unwrap(), 1.),
+            ],
+        },
+    );
+    root.layers.push(layer);
+    root.layers
+        .push(Layer::new("Background group", None, root.info.clone()).unwrap());
+    let mut project = Project::new(16);
+    project
+        .commit(EditBatch {
+            base: project.snapshot().revision(),
+            mutations: vec![
+                Mutation::PutDocument(nested.document(child).unwrap()),
+                Mutation::PutDocument(root.document(id).unwrap()),
+            ],
+        })
+        .unwrap();
+    let mut host = Host {
+        project,
+        registry,
+        state: DesktopState::default(),
+        previews: 0,
+    };
+    host.state.selection = Selection {
+        document: Some(id),
+        objects: vec![selected],
+    };
+    host.state.navigation.push(ViewLocation {
+        document: id,
+        time: fold_foundation::Time::new(1, 2).unwrap(),
+        label: "Composition".into(),
+    });
+    let state = Shared::default();
+    state.borrow_mut().sync(&mut host);
+    (host, state)
+}
+#[test]
+fn properties_preview_cancel_commit_undo_and_source_clock() {
+    let (mut host, shared) = setup();
+    let mut state = shared.borrow_mut();
+    let id = state.selected[0];
+    let before = host.project.snapshot();
+    state
+        .composition
+        .as_mut()
+        .unwrap()
+        .layer_mut(id)
+        .unwrap()
+        .visible = false;
+    state.preview(&mut host);
+    assert_eq!(host.previews, 1);
+    assert_eq!(host.project.snapshot().revision(), before.revision());
+    state.cancel(&mut host);
+    assert!(
+        state
+            .composition
+            .as_ref()
+            .unwrap()
+            .layer(id)
+            .unwrap()
+            .visible
+    );
+    state
+        .composition
+        .as_mut()
+        .unwrap()
+        .layer_mut(id)
+        .unwrap()
+        .locked = true;
+    state.commit(&mut host);
+    assert!(state.composition.as_ref().unwrap().locked(id));
+    host.project.undo().unwrap();
+    state.sync(&mut host);
+    assert!(!state.composition.as_ref().unwrap().locked(id));
+    host.project.redo().unwrap();
+    state.sync(&mut host);
+    assert!(state.composition.as_ref().unwrap().locked(id));
+    let parent = host.state.navigation[0].clone();
+    state.open(&mut host, id).unwrap();
+    assert_eq!(host.state.navigation.len(), 2);
+    assert_eq!(host.state.navigation[1].time, parent.time);
+    host.command(DesktopCommand::NavigateBack);
+    assert_eq!(host.state.navigation[0], parent);
+}
+#[test]
+fn common_hierarchy_and_inspector_fit_normal_and_narrow() {
+    let _guard = IMGUI_LOCK.lock().unwrap();
+    let (mut host, state) = setup();
+    let before = host.project.snapshot();
+    let mut context = imgui::Context::create();
+    context.set_ini_filename(None::<String>).unwrap();
+    let fonts = sdk::typography::Typography::install(&mut context);
+    context
+        .font_atlas()
+        .try_claim_legacy_renderer()
+        .unwrap()
+        .build();
+    context.io_mut().set_display_size([1200., 800.]);
+    context.io_mut().set_delta_time(1. / 60.);
+    let mut canvas = Canvas::new(state.clone());
+    canvas.initialize(&context, Some(&fonts));
+    let mut inspector = inspector::Inspector(state);
+    for frame in 0..40 {
+        let width = if frame % 20 < 10 { 700. } else { 280. };
+        let ui = context.frame();
+        ui.window("Composition")
+            .position([0., 0.], imgui::Condition::Always)
+            .size([width, 790.], imgui::Condition::Always)
+            .build(|| {
+                canvas.draw(ExtensionUi {
+                    ui,
+                    host: &mut host,
+                });
+                if frame % 10 >= 3 {
+                    assert_eq!(ui.scroll_max_x(), 0.);
+                }
+            });
+        ui.window("Inspector")
+            .position([width + 10., 0.], imgui::Condition::Always)
+            .size([280., 790.], imgui::Condition::Always)
+            .build(|| {
+                inspector.draw(ExtensionUi {
+                    ui,
+                    host: &mut host,
+                });
+                if frame % 10 >= 3 {
+                    assert_eq!(ui.scroll_max_x(), 0.);
+                }
+            });
+        assert!(context.render_legacy().total_vtx_count() > 100);
+    }
+    assert_eq!(
+        host.project.snapshot().state().documents,
+        before.state().documents
+    );
+}
+
+#[test]
+fn layer_range_and_toggle_selection_support_precompose_without_losing_anchor() {
+    let (mut host, shared) = setup();
+    let mut state = shared.borrow_mut();
+    let ids: Vec<_> = state
+        .composition
+        .as_ref()
+        .unwrap()
+        .layers
+        .iter()
+        .map(|l| l.id)
+        .collect();
+    state.select_layer(&mut host, ids[1], true, false);
+    assert_eq!(state.selected, ids);
+    state.select_layer(&mut host, ids[1], false, true);
+    assert_eq!(state.selected, vec![ids[0]]);
+    state.select_layer(&mut host, ids[1], false, false);
+    assert_eq!(state.selected, vec![ids[1]]);
+}
+
+#[test]
+fn selecting_a_layer_requests_its_graph_without_navigating_the_composition() {
+    use fold_platform::{panel_context::PanelContext, workspace::EditorInstance};
+    let (mut host, shared) = setup();
+    let parent = host.state.selection.document.unwrap();
+    let layer = host.state.selection.objects[0];
+    let mut composition =
+        Composition::from_document(&host.project.snapshot().state().documents[&parent]).unwrap();
+    let Some(Source::Output(source)) = &mut composition.layer_mut(layer).unwrap().source else {
+        unreachable!()
+    };
+    let graph_id = source.document;
+    let object = fold_foundation::ObjectId::new();
+    source
+        .extensions
+        .insert(crate::graph::OBJECT.into(), serde_json::json!(object));
+    let mut graph = (*host.project.snapshot().state().documents[&graph_id]).clone();
+    graph
+        .extensions
+        .insert(crate::LAYER_GRAPH.into(), true.into());
+    host.project
+        .commit(EditBatch {
+            base: host.project.snapshot().revision(),
+            mutations: vec![
+                Mutation::PutDocument(graph),
+                Mutation::PutDocument(composition.document(parent).unwrap()),
+            ],
+        })
+        .unwrap();
+    let mut binding = EditorInstance {
+        group: fold_platform::workspace::LinkGroup::A,
+        contribution: package::PANEL.into(),
+        document_type: crate::COMPOSITION.into(),
+        navigation: host.state.navigation.clone(),
+        selection: host.state.selection.clone(),
+        mapped_navigation: false,
+    };
+    let navigation = binding.navigation.clone();
+    let mut scoped = PanelContext::new(&mut host, &mut binding);
+    let mut state = shared.borrow_mut();
+    state.sync(&mut scoped);
+    state.select(&mut scoped, vec![layer]);
+    let graph = scoped
+        .take_layer_graph()
+        .expect("Selecting a layer opens its real graph directly");
+    assert_eq!(graph.document(), Some(graph_id));
+    assert_eq!(graph.selection.objects, vec![object]);
+    assert_eq!(graph.navigation.last().unwrap().time, navigation[0].time);
+    assert_eq!(scoped.state().selection.document, Some(parent));
+    assert_eq!(scoped.state().selection.objects, vec![layer]);
+    drop(scoped);
+    assert_eq!(binding.navigation, navigation);
+    assert_eq!(binding.selection.objects, vec![layer]);
+}

@@ -43,7 +43,7 @@ pub(super) fn draw(ui: &Ui, state: &mut State, host: &mut dyn DesktopClient) {
         ui.text_disabled("Select an object to arrange or animate");
         return;
     };
-    let _disabled = ui.begin_disabled_with_cond(object.locked);
+    let _disabled = ui.begin_disabled_with_cond(object.locked && !state.layer_owned(host));
     if let Some(_menu) = ui.begin_menu("Arrange") {
         if ui.menu_item("Duplicate") {
             state.change_scene(host, |m| assets::duplicate(m, object.id).map(Some));

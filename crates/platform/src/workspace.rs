@@ -213,6 +213,9 @@ pub struct Workspace {
     pub editors: BTreeMap<PanelInstanceId, EditorInstance>,
     pub viewers: BTreeMap<PanelInstanceId, ViewerInstance>,
     pub focused_editor: Option<PanelInstanceId>,
+    /// Composition authoring stays independent of a locked Inspector selection.
+    #[serde(default)]
+    pub composition_editor: Option<PanelInstanceId>,
     #[serde(default)]
     pub group_selections: BTreeMap<LinkGroup, PanelInstanceId>,
     #[serde(default)]
@@ -239,6 +242,7 @@ impl Default for Workspace {
             editors: Default::default(),
             viewers: Default::default(),
             focused_editor: None,
+            composition_editor: None,
             group_selections: Default::default(),
             inspector_group: LinkGroup::A,
             inspector_lock: None,
@@ -252,6 +256,22 @@ impl Default for Workspace {
     }
 }
 impl Workspace {
+    /// Rebind converted documents without changing selection, local clocks or layout.
+    pub fn refresh_document_types(&mut self, snapshot: &fold_project::Snapshot) {
+        for editor in self
+            .editors
+            .values_mut()
+            .chain(self.inspector_lock.iter_mut().map(|(_, editor)| editor))
+        {
+            if let Some(document) = editor
+                .document()
+                .and_then(|id| snapshot.state().documents.get(&id))
+            {
+                editor.document_type = document.type_id.clone();
+            }
+        }
+    }
+
     fn allocate(&mut self) -> PanelInstanceId {
         let id = PanelInstanceId(self.next_id);
         self.next_id += 1;
@@ -511,6 +531,14 @@ impl Workspace {
             .as_ref()
             .map(|(_, e)| e)
             .or_else(|| self.editors.get(&editor))?;
+        self.context_time(editor, binding)
+            .map(|time| (editor, time))
+    }
+    pub fn editor_context(&self, editor: PanelInstanceId) -> Option<(PanelInstanceId, Time)> {
+        self.context_time(editor, self.editors.get(&editor)?)
+            .map(|time| (editor, time))
+    }
+    fn context_time(&self, editor: PanelInstanceId, binding: &EditorInstance) -> Option<Time> {
         let candidates: Vec<_> = self
             .viewers
             .iter()
@@ -531,7 +559,7 @@ impl Workspace {
                 _ => return None,
             }
         };
-        Some((editor, time))
+        Some(time)
     }
     pub fn reconcile(&mut self) {
         if self
@@ -572,6 +600,9 @@ impl Workspace {
             .is_some_and(|(owner, _)| *owner == id)
         {
             self.inspector_lock = None;
+        }
+        if self.composition_editor == Some(id) {
+            self.composition_editor = None;
         }
         if self.focused_editor == Some(id) {
             self.focused_editor = None;

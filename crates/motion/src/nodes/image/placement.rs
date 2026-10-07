@@ -26,6 +26,28 @@ pub fn place(
         }
     };
     let duration = request.range(info.time(info.frames)?)?;
+    if let Source::Output(reference) = &source {
+        let name = snapshot
+            .state()
+            .organization
+            .items
+            .iter()
+            .find(|item| item.id == fold_project::ItemId::Document(reference.document))
+            .map(|item| item.name.clone())
+            .unwrap_or_else(|| "Composition".into());
+        crate::authoring::composition::place(
+            &mut motion,
+            reference.clone(),
+            info,
+            request.at,
+            request.source_start,
+            duration,
+            name,
+        )?;
+        let mut document = motion.document(request.target)?;
+        document.extensions = old.extensions.clone();
+        return Ok(document);
+    }
     let offset = request
         .source_start
         .checked_sub(request.at)

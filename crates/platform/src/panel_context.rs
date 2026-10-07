@@ -13,6 +13,7 @@ pub struct PanelContext<'a> {
     instance: Option<crate::workspace::PanelInstanceId>,
     seek_request: Option<Time>,
     selection_requested: bool,
+    layer_graph: Option<EditorInstance>,
 }
 impl<'a> PanelContext<'a> {
     pub fn new(host: &'a mut dyn DesktopClient, editor: &'a mut EditorInstance) -> Self {
@@ -44,6 +45,7 @@ impl<'a> PanelContext<'a> {
             instance: None,
             seek_request: None,
             selection_requested: false,
+            layer_graph: None,
         }
     }
     /// Non-document panels have an identity without acquiring an editor binding.
@@ -60,6 +62,7 @@ impl<'a> PanelContext<'a> {
             instance: Some(id),
             seek_request: None,
             selection_requested: false,
+            layer_graph: None,
         }
     }
     pub fn instance(mut self, id: crate::workspace::PanelInstanceId) -> Self {
@@ -81,6 +84,9 @@ impl<'a> PanelContext<'a> {
         self.state.playback_range = range;
         self.state.playing = playing;
         self.state.priming = false;
+    }
+    pub fn take_layer_graph(&mut self) -> Option<EditorInstance> {
+        self.layer_graph.take()
     }
     pub fn selection_requested(&self) -> bool {
         self.selection_requested
@@ -211,6 +217,12 @@ impl DesktopClient for PanelContext<'_> {
     fn supports_document(&self, document: &fold_project::Document) -> bool {
         self.host.supports_document(document)
     }
+    fn image_inputs(
+        &self,
+        document: fold_foundation::DocumentId,
+    ) -> Result<Vec<crate::layer_graph::ImageInput>, String> {
+        self.host.image_inputs(document)
+    }
     fn document_kinds(&self) -> Vec<crate::browser::DocumentKind> {
         self.host.document_kinds()
     }
@@ -242,6 +254,21 @@ impl DesktopClient for PanelContext<'_> {
                 self.selection_requested = true;
                 self.editor.as_mut().unwrap().selection = selection;
                 self.sync();
+            }
+            DesktopCommand::OpenLayerGraph { location, objects } => {
+                if let Some(editor) = &self.editor
+                    && let Some(snapshot) = self.host.snapshot()
+                    && let Some(document) = snapshot.state().documents.get(&location.document)
+                {
+                    let mut graph = (**editor).clone();
+                    graph.document_type = document.type_id.clone();
+                    graph.navigation.push(location.clone());
+                    graph.selection = Selection {
+                        document: Some(location.document),
+                        objects,
+                    };
+                    self.layer_graph = Some(graph);
+                }
             }
             DesktopCommand::Navigate(location) => self.navigate(location),
             DesktopCommand::NavigateBack => {

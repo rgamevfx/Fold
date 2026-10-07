@@ -18,6 +18,7 @@ impl Evaluator<'_> {
         let node = self.motion.graph.node(id)?;
         let mut root = Self::for_graph(self.motion, &self.motion.graph, self.time)?;
         root.object_path = self.object_path.clone();
+        root.layer_times = self.layer_times.clone();
         root.current_object = self.current_object;
         root.budget = std::mem::take(&mut self.budget);
         let result = (|| {

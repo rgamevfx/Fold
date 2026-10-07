@@ -279,23 +279,20 @@ fn compile(request: VideoCompile<'_>) -> Result<ChannelGraph, String> {
                             continue;
                         }
                         Source::Asset { asset, info } => {
-                            let asset = snapshot
-                                .state()
-                                .assets
-                                .get(asset)
-                                .ok_or("missing Read asset")?;
-                            Op::video(
-                                fold_media::VideoSource {
-                                    path: asset.location.clone().into(),
-                                    fingerprint: asset.fingerprint.clone(),
+                            let fragment = fold_platform::image_source::compile(
+                                &fold_platform::image_source::Request {
+                                    bake: None,
+                                    source: fold_platform::image_source::Source::Asset(*asset),
                                     info: info.clone(),
+                                    time: local,
+                                    outside: fold_platform::image_source::Outside::Black,
+                                    color_space: fold_platform::color::input(&node.extensions)?,
                                 },
-                                local,
-                                match fold_platform::color::input(&node.extensions)? {
-                                    Some(space) => Some(space),
-                                    None => fold_platform::color::input(&asset.extensions)?,
-                                },
-                            )
+                                &request,
+                            )?;
+                            let image = graph.append(fragment)?;
+                            ids.insert(node.id, Channels::rgba(image));
+                            continue;
                         }
                     }
                 }

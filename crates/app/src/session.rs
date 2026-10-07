@@ -495,6 +495,12 @@ impl DesktopClient for Session {
     fn take_imported_items(&mut self) -> Vec<fold_project::ItemId> {
         std::mem::take(&mut self.imported_items)
     }
+    fn image_inputs(
+        &self,
+        document: fold_foundation::DocumentId,
+    ) -> Result<Vec<fold_platform::layer_graph::ImageInput>, String> {
+        crate::packages::builtins().image_inputs(&self.project.snapshot(), document)
+    }
     fn document_kinds(&self) -> Vec<fold_platform::browser::DocumentKind> {
         crate::packages::builtins().document_kinds()
     }
@@ -741,6 +747,14 @@ impl DesktopClient for Session {
             DesktopCommand::CancelPreviewEdit => {
                 self.overlay = None;
                 self.refresh();
+                return;
+            }
+            DesktopCommand::OpenLayerGraph { location, objects } => {
+                self.navigate(location.clone());
+                self.state.selection = fold_platform::desktop::Selection {
+                    document: Some(location.document),
+                    objects,
+                };
                 return;
             }
             DesktopCommand::Navigate(location) => {

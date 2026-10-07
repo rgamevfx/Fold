@@ -14,6 +14,7 @@ use std::collections::BTreeMap;
 pub(super) struct Animation {
     editor: Editor,
     generation: u64,
+    scope: Option<ObjectId>,
     legacy: BTreeMap<ObjectId, Vec<fold_animation::Curve>>,
 }
 impl Animation {
@@ -27,6 +28,16 @@ impl Animation {
         let ExtensionUi { ui, host } = context;
         let mut state = shared.borrow_mut();
         state.sync(host);
+        let scope = if scoped {
+            state.group.or(state.network_object)
+        } else {
+            None
+        };
+        if self.scope != scope {
+            self.editor = Editor::default();
+            self.legacy.clear();
+            self.scope = scope;
+        }
         if self.generation != state.generation {
             self.legacy.clear();
             self.editor.reset_gesture();
@@ -63,6 +74,7 @@ impl Animation {
                             .unwrap_or("")
                         {
                             "fold.motion.text" => "T",
+                            crate::nodes::composition::KIND => "C",
                             "fold.motion.scene_children" => "G",
                             "fold.motion.path" => "P",
                             "fold.motion.group_instance" => "N",
@@ -170,7 +182,18 @@ impl Animation {
             }
         }
 
+        let visible = scoped.then(|| {
+            super::graph::visible_nodes(
+                &motion,
+                state.group,
+                state.network_object,
+                state.document_network,
+            )
+        });
         for (index, node) in motion.graph.nodes.iter().enumerate() {
+            if visible.as_ref().is_some_and(|ids| !ids.contains(&node.id)) {
+                continue;
+            }
             if !scoped && motion.scene.is_some() && !tracks.iter().any(|t| t.id == node.id) {
                 continue;
             }
@@ -292,6 +315,18 @@ impl Animation {
             });
             return;
         }
+        if let Some(id) = response.open_node
+            && !scoped
+            && motion
+                .graph
+                .node(id)
+                .is_ok_and(|n| n.kind == crate::nodes::composition::KIND)
+        {
+            if let Err(error) = super::composition::open(&mut state, host, id) {
+                state.error = error;
+            }
+            return;
+        }
         if let Some(node) = response.select_node {
             if !scoped {
                 state.group = None;
@@ -338,13 +373,12 @@ impl Animation {
             }
             if response.edit.changed {
                 if let Some((id, start, end)) = response.range
-                    && let Some(object) = motion
-                        .scene
-                        .as_mut()
-                        .and_then(|s| s.objects.iter_mut().find(|o| o.id == id))
+                    && let Err(error) =
+                        crate::authoring::composition::set_range(&mut motion, id, start, end)
                 {
-                    object.start = start;
-                    object.end = end;
+                    state.error = error;
+                    state.cancel(host);
+                    return;
                 }
                 for channel in channels {
                     if let Some((base, animation)) = motion.scene.as_mut().and_then(|s| {

@@ -3,6 +3,7 @@ pub mod browser;
 mod browser_ingest;
 pub mod color;
 pub mod composition;
+pub mod composition_layers;
 pub mod document_placement;
 pub mod ingest;
 pub mod media_workflow;

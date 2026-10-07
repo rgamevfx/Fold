@@ -154,6 +154,10 @@ fn bake(snapshot: &Snapshot, args: &Args, cancel: &Cancel) -> Result<EditBatch, 
         };
         let describe = |r: &fold_project::DocumentRef| packages.channels(snapshot, r);
         let context = fold_platform::VideoCompile {
+            graph_context: None,
+            resolve_graph: &|_, _, _| {
+                Err("Layer graph evaluation is unavailable in this context".into())
+            },
             snapshot,
             document: previous,
             reference: &reference,
@@ -163,6 +167,7 @@ fn bake(snapshot: &Snapshot, args: &Args, cancel: &Cancel) -> Result<EditBatch, 
             resolve: &resolve,
             resolve_image: &image,
             describe_channels: &describe,
+            describe_video: &|r| packages.output(snapshot, r.document),
         };
         let mut graph = fold_platform::image_source::compile(&request, &context)?;
         if settings.format == fold_render::baked::Format::Bc7 && settings.clamp_sdr {

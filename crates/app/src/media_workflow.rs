@@ -360,11 +360,14 @@ pub fn output(snapshot: &Snapshot) -> Result<(DocumentRef, VideoInfo), String> {
             .state()
             .documents
             .values()
-            .find(|d| {
-                matches!(
-                    d.type_id.as_str(),
-                    fold_compositor::COMPOSITE | fold_motion::MOTION
-                )
+            .find(|d| d.type_id == fold_composition::COMPOSITION)
+            .or_else(|| {
+                snapshot.state().documents.values().find(|d| {
+                    matches!(
+                        d.type_id.as_str(),
+                        fold_compositor::COMPOSITE | fold_motion::MOTION
+                    )
+                })
             })
             .ok_or("no supported video document")?;
         let info = crate::packages::builtins().output(snapshot, document.id)?;

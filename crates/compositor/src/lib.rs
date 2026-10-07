@@ -13,7 +13,7 @@ mod graph;
 mod model;
 pub mod package;
 mod placement;
-pub use placement::source_from_profile;
+pub use placement::{source_from_asset, source_from_profile};
 #[cfg(feature = "ui")]
 pub mod ui;
 pub use model::*;
@@ -21,3 +21,5 @@ pub const PACKAGE: &str = "fold.compositor";
 pub const COMPOSITE: &str = "fold.compositor.composite";
 
 mod automation;
+
+mod inputs;

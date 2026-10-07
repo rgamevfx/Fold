@@ -1,6 +1,7 @@
 //! UI-only presentation over transactional graph edits.
 mod animation;
 mod canvas;
+mod composition;
 mod gradient;
 mod graph;
 mod group_interface;
@@ -30,7 +31,6 @@ pub fn register(registry: &mut PanelRegistry) -> Result<(), String> {
             canvas: Default::default(),
             overlay: Default::default(),
             animation: Default::default(),
-            network_animation: Default::default(),
         },
     )?;
     registry.register_inspector(crate::PACKAGE, inspector::Inspector { state })

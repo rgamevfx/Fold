@@ -21,6 +21,8 @@ pub use canvas_pan::CanvasPan;
 pub mod animated_property;
 #[path = "animation_editor/mod.rs"]
 pub mod animation_editor;
+#[path = "composition.rs"]
+pub(crate) mod composition;
 #[path = "network.rs"]
 pub mod network;
 #[path = "project_drop.rs"]
@@ -77,24 +79,33 @@ pub trait Panel {
     fn supports_network(&self) -> bool {
         false
     }
-    /// Graph-first contexts are displayed by the common Network surface.
-    fn network_primary(&self) -> bool {
-        false
-    }
     fn draw_network(&mut self, context: ExtensionUi<'_>) {
         context
             .ui
-            .text_disabled("Select a procedural construction to edit its network.");
+            .text_disabled("Select a procedural graph to edit its network.");
     }
 
-    /// Optional animation surface sharing this editor instance's authoring state.
-    fn supports_animation(&self) -> bool {
+    /// Layer/timing authoring is hosted by the shared Composition surface.
+    /// `draw` receives this instance's selection and explicit edit-time context.
+    fn supports_composition(&self) -> bool {
         false
     }
-    fn draw_animation(&mut self, context: ExtensionUi<'_>) {
-        context
-            .ui
-            .text_disabled("This editor has no animatable properties.");
+
+    /// Provider-owned graph edited inside a composition layer. No standalone window.
+    /// Native graph selection expressed as its owning layer object, if any.
+    fn selected_layer_object(&self) -> Option<fold_foundation::ObjectId> {
+        None
+    }
+    /// Resolve a graph selection back to the common hierarchy and inherited lock.
+    fn layer_for_graph(
+        &self,
+        _document: fold_foundation::DocumentId,
+        _object: Option<fold_foundation::ObjectId>,
+    ) -> Option<(fold_foundation::ObjectId, bool)> {
+        None
+    }
+    fn is_layer_graph(&self) -> bool {
+        false
     }
 
     /// Reuse this contribution's implementation with fresh instance-local state.
@@ -158,6 +169,15 @@ pub struct PanelRegistry {
     inspector: inspector::Inspector,
 }
 impl PanelRegistry {
+    /// Instantiate the registered editor for native integration probes.
+    #[cfg(feature = "native-probe")]
+    pub fn probe_editor(&self, kind: &str) -> Option<EditorPanels> {
+        self.entries
+            .iter()
+            .find(|p| p.panel.document_type() == Some(kind))?
+            .panel
+            .new_instance()
+    }
     pub fn new(packages: &PackageRegistry) -> Self {
         Self {
             declared: packages
@@ -246,17 +266,17 @@ impl PanelRegistry {
                 panel: Box::new(network::Surface),
             });
         }
-        if self.entries.iter().any(|p| p.panel.supports_animation()) {
+        if self.entries.iter().any(|p| p.panel.supports_composition()) {
             let descriptor = PanelDescriptor {
-                id: animation_editor::PANEL_ID,
-                title: "Animation",
+                id: composition::PANEL_ID,
+                title: "Composition",
                 placement: fold_platform::packages::PanelPlacement::Editor,
             };
             self.entries.push(RegisteredPanel {
                 descriptor,
                 key: imgui::WindowKey::new(descriptor.id, descriptor.title)
                     .map_err(|e| e.to_string())?,
-                panel: Box::new(animation_editor::Surface),
+                panel: Box::new(composition::Surface),
             });
         }
         Ok(self.entries)

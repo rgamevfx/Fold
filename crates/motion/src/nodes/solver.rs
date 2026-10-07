@@ -195,6 +195,7 @@ fn evaluate(e: &mut Evaluator<'_>, node: &Node) -> Result<Outputs, String> {
             update.group_depth = e.group_depth + 1;
             update.current_object = e.current_object;
             update.object_path = e.object_path.clone();
+            update.layer_times = e.layer_times.clone();
             update.step_context = Some(StepContext {
                 previous: value(current.clone(), settings.state_kind),
                 delta: settings.step,

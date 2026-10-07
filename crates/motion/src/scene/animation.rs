@@ -14,7 +14,7 @@ pub fn channel_mut<'a>(
 ) -> Option<(&'a mut f64, &'a mut Channels)> {
     for object in &mut scene.objects {
         if object.id == id && path == "scene.opacity.0" {
-            return Some((&mut object.opacity, &mut object.animation));
+            return Some((&mut object.state.opacity, &mut object.state.animation));
         }
         for c in &mut object.constraints {
             if c.id == id {

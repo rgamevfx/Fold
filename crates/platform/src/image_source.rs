@@ -98,6 +98,26 @@ pub fn compile(
         .assets
         .get(id)
         .ok_or("missing image asset")?;
+    // Legacy timeline/compositor documents carry an explicit video descriptor in
+    // their source reference but predate the imported-media metadata extension.
+    // Keep those references playable; new Project placement still requires metadata.
+    if !asset
+        .extensions
+        .contains_key(fold_media::ingest::METADATA_KEY)
+    {
+        return Ok(single(ImageOp::video(
+            fold_media::VideoSource {
+                path: asset.location.clone().into(),
+                fingerprint: asset.fingerprint.clone(),
+                info: request.info.clone(),
+            },
+            time,
+            request
+                .color_space
+                .clone()
+                .or(crate::color::input(&asset.extensions)?),
+        )));
+    }
     let metadata = crate::browser::asset_metadata(context.snapshot, *id)?;
     let expected = asset_info(context.snapshot, *id, &request.info)?;
     if expected != request.info {

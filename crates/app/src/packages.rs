@@ -6,6 +6,11 @@ pub fn builtins() -> Arc<PackageRegistry> {
     PACKAGES
         .get_or_init(|| {
             let mut registry = PackageRegistry::default();
+            fold_composition::package::register_with_edit(
+                &mut registry,
+                crate::composition_layers::edit,
+            )
+            .expect("valid composition package registration");
             fold_timeline::package::register(&mut registry)
                 .expect("valid built-in package registration");
             fold_compositor::package::register(&mut registry)
@@ -25,12 +30,24 @@ pub fn builtins() -> Arc<PackageRegistry> {
                             title: "Project",
                             placement: PanelPlacement::Browser,
                         }],
-                        build: "composition-v1",
+                        build: "composition-v2-layer-graphs",
                     },
                     documents: vec![],
                     video: vec![],
                     audio: vec![],
                     commands: vec![
+                        CommandRegistration {
+                            id: crate::composition_layers::ADD,
+                            title: "Add graph",
+                            execution: Execution::Immediate,
+                            handler: crate::composition_layers::add,
+                        },
+                        CommandRegistration {
+                            id: crate::composition_layers::CONNECT,
+                            title: "Connect graphs",
+                            execution: Execution::Immediate,
+                            handler: crate::composition_layers::connect,
+                        },
                         CommandRegistration {
                             id: fold_platform::image_bake::COMMAND,
                             title: "Bake image textures",

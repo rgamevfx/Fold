@@ -42,7 +42,7 @@ pub(super) fn draw(
                     action = Some(Action::Parent(None, preserve));
                 }
                 for o in &scene.objects {
-                    if o.id != object.id
+                    if o.id != object.state.id
                         && m.graph
                             .node(o.source.node)
                             .is_ok_and(|n| n.kind == "fold.motion.scene_children")
@@ -60,8 +60,8 @@ pub(super) fn draw(
         ui,
         clock,
         ("scene.opacity", "Opacity"),
-        &mut object.opacity,
-        &mut object.animation,
+        &mut object.state.opacity,
+        &mut object.state.animation,
         response,
     );
     if ui.checkbox("Isolate group effects", &mut object.isolated) {
@@ -78,7 +78,7 @@ pub(super) fn draw(
             for kind in ConstraintKind::ALL {
                 if let Some(_menu) = ui.begin_menu(kind.label()) {
                     for o in &scene.objects {
-                        if o.id != object.id {
+                        if o.id != object.state.id {
                             let _id = ui.push_id(&format!("{:?}", o.id));
                             if ui.selectable(&o.name) {
                                 action = Some(Action::Constraint(o.id, kind));
@@ -95,7 +95,7 @@ pub(super) fn draw(
             ui.text(c.kind.label());
             if let Some(_combo) = ui.begin_combo("Target", name(c.target)) {
                 for o in &scene.objects {
-                    if o.id != object.id && ui.selectable(format!("{}##{:?}", o.name, o.id)) {
+                    if o.id != object.state.id && ui.selectable(format!("{}##{:?}", o.name, o.id)) {
                         c.target = o.id;
                         response.changed = true;
                         response.finished = true;
@@ -156,7 +156,7 @@ pub(super) fn draw(
         }
         if let Some(_combo) = ui.begin_combo("Reference mask", "Choose object") {
             for o in &scene.objects {
-                if o.id != object.id && ui.selectable(format!("{}##{:?}", o.name, o.id)) {
+                if o.id != object.state.id && ui.selectable(format!("{}##{:?}", o.name, o.id)) {
                     object.masks.push(Mask::new(o.id, MaskSpace::World));
                     response.changed = true;
                     response.finished = true;
@@ -169,7 +169,7 @@ pub(super) fn draw(
             let _id = ui.push_id(&format!("{:?}", mask.id));
             if let Some(_combo) = ui.begin_combo("Source", name(mask.source)) {
                 for o in &scene.objects {
-                    if o.id != object.id && ui.selectable(format!("{}##{:?}", o.name, o.id)) {
+                    if o.id != object.state.id && ui.selectable(format!("{}##{:?}", o.name, o.id)) {
                         mask.source = o.id;
                         response.changed = true;
                         response.finished = true;

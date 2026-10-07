@@ -147,6 +147,7 @@ pub(crate) fn stage(
     // Normalize older schemas through the same loader as the editing UI. Only
     // changed fields become JSON values; embedded resources stay typed bytes.
     let mut motion = Motion::from_document(previous)?;
+    let previous_scene = motion.scene.clone();
     let mut fields = BTreeMap::<String, Vec<Change>>::new();
     let mut extensions = Vec::new();
     for mut change in args.changes {
@@ -184,9 +185,17 @@ pub(crate) fn stage(
     }
     let mut document = motion.document(args.document)?;
     document.extensions = previous.extensions.clone();
+    let mut mutations = vec![Mutation::PutDocument(document)];
+    crate::layer_edits::append(
+        snapshot,
+        args.document,
+        previous_scene.as_ref(),
+        &motion,
+        &mut mutations,
+    )?;
     Ok(EditBatch {
         base: snapshot.revision(),
-        mutations: vec![Mutation::PutDocument(document)],
+        mutations,
     })
 }
 

@@ -55,13 +55,19 @@ fn motion_tools_and_inspector_render_normal_and_narrow() {
         canvas: Default::default(),
         overlay: Default::default(),
         animation: Default::default(),
-        network_animation: Default::default(),
     };
     canvas.initialize(&context, Some(&fonts));
     let mut inspector = inspector::Inspector { state: shared };
     context.io_mut().set_display_size([1280., 800.]);
     context.io_mut().set_delta_time(1. / 60.);
     for (name, width, properties) in [
+        ("composition-normal", 850., 400.),
+        ("composition-narrow", 280., 280.),
+        ("composition-modifier-normal", 850., 400.),
+        ("composition-modifier-narrow", 280., 280.),
+        ("composition-nested-normal", 850., 400.),
+        ("composition-nested-narrow", 280., 280.),
+        ("composition-settings", 850., 400.),
         ("images-bake-normal", 850., 400.),
         ("images-bake-narrow", 390., 280.),
         ("images-bake-compact-normal", 850., 400.),
@@ -297,6 +303,46 @@ fn motion_tools_and_inspector_render_normal_and_narrow() {
             state.inspector_return = Some((ramp, owner));
             state.selected = vec![ramp];
         }
+        if name.starts_with("composition-modifier-") {
+            use fold_ui::sdk::graph_canvas::{GraphContext, GraphEvent};
+            let mut state = canvas.state.borrow_mut();
+            state.create(&mut host);
+            state.change(&mut host, |m| {
+                crate::authoring::add_content(m, "fold.motion.rectangle").map(Some)
+            });
+            let rectangle = state.selected[0];
+            state.change(&mut host, |m| {
+                crate::authoring::group_node(m, rectangle).map(Some)
+            });
+            let instance = state.selected[0];
+            graph::Context {
+                state: &mut state,
+                host: &mut host,
+            }
+            .event(GraphEvent::Navigate(Some(instance)))
+            .unwrap();
+            state.change(&mut host, |m| {
+                let node = crate::authoring::node(m, rectangle)?;
+                node.set("width", crate::fields::Datum::Scalar(120.));
+                let mut curve = fold_animation::Curve::default();
+                curve.insert(fold_foundation::Time::ZERO, 120.);
+                curve.insert(fold_foundation::Time::new(1, 1).unwrap(), 240.);
+                node.animation.insert("width.0".into(), curve);
+                Ok(Some(rectangle))
+            });
+        }
+        if name.starts_with("composition-nested-") {
+            let mut state = canvas.state.borrow_mut();
+            state.create(&mut host);
+            state.change_scene(&mut host, |m| {
+                crate::authoring::scene::create_object(m, "fold.motion.rectangle").map(Some)
+            });
+            super::composition::nest(&mut state, &mut host, false);
+        }
+        if name == "composition-settings" {
+            let mut state = canvas.state.borrow_mut();
+            state.composition_settings = state.motion.as_ref().map(|m| m.info.clone());
+        }
         for frame_index in 0..12 {
             if name.starts_with("scene-drop-") || name == "network" {
                 context
@@ -365,7 +411,7 @@ fn motion_tools_and_inspector_render_normal_and_narrow() {
                         host: &mut host,
                     })
                 });
-            ui.window("Motion")
+            ui.window("Composition")
                 .position([0., 508.], imgui::Condition::Always)
                 .size([width, 280.], imgui::Condition::Always)
                 .build(|| {

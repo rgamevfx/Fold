@@ -215,6 +215,10 @@ fn source_handles_and_video_lowering_use_exact_half_open_ranges() {
     let doc = &snapshot.state().documents[&id];
     let compile = |output: &str, time| {
         SequenceProvider.compile(fold_platform::VideoCompile {
+            graph_context: None,
+            resolve_graph: &|_, _, _| {
+                Err("Layer graph evaluation is unavailable in this context".into())
+            },
             snapshot: &snapshot,
             document: doc,
             reference: &fold_project::DocumentRef {
@@ -228,6 +232,7 @@ fn source_handles_and_video_lowering_use_exact_half_open_ranges() {
             resolve: &|_, _| Err("unexpected nested source".into()),
             resolve_image: &|_, _| Err("unexpected nested image".into()),
             describe_channels: &|_| Err("unexpected nested channel catalog".into()),
+            describe_video: &|_| Err("unexpected nested video metadata".into()),
         })
     };
     for frame in [0, 25, 49] {

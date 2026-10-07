@@ -198,6 +198,11 @@ pub enum DesktopCommand {
     PreviewExtension(crate::packages::CommandRequest),
     CancelPreviewEdit,
     Navigate(ViewLocation),
+    /// Open a selected layer graph without replacing its Composition context.
+    OpenLayerGraph {
+        location: ViewLocation,
+        objects: Vec<fold_foundation::ObjectId>,
+    },
     NavigateBack,
     /// Restore the viewer context for the selected editor workspace.
     ActivateWorkspace(String),
@@ -267,6 +272,13 @@ pub struct AgentPreview {
     pub can_compare: bool,
 }
 pub trait DesktopClient {
+    fn image_inputs(
+        &self,
+        _document: fold_foundation::DocumentId,
+    ) -> Result<Vec<crate::layer_graph::ImageInput>, String> {
+        Ok(vec![])
+    }
+
     fn agent_preview(&self) -> Option<AgentPreview> {
         None
     }

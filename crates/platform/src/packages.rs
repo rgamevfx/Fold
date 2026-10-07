@@ -49,6 +49,23 @@ pub struct CommandRegistration {
     pub handler: CommandHandler,
 }
 pub trait DocumentProvider: Send + Sync {
+    fn image_inputs(
+        &self,
+        _document: &Document,
+    ) -> Result<Vec<crate::layer_graph::ImageInput>, String> {
+        Ok(vec![])
+    }
+    fn bind_image_input(
+        &self,
+        _snapshot: &Snapshot,
+        _document: &Document,
+        _port: &str,
+        _source: Option<crate::image_source::Source>,
+        _info: VideoInfo,
+    ) -> Result<Document, String> {
+        Err("This graph does not expose image inputs".into())
+    }
+
     /// Package-owned automation metadata and edits; host never interprets payloads.
     fn authoring_catalog(&self) -> serde_json::Value {
         serde_json::Value::Null
@@ -154,6 +171,50 @@ pub struct PackageRegistry {
     audio: Vec<Box<dyn AudioProvider>>,
 }
 impl PackageRegistry {
+    pub fn image_inputs(
+        &self,
+        snapshot: &Snapshot,
+        id: DocumentId,
+    ) -> Result<Vec<crate::layer_graph::ImageInput>, String> {
+        let document = snapshot.state().documents.get(&id).ok_or("Missing graph")?;
+        self.documents
+            .iter()
+            .find(|p| p.package_id() == document.package_id && p.type_id() == document.type_id)
+            .ok_or("Unavailable graph provider")?
+            .image_inputs(document)
+    }
+    pub fn bind_image_input(
+        &self,
+        snapshot: &Snapshot,
+        id: DocumentId,
+        port: &str,
+        source: Option<crate::image_source::Source>,
+        info: VideoInfo,
+    ) -> Result<Document, String> {
+        let original = snapshot.state().documents.get(&id).ok_or("Missing graph")?;
+        let provider = self
+            .documents
+            .iter()
+            .find(|p| p.package_id() == original.package_id && p.type_id() == original.type_id)
+            .ok_or("Unavailable graph provider")?;
+        if !provider
+            .image_inputs(original)?
+            .iter()
+            .any(|input| input.id == port)
+        {
+            return Err("Unavailable graph image input".into());
+        }
+        let document = provider.bind_image_input(snapshot, original, port, source, info)?;
+        if document.id != original.id
+            || document.package_id != original.package_id
+            || document.type_id != original.type_id
+        {
+            return Err("Binding changed the graph identity".into());
+        }
+        provider.validate(&document)?;
+        Ok(document)
+    }
+
     /// Validate the complete contribution set before publishing any of it.
     pub fn register(&mut self, package: Contributions) -> Result<(), String> {
         let manifest = &package.manifest;

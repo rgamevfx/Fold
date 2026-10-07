@@ -10,6 +10,11 @@ fn main() -> std::process::ExitCode {
     if !args.is_empty() {
         if args[0] == "--project" && args.len() == 2 {
             session.command(DesktopCommand::Open(args[1].clone().into()));
+        } else if args[0] == "--composition" && args.len() == 2 {
+            session.command(DesktopCommand::OpenInWorkspace {
+                path: args[1].clone().into(),
+                document_type: fold_composition::COMPOSITION.into(),
+            });
         } else if args[0] == "--compositor" && args.len() == 2 {
             session.command(DesktopCommand::OpenInWorkspace {
                 path: args[1].clone().into(),
@@ -58,6 +63,7 @@ fn main() -> std::process::ExitCode {
         .and_then(|()| fold_timeline::ui::register(&mut panels))
         .and_then(|()| fold_compositor::ui::register(&mut panels))
         .and_then(|()| fold_motion::ui::register(&mut panels))
+        .and_then(|()| fold_composition::ui::register(&mut panels))
     {
         eprintln!("Fold panel registration failed: {error}");
         return std::process::ExitCode::FAILURE;

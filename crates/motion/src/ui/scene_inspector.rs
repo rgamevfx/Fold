@@ -19,68 +19,69 @@ pub(super) fn draw(
     else {
         return false;
     };
-    let mut changed = false;
-    let locked = ui.begin_disabled_with_cond(object.locked);
-    let name_changed = ui.input_text("Name", &mut object.name).build();
-    changed |= name_changed;
-    let name_finished = ui.is_item_deactivated_after_edit();
-    changed |= ui.checkbox("Visible", &mut object.visible);
-    drop(locked);
-    ui.same_line();
-    changed |= ui.checkbox("Locked", &mut object.locked);
-    let mut finished = name_finished || (changed && !name_changed);
-    let info = state.motion.as_ref().unwrap().info.clone();
-    let mut start = time_view::frame(object.start, info.rate) as i32;
-    let mut end = time_view::frame(object.end, info.rate) as i32;
-    if ui.collapsing_header("Timing", fold_ui::sdk::imgui::TreeNodeFlags::empty()) {
-        let _disabled = ui.begin_disabled_with_cond(object.locked);
-        if ui.input_int("In frame", &mut start)
-            && let Ok(t) = time_view::time(i64::from(start), info.rate)
-        {
-            object.start = t;
-            changed = true;
+    if !state.layer_owned(host) {
+        let mut changed = false;
+        let locked = ui.begin_disabled_with_cond(object.locked);
+        let name_changed = ui.input_text("Name", &mut object.name).build();
+        changed |= name_changed;
+        let name_finished = ui.is_item_deactivated_after_edit();
+        changed |= ui.checkbox("Visible", &mut object.visible);
+        drop(locked);
+        ui.same_line();
+        changed |= ui.checkbox("Locked", &mut object.locked);
+        let mut finished = name_finished || (changed && !name_changed);
+        let info = state.motion.as_ref().unwrap().info.clone();
+        let mut start = time_view::frame(object.start, info.rate) as i32;
+        let mut end = time_view::frame(object.end, info.rate) as i32;
+        if ui.collapsing_header("Timing", fold_ui::sdk::imgui::TreeNodeFlags::empty()) {
+            let _disabled = ui.begin_disabled_with_cond(object.locked);
+            if ui.input_int("In frame", &mut start)
+                && let Ok(t) = time_view::time(i64::from(start), info.rate)
+            {
+                object.start = t;
+                changed = true;
+            }
+            finished |= ui.is_item_deactivated_after_edit();
+            if ui.input_int("Out frame", &mut end)
+                && let Ok(t) = time_view::time(i64::from(end), info.rate)
+            {
+                object.end = t;
+                changed = true;
+            }
+            finished |= ui.is_item_deactivated_after_edit();
         }
-        finished |= ui.is_item_deactivated_after_edit();
-        if ui.input_int("Out frame", &mut end)
-            && let Ok(t) = time_view::time(i64::from(end), info.rate)
-        {
-            object.end = t;
-            changed = true;
-        }
-        finished |= ui.is_item_deactivated_after_edit();
-    }
-    let mut relationship_response = fold_ui::sdk::EditResponse::default();
-    let action = if ui.collapsing_header(
-        "Relationships and opacity",
-        fold_ui::sdk::imgui::TreeNodeFlags::empty(),
-    ) {
-        super::relationships::draw(
-            ui,
-            state.motion.as_ref().unwrap(),
-            &mut object,
-            &mut relationship_response,
-            (
-                host.state()
-                    .navigation
-                    .last()
-                    .map(|n| n.time)
-                    .unwrap_or(fold_foundation::Time::ZERO),
-                state.auto_key,
-            ),
-        )
-    } else {
-        None
-    };
-    changed |= relationship_response.changed;
-    finished |= relationship_response.finished;
-    if let Some(action) = action {
-        let time = host
-            .state()
-            .navigation
-            .last()
-            .map(|n| n.time)
-            .unwrap_or(fold_foundation::Time::ZERO);
-        state.change_scene(host,|m| {
+        let mut relationship_response = fold_ui::sdk::EditResponse::default();
+        let action = if ui.collapsing_header(
+            "Relationships and opacity",
+            fold_ui::sdk::imgui::TreeNodeFlags::empty(),
+        ) {
+            super::relationships::draw(
+                ui,
+                state.motion.as_ref().unwrap(),
+                &mut object,
+                &mut relationship_response,
+                (
+                    host.state()
+                        .navigation
+                        .last()
+                        .map(|n| n.time)
+                        .unwrap_or(fold_foundation::Time::ZERO),
+                    state.auto_key,
+                ),
+            )
+        } else {
+            None
+        };
+        changed |= relationship_response.changed;
+        finished |= relationship_response.finished;
+        if let Some(action) = action {
+            let time = host
+                .state()
+                .navigation
+                .last()
+                .map(|n| n.time)
+                .unwrap_or(fold_foundation::Time::ZERO);
+            state.change_scene(host,|m| {
             match action {
                 super::relationships::Action::Parent(parent,preserve)=>crate::authoring::scene::reparent(m,object.id,parent,time,preserve)?,
                 super::relationships::Action::Constraint(target,kind)=>crate::authoring::scene::add_constraint(m,object.id,target,kind,time,true)?,
@@ -95,25 +96,26 @@ pub(super) fn draw(
             }
             Ok(Some(object.id))
         });
-        return true;
-    }
-    if changed {
-        if let Some(scene) = state.motion.as_mut().and_then(|m| m.scene.as_mut()) {
-            *scene
-                .objects
-                .iter_mut()
-                .find(|o| o.id == object.id)
-                .unwrap() = object.clone();
+            return true;
         }
-        state.property_editing = true;
-        state.preview(host);
-    }
-    if state.property_editing && ui.is_key_pressed(fold_ui::sdk::imgui::Key::Escape) {
-        state.cancel(host);
-        return true;
-    }
-    if state.property_editing && finished {
-        state.commit(host);
+        if changed {
+            if let Some(scene) = state.motion.as_mut().and_then(|m| m.scene.as_mut()) {
+                *scene
+                    .objects
+                    .iter_mut()
+                    .find(|o| o.id == object.id)
+                    .unwrap() = object.clone();
+            }
+            state.property_editing = true;
+            state.preview(host);
+        }
+        if state.property_editing && ui.is_key_pressed(fold_ui::sdk::imgui::Key::Escape) {
+            state.cancel(host);
+            return true;
+        }
+        if state.property_editing && finished {
+            state.commit(host);
+        }
     }
     let mut choices = vec![(object.id, "Content".to_string())];
     if let Some(id) = object.transform {
@@ -164,7 +166,7 @@ pub(super) fn draw(
         }
         drop(active);
     }
-    if object.modifiers.contains(&selected) && !object.locked {
+    if object.modifiers.contains(&selected) && (!object.locked || state.layer_owned(host)) {
         let mut enabled = !state
             .motion
             .as_ref()
@@ -201,5 +203,5 @@ pub(super) fn draw(
         }
     }
     ui.separator();
-    object.locked
+    object.locked && !state.layer_owned(host)
 }

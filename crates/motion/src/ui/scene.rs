@@ -11,9 +11,9 @@ pub(super) fn draw(shared: &Shared, animation: &mut Animation, context: Extensio
     {
         let mut state = shared.borrow_mut();
         state.sync(host);
-        if let Some(_menu) = menu_button(ui, "MoGraph", "Motion document") {
-            if ui.menu_item("New motion document") {
-                state.create(host);
+        if let Some(_menu) = menu_button(ui, "MoGraph", "Layer graph actions") {
+            if ui.menu_item("Graph settings…") {
+                state.composition_settings = state.motion.as_ref().map(|m| m.info.clone());
             }
             if ui.menu_item("Show output") {
                 state.view(host);
@@ -28,7 +28,7 @@ pub(super) fn draw(shared: &Shared, animation: &mut Animation, context: Extensio
             }
         }
         if state.motion.is_none() {
-            ui.text_disabled("Create or open a Motion document.");
+            ui.text_disabled("Add a MoGraph layer in Composition.");
             return;
         }
         ui.same_line();
@@ -55,7 +55,18 @@ pub(super) fn draw(shared: &Shared, animation: &mut Animation, context: Extensio
         };
         if let Some(_menu) = object_menu {
             if let Some(object) = object {
-                if ui.menu_item("Use as composition output") {
+                if state
+                    .motion
+                    .as_ref()
+                    .and_then(|m| m.graph.node(object.source.node).ok())
+                    .is_some_and(|n| n.kind == crate::nodes::composition::KIND)
+                    && ui.menu_item("Open composition")
+                    && let Err(error) =
+                        super::composition::open(&mut state, host, object.source.node)
+                {
+                    state.error = error;
+                }
+                if ui.menu_item("Use as graph output") {
                     state.change_scene(host, |m| {
                         m.scene.as_mut().unwrap().output = Some(object.id);
                         Ok(Some(object.id))
@@ -189,5 +200,6 @@ pub(super) fn draw(shared: &Shared, animation: &mut Animation, context: Extensio
             }
         }
     }
+    super::composition::settings(ui, host, &mut shared.borrow_mut());
     animation.draw(shared, ExtensionUi { ui, host });
 }

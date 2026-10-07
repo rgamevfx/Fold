@@ -12,6 +12,7 @@ members = [
     "crates/ui",
     "crates/timeline",
     "crates/compositor",
+    "crates/composition",
     "crates/motion",
     "crates/app",
 ]
@@ -39,6 +40,7 @@ fold-platform = { path = "crates/platform" }
 fold-ui = { path = "crates/ui" }
 fold-timeline = { path = "crates/timeline" }
 fold-compositor = { path = "crates/compositor" }
+fold-composition = { path = "crates/composition" }
 fold-motion = { path = "crates/motion" }
 
 [workspace.lints.rust]

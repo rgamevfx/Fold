@@ -18,39 +18,32 @@ pub struct Scene {
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Object {
-    pub id: ObjectId,
-    pub name: String,
-    #[serde(default)]
-    pub parent: Option<ObjectId>,
+    #[serde(flatten)]
+    pub state: fold_composition::layer::LayerState,
     pub source: Link,
     pub output: Link,
     pub transform: Option<ObjectId>,
     pub appearance: Option<ObjectId>,
     pub modifiers: Vec<ObjectId>,
     #[serde(default)]
-    pub animation: animation::Channels,
-    #[serde(default = "identity")]
-    pub offset: [f64; 6],
-    #[serde(default = "one")]
-    pub opacity: f64,
-    #[serde(default)]
     pub isolated: bool,
     #[serde(default)]
     pub masks: Vec<Mask>,
     #[serde(default)]
     pub constraints: Vec<Constraint>,
-    pub visible: bool,
-    pub locked: bool,
-    pub start: Time,
-    pub end: Time,
     #[serde(flatten)]
     pub extensions: BTreeMap<String, serde_json::Value>,
 }
-fn identity() -> [f64; 6] {
-    crate::geometry::IDENTITY
+impl std::ops::Deref for Object {
+    type Target = fold_composition::layer::LayerState;
+    fn deref(&self) -> &Self::Target {
+        &self.state
+    }
 }
-fn one() -> f64 {
-    1.
+impl std::ops::DerefMut for Object {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.state
+    }
 }
 impl Object {
     pub fn owns(&self, node: ObjectId) -> bool {

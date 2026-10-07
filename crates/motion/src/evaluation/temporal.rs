@@ -23,6 +23,7 @@ impl<'a> Evaluator<'a> {
         result.runtime = self.runtime.clone();
         result.identity = self.identity.clone();
         result.object_path = self.object_path.clone();
+        result.layer_times = self.layer_times.clone();
         result.current_object = self.current_object;
         result.budget = std::mem::take(&mut self.budget);
         let rebuild = (|| {

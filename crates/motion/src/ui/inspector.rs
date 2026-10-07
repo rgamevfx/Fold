@@ -59,6 +59,9 @@ impl Panel for Inspector {
         if state.group.is_none() && super::scene_inspector::draw(ui, host, &mut state, selected) {
             return;
         }
+        if state.group.is_none() && super::composition::source(ui, host, &mut state, selected) {
+            return;
+        }
         let Some(mut motion) = state.view_motion() else {
             return;
         };
@@ -701,10 +704,13 @@ impl Panel for Inspector {
         } else if super::images::draw(ui, host, node, &image_info, &mut response) {
         } else if super::simulation::draw(ui, node, &mut response) {
         } else if node.kind == "fold.motion.keyframes" {
-            ui.text_disabled("Edit keys in the Animation panel.");
+            ui.text_disabled("Edit keys in Composition.");
         } else if !matches!(
             node.kind.as_str(),
-            "fold.motion.oscillator" | "fold.motion.color_ramp" | "fold.motion.wrangle"
+            "fold.motion.oscillator"
+                | "fold.motion.color_ramp"
+                | "fold.motion.wrangle"
+                | "fold.motion.scene_children"
         ) {
             settings(ui, &mut node.settings, &mut response, 0);
         }

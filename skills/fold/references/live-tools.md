@@ -7,7 +7,7 @@ Use for building or revising artist-editable badges, copies, drivers, or a live 
 3. Call `candidate` with `action:"preview"`, candidate, generation, epoch, fresh request ID, `source:{document:ID,output:"video"}` and exact `time`. Fold opens **Agent preview** with independent frame scrubbing, Original comparison when that document exists live, Apply and Discard. Subsequent author edits update that preview to the latest successful generation. Normal viewer playback/selection stay unchanged. `observe` remains the exact-generation multi-frame evidence tool.
 4. Apply in the UI or commit through MCP when authorized. One application creates one undo entry. A changed live revision blocks application; inspect and rebuild against the artist's edits. Save the committed revision and refresh state.
 
-## Construction example
+## Graph example
 
 This is an `author.source` body, not a standalone script. Use namespace `badge-demo` consistently:
 
@@ -41,3 +41,9 @@ This preserves artist text, layout and palette edits. To change text deliberatel
 Verify representative frames, count/source propagation, artist-edit preservation and undo. A valid script is not evidence of readable artwork. Preview capture reports candidate identity and whether it shows the original; a stale capture is not current evidence.
 
 For a full-canvas background, explicitly set the rectangle object’s transform to `[0,0]`; scene objects otherwise receive the shelf’s insertion placement. Authored colors use the project’s color policy. Legacy and managed-color projects may display identical numeric colors differently; MCP currently lacks a project color-policy edit. Compare references under the same policy.
+
+## Shared Composition and existing Badge projects
+
+A common Composition owns layers; MoGraph and Compositing documents are editable source graphs within those layers. In the updated Badge Wave demo, expand Badge directly in Composition and select Text or Background to open its actual graph. Selecting Duplicator opens its own modifier network. Shared layer controls and native graph edits remain transactional. The saved `badge-demo` namespace targets the retained source graphs, not the common wrapper. Inspect the namespace and returned document handles rather than guessing IDs from Project names.
+
+The graph example and `live_badge.py` above create the provider-graph chain. They have not been extended or verified to create the common Composition stack. Public common-layer authoring is tracked in phase 51; do not present the original generator as reproducing that updated layout or use direct archive editing as a routine artwork workflow.

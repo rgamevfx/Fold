@@ -106,6 +106,10 @@ fn invalid_imports_and_payloads_fail_explicitly() {
     let original = import_sequence(id, [24, 1], &[ppm([0; 3])]).unwrap();
     let compile = |document: &fold_project::Document| {
         ImageSequenceProvider.compile(fold_platform::VideoCompile {
+            graph_context: None,
+            resolve_graph: &|_, _, _| {
+                Err("Layer graph evaluation is unavailable in this context".into())
+            },
             snapshot: &fold_project::Project::new(0).snapshot(),
             document,
             reference: &fold_project::DocumentRef {
@@ -119,6 +123,7 @@ fn invalid_imports_and_payloads_fail_explicitly() {
             resolve: &|_, _| Err("unexpected nested source".into()),
             resolve_image: &|_, _| Err("unexpected nested image".into()),
             describe_channels: &|_| Err("unexpected nested channel catalog".into()),
+            describe_video: &|_| Err("unexpected nested video metadata".into()),
         })
     };
     for length in 0..original.payload.len() {

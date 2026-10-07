@@ -81,7 +81,7 @@ pub(super) fn setup() -> (Host, state::State) {
     (host, state)
 }
 #[test]
-fn compositor_graph_and_inspector_draw_without_authoring() {
+fn compositor_graph_composition_and_inspector_draw_without_authoring() {
     let _guard = IMGUI_TEST_LOCK.lock().unwrap();
     let (mut host, state) = setup();
     let before = host.project.snapshot();
@@ -101,8 +101,8 @@ fn compositor_graph_and_inspector_draw_without_authoring() {
     let mut canvas = canvas::Canvas::new(state.clone());
     canvas.initialize(&context, Some(&typography));
     let mut inspector = inspector::Inspector(state, Default::default());
-    for frame in 0..20 {
-        let width = if frame >= 10 { 320. } else { 850. };
+    for frame in 0..40 {
+        let width = if frame % 20 >= 10 { 280. } else { 850. };
         context.io_mut().add_mouse_pos_event([width - 20., 700.]);
         let ui = context.frame();
         ui.window("graph")
@@ -110,11 +110,25 @@ fn compositor_graph_and_inspector_draw_without_authoring() {
             .size([width, 800.], imgui::Condition::Always)
             .build(|| {
                 let top = ui.cursor_screen_pos()[1];
-                canvas.draw(ExtensionUi {
-                    ui,
-                    host: &mut host,
-                });
-                if frame % 10 >= 3 {
+                if frame < 20 {
+                    canvas.draw_network(ExtensionUi {
+                        ui,
+                        host: &mut host,
+                    });
+                } else {
+                    canvas.draw(ExtensionUi {
+                        ui,
+                        host: &mut host,
+                    });
+                }
+                if frame >= 20 && frame % 10 >= 3 {
+                    assert_eq!(
+                        ui.scroll_max_x(),
+                        0.,
+                        "composition controls must fit the panel"
+                    );
+                }
+                if frame < 20 && frame % 10 >= 3 {
                     assert_eq!(ui.scroll_max_x(), 0., "toolbar must fit the panel");
                     let y = top + ui.frame_height_with_spacing() * 2. + 8.;
                     assert!(

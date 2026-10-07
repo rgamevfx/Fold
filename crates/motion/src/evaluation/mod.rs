@@ -1,5 +1,6 @@
 //! Headless demand evaluation. Node dispatch is registry-driven; fields remain
 //! expressions until a geometry operation selects an explicit element domain.
+pub(crate) mod layers;
 mod relationships;
 mod temporal;
 use crate::{
@@ -46,6 +47,8 @@ pub fn content(value: Content) -> Outputs {
 pub struct Evaluator<'a> {
     pub motion: &'a Motion,
     pub time: Time,
+    pub(crate) scene_output: Option<ObjectId>,
+    pub(crate) layer_times: Arc<BTreeMap<ObjectId, Time>>,
     graph: &'a Graph,
     pub(crate) bindings: BTreeMap<String, Value>,
     pub(crate) group_depth: usize,
@@ -72,6 +75,8 @@ impl<'a> Evaluator<'a> {
         Ok(Self {
             motion,
             time,
+            scene_output: None,
+            layer_times: Default::default(),
             graph,
             bindings: BTreeMap::new(),
             group_depth: 0,
@@ -86,6 +91,18 @@ impl<'a> Evaluator<'a> {
             active: BTreeSet::new(),
         })
     }
+    fn object_time(&self, id: ObjectId) -> Result<Time, String> {
+        let current = self
+            .current_object
+            .and_then(|id| self.layer_times.get(&id))
+            .copied()
+            .unwrap_or(Time::ZERO);
+        let target = self.layer_times.get(&id).copied().unwrap_or(Time::ZERO);
+        self.time
+            .checked_sub(current)
+            .and_then(|t| t.checked_add(target))
+            .map_err(|e| e.to_string())
+    }
     /// References use source objects regardless of their direct-render visibility.
     pub fn object(&mut self, id: ObjectId) -> Result<Value, String> {
         if self.object_path.len() >= 64 || self.object_path.contains(&id) {
@@ -97,7 +114,8 @@ impl<'a> Evaluator<'a> {
             .as_ref()
             .and_then(|s| s.objects.iter().find(|o| o.id == id))
             .ok_or("missing referenced scene object")?;
-        let mut nested = Self::for_graph(self.motion, &self.motion.graph, self.time)?;
+        let mut nested = Self::for_graph(self.motion, &self.motion.graph, self.object_time(id)?)?;
+        nested.layer_times = self.layer_times.clone();
         nested.object_path = self.object_path.clone();
         nested.object_path.insert(id);
         nested.current_object = Some(id);
@@ -123,9 +141,7 @@ impl<'a> Evaluator<'a> {
             .ok_or("scene group requires a scene")?;
         let mut elements = vec![];
         for child in scene.objects.iter().rev().filter(|o| o.parent == Some(id)) {
-            if child.visible
-                && self.time >= child.start
-                && self.time < child.end
+            if child.active(self.object_time(child.id)?)
                 && let Value::Content(content) = self.object(child.id)?
             {
                 elements.extend(content.iter().cloned());
@@ -137,7 +153,7 @@ impl<'a> Evaluator<'a> {
         let Some(scene) = &self.motion.scene else {
             return self.resolve(&self.motion.graph.output);
         };
-        if let Some(id) = scene.output {
+        if let Some(id) = self.scene_output.or(scene.output) {
             let object = scene
                 .objects
                 .iter()
@@ -151,11 +167,7 @@ impl<'a> Evaluator<'a> {
         }
         let mut elements = Vec::new();
         for object in scene.objects.iter().rev() {
-            if object.parent.is_none()
-                && object.visible
-                && self.time >= object.start
-                && self.time < object.end
-            {
+            if object.parent.is_none() && object.active(self.time) {
                 let Value::Content(content) = self.object(object.id)? else {
                     return Err("object output must be content".into());
                 };

@@ -3,7 +3,7 @@ use crate::animation::path;
 use fold_platform::desktop::{DesktopCommand, Selection, TransportAction};
 use fold_ui::sdk::{
     ExtensionUi,
-    animation_editor::{Channel, Context, Editor},
+    animation_editor::{Channel, Context, Editor, Track},
 };
 
 pub(super) fn draw(editor: &mut Editor, shared: &Shared, context: ExtensionUi<'_>) {
@@ -11,6 +11,7 @@ pub(super) fn draw(editor: &mut Editor, shared: &Shared, context: ExtensionUi<'_
     let mut state = shared.borrow_mut();
     state.sync(host);
     let Some(document) = state.document else {
+        ui.text_disabled("Create or open a composition in Project.");
         return;
     };
     let Some(graph) = state.graph.as_ref() else {
@@ -18,7 +19,16 @@ pub(super) fn draw(editor: &mut Editor, shared: &Shared, context: ExtensionUi<'_
     };
     let info = graph.info.clone();
     let mut channels = vec![];
+    let mut tracks = vec![];
     for (index, node) in graph.nodes.iter().enumerate() {
+        tracks.push(Track {
+            id: node.id,
+            parent: None,
+            label: format!("{} {}", node.parameters.operator().label(), index + 1),
+            locked: false,
+            range: None,
+            layer: None,
+        });
         for property in node.animated_properties() {
             for (i, component) in property.channels.iter().enumerate() {
                 let path = path(property.id, i);
@@ -53,7 +63,7 @@ pub(super) fn draw(editor: &mut Editor, shared: &Shared, context: ExtensionUi<'_
             rate: info.rate,
             frames: info.frames,
             nodes: &selected,
-            tracks: &[],
+            tracks: &tracks,
             auto_key: &mut state.auto_key,
         },
     );

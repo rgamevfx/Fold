@@ -290,6 +290,14 @@ impl Motion {
         let mut assets = std::collections::BTreeSet::new();
         for graph in std::iter::once(&self.graph).chain(self.groups.values().map(|g| &g.graph)) {
             for node in &graph.nodes {
+                if node.kind == crate::nodes::composition::KIND
+                    && let Some(reference) = node
+                        .settings::<crate::nodes::composition::Settings>()?
+                        .source
+                    && !documents.contains(&reference)
+                {
+                    documents.push(reference);
+                }
                 if node.kind == "fold.motion.image" {
                     for entry in node.settings::<crate::nodes::image::Settings>()?.sources {
                         match entry.source {
@@ -316,6 +324,14 @@ impl Motion {
             package_id: crate::PACKAGE.into(),
             type_id: MOTION.into(),
             schema_version: if std::iter::once(&self.graph)
+                .chain(self.groups.values().map(|g| &g.graph))
+                .any(|g| {
+                    g.nodes
+                        .iter()
+                        .any(|n| n.kind == crate::nodes::composition::KIND)
+                }) {
+                7
+            } else if std::iter::once(&self.graph)
                 .chain(self.groups.values().map(|g| &g.graph))
                 .any(|g| g.nodes.iter().any(|n| n.kind == "fold.motion.image_bake"))
             {
@@ -345,7 +361,7 @@ impl Motion {
     pub fn from_document(document: &Document) -> Result<Self, String> {
         if document.package_id != crate::PACKAGE
             || document.type_id != MOTION
-            || ![1, 2, 3, 4, 5, 6].contains(&document.schema_version)
+            || ![1, 2, 3, 4, 5, 6, 7].contains(&document.schema_version)
         {
             return Err("unsupported motion document envelope".into());
         }

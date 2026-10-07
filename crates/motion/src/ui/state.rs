@@ -9,10 +9,13 @@ use std::{cell::RefCell, rc::Rc};
 pub type Shared = Rc<RefCell<State>>;
 #[derive(Default)]
 pub struct State {
+    pub graph_animation: bool,
+    pub composition_settings: Option<fold_media::VideoInfo>,
     pub wrangle_drafts: super::wrangle::Drafts,
     pub document: Option<DocumentId>,
     pub motion: Option<Motion>,
     pub selected: Vec<ObjectId>,
+    observed_selection: (Option<DocumentId>, Vec<ObjectId>),
     pub group: Option<ObjectId>,
     pub network_object: Option<ObjectId>,
     pub document_network: bool,
@@ -72,6 +75,7 @@ impl State {
                 host.command(DesktopCommand::CancelPreviewEdit);
             }
             if chosen != self.document {
+                self.composition_settings = None;
                 self.wrangle_drafts.clear();
                 self.group = None;
                 self.network_object = None;
@@ -130,6 +134,54 @@ impl State {
                     .is_some_and(|m| m.graph.nodes.iter().any(|n| n.id == *id))
             });
         }
+        let selection = &host.state().selection;
+        let observed = (selection.document, selection.objects.clone());
+        if observed != self.observed_selection {
+            self.observed_selection = observed;
+            if selection.document == self.document {
+                let object = self
+                    .motion
+                    .as_ref()
+                    .and_then(|m| m.scene.as_ref())
+                    .and_then(|scene| {
+                        scene
+                            .objects
+                            .iter()
+                            .find(|o| selection.objects.first() == Some(&o.id))
+                            .map(|o| o.id)
+                    });
+                if let Some(object) = object {
+                    if self.network_object != Some(object) || self.group.is_some() {
+                        self.group = None;
+                        self.parents.clear();
+                        self.document_network = false;
+                    }
+                    self.network_object = Some(object);
+                }
+                let view = self.view_motion();
+                self.selected = selection
+                    .objects
+                    .iter()
+                    .copied()
+                    .filter(|id| {
+                        view.as_ref()
+                            .is_some_and(|m| m.graph.nodes.iter().any(|n| n.id == *id))
+                    })
+                    .collect();
+            }
+        }
+    }
+    pub fn layer_owned(&self, host: &dyn DesktopClient) -> bool {
+        host.snapshot().is_some_and(|s| {
+            self.document
+                .and_then(|id| s.state().documents.get(&id))
+                .is_some_and(|d| {
+                    d.extensions
+                        .get(fold_composition::LAYER_GRAPH)
+                        .and_then(|v| v.as_bool())
+                        == Some(true)
+                })
+        })
     }
     pub fn view_motion(&self) -> Option<Motion> {
         let mut motion = self.motion.clone()?;
@@ -220,6 +272,10 @@ impl State {
                     self.editing = false;
                     self.property_editing = false;
                     self.interface_editing = false;
+                    self.observed_selection = (
+                        host.state().selection.document,
+                        host.state().selection.objects.clone(),
+                    );
                     self.sync(host);
                     self.error.clear();
                 } else {
@@ -278,7 +334,9 @@ impl State {
             }
         }
     }
+    #[cfg(test)]
     pub fn create(&mut self, host: &mut dyn DesktopClient) {
+        self.composition_settings = None;
         self.cancel(host);
         self.group = None;
         self.parents.clear();

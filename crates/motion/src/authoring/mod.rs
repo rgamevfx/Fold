@@ -1,4 +1,5 @@
 //! Direct tools edit the same persistent graph as socket wiring. No hidden evaluator.
+pub mod composition;
 mod controls;
 mod groups;
 pub mod path;

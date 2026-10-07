@@ -71,7 +71,7 @@ fn host() -> Host {
     send(
         &mut host,
         Command::Create {
-            kind: fold_compositor::COMPOSITE.into(),
+            kind: fold_composition::COMPOSITION.into(),
             parent: Parent::Root,
         },
     );
@@ -228,4 +228,38 @@ fn typed_drag_moves_an_item_into_a_bin_as_one_undoable_edit() {
     context.io_mut().add_key_event(Key::Enter, false);
     frame(&mut context, &mut panel, &mut host);
     assert_eq!(panel.folder, Parent::Bin(bin));
+}
+
+#[test]
+fn layer_graph_content_is_not_a_second_project_composition() {
+    let mut host = host();
+    let composition = host
+        .project
+        .snapshot()
+        .state()
+        .documents
+        .values()
+        .find(|d| d.type_id == fold_composition::COMPOSITION)
+        .unwrap()
+        .id;
+    let before = ProjectPanel::default().rows(&host.project.snapshot()).len();
+    for kind in ["motion", "image"] {
+        let batch = crate::composition_layers::add(
+            &host.project.snapshot(),
+            &serde_json::to_vec(&serde_json::json!({"document":composition,"kind":kind})).unwrap(),
+            &Default::default(),
+        )
+        .unwrap();
+        host.project.commit(batch).unwrap();
+    }
+    let panel = ProjectPanel::default();
+    assert_eq!(panel.rows(&host.project.snapshot()).len(), before);
+    let mut search = ProjectPanel::default();
+    search.search = "layer".into();
+    assert!(search.rows(&host.project.snapshot()).is_empty());
+    let composition = fold_composition::Composition::from_document(
+        &host.project.snapshot().state().documents[&composition],
+    )
+    .unwrap();
+    assert_eq!(composition.layers.len(), 2);
 }

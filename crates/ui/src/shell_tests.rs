@@ -786,7 +786,7 @@ fn review_menu_is_explicit_and_preserves_playback_mode_at_normal_and_narrow_widt
 }
 
 #[test]
-fn animation_surface_uses_the_explicit_viewer_time_and_rejects_ambiguity() {
+fn composition_surface_uses_the_explicit_viewer_time_and_rejects_ambiguity() {
     type Times = Rc<RefCell<Vec<Time>>>;
     struct Animated(Times);
     impl Panel for Animated {
@@ -796,7 +796,7 @@ fn animation_surface_uses_the_explicit_viewer_time_and_rejects_ambiguity() {
         fn document_type(&self) -> Option<&'static str> {
             Some("test.kind")
         }
-        fn supports_animation(&self) -> bool {
+        fn supports_composition(&self) -> bool {
             true
         }
         fn new_instance(&self) -> Option<EditorPanels> {
@@ -805,8 +805,7 @@ fn animation_surface_uses_the_explicit_viewer_time_and_rejects_ambiguity() {
                 inspector: Box::new(Self(self.0.clone())),
             })
         }
-        fn draw(&mut self, _: ExtensionUi<'_>) {}
-        fn draw_animation(&mut self, context: ExtensionUi<'_>) {
+        fn draw(&mut self, context: ExtensionUi<'_>) {
             self.0
                 .borrow_mut()
                 .push(context.host.state().navigation.last().unwrap().time);
@@ -814,11 +813,8 @@ fn animation_surface_uses_the_explicit_viewer_time_and_rejects_ambiguity() {
         fn supports_network(&self) -> bool {
             true
         }
-        fn network_primary(&self) -> bool {
-            true
-        }
         fn draw_network(&mut self, context: ExtensionUi<'_>) {
-            self.draw_animation(context);
+            self.draw(context);
         }
     }
     let _guard = crate::IMGUI_TEST_LOCK.lock().unwrap();
@@ -847,12 +843,12 @@ fn animation_surface_uses_the_explicit_viewer_time_and_rejects_ambiguity() {
         },
         RegisteredPanel {
             descriptor: fold_platform::packages::PanelDescriptor {
-                id: crate::sdk::animation_editor::PANEL_ID,
-                title: "Animation",
+                id: crate::sdk::composition::PANEL_ID,
+                title: "Composition",
                 placement: PanelPlacement::Editor,
             },
-            panel: Box::new(crate::sdk::animation_editor::Surface),
-            key: WindowKey::new(crate::sdk::animation_editor::PANEL_ID, "Animation").unwrap(),
+            panel: Box::new(crate::sdk::composition::Surface),
+            key: WindowKey::new(crate::sdk::composition::PANEL_ID, "Composition").unwrap(),
         },
     ];
     let mut shell = Shell::new(panels);
@@ -882,7 +878,7 @@ fn animation_surface_uses_the_explicit_viewer_time_and_rejects_ambiguity() {
         time: Time::new(1, 8).unwrap(),
         ..Default::default()
     });
-    // Explicitly reveal the Animation tab while keeping its ordinary dock placement.
+    // Explicitly reveal the Composition tab while keeping its ordinary dock placement.
     let mut frame = |shell: &mut Shell, context: &mut Context| {
         shell.prepare_frame(context);
         let ui = context.frame();
@@ -910,7 +906,52 @@ fn animation_surface_uses_the_explicit_viewer_time_and_rejects_ambiguity() {
                 .all(|&time| time == shell.workspace.viewers[&viewer].time)
         );
     }
-    // Reuse the linked instance through Network; the primary graph editor has no duplicate window.
+    // A locked Inspector must not replace Composition's own local authoring clock.
+    shell.workspace.toggle_inspector_lock();
+    let locked_time = shell
+        .workspace
+        .inspector_lock
+        .as_ref()
+        .unwrap()
+        .1
+        .navigation
+        .last()
+        .unwrap()
+        .time;
+    let viewers = std::mem::take(&mut shell.workspace.viewers);
+    let local_time = Time::new(19, 24).unwrap();
+    shell
+        .workspace
+        .editors
+        .get_mut(&editor)
+        .unwrap()
+        .navigation
+        .last_mut()
+        .unwrap()
+        .time = local_time;
+    seen.borrow_mut().clear();
+    for _ in 0..3 {
+        frame(&mut shell, &mut context);
+    }
+    assert!(!seen.borrow().is_empty());
+    assert!(seen.borrow().iter().all(|&time| time == local_time));
+    assert_eq!(
+        shell
+            .workspace
+            .inspector_lock
+            .as_ref()
+            .unwrap()
+            .1
+            .navigation
+            .last()
+            .unwrap()
+            .time,
+        locked_time
+    );
+    shell.workspace.inspector_lock = None;
+    shell.workspace.viewers = viewers;
+
+    // Reuse the linked instance through Network; the provider has no duplicate window.
     shell.panels[1].descriptor.id = crate::sdk::network::PANEL_ID;
     shell.panels[1].panel = Box::new(crate::sdk::network::Surface);
     shell.panels[1].key = WindowKey::new(crate::sdk::network::PANEL_ID, "Network").unwrap();
@@ -1210,4 +1251,113 @@ fn ready_viewer_releases_image_draw_list_before_editor_overlay() {
             context.end_frame();
         }
     }
+}
+
+#[test]
+fn opening_a_layer_graph_retains_the_parent_stack_selection_and_clock() {
+    struct Graph;
+    impl Panel for Graph {
+        fn id(&self) -> &'static str {
+            "test.graph"
+        }
+        fn document_type(&self) -> Option<&'static str> {
+            Some("test.graph.kind")
+        }
+        fn is_layer_graph(&self) -> bool {
+            true
+        }
+        fn draw(&mut self, _: ExtensionUi<'_>) {}
+    }
+    let mut shell = Shell::new(vec![RegisteredPanel {
+        descriptor: fold_platform::packages::PanelDescriptor {
+            id: "test.graph",
+            title: "Layer graph",
+            placement: PanelPlacement::Editor,
+        },
+        panel: Box::new(Graph),
+        key: WindowKey::new("test.graph", "Layer graph").unwrap(),
+    }]);
+    let parent = shell
+        .workspace
+        .add_editor("test.composition", "test.composition.kind");
+    let document = DocumentId::new();
+    let source = DocumentId::new();
+    let layer = fold_foundation::ObjectId::new();
+    let binding = shell.workspace.editors.get_mut(&parent).unwrap();
+    binding.bind(ViewLocation {
+        document,
+        time: Time::new(7, 24).unwrap(),
+        label: "Shot".into(),
+    });
+    binding.selection.objects = vec![layer];
+    let parent_before = binding.clone();
+    let mut child = binding.clone();
+    child.navigate(ViewLocation {
+        document: source,
+        time: Time::new(1, 48).unwrap(),
+        label: "Foreground".into(),
+    });
+    child.document_type = "test.graph.kind".into();
+    shell.workspace.composition_editor = Some(parent);
+    shell.open_layer_graph(child.clone());
+    let graph = shell.workspace.focused_editor.unwrap();
+    assert_ne!(graph, parent);
+    assert_eq!(shell.workspace.composition_editor, Some(parent));
+    assert_eq!(
+        shell.workspace.editors[&parent].navigation,
+        parent_before.navigation
+    );
+    assert_eq!(
+        shell.workspace.editors[&parent].selection.objects,
+        vec![layer]
+    );
+    assert_eq!(shell.workspace.editors[&graph].navigation, child.navigation);
+    assert_eq!(shell.workspace.editors[&graph].document(), Some(source));
+    let count = shell.workspace.editors.len();
+    shell.open_layer_graph(child);
+    assert_eq!(shell.workspace.focused_editor, Some(graph));
+    assert_eq!(shell.workspace.editors.len(), count);
+}
+
+#[test]
+fn composition_surface_has_a_context_after_restoring_a_workspace_without_one() {
+    struct CompositionPanel;
+    impl Panel for CompositionPanel {
+        fn id(&self) -> &'static str {
+            "test.composition"
+        }
+        fn document_type(&self) -> Option<&'static str> {
+            Some("test.composition.kind")
+        }
+        fn supports_composition(&self) -> bool {
+            true
+        }
+        fn new_instance(&self) -> Option<EditorPanels> {
+            Some(EditorPanels {
+                editor: Box::new(Self),
+                inspector: Box::new(Self),
+            })
+        }
+        fn draw(&mut self, _: ExtensionUi<'_>) {}
+    }
+    let mut shell = Shell::new(vec![RegisteredPanel {
+        descriptor: fold_platform::packages::PanelDescriptor {
+            id: "test.composition",
+            title: "Composition",
+            placement: PanelPlacement::Editor,
+        },
+        panel: Box::new(CompositionPanel),
+        key: WindowKey::new("test.composition", "Composition").unwrap(),
+    }]);
+    // A restored layout need not contain every currently registered editor.
+    shell.workspace.editors.clear();
+    shell.workspace.composition_editor = None;
+    shell.sync_instances();
+    let id = shell.workspace.composition_editor.expect(
+        "Composition needs a bound editor context to draw its group badge and authoring controls",
+    );
+    assert_eq!(shell.workspace.editors[&id].group, workspace::LinkGroup::A);
+    shell.sync_instances();
+    assert_eq!(shell.workspace.composition_editor, Some(id));
+    assert_eq!(shell.workspace.editors.len(), 1);
 }

@@ -1,0 +1,360 @@
+use crate::{Composition, Layer};
+use fold_foundation::{DocumentId, ObjectId};
+use fold_media::Cancel;
+use fold_platform::{
+    browser::{Placement, PlacementSource},
+    image_source::Source,
+    packages::*,
+};
+use fold_project::{Document, DocumentRef, EditBatch, Mutation, Snapshot};
+use serde::{Deserialize, Serialize};
+
+pub const EDIT: &str = "fold.composition.edit";
+pub const NEST: &str = "fold.composition.precompose";
+pub const PANEL: &str = "fold.composition.editor";
+pub const INSPECTOR: &str = "fold.composition.inspector";
+pub const PANELS: &[PanelDescriptor] = &[
+    PanelDescriptor {
+        id: PANEL,
+        title: "Composition",
+        placement: PanelPlacement::Editor,
+    },
+    PanelDescriptor {
+        id: INSPECTOR,
+        title: "Layer properties",
+        placement: PanelPlacement::Inspector,
+    },
+];
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct EditArgs {
+    pub document: DocumentId,
+    pub composition: Composition,
+}
+pub fn edit(snapshot: &Snapshot, bytes: &[u8], cancel: &Cancel) -> Result<EditBatch, String> {
+    cancel.check()?;
+    let args: EditArgs = serde_json::from_slice(bytes).map_err(|e| e.to_string())?;
+    let mut document = args.composition.document(args.document)?;
+    if let Some(old) = snapshot.state().documents.get(&args.document) {
+        Composition::from_document(old)?;
+        document.extensions = old.extensions.clone();
+    }
+    Ok(EditBatch {
+        base: snapshot.revision(),
+        mutations: vec![Mutation::PutDocument(document)],
+    })
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct NestArgs {
+    pub document: DocumentId,
+    pub child: DocumentId,
+    pub name: String,
+    pub layers: Vec<ObjectId>,
+}
+pub fn nest(snapshot: &Snapshot, bytes: &[u8], cancel: &Cancel) -> Result<EditBatch, String> {
+    cancel.check()?;
+    let args: NestArgs = serde_json::from_slice(bytes).map_err(|e| e.to_string())?;
+    if snapshot.state().documents.contains_key(&args.child) || args.name.trim().is_empty() {
+        return Err("Choose a new composition ID and name".into());
+    }
+    let original = snapshot
+        .state()
+        .documents
+        .get(&args.document)
+        .ok_or("Missing composition")?;
+    let mut parent = Composition::from_document(original)?;
+    let mut child = Composition {
+        info: parent.info.clone(),
+        ..Default::default()
+    };
+    let mut selected: std::collections::BTreeSet<_> = args.layers.iter().copied().collect();
+    for id in &selected {
+        parent.layer(*id)?;
+        if parent.locked(*id) {
+            return Err("Unlock selected layers before precomposing".into());
+        }
+    }
+    // Selecting a group includes its descendants; a selected descendant is not another root.
+    let roots: Vec<_> = parent
+        .layers
+        .iter()
+        .filter(|l| {
+            selected.contains(&l.id) && {
+                let mut ancestor = l.parent;
+                let mut included = false;
+                while let Some(id) = ancestor {
+                    included |= selected.contains(&id);
+                    ancestor = parent.layer(id).unwrap().parent;
+                }
+                !included
+            }
+        })
+        .map(|l| l.id)
+        .collect();
+    let group = roots
+        .first()
+        .and_then(|id| parent.layer(*id).unwrap().parent);
+    if roots
+        .iter()
+        .any(|id| parent.layer(*id).unwrap().parent != group)
+    {
+        return Err("Precompose adjacent sibling layers or a group".into());
+    }
+    let siblings: Vec<_> = parent
+        .layers
+        .iter()
+        .filter(|l| l.parent == group)
+        .map(|l| l.id)
+        .collect();
+    if let (Some(first), Some(last)) = (roots.first(), roots.last()) {
+        let a = siblings.iter().position(|id| id == first).unwrap();
+        let b = siblings.iter().position(|id| id == last).unwrap();
+        if b - a + 1 != roots.len() {
+            return Err("Precompose adjacent sibling layers".into());
+        }
+    }
+    loop {
+        let before = selected.len();
+        for l in &parent.layers {
+            if l.parent.is_some_and(|p| selected.contains(&p)) {
+                selected.insert(l.id);
+            }
+        }
+        if before == selected.len() {
+            break;
+        }
+    }
+    for layer in parent
+        .layers
+        .iter()
+        .filter(|l| selected.contains(&l.id) && l.graph_object().is_some())
+    {
+        let Some(Source::Output(source)) = &layer.source else {
+            continue;
+        };
+        if parent.layers.iter().any(|other| {
+            !selected.contains(&other.id)
+                && other.graph_object().is_some()
+                && matches!(&other.source, Some(Source::Output(s)) if s.document == source.document)
+        }) {
+            return Err("Include the other layers sharing this graph before precomposing".into());
+        }
+    }
+    if selected.iter().any(|id| parent.locked(*id)) {
+        return Err("Unlock descendant layers before precomposing".into());
+    }
+    let insertion = roots
+        .first()
+        .and_then(|root| parent.layers.iter().position(|l| l.id == *root))
+        .map(|position| {
+            parent.layers[..position]
+                .iter()
+                .filter(|l| !selected.contains(&l.id))
+                .count()
+        })
+        .unwrap_or(0);
+    child.layers = parent
+        .layers
+        .iter()
+        .filter(|l| selected.contains(&l.id))
+        .cloned()
+        .collect();
+    for layer in &mut child.layers {
+        if roots.contains(&layer.id) {
+            layer.parent = None;
+        }
+    }
+    parent.layers.retain(|l| !selected.contains(&l.id));
+    let mut layer = Layer::new(
+        args.name.clone(),
+        Some(Source::Output(DocumentRef {
+            document: args.child,
+            output: "video".into(),
+            extensions: Default::default(),
+        })),
+        child.info.clone(),
+    )?;
+    layer.parent = group;
+    parent.layers.insert(insertion, layer);
+    let mut updated = parent.document(args.document)?;
+    updated.extensions = original.extensions.clone();
+    let parent_bin = snapshot
+        .state()
+        .organization
+        .items
+        .iter()
+        .find(|i| i.id == fold_project::ItemId::Document(args.document))
+        .map(|i| i.parent)
+        .unwrap_or_default();
+    Ok(EditBatch {
+        base: snapshot.revision(),
+        mutations: vec![
+            Mutation::PutDocument(child.document(args.child)?),
+            Mutation::PutItem(fold_project::Item {
+                id: fold_project::ItemId::Document(args.child),
+                name: args.name,
+                parent: parent_bin,
+                order: snapshot.state().organization.items.len() as u64,
+                extensions: Default::default(),
+            }),
+            Mutation::PutDocument(updated),
+        ],
+    })
+}
+struct Documents;
+impl DocumentProvider for Documents {
+    fn package_id(&self) -> &'static str {
+        crate::PACKAGE
+    }
+    fn type_id(&self) -> &'static str {
+        crate::COMPOSITION
+    }
+    fn schema(&self) -> u32 {
+        1
+    }
+    fn validate(&self, document: &Document) -> Result<(), String> {
+        Composition::from_document(document).map(|_| ())
+    }
+    fn browser_kind(&self) -> Option<fold_platform::browser::DocumentKind> {
+        Some(fold_platform::browser::DocumentKind {
+            type_id: crate::COMPOSITION,
+            title: "Composition",
+        })
+    }
+    fn create(&self, id: DocumentId) -> Result<Document, String> {
+        Composition::default().document(id)
+    }
+    fn validate_relink(
+        &self,
+        document: &Document,
+        asset: fold_foundation::AssetId,
+        metadata: &fold_media::ingest::SourceMetadata,
+    ) -> Result<(), String> {
+        for layer in Composition::from_document(document)?.layers {
+            if layer.source != Some(Source::Asset(asset)) {
+                continue;
+            }
+            let valid = match &metadata.profile {
+                fold_media::ingest::SourceProfile::Video(info) => *info == layer.info,
+                fold_media::ingest::SourceProfile::Ppm { dimensions } => {
+                    *dimensions == [layer.info.width, layer.info.height]
+                }
+                fold_media::ingest::SourceProfile::Exr(info) => {
+                    info.dimensions == [layer.info.width, layer.info.height]
+                        && info
+                            .sequence
+                            .as_ref()
+                            .is_none_or(|s| s.last() - s.first() + 1 == layer.info.frames)
+                }
+                _ => false,
+            };
+            if !valid {
+                return Err(
+                    "Relink changes the composition layer's source dimensions or duration".into(),
+                );
+            }
+        }
+        Ok(())
+    }
+    fn evaluation_identity(&self, document: &Document) -> Result<Vec<u8>, String> {
+        let mut composition = Composition::from_document(document)?;
+        for layer in &mut composition.layers {
+            layer.name.clear();
+            layer.locked = false;
+        }
+        serde_json::to_vec(&composition).map_err(|e| e.to_string())
+    }
+    fn inspect(&self, document: &Document) -> Result<serde_json::Value, String> {
+        serde_json::to_value(Composition::from_document(document)?).map_err(|e| e.to_string())
+    }
+    fn place(
+        &self,
+        snapshot: &Snapshot,
+        placement: &Placement,
+        info: Option<fold_media::VideoInfo>,
+    ) -> Result<Document, String> {
+        if placement.audio_only {
+            return Err("A composition layer requires video or an image".into());
+        }
+        let original = snapshot
+            .state()
+            .documents
+            .get(&placement.target)
+            .ok_or("Missing composition")?;
+        let mut composition = Composition::from_document(original)?;
+        let info = match &placement.source {
+            PlacementSource::Asset(id) => {
+                fold_platform::image_source::asset_info(snapshot, *id, &composition.info)?
+            }
+            PlacementSource::Output(_) => info.ok_or("Missing source video metadata")?,
+        };
+        let duration = placement.range(info.time(info.frames)?)?;
+        let (source, item) = match &placement.source {
+            PlacementSource::Asset(id) => (Source::Asset(*id), fold_project::ItemId::Asset(*id)),
+            PlacementSource::Output(r) => (
+                Source::Output(r.clone()),
+                fold_project::ItemId::Document(r.document),
+            ),
+        };
+        let name = fold_platform::browser::item_name(snapshot, item, "Layer");
+        let mut layer = Layer::new(name, Some(source), info)?;
+        let fit = (f64::from(composition.info.width) / f64::from(layer.info.width))
+            .min(f64::from(composition.info.height) / f64::from(layer.info.height))
+            .min(1.);
+        let width = f64::from(layer.info.width) * fit;
+        let height = f64::from(layer.info.height) * fit;
+        layer.offset = [
+            width / f64::from(composition.info.width),
+            0.,
+            0.,
+            height / f64::from(composition.info.height),
+            (f64::from(composition.info.width) - width) / 2.,
+            (f64::from(composition.info.height) - height) / 2.,
+        ];
+        layer.start = placement.at;
+        layer.end = placement
+            .at
+            .checked_add(duration)
+            .map_err(|e| e.to_string())?;
+        layer.origin = placement.at;
+        layer.source_start = placement.source_start;
+        composition.layers.insert(0, layer);
+        let mut document = composition.document(placement.target)?;
+        document.extensions = original.extensions.clone();
+        Ok(document)
+    }
+}
+pub fn register(registry: &mut PackageRegistry) -> Result<(), String> {
+    register_with_edit(registry, edit)
+}
+pub fn register_with_edit(
+    registry: &mut PackageRegistry,
+    edit: CommandHandler,
+) -> Result<(), String> {
+    registry.register(Contributions {
+        manifest: Manifest {
+            id: crate::PACKAGE,
+            version: env!("CARGO_PKG_VERSION"),
+            host_api: HOST_API,
+            dependencies: &[],
+            panels: PANELS,
+            build: "composition-schema1-evaluator2-layer-context",
+        },
+        documents: vec![Box::new(Documents)],
+        video: vec![Box::new(crate::compile::Provider)],
+        audio: vec![],
+        commands: vec![
+            CommandRegistration {
+                id: EDIT,
+                title: "Edit composition",
+                execution: Execution::Immediate,
+                handler: edit,
+            },
+            CommandRegistration {
+                id: NEST,
+                title: "Precompose layers",
+                execution: Execution::Immediate,
+                handler: nest,
+            },
+        ],
+    })
+}

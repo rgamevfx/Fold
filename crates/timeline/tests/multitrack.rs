@@ -237,6 +237,10 @@ fn track_visibility_solo_mute_opacity_and_audio_mix_lower_to_shared_plans() {
     sequence.clips[2].start = t(0);
     let compile = |document: &fold_project::Document| {
         SequenceProvider.compile(fold_platform::VideoCompile {
+            graph_context: None,
+            resolve_graph: &|_, _, _| {
+                Err("Layer graph evaluation is unavailable in this context".into())
+            },
             snapshot: &project.snapshot(),
             document,
             reference: &fold_project::DocumentRef {
@@ -250,6 +254,7 @@ fn track_visibility_solo_mute_opacity_and_audio_mix_lower_to_shared_plans() {
             resolve: &|_, _| Err("unexpected nested source".into()),
             resolve_image: &|_, _| Err("unexpected nested image".into()),
             describe_channels: &|_| Err("unexpected nested channel catalog".into()),
+            describe_video: &|_| Err("unexpected nested video metadata".into()),
         })
     };
     let document = sequence.document(id).unwrap();

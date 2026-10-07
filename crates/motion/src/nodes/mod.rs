@@ -88,3 +88,5 @@ pub mod particle_targets;
 pub mod particles;
 
 pub mod image;
+
+pub mod composition;
