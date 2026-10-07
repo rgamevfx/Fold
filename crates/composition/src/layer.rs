@@ -62,6 +62,9 @@ impl LayerState {
             .and_then(|c| c.sample(time))
             .unwrap_or(base)
     }
+    pub fn matrix(&self, time: Time) -> [f64; 6] {
+        std::array::from_fn(|i| self.sample(&format!("transform.{i}"), self.offset[i], time))
+    }
     pub fn active(&self, time: Time) -> bool {
         self.visible && self.start <= time && time < self.end
     }

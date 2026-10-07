@@ -1,0 +1,23 @@
+{
+  "asset_count": 0,
+  "assets": [],
+  "authoring_namespaces": [],
+  "can_redo": false,
+  "can_undo": false,
+  "candidates": [],
+  "dirty": false,
+  "document_count": 0,
+  "documents": [],
+  "editing": false,
+  "limit": 100,
+  "offset": 0,
+  "path": null,
+  "project_epoch": 0,
+  "redo_label": null,
+  "revision": 0,
+  "selection": {
+    "document": null,
+    "objects": []
+  },
+  "undo_label": null
+}

@@ -13,6 +13,14 @@ use std::collections::{BTreeMap, BTreeSet};
 #[derive(Deserialize, schemars::JsonSchema)]
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 pub(super) enum Edit {
+    RustAsset {
+        definition: ObjectId,
+        #[serde(default)]
+        migrations: Vec<crate::program::Migration>,
+        source: String,
+        #[serde(default)]
+        instance: Option<ObjectId>,
+    },
     Wrangle {
         node: ObjectId,
         source: String,
@@ -49,6 +57,10 @@ pub(super) enum Edit {
         name: Option<String>,
         section: Option<String>,
         advanced: Option<bool>,
+        range: Option<[f64; 2]>,
+        #[serde(default)]
+        clear_range: bool,
+        description: Option<String>,
     },
     Insert {
         node: ObjectId,
@@ -93,7 +105,8 @@ pub(super) enum Edit {
 pub(super) fn accepts(op: &str) -> bool {
     matches!(
         op,
-        "wrangle"
+        "rust_asset"
+            | "wrangle"
             | "create_controls"
             | "create_node"
             | "publish"
@@ -146,6 +159,17 @@ pub(super) fn apply(
     cancel: &fold_media::Cancel,
 ) -> Result<(), String> {
     match fold_platform::authoring::decode::<Edit>(value)? {
+        Edit::RustAsset {
+            definition,
+            migrations,
+            source,
+            instance,
+        } => {
+            crate::program::define_with_migrations(m, definition, &source, &migrations, cancel)?;
+            if let Some(id) = instance {
+                crate::program::instantiate(m, definition, id)?;
+            }
+        }
         Edit::Wrangle {
             node,
             source,
@@ -254,6 +278,8 @@ pub(super) fn apply(
                 unit: socket.unit.into(),
                 section,
                 advanced: false,
+                range: None,
+                description: String::new(),
             });
             if !animation.is_empty() {
                 for graph in
@@ -284,6 +310,9 @@ pub(super) fn apply(
             name,
             section,
             advanced,
+            range,
+            clear_range,
+            description,
         } => {
             let p = m
                 .groups
@@ -304,6 +333,17 @@ pub(super) fn apply(
             }
             if let Some(advanced) = advanced {
                 p.advanced = advanced;
+            }
+            if clear_range && range.is_some() {
+                return Err("range and clear_range are mutually exclusive".into());
+            }
+            if clear_range {
+                p.range = None;
+            } else if let Some(range) = range {
+                p.range = Some(range);
+            }
+            if let Some(description) = description {
+                p.description = description;
             }
         }
         Edit::Insert {
@@ -522,6 +562,8 @@ fn group_nodes(
                     unit: socket.unit.into(),
                     section: String::new(),
                     advanced: false,
+                    range: None,
+                    description: String::new(),
                 });
             }
         }

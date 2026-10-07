@@ -1,0 +1,330 @@
+{
+  "catalog": {
+    "create": {
+      "id": "NEW_UUID",
+      "kind": "fold.composition.document",
+      "name": "Composition",
+      "op": "create"
+    },
+    "layer_creation": "Use batch place/place_asset for existing sources, or app commands for native graph layers. catalog guide=rust-assets describes fold.app.create-rust-asset. fold.app.add-layer-graph arguments are {document: Composition UUID, kind: motion|composite, layer: optional selected layer UUID}.",
+    "notes": "Use ordinary batch edit operations. Layer positions are design pixels; time is exact Composition time. Moving both range edges equally moves the source clock; trimming retains it. Keyframe updates preserve key identity/tangents; new keys are Linear. Locks include locked ancestors. Format changes do not retime or resize existing source documents. Graph-owner metadata is synchronized by the application in the same transaction.",
+    "operation_schemas": [
+      {
+        "$defs": {
+          "Channel": {
+            "enum": [
+              "position_x",
+              "position_y",
+              "opacity"
+            ],
+            "type": "string"
+          },
+          "Time": {
+            "description": "Normalized rational seconds. Denominators are positive; arithmetic never wraps.",
+            "properties": {
+              "denominator": {
+                "format": "uint32",
+                "minimum": 1,
+                "type": "integer"
+              },
+              "numerator": {
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "numerator",
+              "denominator"
+            ],
+            "type": "object"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "frames": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "height": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "op": {
+                "const": "format",
+                "type": "string"
+              },
+              "rate": {
+                "items": {
+                  "format": "uint32",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "maxItems": 2,
+                "minItems": 2,
+                "type": "array"
+              },
+              "width": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "op",
+              "width",
+              "height",
+              "rate",
+              "frames"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "layer": {
+                "anyOf": [
+                  {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "$ref": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "$ref"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              },
+              "name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "op": {
+                "const": "layer",
+                "type": "string"
+              },
+              "opacity": {
+                "format": "double",
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "position": {
+                "items": {
+                  "format": "double",
+                  "type": "number"
+                },
+                "maxItems": 2,
+                "minItems": 2,
+                "type": [
+                  "array",
+                  "null"
+                ]
+              },
+              "visible": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "op",
+              "layer"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "layer": {
+                "anyOf": [
+                  {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "$ref": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "$ref"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              },
+              "locked": {
+                "type": "boolean"
+              },
+              "op": {
+                "const": "lock",
+                "type": "string"
+              }
+            },
+            "required": [
+              "op",
+              "layer",
+              "locked"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "end": {
+                "$ref": "#/$defs/Time"
+              },
+              "layer": {
+                "anyOf": [
+                  {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "$ref": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "$ref"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              },
+              "op": {
+                "const": "range",
+                "type": "string"
+              },
+              "start": {
+                "$ref": "#/$defs/Time"
+              }
+            },
+            "required": [
+              "op",
+              "layer",
+              "start",
+              "end"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "channel": {
+                "$ref": "#/$defs/Channel"
+              },
+              "layer": {
+                "anyOf": [
+                  {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "$ref": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "$ref"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              },
+              "op": {
+                "const": "keyframe",
+                "type": "string"
+              },
+              "time": {
+                "$ref": "#/$defs/Time"
+              },
+              "value": {
+                "format": "double",
+                "type": "number"
+              }
+            },
+            "required": [
+              "op",
+              "layer",
+              "channel",
+              "time",
+              "value"
+            ],
+            "type": "object"
+          }
+        ],
+        "title": "Edit"
+      }
+    ],
+    "operations": [
+      {
+        "frames": 150,
+        "height": 888,
+        "op": "format",
+        "rate": [
+          25,
+          1
+        ],
+        "width": 500
+      },
+      {
+        "layer": "UUID",
+        "op": "layer",
+        "opacity": 0.8,
+        "position": [
+          100,
+          200
+        ]
+      },
+      {
+        "end": {
+          "denominator": 1,
+          "numerator": 6
+        },
+        "layer": "UUID",
+        "op": "range",
+        "start": {
+          "denominator": 1,
+          "numerator": 0
+        }
+      },
+      {
+        "channel": "position_y",
+        "layer": "UUID",
+        "op": "keyframe",
+        "time": {
+          "denominator": 1,
+          "numerator": 1
+        },
+        "value": 100
+      }
+    ],
+    "outputs": [
+      "video"
+    ]
+  },
+  "type": "fold.composition.document"
+}

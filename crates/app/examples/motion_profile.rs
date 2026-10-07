@@ -18,10 +18,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         args.get(3).map(|v| v.parse()).transpose()?.unwrap_or(540),
     ];
     let snapshot = project.snapshot();
-    let source_type = if std::env::var("FOLD_PROFILE_SOURCE").as_deref() == Ok("motion") {
-        "fold.motion.document"
-    } else {
-        "fold.compositor.composite"
+    let source_type = match std::env::var("FOLD_PROFILE_SOURCE").as_deref() {
+        Ok("motion") => "fold.motion.document",
+        Ok("composition") => "fold.composition.document",
+        _ => "fold.compositor.composite",
     };
     let requested_document: Option<fold_foundation::DocumentId> =
         std::env::var("FOLD_PROFILE_DOCUMENT")

@@ -49,6 +49,12 @@ pub fn builtins() -> Arc<PackageRegistry> {
                             handler: crate::settings::document,
                         },
                         CommandRegistration {
+                            id: crate::rust_asset::CREATE,
+                            title: "Create Rust asset",
+                            execution: Execution::Worker,
+                            handler: crate::rust_asset::create,
+                        },
+                        CommandRegistration {
                             id: crate::composition_layers::ADD,
                             title: "Add graph",
                             execution: Execution::Immediate,

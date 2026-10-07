@@ -105,7 +105,7 @@ fn pump_call(session: &mut Session, id: &str, method: &str, params: Value) -> Va
 fn wait_job(session: &mut Session, id: &str, job: Value) -> Value {
     let start = Instant::now();
     loop {
-        let reply = pump_call(session, id, "jobs", json!({"job":job}));
+        let reply = pump_call(session, id, "jobs", json!({"job":job,"wait_ms":1000}));
         if reply["result"]["status"] == "complete" {
             return reply["result"]["outcome"].clone();
         }
@@ -604,5 +604,83 @@ fn candidate_preview_is_separate_conflict_checked_and_undoable() {
     session.agent_preview_action("discard", None).unwrap();
     assert!(session.agent_preview().is_none());
     assert!(session.snapshot().unwrap().state().documents.is_empty());
+    session.set_agent_access(false);
+}
+
+#[test]
+fn portable_asset_public_roundtrip_is_idempotent_and_one_undo() {
+    let mut m = fold_motion::Motion::empty();
+    let definition = fold_foundation::ObjectId::new();
+    fold_motion::program::define(
+        &mut m,
+        definition,
+        "let mut a=Asset::new(\"Portable\");let t=a.text(\"text\",\"Hello\",50.);a.output(&t);a",
+        &Default::default(),
+    )
+    .unwrap();
+    let document = fold_foundation::DocumentId::new();
+    let composition = fold_foundation::DocumentId::new();
+    let mut project = Project::new(8);
+    project
+        .commit(fold_project::EditBatch {
+            base: project.snapshot().revision(),
+            mutations: vec![
+                fold_project::Mutation::PutDocument(m.document(document).unwrap()),
+                fold_project::Mutation::PutDocument(
+                    fold_composition::Composition::default()
+                        .document(composition)
+                        .unwrap(),
+                ),
+            ],
+        })
+        .unwrap();
+    let mut session = Session::new(project);
+    session.set_agent_access(true);
+    let start = Instant::now();
+    let id = loop {
+        session.poll();
+        let a = session.agent_access();
+        if let Some(id) = a["session"].as_str() {
+            break id.to_owned();
+        }
+        assert!(start.elapsed() < Duration::from_secs(5));
+        std::thread::sleep(Duration::from_millis(2));
+    };
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("portable.foldasset");
+    let export = json!({"action":"export","request_id":"export-asset","revision":1,"project_epoch":0,"document":document,"definition":definition,"path":path});
+    let job = pump_call(&mut session, &id, "asset", export.clone());
+    assert_eq!(job["ok"], true, "{job}");
+    let result = wait_job(&mut session, &id, job["result"]["job"].clone());
+    assert_eq!(result["ok"], true, "{result}");
+    assert!(path.exists());
+    assert_eq!(pump_call(&mut session, &id, "asset", export), job);
+    let before = session.snapshot().unwrap();
+    let graph = fold_foundation::DocumentId::new();
+    let job = pump_call(
+        &mut session,
+        &id,
+        "asset",
+        json!({"action":"import","request_id":"import-asset","revision":1,"project_epoch":0,"composition":composition,"graph":graph,"instance":fold_foundation::ObjectId::new(),"layer":fold_foundation::ObjectId::new(),"path":path}),
+    );
+    assert_eq!(job["ok"], true, "{job}");
+    let result = wait_job(&mut session, &id, job["result"]["job"].clone());
+    assert_eq!(result["ok"], true, "{result}");
+    let imported =
+        fold_motion::Motion::from_document(&session.snapshot().unwrap().state().documents[&graph])
+            .unwrap();
+    assert_eq!(imported.groups, m.groups);
+    assert_eq!(imported.fonts, m.fonts);
+    let undo = pump_call(
+        &mut session,
+        &id,
+        "undo",
+        json!({"request_id":"undo-import","revision":2,"project_epoch":0}),
+    );
+    assert_eq!(undo["ok"], true, "{undo}");
+    assert_eq!(
+        session.snapshot().unwrap().state().documents,
+        before.state().documents
+    );
     session.set_agent_access(false);
 }

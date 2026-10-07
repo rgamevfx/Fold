@@ -24,6 +24,8 @@ pub(super) fn group_input(
     ports.push(Port {
         section: String::new(),
         advanced: false,
+        range: None,
+        description: String::new(),
         id: id.into(),
         name: name.into(),
         kind,
@@ -201,6 +203,8 @@ pub fn expose_group_input(
         .push(Port {
             section: String::new(),
             advanced: false,
+            range: None,
+            description: String::new(),
             id: port,
             name: key.into(),
             kind: value.kind(),

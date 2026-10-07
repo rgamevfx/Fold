@@ -1,0 +1,786 @@
+{
+  "authoring_contract": {
+    "status": "incremental; see unsupported capabilities",
+    "version": 2,
+    "wire_version": 1
+  },
+  "batch": {
+    "ids": [
+      "motion",
+      "text"
+    ],
+    "label": "Build title",
+    "operations": [
+      {
+        "id": {
+          "$ref": "motion"
+        },
+        "kind": "fold.motion.document",
+        "name": "Title",
+        "op": "create"
+      },
+      {
+        "document": {
+          "$ref": "motion"
+        },
+        "edits": [
+          {
+            "id": {
+              "$ref": "text"
+            },
+            "kind": "fold.motion.text",
+            "name": "Title",
+            "op": "object"
+          }
+        ],
+        "op": "edit"
+      }
+    ],
+    "other_operations": [
+      {
+        "document": "UUID",
+        "name": "New name",
+        "op": "rename"
+      },
+      {
+        "document": "UUID",
+        "op": "remove"
+      },
+      {
+        "at": {
+          "denominator": 1,
+          "numerator": 0
+        },
+        "op": "place",
+        "source": "UUID",
+        "target": "UUID"
+      },
+      {
+        "op": "import",
+        "paths": [
+          "/absolute/media.mov"
+        ]
+      },
+      {
+        "at": {
+          "denominator": 1,
+          "numerator": 0
+        },
+        "audio_only": false,
+        "op": "place_asset",
+        "source": "UUID",
+        "target": "UUID"
+      },
+      {
+        "arguments": {
+          "at": {
+            "denominator": 1,
+            "numerator": 0
+          },
+          "sequence": "UUID",
+          "source": "UUID"
+        },
+        "id": "fold.app.insert-document",
+        "op": "command"
+      }
+    ],
+    "project_epoch": 0,
+    "reference_syntax": "Use {\"$ref\":\"name\"} for batch-allocated identities. Literal strings, including $text artwork, are never rewritten.",
+    "request_id": "unique-client-request",
+    "revision": 0
+  },
+  "commands": [
+    {
+      "arguments_schema": null,
+      "id": "fold.app.add-layer-graph",
+      "title": "Add graph"
+    },
+    {
+      "arguments_schema": null,
+      "id": "fold.app.composition-connect",
+      "title": "Connect graphs"
+    },
+    {
+      "arguments_schema": null,
+      "id": "fold.app.create-composition",
+      "title": "Create Composition (keep audio)"
+    },
+    {
+      "arguments_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "composition": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "$ref": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "$ref"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "definition": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "$ref": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "$ref"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "graph": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "$ref": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "$ref"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "instance": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "$ref": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "$ref"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "layer": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "$ref": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "$ref"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "source": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "composition",
+          "graph",
+          "definition",
+          "instance",
+          "layer",
+          "source"
+        ],
+        "title": "Args",
+        "type": "object"
+      },
+      "id": "fold.app.create-rust-asset",
+      "title": "Create Rust asset"
+    },
+    {
+      "arguments_schema": null,
+      "id": "fold.app.document-settings",
+      "title": "Document settings"
+    },
+    {
+      "arguments_schema": null,
+      "id": "fold.app.image-bake",
+      "title": "Bake image textures"
+    },
+    {
+      "arguments_schema": null,
+      "id": "fold.app.insert-document",
+      "title": "Insert document into sequence"
+    },
+    {
+      "arguments_schema": null,
+      "id": "fold.app.project-settings",
+      "title": "Project settings"
+    },
+    {
+      "arguments_schema": null,
+      "id": "fold.app.read-source",
+      "title": "Choose Read source"
+    },
+    {
+      "arguments_schema": null,
+      "id": "fold.composition.edit",
+      "title": "Edit composition"
+    },
+    {
+      "arguments_schema": null,
+      "id": "fold.composition.precompose",
+      "title": "Precompose layers"
+    },
+    {
+      "arguments_schema": null,
+      "id": "fold.compositor.edit",
+      "title": "Edit composite"
+    },
+    {
+      "arguments_schema": null,
+      "id": "fold.motion.change.v1",
+      "title": "Edit motion"
+    },
+    {
+      "arguments_schema": null,
+      "id": "fold.motion.edit",
+      "title": "Edit motion"
+    },
+    {
+      "arguments_schema": null,
+      "id": "fold.motion.precompose",
+      "title": "Precompose layers"
+    },
+    {
+      "arguments_schema": null,
+      "id": "fold.timeline.edit",
+      "title": "Edit sequence"
+    },
+    {
+      "arguments_schema": null,
+      "id": "fold.timeline.import",
+      "title": "Import timeline media"
+    }
+  ],
+  "guides": [
+    "workflow",
+    "live-tools",
+    "motion",
+    "graph",
+    "glossary",
+    "candidates",
+    "image-inputs",
+    "rust-assets",
+    "rust-sdk"
+  ],
+  "limits": {
+    "active_jobs": 4,
+    "operations": 128,
+    "request_bytes": 1048576,
+    "retained_jobs": 16
+  },
+  "methods": [
+    "sessions",
+    "state",
+    "catalog",
+    "inspect",
+    "batch",
+    "author",
+    "candidate",
+    "undo",
+    "redo",
+    "jobs",
+    "cancel",
+    "render",
+    "observe",
+    "viewers",
+    "capture",
+    "navigate",
+    "save",
+    "screenshot"
+  ],
+  "notes": "Call catalog with method for request JSON schemas, or type for package operation examples and node signatures. inspect supports JSON pointer, offset, limit. Job acceptance is not completion: poll jobs and check ok. CLI image jobs return image.data (PNG base64) and image.mimeType; MCP returns image content blocks. request_id is required for mutations; reuse it only with identical arguments. Revision conflicts require reinspection.",
+  "operation_schema": {
+    "$defs": {
+      "Time": {
+        "description": "Normalized rational seconds. Denominators are positive; arithmetic never wraps.",
+        "properties": {
+          "denominator": {
+            "format": "uint32",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "numerator": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "numerator",
+          "denominator"
+        ],
+        "type": "object"
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "oneOf": [
+      {
+        "additionalProperties": false,
+        "properties": {
+          "keys": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "namespace": {
+            "type": "string"
+          },
+          "op": {
+            "const": "forget",
+            "type": "string"
+          }
+        },
+        "required": [
+          "op",
+          "namespace",
+          "keys"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "bindings": true,
+          "document": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "$ref": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "$ref"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "namespace": {
+            "type": "string"
+          },
+          "op": {
+            "const": "remember",
+            "type": "string"
+          }
+        },
+        "required": [
+          "op",
+          "document",
+          "namespace",
+          "bindings"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "$ref": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "$ref"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "kind": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "op": {
+            "const": "create",
+            "type": "string"
+          }
+        },
+        "required": [
+          "op",
+          "id",
+          "kind",
+          "name"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "document": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "$ref": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "$ref"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "edits": {
+            "items": true,
+            "type": "array"
+          },
+          "op": {
+            "const": "edit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "op",
+          "document",
+          "edits"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "arguments": true,
+          "id": {
+            "type": "string"
+          },
+          "op": {
+            "const": "command",
+            "type": "string"
+          }
+        },
+        "required": [
+          "op",
+          "id",
+          "arguments"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "document": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "$ref": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "$ref"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "op": {
+            "const": "remove",
+            "type": "string"
+          }
+        },
+        "required": [
+          "op",
+          "document"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "document": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "$ref": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "$ref"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "op": {
+            "const": "rename",
+            "type": "string"
+          }
+        },
+        "required": [
+          "op",
+          "document",
+          "name"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "$ref": "#/$defs/Time"
+          },
+          "duration": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "op": {
+            "const": "place",
+            "type": "string"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "$ref": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "$ref"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "source_start": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "target": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "$ref": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "$ref"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "op",
+          "source",
+          "target",
+          "at"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "$ref": "#/$defs/Time"
+          },
+          "audio_only": {
+            "default": false,
+            "type": "boolean"
+          },
+          "op": {
+            "const": "place_asset",
+            "type": "string"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "$ref": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "$ref"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "target": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "$ref": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "$ref"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "op",
+          "source",
+          "target",
+          "at"
+        ],
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "const": "import",
+            "type": "string"
+          },
+          "paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "op",
+          "paths"
+        ],
+        "type": "object"
+      }
+    ],
+    "title": "Operation"
+  },
+  "time": {
+    "denominator": 24,
+    "numerator": 1
+  },
+  "types": [
+    "fold.timeline.sequence",
+    "fold.compositor.composite",
+    "fold.motion.document"
+  ],
+  "version": 1,
+  "workflow": {
+    "author": "candidate begin, then author with bounded SDK JavaScript or candidate edit with a typed batch; use the returned generation and revision for the next edit",
+    "commit": "candidate commit with base revision, generation and label; one undo step",
+    "discover": "catalog method for exact request schemas; catalog type for package operations",
+    "evaluate": "inspect/render with candidate, generation and project_epoch; evidence is only valid for that generation",
+    "guidance": "catalog guide=workflow; fetch referenced topic names through catalog guide",
+    "limits": "four candidates; 900 idle seconds; 4096 mutations and 64 MiB document payload per candidate",
+    "sdk": "catalog sdk=true returns the native fluent authoring SDK and generated operation declarations",
+    "unsupported": [
+      "automatic rebase",
+      "TypeScript type stripping; author executes JavaScript",
+      "analytical motion verification"
+    ]
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "ok": true,
+  "result": [
+    {
+      "active": true,
+      "candidate": null,
+      "displayed": {
+        "channels": {
+          "Rgb": {
+            "layer": "rgba"
+          }
+        },
+        "content": "1d200cdf617192346ef467ccb35f0fa2888251a95b5b3d58471e69f98d28fd3b",
+        "dimensions": [
+          140,
+          250
+        ],
+        "frame": 149,
+        "output": "video",
+        "region": null,
+        "target": [
+          "feeed57f-2ba6-4553-82ce-5b04eea746c3",
+          {
+            "denominator": 25,
+            "numerator": 149
+          }
+        ],
+        "view_policy": 1
+      },
+      "error": null,
+      "requested": {
+        "channels": {
+          "Rgb": {
+            "layer": "rgba"
+          }
+        },
+        "content": "1d200cdf617192346ef467ccb35f0fa2888251a95b5b3d58471e69f98d28fd3b",
+        "dimensions": [
+          140,
+          250
+        ],
+        "frame": 149,
+        "output": "video",
+        "region": null,
+        "target": [
+          "feeed57f-2ba6-4553-82ce-5b04eea746c3",
+          {
+            "denominator": 25,
+            "numerator": 149
+          }
+        ],
+        "view_policy": 1
+      },
+      "requested_generation": 2,
+      "stale": false,
+      "viewer": 5
+    }
+  ]
+}

@@ -49,9 +49,9 @@ pub fn evaluate(m: &Motion, q: &Value, cancel: &Cancel) -> Result<Value, String>
         .fields
         .unwrap_or_else(|| vec!["counts".into(), "elements".into()]);
     for field in &fields {
-        if !["counts", "elements", "bounds"].contains(&field.as_str()) {
+        if !["counts", "elements", "bounds", "fingerprint"].contains(&field.as_str()) {
             return Err(format!(
-                "unsupported evaluated field {field}; supported: counts, elements, bounds"
+                "unsupported evaluated field {field}; supported: counts, elements, bounds, fingerprint"
             ));
         }
     }
@@ -93,6 +93,8 @@ pub fn evaluate(m: &Motion, q: &Value, cancel: &Cancel) -> Result<Value, String>
             }
             let mut counts = [0usize; 6];
             let mut elements = Vec::new();
+            let mut digest = Digest::default();
+            let fingerprint = fields.iter().any(|f| f == "fingerprint");
             walk(
                 &c,
                 IDENTITY,
@@ -102,7 +104,12 @@ pub fn evaluate(m: &Motion, q: &Value, cancel: &Cancel) -> Result<Value, String>
                 &mut elements,
                 limit,
                 cancel,
+                fingerprint,
+                &mut digest,
             )?;
+            if fingerprint {
+                result["fingerprint"] = json!({"value":format!("diagnostic64:{:016x}",digest.hash.finish()),"elements":counts.iter().sum::<usize>(),"path_segments":digest.segments,"render_dependencies":digest.effects,"complete":true,"scope":"ordered evaluated geometry, transforms, opacity and paint; excludes pixel visibility"});
+            }
             if fields.iter().any(|s| s == "counts") {
                 result["counts"] = json!({"top_level":c.len(),"paths":counts[0],"glyphs":counts[1],"points":counts[2],"instances":counts[3],"groups":counts[4],"images":counts[5]});
             }
@@ -121,6 +128,12 @@ pub fn evaluate(m: &Motion, q: &Value, cancel: &Cancel) -> Result<Value, String>
     }
     Ok(result)
 }
+#[derive(Default)]
+struct Digest {
+    hash: std::collections::hash_map::DefaultHasher,
+    segments: usize,
+    effects: bool,
+}
 #[allow(clippy::too_many_arguments)]
 fn walk(
     c: &Content,
@@ -131,6 +144,8 @@ fn walk(
     elements: &mut Vec<Value>,
     limit: usize,
     cancel: &Cancel,
+    fingerprint: bool,
+    digest: &mut Digest,
 ) -> Result<(), String> {
     if depth > 64 {
         return Err("observation nesting exceeds 64".into());
@@ -151,10 +166,15 @@ fn walk(
             Geometry::Group(_) => (4, "group"),
         };
         counts[index] += 1;
-        if elements.len() < limit {
+        digest.effects |= e.effects.is_some() || matches!(&e.geometry, Geometry::Image(_));
+        if elements.len() < limit || fingerprint {
             let mut value = json!({"id":e.id,"kind":kind,"depth":depth,"transform":transform,"opacity":opacity});
             if let Geometry::Path(path) | Geometry::Glyph { path, .. } = &e.geometry {
                 let mut signature = std::collections::hash_map::DefaultHasher::new();
+                digest.segments += path.len();
+                if digest.segments > 2_000_000 {
+                    return Err("observation fingerprint exceeds 2000000 path segments; use a smaller target or rendered comparison".into());
+                }
                 for segment in path.iter() {
                     cancel.check()?;
                     format!("{segment:?}").hash(&mut signature);
@@ -168,6 +188,7 @@ fn walk(
                         .count()
                 );
             }
+            value["even_odd"] = json!(e.even_odd);
             value["fill"] = json!(e.fill);
             value["stroke"] = json!(e.stroke);
             value["image_effects"] = json!(e.effects.is_some());
@@ -176,7 +197,12 @@ fn walk(
                 value["advance"] = json!(e.attributes.get("fold.text.advance"));
                 value["glyph_id"] = json!(e.attributes.get("fold.text.glyph_id"));
             }
-            elements.push(value);
+            if fingerprint {
+                value.to_string().hash(&mut digest.hash);
+            }
+            if elements.len() < limit {
+                elements.push(value);
+            }
         }
         if let Geometry::Group(children) | Geometry::Instance(children) = &e.geometry {
             walk(
@@ -188,6 +214,8 @@ fn walk(
                 elements,
                 limit,
                 cancel,
+                fingerprint,
+                digest,
             )?;
         }
     }

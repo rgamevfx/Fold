@@ -1,0 +1,253 @@
+{
+  "metadata": {
+    "alpha": "over black",
+    "backend": "cpu",
+    "build": "0.1.0",
+    "candidate": null,
+    "color": {
+      "display": "Rec.1886 Rec.709 - Display",
+      "look": null,
+      "view": "ACES 1.0 - SDR Video"
+    },
+    "cost_scope": "render_seconds includes rendering and selected measurement queries; per-stage costs unavailable",
+    "dimensions": [
+      1000,
+      1332
+    ],
+    "environment": {
+      "architecture": "x86_64",
+      "assets": [],
+      "desktop_feature": true,
+      "documents": [
+        {
+          "assets": [],
+          "dependencies": [
+            {
+              "document": "ad329c4c-efcc-4ef9-a228-c525dd23efcf",
+              "fold.layer.object": "8b39bf20-11cd-4f84-9557-59244605836c",
+              "output": "video"
+            }
+          ],
+          "document": "0505e5f2-3c3e-4a4e-a2ee-5b0486e7e340",
+          "payload_sha256": "b2815ed9724764edf8d7ce626075db5838af5d3a9c07272dcc9600cb58b1f129",
+          "revision": 1,
+          "schema_version": 1,
+          "type": "fold.composition.document"
+        },
+        {
+          "assets": [],
+          "dependencies": [],
+          "document": "ad329c4c-efcc-4ef9-a228-c525dd23efcf",
+          "payload_sha256": "fff0610c8f4bb4e4c99ace436de25e04b7fc2434bb5ad23f6b7547d6c966b46d",
+          "revision": 4,
+          "schema_version": 4,
+          "type": "fold.motion.document"
+        }
+      ],
+      "gpu_feature": true,
+      "os": "linux",
+      "profile": "release",
+      "resource_scope": "document payloads include embedded fonts; external asset fingerprints are catalog records, not a new verification of file bytes",
+      "source_sha256": "c88d344d1fc10855008fc9105e40e7e9519a6c472d74abc0eaa2490b89f79d81",
+      "target": "x86_64-unknown-linux-gnu"
+    },
+    "frames": [
+      {
+        "index": 0,
+        "measurements": [],
+        "rect": [
+          0,
+          0,
+          250,
+          444
+        ],
+        "render_seconds": 0.420314653,
+        "time": {
+          "denominator": 25,
+          "numerator": 12
+        }
+      },
+      {
+        "index": 1,
+        "measurements": [],
+        "rect": [
+          250,
+          0,
+          250,
+          444
+        ],
+        "render_seconds": 0.344899266,
+        "time": {
+          "denominator": 25,
+          "numerator": 13
+        }
+      },
+      {
+        "index": 2,
+        "measurements": [],
+        "rect": [
+          500,
+          0,
+          250,
+          444
+        ],
+        "render_seconds": 0.365640661,
+        "time": {
+          "denominator": 25,
+          "numerator": 14
+        }
+      },
+      {
+        "index": 3,
+        "measurements": [],
+        "rect": [
+          750,
+          0,
+          250,
+          444
+        ],
+        "render_seconds": 0.383394842,
+        "time": {
+          "denominator": 5,
+          "numerator": 3
+        }
+      },
+      {
+        "index": 4,
+        "measurements": [],
+        "rect": [
+          0,
+          444,
+          250,
+          444
+        ],
+        "render_seconds": 0.352355447,
+        "time": {
+          "denominator": 25,
+          "numerator": 16
+        }
+      },
+      {
+        "index": 5,
+        "measurements": [],
+        "rect": [
+          250,
+          444,
+          250,
+          444
+        ],
+        "render_seconds": 0.374382073,
+        "time": {
+          "denominator": 25,
+          "numerator": 17
+        }
+      },
+      {
+        "index": 6,
+        "measurements": [],
+        "rect": [
+          500,
+          444,
+          250,
+          444
+        ],
+        "render_seconds": 0.362890519,
+        "time": {
+          "denominator": 25,
+          "numerator": 18
+        }
+      },
+      {
+        "index": 7,
+        "measurements": [],
+        "rect": [
+          750,
+          444,
+          250,
+          444
+        ],
+        "render_seconds": 0.360356523,
+        "time": {
+          "denominator": 25,
+          "numerator": 19
+        }
+      },
+      {
+        "index": 8,
+        "measurements": [],
+        "rect": [
+          0,
+          888,
+          250,
+          444
+        ],
+        "render_seconds": 0.378345958,
+        "time": {
+          "denominator": 5,
+          "numerator": 4
+        }
+      },
+      {
+        "index": 9,
+        "measurements": [],
+        "rect": [
+          250,
+          888,
+          250,
+          444
+        ],
+        "render_seconds": 0.348161759,
+        "time": {
+          "denominator": 25,
+          "numerator": 21
+        }
+      },
+      {
+        "index": 10,
+        "measurements": [],
+        "rect": [
+          500,
+          888,
+          250,
+          444
+        ],
+        "render_seconds": 0.367654799,
+        "time": {
+          "denominator": 25,
+          "numerator": 22
+        }
+      },
+      {
+        "index": 11,
+        "measurements": [],
+        "rect": [
+          750,
+          888,
+          250,
+          444
+        ],
+        "render_seconds": 0.351473304,
+        "time": {
+          "denominator": 25,
+          "numerator": 23
+        }
+      }
+    ],
+    "generation": null,
+    "kind": "observation",
+    "ordering": "row-major",
+    "original_dimensions": [
+      1000,
+      1332
+    ],
+    "overlays": false,
+    "project_epoch": 0,
+    "resampling": "none",
+    "revision": 4,
+    "source": {
+      "document": "0505e5f2-3c3e-4a4e-a2ee-5b0486e7e340",
+      "output": "video"
+    },
+    "verification": "sampled evidence only; no aesthetic or analytical guarantee"
+  }
+}

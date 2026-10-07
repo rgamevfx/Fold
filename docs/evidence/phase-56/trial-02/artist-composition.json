@@ -1,0 +1,223 @@
+{
+  "candidate": null,
+  "data": {
+    "info": {
+      "frames": 150,
+      "height": 888,
+      "rate": [
+        25,
+        1
+      ],
+      "width": 500
+    },
+    "layers": [
+      {
+        "animation": {
+          "transform.4": {
+            "keys": [
+              {
+                "id": "409a1549-8529-419d-9381-393a3701558a",
+                "incoming": {
+                  "fraction": 0.3333333333333333,
+                  "value": 0.0
+                },
+                "interpolation": "Linear",
+                "outgoing": {
+                  "fraction": 0.3333333333333333,
+                  "value": 0.0
+                },
+                "tangents": "Auto",
+                "time": {
+                  "denominator": 1,
+                  "numerator": 0
+                },
+                "value": 0.0
+              },
+              {
+                "id": "1ff5ba16-7f58-46e2-9ea2-6977fd01dbc7",
+                "incoming": {
+                  "fraction": 0.3333333333333333,
+                  "value": 0.0
+                },
+                "interpolation": "Linear",
+                "outgoing": {
+                  "fraction": 0.3333333333333333,
+                  "value": 0.0
+                },
+                "tangents": "Auto",
+                "time": {
+                  "denominator": 1,
+                  "numerator": 1
+                },
+                "value": 8.0
+              },
+              {
+                "id": "4a0c0af5-1442-4df2-bc00-a2bbadd49515",
+                "incoming": {
+                  "fraction": 0.3333333333333333,
+                  "value": 0.0
+                },
+                "interpolation": "Linear",
+                "outgoing": {
+                  "fraction": 0.3333333333333333,
+                  "value": 0.0
+                },
+                "tangents": "Auto",
+                "time": {
+                  "denominator": 1,
+                  "numerator": 2
+                },
+                "value": -8.0
+              },
+              {
+                "id": "63d59215-bfa8-4f77-8542-a97c8237e5cd",
+                "incoming": {
+                  "fraction": 0.3333333333333333,
+                  "value": 0.0
+                },
+                "interpolation": "Linear",
+                "outgoing": {
+                  "fraction": 0.3333333333333333,
+                  "value": 0.0
+                },
+                "tangents": "Auto",
+                "time": {
+                  "denominator": 1,
+                  "numerator": 3
+                },
+                "value": 0.0
+              },
+              {
+                "id": "d5237f8d-716b-47d4-a228-1ff39c93a008",
+                "incoming": {
+                  "fraction": 0.3333333333333333,
+                  "value": 0.0
+                },
+                "interpolation": "Linear",
+                "outgoing": {
+                  "fraction": 0.3333333333333333,
+                  "value": 0.0
+                },
+                "tangents": "Auto",
+                "time": {
+                  "denominator": 1,
+                  "numerator": 4
+                },
+                "value": 8.0
+              },
+              {
+                "id": "d7f349a7-d677-4f4d-a85a-559b57070267",
+                "incoming": {
+                  "fraction": 0.3333333333333333,
+                  "value": 0.0
+                },
+                "interpolation": "Linear",
+                "outgoing": {
+                  "fraction": 0.3333333333333333,
+                  "value": 0.0
+                },
+                "tangents": "Auto",
+                "time": {
+                  "denominator": 1,
+                  "numerator": 5
+                },
+                "value": -8.0
+              },
+              {
+                "id": "1896b561-63ab-4a2c-997a-4db0cdcc17a8",
+                "incoming": {
+                  "fraction": 0.3333333333333333,
+                  "value": 0.0
+                },
+                "interpolation": "Linear",
+                "outgoing": {
+                  "fraction": 0.3333333333333333,
+                  "value": 0.0
+                },
+                "tangents": "Auto",
+                "time": {
+                  "denominator": 1,
+                  "numerator": 6
+                },
+                "value": 0.0
+              }
+            ]
+          }
+        },
+        "end": {
+          "denominator": 1,
+          "numerator": 6
+        },
+        "graph_children": false,
+        "id": "087af703-3bea-445f-b967-856b22e663dd",
+        "info": {
+          "frames": 150,
+          "height": 888,
+          "rate": [
+            25,
+            1
+          ],
+          "width": 500
+        },
+        "locked": false,
+        "name": "RISE / bead conveyor",
+        "offset": [
+          1.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "opacity": 1.0,
+        "origin": {
+          "denominator": 1,
+          "numerator": 0
+        },
+        "parent": null,
+        "source": {
+          "Output": {
+            "document": "cb989c01-343b-4f72-b09b-f96c48c12b10",
+            "fold.layer.object": "485c1e03-d560-4bb2-af7e-f334f4be8859",
+            "output": "video"
+          }
+        },
+        "source_start": {
+          "denominator": 1,
+          "numerator": 0
+        },
+        "start": {
+          "denominator": 1,
+          "numerator": 0
+        },
+        "visible": true
+      }
+    ]
+  },
+  "document": "feeed57f-2ba6-4553-82ce-5b04eea746c3",
+  "generation": null,
+  "offset": 0,
+  "outputs": [
+    {
+      "available": true,
+      "info": {
+        "frames": 150,
+        "height": 888,
+        "rate": [
+          25,
+          1
+        ],
+        "width": 500
+      },
+      "label": "Video",
+      "source": {
+        "document": "feeed57f-2ba6-4553-82ce-5b04eea746c3",
+        "output": "video"
+      }
+    }
+  ],
+  "pointer": "",
+  "project_epoch": 0,
+  "revision": 4,
+  "total": null
+}

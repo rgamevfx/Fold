@@ -212,6 +212,13 @@ pub fn nest(snapshot: &Snapshot, bytes: &[u8], cancel: &Cancel) -> Result<EditBa
 }
 struct Documents;
 impl DocumentProvider for Documents {
+    fn authoring_catalog(&self) -> serde_json::Value {
+        crate::automation::catalog()
+    }
+    fn author(&self, document: &Document, edits: &[serde_json::Value]) -> Result<Document, String> {
+        crate::automation::author(document, edits)
+    }
+
     fn settings(
         &self,
         document: &Document,

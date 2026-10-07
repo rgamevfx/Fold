@@ -104,6 +104,14 @@ fn motion_tools_and_inspector_render_normal_and_narrow() {
         ("particles-source-narrow", 390., 280.),
         ("particles-palette-normal", 850., 400.),
         ("particles-palette-narrow", 390., 280.),
+        ("rust-asset-normal", 850., 400.),
+        ("rust-asset-narrow", 390., 280.),
+        ("rust-asset-source-normal", 850., 400.),
+        ("rust-asset-source-narrow", 390., 280.),
+        ("rust-asset-save-normal", 850., 400.),
+        ("rust-asset-save-narrow", 390., 280.),
+        ("rust-asset-load-normal", 850., 400.),
+        ("rust-asset-load-narrow", 390., 280.),
         ("wrangle-normal", 850., 400.),
         ("wrangle-narrow", 390., 280.),
     ] {
@@ -141,6 +149,66 @@ fn motion_tools_and_inspector_render_normal_and_narrow() {
                 Ok(Some(id))
             });
             assert!(state.error.is_empty(), "{}", state.error);
+        }
+        if name == "rust-asset-normal" {
+            let mut state = inspector.state.borrow_mut();
+            state.create(&mut host);
+            state.change_scene(&mut host,|m|{
+                let definition=fold_foundation::ObjectId::new();let id=fold_foundation::ObjectId::new();
+                crate::program::define(m,definition,"let mut a=Asset::new(\"Rust circles\"); let r=a.scalar_range(\"radius\",\"Radius\",24.,\"px\",[1.,100.]); a.describe(\"radius\",\"Geometry\",false,\"Size of each circle\"); let c=a.circle(\"circle\",r); a.output(&c); a",&Default::default())?;
+                crate::program::scene_instance(m,definition,id)?;Ok(Some(id))
+            });
+            assert!(state.error.is_empty(), "{}", state.error);
+        }
+        if name == "rust-asset-source-normal" {
+            let mut state = inspector.state.borrow_mut();
+            let definition = state
+                .motion
+                .as_ref()
+                .unwrap()
+                .groups
+                .keys()
+                .next()
+                .copied()
+                .unwrap();
+            super::program::open(&mut state, definition);
+        }
+        if name.starts_with("rust-asset-source") {
+            let width = if name.ends_with("narrow") { 280 } else { 640 };
+            context.load_ini_settings(&format!(
+                "[Window][Rust asset source]\nPos=10,20\nSize={width},650\nCollapsed=0\n"
+            ));
+        }
+        if name.starts_with("rust-asset-save") || name.starts_with("rust-asset-load") {
+            let mut state = inspector.state.borrow_mut();
+            state.program_draft = None;
+            let m = state.motion.as_ref().unwrap();
+            let definition = *m.groups.keys().next().unwrap();
+            let instance = m
+                .graph
+                .nodes
+                .iter()
+                .find(|n| n.kind == "fold.motion.group_instance")
+                .unwrap()
+                .id;
+            let load = name.contains("-load-");
+            super::asset_transfer::open(
+                &mut state,
+                if load {
+                    super::asset_transfer::Action::Load(instance)
+                } else {
+                    super::asset_transfer::Action::Save(definition)
+                },
+            );
+            let title = if load {
+                "Load procedural asset"
+            } else {
+                "Save procedural asset"
+            };
+            let width = if name.ends_with("narrow") { 280 } else { 480 };
+            context.load_ini_settings(&format!(
+                "[Window][{title}]\nPos=10,20\nSize={width},250\nCollapsed=0\n"
+            ));
         }
         if name == "wrangle-normal" {
             let mut state = inspector.state.borrow_mut();

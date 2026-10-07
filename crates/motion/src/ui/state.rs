@@ -14,6 +14,8 @@ pub type Shared = Rc<RefCell<State>>;
 #[derive(Default)]
 pub struct State {
     pub wrangle_drafts: super::wrangle::Drafts,
+    pub asset_transfer: Option<super::asset_transfer::Transfer>,
+    pub program_draft: Option<super::program::Draft>,
     pub document: Option<DocumentId>,
     pub motion: Option<Motion>,
     pub selected: Vec<ObjectId>,
@@ -77,6 +79,8 @@ impl State {
             }
             if chosen != self.document {
                 self.wrangle_drafts.clear();
+                self.program_draft = None;
+                self.asset_transfer = None;
                 self.group = None;
                 self.network_object = None;
                 self.scene_scope = None;

@@ -30,7 +30,7 @@ pub fn methods() -> Value {
         (
             "catalog",
             "Call without query arguments first for exact package type IDs and workflow guidance. Then discover method schemas, package operations, configured node signatures, shipped guides, or the SDK on demand.",
-            json!({"method":string,"type":string,"query":string,"nodes":{"type":"boolean"},"sdk":{"type":"boolean"},"guide":{"type":"string","enum":["workflow","motion","graph","glossary","candidates","live-tools","image-inputs"]}}),
+            json!({"method":string,"type":string,"query":string,"nodes":{"type":"boolean"},"sdk":{"type":"boolean"},"guide":{"type":"string","enum":["workflow","motion","graph","glossary","candidates","live-tools","image-inputs","rust-assets","rust-sdk"]}}),
             vec![],
         ),
         (
@@ -83,9 +83,15 @@ pub fn methods() -> Value {
             vec!["request_id", "revision", "project_epoch"],
         ),
         (
+            "asset",
+            "Export a portable .foldasset bundle or import it as a new Composition layer. Export requires document and definition; import requires composition, graph, instance and layer UUIDs. Includes native graphs, Rust source and embedded fonts. External scene/media dependencies must be exposed as inputs. Export never overwrites a file. Import is one undoable transaction and does not execute source. Returns a job; await with jobs wait_ms=25000.",
+            json!({"action":{"type":"string","enum":["import","export"]},"path":string,"document":string,"definition":string,"composition":string,"graph":string,"instance":string,"layer":string,"request_id":string,"revision":integer,"project_epoch":integer}),
+            vec!["action", "path", "request_id", "revision", "project_epoch"],
+        ),
+        (
             "jobs",
-            "Get job status and result. Image results are returned as image content. Completed jobs are retained within bounded capacity.",
-            json!({"job":integer}),
+            "Get job status and result. With job and wait_ms (0..25000), wait until completion or deadline without blocking the app; a timeout returns pending and does not cancel work. Prefer wait_ms=25000 to tight polling. Image results are returned as image content. Completed jobs are retained within bounded capacity.",
+            json!({"job":integer,"wait_ms":{"type":"integer","minimum":0,"maximum":25000}}),
             vec![],
         ),
         (

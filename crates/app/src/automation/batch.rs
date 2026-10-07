@@ -170,7 +170,21 @@ pub fn stage(
                     .author_cancellable(old, &edits, cancel)
                     .map_err(|e| format!("operation {i}: {e}"))?;
                 receipts.push(json!({"operation":i,"document":document.id,"changes":receipt}));
-                vec![Mutation::PutDocument(document)]
+                if document.type_id == fold_composition::COMPOSITION {
+                    crate::composition_layers::edit(
+                        &snap,
+                        &serde_json::to_vec(&fold_composition::package::EditArgs {
+                            document: document.id,
+                            composition: fold_composition::Composition::from_document(&document)?,
+                            graph_animation: vec![],
+                        })
+                        .map_err(|e| e.to_string())?,
+                        cancel,
+                    )?
+                    .mutations
+                } else {
+                    vec![Mutation::PutDocument(document)]
+                }
             }
             Operation::Command { id, arguments } => {
                 registry

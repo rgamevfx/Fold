@@ -21,6 +21,11 @@ pub struct Port {
     pub section: String,
     #[serde(default)]
     pub advanced: bool,
+    /// Inspector drag limits; evaluation is unchanged unless source clamps explicitly.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub range: Option<[f64; 2]>,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub description: String,
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct GroupDefinition {

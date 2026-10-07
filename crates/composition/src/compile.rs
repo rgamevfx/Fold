@@ -92,9 +92,7 @@ impl VideoProvider for Provider {
                 } else {
                     stack(composition, Some(layer.id), request, graph)?
                 };
-                let matrix: [f64; 6] = std::array::from_fn(|i| {
-                    layer.sample(&format!("transform.{i}"), layer.offset[i], request.time)
-                });
+                let matrix = layer.matrix(request.time);
                 let [a, b, c, d, tx, ty] = matrix;
                 // A collapsed axis produces no coverage, rather than an invalid inverse.
                 if (a * d - b * c).abs() < f64::EPSILON {

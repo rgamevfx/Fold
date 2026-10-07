@@ -1,0 +1,42 @@
+{
+  "job": 8,
+  "outcome": {
+    "ok": true,
+    "result": {
+      "base_revision": 0,
+      "candidate": 1,
+      "committed": false,
+      "generation": 3,
+      "ids": {},
+      "label": "Artist edit NOV and pearl size",
+      "project_epoch": 0,
+      "receipts": [
+        {
+          "changes": {
+            "groups": [],
+            "nodes": [
+              {
+                "definition": "46cbe19a-4abf-45b2-b986-232d0e3fe342",
+                "group": null,
+                "kind": "fold.motion.group_instance",
+                "node": "8b39bf20-11cd-4f84-9557-59244605836c"
+              }
+            ],
+            "objects": [],
+            "removed": [],
+            "removed_groups": [],
+            "removed_objects": [],
+            "total_changed_nodes": 1,
+            "total_removed_nodes": 0,
+            "truncated": false
+          },
+          "document": "ad329c4c-efcc-4ef9-a228-c525dd23efcf",
+          "operation": 0
+        }
+      ],
+      "revision": 3,
+      "validated": true
+    }
+  },
+  "status": "complete"
+}

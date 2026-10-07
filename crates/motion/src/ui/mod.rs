@@ -1,4 +1,5 @@
 //! UI-only presentation over transactional graph edits.
+mod asset_transfer;
 mod canvas;
 mod composition;
 mod gradient;
@@ -8,6 +9,7 @@ mod inspector;
 mod overlay;
 mod path_attributes;
 mod picking;
+mod program;
 mod relationships;
 #[cfg(test)]
 mod render_tests;

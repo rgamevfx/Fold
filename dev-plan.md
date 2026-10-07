@@ -466,6 +466,8 @@ Phases 34–40 are complete per user acceptance. Validation evidence and unverif
 
 ## Live agent access and reusable workflows
 
+- [ ] Proposed Phase 47 refinement (2026-10-07): [native composition compiler and artist-edit reconciliation](docs/mograph-authoring-overhaul.md), informed by [fframes primary-source research](docs/fframes-authoring-research.md). Replace create-only SDK replay with a declarative desired construction, package-owned lowering into the current Composition/layer model, and explicit reconciliation of generated changes with artist edits. Prove a typography/layout/repetition slice through public author → observe → revise → commit, including controls, native graph edits, conflicts, undo and save/reopen. Borrow fframes' composition and review vocabulary; retain Fold's native project/evaluation infrastructure unless matched evidence justifies replacement. Recommendation only: no new compiler implementation or acceptance result is claimed, and Phase 47's existing release gates remain open.
+
 - [ ] Follow-up from phase 51: provide typed Composition/layer authoring and inspection schemas and high-level scene adoption in the public SDK. Low-level `create` + `fold.composition.edit` is now verified by Rust Orbit; this does not certify that the existing live Badge generator reproduces the updated demo. Its source-graph editing bindings are retained.
 
 - [x] 50. GPU-native Image Bake and ten-video performance (user-authorized).
@@ -676,3 +678,34 @@ Phases 34–40 are complete per user acceptance. Validation evidence and unverif
 - [x] Implement common video/audio imports, native precision and alpha, bounded retained decode, packet-based CFR inspection, incremental PCM preparation and the HEVC/P010 helper path. Generated codec fixtures and both original user videos exercise the adapters.
 - [x] **Artist acceptance (2026-10-07):** user reviewed the result, reported “looks good,” and requested completion and commit. Phase 55 is complete with the recorded validation limits.
 - Follow-up: physical NVDEC and sustained-playback qualification remain tracked in [phase 55](docs/phase-55.md); no hardware-speed claim is made without an available NVIDIA driver and measured native execution.
+
+### 56. Live Rust procedural Motion assets (complete)
+
+- User-authorized 2026-10-07: combine compositional authoring, in-app Rust compilation, native graph generation and HDA-style assets. [Detailed phase and frozen agent test](docs/phase-56-live-rust-assets.md).
+- [x] Pin and inspect the supplied 500×888, 151-frame animation reference; define the new-animation brief and acceptance before the trial.
+- [x] Bounded Rust creative SDK/compiler; retained native graphs with custom runtime Wrangles where needed.
+- [x] Stable asset interfaces preserving artist values, animation and connections across source updates; explicit incompatibility/internal-edit conflicts.
+- [x] Public MCP/CLI compilation, candidate preview/observation, contextual native source editing and common Composition handoff.
+- [x] Focused behavior/persistence/cancellation tests, normal/narrow UI review and release build. Live mid-rustc cancellation passed through public MCP; full desktop source/control/cancel/undo/save interaction is now verified below.
+- [x] Qualify a fresh **GPT-Sol-6.1** (`gpt-6.1-sol`) public-only reference-animation trial within its declared budget; independent full-cycle visual review, meaningful controls, artist continuation/source revision, undo and save/reopen.
+- [x] Verified skill/examples, evidence, measured limitations and final diff review. Phase 47 remains independently incomplete; this phase uses the user's newly specified model and reference.
+
+- First slice delivered: [NOV native artwork and source](demos/cell-type-rust.md); [independent review](docs/evidence/phase-56/independent-review/review.md). The first 147-call test failed a seam; the repaired 193-call artifact passes sampled visual/continuation checks but exceeds the declared 150-call budget. The fresh second trial now qualifies: [LIFT](demos/cell-type-02.md), 144 public calls in 10.9 minutes, with [independent full-cycle review](docs/evidence/phase-56/trial-02-review/review.md).
+- Follow-up implementation: bounded nonblocking `jobs wait_ms`, discoverable Composition edits and synchronized layer keyframes now pass focused tests. Fresh qualification passed; 67 follow-up checks passed, including native timeline/curve tests and live compiler cancellation. The completion work below now implements those follow-ups and records actual desktop/hardware evidence. The successful artifact alone is not the qualification evidence for those features.
+
+#### Phase 56 completion work (authorized 2026-10-07)
+
+- [x] Responsive layout, timing/easing/stagger/loop helpers in the retained Rust SDK.
+- [x] Native control ranges, descriptions and section metadata with inspector support.
+- [x] Bounded full-construction evidence for large nested asset verification.
+- [x] Explicit input rename/removal/type replacement with atomic instance/key migration.
+- [x] Portable asset bundles containing native definitions, source and embedded dependencies, exposed through public tools and contextual UI.
+- [x] Desktop source/control/undo/cancellation workflows and GPU qualification where hardware is available; record actual limits.
+
+- Completion evidence: [implementation, checks and desktop/GPU review](docs/evidence/phase-56/completion/review.md). 36 focused tests, release build, live public tools, source/controls/keyframe continuation, native undo/redo/cancel/save/reopen, normal/narrow UI and full-cycle CPU/GPU parity passed. Clippy completed with recorded nonfatal warnings. GTX 1070 sustained full-size rendering: 28.7 ms mean readiness, 33.7 ms P95; warm desktop playback: 25 fps.
+- [x] **Completion accepted (2026-10-07):** user requested marking Phase 56 complete and committing the implementation. Recorded validation limits remain in effect.
+
+#### Post-phase performance follow-up
+
+- [ ] Measured performance follow-up: cold desktop playback on the isolated X11 virtual display advanced about 10 fps while filling the cache, despite the renderer-only frame budget passing. Diagnose desktop scheduling/cache-fill throughput separately; warm playback passes at 25 fps. Broader physical-monitor/Wayland/DPI acceptance remains unclaimed.
+- Scope boundaries: bundled dependencies are native groups/source/fonts; external media/documents remain explicit input dependencies. Coordinated interface migration across multiple source-owned definitions still rejects atomically rather than rewriting source. These are documented capabilities, not silent data loss.

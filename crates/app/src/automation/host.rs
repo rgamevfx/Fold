@@ -5,6 +5,7 @@ use fold_project::{CommittedSnapshot, EditBatch};
 use std::{collections::BTreeMap, sync::mpsc};
 pub enum Outcome {
     Value(Value),
+    Artifact(Value),
     Candidate {
         id: u64,
         expected: u64,
@@ -40,7 +41,13 @@ pub struct CandidatePreview {
     pub time: fold_foundation::Time,
     pub original: bool,
 }
+struct Waiter {
+    job: u64,
+    deadline: std::time::Instant,
+    reply: mpsc::SyncSender<Value>,
+}
 pub struct Host {
+    waiters: Vec<Waiter>,
     pub preview: Option<CandidatePreview>,
     pub candidates: BTreeMap<u64, CandidateEntry>,
     next_candidate: u64,
@@ -58,6 +65,7 @@ pub struct Host {
 impl Default for Host {
     fn default() -> Self {
         Self {
+            waiters: Vec::new(),
             preview: None,
             candidates: BTreeMap::new(),
             next_candidate: 0,
@@ -128,6 +136,9 @@ impl Host {
         });
     }
     pub fn disable(&mut self) {
+        for waiter in self.waiters.drain(..) {
+            let _ = waiter.reply.try_send(error("session disconnected"));
+        }
         self.server = None;
         self.starting = None;
         for job in self.jobs.values() {
@@ -219,6 +230,34 @@ impl Host {
             .and_then(|id| self.jobs.get(&id))
             .is_some_and(|j| j.receiver.is_some())
     }
+    // Only the socket reply is deferred. The session/UI continues polling and
+    // committing worker results; a waiting agent never holds the writer thread.
+    pub fn wait(&mut self, job: u64, milliseconds: u64, reply: mpsc::SyncSender<Value>) {
+        if self.waiters.len() >= 16 {
+            let _ = reply.try_send(error("at most 16 job waits; retry later"));
+            return;
+        }
+        self.waiters.push(Waiter {
+            job,
+            deadline: std::time::Instant::now()
+                + std::time::Duration::from_millis(milliseconds.min(25_000)),
+            reply,
+        });
+    }
+    pub fn poll_waiters(&mut self) {
+        for waiter in std::mem::take(&mut self.waiters) {
+            let result = self.result(waiter.job);
+            let ready = result.as_ref().map_or(true, |r| r["status"] == "complete")
+                || std::time::Instant::now() >= waiter.deadline;
+            if ready {
+                let _ = waiter
+                    .reply
+                    .try_send(result.map(success).unwrap_or_else(error));
+            } else {
+                self.waiters.push(waiter);
+            }
+        }
+    }
     pub fn result(&self, id: u64) -> Result<Value, String> {
         let job = self.jobs.get(&id).ok_or(
             "job expired or does not exist; inspect state before creating another mutation",
@@ -237,6 +276,41 @@ impl Drop for Host {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn waiting_replies_complete_timeout_and_disconnect_without_cancelling_work() {
+        let mut host = Host::default();
+        let (_work, receiver) = mpsc::channel();
+        host.jobs.insert(
+            1,
+            Job {
+                cancel: Cancel::default(),
+                receiver: Some(receiver),
+                result: None,
+                epoch: 0,
+            },
+        );
+        let (tx, rx) = mpsc::sync_channel(1);
+        host.wait(1, 25_000, tx);
+        host.poll_waiters();
+        assert!(rx.try_recv().is_err());
+        host.waiters[0].deadline = std::time::Instant::now();
+        host.poll_waiters();
+        assert_eq!(rx.try_recv().unwrap()["result"]["status"], "pending");
+        assert!(host.jobs[&1].cancel.check().is_ok());
+        let (tx, rx) = mpsc::sync_channel(1);
+        host.wait(1, 25_000, tx);
+        let job = host.jobs.get_mut(&1).unwrap();
+        job.receiver = None;
+        job.result = Some(success(json!({"committed":true,"revision":3})));
+        host.poll_waiters();
+        let reply = rx.try_recv().unwrap();
+        assert_eq!(reply["result"]["outcome"]["result"]["revision"], 3);
+        let (tx, rx) = mpsc::sync_channel(1);
+        host.wait(1, 25_000, tx);
+        host.disable();
+        assert_eq!(rx.try_recv().unwrap()["error"], "session disconnected");
+        assert!(host.waiters.is_empty());
+    }
     #[test]
     fn candidate_retention_is_bounded_scoped_and_cleared_on_disable() {
         let mut host = Host::default();

@@ -17,6 +17,8 @@ For CLI access: `fold-cli agent sessions`, then `fold-cli agent call SESSION MET
 
 For unfamiliar concepts or a new procedural design, read the [authoring glossary](references/glossary.md). It distinguishes fields from uniform values, sampling domains, coordinate spaces, and reusable definitions from instances.
 
+For live Rust asset creation, code revision, native controls, interface migration, portable asset files or generated graph ownership, read [Live Rust assets](references/rust-assets.md), also available through `catalog guide="rust-assets"`; `guide="rust-sdk"` supplies the complete guest SDK.
+
 For shipped tools, repeatable scripts, artist-preserving revisions or live candidate preview, read [Live SDK tools](references/live-tools.md), also available through `catalog guide="live-tools"`. Start there before assembling equivalent primitive graphs.
 
 For Motion objects, text, copies, or group interfaces, read [Motion authoring](references/motion.md) before building. It supplies the coordinates, resource setup, and typed wiring conventions that node signatures alone do not explain.
@@ -35,7 +37,7 @@ Discover `candidate` and `observe` through `catalog` before relying on them; old
 
 On older builds, submit related edits in one labeled `batch`, using the observed `revision` and `project_epoch`. Allocate identities through `ids` and `{"$ref":"name"}`; artwork strings remain literal. Prefer targeted property and connection operations, preserving user animation, disconnected work, unknown data, and world placement.
 
-Every distinct proposal gets a new `request_id`, including committing a previously validated proposal. Reuse an ID only for an identical retry after a lost response. Poll `jobs` until completion and inspect `outcome.ok`; acceptance is not commitment. Consume results promptly because retention is bounded.
+Every distinct proposal gets a new `request_id`, including committing a previously validated proposal. Reuse an ID only for an identical retry after a lost response. Await `jobs` with `job` and `wait_ms:25000` until completion and inspect `outcome.ok` (discover the schema on older builds); acceptance is not commitment. Consume results promptly because retention is bounded.
 
 On a conflict, refresh state **and affected content**, reconcile the user's changes, then propose a new batch. Refresh IDs after project replacement or reopening. During an active user edit, continue independent reads and retry once it finishes. Global undo may include user work: check the current revision and undo label first. Cancellation cannot reverse committed work.
 

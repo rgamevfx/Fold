@@ -30,6 +30,8 @@ fn fixture() -> (Motion, fold_foundation::ObjectId) {
         unit: "px".into(),
         section: String::new(),
         advanced: false,
+        range: None,
+        description: String::new(),
     });
     let prev = g.graph.nodes[0].id;
     let mut input = Node::new("fold.motion.group_input").unwrap();
@@ -209,6 +211,8 @@ fn same_solver_supports_persistent_decaying_attributes_without_motion() {
         unit: String::new(),
         section: String::new(),
         advanced: false,
+        range: None,
+        description: String::new(),
     });
     let mut read = Node::new("fold.motion.read_attribute").unwrap();
     read.connect("content", previous, "state");

@@ -34,13 +34,15 @@ impl Session {
             })
             .collect();
         for (id, epoch, cancelled, result) in completed {
-            let result = if cancelled && !matches!(&result, Ok(Outcome::Saved { .. })) {
+            let result = if cancelled
+                && !matches!(&result, Ok(Outcome::Saved { .. } | Outcome::Artifact(_)))
+            {
                 Err("job cancelled".into())
             } else {
                 result
             };
             let result=result.and_then(|outcome|match outcome{
-                Outcome::Value(value)=>Ok(value),
+                Outcome::Value(value)|Outcome::Artifact(value)=>Ok(value),
                 Outcome::Candidate{id,expected,candidate,mut result}=>{
                     if epoch!=self.workspace_epoch{return Err("project changed; candidate discarded".into());}
                     self.automation.candidate(id,expected)?;
@@ -73,6 +75,7 @@ impl Session {
                 });
             }
         }
+        self.automation.poll_waiters();
         self.state.busy = !self.background.is_empty() || self.automation.file_busy();
         self.state.file_busy =
             self.background.iter().any(|j| !j.export) || self.automation.file_busy();
@@ -86,7 +89,7 @@ impl Session {
             let request = incoming.request;
             let mutation = matches!(
                 request.method.as_str(),
-                "batch" | "candidate" | "author" | "undo" | "redo" | "save"
+                "batch" | "candidate" | "author" | "undo" | "redo" | "save" | "asset"
             );
             let replay = if mutation {
                 self.automation.replay(&request)
@@ -108,7 +111,20 @@ impl Session {
                     reply
                 }
             };
-            let _ = incoming.reply.try_send(reply);
+            let wait_ms = request.params["wait_ms"].as_u64().unwrap_or(0);
+            if request.method == "jobs"
+                && wait_ms > 0
+                && reply["ok"] == true
+                && reply["result"]["status"] == "pending"
+            {
+                self.automation.wait(
+                    request.params["job"].as_u64().unwrap(),
+                    wait_ms,
+                    incoming.reply,
+                );
+            } else {
+                let _ = incoming.reply.try_send(reply);
+            }
         }
     }
     fn automation_snapshot(
@@ -378,6 +394,9 @@ impl Session {
                 Ok(json!({"revision":self.project.snapshot().revision()}))
             }
             "jobs" => {
+                if params.get("wait_ms").is_some() {
+                    required::<u64>(params, "job")?;
+                }
                 if let Some(id) = params.get("job").and_then(Value::as_u64) {
                     self.automation.result(id)
                 } else {
@@ -486,6 +505,44 @@ impl Session {
                 transport.playing = false;
                 self.configure_viewer(viewer, transport);
                 Ok(json!({"viewer":viewer,"requested_time":time}))
+            }
+            "asset" => {
+                let snapshot = self.automation_snapshot(params)?;
+                let revision: fold_project::Revision = required(params, "revision")?;
+                if revision != snapshot.revision()
+                    || required::<u64>(params, "project_epoch")? != epoch
+                {
+                    return Err("revision/project conflict".into());
+                }
+                let action: String = required(params, "action")?;
+                let path: std::path::PathBuf = required(params, "path")?;
+                if !path.is_absolute() {
+                    return Err("asset requires an absolute path".into());
+                }
+                let args = params.clone();
+                self.automation.spawn(epoch,move|cancel| {
+                    cancel.check()?;
+                    match action.as_str() {
+                        "export"=>{
+                            let document=required(&args,"document")?;
+                            let definition=required(&args,"definition")?;
+                            let m=fold_motion::Motion::from_document(snapshot.state().documents.get(&document).ok_or("missing Motion document")?)?;
+                            let bundle=fold_motion::program::bundle::export(&m,definition)?;
+                            cancel.check()?;
+                            fold_motion::program::bundle::write(&bundle,&path)?;
+                            Ok(Outcome::Artifact(json!({"path":path,"definition":definition,"revision":snapshot.revision(),"written":true,"committed":false})))
+                        },
+                        "import"=>{
+                            let bundle=fold_motion::program::bundle::read(&path)?;
+                            let mut motion=fold_motion::Motion::new_scene();
+                            let definition=fold_motion::program::bundle::import(&mut motion,&bundle)?;
+                            let args=crate::rust_asset::Args {composition:required(&args,"composition")?,graph:required(&args,"graph")?,instance:required(&args,"instance")?,layer:required(&args,"layer")?,definition,source:String::new()};
+                            let batch=crate::rust_asset::place(&snapshot,&args,motion,&cancel)?;
+                            Ok(Outcome::Edit{batch,result:json!({"label":"Import procedural asset","definition":definition,"graph":args.graph,"instance":args.instance,"layer":args.layer}),validate_only:false})
+                        },
+                        _=>Err("asset action must be import or export".into())
+                    }
+                })
             }
             "save" => {
                 let revision: fold_project::Revision = required(params, "revision")?;

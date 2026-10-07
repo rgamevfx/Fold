@@ -1,0 +1,894 @@
+    Checking fold-foundation v0.1.0 (/home/rgame/dev/Fold_Dev/Fold/crates/foundation)
+   Compiling fold-native-video v0.1.0 (/home/rgame/dev/Fold_Dev/Fold/crates/native-video)
+    Checking fold-media v0.1.0 (/home/rgame/dev/Fold_Dev/Fold/crates/media)
+    Checking fold-color v0.1.0 (/home/rgame/dev/Fold_Dev/Fold/crates/color)
+    Checking fold-render v0.1.0 (/home/rgame/dev/Fold_Dev/Fold/crates/render)
+    Checking fold-project v0.1.0 (/home/rgame/dev/Fold_Dev/Fold/crates/project)
+    Checking fold-animation v0.1.0 (/home/rgame/dev/Fold_Dev/Fold/crates/animation)
+    Checking fold-platform v0.1.0 (/home/rgame/dev/Fold_Dev/Fold/crates/platform)
+    Checking fold-ui v0.1.0 (/home/rgame/dev/Fold_Dev/Fold/crates/ui)
+   Compiling fold-app v0.1.0 (/home/rgame/dev/Fold_Dev/Fold/crates/app)
+    Checking fold-composition v0.1.0 (/home/rgame/dev/Fold_Dev/Fold/crates/composition)
+    Checking fold-motion v0.1.0 (/home/rgame/dev/Fold_Dev/Fold/crates/motion)
+warning: this function has too many arguments (8/7)
+  --> crates/motion/src/authoring/particles.rs:12:1
+   |
+12 | / fn port(
+13 | |     nodes: &mut Vec<Node>,
+14 | |     ports: &mut Vec<Port>,
+15 | |     key: &str,
+...  |
+20 | |     unit: &str,
+21 | | ) -> Result<ObjectId, String> {
+   | |_____________________________^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#too_many_arguments
+   = note: `#[warn(clippy::too_many_arguments)]` on by default
+
+warning: this `if` statement can be collapsed
+   --> crates/motion/src/document.rs:152:13
+    |
+152 | /             if matches!(
+153 | |                 n.kind.as_str(),
+154 | |                 "fold.motion.group_instance" | "fold.motion.solver"
+155 | |             ) {
+...   |
+159 | |             }
+    | |_____________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#collapsible_if
+    = note: `#[warn(clippy::collapsible_if)]` on by default
+help: collapse nested if block
+    |
+155 ~             )
+156 ~                 && let Some(id) = n.settings::<GroupSettings>()?.group {
+157 |                     self.validate_group_references(id, path)?;
+158 ~                 }
+    |
+
+warning: very complex type used. Consider factoring parts into `type` definitions
+   --> crates/motion/src/document.rs:258:45
+    |
+258 |     pub fn signature(&self, node: &Node) -> Result<(Vec<Socket>, Vec<(String, Kind)>), String> {
+    |                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#type_complexity
+    = note: `#[warn(clippy::type_complexity)]` on by default
+
+warning: this `if` statement can be collapsed
+   --> crates/motion/src/geometry/render.rs:137:13
+    |
+137 | /             if let Some(background) = back {
+138 | |                 if let (
+139 | |                     ImageOp::BakedTextured {
+140 | |                         batch: a,
+...   |
+187 | |             }
+    | |_____________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#collapsible_if
+help: collapse nested if block
+    |
+137 ~             if let Some(background) = back
+138 ~                 && let (
+139 |                     ImageOp::BakedTextured {
+...
+185 |                     }
+186 ~                 }
+    |
+
+warning: this `if` statement can be collapsed
+   --> crates/motion/src/geometry/render.rs:188:13
+    |
+188 | /             if let Some(background) = back {
+189 | |                 if let (
+190 | |                     ImageOp::Textured {
+191 | |                         input: a,
+...   |
+217 | |             }
+    | |_____________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#collapsible_if
+help: collapse nested if block
+    |
+188 ~             if let Some(background) = back
+189 ~                 && let (
+190 |                     ImageOp::Textured {
+...
+215 |                     }
+216 ~                 }
+    |
+
+warning: this `if` statement can be collapsed
+   --> crates/motion/src/geometry/render.rs:189:17
+    |
+189 | /                 if let (
+190 | |                     ImageOp::Textured {
+191 | |                         input: a,
+192 | |                         driver: b,
+...   |
+216 | |                 }
+    | |_________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#collapsible_if
+help: collapse nested if block
+    |
+200 ~                 ) = (&self.nodes[background], &self.nodes[front])
+201 ~                     && a == c
+202 |                         && b == d
+...
+213 |                         return Ok(Some(background));
+214 ~                     }
+    |
+
+warning: this function has too many arguments (8/7)
+  --> crates/motion/src/geometry/sampling.rs:56:1
+   |
+56 | / fn cubic(
+57 | |     a: [f64; 2],
+58 | |     b: [f64; 2],
+59 | |     c: [f64; 2],
+...  |
+64 | |     budget: &mut Budget,
+65 | | ) -> Result<(), String> {
+   | |_______________________^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#too_many_arguments
+
+warning: very complex type used. Consider factoring parts into `type` definitions
+  --> crates/motion/src/graph/definition.rs:40:20
+   |
+40 |     pub signature: Option<fn(&Node) -> Result<(Vec<Socket>, Vec<(String, Kind)>), String>>,
+   |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#type_complexity
+
+warning: very complex type used. Consider factoring parts into `type` definitions
+ --> crates/motion/src/graph/signature.rs:7:45
+  |
+7 |     pub fn signature(&self, node: &Node) -> Result<(Vec<Socket>, Vec<(String, Kind)>), String> {
+  |                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#type_complexity
+
+warning: very complex type used. Consider factoring parts into `type` definitions
+  --> crates/motion/src/nodes/expression.rs:14:27
+   |
+14 | fn signature(n: &Node) -> Result<(Vec<Socket>, Vec<(String, Kind)>), String> {
+   |                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#type_complexity
+
+warning: very complex type used. Consider factoring parts into `type` definitions
+   --> crates/motion/src/nodes/interface.rs:263:6
+    |
+263 | ) -> Result<(Vec<Socket>, Vec<(String, Kind)>), String> {
+    |      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#type_complexity
+
+warning: very complex type used. Consider factoring parts into `type` definitions
+  --> crates/motion/src/nodes/solver.rs:48:6
+   |
+48 | ) -> Result<(Vec<Socket>, Vec<(String, Kind)>), String> {
+   |      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#type_complexity
+
+warning: very complex type used. Consider factoring parts into `type` definitions
+  --> crates/motion/src/nodes/attributes.rs:23:27
+   |
+23 | fn signature(n: &Node) -> Result<(Vec<Socket>, Vec<(String, Kind)>), String> {
+   |                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#type_complexity
+
+warning: the loop variable `axis` is used to index `jitter`
+  --> crates/motion/src/nodes/particles.rs:84:29
+   |
+84 |                 for axis in 0..2 {
+   |                             ^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#needless_range_loop
+   = note: `#[warn(clippy::needless_range_loop)]` on by default
+help: consider using an iterator and enumerate()
+   |
+84 -                 for axis in 0..2 {
+84 +                 for (axis, <item>) in jitter.iter().enumerate() {
+   |
+
+warning: the loop variable `i` is used to index `uv`
+   --> crates/motion/src/nodes/image.rs:120:18
+    |
+120 |         for i in 0..2 {
+    |                  ^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#needless_range_loop
+help: consider using an iterator and enumerate()
+    |
+120 -         for i in 0..2 {
+120 +         for (i, <item>) in uv.iter().enumerate() {
+    |
+
+warning: the loop variable `i` is used to index `center`
+   --> crates/motion/src/nodes/image/response.rs:112:34
+    |
+112 |                         for i in 0..2 {
+    |                                  ^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#needless_range_loop
+help: consider using an iterator and enumerate()
+    |
+112 -                         for i in 0..2 {
+112 +                         for (i, <item>) in center.iter().enumerate() {
+    |
+
+warning: manual implementation of `.is_multiple_of()`
+  --> crates/motion/src/nodes/image/bake.rs:44:16
+   |
+44 |             || self.resolution % 4 != 0
+   |                ^^^^^^^^^^^^^^^^^^^^^^^^ help: replace with: `!self.resolution.is_multiple_of(4)`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#manual_is_multiple_of
+   = note: `#[warn(clippy::manual_is_multiple_of)]` on by default
+
+warning: this `if` statement can be collapsed
+   --> crates/motion/src/package.rs:267:9
+    |
+267 | /         if let Some(id) = scene_output {
+268 | |             if !motion
+269 | |                 .scene
+270 | |                 .as_ref()
+...   |
+275 | |         }
+    | |_________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#collapsible_if
+help: collapse nested if block
+    |
+267 ~         if let Some(id) = scene_output
+268 ~             && !motion
+269 |                 .scene
+...
+273 |                 return Err("Missing object output".into());
+274 ~             }
+    |
+
+warning: this `if` statement can be collapsed
+  --> crates/motion/src/program/bundle.rs:45:13
+   |
+45 | /             if n.kind == "fold.motion.text" {
+46 | |                 if let Some(v) = n.settings.get("font").filter(|v| !v.is_null()) {
+47 | |                     let font: ObjectId =
+48 | |                         serde_json::from_value(v.clone()).map_err(|e| e.to_string())?;
+...  |
+54 | |             }
+   | |_____________^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#collapsible_if
+help: collapse nested if block
+   |
+45 ~             if n.kind == "fold.motion.text"
+46 ~                 && let Some(v) = n.settings.get("font").filter(|v| !v.is_null()) {
+47 |                     let font: ObjectId =
+...
+52 |                     );
+53 ~                 }
+   |
+
+warning: this `if` statement can be collapsed
+  --> crates/motion/src/program/bundle.rs:55:13
+   |
+55 | /             if matches!(
+56 | |                 n.kind.as_str(),
+57 | |                 "fold.motion.group_instance" | "fold.motion.solver"
+58 | |             ) {
+...  |
+62 | |             }
+   | |_____________^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#collapsible_if
+help: collapse nested if block
+   |
+58 ~             )
+59 ~                 && let Some(v) = n.settings.get("group").filter(|v| !v.is_null()) {
+60 |                     pending.push(serde_json::from_value(v.clone()).map_err(|e| e.to_string())?);
+61 ~                 }
+   |
+
+warning: this `if` statement can be collapsed
+   --> crates/motion/src/program/migration.rs:103:9
+    |
+103 | /         if let Migration::Rename { from, to } = edit {
+104 | |             if let Some(id) = ids.remove(&format!("@{from}")) {
+105 | |                 ids.insert(format!("@{to}"), id);
+106 | |             }
+107 | |         }
+    | |_________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#collapsible_if
+help: collapse nested if block
+    |
+103 ~         if let Migration::Rename { from, to } = edit
+104 ~             && let Some(id) = ids.remove(&format!("@{from}")) {
+105 |                 ids.insert(format!("@{to}"), id);
+106 ~             }
+    |
+
+warning: this `if` statement can be collapsed
+   --> crates/motion/src/program/migration.rs:142:13
+    |
+142 | /             if let Some(visibility) = n
+143 | |                 .extensions
+144 | |                 .get_mut("fold.motion.input_visibility")
+145 | |                 .and_then(Value::as_object_mut)
+...   |
+152 | |             }
+    | |_____________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#collapsible_if
+help: collapse nested if block
+    |
+145 ~                 .and_then(Value::as_object_mut)
+146 ~                 && let Some(value) = visibility.remove(edit.from()) {
+147 |                     if let Some(to) = edit.to() {
+148 |                         visibility.insert(to.into(), value);
+149 |                     }
+150 ~                 }
+    |
+
+warning: this `if` statement can be collapsed
+   --> crates/motion/src/program/migration.rs:147:17
+    |
+147 | /                 if let Some(value) = visibility.remove(edit.from()) {
+148 | |                     if let Some(to) = edit.to() {
+149 | |                         visibility.insert(to.into(), value);
+150 | |                     }
+151 | |                 }
+    | |_________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#collapsible_if
+help: collapse nested if block
+    |
+147 ~                 if let Some(value) = visibility.remove(edit.from())
+148 ~                     && let Some(to) = edit.to() {
+149 |                         visibility.insert(to.into(), value);
+150 ~                     }
+    |
+
+warning: use of `or_insert_with` to construct default value
+   --> crates/motion/src/program/mod.rs:138:28
+    |
+138 |     *ids.entry(key.into()).or_insert_with(ObjectId::new)
+    |                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `or_default()`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#unwrap_or_default
+    = note: `#[warn(clippy::unwrap_or_default)]` on by default
+
+warning: this `if` statement can be collapsed
+   --> crates/motion/src/ui/graph.rs:310:5
+    |
+310 | /     if n.kind == "fold.motion.group_instance" {
+311 | |         if let Some(g) = n
+312 | |             .settings::<GroupSettings>()
+313 | |             .ok()
+...   |
+319 | |     }
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#collapsible_if
+help: collapse nested if block
+    |
+310 ~     if n.kind == "fold.motion.group_instance"
+311 ~         && let Some(g) = n
+312 |             .settings::<GroupSettings>()
+...
+317 |             return g.name.clone();
+318 ~         }
+    |
+
+warning: this `if` statement can be collapsed
+   --> crates/motion/src/ui/graph.rs:328:5
+    |
+328 | /     if n.kind == "fold.motion.object_reference" {
+329 | |         if let Some(name) = serde_json::from_value::<ObjectId>(n.settings["object"].clone())
+330 | |             .ok()
+331 | |             .and_then(|id| m.scene.as_ref()?.objects.iter().find(|o| o.id == id))
+...   |
+336 | |     }
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#collapsible_if
+help: collapse nested if block
+    |
+328 ~     if n.kind == "fold.motion.object_reference"
+329 ~         && let Some(name) = serde_json::from_value::<ObjectId>(n.settings["object"].clone())
+330 |             .ok()
+...
+334 |             return name.clone();
+335 ~         }
+    |
+
+warning: this `if` statement can be collapsed
+  --> crates/motion/src/ui/group_interface.rs:10:5
+   |
+10 | /     if let Some(_menu) = menu_button(ui, "Interface", "Edit this group's public controls") {
+11 | |         if ui.menu_item("Edit node interface") {
+12 | |             state.interface_target = Some(id);
+13 | |         }
+14 | |     }
+   | |_____^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#collapsible_if
+help: collapse nested if block
+   |
+10 ~     if let Some(_menu) = menu_button(ui, "Interface", "Edit this group's public controls")
+11 ~         && ui.menu_item("Edit node interface") {
+12 |             state.interface_target = Some(id);
+13 ~         }
+   |
+
+warning: this `if` statement can be collapsed
+  --> crates/motion/src/ui/inspector.rs:77:9
+   |
+77 | /         if let Ok(node) = motion.graph.node(selected) {
+78 | |             if let Some(Input::Link(source)) = node.inputs.get("image") {
+79 | |                 if ui.small_button("Edit image source") {
+80 | |                     state.selected = vec![source.node];
+...  |
+91 | |         }
+   | |_________^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#collapsible_if
+help: collapse nested if block
+   |
+77 ~         if let Ok(node) = motion.graph.node(selected)
+78 ~             && let Some(Input::Link(source)) = node.inputs.get("image") {
+79 |                 if ui.small_button("Edit image source") {
+...
+89 |                 }
+90 ~             }
+   |
+
+warning: this `if` statement can be collapsed
+  --> crates/motion/src/ui/inspector.rs:78:13
+   |
+78 | /             if let Some(Input::Link(source)) = node.inputs.get("image") {
+79 | |                 if ui.small_button("Edit image source") {
+80 | |                     state.selected = vec![source.node];
+81 | |                     state.inspector_return = Some((source.node, selected));
+...  |
+90 | |             }
+   | |_____________^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#collapsible_if
+help: collapse nested if block
+   |
+78 ~             if let Some(Input::Link(source)) = node.inputs.get("image")
+79 ~                 && ui.small_button("Edit image source") {
+80 |                     state.selected = vec![source.node];
+...
+88 |                     return;
+89 ~                 }
+   |
+
+warning: this `if` statement can be collapsed
+   --> crates/motion/src/ui/inspector.rs:284:13
+    |
+284 | /             if is_rust_asset {
+285 | |                 if ui.button("Edit Rust source") {
+286 | |                     super::program::open(&mut state, group);
+287 | |                 }
+288 | |             }
+    | |_____________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#collapsible_if
+help: collapse nested if block
+    |
+284 ~             if is_rust_asset
+285 ~                 && ui.button("Edit Rust source") {
+286 |                     super::program::open(&mut state, group);
+287 ~                 }
+    |
+
+warning: this `if` statement can be collapsed
+   --> crates/motion/src/ui/inspector.rs:553:21
+    |
+553 | /                     if let Some((_, help)) = port_details.get(&key) {
+554 | |                         if !help.is_empty() {
+555 | |                             fold_ui::sdk::toolbar::tooltip(ui, help);
+556 | |                         }
+557 | |                     }
+    | |_____________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#collapsible_if
+help: collapse nested if block
+    |
+553 ~                     if let Some((_, help)) = port_details.get(&key)
+554 ~                         && !help.is_empty() {
+555 |                             fold_ui::sdk::toolbar::tooltip(ui, help);
+556 ~                         }
+    |
+
+warning: the borrowed expression implements the required traits
+   --> crates/motion/src/ui/inspector.rs:585:38
+    |
+585 |                     ui.text_disabled(&socket.unit);
+    |                                      ^^^^^^^^^^^^ help: change this to: `socket.unit`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#needless_borrows_for_generic_args
+    = note: `#[warn(clippy::needless_borrows_for_generic_args)]` on by default
+
+warning: this `if` has identical blocks
+   --> crates/motion/src/ui/inspector.rs:747:97
+    |
+747 |           } else if super::image_bake::draw(ui, host, node, state.document, group, &mut response) {
+    |  _________________________________________________________________________________________________^
+748 | |         } else if super::images::draw(ui, host, node, &image_info, &mut response) {
+    | |_________^
+    |
+note: same as this
+   --> crates/motion/src/ui/inspector.rs:748:83
+    |
+748 |           } else if super::images::draw(ui, host, node, &image_info, &mut response) {
+    |  ___________________________________________________________________________________^
+749 | |         } else if super::simulation::draw(ui, node, &mut response) {
+    | |_________^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#if_same_then_else
+    = note: `#[warn(clippy::if_same_then_else)]` on by default
+
+warning: this `if` has identical blocks
+   --> crates/motion/src/ui/inspector.rs:748:83
+    |
+748 |           } else if super::images::draw(ui, host, node, &image_info, &mut response) {
+    |  ___________________________________________________________________________________^
+749 | |         } else if super::simulation::draw(ui, node, &mut response) {
+    | |_________^
+    |
+note: same as this
+   --> crates/motion/src/ui/inspector.rs:749:68
+    |
+749 |           } else if super::simulation::draw(ui, node, &mut response) {
+    |  ____________________________________________________________________^
+750 | |         } else if node.kind == "fold.motion.keyframes" {
+    | |_________^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#if_same_then_else
+
+warning: this `if` statement can be collapsed
+   --> crates/motion/src/ui/inspector.rs:660:13
+    |
+660 | /             if let Some(_menu) = icon_menu(ui, "definition", "Replace tool definition") {
+661 | |                 if let Some(_combo) = ui.begin_combo("Definition", "Choose reusable group") {
+662 | |                     for (id, name) in groups {
+663 | |                         if ui.selectable(name) {
+...   |
+668 | |             }
+    | |_____________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#collapsible_if
+help: collapse nested if block
+    |
+660 ~             if let Some(_menu) = icon_menu(ui, "definition", "Replace tool definition")
+661 ~                 && let Some(_combo) = ui.begin_combo("Definition", "Choose reusable group") {
+662 |                     for (id, name) in groups {
+...
+666 |                     }
+667 ~                 }
+    |
+
+warning: this `if` statement can be collapsed
+   --> crates/motion/src/ui/inspector.rs:761:9
+    |
+761 | /         if node.kind == "fold.motion.path" && ui.button("Add cubic segment") {
+762 | |             if let Some(segments) = node
+763 | |                 .settings
+764 | |                 .get_mut("segments")
+...   |
+774 | |         }
+    | |_________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#collapsible_if
+help: collapse nested if block
+    |
+761 ~         if node.kind == "fold.motion.path" && ui.button("Add cubic segment")
+762 ~             && let Some(segments) = node
+763 |                 .settings
+...
+772 |                 response.finished = true;
+773 ~             }
+    |
+
+warning: this `if` statement can be collapsed
+   --> crates/motion/src/ui/inspector.rs:787:9
+    |
+787 | /         if let Some(path) = gradient_path
+788 | |             && let Ok(path) = crate::authoring::node(&mut motion, path)
+789 | |         {
+790 | |             if ui.collapsing_header(
+...   |
+796 | |         }
+    | |_________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#collapsible_if
+help: collapse nested if block
+    |
+788 ~             && let Ok(path) = crate::authoring::node(&mut motion, path)
+789 ~             && ui.collapsing_header(
+790 |                 "Path gradient · shared source",
+...
+793 |                 super::gradient::draw(ui, &mut path.settings, aces, &mut response);
+794 ~             }
+    |
+
+warning: this boolean expression can be simplified
+   --> crates/motion/src/ui/tools.rs:183:13
+    |
+183 | /             !state
+184 | |                 .motion
+185 | |                 .as_ref()
+186 | |                 .is_some_and(|m| m.graph.node(id).is_ok())
+    | |__________________________________________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#nonminimal_bool
+    = note: `#[warn(clippy::nonminimal_bool)]` on by default
+help: try
+    |
+183 ~             state
+184 +                 .motion
+185 +                 .as_ref().is_none_or(|m| m.graph.node(id).is_err())
+    |
+
+warning: this `if` statement can be collapsed
+   --> crates/motion/src/ui/tools.rs:237:17
+    |
+237 | /                 if self.tool == Tool::Pen && g.dragging && ui.is_mouse_down(MouseButton::Left) {
+238 | |                     if let Some(anchor) = g.anchors.last_mut() {
+239 | |                         anchor.tangent = [p[0] - anchor.point[0], p[1] - anchor.point[1]];
+240 | |                     }
+241 | |                 }
+    | |_________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#collapsible_if
+help: collapse nested if block
+    |
+237 ~                 if self.tool == Tool::Pen && g.dragging && ui.is_mouse_down(MouseButton::Left)
+238 ~                     && let Some(anchor) = g.anchors.last_mut() {
+239 |                         anchor.tangent = [p[0] - anchor.point[0], p[1] - anchor.point[1]];
+240 ~                     }
+    |
+
+warning: this `if` statement can be collapsed
+   --> crates/motion/src/ui/images.rs:133:9
+    |
+133 | /         if ui.input_int("Offset (frames)", &mut frame) {
+134 | |             if let Ok(time) = fold_foundation::Time::new(
+135 | |                 i64::from(frame) * i64::from(entry.info.rate[1]),
+136 | |                 entry.info.rate[0],
+...   |
+141 | |         }
+    | |_________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#collapsible_if
+help: collapse nested if block
+    |
+133 ~         if ui.input_int("Offset (frames)", &mut frame)
+134 ~             && let Ok(time) = fold_foundation::Time::new(
+135 |                 i64::from(frame) * i64::from(entry.info.rate[1]),
+...
+139 |                 changed = true;
+140 ~             }
+    |
+
+warning: this `if` statement can be collapsed
+   --> crates/motion/src/ui/images.rs:147:5
+    |
+147 | /     if settings.sources.len() < 64 {
+148 | |         if let Some(_combo) = ui.begin_combo("Add source", "Choose from Project") {
+149 | |             for (name, value) in &choices {
+150 | |                 if ui.selectable(name) {
+...   |
+156 | |     }
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#collapsible_if
+help: collapse nested if block
+    |
+147 ~     if settings.sources.len() < 64
+148 ~         && let Some(_combo) = ui.begin_combo("Add source", "Choose from Project") {
+149 |             for (name, value) in &choices {
+...
+154 |             }
+155 ~         }
+    |
+
+warning: this `if` statement can be collapsed
+   --> crates/motion/src/ui/image_bake.rs:97:9
+    |
+ 97 | /         if ui.button(if settings.bake.is_some() {
+ 98 | |             "Rebuild"
+ 99 | |         } else {
+100 | |             "Bake"
+...   |
+112 | |         }
+    | |_________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#collapsible_if
+help: collapse nested if block
+    |
+101 ~         }) && !changed
+102 ~             && let Some(snapshot) = host.snapshot() {
+103 |                 host.command(DesktopCommand::Extension(
+...
+109 |                 ));
+110 ~             }
+    |
+
+warning: very complex type used. Consider factoring parts into `type` definitions
+  --> crates/motion/src/wrangle/compiler.rs:19:15
+   |
+19 | static CACHE: OnceLock<Mutex<VecDeque<(String, Arc<Program>)>>> = OnceLock::new();
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#type_complexity
+
+warning: this `if` statement can be collapsed
+  --> crates/motion/src/wrangle/source.rs:35:9
+   |
+35 | /         if let syn::Expr::Path(p) = c.func.as_ref() {
+36 | |             if let Some(name) = p.path.get_ident() {
+37 | |                 let name = name.to_string();
+38 | |                 let attribute = name.starts_with("attr") || name.starts_with("set_attr");
+...  |
+74 | |         }
+   | |_________^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#collapsible_if
+help: collapse nested if block
+   |
+35 ~         if let syn::Expr::Path(p) = c.func.as_ref()
+36 ~             && let Some(name) = p.path.get_ident() {
+37 |                 let name = name.to_string();
+...
+72 |                 }
+73 ~             }
+   |
+
+warning: very complex type used. Consider factoring parts into `type` definitions
+  --> crates/motion/src/wrangle/mod.rs:71:27
+   |
+71 | fn signature(n: &Node) -> Result<(Vec<Socket>, Vec<(String, Kind)>), String> {
+   |                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#type_complexity
+
+warning: this boolean expression can be simplified
+   --> crates/motion/src/automation/graph_edits.rs:270:35
+    |
+270 |                 .retain(|path, _| !path.rsplit_once('.').is_some_and(|(key, _)| key == input));
+    |                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `path.rsplit_once('.').is_none_or(|(key, _)| key != input)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#nonminimal_bool
+
+warning: this `if` statement can be collapsed
+   --> crates/motion/src/automation/graph_edits.rs:622:13
+    |
+622 | /             if let Input::Link(l) = v {
+623 | |                 if let Some(key) = remap.get(&(l.node, l.socket.clone())) {
+624 | |                     *l = Link {
+625 | |                         node: id,
+...   |
+629 | |             }
+    | |_____________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#collapsible_if
+help: collapse nested if block
+    |
+622 ~             if let Input::Link(l) = v
+623 ~                 && let Some(key) = remap.get(&(l.node, l.socket.clone())) {
+624 |                     *l = Link {
+...
+627 |                     };
+628 ~                 }
+    |
+
+warning: `fold-motion` (lib) generated 47 warnings (run `cargo clippy --fix --lib -p fold-motion -- --no-deps` to apply 31 suggestions)
+    Checking fold-timeline v0.1.0 (/home/rgame/dev/Fold_Dev/Fold/crates/timeline)
+    Checking fold-compositor v0.1.0 (/home/rgame/dev/Fold_Dev/Fold/crates/compositor)
+warning: this `if` statement can be collapsed
+   --> crates/app/src/project_panel.rs:213:13
+    |
+213 | /             if let Entry::Item(ItemId::Document(id)) = row.entry {
+214 | |                 if host.document_settings(id).ok().flatten().is_some() && ui.menu_item("Settings…")
+215 | |                 {
+216 | |                     host.command(DesktopCommand::OpenSettings(Some(id)));
+217 | |                 }
+218 | |             }
+    | |_____________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#collapsible_if
+    = note: `#[warn(clippy::collapsible_if)]` on by default
+help: collapse nested if block
+    |
+213 ~             if let Entry::Item(ItemId::Document(id)) = row.entry
+214 ~                 && host.document_settings(id).ok().flatten().is_some() && ui.menu_item("Settings…")
+215 |                 {
+216 |                     host.command(DesktopCommand::OpenSettings(Some(id)));
+217 ~                 }
+    |
+
+warning: this `if` statement can be collapsed
+   --> crates/app/src/source_preparation.rs:120:9
+    |
+120 | /         if let Some((key, cancel)) = &state.active {
+121 | |             if !requests
+122 | |                 .iter()
+123 | |                 .any(|r| r.same_work(key) || key.advances_to(r))
+...   |
+127 | |         }
+    | |_________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#collapsible_if
+help: collapse nested if block
+    |
+120 ~         if let Some((key, cancel)) = &state.active
+121 ~             && !requests
+122 |                 .iter()
+...
+125 |                 cancel.cancel();
+126 ~             }
+    |
+
+warning: this expression creates a reference which is immediately dereferenced by the compiler
+  --> crates/app/src/session_candidate.rs:94:55
+   |
+94 |         let info = crate::packages::builtins().output(&candidate.snapshot(), source.document)?;
+   |                                                       ^^^^^^^^^^^^^^^^^^^^^ help: change this to: `candidate.snapshot()`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#needless_borrow
+   = note: `#[warn(clippy::needless_borrow)]` on by default
+
+warning: this `if` statement can be collapsed
+  --> crates/app/src/automation/mod.rs:32:5
+   |
+32 | /     if let Some(start) = message.find('{') {
+33 | |         if let Ok(detail) = serde_json::from_str::<Value>(&message[start..]) {
+34 | |             if detail["kind"] == "rust_compile" {
+35 | |                 result["diagnostics"] = detail["diagnostics"].clone();
+...  |
+39 | |     }
+   | |_____^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#collapsible_if
+help: collapse nested if block
+   |
+32 ~     if let Some(start) = message.find('{')
+33 ~         && let Ok(detail) = serde_json::from_str::<Value>(&message[start..]) {
+34 |             if detail["kind"] == "rust_compile" {
+...
+37 |             }
+38 ~         }
+   |
+
+warning: this `if` statement can be collapsed
+  --> crates/app/src/automation/mod.rs:33:9
+   |
+33 | /         if let Ok(detail) = serde_json::from_str::<Value>(&message[start..]) {
+34 | |             if detail["kind"] == "rust_compile" {
+35 | |                 result["diagnostics"] = detail["diagnostics"].clone();
+36 | |                 result["kind"] = detail["kind"].clone();
+37 | |             }
+38 | |         }
+   | |_________^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#collapsible_if
+help: collapse nested if block
+   |
+33 ~         if let Ok(detail) = serde_json::from_str::<Value>(&message[start..])
+34 ~             && detail["kind"] == "rust_compile" {
+35 |                 result["diagnostics"] = detail["diagnostics"].clone();
+36 |                 result["kind"] = detail["kind"].clone();
+37 ~             }
+   |
+
+warning: `fold-app` (lib) generated 5 warnings (run `cargo clippy --fix --lib -p fold-app -- --no-deps` to apply 5 suggestions)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 34.41s

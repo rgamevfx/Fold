@@ -312,6 +312,8 @@ fn reusable_groups_bind_values_without_copying_their_construction() {
             inputs: vec![Port {
                 section: String::new(),
                 advanced: false,
+                range: None,
+                description: String::new(),
                 id: "amount".into(),
                 name: "Amount".into(),
                 kind: Kind::Scalar,

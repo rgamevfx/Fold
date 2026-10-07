@@ -122,6 +122,10 @@ impl Motion {
                 if p.id.is_empty()
                     || !ports.insert(&p.id)
                     || p.kind == Kind::Generic
+                    || p.range.is_some_and(|r| {
+                        p.kind != Kind::Scalar || !r.iter().all(|v| v.is_finite()) || r[0] >= r[1]
+                    })
+                    || p.description.len() > 2048
                     || p.default.as_ref().is_some_and(|v| v.kind() != p.kind)
                 {
                     return Err("invalid group input interface".into());

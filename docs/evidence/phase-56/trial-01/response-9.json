@@ -1,0 +1,18 @@
+{
+  "base_revision": 0,
+  "candidate": 1,
+  "committed": false,
+  "generation": 1,
+  "ids": {
+    "composition": "0505e5f2-3c3e-4a4e-a2ee-5b0486e7e340",
+    "definition": "46cbe19a-4abf-45b2-b986-232d0e3fe342",
+    "graph": "ad329c4c-efcc-4ef9-a228-c525dd23efcf",
+    "instance": "8b39bf20-11cd-4f84-9557-59244605836c",
+    "layer": "832a972b-d391-40fb-8018-03e89e869216"
+  },
+  "label": "Create RAY live asset",
+  "project_epoch": 0,
+  "receipts": [],
+  "revision": 1,
+  "validated": true
+}

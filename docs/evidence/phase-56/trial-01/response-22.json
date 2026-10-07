@@ -1,0 +1,47 @@
+{
+  "job": 9,
+  "outcome": {
+    "ok": true,
+    "result": {
+      "metadata": {
+        "alpha": "over black",
+        "color": {
+          "display": "Rec.1886 Rec.709 - Display",
+          "look": null,
+          "view": "ACES 1.0 - SDR Video"
+        },
+        "dimensions": [
+          500,
+          888
+        ],
+        "identity": {
+          "candidate": 1,
+          "generation": 3,
+          "project_epoch": 0
+        },
+        "kind": "render_output",
+        "original_dimensions": [
+          500,
+          888
+        ],
+        "overlays": false,
+        "resampling": "none",
+        "revision": 3,
+        "source": {
+          "document": "0505e5f2-3c3e-4a4e-a2ee-5b0486e7e340",
+          "output": "video"
+        },
+        "time": {
+          "denominator": 1,
+          "numerator": 0
+        }
+      }
+    }
+  },
+  "status": "complete",
+  "_images": [
+    {
+      "path": "/home/rgame/dev/Fold_Dev/Fold/docs/evidence/phase-56/trial-01/image-127.png"
+    }
+  ]
+}

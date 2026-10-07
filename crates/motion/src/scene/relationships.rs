@@ -145,7 +145,18 @@ pub(super) fn validate(scene: &super::Scene) -> Result<(), String> {
                 return Err("duplicate relationship identity".into());
             }
         }
-        super::animation::validate(&object.animation, &["scene.opacity.0"])?;
+        super::animation::validate(
+            &object.animation,
+            &[
+                "scene.opacity.0",
+                "transform.0",
+                "transform.1",
+                "transform.2",
+                "transform.3",
+                "transform.4",
+                "transform.5",
+            ],
+        )?;
         if !object.offset.iter().all(|v| v.is_finite()) || !(0. ..=1.).contains(&object.opacity) {
             return Err("invalid scene transform or opacity".into());
         }

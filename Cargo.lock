@@ -1284,6 +1284,7 @@ dependencies = [
  "fold-render",
  "fold-ui",
  "pollster",
+ "schemars",
  "serde",
  "serde_json",
 ]

@@ -402,7 +402,7 @@ fn validate_query(q: &Value) -> Result<(), String> {
         "parameters" => &["mode", "node", "time"],
         "text_metrics" => &["mode", "node", "time", "limit"],
         "fonts" => &["mode", "query", "offset", "limit"],
-        "verify" => &["mode", "check", "times", "target", "tolerance", "expected", "relative_to", "relation", "control", "values"],
+        "verify" => &["mode", "check", "times", "target", "tolerance", "expected", "relative_to", "relation", "control", "values", "input"],
         "evaluated" => &[
             "mode", "time", "object", "node", "output", "fields", "limit",
         ],

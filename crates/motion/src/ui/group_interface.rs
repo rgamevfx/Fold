@@ -64,6 +64,29 @@ pub(super) fn window(ui: &Ui, host: &mut dyn DesktopClient, state: &mut State) {
                 response.item(ui, changed);
                 let changed = ui.checkbox("Collapsed initially", &mut port.advanced);
                 response.item(ui, changed);
+                let changed = ui.input_text("Description", &mut port.description).build();
+                response.item(ui, changed);
+                if port.kind == crate::fields::Kind::Scalar {
+                    let mut limited = port.range.is_some();
+                    if ui.checkbox("Limit control drag", &mut limited) {
+                        port.range = limited.then_some([0., 100.]);
+                        response.changed = true;
+                        response.finished = true;
+                    }
+                    if let Some(range) = &mut port.range {
+                        let changed = fold_ui::sdk::imgui::Drag::new("Minimum")
+                            .speed(0.1)
+                            .build(ui, &mut range[0]);
+                        response.item(ui, changed);
+                        let changed = fold_ui::sdk::imgui::Drag::new("Maximum")
+                            .speed(0.1)
+                            .build(ui, &mut range[1]);
+                        response.item(ui, changed);
+                        if range[0] >= range[1] {
+                            ui.text_wrapped("Minimum must be below maximum.");
+                        }
+                    }
+                }
                 if let Some(default) = &mut port.default {
                     ui.text_disabled("Default for new instances");
                     super::inspector::datum(ui, default, aces, &mut response);
@@ -86,7 +109,7 @@ pub(super) fn window(ui: &Ui, host: &mut dyn DesktopClient, state: &mut State) {
     if response.cancelled {
         state.cancel(host);
     } else {
-        if response.changed {
+        if response.changed && motion.validate().is_ok() {
             state.motion = Some(motion);
             state.interface_editing = true;
             state.preview(host);

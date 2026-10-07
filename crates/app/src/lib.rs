@@ -22,3 +22,5 @@ mod read_source;
 pub mod automation;
 
 mod image_bake;
+
+mod rust_asset;

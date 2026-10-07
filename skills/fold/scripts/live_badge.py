@@ -35,17 +35,16 @@ class Client:
         images=[c for c in result['content'] if c['type']=='image']
         if images and isinstance(value,dict):value['_images']=images
         return value
-    def call(self,method,**args):return self.tool(method,dict(session=self.session,**args))
+    def call(self,tool_name,**args):return self.tool(tool_name,dict(session=self.session,**args))
     def job(self,accepted):
         deadline=time.monotonic()+120
         while time.monotonic()<deadline:
-            r=self.call('jobs',job=accepted['job'])
+            r=self.call('jobs',job=accepted['job'],wait_ms=25000)
             if r['status']=='complete':
                 if not r['outcome']['ok']:raise RuntimeError(r['outcome']['error'])
                 value=r['outcome']['result']
                 if r.get('_images'):value['image']=r['_images'][0]
                 return value
-            time.sleep(.05)
         raise TimeoutError(accepted)
     def build(self,source):
         s=self.call('state');epoch=s['project_epoch']

@@ -1,0 +1,13 @@
+{
+  "cli_sha256": "54a542e70b633c6abbd399551cdec6b668d33b1e43ad1d987d4f5a47b29bcd8c",
+  "desktop_sha256": "e610307375ded52bb847b824d876869150c40872b2606d70714d1ad557eafa2c",
+  "change_since_review": "embedded public guide updated with verified workflow lessons; runtime implementation unchanged",
+  "focused_tests": {
+    "rust_assets": 4,
+    "wrangle": 10,
+    "app_integration": 1,
+    "motion_ui": 28
+  },
+  "manual_wrangle_performance_test": "ignored",
+  "workspace_suite_and_clippy": "deferred"
+}

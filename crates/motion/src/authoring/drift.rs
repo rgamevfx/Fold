@@ -41,6 +41,8 @@ fn port(
         unit: unit.into(),
         section: String::new(),
         advanced: false,
+        range: None,
+        description: String::new(),
     });
     Ok(id)
 }

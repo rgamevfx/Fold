@@ -27,6 +27,8 @@ impl Panel for Inspector {
         let mut state = self.state.borrow_mut();
         state.sync(host);
         super::group_interface::window(ui, host, &mut state);
+        super::program::window(ui, host, &mut state);
+        super::asset_transfer::window(ui, host, &mut state);
         let Some(&selected) = state.selected.first().filter(|_| state.selected.len() == 1) else {
             ui.text_wrapped("Select an object, modifier or node to edit its properties.");
             return;
@@ -125,6 +127,15 @@ impl Panel for Inspector {
                 g.inputs
                     .iter()
                     .map(|p| (p.id.clone(), (p.section.clone(), p.advanced)))
+                    .collect()
+            })
+            .unwrap_or_default();
+        let port_details: std::collections::BTreeMap<_, _> = group_id
+            .and_then(|id| motion.groups.get(&id))
+            .map(|g| {
+                g.inputs
+                    .iter()
+                    .map(|p| (p.id.clone(), (p.range, p.description.clone())))
                     .collect()
             })
             .unwrap_or_default();
@@ -237,6 +248,8 @@ impl Panel for Inspector {
                 }
             }
         }
+        let is_rust_asset =
+            group_id.is_some_and(|id| crate::program::record(&motion, id).ok().flatten().is_some());
         let Some(node) = motion.graph.nodes.iter_mut().find(|n| n.id == selected) else {
             return;
         };
@@ -250,15 +263,33 @@ impl Panel for Inspector {
                         .unwrap_or(&node.kind)
                 }),
         );
-        if let Some(group) = group_id
+        if node.kind == "fold.motion.group_instance"
             && let Some(_menu) = ui.begin_popup_context_item_with_label(Some("property-actions"))
         {
-            if ui.menu_item("Edit node interface") {
+            if state.group.is_none() && ui.menu_item("Load procedural asset…") {
+                super::asset_transfer::open(
+                    &mut state,
+                    super::asset_transfer::Action::Load(selected),
+                );
+            }
+            if let Some(group) = group_id
+                && ui.menu_item("Save procedural asset…")
+            {
+                super::asset_transfer::open(&mut state, super::asset_transfer::Action::Save(group));
+            }
+            if let Some(group) = group_id
+                && ui.menu_item("Edit node interface")
+            {
                 state.interface_target = Some(group);
             }
         }
         ui.separator();
         if let Some(group) = group_id {
+            if is_rust_asset {
+                if ui.button("Edit Rust source") {
+                    super::program::open(&mut state, group);
+                }
+            }
             if ui.button("Edit Graph") {
                 state.cancel(host);
                 let parent = state.group;
@@ -323,6 +354,18 @@ impl Panel for Inspector {
         super::oscillator::draw(ui, node, &mut motion.groups, time, &mut response);
         if let Some(_menu) = icon_menu(ui, "node-controls", "Drivers and published controls") {
             if let Some(group) = group_id {
+                if state.group.is_none() && ui.menu_item("Load procedural asset…") {
+                    super::asset_transfer::open(
+                        &mut state,
+                        super::asset_transfer::Action::Load(selected),
+                    );
+                }
+                if ui.menu_item("Save procedural asset…") {
+                    super::asset_transfer::open(
+                        &mut state,
+                        super::asset_transfer::Action::Save(group),
+                    );
+                }
                 if ui.menu_item("Edit node interface") {
                     state.interface_target = Some(group);
                 }
@@ -499,7 +542,7 @@ impl Panel for Inspector {
                             .unwrap_or_else(|| property_label(&key)),
                         components,
                         unit: socket.unit,
-                        range: None,
+                        range: port_details.get(&key).and_then(|p| p.0),
                         color: matches!(value, Datum::Color(_)).then_some(aces),
                     }
                     .draw_with_menu(
@@ -511,6 +554,11 @@ impl Panel for Inspector {
                         &mut response,
                         &mut property_menu,
                     );
+                    if let Some((_, help)) = port_details.get(&key) {
+                        if !help.is_empty() {
+                            fold_ui::sdk::toolbar::tooltip(ui, help);
+                        }
+                    }
                     crate::animation::parameters::set_components(value, &values);
                     continue;
                 }

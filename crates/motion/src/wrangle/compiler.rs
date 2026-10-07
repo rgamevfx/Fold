@@ -17,7 +17,8 @@ pub struct Program {
     pub attributes: Vec<Channel>,
 }
 static CACHE: OnceLock<Mutex<VecDeque<(String, Arc<Program>)>>> = OnceLock::new();
-static COMPILE: Mutex<()> = Mutex::new(());
+// The compiler gate also deduplicates simultaneous cold requests from render workers.
+static COMPILE: Mutex<VecDeque<(std::ffi::OsString, String, Module)>> = Mutex::new(VecDeque::new());
 pub fn compile(
     source: &str,
     channels: &[Channel],
@@ -46,22 +47,6 @@ pub fn compile(
     {
         return Ok(p.clone());
     }
-    // Serialize expensive compiler jobs; waiting remains cancellable.
-    let _gate = loop {
-        cancel.check()?;
-        if let Ok(g) = COMPILE.try_lock() {
-            break g;
-        }
-        std::thread::sleep(Duration::from_millis(10));
-    };
-    if let Some((_, p)) = cache
-        .lock()
-        .map_err(|_| "wrangle cache poisoned")?
-        .iter()
-        .find(|(k, _)| k == &cache_key)
-    {
-        return Ok(p.clone());
-    }
     let (discovered, attributes) = source::bindings(source)?;
     for c in discovered {
         if !channels.iter().any(|p| p.id == c.id && p.kind == c.kind) {
@@ -69,13 +54,45 @@ pub fn compile(
         }
     }
     let code = source::module(source, channels, &attributes);
+    let module = compile_module(&code, cancel)?;
+    let engine = engine()?.clone();
+    let p = Arc::new(Program {
+        engine,
+        module,
+        element_local: source::element_local(source),
+        attributes,
+    });
+    let mut cache = cache.lock().map_err(|_| "wrangle cache poisoned")?;
+    while cache.len() >= 8 {
+        cache.pop_front();
+    }
+    cache.push_back((cache_key, p.clone()));
+    Ok(p)
+}
+
+/// Shared bounded compiler for trusted wrappers around validated guest source.
+pub(crate) fn compile_module(code: &str, cancel: &Cancel) -> Result<Module, String> {
+    // Serialize expensive compiler jobs; waiting remains cancellable.
+    let mut modules = loop {
+        cancel.check()?;
+        if let Ok(g) = COMPILE.try_lock() {
+            break g;
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    };
+    let rustc = std::env::var_os("FOLD_RUSTC").unwrap_or_else(|| "rustc".into());
+    if let Some((_, _, module)) = modules
+        .iter()
+        .find(|(compiler, source, _)| compiler == &rustc && source == code)
+    {
+        return Ok(module.clone());
+    }
     let dir = tempfile::tempdir().map_err(|e| e.to_string())?;
     std::fs::write(dir.path().join("wrangle.rs"), code.as_bytes()).map_err(|e| e.to_string())?;
     let stderr =
         std::fs::File::create(dir.path().join("diagnostics.jsonl")).map_err(|e| e.to_string())?;
-    let rustc = compiler;
     let mut child=Command::new("prlimit").args(["--as=4294967296","--cpu=20","--fsize=8388608","--nofile=128","--"])
-        .arg(rustc).args(["--edition=2024","--crate-type=cdylib","--target=wasm32-unknown-unknown","--crate-name=fold_wrangle","-Copt-level=1","-Cpanic=abort","-Clink-arg=--max-memory=16777216","-Clink-arg=--no-stack-first","--error-format=json","-Aunused","wrangle.rs","-o","wrangle.wasm"])
+        .arg(&rustc).args(["--edition=2024","--crate-type=cdylib","--target=wasm32-unknown-unknown","--crate-name=fold_wrangle","-Copt-level=1","-Cpanic=abort","-Clink-arg=--max-memory=16777216","-Clink-arg=--no-stack-first","--error-format=json","-Aunused","wrangle.rs","-o","wrangle.wasm"])
         .process_group(0).current_dir(dir.path()).stdin(Stdio::null()).stdout(Stdio::null()).stderr(stderr).spawn()
         .map_err(|e|format!("Rust Wrangle compiler unavailable: {e}. Install rustc, wasm32-unknown-unknown and prlimit; FOLD_RUSTC may select rustc."))?;
     let start = Instant::now();
@@ -131,23 +148,16 @@ pub fn compile(
     }
     let engine = engine()?.clone();
     let module = Module::new(&engine, wasm).map_err(|e| e.to_string())?;
-    let p = Arc::new(Program {
-        engine,
-        module,
-        element_local: source::element_local(source),
-        attributes,
-    });
-    let mut cache = cache.lock().map_err(|_| "wrangle cache poisoned")?;
-    while cache.len() >= 8 {
-        cache.pop_front();
+    if modules.len() >= 8 {
+        modules.pop_front();
     }
-    cache.push_back((cache_key, p.clone()));
-    Ok(p)
+    modules.push_back((rustc, code.into(), module.clone()));
+    Ok(module)
 }
 
 // Share a bounded pool across compiled programs. Each dropped Store returns a slot;
 // Wasmtime resets its memory, globals and tables before the next instantiation.
-fn engine() -> Result<&'static Engine, String> {
+pub(crate) fn engine() -> Result<&'static Engine, String> {
     static ENGINE: OnceLock<Result<Engine, String>> = OnceLock::new();
     ENGINE
         .get_or_init(|| {

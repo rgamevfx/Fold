@@ -9,6 +9,7 @@ pub mod graph;
 mod layer_edits;
 pub mod nodes;
 pub mod package;
+pub mod program;
 pub mod scene;
 pub mod simulation;
 #[cfg(feature = "ui")]

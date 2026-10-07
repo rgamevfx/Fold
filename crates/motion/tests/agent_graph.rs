@@ -168,13 +168,23 @@ fn independent_copy_remaps_control_overrides_and_reports_interface_changes() {
     let published = automation::author(&grouped, &[json!({"op":"publish","group":group,"node":a,"input":"default","port":"value","name":"Value"})]).unwrap();
     let renamed = automation::author(
         &published,
-        &[json!({"op":"port","group":group,"port":"value","name":"Strength"})],
+        &[json!({"op":"port","group":group,"port":"value","name":"Strength","range":[0,10],"description":"Amount of response"})],
     )
     .unwrap();
     let mut registry = fold_platform::packages::PackageRegistry::default();
     fold_motion::package::register(&mut registry).unwrap();
     let receipt = registry.authoring_receipt(&published, &renamed).unwrap();
     assert_eq!(receipt["groups"][0]["inputs"][0]["name"], "Strength");
+    let m = Motion::from_document(&renamed).unwrap();
+    assert_eq!(m.groups[&group].inputs[0].range, Some([0., 10.]));
+    assert_eq!(m.groups[&group].inputs[0].description, "Amount of response");
+    assert!(
+        automation::author(
+            &renamed,
+            &[json!({"op":"port","group":group,"port":"value","range":[10,0]})]
+        )
+        .is_err()
+    );
     let cancel = fold_media::Cancel::default();
     cancel.cancel();
     assert!(

@@ -1,0 +1,9 @@
+# Trial 02 — LIFT evidence audit
+
+The fresh requested `gpt-6.1-sol` agent completed the native [LIFT animation](../../../../demos/cell-type-02.md): editable `.fold`, Rust source, full-resolution PNG, complete three-second GIF and artist guide. [Completion receipt](completion.json): **144 public invocations, 654.4 seconds**, within the frozen 150-call / 30-minute budget. Resolved backend model identity was unavailable.
+
+This report was assembled by the parent from persisted evidence after the daemon restart interrupted report writing. The trial itself had completed save/reopen and persisted its completion receipt. It is not a newly authored or coached continuation. The separate [independent review](../trial-02-review/review.md) gives the qualification verdict and aesthetic limits.
+
+The transcript contains all 144 calls: 52 jobs, 21 observe, 15 state, 11 catalog, 11 candidate, 11 render, 10 inspect, six batch, four sessions, one undo, one redo and one save. Two rejected requests are retained (candidate IDs at the wrong level; missing candidate generation). Initial black and white bead iterations remain alongside the corrected color artwork. The initial session's six discovery calls are included; ordinal numbering was corrected to the cumulative ledger before completion.
+
+Evidence includes 75 full-resolution frame images, intermediate and wrap comparisons, private control variants, source-revision preservation receipts, exact undo/redo inspections, saved and reopened state, and matching reopened imagery. The final root graph retains artist text, palette and scalar values plus its connected speed driver; native Composition key identities survive source revision. The artist guide records loop timing and layout limits. No implementation crates or previous benchmark artifacts were made available to the fresh trial agent; application work used the shipped public interface.

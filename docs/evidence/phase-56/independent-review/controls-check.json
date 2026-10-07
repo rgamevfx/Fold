@@ -1,0 +1,10 @@
+{
+  "cold_author_revision_seconds": 0.9264510880166199,
+  "warm_identical_revision_seconds": 0.2349299630150199,
+  "poll_seconds": 0.1,
+  "artist_nodes_identical_after_two_revisions": true,
+  "speed_render_changed": true,
+  "live_revision_unchanged": true,
+  "cold_scope": "fresh server, author compiler and runtime Wrangle compiler caches cold; source lowering and native validation included; wall time includes polling",
+  "binary_sha256": "55f0d59d8d7f1cf135e3422b90f1d9d45da9b715d0822f4fbebd7207fe35f5fb"
+}

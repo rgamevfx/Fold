@@ -26,6 +26,8 @@ struct Request {
     control: Option<ObjectId>,
     #[serde(default)]
     values: Option<[crate::fields::Datum; 2]>,
+    #[serde(default)]
+    input: Option<String>,
 }
 pub fn schema() -> Value {
     serde_json::to_value(schemars::schema_for!(Request)).expect("verification schema")
@@ -69,23 +71,43 @@ pub fn verify(m: &Motion, q: &Value, cancel: &Cancel) -> Result<Value, String> {
         }
     }
     probe["mode"] = json!("evaluated");
-    probe["fields"] = json!(["bounds", "counts", "elements"]);
+    probe["fields"] = json!(["bounds", "counts", "elements", "fingerprint"]);
     probe["limit"] = json!(200);
     if q.check == "control_response" {
         let id = q
             .control
             .ok_or("control_response requires published control node ID")?;
         let node = m.graph.node(id)?;
-        if node.kind != "fold.motion.published_control" {
-            return Err("control must identify a Published Control node".into());
-        }
-        let settings = node.settings::<crate::nodes::interface::ControlSettings>()?;
+        let settings = if q.input.is_none() {
+            if node.kind != "fold.motion.published_control" {
+                return Err(
+                    "control requires a Published Control node, or an asset instance plus input"
+                        .into(),
+                );
+            }
+            Some(node.settings::<crate::nodes::interface::ControlSettings>()?)
+        } else {
+            None
+        };
+        let kind = if let Some(settings) = &settings {
+            settings.value_type
+        } else {
+            if node.kind != "fold.motion.group_instance" {
+                return Err("input overrides require an asset instance".into());
+            }
+            m.signature(node)?
+                .0
+                .iter()
+                .find(|p| Some(&p.id) == q.input.as_ref())
+                .ok_or("unknown asset control input")?
+                .kind
+        };
         let values = q
             .values
             .ok_or("control_response requires two tagged values")?;
         for value in &values {
             value.validate()?;
-            if value.kind() != settings.value_type {
+            if value.kind() != kind {
                 return Err(
                     "control_response values must match the control's declared type".into(),
                 );
@@ -96,7 +118,15 @@ pub fn verify(m: &Motion, q: &Value, cancel: &Cancel) -> Result<Value, String> {
         }
         let mut variants = [m.clone(), m.clone()];
         for (variant, value) in variants.iter_mut().zip(&values) {
-            variant.controls.insert(settings.id, value.clone());
+            if let Some(settings) = &settings {
+                variant.controls.insert(settings.id, value.clone());
+            } else {
+                let input = q.input.as_ref().unwrap();
+                let node = variant.graph.nodes.iter_mut().find(|n| n.id == id).unwrap();
+                node.set(input, value.clone());
+                node.animation
+                    .retain(|path, _| !path.starts_with(&format!("{input}.")));
+            }
         }
         let mut pairs = vec![];
         let mut changed = false;
@@ -108,17 +138,16 @@ pub fn verify(m: &Motion, q: &Value, cancel: &Cancel) -> Result<Value, String> {
                 pair.push(observation::evaluate(variant, &probe, cancel)?);
             }
             incomplete |= pair.iter().any(|sample| {
-                sample["truncated"] == true
-                    || sample["status"] == "inconclusive"
-                    || sample["elements"]
-                        .as_array()
-                        .is_some_and(|elements| elements.iter().any(|e| e["image_effects"] == true))
+                sample["status"] == "inconclusive"
+                    || sample["fingerprint"]["render_dependencies"] == true
+                    || (sample["truncated"] == true && sample["fingerprint"]["complete"] != true)
             });
-            changed |= pair[0] != pair[1];
+            changed |= pair[0]["fingerprint"]["value"] != pair[1]["fingerprint"]["value"]
+                || pair[0]["value"] != pair[1]["value"];
             pairs.push(json!({"time":time,"variants":pair}));
         }
         return Ok(
-            json!({"check":"control_response","status":if incomplete {"inconclusive"} else if changed {"pass"} else {"fail"},"control":id,"values":values,"samples":pairs,"evidence":"sampled native evaluated output under two private control overrides; no project mutation","limitation":"detects exact changes in bounded geometry/paint or uniform field evidence; does not establish the intended magnitude, readability or pixel visibility. Truncated, varying-field and effect evidence is inconclusive; use displacement/direction and rendered comparisons for intended response."}),
+            json!({"check":"control_response","status":if incomplete {"inconclusive"} else if changed {"pass"} else {"fail"},"control":id,"values":values,"samples":pairs,"evidence":"sampled native evaluated output under two private control overrides; no project mutation","limitation":"detects exact changes in bounded geometry/paint or uniform field evidence; does not establish the intended magnitude, readability or pixel visibility. Full bounded traversal fingerprints cover elements omitted from the returned sample; hashes are diagnostic, not cryptographic equality proofs. Varying-field and effect evidence is inconclusive; use displacement/direction and rendered comparisons for intended response."}),
         );
     }
     let mut samples = vec![];
@@ -235,6 +264,22 @@ pub fn verify(m: &Motion, q: &Value, cancel: &Cancel) -> Result<Value, String> {
         "periodicity" => {
             let first = &samples[0];
             let last = samples.last().unwrap();
+            if first["fingerprint"]["render_dependencies"] == true
+                || last["fingerprint"]["render_dependencies"] == true
+            {
+                result["reason"] =
+                    json!("image effects or images require rendered periodicity evidence");
+                return Ok(result);
+            }
+            if first["fingerprint"]["complete"] == true
+                && first["fingerprint"]["value"] == last["fingerprint"]["value"]
+            {
+                result["status"] = json!("pass");
+                result["evidence"] = json!(
+                    "matching bounded full-construction diagnostic fingerprints; verify rendered visibility separately"
+                );
+                return Ok(result);
+            }
             if first["truncated"] == true || last["truncated"] == true {
                 result["reason"] = json!("periodicity evidence truncated; select a smaller target");
                 return Ok(result);

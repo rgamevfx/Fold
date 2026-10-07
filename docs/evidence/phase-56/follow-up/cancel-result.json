@@ -1,0 +1,262 @@
+{
+  "compiler_executable": "/home/rgame/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/rustc",
+  "cancelled": {
+    "job": 1,
+    "outcome": {
+      "error": "job cancelled",
+      "ok": false
+    },
+    "status": "complete"
+  },
+  "unchanged_documents": true,
+  "child_reaped": true,
+  "subsequent_compile_succeeded": true,
+  "calls": [
+    {
+      "method": "state",
+      "arguments": {},
+      "result": {
+        "asset_count": 0,
+        "assets": [],
+        "authoring_namespaces": [],
+        "can_redo": false,
+        "can_undo": false,
+        "candidates": [],
+        "dirty": false,
+        "document_count": 0,
+        "documents": [],
+        "editing": false,
+        "limit": 100,
+        "offset": 0,
+        "path": null,
+        "project_epoch": 0,
+        "redo_label": null,
+        "revision": 0,
+        "selection": {
+          "document": null,
+          "objects": []
+        },
+        "undo_label": null
+      },
+      "elapsed": 0.011002007988281548
+    },
+    {
+      "method": "batch",
+      "arguments": {
+        "request_id": "c0814ba7-6666-43e9-8d33-cd4ad6b61337",
+        "revision": 0,
+        "project_epoch": 0,
+        "label": "Cancellation probe",
+        "ids": [
+          "composition",
+          "graph",
+          "definition",
+          "instance",
+          "layer"
+        ],
+        "operations": [
+          {
+            "op": "create",
+            "id": {
+              "$ref": "composition"
+            },
+            "kind": "fold.composition.document",
+            "name": "Probe"
+          },
+          {
+            "op": "command",
+            "id": "fold.app.create-rust-asset",
+            "arguments": {
+              "composition": {
+                "$ref": "composition"
+              },
+              "graph": {
+                "$ref": "graph"
+              },
+              "definition": {
+                "$ref": "definition"
+              },
+              "instance": {
+                "$ref": "instance"
+              },
+              "layer": {
+                "$ref": "layer"
+              },
+              "source": "let mut a=Asset::new(\"Cancellation probe\"); let c=a.circle(\"dot\",17.); a.output(&c); a"
+            }
+          }
+        ]
+      },
+      "result": {
+        "job": 1,
+        "status": "pending"
+      },
+      "elapsed": 0.01073587199789472
+    },
+    {
+      "method": "state",
+      "arguments": {},
+      "result": {
+        "asset_count": 0,
+        "assets": [],
+        "authoring_namespaces": [],
+        "can_redo": false,
+        "can_undo": false,
+        "candidates": [],
+        "dirty": false,
+        "document_count": 0,
+        "documents": [],
+        "editing": false,
+        "limit": 100,
+        "offset": 0,
+        "path": null,
+        "project_epoch": 0,
+        "redo_label": null,
+        "revision": 0,
+        "selection": {
+          "document": null,
+          "objects": []
+        },
+        "undo_label": null
+      },
+      "elapsed": 0.010302558017428964
+    },
+    {
+      "method": "cancel",
+      "arguments": {
+        "job": 1
+      },
+      "result": {
+        "cancellation_requested": true,
+        "job": 1
+      },
+      "elapsed": 0.011181751993717626
+    },
+    {
+      "method": "jobs",
+      "arguments": {
+        "job": 1,
+        "wait_ms": 25000
+      },
+      "result": {
+        "job": 1,
+        "outcome": {
+          "error": "job cancelled",
+          "ok": false
+        },
+        "status": "complete"
+      },
+      "elapsed": 0.021226090990239754
+    },
+    {
+      "method": "state",
+      "arguments": {},
+      "result": {
+        "asset_count": 0,
+        "assets": [],
+        "authoring_namespaces": [],
+        "can_redo": false,
+        "can_undo": false,
+        "candidates": [],
+        "dirty": false,
+        "document_count": 0,
+        "documents": [],
+        "editing": false,
+        "limit": 100,
+        "offset": 0,
+        "path": null,
+        "project_epoch": 0,
+        "redo_label": null,
+        "revision": 0,
+        "selection": {
+          "document": null,
+          "objects": []
+        },
+        "undo_label": null
+      },
+      "elapsed": 0.011033945018425584
+    },
+    {
+      "method": "batch",
+      "arguments": {
+        "request_id": "f862c9d2-b6ea-4f78-a0dd-128556ba3038",
+        "revision": 0,
+        "project_epoch": 0,
+        "label": "Cancellation probe",
+        "ids": [
+          "composition",
+          "graph",
+          "definition",
+          "instance",
+          "layer"
+        ],
+        "operations": [
+          {
+            "op": "create",
+            "id": {
+              "$ref": "composition"
+            },
+            "kind": "fold.composition.document",
+            "name": "Probe"
+          },
+          {
+            "op": "command",
+            "id": "fold.app.create-rust-asset",
+            "arguments": {
+              "composition": {
+                "$ref": "composition"
+              },
+              "graph": {
+                "$ref": "graph"
+              },
+              "definition": {
+                "$ref": "definition"
+              },
+              "instance": {
+                "$ref": "instance"
+              },
+              "layer": {
+                "$ref": "layer"
+              },
+              "source": "let mut a=Asset::new(\"Cancellation probe\"); let c=a.circle(\"dot\",17.); a.output(&c); a"
+            }
+          }
+        ]
+      },
+      "result": {
+        "job": 2,
+        "status": "pending"
+      },
+      "elapsed": 0.01072656098403968
+    },
+    {
+      "method": "jobs",
+      "arguments": {
+        "job": 2,
+        "wait_ms": 25000
+      },
+      "result": {
+        "job": 2,
+        "outcome": {
+          "ok": true,
+          "result": {
+            "committed": true,
+            "ids": {
+              "composition": "fcc8b9cc-0848-4ff2-a190-0f6e5e76a2b1",
+              "definition": "06058c25-dda6-45a3-b774-ea9c1fd82f51",
+              "graph": "ab1cd8e3-8afa-4a93-92ce-baa972da828b",
+              "instance": "87aadd4d-1325-43dd-860b-12525c77116f",
+              "layer": "2920dcf1-85bf-4c5e-b7d5-1b4b509e63a2"
+            },
+            "label": "Cancellation probe",
+            "receipts": [],
+            "revision": 1,
+            "validated": true
+          }
+        },
+        "status": "complete"
+      },
+      "elapsed": 0.4248108200263232
+    }
+  ]
+}

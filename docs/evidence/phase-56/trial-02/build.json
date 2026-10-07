@@ -1,0 +1,8 @@
+{
+  "built_utc": "2026-10-07T18:07:28.155691+00:00",
+  "binaries": {
+    "target/release/fold-cli": "63e647c256c465074c508029b7bc13f332f6e8027c8c4b320334d6ec92160753",
+    "target/release/fold-desktop": "8a14d2a8185f3c14f7f4a47aa1ccb646ff55df1d4394aedccacb2ec09dc117be"
+  },
+  "command": "cargo build -p fold-app --release --features desktop --bins --offline"
+}

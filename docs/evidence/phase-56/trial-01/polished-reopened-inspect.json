@@ -1,0 +1,250 @@
+{
+  "job": 1,
+  "outcome": {
+    "ok": true,
+    "result": {
+      "candidate": null,
+      "data": [
+        {
+          "id": "2b8140ae-b05f-4814-a825-2cad2c96fc2c",
+          "inputs": {},
+          "kind": "fold.motion.output",
+          "position": [
+            0.0,
+            0.0
+          ],
+          "settings": {},
+          "version": 1
+        },
+        {
+          "id": "8b39bf20-11cd-4f84-9557-59244605836c",
+          "inputs": {
+            "blue": {
+              "Value": {
+                "Color": [
+                  0.04,
+                  0.3,
+                  1.0,
+                  1.0
+                ]
+              }
+            },
+            "green": {
+              "Value": {
+                "Color": [
+                  0.12,
+                  0.9,
+                  0.18,
+                  1.0
+                ]
+              }
+            },
+            "pink": {
+              "Value": {
+                "Color": [
+                  1.0,
+                  0.2,
+                  0.6,
+                  1.0
+                ]
+              }
+            },
+            "pitch": {
+              "Value": {
+                "Scalar": 500.0
+              }
+            },
+            "radius": {
+              "Link": {
+                "node": "d58f262d-69c6-48bc-9fa8-99acffef91da",
+                "socket": "value"
+              }
+            },
+            "size": {
+              "Value": {
+                "Scalar": 460.0
+              }
+            },
+            "spacing": {
+              "Value": {
+                "Scalar": 24.0
+              }
+            },
+            "speed": {
+              "Link": {
+                "node": "92ce6b4c-efeb-406e-a63d-7c37fb68e2e3",
+                "socket": "value"
+              }
+            },
+            "text": {
+              "Value": {
+                "Text": "NOV"
+              }
+            }
+          },
+          "kind": "fold.motion.group_instance",
+          "position": [
+            0.0,
+            0.0
+          ],
+          "settings": {
+            "group": "46cbe19a-4abf-45b2-b986-232d0e3fe342"
+          },
+          "version": 1
+        },
+        {
+          "id": "92ce6b4c-efeb-406e-a63d-7c37fb68e2e3",
+          "inputs": {
+            "default": {
+              "Value": {
+                "Scalar": 0.5
+              }
+            }
+          },
+          "kind": "fold.motion.published_control",
+          "position": [
+            0.0,
+            0.0
+          ],
+          "settings": {
+            "id": "aaadb16f-0233-4cb9-8e8a-fb44f8d0cbfa",
+            "name": "Conveyor speed \u00b7 letters / second",
+            "value_type": "Scalar"
+          },
+          "version": 1
+        },
+        {
+          "id": "d58f262d-69c6-48bc-9fa8-99acffef91da",
+          "inputs": {},
+          "kind": "fold.motion.keyframes",
+          "position": [
+            0.0,
+            0.0
+          ],
+          "settings": {
+            "keys": [
+              {
+                "interpolation": "Ease",
+                "time": {
+                  "denominator": 1,
+                  "numerator": 0
+                },
+                "value": {
+                  "Scalar": 11.5
+                }
+              },
+              {
+                "interpolation": "Ease",
+                "time": {
+                  "denominator": 1,
+                  "numerator": 1
+                },
+                "value": {
+                  "Scalar": 13
+                }
+              },
+              {
+                "interpolation": "Ease",
+                "time": {
+                  "denominator": 1,
+                  "numerator": 3
+                },
+                "value": {
+                  "Scalar": 11.5
+                }
+              },
+              {
+                "interpolation": "Ease",
+                "time": {
+                  "denominator": 1,
+                  "numerator": 4
+                },
+                "value": {
+                  "Scalar": 13
+                }
+              },
+              {
+                "interpolation": "Ease",
+                "time": {
+                  "denominator": 1,
+                  "numerator": 6
+                },
+                "value": {
+                  "Scalar": 11.5
+                }
+              },
+              {
+                "interpolation": "Ease",
+                "time": {
+                  "denominator": 1,
+                  "numerator": 7
+                },
+                "value": {
+                  "Scalar": 13
+                }
+              },
+              {
+                "interpolation": "Ease",
+                "time": {
+                  "denominator": 1,
+                  "numerator": 9
+                },
+                "value": {
+                  "Scalar": 11.5
+                }
+              },
+              {
+                "interpolation": "Ease",
+                "time": {
+                  "denominator": 1,
+                  "numerator": 10
+                },
+                "value": {
+                  "Scalar": 13
+                }
+              },
+              {
+                "interpolation": "Ease",
+                "time": {
+                  "denominator": 1,
+                  "numerator": 12
+                },
+                "value": {
+                  "Scalar": 11.5
+                }
+              }
+            ]
+          },
+          "version": 1
+        }
+      ],
+      "document": "ad329c4c-efcc-4ef9-a228-c525dd23efcf",
+      "generation": null,
+      "offset": 0,
+      "outputs": [
+        {
+          "available": true,
+          "info": {
+            "frames": 300,
+            "height": 888,
+            "rate": [
+              25,
+              1
+            ],
+            "width": 500
+          },
+          "label": "Video",
+          "source": {
+            "document": "ad329c4c-efcc-4ef9-a228-c525dd23efcf",
+            "output": "video"
+          }
+        }
+      ],
+      "pointer": "/graph/nodes",
+      "project_epoch": 0,
+      "revision": 4,
+      "total": 4
+    }
+  },
+  "status": "complete"
+}

@@ -30,6 +30,8 @@ pub fn group_node(motion: &mut Motion, id: ObjectId) -> Result<ObjectId, String>
         ports.push(Port {
             section: String::new(),
             advanced: false,
+            range: None,
+            description: String::new(),
             id: input.id.clone(),
             name: input.id,
             kind: input.kind,
@@ -132,6 +134,8 @@ pub fn add_group_input(
         unit: String::new(),
         section: String::new(),
         advanced: false,
+        range: None,
+        description: String::new(),
     });
     definition.graph.nodes.push(input);
     Ok(id)

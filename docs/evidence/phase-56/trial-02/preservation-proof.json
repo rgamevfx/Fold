@@ -1,0 +1,71 @@
+{
+  "root_graph_exact_equal": true,
+  "published_controls_exact_equal": true,
+  "artist_values": {
+    "citrus": {
+      "Value": {
+        "Color": [
+          0.76,
+          1.0,
+          0.06,
+          1.0
+        ]
+      }
+    },
+    "coral": {
+      "Value": {
+        "Color": [
+          1.0,
+          0.25,
+          0.03,
+          1.0
+        ]
+      }
+    },
+    "cyan": {
+      "Value": {
+        "Color": [
+          0.02,
+          0.72,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    "radius": {
+      "Value": {
+        "Scalar": 6.5
+      }
+    },
+    "row": {
+      "Value": {
+        "Scalar": 300.0
+      }
+    },
+    "size": {
+      "Value": {
+        "Scalar": 190.0
+      }
+    },
+    "spacing": {
+      "Value": {
+        "Scalar": 10.0
+      }
+    },
+    "speed": {
+      "Link": {
+        "node": "1d7f242e-fff9-417e-97bf-3f7cec7cb461",
+        "socket": "value"
+      }
+    },
+    "text": {
+      "Value": {
+        "Text": "LIFT"
+      }
+    }
+  },
+  "composition_exact_equal_including_native_key_ids": true,
+  "undo_restores_pre_revision_document": true,
+  "redo_restores_post_revision_document": true,
+  "redo_exact_png_equal": true
+}

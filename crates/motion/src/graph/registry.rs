@@ -10,6 +10,7 @@ pub fn definitions() -> &'static [Definition] {
             nodes::composition::definition_composition(),
             nodes::text_select::definition_select(),
             nodes::align_content::definition_align(),
+            nodes::align_content::definition_fit(),
             nodes::content::rectangle::definition(),
             nodes::content::background::definition_background(),
             nodes::content::ellipse::definition(),

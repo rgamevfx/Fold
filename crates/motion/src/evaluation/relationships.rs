@@ -53,7 +53,8 @@ impl Evaluator<'_> {
         } else {
             IDENTITY
         };
-        let mut matrix = multiply(parent, multiply(object.offset, self.authored_matrix(id)?));
+        let offset = object.matrix(self.object_time(id)?);
+        let mut matrix = multiply(parent, multiply(offset, self.authored_matrix(id)?));
         for original in &object.constraints {
             let mut c = original.clone();
             c.influence = crate::scene::animation::sample(
@@ -169,7 +170,7 @@ impl Evaluator<'_> {
             IDENTITY
         };
         let correction = if object.constraints.is_empty() {
-            object.offset
+            object.matrix(self.object_time(id)?)
         } else {
             multiply(
                 multiply(inverse(parent)?, self.world_matrix(id)?),
