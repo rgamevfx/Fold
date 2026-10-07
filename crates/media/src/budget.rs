@@ -83,7 +83,8 @@ pub fn preparation_usage() -> Usage {
 }
 
 pub(crate) static DECODED: Budget = Budget::new(256 * 1024 * 1024);
-pub(crate) static PIPE: Budget = Budget::new(64 * 1024 * 1024);
+// One 4K 12-bit 4:4:4+A frame exceeds 64 MiB. All decoder pipes share this cap.
+pub(crate) static PIPE: Budget = Budget::new(128 * 1024 * 1024);
 pub fn pipe_usage() -> Usage {
     PIPE.usage()
 }

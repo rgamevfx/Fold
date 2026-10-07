@@ -1138,7 +1138,7 @@ impl Renderer {
                                 _ if source.is_signal() => fold_color::settings::VIDEO_INPUT,
                                 _ => fold_color::settings::SRGB_INPUT,
                             });
-                            if source.native_gbr_planes().is_some() {
+                            if source.native_gbr_planes().is_some() && !source.has_alpha() {
                                 native_planes = Some(source.clone());
                                 std::borrow::Cow::Owned(Vec::new())
                             } else {

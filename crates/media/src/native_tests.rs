@@ -26,17 +26,28 @@ fn geometry_is_explicit() {
             frames: 30,
         },
     };
-    assert!(Nv12Layout::for_source(&source).is_err());
+    assert!(Nv12Layout::for_format(&source, Default::default()).is_err());
     source.info.width = 50;
     assert_eq!(
-        Nv12Layout::for_source(&source).unwrap(),
+        Nv12Layout::for_format(&source, Default::default()).unwrap(),
         Nv12Layout {
             dimensions: [50, 32],
+            format: Default::default(),
             stride: 52,
             uv_offset: 1664,
             bytes: 2496
         }
     );
+    let high = Nv12Layout::for_format(
+        &source,
+        crate::VideoFormat {
+            depth: 10,
+            pixel_format: "yuv420p10le",
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    assert_eq!((high.stride, high.uv_offset, high.bytes), (100, 3200, 4800));
 }
 #[test]
 #[ignore = "requires verified source fixture; fake helper tests supervision, not NVDEC"]

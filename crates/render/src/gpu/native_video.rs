@@ -71,6 +71,7 @@ impl NativeVideo {
             return Ok(input);
         }
         let layout = Nv12Layout::for_source(source)?;
+        let format = layout.format;
         let limit = (64 * 1024 * 1024).min(host.memory().budget / 8);
         while !self.cache.is_empty()
             && (self.bytes + layout.bytes + 65536 > limit || self.cache.len() >= 64)
@@ -104,8 +105,13 @@ impl NativeVideo {
                 dimensions: layout.dimensions,
                 luma_stride: layout.stride,
                 chroma_stride: layout.stride,
-                chroma_offsets: [layout.uv_offset as u32, layout.uv_offset as u32 + 1],
-                chroma_step: 2,
+                chroma_offsets: [
+                    layout.uv_offset as u32,
+                    layout.uv_offset as u32 + format.sample_bytes(),
+                ],
+                chroma_step: 2 * format.sample_bytes(),
+                format,
+                sample_shift: if format.depth == 10 { 6 } else { 0 },
             },
             reservation,
             bytes,

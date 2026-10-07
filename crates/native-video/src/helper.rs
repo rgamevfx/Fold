@@ -187,12 +187,13 @@ impl Decoder {
             );
             av(d.stream)?;
             let stream = *(*d.format).streams.add(d.stream as usize);
-            if (*(*stream).codecpar).codec_id != AVCodecID_AV_CODEC_ID_H264 {
-                return Err("native helper requires H264".into());
+            let codec_id = (*(*stream).codecpar).codec_id;
+            if codec_id != AVCodecID_AV_CODEC_ID_H264 && codec_id != AVCodecID_AV_CODEC_ID_HEVC {
+                return Err("native helper requires H264 or HEVC".into());
             }
-            let codec = avcodec_find_decoder(AVCodecID_AV_CODEC_ID_H264);
+            let codec = avcodec_find_decoder(codec_id);
             if codec.is_null() {
-                return Err("H264 decoder unavailable".into());
+                return Err("native video decoder unavailable".into());
             }
             d.codec = avcodec_alloc_context3(codec);
             if d.codec.is_null() {
@@ -280,9 +281,15 @@ impl Decoder {
                         );
                     }
                     let frames = &*((*f.hw_frames_ctx).data.cast::<AVHWFramesContext>());
-                    if frames.sw_format != AVPixelFormat_AV_PIX_FMT_NV12
-                        || f.linesize[0] < self.width as i32
-                        || f.linesize[1] < self.width as i32
+                    let step = if frames.sw_format == AVPixelFormat_AV_PIX_FMT_P010LE {
+                        2
+                    } else {
+                        1
+                    };
+                    if (frames.sw_format != AVPixelFormat_AV_PIX_FMT_NV12
+                        && frames.sw_format != AVPixelFormat_AV_PIX_FMT_P010LE)
+                        || f.linesize[0] < (self.width * step) as i32
+                        || f.linesize[1] < (self.width * step) as i32
                         || f.data[0].is_null()
                         || f.data[1].is_null()
                     {
@@ -321,7 +328,16 @@ impl Decoder {
         bytes: u64,
     ) -> Result<(), String> {
         unsafe {
-            let stride = u64::from(self.width).div_ceil(4) * 4;
+            let frames = &*((*(*self.frame).hw_frames_ctx)
+                .data
+                .cast::<AVHWFramesContext>());
+            let step = if frames.sw_format == AVPixelFormat_AV_PIX_FMT_P010LE {
+                2
+            } else {
+                1
+            };
+            let row_bytes = self.width * step;
+            let stride = u64::from(row_bytes).div_ceil(4) * 4;
             let expected = stride * u64::from(self.height) * 3 / 2;
             if bytes != expected || allocation < bytes || allocation > 64 * 1024 * 1024 {
                 return Err("invalid export allocation layout".into());
@@ -388,7 +404,7 @@ impl Decoder {
                         stride * u64::from(self.height)
                     };
                 copy.dstPitch = stride as usize;
-                copy.WidthInBytes = self.width as usize;
+                copy.WidthInBytes = row_bytes as usize;
                 copy.Height = (self.height / if plane == 0 { 1 } else { 2 }) as usize;
                 cu(cuMemcpy2DAsync_v2(&copy, cuda.stream))?;
             }

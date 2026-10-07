@@ -1,13 +1,13 @@
-//! Deliberately narrow standalone music/dialogue path: RIFF/WAVE PCM16,
-//! mono/stereo, 8–192 kHz, at most ten minutes. Parsing never loads sample data.
-use crate::{Cancel, fingerprint};
+//! Standalone mono/stereo audio. Historical Wave names remain archive-compatible;
+//! the verified source may be PCM WAV, MP3, AAC/M4A or FLAC.
+use crate::{Cancel, fingerprint, process::Process};
 use fold_foundation::Time;
 use serde::{Deserialize, Serialize};
 use std::{
-    io::{Read, Seek, SeekFrom},
+    io::Read,
     path::{Path, PathBuf},
+    process::{Command, Stdio},
 };
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WaveInfo {
     pub rate: u32,
@@ -21,9 +21,7 @@ impl WaveInfo {
             || self.frames == 0
             || u64::from(self.frames) > u64::from(self.rate) * 600
         {
-            return Err(
-                "WAVE requires 1–2 PCM16 channels, 8–192 kHz, and up to ten minutes".into(),
-            );
+            return Err("Audio requires mono/stereo, 8–192 kHz, and up to ten minutes".into());
         }
         Ok(())
     }
@@ -38,76 +36,134 @@ pub struct WaveSource {
     pub fingerprint: String,
     pub info: WaveInfo,
 }
-
+static VERIFIED: std::sync::Mutex<std::collections::VecDeque<(String, WaveInfo)>> =
+    std::sync::Mutex::new(std::collections::VecDeque::new());
 pub fn inspect_wave(path: &Path, cancel: &Cancel) -> Result<WaveSource, String> {
-    cancel.check()?;
-    let mut file = std::fs::File::open(path).map_err(|e| e.to_string())?;
-    let size = file.metadata().map_err(|e| e.to_string())?.len();
-    let mut header = [0; 12];
-    file.read_exact(&mut header).map_err(|e| e.to_string())?;
-    if &header[..4] != b"RIFF"
-        || &header[8..] != b"WAVE"
-        || u64::from(u32::from_le_bytes(header[4..8].try_into().unwrap())) + 8 != size
+    let path = path.canonicalize().map_err(|e| e.to_string())?;
+    let hash = fingerprint(&path, cancel)?;
+    if let Some(info) = VERIFIED
+        .lock()
+        .unwrap()
+        .iter()
+        .find(|(key, _)| key == &hash)
+        .map(|(_, info)| info.clone())
     {
-        return Err("unsupported or truncated RIFF/WAVE".into());
+        return Ok(WaveSource {
+            path,
+            fingerprint: hash,
+            info,
+        });
     }
-    let mut format = None;
-    let mut data = None;
-    let mut offset = 12u64;
-    while offset + 8 <= size {
-        cancel.check()?;
-        file.seek(SeekFrom::Start(offset))
-            .map_err(|e| e.to_string())?;
-        let mut chunk = [0; 8];
-        file.read_exact(&mut chunk).map_err(|e| e.to_string())?;
-        let length = u32::from_le_bytes(chunk[4..].try_into().unwrap());
-        let next = offset + 8 + u64::from(length) + u64::from(length % 2);
-        if next > size {
-            return Err("truncated WAVE chunk".into());
-        }
-        match &chunk[..4] {
-            b"fmt " => {
-                if format.is_some() || !(16..=64).contains(&length) {
-                    return Err("unsupported WAVE format chunk".into());
+    let output = crate::scratch::file().map_err(|e| e.to_string())?;
+    let mut cmd = Command::new("ffprobe");
+    cmd.args([
+        "-v",
+        "error",
+        "-threads",
+        "1",
+        "-select_streams",
+        "a",
+        "-show_streams",
+        "-show_frames",
+        "-show_format",
+        "-show_entries",
+        "stream=codec_name,sample_rate,channels,start_pts,duration_ts,time_base:frame=nb_samples:format=format_name",
+        "-of",
+        "json",
+    ])
+    .arg(&path)
+    .stdin(Stdio::null())
+    .stdout(Stdio::from(output.reopen().map_err(|e| e.to_string())?));
+    Process::spawn(
+        cmd,
+        cancel.clone(),
+        Some((output.path().into(), 8 * 1024 * 1024)),
+    )?
+    .finish()?;
+    let value: serde_json::Value = serde_json::from_reader(
+        output
+            .reopen()
+            .map_err(|e| e.to_string())?
+            .take(8 * 1024 * 1024),
+    )
+    .map_err(|e| e.to_string())?;
+    let streams = value["streams"].as_array().ok_or("missing audio streams")?;
+    if streams.len() != 1 {
+        return Err("exactly one standalone audio stream is supported".into());
+    }
+    let s = &streams[0];
+    let codec = s["codec_name"].as_str().unwrap_or("");
+    if ![
+        "pcm_s16le",
+        "pcm_s24le",
+        "pcm_s32le",
+        "pcm_f32le",
+        "mp3",
+        "aac",
+        "flac",
+    ]
+    .contains(&codec)
+    {
+        return Err(format!("unsupported audio codec: {codec}"));
+    }
+    let mut frames = value["frames"]
+        .as_array()
+        .ok_or("missing decoded audio sample counts")?
+        .iter()
+        .try_fold(0u64, |n, f| {
+            n.checked_add(f["nb_samples"].as_u64().ok_or("missing audio samples")?)
+                .ok_or("audio length overflow")
+        })?;
+    let rate: u32 = s["sample_rate"]
+        .as_str()
+        .ok_or("missing audio rate")?
+        .parse()
+        .map_err(|_| "invalid audio rate")?;
+    // AAC access units may extend past the MOV edit-list end. Respect an exact
+    // container end without retaining encoder padding as authored duration.
+    if value["format"]["format_name"]
+        .as_str()
+        .is_some_and(|v| v.split(',').any(|v| v == "mov"))
+        && s["start_pts"].as_i64() == Some(0)
+    {
+        if let Some((n, d)) = s["time_base"].as_str().and_then(|v| v.split_once('/')) {
+            if let (Ok(n), Ok(d), Some(duration)) = (
+                n.parse::<u64>(),
+                d.parse::<u64>(),
+                s["duration_ts"].as_u64(),
+            ) {
+                let samples = u128::from(duration) * u128::from(n) * u128::from(rate);
+                if d > 0 && samples % u128::from(d) == 0 {
+                    frames = frames.min(
+                        (samples / u128::from(d))
+                            .try_into()
+                            .map_err(|_| "audio duration overflow")?,
+                    );
                 }
-                let mut bytes = [0; 16];
-                file.read_exact(&mut bytes).map_err(|e| e.to_string())?;
-                let word = |i| u16::from_le_bytes([bytes[i], bytes[i + 1]]);
-                let rate = u32::from_le_bytes(bytes[4..8].try_into().unwrap());
-                let channels = word(2);
-                if !(1..=2).contains(&channels)
-                    || word(0) != 1
-                    || word(14) != 16
-                    || word(12) != channels * 2
-                {
-                    return Err("only PCM16 WAVE is supported".into());
-                }
-                format = Some((rate, channels));
             }
-            b"data" if data.replace(length).is_some() => {
-                return Err("multiple WAVE data chunks".into());
-            }
-            _ => {}
         }
-        offset = next;
-    }
-    let (rate, channels) = format.ok_or("missing WAVE format")?;
-    if channels == 0 || channels > 2 {
-        return Err("unsupported WAVE channel layout".into());
-    }
-    let length = data.ok_or("missing WAVE data")?;
-    if !length.is_multiple_of(u32::from(channels) * 2) {
-        return Err("partial WAVE sample".into());
     }
     let info = WaveInfo {
         rate,
-        channels,
-        frames: length / (u32::from(channels) * 2),
+        channels: s["channels"]
+            .as_u64()
+            .and_then(|v| v.try_into().ok())
+            .ok_or("invalid channel count")?,
+        frames: frames.try_into().map_err(|_| "audio length overflow")?,
     };
     info.validate()?;
+    if fingerprint(&path, cancel)? != hash {
+        return Err("audio changed during import".into());
+    }
+    let mut verified = VERIFIED.lock().unwrap();
+    verified.retain(|(key, _)| key != &hash);
+    if verified.len() >= 128 {
+        verified.pop_front();
+    }
+    verified.push_back((hash.clone(), info.clone()));
     Ok(WaveSource {
-        path: path.canonicalize().map_err(|e| e.to_string())?,
-        fingerprint: fingerprint(path, cancel)?,
+        path,
+        fingerprint: hash,
         info,
     })
 }

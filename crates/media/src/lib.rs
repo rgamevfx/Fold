@@ -5,7 +5,7 @@ pub mod audio;
 pub mod budget;
 mod decoded;
 pub mod scratch;
-pub use decoded::{PlaneLayout, YuvEncoding, YuvFrame};
+pub use decoded::{PlaneLayout, YuvFrame};
 pub mod exr;
 pub mod exr_sequence;
 pub mod ingest;
@@ -16,6 +16,8 @@ mod source_pin;
 pub use source_pin::pinned_source_bytes;
 pub mod thumbnail;
 mod video;
+mod video_format;
+pub use video_format::VideoFormat;
 mod video_stream;
 mod wave;
 pub use process::Cancel;
@@ -41,7 +43,7 @@ pub struct RgbImage {
     dimensions: [u32; 2],
     rgb: Arc<Vec<u8>>,
     identity: Arc<std::sync::OnceLock<String>>,
-    /// Tightly packed reconstructed G, B, R float planes (not working color).
+    /// Tightly packed straight G, B, R and optional A float planes (not working color).
     signal: Option<Arc<Vec<f32>>>,
     _storage: Arc<budget::Lease>,
 }
@@ -143,13 +145,13 @@ impl RgbImage {
 
     pub(crate) fn from_gbr(dimensions: [u32; 2], bytes: &[u8]) -> Result<Self, String> {
         let count = dimensions[0] as usize * dimensions[1] as usize;
-        if count == 0 || count > MAX_PIXELS || bytes.len() != count * 12 {
+        if count == 0 || count > MAX_PIXELS || ![count * 12, count * 16].contains(&bytes.len()) {
             return Err("Invalid float decode planes".into());
         }
-        let storage = budget::DECODED.reserve((count * 12) as u64)?;
+        let storage = budget::DECODED.reserve(bytes.len() as u64)?;
         let mut pixels = Vec::new();
         pixels
-            .try_reserve_exact(count * 3)
+            .try_reserve_exact(bytes.len() / 4)
             .map_err(|_| "Float decode allocation failed")?;
         for sample in bytes.chunks_exact(4) {
             let value = f32::from_le_bytes(sample.try_into().unwrap());
@@ -168,9 +170,11 @@ impl RgbImage {
     }
     /// Borrowed G/B/R float planes after explicit BT.709 reconstruction.
     /// Native codec samples are exposed separately through `YuvFrame`.
-    /// Ownership remains with this immutable decoded image; alpha is opaque.
+    /// Ownership remains with this image. This view excludes optional alpha.
     pub fn native_gbr_planes(&self) -> Option<&[f32]> {
-        self.signal.as_ref().map(|planes| planes.as_slice())
+        self.signal
+            .as_ref()
+            .map(|planes| &planes[..self.dimensions[0] as usize * self.dimensions[1] as usize * 3])
     }
     pub fn encoded_pixels(&self) -> impl Iterator<Item = [f32; 4]> + '_ {
         let count = self.dimensions[0] as usize * self.dimensions[1] as usize;
@@ -184,8 +188,16 @@ impl RgbImage {
                         1.,
                     ]
                 },
-                |p| [p[2 * count + i], p[i], p[count + i], 1.],
+                |p| {
+                    let a = p.get(3 * count + i).copied().unwrap_or(1.);
+                    [p[2 * count + i] * a, p[i] * a, p[count + i] * a, a]
+                },
             )
+        })
+    }
+    pub fn has_alpha(&self) -> bool {
+        self.signal.as_ref().is_some_and(|p| {
+            p.len() == self.dimensions[0] as usize * self.dimensions[1] as usize * 4
         })
     }
     pub fn is_signal(&self) -> bool {
@@ -228,11 +240,13 @@ impl RgbImage {
         });
         (0..self.dimensions[0] as usize * self.dimensions[1] as usize).map(|i| {
             if let Some(signal) = &self.signal {
+                let count = self.dimensions[0] as usize * self.dimensions[1] as usize;
+                let alpha = signal.get(3 * count + i).copied().unwrap_or(1.);
                 let decode = |v: f32| {
                     if v < 0.081 {
-                        v / 4.5
+                        v / 4.5 * alpha
                     } else {
-                        ((v + 0.099) / 1.099).powf(1. / 0.45)
+                        ((v + 0.099) / 1.099).powf(1. / 0.45) * alpha
                     }
                 };
                 [
@@ -241,7 +255,7 @@ impl RgbImage {
                     ),
                     decode(signal[i]),
                     decode(signal[self.dimensions[0] as usize * self.dimensions[1] as usize + i]),
-                    1.,
+                    alpha,
                 ]
             } else {
                 [

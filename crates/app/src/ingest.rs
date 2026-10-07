@@ -139,7 +139,9 @@ pub fn import(
         let interpretation = InputInterpretation {
             color_space: None,
             alpha: None,
-            provenance: "unassigned; consult probed facts (no OCIO transform selected)".into(),
+            provenance: if matches!(source.metadata.profile, fold_media::ingest::SourceProfile::Video(_)) {
+                "SDR video reconstruction: missing matrix/primaries/transfer assume Rec.709; missing YUV range assumes limited, RGB assumes full range. Probed facts remain unknown; OCIO input assignment is unassigned."
+            } else { "unassigned; consult probed facts (no OCIO transform selected)" }.into(),
         };
         let asset = Asset {
             id: AssetId::new(),
@@ -418,7 +420,7 @@ fn expand_import(
             // Folder contents can include sidecars and documents. Explicit file
             // drops still report unsupported formats instead of silently ignoring.
             let supported = path.extension().and_then(|s| s.to_str()).is_some_and(|s| {
-                ["mp4", "wav", "ppm", "exr"].contains(&s.to_ascii_lowercase().as_str())
+                fold_media::ingest::SUPPORTED_EXTENSIONS.contains(&s.to_ascii_lowercase().as_str())
             });
             if depth == 0 || supported {
                 files.push((path, parent));

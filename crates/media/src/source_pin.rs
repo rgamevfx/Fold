@@ -25,6 +25,7 @@ impl Drop for Reservation {
 }
 pub(crate) struct Pinned {
     pub source: VideoSource,
+    pub format: crate::VideoFormat,
     pub file: tempfile::NamedTempFile,
     _reservation: Reservation,
 }
@@ -46,6 +47,7 @@ pub(crate) fn acquire(source: &VideoSource, cancel: &Cancel) -> Result<Arc<Pinne
         if video::fingerprint(&source.path, cancel)? != source.fingerprint {
             return Err("source fingerprint changed; reimport required".into());
         }
+        video::remember_verified(&source.fingerprint, &source.info, existing.format);
         return Ok(existing);
     }
     let mut input = std::fs::File::open(&source.path)
@@ -81,16 +83,19 @@ pub(crate) fn acquire(source: &VideoSource, cancel: &Cancel) -> Result<Arc<Pinne
     if format!("sha256:{:x}", hash.finalize()) != source.fingerprint {
         return Err("source fingerprint changed; reimport required".into());
     }
-    let actual = match video::verified_info(&source.fingerprint) {
-        Some(info) => info,
+    let (actual, format) = match video::verified_info(&source.fingerprint)
+        .zip(video::verified_format(&source.fingerprint))
+    {
+        Some(value) => value,
         None => video::probe(file.path(), cancel)?,
     };
     if actual != source.info {
         return Err("source metadata mismatch".into());
     }
-    video::remember_verified(&source.fingerprint, &actual);
+    video::remember_verified(&source.fingerprint, &actual, format);
     let pinned = Arc::new(Pinned {
         source: source.clone(),
+        format,
         file,
         _reservation: reservation,
     });

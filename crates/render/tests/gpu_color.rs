@@ -144,3 +144,85 @@ fn native_ocio_display_luts_alpha_and_output_identity() {
     }
     assert!(host.memory().peak <= host.memory().budget);
 }
+
+#[test]
+#[ignore = "requires Vulkan, FFmpeg and FOLD_TEST_COLOR_ROOT"]
+fn prores_xq_alpha_matches_cpu_through_aces_and_over() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("alpha.mov");
+    let result = std::process::Command::new("ffmpeg")
+        .args([
+            "-v",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc2=size=64x32:rate=24",
+            "-vf",
+            "format=yuva444p10le,geq=lum='p(X,Y)':cb='p(X,Y)':cr='p(X,Y)':a='X/W*1023'",
+            "-frames:v",
+            "2",
+            "-c:v",
+            "prores_ks",
+            "-profile:v",
+            "5",
+            "-pix_fmt",
+            "yuva444p10le",
+            "-threads",
+            "1",
+            "-filter_threads",
+            "1",
+        ])
+        .arg(&path)
+        .output()
+        .unwrap();
+    assert!(
+        result.status.success(),
+        "{}",
+        String::from_utf8_lossy(&result.stderr)
+    );
+    let cancel = fold_media::Cancel::default();
+    let source = fold_media::inspect(&path, &cancel).unwrap();
+    let runtime = fold_color::Runtime::at(&std::path::PathBuf::from(
+        std::env::var_os("FOLD_TEST_COLOR_ROOT").unwrap(),
+    ))
+    .unwrap();
+    let config = runtime.bundled().unwrap();
+    let graph = RenderGraph {
+        width: 64,
+        height: 32,
+        nodes: vec![
+            ImageOp::Video {
+                source,
+                time: fold_foundation::Time::ZERO,
+            },
+            ImageOp::Solid {
+                rgba: [0.05, 0.1, 0.2, 1.],
+            },
+            ImageOp::Over {
+                foreground: 0,
+                background: 1,
+            },
+        ],
+        output: 2,
+    };
+    let mut cpu_decoder = fold_media::Decoder::default();
+    let expected =
+        fold_render::render_aces_with(graph.clone(), &config, &mut cpu_decoder, &cancel).unwrap();
+    let (host, _) = pollster::block_on(Host::headless(128 * 1024 * 1024)).unwrap();
+    let mut renderer = Renderer::new(host).unwrap();
+    // Software-only codecs must work in a project configured for native NVDEC.
+    let mut decoder = fold_media::Decoder::with_backend(fold_media::DecodeBackend::CudaNative);
+    let mut gpu = renderer
+        .evaluate(graph, Some(&config), &mut decoder, &cancel)
+        .unwrap();
+    let actual = gpu.readback(&cancel).unwrap();
+    let error = actual
+        .pixels()
+        .iter()
+        .zip(expected.pixels())
+        .flat_map(|(a, b)| (0..4).map(move |i| (a[i] - b[i]).abs()))
+        .fold(0f32, f32::max);
+    assert!(error < 0.0001, "ACES composite error {error}");
+    assert!(actual.pixels().iter().all(|p| p[3] == 1.));
+}

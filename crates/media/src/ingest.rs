@@ -7,6 +7,10 @@ use std::{
     process::{Command, Stdio},
 };
 
+pub const SUPPORTED_EXTENSIONS: &[&str] = &[
+    "mp4", "mov", "mxf", "wav", "mp3", "m4a", "aac", "flac", "ppm", "exr",
+];
+
 pub const METADATA_KEY: &str = "fold.media.source.v1";
 pub const INTERPRETATION_KEY: &str = "fold.media.input.v1";
 
@@ -64,14 +68,22 @@ pub fn inspect_linked(path: &Path, cancel: &Cancel) -> Result<LinkedSource, Stri
         .and_then(|s| s.to_str())
         .unwrap_or("")
         .to_ascii_lowercase();
+    let mut video_format = None;
     let profile = match extension.as_str() {
         "exr" => {
             let mut info = crate::exr::inspect(&path, cancel)?;
             info.sequence = crate::exr_sequence::discover(&path, &info, cancel)?;
             SourceProfile::Exr(info)
         }
-        "wav" => SourceProfile::Wave(crate::inspect_wave(&path, cancel)?.info),
-        "mp4" => SourceProfile::Video(crate::inspect(&path, cancel)?.info),
+        "wav" | "mp3" | "m4a" | "aac" | "flac" => SourceProfile::Wave(crate::inspect_wave(&path, cancel)?.info),
+        "mp4" | "mov" | "mxf" => {
+            let (info,format) = match crate::video::verified_info(&hash).zip(crate::video::verified_format(&hash)) {
+                Some(value) => value,
+                None => crate::video::probe(&path,cancel)?,
+            };
+            video_format=Some(format);
+            SourceProfile::Video(info)
+        },
         "ppm" => {
             let mut bytes = Vec::new();
             std::fs::File::open(&path)
@@ -83,7 +95,7 @@ pub fn inspect_linked(path: &Path, cancel: &Cancel) -> Result<LinkedSource, Stri
                 dimensions: crate::RgbImage::decode_ppm(&bytes)?.dimensions(),
             }
         }
-        _ => return Err("unsupported linked media: expected MP4, WAVE, P6 PPM or OpenEXR".into()),
+        _ => return Err("unsupported linked media: expected MP4/MOV/MXF video, WAV/MP3/AAC/M4A/FLAC audio, P6 PPM or OpenEXR".into()),
     };
     let (streams, raw_format) = if matches!(profile, SourceProfile::Ppm { .. }) {
         (
@@ -159,15 +171,38 @@ pub fn inspect_linked(path: &Path, cancel: &Cancel) -> Result<LinkedSource, Stri
                         .as_str()
                         .ok_or("missing stream kind")?
                         .into(),
-                    bit_depth: match facts["pix_fmt"].as_str() {
-                        Some("yuv420p") => Some(8),
-                        _ => facts["bits_per_sample"]
-                            .as_u64()
-                            .and_then(|v| u8::try_from(v).ok())
-                            .filter(|v| *v != 0),
+                    bit_depth: if facts["codec_type"] == "video" {
+                        crate::VideoFormat::parse(facts).ok().map(|f| f.depth as u8)
+                    } else {
+                        facts["bits_per_raw_sample"]
+                            .as_str()
+                            .and_then(|v| v.parse().ok())
+                            .filter(|v| *v != 0)
+                            .or_else(|| {
+                                facts["bits_per_sample"]
+                                    .as_u64()
+                                    .and_then(|v| v.try_into().ok())
+                                    .filter(|v| *v != 0)
+                            })
                     },
-                    planes: (facts["pix_fmt"] == "yuv420p").then_some(3),
-                    alpha: (facts["codec_type"] == "video").then(|| "opaque".into()),
+                    planes: if facts["codec_type"] == "video" {
+                        crate::VideoFormat::parse(facts)
+                            .ok()
+                            .map(|f| if f.alpha { 4 } else { 3 })
+                    } else {
+                        None
+                    },
+                    alpha: (facts["codec_type"] == "video").then(|| {
+                        if facts["pix_fmt"]
+                            .as_str()
+                            .is_some_and(|p| p.starts_with("yuva"))
+                        {
+                            "straight"
+                        } else {
+                            "opaque"
+                        }
+                        .into()
+                    }),
                     facts: facts.clone(),
                 })
             })
@@ -178,6 +213,9 @@ pub fn inspect_linked(path: &Path, cancel: &Cancel) -> Result<LinkedSource, Stri
         return Err("source changed during inspection".into());
     }
     cancel.check()?;
+    if let (SourceProfile::Video(info), Some(format)) = (&profile, video_format) {
+        crate::video::remember_verified(&hash, info, format);
+    }
     let timing_policy = match &profile {
         SourceProfile::Video(_) => "verified exact CFR, zero origin",
         SourceProfile::Wave(_) => "exact sample frames, zero origin",

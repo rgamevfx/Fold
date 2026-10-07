@@ -17,12 +17,21 @@ use std::{
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Nv12Layout {
     pub dimensions: [u32; 2],
+    pub format: crate::VideoFormat,
     pub stride: u32,
     pub uv_offset: u64,
     pub bytes: u64,
 }
 impl Nv12Layout {
     pub fn for_source(source: &VideoSource) -> Result<Self, String> {
+        let format = crate::video::verified_format(&source.fingerprint)
+            .ok_or("native source format must be inspected before allocation")?;
+        Self::for_format(source, format)
+    }
+    pub(crate) fn for_format(
+        source: &VideoSource,
+        format: crate::VideoFormat,
+    ) -> Result<Self, String> {
         source.info.validate()?;
         let [w, h] = [source.info.width, source.info.height];
         if !(48..=4096).contains(&w)
@@ -36,10 +45,14 @@ impl Nv12Layout {
                     .into(),
             );
         }
-        let stride = w.div_ceil(4) * 4;
+        if !format.nvdec_compatible {
+            return Err("source requires software decoding".into());
+        }
+        let stride = (w * format.sample_bytes()).div_ceil(4) * 4;
         let uv_offset = u64::from(stride) * u64::from(h);
         Ok(Self {
             dimensions: [w, h],
+            format,
             stride,
             uv_offset,
             bytes: uv_offset * 3 / 2,

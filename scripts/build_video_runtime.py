@@ -52,9 +52,9 @@ def main():
              "--disable-static", "--enable-shared", "--disable-programs", "--disable-doc", "--disable-x86asm",
              "--disable-gpl", "--disable-nonfree", "--disable-version3", "--disable-network",
              "--disable-avdevice", "--disable-avfilter", "--disable-swscale", "--disable-swresample",
-             "--enable-avcodec", "--enable-avformat", "--enable-avutil", "--enable-decoder=h264",
-             "--enable-parser=h264", "--enable-demuxer=mov", "--enable-protocol=file",
-             "--enable-ffnvcodec", "--enable-cuda", "--enable-nvdec", "--enable-hwaccel=h264_nvdec"]
+             "--enable-avcodec", "--enable-avformat", "--enable-avutil", "--enable-decoder=h264,hevc",
+             "--enable-parser=h264,hevc", "--enable-demuxer=mov", "--enable-protocol=file",
+             "--enable-ffnvcodec", "--enable-cuda", "--enable-nvdec", "--enable-hwaccel=h264_nvdec,hevc_nvdec"]
     run([str(source / "configure"), *flags], source)
     run(["make", f"-j{min(os.cpu_count() or 1, 8)}"], source)
     run(["make", "install"], source)

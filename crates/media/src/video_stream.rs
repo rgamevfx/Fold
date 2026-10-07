@@ -21,9 +21,16 @@ pub(crate) struct Stream {
 }
 impl Stream {
     pub fn new(command: Command, frame_bytes: usize) -> Result<Self, String> {
+        Self::with_audio(command, frame_bytes, false)
+    }
+    pub fn with_audio(command: Command, frame_bytes: usize, audio: bool) -> Result<Self, String> {
         // A request token must not own a retained process's lifetime. Each read
         // observes its current caller's token; failure drops/kills the stream.
-        let mut process = Process::retained(command)?;
+        let mut process = if audio {
+            Process::retained_audio(command)?
+        } else {
+            Process::retained(command)?
+        };
         let mut stdout = process.stdout.take().ok_or("decoder stdout is not piped")?;
         let (demand, requests) = mpsc::sync_channel(1);
         let (send, frames) = mpsc::sync_channel(1);

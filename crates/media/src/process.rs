@@ -110,6 +110,9 @@ impl Process {
         // its own cancellation/30s deadline, rather than a wall-lifetime limit.
         Self::supervise(command, Cancel::default(), None, None, false)
     }
+    pub fn retained_audio(command: Command) -> Result<Self, String> {
+        Self::supervise(command, Cancel::default(), None, None, true)
+    }
     fn supervise(
         mut command: Command,
         cancel: Cancel,

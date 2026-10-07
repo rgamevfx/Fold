@@ -668,3 +668,11 @@ Phases 34–40 are complete per user acceptance. Validation evidence and unverif
 - Native-rendered normal/narrow Project, Composition and Timeline windows reviewed on Vulkan llvmpipe; reproducible through `cargo test -p fold-ui settings_native_normal_and_narrow --offline -- --ignored`. Captures: `/tmp/fold-settings-ui/{project-normal,project-narrow,composition,timeline-narrow}.ppm`. The fixture loads window sizes through ImGui layout settings and waits for submitted frames before readback. Artist acceptance is recorded below. Detailed live desktop pointer/keyboard navigation and DPI scaling were not separately verified; these captures certify static layout only.
 
 - [x] **Artist acceptance (2026-10-07):** user reviewed the result, reported “looks good,” and requested completion and commit. Phase 54 is complete; retain the validation limits above for regression coverage.
+
+### 55. Common video and audio codecs (complete)
+
+- User-authorized: HEVC Main/Main 10, ProRes 422/4444/4444 XQ, DNxHD/DNxHR; WAV integer/float PCM, MP3, AAC/M4A and FLAC imports alongside H.264.
+- Track implementation, precision/alpha/timing acceptance and performance evidence in [phase 55](docs/phase-55.md). Preserve native planes, bounded background decoding and shared preview/export semantics. Codec acceptance alone is not performance acceptance.
+- [x] Implement common video/audio imports, native precision and alpha, bounded retained decode, packet-based CFR inspection, incremental PCM preparation and the HEVC/P010 helper path. Generated codec fixtures and both original user videos exercise the adapters.
+- [x] **Artist acceptance (2026-10-07):** user reviewed the result, reported “looks good,” and requested completion and commit. Phase 55 is complete with the recorded validation limits.
+- Follow-up: physical NVDEC and sustained-playback qualification remain tracked in [phase 55](docs/phase-55.md); no hardware-speed claim is made without an available NVIDIA driver and measured native execution.

@@ -37,14 +37,16 @@ impl Renderer {
             return Ok(inputs);
         }
         let begin = std::time::Instant::now();
-        if decoder.backend() == DecodeBackend::CudaNative {
-            #[cfg(all(feature = "native-video", target_os = "linux"))]
+        for (index, source, time) in sources {
+            if decoder.backend() == DecodeBackend::CudaNative
+                && decoder.source_format(source, cancel)?.nvdec_compatible
             {
-                if self.native_video.is_none() {
-                    self.native_video = Some(super::native_video::NativeVideo::new()?);
-                }
-                let native = self.native_video.as_mut().unwrap();
-                for (index, source, time) in sources {
+                #[cfg(all(feature = "native-video", target_os = "linux"))]
+                {
+                    if self.native_video.is_none() {
+                        self.native_video = Some(super::native_video::NativeVideo::new()?);
+                    }
+                    let native = self.native_video.as_mut().unwrap();
                     let before = native.statistics();
                     let input = native.decode(&self.host, source, time, cancel)?;
                     let after = native.statistics();
@@ -64,11 +66,9 @@ impl Renderer {
                         after.forward_reuses.saturating_sub(before.forward_reuses);
                     inputs[index] = Some(Video::Native(input));
                 }
-            }
-            #[cfg(not(all(feature = "native-video", target_os = "linux")))]
-            return Err("native NVDEC support is not enabled in this build/platform".into());
-        } else {
-            for (index, source, time) in sources {
+                #[cfg(not(all(feature = "native-video", target_os = "linux")))]
+                return Err("native NVDEC support is not enabled in this build/platform".into());
+            } else {
                 cancel.check()?;
                 let before = decoder.statistics().pipe_bytes;
                 let frame = decoder.decode_native(source, time, cancel)?;

@@ -8,7 +8,7 @@ supervised process; the application does not link FFmpeg or CUDA libraries.
   Official source: https://ffmpeg.org/releases/ffmpeg-6.1.1.tar.xz
   SHA-256: `8684f4b00f94b85461884c3719382f1261f0d9eb3d59640a1f4ac0873616f968`.
   GPL, nonfree and version-3 components are explicitly disabled. No libx264 is
-  linked. Only H.264 decoding, MOV demuxing, file protocol and CUDA/NVDEC hardware
+  linked. Only H.264/HEVC decoding, MOV demuxing, file protocol and CUDA/NVDEC hardware
   support are enabled. This does not change the licensing of a separately
   installed FFmpeg executable used by Fold's software/reference adapters.
 - nv-codec-headers n12.1.14.0: NVIDIA copyright, permissive license reproduced in

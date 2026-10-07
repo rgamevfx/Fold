@@ -8,13 +8,6 @@ use std::sync::{
 static NEXT_FRAME: AtomicU64 = AtomicU64::new(1);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum YuvEncoding {
-    /// The currently verified media profile: 8-bit, limited-range BT.709,
-    /// progressive 4:2:0, horizontal left / vertical center chroma siting.
-    Bt709Limited420Left,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PlaneLayout {
     pub offset: usize,
     pub stride: u32,
@@ -28,7 +21,8 @@ pub struct PlaneLayout {
 pub struct YuvFrame {
     identity: u64,
     dimensions: [u32; 2],
-    planes: [PlaneLayout; 3],
+    planes: [PlaneLayout; 4],
+    format: crate::VideoFormat,
     data: Arc<Vec<u8>>,
     timestamp: Time,
     duration: Time,
@@ -41,15 +35,35 @@ impl YuvFrame {
         timestamp: Time,
         duration: Time,
     ) -> Result<Self, String> {
+        Self::from_planes(
+            crate::VideoFormat::default(),
+            dimensions,
+            data,
+            timestamp,
+            duration,
+        )
+    }
+    pub fn from_planes(
+        format: crate::VideoFormat,
+        dimensions: [u32; 2],
+        data: Vec<u8>,
+        timestamp: Time,
+        duration: Time,
+    ) -> Result<Self, String> {
+        format.validate()?;
         let [w, h] = dimensions;
         let pixels = u64::from(w) * u64::from(h);
         if pixels == 0 || pixels > crate::MAX_PIXELS as u64 || duration <= Time::ZERO {
             return Err("invalid native frame dimensions or duration".into());
         }
-        let [cw, ch] = [w.div_ceil(2), h.div_ceil(2)];
-        let y = pixels as usize;
-        let c = cw as usize * ch as usize;
-        if data.len() != y + 2 * c {
+        let [cw, ch] = [
+            w.div_ceil(format.subsampling[0]),
+            h.div_ceil(format.subsampling[1]),
+        ];
+        let step = format.sample_bytes();
+        let y = pixels as usize * step as usize;
+        let c = cw as usize * ch as usize * step as usize;
+        if data.len() as u64 != format.bytes(dimensions) {
             return Err("invalid YUV plane storage".into());
         }
         let storage = crate::budget::DECODED.reserve(data.capacity() as u64)?;
@@ -57,21 +71,27 @@ impl YuvFrame {
             _storage: storage,
             identity: NEXT_FRAME.fetch_add(1, Ordering::Relaxed),
             dimensions,
+            format,
             planes: [
                 PlaneLayout {
                     offset: 0,
-                    stride: w,
+                    stride: w * step,
                     dimensions,
                 },
                 PlaneLayout {
                     offset: y,
-                    stride: cw,
+                    stride: cw * step,
                     dimensions: [cw, ch],
                 },
                 PlaneLayout {
                     offset: y + c,
-                    stride: cw,
+                    stride: cw * step,
                     dimensions: [cw, ch],
+                },
+                PlaneLayout {
+                    offset: y + 2 * c,
+                    stride: w * step,
+                    dimensions,
                 },
             ],
             data: Arc::new(data),
@@ -92,12 +112,13 @@ impl YuvFrame {
         if count == 0 || count > crate::MAX_PIXELS as u64 {
             return Err("invalid reconstruction dimensions".into());
         }
-        let storage = crate::budget::DECODED.reserve(count * 12)?;
+        let channels = if self.format.alpha { 4 } else { 3 };
+        let storage = crate::budget::DECODED.reserve(count * channels * 4)?;
         let mut planes = Vec::new();
         planes
-            .try_reserve_exact(count as usize * 3)
+            .try_reserve_exact(count as usize * channels as usize)
             .map_err(|_| "CPU reconstruction allocation failed")?;
-        planes.resize(count as usize * 3, 0.);
+        planes.resize(count as usize * channels as usize, 0.);
         let nearest = |p: u32, from: u32, to: u32| {
             ((2 * u64::from(p) + 1) * u64::from(from) / (2 * u64::from(to))) as u32
         };
@@ -107,7 +128,21 @@ impl YuvFrame {
         } else {
             dimensions
         };
-        let chroma_size = domain.map(|v| v.div_ceil(2));
+        let sub = self.format.subsampling;
+        let chroma_size = [domain[0].div_ceil(sub[0]), domain[1].div_ceil(sub[1])];
+        let step = self.format.sample_bytes();
+        let value = |offset: usize| -> f32 {
+            if step == 1 {
+                f32::from(self.data[offset])
+            } else {
+                f32::from(u16::from_le_bytes([
+                    self.data[offset],
+                    self.data[offset + 1],
+                ]))
+            }
+        };
+        let scale = (1u32 << (self.format.depth - 8)) as f32;
+        let max = ((1u32 << self.format.depth) - 1) as f32;
         let sample = |plane: usize, x: i32, y: i32| {
             let layout = self.planes[plane];
             let x = nearest(
@@ -120,7 +155,7 @@ impl YuvFrame {
                 layout.dimensions[1],
                 chroma_size[1],
             );
-            f32::from(self.data[layout.offset + (y * layout.stride + x) as usize])
+            value(layout.offset + (y * layout.stride + x * step) as usize)
         };
         for y in 0..dimensions[1] {
             for x in 0..dimensions[0] {
@@ -131,9 +166,28 @@ impl YuvFrame {
                 let py = nearest(y, domain[1], dimensions[1]);
                 let sx = nearest(px, native[0], domain[0]);
                 let sy = nearest(py, native[1], domain[1]);
-                let luma = (f32::from(self.data[(sy * native[0] + sx) as usize]) - 16.) / 219.;
-                let cx = px as f32 / 2.;
-                let cy = (py as f32 - 0.5) / 2.;
+                if self.format.rgb {
+                    let i = (y * dimensions[0] + x) as usize;
+                    for plane in 0..3 {
+                        planes[plane * count as usize + i] = value(
+                            self.planes[plane].offset + ((sy * native[0] + sx) * step) as usize,
+                        ) / max;
+                    }
+                    if self.format.alpha {
+                        planes[3 * count as usize + i] =
+                            value(self.planes[3].offset + ((sy * native[0] + sx) * step) as usize)
+                                / max;
+                    }
+                    continue;
+                }
+                let raw = value(((sy * native[0] + sx) * step) as usize);
+                let luma = if self.format.full_range {
+                    raw / max
+                } else {
+                    (raw - 16. * scale) / (219. * scale)
+                };
+                let cx = (px as f32 - self.format.chroma_origin[0] as f32 * 0.5) / sub[0] as f32;
+                let cy = (py as f32 - self.format.chroma_origin[1] as f32 * 0.5) / sub[1] as f32;
                 let ix = cx.floor() as i32;
                 let iy = cy.floor() as i32;
                 let fx = cx - cx.floor();
@@ -142,7 +196,12 @@ impl YuvFrame {
                     let top = sample(plane, ix, iy) * (1. - fx) + sample(plane, ix + 1, iy) * fx;
                     let bottom =
                         sample(plane, ix, iy + 1) * (1. - fx) + sample(plane, ix + 1, iy + 1) * fx;
-                    (top * (1. - fy) + bottom * fy - 128.) / 224.
+                    (top * (1. - fy) + bottom * fy - 128. * scale)
+                        / if self.format.full_range {
+                            max
+                        } else {
+                            224. * scale
+                        }
                 };
                 let u = chroma(1);
                 let v = chroma(2);
@@ -151,6 +210,12 @@ impl YuvFrame {
                 planes[i] = luma - 0.187_324_27 * u - 0.468_124_27 * v;
                 planes[n + i] = luma + 1.8556 * u;
                 planes[2 * n + i] = luma + 1.5748 * v;
+                if self.format.alpha {
+                    planes[3 * n + i] =
+                        (value(self.planes[3].offset + ((sy * native[0] + sx) * step) as usize)
+                            / max)
+                            .clamp(0., 1.);
+                }
             }
         }
         Ok(crate::RgbImage {
@@ -175,10 +240,10 @@ impl YuvFrame {
     pub fn duration(&self) -> Time {
         self.duration
     }
-    pub fn encoding(&self) -> YuvEncoding {
-        YuvEncoding::Bt709Limited420Left
+    pub fn format(&self) -> crate::VideoFormat {
+        self.format
     }
-    pub fn planes(&self) -> &[PlaneLayout; 3] {
+    pub fn planes(&self) -> &[PlaneLayout; 4] {
         &self.planes
     }
     pub fn bytes(&self) -> &[u8] {

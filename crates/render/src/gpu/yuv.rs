@@ -19,25 +19,41 @@ pub(super) struct Layout {
     pub chroma_stride: u32,
     pub chroma_offsets: [u32; 2],
     pub chroma_step: u32,
+    pub format: fold_media::VideoFormat,
+    pub sample_shift: u32,
 }
 impl Layout {
-    fn parameters(self, size: u64) -> Result<[u32; 8], String> {
+    fn parameters(self, size: u64) -> Result<[u32; 20], String> {
+        self.format_parameters(size, self.format, 0)
+    }
+    fn format_parameters(
+        self,
+        size: u64,
+        format: fold_media::VideoFormat,
+        alpha: u32,
+    ) -> Result<[u32; 20], String> {
+        format.validate()?;
+        let step = format.sample_bytes();
         let [w, h] = self.dimensions;
-        let [cw, ch] = [w.div_ceil(2), h.div_ceil(2)];
+        let [cw, ch] = [
+            w.div_ceil(format.subsampling[0]),
+            h.div_ceil(format.subsampling[1]),
+        ];
         if w == 0
             || h == 0
             || u64::from(w) * u64::from(h) > fold_media::MAX_PIXELS as u64
-            || !(1..=2).contains(&self.chroma_step)
-            || self.luma_stride < w
+            || !(1..=4).contains(&self.chroma_step)
+            || self.luma_stride < w * step
             || u64::from(self.chroma_stride) < u64::from(cw) * u64::from(self.chroma_step)
         {
             return Err("invalid GPU video plane layout".into());
         }
-        let y_end = u64::from(h - 1) * u64::from(self.luma_stride) + u64::from(w);
+        let y_end = u64::from(h - 1) * u64::from(self.luma_stride) + u64::from(w * step);
         let chroma_end = u64::from(ch - 1) * u64::from(self.chroma_stride)
             + u64::from(cw - 1) * u64::from(self.chroma_step)
-            + 1;
+            + u64::from(step);
         if y_end > size
+            || (format.alpha && u64::from(alpha) + y_end > size)
             || self
                 .chroma_offsets
                 .iter()
@@ -53,7 +69,19 @@ impl Layout {
             self.chroma_offsets[0],
             self.chroma_offsets[1],
             self.luma_stride,
-            0,
+            alpha,
+            step,
+            format.depth,
+            format.subsampling[0],
+            format.subsampling[1],
+            u32::from(format.alpha),
+            u32::from(format.full_range),
+            format.chroma_origin[0],
+            format.chroma_origin[1],
+            cw,
+            ch,
+            self.sample_shift,
+            u32::from(format.rgb),
         ])
     }
 }
@@ -68,7 +96,7 @@ pub(super) struct YuvPipeline {
     pipeline: wgpu::ComputePipeline,
     cache: VecDeque<Arc<Entry>>,
     bytes: u64,
-    external_layouts: VecDeque<([u32; 8], wgpu::Buffer, Arc<Reservation>)>,
+    external_layouts: VecDeque<([u32; 20], wgpu::Buffer, Arc<Reservation>)>,
 }
 impl YuvPipeline {
     pub fn new(host: &Host) -> Self {
@@ -119,23 +147,26 @@ impl YuvPipeline {
                 luma_stride: planes[0].stride,
                 chroma_stride: planes[1].stride,
                 chroma_offsets: [planes[1].offset as u32, planes[2].offset as u32],
-                chroma_step: 1,
+                chroma_step: frame.format().sample_bytes(),
+                format: frame.format(),
+                sample_shift: 0,
             };
             let bytes = (frame.bytes().len() as u64).div_ceil(4) * 4;
-            let params = layout.parameters(bytes)?;
+            let params =
+                layout.format_parameters(bytes, frame.format(), planes[3].offset as u32)?;
             let limit = (64 * 1024 * 1024).min(host.memory().budget / 8);
             while !self.cache.is_empty()
-                && (self.bytes + bytes + 32 > limit || self.cache.len() >= 64)
+                && (self.bytes + bytes + 80 > limit || self.cache.len() >= 64)
             {
                 let old = self.cache.pop_front().unwrap();
                 self.bytes -= old.bytes;
             }
             let reservation =
-                match host.reserve_as(bytes + 32, super::host::AllocationKind::Decoded) {
+                match host.reserve_as(bytes + 80, super::host::AllocationKind::Decoded) {
                     Ok(r) => r,
                     Err(_) => {
                         self.clear();
-                        host.reserve_as(bytes + 32, super::host::AllocationKind::Decoded)?
+                        host.reserve_as(bytes + 80, super::host::AllocationKind::Decoded)?
                     }
                 };
             let buffer = host
@@ -154,7 +185,7 @@ impl YuvPipeline {
                 });
             let entry = Arc::new(Entry {
                 identity: frame.identity(),
-                bytes: bytes + 32,
+                bytes: bytes + 80,
                 buffer,
                 uniform,
                 reservation,
@@ -170,7 +201,7 @@ impl YuvPipeline {
         Ok(uploaded)
     }
     /// Input ownership/readiness is supplied by the native decoder module; this
-    /// records only reconstruction. At most sixteen immutable 32-byte layouts
+    /// records only reconstruction. At most sixteen immutable 80-byte layouts
     /// are retained; repeated frames/sizes require no new layout allocation.
     #[cfg(any(test, all(feature = "native-video", target_os = "linux")))]
     pub fn encode_external(
@@ -193,7 +224,7 @@ impl YuvPipeline {
             if self.external_layouts.len() >= 16 {
                 self.external_layouts.pop_front();
             }
-            let reservation = host.reserve(32)?;
+            let reservation = host.reserve(80)?;
             let uniform = host
                 .device()
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {

@@ -65,7 +65,26 @@ pub fn thumbnail_range(
     if !audio {
         match profile {
             SourceProfile::Video(_) => {
-                command.args(["-an", "-vf", "scale=128:72:force_original_aspect_ratio=decrease:force_divisible_by=2:flags=bilinear,zscale=matrixin=709:transferin=709:primariesin=709:rangein=limited:matrix=gbr:transfer=iec61966-2-1:primaries=709:range=full,format=gbrpf32le,format=rgb24,pad=128:72:(ow-iw)/2:(oh-ih)/2"]);
+                let facts = inspected
+                    .metadata
+                    .streams
+                    .iter()
+                    .find(|s| s.kind == "video")
+                    .ok_or("missing video metadata")?;
+                let format = crate::VideoFormat::parse(&facts.facts)?;
+                let matrix = if format.rgb { "gbr" } else { "709" };
+                let range = if format.full_range { "full" } else { "limited" };
+                let scale = "scale=128:72:force_original_aspect_ratio=decrease:force_divisible_by=2:flags=bilinear";
+                let color = format!(
+                    "{scale},zscale=matrixin={matrix}:transferin=709:primariesin=709:rangein={range}:matrix=gbr:transfer=iec61966-2-1:primaries=709:range=full,format=gbrpf32le,format=rgb24,pad=128:72:(ow-iw)/2:(oh-ih)/2"
+                );
+                if format.alpha {
+                    // Alpha is full-range coverage; never pass it through the
+                    // limited-range YUV color transform.
+                    command.args(["-an","-filter_complex", &format!("[0:v:0]split[c][a];[c]{color}[rgb];[a]alphaextract,{scale},format=gray,pad=128:72:(ow-iw)/2:(oh-ih)/2:color=black[alpha];[rgb][alpha]alphamerge")]);
+                } else {
+                    command.args(["-an", "-vf", &color]);
+                }
             }
             SourceProfile::Exr(_) => {
                 return Err(

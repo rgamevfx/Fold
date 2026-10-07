@@ -25,22 +25,32 @@ pub fn decoded_cache_bytes() -> u64 {
     DECODED_BYTES.load(Ordering::Acquire)
 }
 // Proofs refer to verified complete file bytes, never just a path or mtime.
-static VERIFIED: Mutex<VecDeque<(String, VideoInfo)>> = Mutex::new(VecDeque::new());
+static VERIFIED: Mutex<VecDeque<(String, VideoInfo, crate::VideoFormat)>> =
+    Mutex::new(VecDeque::new());
 pub(crate) fn verified_info(fingerprint: &str) -> Option<VideoInfo> {
     VERIFIED
         .lock()
         .unwrap()
         .iter()
-        .find(|(hash, _)| hash == fingerprint)
-        .map(|(_, info)| info.clone())
+        .find(|(hash, _, _)| hash == fingerprint)
+        .map(|(_, info, _)| info.clone())
 }
-pub(crate) fn remember_verified(fingerprint: &str, info: &VideoInfo) {
+pub(crate) fn remember_verified(fingerprint: &str, info: &VideoInfo, format: crate::VideoFormat) {
     let mut entries = VERIFIED.lock().unwrap();
-    entries.retain(|(hash, _)| hash != fingerprint);
+    entries.retain(|(hash, _, _)| hash != fingerprint);
     if entries.len() == 128 {
         entries.pop_front();
     }
-    entries.push_back((fingerprint.into(), info.clone()));
+    entries.push_back((fingerprint.into(), info.clone(), format));
+}
+
+pub(crate) fn verified_format(fingerprint: &str) -> Option<crate::VideoFormat> {
+    VERIFIED
+        .lock()
+        .unwrap()
+        .iter()
+        .find(|(hash, _, _)| hash == fingerprint)
+        .map(|(_, _, format)| *format)
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -135,14 +145,14 @@ fn base(program: &str) -> Command {
 pub fn inspect(path: &Path, cancel: &Cancel) -> Result<VideoSource, String> {
     let path = path.canonicalize().map_err(|e| e.to_string())?;
     let hash = fingerprint(&path, cancel)?;
-    let info = match verified_info(&hash) {
-        Some(info) => info,
+    let (info, format) = match verified_info(&hash).zip(verified_format(&hash)) {
+        Some(value) => value,
         None => probe(&path, cancel)?,
     };
     if fingerprint(&path, cancel)? != hash {
         return Err("source changed during import".into());
     }
-    remember_verified(&hash, &info);
+    remember_verified(&hash, &info, format);
     Ok(VideoSource {
         path,
         fingerprint: hash,
@@ -150,10 +160,13 @@ pub fn inspect(path: &Path, cancel: &Cancel) -> Result<VideoSource, String> {
     })
 }
 
-pub(crate) fn probe(path: &Path, cancel: &Cancel) -> Result<VideoInfo, String> {
+pub(crate) fn probe(
+    path: &Path,
+    cancel: &Cancel,
+) -> Result<(VideoInfo, crate::VideoFormat), String> {
     let output = crate::scratch::file().map_err(|e| e.to_string())?;
     let mut cmd = base("ffprobe");
-    cmd.args(["-threads", "1", "-select_streams", "v", "-show_streams", "-show_frames", "-show_format", "-show_entries", "stream=codec_name,pix_fmt,width,height,r_frame_rate,time_base,start_pts,duration_ts,color_space,color_transfer,color_primaries,color_range,sample_aspect_ratio,field_order,chroma_location:stream_side_data=rotation:frame=best_effort_timestamp,pkt_duration,duration:format=format_name", "-of", "json"])
+    cmd.args(["-threads", "1", "-select_streams", "v", "-show_streams", "-show_packets", "-show_format", "-show_entries", "stream=codec_name,pix_fmt,width,height,r_frame_rate,time_base,start_pts,duration_ts,color_space,color_transfer,color_primaries,color_range,sample_aspect_ratio,field_order,chroma_location:stream_side_data=rotation:packet=pts,duration:format=format_name", "-of", "json"])
         .arg(path).stdout(Stdio::from(output.reopen().map_err(|e| e.to_string())?));
     Process::spawn(
         cmd,
@@ -172,31 +185,16 @@ pub(crate) fn probe(path: &Path, cancel: &Cancel) -> Result<VideoInfo, String> {
         return Err("exactly one video stream per source is supported".into());
     }
     let stream = &value["streams"][0];
-    for (key, expected) in [
-        ("codec_name", "h264"),
-        ("pix_fmt", "yuv420p"),
-        ("color_space", "bt709"),
-        ("color_transfer", "bt709"),
-        ("color_primaries", "bt709"),
-        ("color_range", "tv"),
-        ("sample_aspect_ratio", "1:1"),
-        ("field_order", "progressive"),
-        ("chroma_location", "left"),
-    ] {
-        if stream[key].as_str() != Some(expected) {
-            return Err(format!(
-                "unsupported {key}: expected {expected}, got {}",
-                stream[key]
-            ));
-        }
-    }
+    let format = crate::VideoFormat::parse(stream)?;
+    // These demuxers deliver one coded picture/access unit per video packet for
+    // the accepted codecs. Packet PTS, not DTS or average rate, defines CFR.
     if !value["format"]["format_name"]
         .as_str()
         .unwrap_or("")
         .split(',')
-        .any(|s| s == "mp4")
+        .any(|s| ["mov", "mp4", "mxf"].contains(&s))
     {
-        return Err("only MP4/H.264 is supported".into());
+        return Err("supported video containers are MOV/MP4 and MXF".into());
     }
     if stream["side_data_list"].as_array().is_some_and(|items| {
         items
@@ -217,9 +215,19 @@ pub(crate) fn probe(path: &Path, cancel: &Cancel) -> Result<VideoInfo, String> {
     }
     let rate = ratio(&stream["r_frame_rate"])?;
     let tb = ratio(&stream["time_base"])?;
-    let frames = value["frames"]
+    let mut frames: Vec<serde_json::Value> = value["packets"]
         .as_array()
-        .ok_or("missing frame timestamps")?;
+        .ok_or("missing packet timestamps")?
+        .iter()
+        .map(|packet| {
+            let mut frame = serde_json::json!({"best_effort_timestamp":packet["pts"]});
+            if packet["duration"].as_i64().is_some_and(|v| v > 0) {
+                frame["duration"] = packet["duration"].clone();
+            }
+            frame
+        })
+        .collect();
+    frames.sort_by_key(|f| f["best_effort_timestamp"].as_i64());
     let info = VideoInfo {
         width: stream["width"]
             .as_u64()
@@ -233,8 +241,8 @@ pub(crate) fn probe(path: &Path, cancel: &Cancel) -> Result<VideoInfo, String> {
         frames: frames.len().try_into().map_err(|_| "too many frames")?,
     };
     info.validate_media_profile()?;
-    validate_timing(&info, tb, frames, stream)?;
-    Ok(info)
+    validate_timing(&info, tb, &frames, stream)?;
+    Ok((info, format))
 }
 
 fn validate_timing(
@@ -301,15 +309,15 @@ pub struct DecodeStatistics {
 enum DecodeFormat {
     Rgb8,
     Signal,
-    Yuv420,
+    NativeYuv,
 }
 impl DecodeFormat {
-    fn bytes(self, [w, h]: [u32; 2]) -> u64 {
+    fn bytes(self, [w, h]: [u32; 2], native: crate::VideoFormat) -> u64 {
         let pixels = u64::from(w) * u64::from(h);
         match self {
             Self::Rgb8 => pixels * 3,
             Self::Signal => pixels * 12,
-            Self::Yuv420 => pixels + 2 * u64::from(w.div_ceil(2)) * u64::from(h.div_ceil(2)),
+            Self::NativeYuv => native.bytes([w, h]),
         }
     }
 }
@@ -335,7 +343,7 @@ impl Decoded {
         match self {
             Self::Rgb(f) if f.is_signal() => DecodeFormat::Signal,
             Self::Rgb(_) => DecodeFormat::Rgb8,
-            Self::Yuv(_) => DecodeFormat::Yuv420,
+            Self::Yuv(_) => DecodeFormat::NativeYuv,
         }
     }
     fn rgb(self) -> Result<RgbImage, String> {
@@ -410,6 +418,7 @@ impl Decoder {
             p.source.fingerprint == source.fingerprint && p.source.info == source.info
         }) {
             let pinned = self.pinned.remove(index).unwrap();
+            remember_verified(&source.fingerprint, &source.info, pinned.format);
             let path = pinned.file.path().to_owned();
             self.pinned.push_back(pinned);
             return Ok(path);
@@ -436,6 +445,15 @@ impl Decoder {
         Ok(path)
     }
 
+    pub fn source_format(
+        &mut self,
+        source: &VideoSource,
+        cancel: &Cancel,
+    ) -> Result<crate::VideoFormat, String> {
+        self.pin(source, cancel)?;
+        Ok(self.pinned.back().unwrap().format)
+    }
+
     pub fn decode(
         &mut self,
         source: &VideoSource,
@@ -443,6 +461,9 @@ impl Decoder {
         dimensions: [u32; 2],
         cancel: &Cancel,
     ) -> Result<RgbImage, String> {
+        if self.source_format(source, cancel)?.alpha {
+            return self.decode_signal(source, time, dimensions, cancel);
+        }
         self.decode_mode(source, time, dimensions, cancel, DecodeFormat::Rgb8)?
             .rgb()
     }
@@ -465,7 +486,9 @@ impl Decoder {
             .reconstruct_signal(dimensions, cancel)
     }
 
-    /// Independent FFmpeg reconstruction oracle for native-pipeline qualification.
+    /// Independent opaque RGB FFmpeg oracle for native-pipeline qualification.
+    /// Alpha is qualified separately against raw decoded planes: zscale range
+    /// conversion can incorrectly scale alpha with limited-range color.
     /// Not the normal GPU or CPU rendering path.
     pub fn decode_signal_reference(
         &mut self,
@@ -491,7 +514,7 @@ impl Decoder {
             time,
             [source.info.width, source.info.height],
             cancel,
-            DecodeFormat::Yuv420,
+            DecodeFormat::NativeYuv,
         )? {
             Decoded::Yuv(frame) => Ok(frame),
             _ => Err("expected native decoder result".into()),
@@ -506,11 +529,6 @@ impl Decoder {
         cancel: &Cancel,
         format: DecodeFormat,
     ) -> Result<Decoded, String> {
-        if self.backend == DecodeBackend::CudaNative {
-            return Err("cuda-native requires the native GPU surface service; CPU/download fallback is forbidden".into());
-        }
-        let frame_bytes = format.bytes(dimensions);
-        let budget = 64 * 1024 * 1024;
         let frame = source.info.frame_at(time)?;
         if self.backend == DecodeBackend::Cuda
             && (!(48..=4096).contains(&source.info.width)
@@ -518,6 +536,12 @@ impl Decoder {
         {
             return Err("GTX 1070 CUDA/NVDEC H.264 requires source dimensions 48..4096 by 16..4096; select the software decoder".into());
         }
+        let native = self.source_format(source, cancel)?;
+        if self.backend == DecodeBackend::CudaNative && native.nvdec_compatible {
+            return Err("cuda-native requires the native GPU surface service; CPU/download fallback is forbidden".into());
+        }
+        let frame_bytes = format.bytes(dimensions, native);
+        let budget = 64 * 1024 * 1024;
         let count = u64::from(dimensions[0]) * u64::from(dimensions[1]);
         if count == 0 || count > crate::MAX_PIXELS as u64 {
             return Err("invalid decode resolution".into());
@@ -538,7 +562,9 @@ impl Decoder {
             return Ok(image.clone());
         }
         let mut retained = self.retained_bytes();
-        while retained + frame_bytes > budget || self.read_ahead.len() >= 512 {
+        while !self.read_ahead.is_empty()
+            && (retained + frame_bytes > budget || self.read_ahead.len() >= 512)
+        {
             let (_, _, _, image) = self
                 .read_ahead
                 .pop_front()
@@ -583,7 +609,8 @@ impl Decoder {
             DecodeFormat::Rgb8 => {
                 Decoded::Rgb(RgbImage::from_rgb(dimensions, bytes).map_err(str::to_owned)?)
             }
-            DecodeFormat::Yuv420 => Decoded::Yuv(crate::YuvFrame::from_420(
+            DecodeFormat::NativeYuv => Decoded::Yuv(crate::YuvFrame::from_planes(
+                native,
                 dimensions,
                 bytes,
                 source.info.time(frame)?,
@@ -594,12 +621,13 @@ impl Decoder {
         cancel.check()?;
         // Other workers may already occupy the shared retention allowance. A
         // current frame may still be returned, but do not grow another cache.
-        if DECODED_BYTES
-            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |used| {
-                used.checked_add(image.storage_bytes())
-                    .filter(|bytes| *bytes <= 128 * 1024 * 1024)
-            })
-            .is_ok()
+        if image.storage_bytes() <= budget
+            && DECODED_BYTES
+                .fetch_update(Ordering::AcqRel, Ordering::Acquire, |used| {
+                    used.checked_add(image.storage_bytes())
+                        .filter(|bytes| *bytes <= 128 * 1024 * 1024)
+                })
+                .is_ok()
         {
             self.read_ahead.push_back((
                 source.fingerprint.clone(),
@@ -620,6 +648,7 @@ impl Decoder {
         cancel: &Cancel,
     ) -> Result<ActiveStream, String> {
         let path = self.pin(source, cancel)?;
+        let native = self.pinned.back().unwrap().format;
         // Seek to a whole second at/before the requested frame. Accurate input
         // seek discards earlier frames; select the remaining exact CFR offset.
         // Whole seconds avoid decimal rounding at fractional-rate boundaries.
@@ -638,10 +667,14 @@ impl Decoder {
         let pixel_format = match format {
             DecodeFormat::Signal => "gbrpf32le",
             DecodeFormat::Rgb8 => "rgb24",
-            DecodeFormat::Yuv420 => "yuv420p",
+            DecodeFormat::NativeYuv => native.pixel_format,
         };
-        let download = if self.backend == DecodeBackend::Cuda {
-            "hwdownload,format=nv12,"
+        let download = if self.backend == DecodeBackend::Cuda && native.nvdec_compatible {
+            if native.depth > 8 {
+                "hwdownload,format=p010le,"
+            } else {
+                "hwdownload,format=nv12,"
+            }
         } else {
             ""
         };
@@ -654,15 +687,28 @@ impl Decoder {
         } else {
             ("", scale.as_str())
         };
-        let filter = if format == DecodeFormat::Yuv420 {
-            format!("{download}select=gte(n\\,{offset}),format=yuv420p")
+        let matrix = if native.rgb { "gbr" } else { "709" };
+        let range = if native.full_range { "full" } else { "limited" };
+        let chroma = match native.chroma_origin {
+            [1, _] => "center",
+            [0, 0] => "topleft",
+            _ => "left",
+        };
+        let float_format = "gbrpf32le";
+        let filter = if format == DecodeFormat::NativeYuv {
+            format!("{download}select=gte(n\\,{offset}),format={pixel_format}")
         } else {
             format!(
-                "{download}select=gte(n\\,{offset}),{before}zscale=matrixin=709:transferin=709:primariesin=709:rangein=limited:matrix=gbr:transfer={transfer}:primaries=709:range=full,format=gbrpf32le,{after}format={pixel_format}"
+                "{download}select=gte(n\\,{offset}),{before}zscale=matrixin={matrix}:transferin=709:primariesin=709:rangein={range}:chromalin={chroma}:matrix=gbr:transfer={transfer}:primaries=709:range=full,format={float_format},{after}format={pixel_format}"
             )
         };
+        // Six regular process permits bound the total to at most 24 decoder
+        // threads; filters and raw output each use one thread.
+        let threads = std::thread::available_parallelism()
+            .map_or(1, usize::from)
+            .min(4);
         let mut cmd = base("ffmpeg");
-        if self.backend == DecodeBackend::Cuda {
+        if self.backend == DecodeBackend::Cuda && native.nvdec_compatible {
             cmd.args([
                 "-hwaccel",
                 "cuda",
@@ -675,7 +721,7 @@ impl Decoder {
         cmd.args([
             "-nostdin",
             "-threads",
-            "1",
+            &threads.to_string(),
             "-filter_threads",
             "1",
             "-noautorotate",
@@ -705,7 +751,7 @@ impl Decoder {
             "pipe:1",
         ])
         .stdout(Stdio::piped());
-        let frame_bytes = format.bytes(dimensions) as usize;
+        let frame_bytes = format.bytes(dimensions, native) as usize;
         let stream = crate::video_stream::Stream::new(cmd, frame_bytes)?;
         self.statistics.launches += 1;
         Ok(ActiveStream {

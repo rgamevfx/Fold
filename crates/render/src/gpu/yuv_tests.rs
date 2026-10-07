@@ -81,3 +81,87 @@ fn native_yuv_reconstruction_matches_float_reference() {
         assert!(max < 0.00001, "{dimensions:?}: {max}");
     }
 }
+
+#[test]
+#[ignore = "requires Vulkan"]
+fn high_precision_chroma_and_alpha_match_cpu() {
+    let cancel = fold_media::Cancel::default();
+    let (host, _) = pollster::block_on(Host::headless(8 * 1024 * 1024)).unwrap();
+    let mut pipeline = YuvPipeline::new(&host);
+    for depth in [8, 10, 12] {
+        for subsampling in [[2, 2], [2, 1], [1, 1]] {
+            for alpha in [false, true] {
+                for full_range in [false, true] {
+                    for rgb in [false, true] {
+                        if rgb && (subsampling != [1, 1] || !full_range) {
+                            continue;
+                        }
+                        let format = fold_media::VideoFormat {
+                            depth,
+                            rgb,
+                            subsampling,
+                            alpha,
+                            full_range,
+                            nvdec_compatible: false,
+                            ..Default::default()
+                        };
+                        let mut bytes = Vec::new();
+                        let max = (1u32 << depth) - 1;
+                        for i in 0..format.bytes([6, 4]) / u64::from(format.sample_bytes()) {
+                            let sample = ((i * 71) as u32 % max) as u16;
+                            if depth == 8 {
+                                bytes.push(sample as u8);
+                            } else {
+                                bytes.extend(sample.to_le_bytes());
+                            }
+                        }
+                        let native = fold_media::YuvFrame::from_planes(
+                            format,
+                            [6, 4],
+                            bytes,
+                            fold_foundation::Time::ZERO,
+                            fold_foundation::Time::new(1, 24).unwrap(),
+                        )
+                        .unwrap();
+                        for dimensions in [[6, 4], [3, 3], [12, 8]] {
+                            let reference = native.reconstruct_signal(dimensions, &cancel).unwrap();
+                            let output = host.image(dimensions).unwrap();
+                            let status = Status::new(&host).unwrap();
+                            let mut encoder =
+                                host.device().create_command_encoder(&Default::default());
+                            status.start(&mut encoder);
+                            let mut reservations = vec![];
+                            pipeline
+                                .encode(&host, &mut encoder, &native, &output, &mut reservations)
+                                .unwrap();
+                            status.encode(&mut encoder);
+                            host.submit(encoder, vec![output.clone()], reservations);
+                            let mut frame = GpuFrame {
+                                dependencies: vec![],
+                                image: output,
+                                host: host.clone(),
+                                ready: status.submitted(),
+                                working_space: crate::WorkingSpace::LegacyLinearSrgb,
+                                config_identity: None,
+                                timing: None,
+                                lease_id: 1,
+                                statistics: Default::default(),
+                            };
+                            let actual = frame.readback(&cancel).unwrap();
+                            let error = actual
+                                .pixels()
+                                .iter()
+                                .zip(reference.encoded_pixels())
+                                .flat_map(|(a, b)| (0..4).map(move |i| (a[i] - b[i]).abs()))
+                                .fold(0f32, f32::max);
+                            assert!(
+                                error < 1e-5,
+                                "depth={depth} sub={subsampling:?} alpha={alpha} full={full_range} size={dimensions:?}: {error}"
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
