@@ -42,6 +42,8 @@ impl Font {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Motion {
     pub info: VideoInfo,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub canvas: Option<crate::canvas::Canvas>,
     pub graph: Graph,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scene: Option<crate::scene::Scene>,
@@ -69,6 +71,7 @@ impl Motion {
             socket: "content".into(),
         };
         Self {
+            canvas: None,
             info: VideoInfo {
                 width: 1280,
                 height: 720,
@@ -90,6 +93,9 @@ impl Motion {
     /// compilation separately requires registered implementations and inputs.
     pub fn validate(&self) -> Result<(), String> {
         self.info.validate()?;
+        if let Some(canvas) = self.canvas {
+            canvas.validate()?;
+        }
         if let Some(scene) = &self.scene {
             scene.validate(self)?;
         }
@@ -327,13 +333,16 @@ impl Motion {
             id,
             package_id: crate::PACKAGE.into(),
             type_id: MOTION.into(),
-            schema_version: if std::iter::once(&self.graph)
+            schema_version: if self.canvas.is_some() {
+                8
+            } else if std::iter::once(&self.graph)
                 .chain(self.groups.values().map(|g| &g.graph))
                 .any(|g| {
                     g.nodes
                         .iter()
                         .any(|n| n.kind == crate::nodes::composition::KIND)
-                }) {
+                })
+            {
                 7
             } else if std::iter::once(&self.graph)
                 .chain(self.groups.values().map(|g| &g.graph))
@@ -365,7 +374,7 @@ impl Motion {
     pub fn from_document(document: &Document) -> Result<Self, String> {
         if document.package_id != crate::PACKAGE
             || document.type_id != MOTION
-            || ![1, 2, 3, 4, 5, 6, 7].contains(&document.schema_version)
+            || ![1, 2, 3, 4, 5, 6, 7, 8].contains(&document.schema_version)
         {
             return Err("unsupported motion document envelope".into());
         }

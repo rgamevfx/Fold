@@ -36,6 +36,7 @@ pub fn insert(snapshot: &Snapshot, args: &[u8], cancel: &Cancel) -> Result<EditB
         )?
     } else {
         Sequence {
+            transitions: vec![],
             dimensions: [info.width, info.height],
             rate: info.rate,
             tracks: vec![],
@@ -45,6 +46,7 @@ pub fn insert(snapshot: &Snapshot, args: &[u8], cancel: &Cancel) -> Result<EditB
     };
     let track = Track::new(TrackKind::Video, "Motion / document");
     sequence.clips.push(Clip {
+        effects: vec![],
         id: ObjectId::new(),
         track: track.id,
         link: None,

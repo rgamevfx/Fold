@@ -1,6 +1,8 @@
 //! Timeline-owned source timing and embedded image-sequence documents.
 mod authoring;
 mod editing;
+mod transform;
+pub use transform::Transform;
 pub mod package;
 mod placement;
 mod sequence;
@@ -16,8 +18,10 @@ use fold_media::RgbImage;
 use fold_platform::VideoProvider;
 use fold_project::{Document, Revision};
 use fold_render::{ImageOp, RenderGraph};
+mod transitions;
 pub use sequence::{Clip, SEQUENCE, SEQUENCE_SCHEMA, Sequence, SourceMedia, Track, TrackKind};
 pub use sequence_video::SequenceProvider;
+pub use transitions::Transition;
 pub use video::{VIDEO_LAYERS, VideoLayers, VideoLayersProvider};
 
 pub const PACKAGE: &str = "fold.timeline";

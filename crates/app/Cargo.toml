@@ -68,3 +68,7 @@ exr = { version = "=1.74.2", default-features = false }
 
 [build-dependencies]
 sha2 = "0.10"
+
+[[example]]
+name = "effects_profile"
+required-features = ["gpu"]

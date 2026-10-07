@@ -18,7 +18,7 @@ pub fn definitions() -> Vec<Definition> {
         vec![
             Socket::required("content", Kind::Content),
             color("color", [0., 0., 0., 1.]),
-            scalar("width", 1., "px"),
+            scalar("width", 1., "units"),
         ],
         vec![("content", Kind::Content)],
         |e, n| {
@@ -78,10 +78,10 @@ pub fn definitions() -> Vec<Definition> {
             "Scene",
             vec![
                 Socket::required("content", Kind::Content),
-                vector("translation", [0., 0.], "px"),
+                vector("translation", [0., 0.], "units"),
                 scalar("rotation", 0., "degrees"),
                 vector("scale", [1., 1.], "factor"),
-                vector("pivot", [0., 0.], "px"),
+                vector("pivot", [0., 0.], "units"),
             ],
             vec![("content", Kind::Content)],
             |e, n| {

@@ -28,7 +28,7 @@ pub fn definitions() -> Vec<Definition> {
             "Distribution",
             vec![
                 scalar("count", 32., "integer"),
-                vector("spacing", [8., 0.], "px"),
+                vector("spacing", [8., 0.], "units"),
             ],
             vec![("points", Kind::Points)],
             |e, n| {
@@ -46,8 +46,8 @@ pub fn definitions() -> Vec<Definition> {
             "Distribution",
             vec![
                 scalar("count", 5., "integer"),
-                vector("start", [0., 0.], "px"),
-                vector("end", [400., 0.], "px"),
+                vector("start", [0., 0.], "units"),
+                vector("end", [400., 0.], "units"),
             ],
             vec![("points", Kind::Points)],
             |e, n| {
@@ -70,8 +70,8 @@ pub fn definitions() -> Vec<Definition> {
             vec![
                 scalar("columns", 4., "integer"),
                 scalar("rows", 4., "integer"),
-                vector("spacing", [100., 100.], "px"),
-                vector("origin", [0., 0.], "px"),
+                vector("spacing", [100., 100.], "units"),
+                vector("origin", [0., 0.], "units"),
             ],
             vec![("points", Kind::Points)],
             |e, n| {
@@ -104,8 +104,8 @@ pub fn definitions() -> Vec<Definition> {
             "Distribution",
             vec![
                 scalar("count", 12., "integer"),
-                vector("center", [0., 0.], "px"),
-                scalar("radius", 200., "px"),
+                vector("center", [0., 0.], "units"),
+                scalar("radius", 200., "units"),
                 scalar("start", 0., "degrees"),
                 scalar("sweep", 360., "degrees"),
                 boolean("orient", true),

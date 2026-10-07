@@ -18,6 +18,7 @@ fn setup() -> (Project, DocumentId, Sequence) {
     ];
     let link = ObjectId::new();
     let clip = |track: usize, start, duration, link| Clip {
+        effects: vec![],
         id: ObjectId::new(),
         track: tracks[track].id,
         link,
@@ -42,6 +43,7 @@ fn setup() -> (Project, DocumentId, Sequence) {
     ];
     clips[2].level = 0.5;
     let sequence = Sequence {
+        transitions: vec![],
         tracks,
         clips,
         dimensions: [2, 2],
@@ -238,6 +240,9 @@ fn track_visibility_solo_mute_opacity_and_audio_mix_lower_to_shared_plans() {
     let compile = |document: &fold_project::Document| {
         SequenceProvider.compile(fold_platform::VideoCompile {
             graph_context: None,
+            invocation: None,
+            context: None,
+            resolve_effect: &|_, _, _| Err("Effect invocation unavailable in this context".into()),
             resolve_graph: &|_, _, _| {
                 Err("Layer graph evaluation is unavailable in this context".into())
             },
@@ -429,4 +434,45 @@ fn roll_ripple_and_multi_selection_reject_invalid_ranges() {
         .unwrap();
     assert_eq!(moved.clips[0].start, t(1));
     assert_eq!(moved.clips[2].start, t(3));
+}
+
+#[test]
+fn clip_transform_is_spatial_preserves_links_and_round_trips_with_undo() {
+    let (mut project, id, sequence) = setup();
+    let clip = &sequence.clips[0];
+    let mut transform = Transform {
+        position: [120., -30.],
+        scale: [0.5, 0.75],
+        rotation: 30.,
+        ..Default::default()
+    };
+    transform.extensions.insert(
+        "vendor-control".into(),
+        serde_json::json!({"preserved":true}),
+    );
+    let edit = SequenceEdit::Transform {
+        id: clip.id,
+        transform: transform.clone(),
+    };
+    let before = project.snapshot();
+    project
+        .commit(edit_sequence(&before, id, &edit).unwrap())
+        .unwrap();
+    let changed = Sequence::from_document(&project.snapshot().state().documents[&id]).unwrap();
+    assert_eq!(changed.clips[0].transform().unwrap(), transform);
+    assert_eq!(changed.clips[0].link, clip.link);
+    assert_eq!(changed.clips[0].source_start, clip.source_start);
+    assert_eq!(changed.clips[1].transform().unwrap(), Transform::default());
+    project.undo().unwrap();
+    assert_eq!(
+        Sequence::from_document(&project.snapshot().state().documents[&id])
+            .unwrap()
+            .clips[0]
+            .transform()
+            .unwrap(),
+        Transform::default()
+    );
+    let mut locked = sequence;
+    locked.tracks[0].locked = true;
+    assert!(locked.edited(&edit).is_err());
 }

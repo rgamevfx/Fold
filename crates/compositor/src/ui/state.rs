@@ -19,6 +19,7 @@ pub struct State {
     pub editing: bool,
     /// Only the inspector may finish/cancel a property gesture.
     pub property_editing: bool,
+    pub shader_pending: Option<CommandRequest>,
     root: Option<std::sync::Arc<fold_project::Document>>,
     view: Option<DocumentId>,
 }
@@ -27,6 +28,17 @@ impl State {
         let Some(snapshot) = host.snapshot() else {
             return;
         };
+        if self
+            .shader_pending
+            .as_ref()
+            .is_some_and(|r| !host.extension_pending(r))
+            && snapshot.revision() == self.base
+        {
+            self.shader_pending = None;
+            self.property_editing = false;
+            host.command(DesktopCommand::CancelPreviewEdit);
+            self.error = format!("Shader draft was not published. {}", host.state().status);
+        }
         let view = host.state().navigation.last().map(|v| v.document);
         if self.view != view {
             if self.editing {
@@ -70,6 +82,10 @@ impl State {
         if self.document != desired || self.base != snapshot.revision() || replaced {
             if self.editing {
                 host.command(DesktopCommand::CancelPreviewEdit);
+            }
+            if self.shader_pending.is_some() {
+                self.shader_pending = None;
+                self.error.clear();
             }
             self.document = desired;
             self.root = root;
@@ -118,6 +134,9 @@ impl State {
         }
     }
     pub fn commit(&mut self, host: &mut dyn DesktopClient) {
+        if self.shader_pending.is_some() {
+            return;
+        }
         if self.graph == self.original {
             self.cancel(host);
             return;
@@ -129,8 +148,20 @@ impl State {
             .and_then(|g| g.validate())
             .and_then(|()| self.request());
         match result {
-            Ok(request) => {
-                host.command(DesktopCommand::Extension(request));
+            Ok(mut request) => {
+                let shader_changed = self.graph.as_ref().is_some_and(|graph| {
+                    crate::shader::requires_validation(self.original.as_ref(), graph)
+                });
+                if shader_changed {
+                    request.id = package::SHADER_EDIT.into();
+                }
+                host.command(DesktopCommand::Extension(request.clone()));
+                if shader_changed && host.extension_pending(&request) {
+                    self.shader_pending = Some(request);
+                    self.property_editing = false;
+                    self.error.clear();
+                    return;
+                }
                 if host.snapshot().is_some_and(|s| s.revision() == self.base) {
                     self.error = host.state().status.clone();
                     self.cancel(host);
@@ -148,6 +179,9 @@ impl State {
         }
     }
     pub fn cancel(&mut self, host: &mut dyn DesktopClient) {
+        if let Some(request) = self.shader_pending.take() {
+            host.command(DesktopCommand::CancelExtension(request));
+        }
         host.command(DesktopCommand::CancelPreviewEdit);
         self.graph = self.original.clone();
         self.selected.retain(|id| {

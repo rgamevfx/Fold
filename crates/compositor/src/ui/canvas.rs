@@ -48,7 +48,11 @@ impl Panel for Canvas {
         let state = std::rc::Rc::new(std::cell::RefCell::new(super::state::State::default()));
         Some(fold_ui::sdk::EditorPanels {
             editor: Box::new(Self::new(state.clone())),
-            inspector: Box::new(super::inspector::Inspector(state, Default::default())),
+            inspector: Box::new(super::inspector::Inspector(
+                state,
+                Default::default(),
+                Default::default(),
+            )),
         })
     }
     fn cancel_interaction(&mut self, host: &mut dyn fold_platform::desktop::DesktopClient) {
@@ -88,6 +92,51 @@ impl Panel for Canvas {
             ) {
                 state.cancel(host);
                 state.view(host);
+            }
+        }
+        ui.same_line();
+        if let Some(_menu) = fold_ui::sdk::toolbar::menu_button(
+            ui,
+            "Effects",
+            "Create an editable effect or transition definition",
+        ) {
+            for (label, preset) in [
+                ("Custom effect", crate::presets::Preset::CustomEffect),
+                ("Glow", crate::presets::Preset::Glow),
+                ("Film look", crate::presets::Preset::FilmLook),
+                ("Grain", crate::presets::Preset::Grain),
+                ("Dissolve", crate::presets::Preset::Dissolve),
+                ("Circular wipe", crate::presets::Preset::CircularWipe),
+            ] {
+                if ui.menu_item(label) {
+                    state.cancel(host);
+                    if let Some(snapshot) = host.snapshot() {
+                        let id = fold_foundation::DocumentId::new();
+                        host.command(fold_platform::desktop::DesktopCommand::Extension(
+                            fold_platform::packages::CommandRequest {
+                                id: "fold.compositor.create-effect".into(),
+                                base: snapshot.revision(),
+                                arguments: serde_json::to_vec(
+                                    &serde_json::json!({"id":id,"preset":preset}),
+                                )
+                                .unwrap(),
+                            },
+                        ));
+                        if host
+                            .snapshot()
+                            .is_some_and(|s| s.state().documents.contains_key(&id))
+                        {
+                            host.command(fold_platform::desktop::DesktopCommand::Navigate(
+                                fold_platform::desktop::ViewLocation {
+                                    document: id,
+                                    time: fold_foundation::Time::ZERO,
+                                    label: label.into(),
+                                },
+                            ));
+                            state.sync(host);
+                        }
+                    }
+                }
             }
         }
         if state.graph.is_none() {

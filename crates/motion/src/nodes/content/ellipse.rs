@@ -6,7 +6,10 @@ pub fn definition() -> Definition {
         "fold.motion.ellipse",
         "Ellipse",
         "Content",
-        vec![scalar("width", 100., "px"), scalar("height", 100., "px")],
+        vec![
+            scalar("width", 100., "units"),
+            scalar("height", 100., "units"),
+        ],
         vec![("content", Kind::Content)],
         |e, n| {
             let w = e.scalar(n, "width")?;

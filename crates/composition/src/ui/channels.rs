@@ -26,6 +26,10 @@ impl Channels {
                     node_label: l.name.clone(),
                     property: if path == "scene.opacity.0" {
                         "opacity"
+                    } else if path.starts_with("scene.scale.") {
+                        "scale"
+                    } else if path == "scene.rotation.0" {
+                        "rotation"
                     } else if path == "transform.4" || path == "transform.5" {
                         "position"
                     } else {
@@ -34,6 +38,10 @@ impl Channels {
                     .into(),
                     property_label: if path == "scene.opacity.0" {
                         "Opacity"
+                    } else if path.starts_with("scene.scale.") {
+                        "Scale"
+                    } else if path == "scene.rotation.0" {
+                        "Rotation"
                     } else if path == "transform.4" || path == "transform.5" {
                         "Position"
                     } else {
@@ -41,7 +49,9 @@ impl Channels {
                     }
                     .into(),
                     component: match path.as_str() {
-                        "scene.opacity.0" => "Value",
+                        "scene.opacity.0" | "scene.rotation.0" => "Value",
+                        "scene.scale.0" => "X",
+                        "scene.scale.1" => "Y",
                         "transform.0" => "XX",
                         "transform.1" => "YX",
                         "transform.2" => "XY",
@@ -157,6 +167,17 @@ impl Channels {
                     {
                         if channel.path == "scene.opacity.0" {
                             layer.opacity = value.clamp(0., 1.);
+                        } else if channel.path.starts_with("scene.scale.")
+                            || channel.path == "scene.rotation.0"
+                        {
+                            let (mut scale, mut rotation, shear) =
+                                crate::layer::components(layer.offset);
+                            match channel.path.as_str() {
+                                "scene.scale.0" => scale[0] = value,
+                                "scene.scale.1" => scale[1] = value,
+                                _ => rotation = value,
+                            }
+                            crate::layer::set_components(&mut layer.offset, scale, rotation, shear);
                         } else if let Some(index) = channel
                             .path
                             .strip_prefix("transform.")

@@ -18,6 +18,10 @@ pub struct Layer {
     /// This graph consumes its child layers (for example a MoGraph group).
     #[serde(default)]
     pub graph_children: bool,
+    #[serde(default)]
+    pub effects: Vec<fold_platform::effects::Instance>,
+    #[serde(default)]
+    pub adjustment: bool,
     pub info: VideoInfo,
     /// Parent time corresponding to source_start, independent of the trimmed range.
     pub origin: Time,
@@ -46,6 +50,8 @@ impl Layer {
             state: LayerState::new(name, info.time(info.frames)?),
             source,
             graph_children: false,
+            effects: vec![],
+            adjustment: false,
             info,
             origin: Time::ZERO,
             source_start: Time::ZERO,
@@ -127,6 +133,7 @@ impl Composition {
     }
     pub fn validate(&self) -> Result<(), String> {
         self.info.validate()?;
+        self.validate_reusable()?;
         if self.layers.len() > 4096 {
             return Err("Composition layer budget exceeded".into());
         }
@@ -134,6 +141,23 @@ impl Composition {
         let mut graph_objects = BTreeSet::new();
         for layer in &self.layers {
             layer.state.validate()?;
+            fold_platform::effects::validate_stack(&layer.effects)?;
+            if layer.adjustment
+                && (layer.source.is_some()
+                    || layer.graph_children
+                    || self.layers.iter().any(|l| l.parent == Some(layer.id)))
+            {
+                return Err("Adjustment layers cannot own sources or children".into());
+            }
+            if layer.adjustment
+                && (layer.offset != [1., 0., 0., 1., 0., 0.]
+                    || layer
+                        .animation
+                        .keys()
+                        .any(|key| key.starts_with("transform.")))
+            {
+                return Err("Adjustment layers use containing coordinates; apply transforms inside their effect graph".into());
+            }
             layer.info.validate()?;
             if layer.graph_children && layer.graph_object().is_none() {
                 return Err("Graph groups require an object graph".into());
@@ -184,6 +208,11 @@ impl Composition {
         let mut dependencies = vec![];
         let mut assets = BTreeSet::new();
         for layer in &self.layers {
+            for effect in &layer.effects {
+                if !dependencies.contains(&effect.definition) {
+                    dependencies.push(effect.definition.clone());
+                }
+            }
             match &layer.source {
                 Some(Source::Output(reference)) => {
                     if !dependencies.contains(reference) {
@@ -200,7 +229,17 @@ impl Composition {
             id,
             package_id: crate::PACKAGE.into(),
             type_id: crate::COMPOSITION.into(),
-            schema_version: 1,
+            schema_version: if self.extensions.contains_key(crate::reusable::KEY) {
+                3
+            } else if self
+                .layers
+                .iter()
+                .any(|l| l.adjustment || !l.effects.is_empty())
+            {
+                2
+            } else {
+                1
+            },
             revision: Revision::default(),
             dependencies,
             assets: assets.into_iter().collect(),
@@ -211,12 +250,15 @@ impl Composition {
     pub fn from_document(document: &Document) -> Result<Self, String> {
         if document.package_id != crate::PACKAGE
             || document.type_id != crate::COMPOSITION
-            || document.schema_version != 1
+            || ![1, 2, 3].contains(&document.schema_version)
         {
             return Err("Unsupported composition document".into());
         }
         let value: Self = serde_json::from_slice(&document.payload).map_err(|e| e.to_string())?;
         let canonical = value.document(document.id)?;
+        if document.schema_version < canonical.schema_version {
+            return Err("Composition features require their current schema version".into());
+        }
         if canonical.dependencies != document.dependencies || canonical.assets != document.assets {
             return Err("Composition dependencies do not match its layers".into());
         }

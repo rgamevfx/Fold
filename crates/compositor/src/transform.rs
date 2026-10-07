@@ -62,3 +62,79 @@ impl Transform {
         Ok(m)
     }
 }
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SizeReference {
+    #[default]
+    Placement,
+    Width,
+    Height,
+    ShorterSide,
+}
+/// Image placement relative to the full destination, never preview dimensions.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct RelativeTransform {
+    pub source_size: [f64; 2],
+    pub anchor: [f64; 2],
+    /// Percent of destination width/height, measured from the aligned anchor.
+    pub position: [f64; 2],
+    #[serde(default)]
+    pub size_reference: SizeReference,
+    /// Uniform percentage of the selected reference size.
+    pub size: f64,
+    pub fit: fold_platform::format::Fit,
+    pub filter: Filter,
+}
+impl Default for RelativeTransform {
+    fn default() -> Self {
+        Self {
+            source_size: [1920., 1080.],
+            anchor: [0.5; 2],
+            position: [0.; 2],
+            size: 100.,
+            size_reference: SizeReference::Placement,
+            fit: Default::default(),
+            filter: Default::default(),
+        }
+    }
+}
+impl RelativeTransform {
+    pub fn matrix(
+        &self,
+        format: fold_platform::format::Format,
+        raster: [u32; 2],
+    ) -> Result<Affine, String> {
+        format.validate()?;
+        let destination = format.display_size();
+        let (fit, scale) = match self.size_reference {
+            SizeReference::Placement => (self.fit, 1.),
+            SizeReference::Width => (
+                fold_platform::format::Fit::Native,
+                destination[0] / self.source_size[0],
+            ),
+            SizeReference::Height => (
+                fold_platform::format::Fit::Native,
+                destination[1] / self.source_size[1],
+            ),
+            SizeReference::ShorterSide => (
+                fold_platform::format::Fit::Native,
+                destination[0].min(destination[1]) / self.source_size[0].min(self.source_size[1]),
+            ),
+        };
+        let mut m = fold_platform::format::placement(
+            self.source_size,
+            destination,
+            fit,
+            self.anchor,
+            self.position.map(|v| v / 100.),
+            self.size / 100. * scale,
+        )?;
+        // Image inputs occupy the common raster. Reinterpret their sample grid
+        // in the declared source frame, then place into destination pixels.
+        m.a *= self.source_size[0] / f64::from(raster[0]);
+        m.b *= self.source_size[0] / f64::from(raster[0]);
+        m.c *= self.source_size[1] / f64::from(raster[1]);
+        m.d *= self.source_size[1] / f64::from(raster[1]);
+        fold_platform::format::rasterize(m, destination, raster)
+    }
+}

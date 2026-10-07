@@ -17,7 +17,7 @@ pub fn definition_text() -> Definition {
         "Content",
         vec![
             Socket::value("text", Datum::Text("Fold".into()), ""),
-            scalar("size", 72., "px"),
+            scalar("size", 72., "units"),
             scalar("line_spacing", 1.2, "factor"),
             scalar("alignment", 0., "0 left, 0.5 center, 1 right"),
         ],

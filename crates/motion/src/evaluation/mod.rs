@@ -47,6 +47,9 @@ pub fn content(value: Content) -> Outputs {
 pub struct Evaluator<'a> {
     pub motion: &'a Motion,
     pub time: Time,
+    /// Explicit invocation range in this evaluator clock, inherited by groups.
+    pub output_format: Option<fold_platform::format::Format>,
+    pub instance_timing: Option<fold_animation::timing::Range>,
     pub(crate) scene_output: Option<ObjectId>,
     pub(crate) layer_times: Arc<BTreeMap<ObjectId, Time>>,
     graph: &'a Graph,
@@ -75,6 +78,8 @@ impl<'a> Evaluator<'a> {
         Ok(Self {
             motion,
             time,
+            instance_timing: None,
+            output_format: None,
             scene_output: None,
             layer_times: Default::default(),
             graph,
@@ -90,6 +95,44 @@ impl<'a> Evaluator<'a> {
             cache: BTreeMap::new(),
             active: BTreeSet::new(),
         })
+    }
+    pub fn canvas_size(&self) -> Result<[f64; 2], String> {
+        match self.motion.canvas {
+            Some(canvas) => {
+                canvas.bounds(self.output_format.unwrap_or(self.motion.output_format()))
+            }
+            None => Ok(self.motion.canvas_size()),
+        }
+    }
+    pub fn timing_range(&self) -> Result<fold_animation::timing::Range, String> {
+        if let Some(range) = self.instance_timing {
+            range.validate()?;
+            return Ok(range);
+        }
+        let object = self.current_object.or(self.scene_output).and_then(|id| {
+            self.motion
+                .scene
+                .as_ref()?
+                .objects
+                .iter()
+                .find(|o| o.id == id)
+        });
+        let range = if let Some(object) = object {
+            fold_animation::timing::Range {
+                start: object.start,
+                duration: object
+                    .end
+                    .checked_sub(object.start)
+                    .map_err(|e| e.to_string())?,
+            }
+        } else {
+            fold_animation::timing::Range {
+                start: Time::ZERO,
+                duration: self.motion.info.time(self.motion.info.frames)?,
+            }
+        };
+        range.validate()?;
+        Ok(range)
     }
     fn object_time(&self, id: ObjectId) -> Result<Time, String> {
         let current = self
@@ -116,6 +159,8 @@ impl<'a> Evaluator<'a> {
             .ok_or("missing referenced scene object")?;
         let mut nested = Self::for_graph(self.motion, &self.motion.graph, self.object_time(id)?)?;
         nested.layer_times = self.layer_times.clone();
+        nested.instance_timing = self.instance_timing;
+        nested.output_format = self.output_format;
         nested.object_path = self.object_path.clone();
         nested.object_path.insert(id);
         nested.current_object = Some(id);
@@ -335,23 +380,29 @@ pub(crate) fn compile_evaluator_images(
 ) -> Result<RenderGraph, String> {
     cancel.check()?;
     let motion = evaluator.motion;
-    motion.info.frame_at(evaluator.time)?;
-    if width == 0 || height == 0 || u64::from(width) * u64::from(height) > 4_194_304 {
+    if evaluator.instance_timing.is_none() {
+        motion.info.frame_at(evaluator.time)?;
+    }
+    if width == 0
+        || height == 0
+        || u64::from(width) * u64::from(height) > fold_media::MAX_PIXELS as u64
+    {
         return Err("invalid motion output resolution".into());
     }
     evaluator.budget = Budget::cancellable(cancel);
+    let matrix = motion.canvas_matrix(
+        evaluator.output_format.unwrap_or(motion.output_format()),
+        [width, height],
+    )?;
     let value = evaluator.scene()?;
     let Value::Content(content) = value else {
         return Err("motion output must be scene content".into());
     };
-    crate::geometry::render::compile_images(
+    crate::geometry::render::compile_images_mapped(
         &content,
         width,
         height,
-        [
-            width as f64 / motion.info.width as f64,
-            height as f64 / motion.info.height as f64,
-        ],
+        [matrix.a, matrix.b, matrix.c, matrix.d, matrix.tx, matrix.ty],
         cancel,
         resolve,
     )

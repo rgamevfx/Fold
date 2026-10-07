@@ -66,7 +66,7 @@ pub fn definitions() -> Vec<Definition> {
         definition_response(
             "fold.motion.set_position",
             "Set Position",
-            vector("value", [0., 0.], "px"),
+            vector("value", [0., 0.], "units"),
             |e, n| apply(e, n, position),
         ),
         definition_response(

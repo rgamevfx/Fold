@@ -442,6 +442,7 @@ fn wave_stream_metadata_and_timeline_relink_are_verified() {
     };
     let track = Track::new(TrackKind::Audio, "Audio");
     let clip = Clip {
+        effects: vec![],
         id: ObjectId::new(),
         track: track.id,
         link: None,
@@ -454,6 +455,7 @@ fn wave_stream_metadata_and_timeline_relink_are_verified() {
         extensions: Metadata::new(),
     };
     let document = Sequence {
+        transitions: vec![],
         dimensions: [16, 16],
         rate: [24, 1],
         tracks: vec![track],

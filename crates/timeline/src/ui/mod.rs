@@ -16,7 +16,7 @@ use fold_platform::{
     packages::CommandRequest,
 };
 use fold_project::{Revision, Snapshot};
-use fold_ui::sdk::{ExtensionUi, Panel, PanelRegistry, imgui::Ui, toolbar::ToolbarIcon};
+use fold_ui::sdk::{ExtensionUi, Panel, PanelRegistry, toolbar::ToolbarIcon};
 use std::collections::BTreeMap;
 
 pub fn register(registry: &mut PanelRegistry) -> Result<(), String> {
@@ -77,6 +77,11 @@ struct TimelinePanel {
     )>,
 }
 impl Panel for TimelinePanel {
+    fn cancel_interaction(&mut self, host: &mut dyn DesktopClient) {
+        if self.canvas.transition_drag.take().is_some() {
+            host.command(DesktopCommand::CancelPreviewEdit);
+        }
+    }
     fn external_drag(&mut self, position: Option<[f32; 2]>) {
         self.canvas.external_pointer = position;
     }
@@ -166,6 +171,9 @@ impl Panel for TimelinePanel {
         for clip in &sequence.clips {
             let track = sequence.track(clip.track).unwrap();
             let (name, icon, kind) = match &clip.info {
+                crate::SourceMedia::Adjustment => {
+                    ("Adjustment".into(), ToolbarIcon::Composition, "Adjustment")
+                }
                 crate::SourceMedia::Document { source, .. } => {
                     let kind = snapshot
                         .state()
@@ -330,6 +338,9 @@ impl Panel for TimelinePanel {
                     )),
                     Err(error) => host.command(DesktopCommand::Notify(error)),
                 },
+                Action::AddTransition(outgoing) => {
+                    transitions::add(host, *document, sequence, outgoing, *revision)
+                }
                 Action::Open(id) => {
                     if let Some(clip) = sequence.clips.iter().find(|c| c.id == id)
                         && let crate::SourceMedia::Document { source, .. } = &clip.info
@@ -361,6 +372,12 @@ impl Panel for TimelinePanel {
                 })),
                 Action::Seek(frame) => host.command(DesktopCommand::Seek(frame)),
                 Action::Pause => host.command(DesktopCommand::Pause),
+                Action::Preview { base, edit } => {
+                    if let Ok(request) = request(base, *document, edit) {
+                        host.command(DesktopCommand::PreviewExtension(request));
+                    }
+                }
+                Action::CancelPreview => host.command(DesktopCommand::CancelPreviewEdit),
                 Action::Commit { base, edit } => submit(host, base, *document, edit),
             }
         }
@@ -373,6 +390,5 @@ fn selected_clip(sequence: &Sequence, selection: &Selection) -> Option<ObjectId>
         .find(|id| sequence.clips.iter().any(|c| c.id == **id))
         .copied()
 }
-fn frame_input(ui: &Ui, label: &str, value: &mut i32) {
-    ui.input_int(label, value);
-}
+
+mod transitions;

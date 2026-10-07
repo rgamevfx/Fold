@@ -100,7 +100,7 @@ pub fn create(m: &mut Motion) -> Result<ObjectId, String> {
         "Bounds",
         Kind::Vector,
         Some(Datum::Vector([360., 640.])),
-        "px",
+        "units",
     )?;
     let speed = port(
         &mut build,
@@ -399,7 +399,7 @@ pub fn from_object(m: &mut Motion, source: ObjectId) -> Result<ObjectId, String>
     if let Ok(id) = serde_json::from_value::<ObjectId>(obsolete) {
         candidate.groups.remove(&id);
     }
-    let bounds = [candidate.info.width as f64, candidate.info.height as f64];
+    let bounds = [candidate.canvas_size()[0], candidate.canvas_size()[1]];
     node(&mut candidate, owner)?.set("bounds", Datum::Vector(bounds));
     a::scene::assets::set_reference(&mut candidate, owner, "source", source, true)?;
     for object in &mut candidate.scene.as_mut().unwrap().objects {

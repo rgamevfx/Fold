@@ -61,6 +61,10 @@ impl Affine {
 /// declared scene-linear working space (legacy linear-sRGB or explicit ACEScg).
 #[derive(Clone, Debug)]
 pub enum ImageOp {
+    Shader {
+        inputs: Vec<ImageId>,
+        program: std::sync::Arc<crate::shader::Program>,
+    },
     Baked(std::sync::Arc<crate::baked::Texture>),
     BakedTextured {
         batch: std::sync::Arc<crate::baked::Batch>,
@@ -197,6 +201,7 @@ impl ImageOp {
     }
     pub(crate) fn inputs(&self) -> impl Iterator<Item = ImageId> {
         let inputs = match *self {
+            Self::Shader { .. } => [None, None, None],
             Self::Shuffle { first, second, .. } => [Some(first), second, None],
             Self::Mix {
                 original,
@@ -230,7 +235,14 @@ impl ImageOp {
                 background,
             } => [Some(foreground), Some(background), None],
         };
-        inputs.into_iter().flatten()
+        let shader_inputs = match self {
+            Self::Shader { inputs, .. } => inputs.as_slice(),
+            _ => &[],
+        };
+        inputs
+            .into_iter()
+            .flatten()
+            .chain(shader_inputs.iter().copied())
     }
 }
 
@@ -260,6 +272,11 @@ impl RenderGraph {
                 return Err("invalid nested graph ordering".into());
             }
             match op {
+                ImageOp::Shader { inputs, .. } => {
+                    for input in inputs {
+                        *input += offset;
+                    }
+                }
                 ImageOp::BakedTextured { driver, .. } => {
                     if let Some(id) = driver {
                         *id += offset;
@@ -356,6 +373,15 @@ pub(crate) fn validate(graph: &RenderGraph, aces: bool) -> Result<usize, String>
             return Err("image inputs must precede their consumer".into());
         }
         match *op {
+            ImageOp::Shader {
+                ref inputs,
+                ref program,
+            } => {
+                program.validate()?;
+                if inputs.len() != program.images.len() {
+                    return Err("Shader image binding count mismatch".into());
+                }
+            }
             ImageOp::WindowedSource {
                 ref source,
                 dimensions,
@@ -657,6 +683,11 @@ pub(crate) fn evaluate(
                 if let Some(space) = space {
                     processors[space].apply(&mut pixels)?;
                 }
+            }
+            ImageOp::Shader { .. } => {
+                return Err(
+                    "This output requires GPU shader execution; select the GPU backend".into(),
+                );
             }
             ImageOp::Shuffle {
                 first,

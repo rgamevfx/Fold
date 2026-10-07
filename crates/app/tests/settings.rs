@@ -207,6 +207,7 @@ fn timeline_output_range_keeps_clips_and_exact_times() {
         fold_timeline::Sequence::from_document(&project.snapshot().state().documents[&id]).unwrap();
     let info = registry.output(&project.snapshot(), child).unwrap();
     sequence.clips.push(fold_timeline::Clip {
+        effects: vec![],
         id: Default::default(),
         track: sequence.tracks[0].id,
         link: None,
@@ -320,6 +321,7 @@ fn shorter_timeline_output_clips_audio_plan_without_trimming_authored_clips() {
     let mut sequence =
         fold_timeline::Sequence::from_document(&project.snapshot().state().documents[&id]).unwrap();
     let clip = fold_timeline::Clip {
+        effects: vec![],
         id: Default::default(),
         track: sequence.tracks[1].id,
         link: None,

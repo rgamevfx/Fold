@@ -257,7 +257,7 @@ pub fn badge(m: &mut Motion) -> Result<ObjectId, String> {
         .unwrap();
     object.name = "Badge".into();
     let transform = object.transform.unwrap();
-    let center = [m.info.width as f64 * 0.5, m.info.height as f64 * 0.5];
+    let center = [m.canvas_size()[0] * 0.5, m.canvas_size()[1] * 0.5];
     node(m, transform)?.set("translation", Datum::Vector(center));
     Ok(group)
 }
@@ -306,7 +306,7 @@ pub fn oscillate(m: &mut Motion, object: ObjectId) -> Result<ObjectId, String> {
             Some(Datum::Scalar(value)),
         )?;
         inputs.last_mut().unwrap().unit = match key {
-            "amplitude" => "px",
+            "amplitude" => "units",
             "frequency" => "Hz",
             _ => "factor",
         }

@@ -15,6 +15,9 @@ pub const KIND: &str = "fold.motion.composition";
 pub struct Settings {
     pub source: Option<fold_project::DocumentRef>,
     pub info: fold_media::VideoInfo,
+    /// Retained logical size; source raster resolution is independent.
+    #[serde(default)]
+    pub size: Option<[f64; 2]>,
     /// Parent time corresponding to source_start; trimming does not move this origin.
     pub start: Time,
     pub source_start: Time,
@@ -40,7 +43,7 @@ impl Settings {
 pub fn definition_composition() -> Definition {
     let mut d = definition(
         KIND,
-        "Composition",
+        "Image Reference",
         "Image",
         vec![],
         vec![("content", Kind::Content)],
@@ -52,10 +55,10 @@ pub fn definition_composition() -> Definition {
             let image = super::image::ImageGeometry {
                 texture: super::image::Texture::Source(request),
                 driver: None,
-                draw: fold_render::textured::Draw::new(super::image::quad([
-                    s.info.width as f64,
-                    s.info.height as f64,
-                ])),
+                draw: fold_render::textured::Draw::new(super::image::quad(
+                    s.size
+                        .unwrap_or([s.info.width as f64, s.info.height as f64]),
+                )),
             };
             Ok(content(Arc::new(vec![Element::new(
                 n.seed(),
@@ -66,6 +69,7 @@ pub fn definition_composition() -> Definition {
     d.defaults = || {
         serde_json::to_value(Settings {
             source: None,
+            size: None,
             info: fold_media::VideoInfo {
                 width: 1920,
                 height: 1080,
@@ -80,6 +84,11 @@ pub fn definition_composition() -> Definition {
     d.validate = |n| {
         let s = n.settings::<Settings>()?;
         s.info.validate()?;
+        if s.size
+            .is_some_and(|v| v.iter().any(|x| !x.is_finite() || *x <= 0.))
+        {
+            return Err("Reference size must be positive finite scene units".into());
+        }
         if s.source.as_ref().is_some_and(|r| r.output != "video") || s.source_start < Time::ZERO {
             return Err(
                 "Composition requires a video output and nonnegative source in time".into(),
@@ -87,7 +96,7 @@ pub fn definition_composition() -> Definition {
         }
         Ok(())
     };
-    d.atomic_settings = &["source", "info", "start", "source_start"];
+    d.atomic_settings = &["source", "info", "size", "start", "source_start"];
     d.description = "Editable nested composition. Source is a document video output. Exact local time is parent time minus start plus source_start; outside the source duration is transparent. Layer trims preserve the source origin; moving the whole layer moves it.";
     d
 }
@@ -120,6 +129,10 @@ pub(crate) fn refresh_metadata(
             None => &mut motion.graph,
         };
         let node = graph.nodes.iter_mut().find(|n| n.id == id).unwrap();
+        let old = node.settings::<Settings>()?;
+        if old.size.is_none() {
+            node.settings["size"] = serde_json::json!([old.info.width, old.info.height]);
+        }
         node.settings["info"] = serde_json::to_value(info).map_err(|e| e.to_string())?;
     }
     Ok(())

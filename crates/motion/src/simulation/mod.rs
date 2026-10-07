@@ -12,6 +12,8 @@ use std::{
 #[derive(Clone, PartialEq, Eq)]
 pub(crate) struct Key {
     pub identity: Arc<Vec<u8>>,
+    pub timing: Option<fold_animation::timing::Range>,
+    pub format: Option<fold_platform::format::Format>,
     pub scope: Vec<ObjectId>,
     pub object: Option<ObjectId>,
     pub node: ObjectId,

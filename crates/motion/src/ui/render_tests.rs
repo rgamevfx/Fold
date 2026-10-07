@@ -1,5 +1,6 @@
 //! Native-backend captures of the actual Motion controls, not a UI mockup.
 use super::*;
+use fold_platform::desktop::DesktopClient;
 use fold_ui::sdk::render_backend::{FramebufferExtent, WgpuInitInfo, WgpuRenderer, wgpu};
 use fold_ui::sdk::{ExtensionUi, Panel, imgui, typography::Typography};
 #[test]
@@ -88,6 +89,10 @@ fn motion_tools_and_inspector_render_normal_and_narrow() {
         ("wave-driver", 850., 400.),
         ("group-interface", 850., 400.),
         ("count-menu", 850., 400.),
+        ("timing-normal", 850., 400.),
+        ("timing-narrow", 390., 280.),
+        ("canvas-normal", 850., 400.),
+        ("canvas-narrow", 390., 280.),
         ("oscillator-normal", 850., 400.),
         ("oscillator-narrow", 390., 280.),
         ("oscillator-custom", 850., 400.),
@@ -316,6 +321,26 @@ fn motion_tools_and_inspector_render_normal_and_narrow() {
             let owner = state.inspector_return.unwrap().1;
             state.selected = vec![owner];
         }
+        if name == "timing-normal" {
+            let mut state = inspector.state.borrow_mut();
+            state.create(&mut host);
+            state.change_scene(&mut host, |m| {
+                crate::authoring::add_node(m, "fold.motion.timing").map(Some)
+            });
+            state.document_network = true;
+        }
+        if name == "canvas-normal" {
+            let mut state = inspector.state.borrow_mut();
+            state.create(&mut host);
+            state.selected = vec![state.motion.as_ref().unwrap().graph.output.node];
+            state.document_network = true;
+            host.command(fold_platform::desktop::DesktopCommand::Select(
+                fold_platform::desktop::Selection {
+                    document: state.document,
+                    objects: state.selected.clone(),
+                },
+            ));
+        }
         if name == "oscillator-normal" {
             let mut state = inspector.state.borrow_mut();
             state.create(&mut host);
@@ -326,6 +351,11 @@ fn motion_tools_and_inspector_render_normal_and_narrow() {
                     crate::authoring::scene::assets::attach_oscillator(m, copies, "offset_y")?;
                 Ok(Some(driver))
             });
+            assert!(state.error.is_empty(), "{}", state.error);
+            assert!(
+                !state.selected.is_empty(),
+                "Oscillator fixture lost selection"
+            );
         }
         if name == "oscillator-custom" {
             let mut state = inspector.state.borrow_mut();

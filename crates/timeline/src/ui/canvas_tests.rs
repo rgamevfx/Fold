@@ -38,6 +38,7 @@ impl Harness {
         let asset = AssetId::new();
         let link = Some(ObjectId::new());
         let make = |index: usize, start, duration, link| Clip {
+            effects: vec![],
             id: ObjectId::new(),
             track: tracks[index].id,
             link,
@@ -60,6 +61,7 @@ impl Harness {
             make(1, 6, 2, None),
         ];
         let sequence = Sequence {
+            transitions: vec![],
             tracks,
             clips,
             dimensions: [2, 2],
@@ -157,8 +159,8 @@ impl Harness {
                 }
                 Action::Select(ids) => self.selected = ids,
                 Action::Seek(frame) => self.playhead = frame,
-                Action::Pause => {}
-                Action::Open(_) => {}
+                Action::Pause | Action::Preview { .. } | Action::CancelPreview => {}
+                Action::Open(_) | Action::AddTransition(_) => {}
                 Action::Place { .. } => panic!("unexpected Project placement in clip gesture test"),
             }
         }
@@ -304,6 +306,7 @@ fn snapping_uses_exact_clip_edges_and_excludes_the_moving_selection() {
 fn native_drop_uses_scrolled_scaled_lanes_and_fractional_frame_time() {
     let track = Track::new(TrackKind::Video, "V1");
     let sequence = Sequence {
+        transitions: vec![],
         dimensions: [64, 36],
         rate: [30000, 1001],
         tracks: vec![track.clone()],
@@ -333,4 +336,91 @@ fn native_drop_uses_scrolled_scaled_lanes_and_fractional_frame_time() {
             .native_placement(target, &sequence, [layout.area.min[0], position[1]], 0)
             .is_none()
     );
+}
+
+#[test]
+fn transition_strip_selects_its_own_id_and_drags_one_undo_step() {
+    let mut h = Harness::new();
+    let mut sequence = h.sequence();
+    sequence.clips.truncate(1);
+    sequence.clips[0].link = None;
+    sequence.clips[0].source_start = t(1);
+    let mut incoming = sequence.clips[0].clone();
+    incoming.id = ObjectId::new();
+    incoming.start = t(2);
+    let transition = crate::Transition {
+        id: ObjectId::new(),
+        outgoing: sequence.clips[0].id,
+        incoming: incoming.id,
+        start: Time::new(3, 2).unwrap(),
+        duration: t(1),
+        effect: fold_platform::effects::Instance {
+            id: ObjectId::new(),
+            definition: fold_project::DocumentRef {
+                document: DocumentId::new(),
+                output: "video".into(),
+                extensions: Default::default(),
+            },
+            version: 1,
+            enabled: true,
+            values: Default::default(),
+            animation: Default::default(),
+            extensions: Default::default(),
+        },
+    };
+    let id = transition.id;
+    let definition_id = transition.effect.definition.document;
+    let mut definition = sequence.clone();
+    definition.clips.clear();
+    definition.transitions.clear();
+    sequence.clips.push(incoming);
+    sequence.transitions = vec![transition];
+    h.project
+        .commit(EditBatch {
+            base: h.project.snapshot().revision(),
+            mutations: vec![
+                Mutation::PutDocument(definition.document(definition_id).unwrap()),
+                Mutation::PutDocument(sequence.document(h.document).unwrap()),
+            ],
+        })
+        .unwrap();
+    h.tick([0., 0.], None);
+    h.tick([0., 0.], None);
+    let row = h.layout.unwrap().row_rect(1, h.canvas.view.scroll_y);
+    let point = [h.point(48., 1)[0], row.max[1] - 10.];
+    h.tick(point, Some(true));
+    assert_eq!(h.selected, vec![id]);
+    assert!(h.canvas.transition_drag.is_some());
+    assert!(h.canvas.drag.is_none());
+    h.tick([point[0] + 18., point[1]], None);
+    assert_eq!(h.commits, 0);
+    h.tick([point[0] + 18., point[1]], Some(false));
+    assert_eq!(h.commits, 1);
+    assert_eq!(h.sequence().transitions[0].start, Time::new(7, 4).unwrap());
+    assert_eq!(h.sequence().clips[0].start, Time::ZERO);
+    h.project.undo().unwrap();
+    assert_eq!(h.sequence().transitions[0].start, Time::new(3, 2).unwrap());
+    let drag = interaction::TransitionDrag {
+        base: h.project.snapshot().revision(),
+        original: h.sequence(),
+        id,
+        handle: Handle::Left,
+        grab_frame: 36.,
+    };
+    let edit = drag.proposal(-10000.).unwrap();
+    let clamped = h.sequence().edited(&edit).unwrap();
+    assert_eq!(clamped.transitions[0].start, t(1)); // incoming source handle
+    assert_eq!(
+        clamped.transitions[0].end().unwrap(),
+        Time::new(5, 2).unwrap()
+    );
+    let drag = interaction::TransitionDrag {
+        handle: Handle::Right,
+        ..drag
+    };
+    let extended = h
+        .sequence()
+        .edited(&drag.proposal(10000.).unwrap())
+        .unwrap();
+    assert_eq!(extended.transitions[0].end().unwrap(), t(4));
 }

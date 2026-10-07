@@ -9,7 +9,7 @@ pub type Metadata = BTreeMap<String, serde_json::Value>;
 #[serde(transparent)]
 pub struct Revision(pub u64);
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct DocumentRef {
     pub document: DocumentId,
     pub output: String,

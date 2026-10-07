@@ -155,6 +155,7 @@ fn nested_timing_alpha_cache_persistence_and_atomic_cross_document_undo() {
     let sequence_id = DocumentId::new();
     let track = Track::new(TrackKind::Video, "Video");
     let clip = Clip {
+        effects: vec![],
         id: ObjectId::new(),
         track: track.id,
         link: None,
@@ -170,6 +171,7 @@ fn nested_timing_alpha_cache_persistence_and_atomic_cross_document_undo() {
         extensions: Default::default(),
     };
     let sequence = Sequence {
+        transitions: vec![],
         dimensions: [16, 16],
         rate: [24, 1],
         tracks: vec![track],
@@ -318,6 +320,7 @@ fn legacy_schema_is_readable_and_composition_rejects_locked_audio_without_mutati
     audio.locked = true;
     let asset = fold_foundation::AssetId::new();
     let clip = Clip {
+        effects: vec![],
         id: ObjectId::new(),
         track: video.id,
         link: Some(ObjectId::new()),
@@ -333,6 +336,7 @@ fn legacy_schema_is_readable_and_composition_rejects_locked_audio_without_mutati
     audio_clip.id = ObjectId::new();
     audio_clip.track = audio.id;
     let sequence = Sequence {
+        transitions: vec![],
         dimensions: [16, 16],
         rate: [24, 1],
         tracks: vec![video, audio],

@@ -4,6 +4,8 @@ pub mod application;
 pub mod browser;
 pub mod color;
 pub mod desktop;
+pub mod effects;
+pub mod format;
 pub mod layer_graph;
 pub mod packages;
 pub mod panel_context;
@@ -43,6 +45,9 @@ pub struct VideoCompile<'a> {
     pub cancel: &'a Cancel,
     pub resolve: &'a VideoResolver<'a>,
     pub graph_context: Option<&'a layer_graph::EvaluationContext>,
+    pub invocation: Option<&'a effects::Invocation<'a>>,
+    pub context: Option<effects::Context>,
+    pub resolve_effect: &'a effects::Resolver<'a>,
     pub resolve_graph: &'a layer_graph::Resolver<'a>,
     pub resolve_image: &'a ImageResolver<'a>,
     /// Structural discovery for inactive sources; must not evaluate media.
@@ -78,6 +83,9 @@ pub trait VideoProvider: Send + Sync {
     /// Reference-local controls must be explicitly supported, never silently ignored.
     fn supports_graph_context(&self, _kind: &str) -> bool {
         false
+    }
+    fn effect_interface(&self, _document: &Document) -> Result<effects::Interface, String> {
+        Err("Provider does not expose a reusable image interface".into())
     }
     fn supports_controls(&self) -> bool {
         false
@@ -159,8 +167,18 @@ impl VideoRegistry {
         dimensions: [u32; 2],
         cancel: &Cancel,
     ) -> Result<RenderGraph, String> {
-        self.compile_nested(snapshot, source, time, dimensions, cancel, &[], None)?
-            .select(None)
+        self.compile_nested(
+            snapshot,
+            source,
+            time,
+            dimensions,
+            cancel,
+            &[],
+            None,
+            None,
+            None,
+        )?
+        .select(None)
     }
 
     pub fn channels(
@@ -224,8 +242,25 @@ impl VideoRegistry {
         cancel: &Cancel,
         selection: &fold_render::view::Selection,
     ) -> Result<RenderGraph, String> {
-        self.compile_nested(snapshot, source, time, dimensions, cancel, &[], None)?
-            .select(Some(selection))
+        self.compile_nested(
+            snapshot,
+            source,
+            time,
+            dimensions,
+            cancel,
+            &[],
+            None,
+            None,
+            None,
+        )?
+        .select(Some(selection))
+    }
+    pub fn effect_interface(&self, document: &Document) -> Result<effects::Interface, String> {
+        self.providers
+            .iter()
+            .find(|p| p.package_id() == document.package_id && p.type_id() == document.type_id)
+            .ok_or("Missing effect provider")?
+            .effect_interface(document)
     }
     fn compile_nested(
         &self,
@@ -236,6 +271,8 @@ impl VideoRegistry {
         cancel: &Cancel,
         ancestors: &[fold_foundation::DocumentId],
         graph_context: Option<&layer_graph::EvaluationContext>,
+        invocation: Option<&effects::Invocation<'_>>,
+        inherited: Option<effects::Context>,
     ) -> Result<ChannelGraph, String> {
         cancel.check()?;
         if ancestors.contains(&source.document) || ancestors.len() >= 64 {
@@ -269,6 +306,12 @@ impl VideoRegistry {
         if source.extensions.contains_key("fold.controls") && !provider.supports_controls() {
             return Err("referenced provider does not support control overrides".into());
         }
+        let context = invocation.map(effects::Invocation::context).or(inherited);
+        let child_context = |local_time: Time| {
+            context
+                .map(|c| c.at_child_time(time, local_time))
+                .transpose()
+        };
         let mut path = ancestors.to_vec();
         path.push(source.document);
         let resolve_image = |nested: &DocumentRef, local_time: Time| {
@@ -280,7 +323,15 @@ impl VideoRegistry {
                 ));
             }
             self.compile_nested(
-                snapshot, nested, local_time, dimensions, cancel, &path, None,
+                snapshot,
+                nested,
+                local_time,
+                dimensions,
+                cancel,
+                &path,
+                None,
+                None,
+                child_context(local_time)?,
             )
         };
         let resolve_graph =
@@ -297,6 +348,27 @@ impl VideoRegistry {
                     cancel,
                     &path,
                     Some(context),
+                    None,
+                    child_context(local_time)?,
+                )?
+                .select(None)
+            };
+        let resolve_effect =
+            |nested: &DocumentRef, local_time: Time, invocation: &effects::Invocation<'_>| {
+                cancel.check()?;
+                if !document.dependencies.contains(nested) {
+                    return Err("Undeclared effect definition dependency".into());
+                }
+                self.compile_nested(
+                    snapshot,
+                    nested,
+                    local_time,
+                    dimensions,
+                    cancel,
+                    &path,
+                    None,
+                    Some(invocation),
+                    None,
                 )?
                 .select(None)
             };
@@ -330,6 +402,9 @@ impl VideoRegistry {
         if graph_context.is_some_and(|c| !provider.supports_graph_context(c.kind)) {
             return Err("Graph provider does not support the supplied layer context".into());
         }
+        if let Some(invocation) = invocation {
+            invocation.validate(&provider.effect_interface(document)?)?;
+        }
         let request = VideoCompile {
             snapshot,
             document,
@@ -339,6 +414,9 @@ impl VideoRegistry {
             cancel,
             resolve: &resolve,
             graph_context,
+            invocation,
+            context,
+            resolve_effect: &resolve_effect,
             resolve_graph: &resolve_graph,
             resolve_image: &resolve_image,
             describe_channels: &describe_channels,

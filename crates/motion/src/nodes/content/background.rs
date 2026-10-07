@@ -12,8 +12,8 @@ pub fn definition_background() -> Definition {
         "Content",
         vec![
             Socket::required("content", Kind::Content),
-            vector("padding", [16., 10.], "px"),
-            scalar("radius", 10., "px"),
+            vector("padding", [16., 10.], "units"),
+            scalar("radius", 10., "units"),
         ],
         vec![("content", Kind::Content)],
         |e, n| {

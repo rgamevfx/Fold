@@ -7,6 +7,12 @@ use std::collections::BTreeMap;
 
 pub struct Provider;
 impl VideoProvider for Provider {
+    fn effect_interface(
+        &self,
+        document: &fold_project::Document,
+    ) -> Result<fold_platform::effects::Interface, String> {
+        Ok(Composite::from_document(document)?.reusable()?.interface)
+    }
     fn playback_mode(&self) -> fold_platform::desktop::PlaybackMode {
         fold_platform::desktop::PlaybackMode::EveryFrame
     }
@@ -51,19 +57,25 @@ fn compile(request: VideoCompile<'_>) -> Result<ChannelGraph, String> {
     } = request;
     let output = reference.output.as_str();
     cancel.check()?;
-    let composite = Composite::from_document(document)?;
+    let mut composite = Composite::from_document(document)?;
+    if let Some(invocation) = request.invocation {
+        composite.bind_values(invocation)?;
+    }
     if output != "video"
-        || time < Time::ZERO
-        || time >= composite.info.time(composite.info.frames)?
+        || (request.context.is_none()
+            && (time < Time::ZERO || time >= composite.info.time(composite.info.frames)?))
     {
         return Err("unsupported composite output or time outside duration".into());
     }
-    let mut graph = RenderGraph {
-        width,
-        height,
-        nodes: vec![],
-        output: 0,
-    };
+    let mut graph = request
+        .invocation
+        .map(|i| i.graph.clone())
+        .unwrap_or(RenderGraph {
+            width,
+            height,
+            nodes: vec![],
+            output: 0,
+        });
     let mut ids: BTreeMap<_, Channels> = BTreeMap::new();
     let sx = f64::from(width) / f64::from(composite.info.width);
     let sy = f64::from(height) / f64::from(composite.info.height);
@@ -79,6 +91,66 @@ fn compile(request: VideoCompile<'_>) -> Result<ChannelGraph, String> {
         cancel.check()?;
         let node = composite.node(id)?;
         let parameters = node.evaluated_parameters(time)?;
+        match &parameters {
+            P::Input { id } => {
+                let invocation = request
+                    .invocation
+                    .ok_or("Input requires an effect invocation")?;
+                let image = *invocation
+                    .images
+                    .get(id)
+                    .ok_or("Unbound effect image input")?;
+                ids.insert(node.id, Channels::rgba(image));
+                continue;
+            }
+            P::Instance { instance, images } => {
+                if !instance.enabled {
+                    let source = node
+                        .inputs
+                        .first()
+                        .and_then(|id| *id)
+                        .ok_or("Bypass requires a source input")?;
+                    ids.insert(node.id, ids[&source].clone());
+                    continue;
+                }
+                let mut bindings = BTreeMap::new();
+                for (port, input) in images.iter().zip(&node.inputs) {
+                    let image =
+                        ids[&input.ok_or("Unconnected effect image")?].pack(&mut graph, RGBA)?;
+                    bindings.insert(port.clone(), image);
+                }
+                let timing =
+                    request
+                        .context
+                        .map(|i| i.timing)
+                        .unwrap_or(fold_animation::timing::Range {
+                            start: Time::ZERO,
+                            duration: composite.info.time(composite.info.frames)?,
+                        });
+                let format = request.context.map(|i| i.format).unwrap_or(
+                    fold_platform::format::Format::square([
+                        composite.info.width,
+                        composite.info.height,
+                    ]),
+                );
+                graph = (request.resolve_effect)(
+                    &instance.definition,
+                    time,
+                    &fold_platform::effects::Invocation {
+                        graph: &graph,
+                        images: bindings,
+                        values: instance.values_at(time)?,
+                        version: instance.version,
+                        timing,
+                        format,
+                    },
+                )?;
+                ids.insert(node.id, Channels::rgba(graph.output));
+                continue;
+            }
+            _ => {}
+        }
+
         let effect = node.evaluated_effect(time)?;
         if let P::Read {
             source:
@@ -230,99 +302,162 @@ fn compile(request: VideoCompile<'_>) -> Result<ChannelGraph, String> {
             packed.push(ids[input].pack(&mut graph, RGBA)?);
         }
         let input = |i: usize| packed[i];
-        let op = match &parameters {
-            P::Shape { shape, bounds } => {
-                Op::Vector(std::sync::Arc::new(vec![crate::shapes::drawing(
-                    *shape,
-                    *bounds,
-                    [sx, sy],
-                )?]))
-            }
-            P::Read {
-                source,
-                start,
-                source_start,
-                duration,
-            } => {
-                let end = start.checked_add(*duration).map_err(|e| e.to_string())?;
-                if time < *start || time >= end {
-                    if let Source::Document { source, .. } = source {
-                        let mut channels = Channels::default();
-                        for name in describe_channels(source)? {
-                            // Inactive outputs are literal zero data, with no
-                            // source processing or media access.
-                            channels.insert(
-                                name,
-                                Channel {
-                                    value: Value::Zero,
-                                    interpretation: Interpretation::Data,
-                                },
-                            );
-                        }
-                        ids.insert(node.id, channels);
-                        continue;
+        let op =
+            match &parameters {
+                P::Shader { settings } => {
+                    let format = request.context.map(|i| i.format).unwrap_or(
+                        fold_platform::format::Format::square([
+                            composite.info.width,
+                            composite.info.height,
+                        ]),
+                    );
+                    let timing = request.context.map(|i| i.timing).unwrap_or(
+                        fold_animation::timing::Range {
+                            start: Time::ZERO,
+                            duration: composite.info.time(composite.info.frames)?,
+                        },
+                    );
+                    let progress = timing
+                        .sample(time, fold_animation::timing::Behavior::Clamp)?
+                        .progress;
+                    Op::Shader {
+                        inputs: packed.clone(),
+                        program: std::sync::Arc::new(settings.program(
+                            format,
+                            fold_animation::seconds(time),
+                            progress,
+                        )?),
                     }
-                    Op::Solid { rgba: [0.0; 4] }
-                } else {
-                    let local = time
-                        .checked_sub(*start)
-                        .and_then(|t| t.checked_add(*source_start))
-                        .map_err(|e| e.to_string())?;
-                    match source {
-                        Source::Unassigned { .. } => {
-                            return Err("Read: choose a source file".into());
-                        }
-                        Source::Exr { .. } => unreachable!("handled channel source"),
-                        Source::Document { source, .. } => {
-                            let channels = resolve_image(source, local)?.append_to(&mut graph)?;
+                }
+
+                P::RelativeTransform { settings } => Op::Resample {
+                    input: input(0),
+                    filter: settings.filter,
+                    transform: settings.matrix(
+                        request.context.map(|i| i.format).unwrap_or(
+                            fold_platform::format::Format::square([
+                                composite.info.width,
+                                composite.info.height,
+                            ]),
+                        ),
+                        [width, height],
+                    )?,
+                },
+                P::Input { .. } | P::Instance { .. } => unreachable!("handled invocation"),
+                P::Dissolve { curve } => {
+                    let range = request.context.map(|i| i.timing).unwrap_or(
+                        fold_animation::timing::Range {
+                            start: Time::ZERO,
+                            duration: composite.info.time(composite.info.frames)?,
+                        },
+                    );
+                    let progress = range
+                        .sample(time, fold_animation::timing::Behavior::Clamp)?
+                        .progress;
+                    Op::Mix {
+                        original: input(0),
+                        processed: input(1),
+                        mask: None,
+                        mask_channel: 3,
+                        invert: false,
+                        amount: curve.sample(progress) as f32,
+                        channels: [true; 4],
+                    }
+                }
+
+                P::Shape { shape, bounds } => {
+                    Op::Vector(std::sync::Arc::new(vec![crate::shapes::drawing(
+                        *shape,
+                        *bounds,
+                        [sx, sy],
+                    )?]))
+                }
+                P::Read {
+                    source,
+                    start,
+                    source_start,
+                    duration,
+                } => {
+                    let end = start.checked_add(*duration).map_err(|e| e.to_string())?;
+                    if time < *start || time >= end {
+                        if let Source::Document { source, .. } = source {
+                            let mut channels = Channels::default();
+                            for name in describe_channels(source)? {
+                                // Inactive outputs are literal zero data, with no
+                                // source processing or media access.
+                                channels.insert(
+                                    name,
+                                    Channel {
+                                        value: Value::Zero,
+                                        interpretation: Interpretation::Data,
+                                    },
+                                );
+                            }
                             ids.insert(node.id, channels);
                             continue;
                         }
-                        Source::Asset { asset, info } => {
-                            let fragment = fold_platform::image_source::compile(
-                                &fold_platform::image_source::Request {
-                                    bake: None,
-                                    source: fold_platform::image_source::Source::Asset(*asset),
-                                    info: info.clone(),
-                                    time: local,
-                                    outside: fold_platform::image_source::Outside::Black,
-                                    color_space: fold_platform::color::input(&node.extensions)?,
-                                },
-                                &request,
-                            )?;
-                            let image = graph.append(fragment)?;
-                            ids.insert(node.id, Channels::rgba(image));
-                            continue;
+                        Op::Solid { rgba: [0.0; 4] }
+                    } else {
+                        let local = time
+                            .checked_sub(*start)
+                            .and_then(|t| t.checked_add(*source_start))
+                            .map_err(|e| e.to_string())?;
+                        match source {
+                            Source::Unassigned { .. } => {
+                                return Err("Read: choose a source file".into());
+                            }
+                            Source::Exr { .. } => unreachable!("handled channel source"),
+                            Source::Document { source, .. } => {
+                                let channels =
+                                    resolve_image(source, local)?.append_to(&mut graph)?;
+                                ids.insert(node.id, channels);
+                                continue;
+                            }
+                            Source::Asset { asset, info } => {
+                                let fragment = fold_platform::image_source::compile(
+                                    &fold_platform::image_source::Request {
+                                        bake: None,
+                                        source: fold_platform::image_source::Source::Asset(*asset),
+                                        info: info.clone(),
+                                        time: local,
+                                        outside: fold_platform::image_source::Outside::Black,
+                                        color_space: fold_platform::color::input(&node.extensions)?,
+                                    },
+                                    &request,
+                                )?;
+                                let image = graph.append(fragment)?;
+                                ids.insert(node.id, Channels::rgba(image));
+                                continue;
+                            }
                         }
                     }
                 }
-            }
-            P::Solid { rgba } => Op::Solid { rgba: *rgba },
-            P::Mask { rect: r } => {
-                graph.nodes.push(Op::Solid { rgba: [1.0; 4] });
-                Op::Crop {
-                    input: graph.nodes.len() - 1,
-                    rect: rect(*r),
+                P::Solid { rgba } => Op::Solid { rgba: *rgba },
+                P::Mask { rect: r } => {
+                    graph.nodes.push(Op::Solid { rgba: [1.0; 4] });
+                    Op::Crop {
+                        input: graph.nodes.len() - 1,
+                        rect: rect(*r),
+                    }
                 }
-            }
-            P::ApplyMask => Op::Mask {
-                input: input(0),
-                mask: input(1),
-            },
-            P::Unary { .. }
-            | P::GaussianBlur { .. }
-            | P::TransformImage { .. }
-            | P::Transform { .. }
-            | P::Crop { .. }
-            | P::Blur { .. }
-            | P::Grade { .. }
-            | P::ColorGrade { .. }
-            | P::Composite { .. }
-            | P::Merge
-            | P::Output
-            | P::Shuffle { .. }
-            | P::RemoveChannels { .. } => unreachable!("handled channel routing/effects"),
-        };
+                P::ApplyMask => Op::Mask {
+                    input: input(0),
+                    mask: input(1),
+                },
+                P::Unary { .. }
+                | P::GaussianBlur { .. }
+                | P::TransformImage { .. }
+                | P::Transform { .. }
+                | P::Crop { .. }
+                | P::Blur { .. }
+                | P::Grade { .. }
+                | P::ColorGrade { .. }
+                | P::Composite { .. }
+                | P::Merge
+                | P::Output
+                | P::Shuffle { .. }
+                | P::RemoveChannels { .. } => unreachable!("handled channel routing/effects"),
+            };
         let result = graph.nodes.len();
         graph.nodes.push(op);
         let mut channels = node

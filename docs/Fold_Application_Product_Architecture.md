@@ -290,6 +290,16 @@ Keep layer transforms and source-local time distinct from graph-internal transfo
 
 Graph output is evaluated in its owning Composition context through explicit capabilities. MoGraph groups consume their own graph children; use common layer groups for independently typed layers. Named image inputs connect processing chains without hiding source relationships.
 
+## Reusable effects, timing and format
+
+Effects and transitions are editable graph definitions with published inputs and controls. The same definition can appear as a node or an ordered clip/layer effect. Compositing networks and mixed Compositions may implement the contract. Instances retain their own values and animation. Image effects receive Source; transitions receive Outgoing, Incoming and an explicit duration context. Input means invocation-supplied media; Image Reference means a retained typed document output. Keep those concepts distinct.
+
+A transition's normalized progress controls choreography without changing footage speed. Use true premultiplied RGBA interpolation for dissolve. General Timing, Curve and intro/hold/outro primitives support transitions, templates and adjustments; periodic behavior remains explicit. Adjustment layers process only the lower content in their defined host scope.
+
+Motion layout uses logical scene units independent of output pixels. HD-to-4K changes raster density without rewriting geometry or animation. Aspect changes choose Fit, Fill or Responsive framing; anchors and relative measurements opt content into adaptive layout. Existing explicit image transforms remain alongside Relative Transform. Full destination format is separate from preview dimensions, so preview quality cannot move a wipe or change layout. Pixel-fixed distances require explicit conversion from output pixels.
+
+Image effects use shared resident GPU resources. Live WGSL authoring exposes named images and controls with explicit interface migration, worker compilation, diagnostics and revision-safe publication. Rendered Motion uses this same image path; arbitrary Motion geometry/field execution is a separate performance concern. [Phase 57](phase-57.md) records implementation status and measured limits; these product contracts do not certify its unfinished acceptance items.
+
 ## Renderer boundaries
 
 The shipped model is 2D and image-oriented. Vector geometry, footage and graph outputs reach the shared image execution path. A general spatial scene, depth-tested planes, meshes, cameras and a Bevy adapter are future proposals, not a parallel implemented renderer or an existing release requirement.

@@ -74,7 +74,7 @@ impl Node {
     }
 
     pub fn disconnected(parameters: Parameters) -> Self {
-        let inputs = vec![None; parameters.operator().inputs.len()];
+        let inputs = vec![None; parameters.input_count()];
         Self {
             id: ObjectId::new(),
             parameters,
@@ -160,7 +160,7 @@ impl Composite {
                             "{} {:?}: connect '{}' input",
                             n.parameters.operator().id,
                             n.id,
-                            n.parameters.operator().input_key(slot)
+                            n.parameters.input_key(slot)
                         )
                     })?);
                 }
@@ -192,15 +192,18 @@ impl Composite {
             }
             return Ok(());
         }
-        let slot = (0..op.inputs.len())
-            .find(|i| op.input_key(*i) == port)
+        let parameters = &self.node(target)?.parameters;
+        let slot = (0..parameters.input_count())
+            .find(|i| parameters.input_key(*i) == port)
             .ok_or("unknown input port")?;
-        if source_type != op.inputs[slot]
-            && !(op.inputs[slot] == PortType::Mask && source_type == PortType::Image)
+        if source_type != parameters.input_type(slot)
+            && !(parameters.input_type(slot) == PortType::Mask && source_type == PortType::Image)
         {
             return Err(format!(
                 "{} requires {:?}, not {:?}",
-                port, op.inputs[slot], source_type
+                port,
+                parameters.input_type(slot),
+                source_type
             ));
         }
         let previous = self.node_mut(target)?.inputs[slot].replace(source);
@@ -217,7 +220,7 @@ impl Composite {
             return Ok(());
         }
         let slot = (0..n.inputs.len())
-            .find(|i| n.parameters.operator().input_key(*i) == port)
+            .find(|i| n.parameters.input_key(*i) == port)
             .ok_or("unknown input port")?;
         n.inputs[slot] = None;
         Ok(())

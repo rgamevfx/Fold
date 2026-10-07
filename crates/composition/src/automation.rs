@@ -9,6 +9,17 @@ use serde_json::{Value, json};
 #[derive(Deserialize, schemars::JsonSchema)]
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 enum Edit {
+    Publish {
+        definition: crate::reusable::Definition,
+    },
+    Effects {
+        layer: ObjectId,
+        effects: Vec<fold_platform::effects::Instance>,
+    },
+    Adjustment {
+        layer: ObjectId,
+        enabled: bool,
+    },
     Format {
         width: u32,
         height: u32,
@@ -74,8 +85,10 @@ pub fn author(document: &Document, edits: &[Value]) -> Result<Document, String> 
     for value in edits {
         let edit: Edit = fold_platform::authoring::decode(value)?;
         let target = match &edit {
-            Edit::Format { .. } | Edit::Lock { .. } => None,
-            Edit::Layer { layer, .. }
+            Edit::Publish { .. } | Edit::Format { .. } | Edit::Lock { .. } => None,
+            Edit::Effects { layer, .. }
+            | Edit::Adjustment { layer, .. }
+            | Edit::Layer { layer, .. }
             | Edit::Range { layer, .. }
             | Edit::Keyframe { layer, .. } => Some(*layer),
         };
@@ -83,6 +96,16 @@ pub fn author(document: &Document, edits: &[Value]) -> Result<Document, String> 
             return Err("Unlock the layer and its ancestors before editing".into());
         }
         match edit {
+            Edit::Publish { definition } => {
+                composition.extensions.insert(
+                    crate::reusable::KEY.into(),
+                    serde_json::to_value(definition).map_err(|e| e.to_string())?,
+                );
+            }
+            Edit::Effects { layer, effects } => composition.layer_mut(layer)?.effects = effects,
+            Edit::Adjustment { layer, enabled } => {
+                composition.layer_mut(layer)?.adjustment = enabled
+            }
             Edit::Format {
                 width,
                 height,

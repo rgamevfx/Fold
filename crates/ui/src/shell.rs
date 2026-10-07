@@ -298,8 +298,11 @@ impl Shell {
                     .add_editor(template.descriptor.id, &graph.document_type)
             });
         graph.contribution = template.descriptor.id.into();
+        // Revealing a layer network is not a node selection. The Composition
+        // remains the inspector source until the graph publishes an explicit selection.
+        graph.selection.objects.clear();
         self.workspace.editors.insert(id, graph);
-        self.workspace.record_selection(id);
+        self.workspace.network_editor = Some(id);
         self.workspace.focused_editor = Some(id);
         self.focus = Some(id);
     }
@@ -1113,6 +1116,14 @@ impl Shell {
             .editors
             .values_mut()
             .any(|e| e.panels.editor.take_network_request());
+        if let Some(id) = self.focus
+            && self
+                .editors
+                .get(&id)
+                .is_some_and(|e| e.panels.editor.is_layer_graph())
+        {
+            self.workspace.network_editor = Some(id);
+        }
         self.focus = None;
         self.refresh_viewer_targets(client);
         self.visible_panels.clear();
@@ -1197,7 +1208,14 @@ impl Shell {
                             }
                         }
                         if !composition {
-                            target = self.workspace.inspector_editor();
+                            target = if registered.descriptor.id == crate::sdk::network::PANEL_ID {
+                                self.workspace
+                                    .network_editor
+                                    .filter(|id| self.workspace.editors.contains_key(id))
+                                    .or_else(|| self.workspace.inspector_editor())
+                            } else {
+                                self.workspace.inspector_editor()
+                            };
                         }
                         if registered.descriptor.id == crate::sdk::network::PANEL_ID
                             || registered.descriptor.id == crate::sdk::composition::PANEL_ID
@@ -1222,11 +1240,15 @@ impl Shell {
                                 .workspace
                                 .inspector_lock
                                 .as_ref()
-                                .filter(|_| !composition)
+                                .filter(|_| {
+                                    registered.descriptor.placement == PanelPlacement::Inspector
+                                })
                                 .map(|(_, b)| b)
                                 .or_else(|| current.and_then(|id| self.workspace.editors.get(&id)))
                                 .map(|binding| {
-                                    let edit_context = if composition {
+                                    let edit_context = if composition
+                                        || registered.descriptor.id == crate::sdk::network::PANEL_ID
+                                    {
                                         current.and_then(|id| self.workspace.editor_context(id))
                                     } else {
                                         self.workspace.inspector_context()
@@ -1242,7 +1264,9 @@ impl Shell {
                                 .workspace
                                 .inspector_lock
                                 .as_ref()
-                                .filter(|_| !composition)
+                                .filter(|_| {
+                                    registered.descriptor.placement == PanelPlacement::Inspector
+                                })
                                 .map(|(_, b)| b)
                                 .or_else(|| current.and_then(|id| self.workspace.editors.get(&id)))
                                 .and_then(|b| b.document());
@@ -1282,6 +1306,9 @@ impl Shell {
                                     self.workspace.inspector_lock = None;
                                 }
                                 target = Some(id);
+                                if registered.descriptor.id == crate::sdk::network::PANEL_ID {
+                                    self.workspace.network_editor = Some(id);
+                                }
                                 self.workspace.inspector_group = self.workspace.editors[&id].group;
                                 self.workspace.focused_editor = Some(id);
                                 self.workspace.record_selection(id);
@@ -1316,62 +1343,17 @@ impl Shell {
                             .workspace
                             .inspector_lock
                             .as_ref()
-                            .filter(|_| !composition)
+                            .filter(|_| {
+                                registered.descriptor.placement == PanelPlacement::Inspector
+                            })
                             .map(|(_, binding)| binding.clone());
-                        let inspector_context = if composition {
+                        let inspector_context = if composition
+                            || registered.descriptor.id == crate::sdk::network::PANEL_ID
+                        {
                             target.and_then(|id| self.workspace.editor_context(id))
                         } else {
                             self.workspace.inspector_context()
                         };
-                        // A layer graph's properties sit below its owning layer's
-                        // controls. Both retain their own transactional edit context.
-                        if registered.descriptor.placement == PanelPlacement::Inspector
-                            && locked_binding.is_none()
-                            && let Some(graph) = target
-                            && self
-                                .editors
-                                .get(&graph)
-                                .is_some_and(|e| e.panels.editor.is_layer_graph())
-                            && let Some(parent) =
-                                self.workspace.composition_editor.filter(|id| *id != graph)
-                            && let Some(binding) = self.workspace.editors.get(&parent)
-                            && self.workspace.editors.get(&graph).is_some_and(|g| {
-                                g.navigation
-                                    .iter()
-                                    .rev()
-                                    .skip(1)
-                                    .any(|n| Some(n.document) == binding.document())
-                            })
-                        {
-                            let mut scoped = binding.clone();
-                            if let Some((_, time)) = self.workspace.editor_context(parent)
-                                && let Some(location) = scoped.navigation.last_mut()
-                            {
-                                location.time = time;
-                            }
-                            if let Some(editor) = self.editors.get_mut(&parent) {
-                                let _scope = ui.push_id("owning-layer");
-                                let mut context =
-                                    PanelContext::new(client, &mut scoped).instance(parent);
-                                editor.panels.inspector.draw(ExtensionUi {
-                                    ui,
-                                    host: &mut context,
-                                });
-                                if let Some(graph) = context.take_layer_graph() {
-                                    layer_graphs.push(graph);
-                                }
-                                if context.selection_requested() {
-                                    publish.push(parent);
-                                }
-                                if let Some(time) = context.seek_request() {
-                                    seeks.push((parent, time, false));
-                                }
-                                drop(context);
-                                self.workspace.editors.get_mut(&parent).unwrap().selection =
-                                    scoped.selection;
-                                ui.separator();
-                            }
-                        }
                         let graph_layer = target.and_then(|id| {
                             let graph = self.editors.get(&id)?;
                             if !graph.panels.editor.is_layer_graph() {

@@ -82,7 +82,16 @@ impl Plan {
                 continue;
             };
             working = working.union(output);
+            if matches!(graph.nodes[id], ImageOp::Shader { .. }) {
+                working = Region::full(dimensions);
+            }
             let input = match &graph.nodes[id] {
+                ImageOp::Shader { .. } => Region {
+                    x: 0,
+                    y: 0,
+                    width: dimensions[0],
+                    height: dimensions[1],
+                },
                 ImageOp::Blur { radius, .. } => output.expand([*radius; 2], dimensions),
                 ImageOp::Gaussian { size, .. } => output.expand(
                     size.map(|s| (crate::operations::gaussian_weights(s).len() / 2) as u32),

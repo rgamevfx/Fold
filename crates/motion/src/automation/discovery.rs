@@ -252,6 +252,9 @@ pub fn metadata(id: &str, defaults: &Value) -> Value {
         "fold.motion.wrangle" => {
             choices["geometry_kind"] = json!(["Content", "Points"]);
         }
+        "fold.motion.timing" => {
+            choices["behavior"] = json!(["Clamp", "Repeat", "PingPong"]);
+        }
         "fold.motion.wave" => {
             choices["waveform"] = json!(["Sine", "Triangle", "Square"]);
         }

@@ -8,7 +8,7 @@ pub(super) fn definition() -> Definition {
         vec![
             Socket::required("image", Kind::Image),
             scalar("index", 0., "integer"),
-            vector("size", [640., 360.], "px"),
+            vector("size", [640., 360.], "units"),
             scalar("columns", 80., "integer"),
             scalar("rows", 30., "integer"),
             Socket::value("characters", Datum::Text(" .:-=+*#%@".into()), ""),
@@ -41,8 +41,8 @@ pub(super) fn definition() -> Definition {
                 return Err("ASCII ramp needs 1..64 characters, dark to light".into());
             }
             // Atlas in document coordinates, scales with output through normal vector IR.
-            let cell_w = e.motion.info.width as f64 / chars.len() as f64;
-            let cell_h = (cell_w * 1.5).min(e.motion.info.height as f64);
+            let cell_w = e.canvas_size()?[0] / chars.len() as f64;
+            let cell_h = (cell_w * 1.5).min(e.canvas_size()?[1]);
             let mut atlas = Vec::new();
             for (i, ch) in chars.iter().enumerate() {
                 let glyph = crate::geometry::text::shape(
@@ -110,7 +110,7 @@ pub(super) fn definition() -> Definition {
             draw.atlas = [
                 chars.len() as f32,
                 1. / chars.len() as f32,
-                (cell_h / e.motion.info.height as f64) as f32,
+                (cell_h / e.canvas_size()?[1]) as f32,
             ];
             draw.remap = [e.scalar(n, "gain")? as f32, e.scalar(n, "bias")? as f32];
             draw.color = e.scalar(n, "color")? as f32;

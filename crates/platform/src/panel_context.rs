@@ -232,6 +232,15 @@ impl DesktopClient for PanelContext<'_> {
     fn video_info(&self, id: fold_foundation::DocumentId) -> Result<fold_media::VideoInfo, String> {
         self.host.video_info(id)
     }
+    fn effect_interface(
+        &self,
+        document: fold_foundation::DocumentId,
+    ) -> Result<crate::effects::Interface, String> {
+        self.host.effect_interface(document)
+    }
+    fn extension_pending(&self, request: &crate::packages::CommandRequest) -> bool {
+        self.host.extension_pending(request)
+    }
     fn channels(
         &self,
         output: &fold_project::DocumentRef,

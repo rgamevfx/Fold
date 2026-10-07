@@ -19,7 +19,7 @@ pub fn definitions() -> Vec<Definition> {
                 scalar("progress", 0., "factor"),
                 scalar("speed", 0.12, "cycles/s"),
                 scalar("stagger", 0.5, "seconds"),
-                scalar("wave", 0., "px"),
+                scalar("wave", 0., "units"),
                 scalar("frequency", 1., "Hz"),
                 scalar("pulse", 0., "factor"),
                 boolean("orient", true),

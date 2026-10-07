@@ -196,6 +196,8 @@ fn evaluate(e: &mut Evaluator<'_>, node: &Node) -> Result<Outputs, String> {
             update.current_object = e.current_object;
             update.object_path = e.object_path.clone();
             update.layer_times = e.layer_times.clone();
+            update.instance_timing = e.instance_timing;
+            update.output_format = e.output_format;
             update.step_context = Some(StepContext {
                 previous: value(current.clone(), settings.state_kind),
                 delta: settings.step,

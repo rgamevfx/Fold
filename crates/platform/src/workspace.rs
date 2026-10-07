@@ -217,6 +217,8 @@ pub struct Workspace {
     #[serde(default)]
     pub composition_editor: Option<PanelInstanceId>,
     #[serde(default)]
+    pub network_editor: Option<PanelInstanceId>,
+    #[serde(default)]
     pub group_selections: BTreeMap<LinkGroup, PanelInstanceId>,
     #[serde(default)]
     pub inspector_group: LinkGroup,
@@ -243,6 +245,7 @@ impl Default for Workspace {
             viewers: Default::default(),
             focused_editor: None,
             composition_editor: None,
+            network_editor: None,
             group_selections: Default::default(),
             inspector_group: LinkGroup::A,
             inspector_lock: None,
@@ -600,6 +603,9 @@ impl Workspace {
             .is_some_and(|(owner, _)| *owner == id)
         {
             self.inspector_lock = None;
+        }
+        if self.network_editor == Some(id) {
+            self.network_editor = None;
         }
         if self.composition_editor == Some(id) {
             self.composition_editor = None;

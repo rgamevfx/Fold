@@ -1299,9 +1299,14 @@ fn opening_a_layer_graph_retains_the_parent_stack_selection_and_clock() {
     });
     child.document_type = "test.graph.kind".into();
     shell.workspace.composition_editor = Some(parent);
+    shell.workspace.record_selection(parent);
+    child.selection.objects = vec![layer];
     shell.open_layer_graph(child.clone());
     let graph = shell.workspace.focused_editor.unwrap();
     assert_ne!(graph, parent);
+    assert_eq!(shell.workspace.inspector_editor(), Some(parent));
+    assert_eq!(shell.workspace.network_editor, Some(graph));
+    assert!(shell.workspace.editors[&graph].selection.objects.is_empty());
     assert_eq!(shell.workspace.composition_editor, Some(parent));
     assert_eq!(
         shell.workspace.editors[&parent].navigation,
@@ -1317,6 +1322,12 @@ fn opening_a_layer_graph_retains_the_parent_stack_selection_and_clock() {
     shell.open_layer_graph(child);
     assert_eq!(shell.workspace.focused_editor, Some(graph));
     assert_eq!(shell.workspace.editors.len(), count);
+    shell.workspace.editors.get_mut(&graph).unwrap().selection.objects = vec![layer];
+    shell.workspace.record_selection(graph);
+    assert_eq!(shell.workspace.inspector_editor(), Some(graph));
+    shell.workspace.record_selection(parent);
+    assert_eq!(shell.workspace.inspector_editor(), Some(parent));
+    assert_eq!(shell.workspace.network_editor, Some(graph));
 }
 
 #[test]

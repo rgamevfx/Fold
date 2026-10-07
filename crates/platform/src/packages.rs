@@ -632,6 +632,19 @@ impl PackageRegistry {
                 && p.supports_schema(document.schema_version)
         })
     }
+    pub fn effect_interface(
+        &self,
+        snapshot: &Snapshot,
+        id: DocumentId,
+    ) -> Result<crate::effects::Interface, String> {
+        self.video.effect_interface(
+            snapshot
+                .state()
+                .documents
+                .get(&id)
+                .ok_or("Missing effect definition")?,
+        )
+    }
     pub fn outputs(
         &self,
         snapshot: &Snapshot,

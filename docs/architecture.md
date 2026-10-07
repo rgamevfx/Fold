@@ -61,6 +61,20 @@ The CPU evaluator is a correctness/reference path. [GPU execution](../crates/ren
 
 Shared vector geometry with compact instance transforms/paint reduces repeated upload and CPU transformation. GPU coverage and ordered compositing preserve working float color. CPU geometry construction and explicit bounded fallbacks remain part of execution. Selective opacity/over fusion exists; a general tiled optimizer and arbitrary Rust-to-GPU translation do not.
 
+## Reusable effects, instance timing and format (Phase 57 working tree)
+
+[Platform effects](../crates/platform/src/effects.rs) owns the interface and invocation contract: stable named images, scalar/vector controls, instance-owned animation, exact timing range and logical destination format. Providers append to a shared image-graph prefix, so invocation inputs are not copied or rebound in saved definitions. Registry resolution validates declared dependencies, output capabilities, interface versions and cycles. Compositor and Composition implement published definitions in their own schemas; Timeline remains a host. Project retains opaque documents and Render receives generic operations.
+
+Clip and Composition layer effects run before host opacity/placement. Composition adjustments process lower siblings within their containing group; timeline adjustments process lower video tracks within their active range. Adjustment opacity mixes processed and original content. Composition adjustment transforms are rejected because their input already uses containing coordinates. Timeline owns adjacent-cut transitions and source-handle validation. Video transitions do not create audio fades.
+
+[Animation timing](../crates/animation/src/timing.rs) supplies exact range mapping, normalized curves and intro/hold/outro segments. Motion Timing/Curve/Timing Segments nodes consume these semantics; oscillator keeps periodic behavior. Uniform values are sampled once. Domain-varying Motion field evaluation still runs on CPU; GPU image effects on rendered Motion do not imply GPU geometry construction.
+
+[Live Shader](../crates/render/src/shader.rs) is a generic GPU-required image operation with generated bindings, bounded loop-free WGSL, explicit premultiplied alpha and full-frame sampling fallback. Compositor owns source/interface drafts and atomic port migration. App executes revision-guarded, cancellable source validation on its command worker; rendering workers create backend pipelines. A renderer caches up to 64 source-keyed pipelines. Uniform values and logical format do not change generated source. Export consumes its immutable snapshot, never an editor draft or preview texture. Explicit last-good backend behavior and integrated delivery acceptance remain open in [Phase 57](phase-57.md).
+
+Motion persists an optional logical canvas separately from raster dimensions. Fit/Fill preserve geometry proportions; Responsive preserves logical height and adapts width. Format/Anchor expose responsive layout primitives; Format's pixel size converts full-output pixels into scene units. Existing explicit image transforms remain; Relative Transform adds normalized anchors, percent offsets and placement/width/height/shorter-side size references. Old Motion documents retain their coordinates until a canvas is declared or captured by a resolution edit. Referenced image geometry retains logical size when source raster metadata changes.
+
+Hardware measurements and remaining requirements are tracked in [the phase evidence](phase-57.md#implementation-checkpoint--7-october-2026-phase-remains-open). This section documents current ownership, not phase completion.
+
 ## Color, media and delivery
 
 [Color runtime](../crates/color/src/lib.rs) pins OCIO **2.4.2**, **ACES 1.3 Studio config 2.2.0**, bundled content identity and **ACEScg** working space. New-project settings use this pipeline; missing legacy color settings retain legacy interpretation. External configs use bounded, copied, hashed resource closures rather than implicit global `$OCIO` discovery.
@@ -146,3 +160,7 @@ cargo clippy --workspace --all-targets --all-features --locked
 ```
 
 Record actual failures and ignored/deferred checks. Native media/color builds require their packaged dependencies; desktop builds also require platform development libraries. Keep machine-specific paths outside repository configuration. Headless tests, native widget captures, virtual-display playback and physical-monitor/audio acceptance are distinct evidence. Do not convert historical successful runs into a current full-workspace pass.
+
+### Phase 57 inspector and network selection
+
+The workspace stores the displayed Network editor independently from the Inspector's selection owner. Opening a Composition layer clears remembered graph-node selection, reveals its graph, and retains the Composition container selection. Explicit node selection transfers Inspector ownership; reselecting the layer restores the container. Layer and timeline clip inspectors share the effect-stack UI. Timeline spatial transforms are preserved in clip extension metadata and lowered after effects, before opacity/compositing. Transitions select their own stable IDs and preview interval edits without changing clip source clocks; the application command `fold.app.add-transition` creates the default graph and transition in one transaction across the independent feature packages.

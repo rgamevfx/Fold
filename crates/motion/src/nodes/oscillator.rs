@@ -6,38 +6,34 @@ use serde::{Deserialize, Serialize};
 pub const SHAPES: &[&str] = &["Sine", "Triangle", "Square", "Sawtooth", "Custom"];
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Settings {
-    pub curve: Vec<[f64; 2]>,
-    pub smooth: bool,
+    #[serde(flatten)]
+    pub curve_data: fold_animation::timing::Curve,
+}
+impl std::ops::Deref for Settings {
+    type Target = fold_animation::timing::Curve;
+    fn deref(&self) -> &Self::Target {
+        &self.curve_data
+    }
+}
+impl std::ops::DerefMut for Settings {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.curve_data
+    }
 }
 impl Default for Settings {
     fn default() -> Self {
         Self {
-            curve: vec![[0., 0.5], [0.25, 1.], [0.75, 0.], [1., 0.5]],
-            smooth: true,
+            curve_data: fold_animation::timing::Curve {
+                curve: vec![[0., 0.5], [0.25, 1.], [0.75, 0.], [1., 0.5]],
+                smooth: true,
+            },
         }
     }
 }
 impl Settings {
-    pub fn validate(&self) -> Result<(), String> {
-        if !(2..=64).contains(&self.curve.len())
-            || self
-                .curve
-                .iter()
-                .flatten()
-                .any(|v| !v.is_finite() || !(0. ..=1.).contains(v))
-            || self.curve.first().unwrap()[0] != 0.
-            || self.curve.last().unwrap()[0] != 1.
-            || self.curve.windows(2).any(|p| p[0][0] >= p[1][0])
-        {
-            return Err(
-                "Cycle curve requires ordered points in 0–1, with endpoints at 0 and 1".into(),
-            );
-        }
-        Ok(())
-    }
-    /// Normalized cycle sample, shared by evaluation and the inspector preview.
+    /// Periodic behavior belongs to Oscillator, not the shared curve.
     pub fn sample(&self, shape: &str, phase: f64) -> Result<f64, String> {
-        let p = phase.rem_euclid(1.);
+        let p = fold_animation::timing::Behavior::Repeat.map(phase)?;
         Ok(match shape {
             "Sine" => 0.5 + 0.5 * (p * std::f64::consts::TAU).sin(),
             "Triangle" => 1. - (2. * p - 1.).abs(),
@@ -49,18 +45,7 @@ impl Settings {
                 }
             }
             "Sawtooth" => p,
-            "Custom" => {
-                let end = self
-                    .curve
-                    .partition_point(|v| v[0] <= p)
-                    .clamp(1, self.curve.len() - 1);
-                let [a, b] = [self.curve[end - 1], self.curve[end]];
-                let mut u = (p - a[0]) / (b[0] - a[0]);
-                if self.smooth {
-                    u = u * u * (3. - 2. * u);
-                }
-                a[1] + (b[1] - a[1]) * u
-            }
+            "Custom" => self.curve_data.sample(p),
             _ => return Err("Unknown oscillator shape".into()),
         })
     }

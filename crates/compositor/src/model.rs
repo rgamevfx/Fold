@@ -159,6 +159,36 @@ pub const OPERATORS: &[Operator] = &[
         output: Image,
         version: 1,
     },
+    Operator {
+        id: "Input",
+        inputs: &[],
+        output: Image,
+        version: 1,
+    },
+    Operator {
+        id: "Effect",
+        inputs: &[],
+        output: Image,
+        version: 1,
+    },
+    Operator {
+        id: "Dissolve",
+        inputs: &[Image, Image],
+        output: Image,
+        version: 1,
+    },
+    Operator {
+        id: "Relative Transform",
+        inputs: &[Image],
+        output: Image,
+        version: 1,
+    },
+    Operator {
+        id: "Shader",
+        inputs: &[],
+        output: Image,
+        version: 1,
+    },
 ];
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -199,6 +229,22 @@ impl Source {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub enum Parameters {
+    Shader {
+        settings: crate::shader::Shader,
+    },
+    RelativeTransform {
+        settings: crate::RelativeTransform,
+    },
+    Input {
+        id: String,
+    },
+    Instance {
+        instance: fold_platform::effects::Instance,
+        images: Vec<String>,
+    },
+    Dissolve {
+        curve: fold_animation::timing::Curve,
+    },
     Read {
         source: Source,
         start: Time,
@@ -259,8 +305,41 @@ pub enum Parameters {
     Output,
 }
 impl Parameters {
+    pub fn input_count(&self) -> usize {
+        match self {
+            Self::Shader { settings } => settings.images.len(),
+            Self::Instance { images, .. } => images.len(),
+            _ => self.operator().inputs.len(),
+        }
+    }
+    pub fn input_key(&self, slot: usize) -> &str {
+        match self {
+            Self::Shader { settings } => &settings.images[slot],
+            Self::Instance { images, .. } => &images[slot],
+            Self::Dissolve { .. } => {
+                if slot == 0 {
+                    "outgoing"
+                } else {
+                    "incoming"
+                }
+            }
+            _ => self.operator().input_key(slot),
+        }
+    }
+    pub fn input_type(&self, slot: usize) -> PortType {
+        match self {
+            Self::Shader { .. } | Self::Instance { .. } => PortType::Image,
+            _ => self.operator().inputs[slot],
+        }
+    }
+
     pub fn operator(&self) -> &'static Operator {
         &OPERATORS[match self {
+            Self::Shader { .. } => 27,
+            Self::RelativeTransform { .. } => 26,
+            Self::Input { .. } => 23,
+            Self::Instance { .. } => 24,
+            Self::Dissolve { .. } => 25,
             Self::Read { .. } => 0,
             Self::Solid { .. } => 1,
             Self::Transform { .. } => 2,
@@ -297,6 +376,29 @@ impl Parameters {
     }
     pub(crate) fn validate(&self) -> Result<(), String> {
         match self {
+            Self::Shader { settings } => settings.validate()?,
+            Self::RelativeTransform { settings } => {
+                settings.matrix(
+                    fold_platform::format::Format::square([1920, 1080]),
+                    [1920, 1080],
+                )?;
+            }
+            Self::Input { id } => {
+                if id.is_empty() || id.len() > 128 {
+                    return Err("Input requires a stable port identity".into());
+                }
+            }
+            Self::Instance { instance, images } => {
+                instance.validate()?;
+                let unique: BTreeSet<_> = images.iter().collect();
+                if images.len() > 16
+                    || unique.len() != images.len()
+                    || images.iter().any(|i| i.is_empty() || i.len() > 128)
+                {
+                    return Err("Invalid effect image interface".into());
+                }
+            }
+            Self::Dissolve { curve } => curve.validate()?,
             Self::Unary { operation } => operation.validate()?,
             Self::Shape { shape, bounds } => {
                 crate::shapes::drawing(*shape, *bounds, [1.; 2])?;
@@ -481,7 +583,7 @@ impl Composite {
             node.validate_animation()?;
             let op = node.parameters.operator();
             if !ids.insert(node.id)
-                || node.inputs.len() != op.inputs.len()
+                || node.inputs.len() != node.parameters.input_count()
                 || node
                     .position
                     .is_some_and(|p| p.iter().any(|v| !v.is_finite() || v.abs() > 1e7))
@@ -491,10 +593,11 @@ impl Composite {
                     op.id
                 ));
             }
-            for (input, expected) in node.inputs.iter().zip(op.inputs) {
+            for (slot, input) in node.inputs.iter().enumerate() {
+                let expected = node.parameters.input_type(slot);
                 if let Some(input) = input
-                    && ports.get(input) != Some(expected)
-                    && !(*expected == PortType::Mask && ports.get(input) == Some(&PortType::Image))
+                    && ports.get(input) != Some(&expected)
+                    && !(expected == PortType::Mask && ports.get(input) == Some(&PortType::Image))
                 {
                     return Err(format!(
                         "{}: input requires {expected:?} (missing or incompatible connection)",
@@ -511,6 +614,7 @@ impl Composite {
             return Err("composite output must identify an Output node".into());
         }
         self.evaluation_order()?;
+        self.validate_reusable()?;
         Ok(())
     }
     pub fn dependencies(&self) -> Vec<DocumentRef> {
@@ -523,6 +627,13 @@ impl Composite {
                 && !refs.contains(source)
             {
                 refs.push(source.clone());
+            }
+        }
+        for node in &self.nodes {
+            if let Parameters::Instance { instance, .. } = &node.parameters
+                && !refs.contains(&instance.definition)
+            {
+                refs.push(instance.definition.clone());
             }
         }
         refs
@@ -551,7 +662,7 @@ impl Composite {
             id,
             package_id: crate::PACKAGE.into(),
             type_id: crate::COMPOSITE.into(),
-            schema_version: 5,
+            schema_version: 6,
             revision: Revision::default(),
             dependencies: self.dependencies(),
             assets: self.assets(),
@@ -562,7 +673,7 @@ impl Composite {
     pub fn from_document(document: &Document) -> Result<Self, String> {
         if document.package_id != crate::PACKAGE
             || document.type_id != crate::COMPOSITE
-            || ![1, 2, 3, 4, 5].contains(&document.schema_version)
+            || ![1, 2, 3, 4, 5, 6].contains(&document.schema_version)
             || document.payload.len() > 1024 * 1024
         {
             return Err("unsupported composite document".into());

@@ -70,7 +70,9 @@ pub mod copy_colors;
 
 pub mod stagger;
 
+pub mod format;
 pub mod oscillator;
+pub mod timing;
 
 pub mod color_ramp;
 

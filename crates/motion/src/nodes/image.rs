@@ -178,7 +178,7 @@ pub fn definitions() -> Vec<Definition> {
         vec![
             Socket::required("image", Kind::Image),
             scalar("index", 0., "integer"),
-            vector("size", [320., 180.], "px"),
+            vector("size", [320., 180.], "units"),
         ],
         vec![("content", Kind::Content)],
         |e, n| {
@@ -207,7 +207,7 @@ pub fn definitions() -> Vec<Definition> {
             Socket::required("image", Kind::Image),
             Socket::required("points", Kind::Points),
             scalar("index", 0., "integer"),
-            vector("size", [320., 180.], "px"),
+            vector("size", [320., 180.], "units"),
             scalar("time_offset", 0., "seconds"),
         ],
         vec![("content", Kind::Content)],
@@ -284,11 +284,11 @@ pub fn definitions() -> Vec<Definition> {
         vec![
             Socket::required("image", Kind::Image),
             scalar("index", 0., "integer"),
-            vector("size", [640., 360.], "px"),
+            vector("size", [640., 360.], "units"),
             scalar("columns", 16., "integer"),
             scalar("rows", 9., "integer"),
             boolean("per_cell", false),
-            vector("offset", [0.; 2], "px"),
+            vector("offset", [0.; 2], "units"),
         ],
         vec![("content", Kind::Content)],
         |e, n| {

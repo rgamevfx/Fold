@@ -4,8 +4,8 @@
 //! No renderer or device is initialized in CPU-only/headless builds by default.
 mod cache;
 pub use cache::PresentationCompressor;
-mod baked;
 mod bake_encoder;
+mod baked;
 pub use bake_encoder::BakeEncoder;
 mod color;
 mod display;
@@ -14,6 +14,7 @@ mod gaussian;
 mod host;
 mod preparation;
 mod sampling;
+mod shader;
 mod still;
 mod textured;
 mod upload;
@@ -46,6 +47,7 @@ pub struct Statistics {
     pub resident_still_nodes: u32,
     pub cpu_adapter_nanoseconds: u128,
     pub compute_passes: u32,
+    pub shader_compilations: u32,
     pub fused_opacity_passes: u32,
     pub graph_prepare_nanoseconds: u128,
     pub evaluate_cpu_nanoseconds: u128,
@@ -86,6 +88,7 @@ impl Statistics {
         self.resident_still_nodes += other.resident_still_nodes;
         self.cpu_adapter_nanoseconds += other.cpu_adapter_nanoseconds;
         self.compute_passes += other.compute_passes;
+        self.shader_compilations += other.shader_compilations;
         self.fused_opacity_passes += other.fused_opacity_passes;
         self.graph_prepare_nanoseconds += other.graph_prepare_nanoseconds;
         self.evaluate_cpu_nanoseconds += other.evaluate_cpu_nanoseconds;
@@ -317,6 +320,7 @@ pub struct Renderer {
     sampling: sampling::Sampling,
     textured: textured::Pipeline,
     baked: baked::Cache,
+    shaders: shader::Cache,
     #[cfg(all(feature = "native-video", target_os = "linux"))]
     native_video: Option<native_video::NativeVideo>,
 }
@@ -426,6 +430,7 @@ impl Renderer {
             sampling,
             textured,
             baked: Default::default(),
+            shaders: Default::default(),
             host,
             pipeline,
             yuv,
@@ -765,6 +770,25 @@ impl Renderer {
             let mask = inputs[2].map_or(&dummy, |i| frames[i].as_ref().unwrap());
             let mut compute = true;
             match op {
+                ImageOp::Shader { inputs, program } => {
+                    let images: Vec<_> = inputs
+                        .iter()
+                        .map(|id| frames[*id].as_ref().unwrap().as_ref())
+                        .collect();
+                    let before = self.shaders.compilations;
+                    buffers.push(self.shaders.encode(
+                        &self.host,
+                        &mut encoder,
+                        program,
+                        &images,
+                        &output,
+                        &status,
+                    )?);
+                    stats.shader_compilations += self.shaders.compilations - before;
+                    stats.compute_passes += 1;
+                    compute = false;
+                }
+
                 ImageOp::WindowedSource {
                     region, dimensions, ..
                 } => {

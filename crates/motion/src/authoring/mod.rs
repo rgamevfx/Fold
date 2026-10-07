@@ -84,8 +84,8 @@ pub(super) fn content_nodes(
     node(motion, fill)?.connect("content", source, "content");
     let transform = add_node(motion, "fold.motion.transform")?;
     let center = [
-        motion.info.width as f64 * 0.25,
-        motion.info.height as f64 * 0.4,
+        motion.canvas_size()[0] * 0.25,
+        motion.canvas_size()[1] * 0.4,
     ];
     node(motion, transform)?.connect("content", fill, "content");
     node(motion, transform)?.set("translation", Datum::Vector(center));

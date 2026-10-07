@@ -1117,3 +1117,26 @@ fn badge_layer_selection_opens_its_original_graph_and_leaves_modifier_scope() {
     assert_ne!(graphs[0], graphs[1]);
     assert_ne!(graphs[1], graphs[2]);
 }
+
+#[test]
+fn canvas_edits_persist_and_undo_without_rewriting_geometry() {
+    let mut host = Host::new();
+    let mut state = state::State::default();
+    state.create(&mut host);
+    let id = state.document.unwrap();
+    let before = state.motion.clone().unwrap();
+    let canvas = crate::canvas::Canvas {
+        size: [1920., 1080.],
+        framing: crate::canvas::Framing::Responsive,
+    };
+    state.change(&mut host, |m| {
+        m.canvas = Some(canvas);
+        Ok(None)
+    });
+    let saved = Motion::from_document(&host.project.snapshot().state().documents[&id]).unwrap();
+    assert_eq!(saved.canvas, Some(canvas));
+    assert_eq!(saved.graph, before.graph);
+    host.project.undo().unwrap();
+    let restored = Motion::from_document(&host.project.snapshot().state().documents[&id]).unwrap();
+    assert_eq!(restored, before);
+}

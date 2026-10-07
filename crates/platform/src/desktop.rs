@@ -202,6 +202,7 @@ pub enum DesktopCommand {
     Extension(crate::packages::CommandRequest),
     PreviewExtension(crate::packages::CommandRequest),
     CancelPreviewEdit,
+    CancelExtension(crate::packages::CommandRequest),
     Navigate(ViewLocation),
     /// Open a selected layer graph without replacing its Composition context.
     OpenLayerGraph {
@@ -371,6 +372,15 @@ pub trait DesktopClient {
         _document: fold_foundation::DocumentId,
     ) -> Result<fold_media::VideoInfo, String> {
         Err("document metadata unavailable".into())
+    }
+    fn extension_pending(&self, _request: &crate::packages::CommandRequest) -> bool {
+        false
+    }
+    fn effect_interface(
+        &self,
+        _document: fold_foundation::DocumentId,
+    ) -> Result<crate::effects::Interface, String> {
+        Err("Effect interface unavailable".into())
     }
     /// Explicit output metadata and identity without retargeting global state.
     fn preview_state(

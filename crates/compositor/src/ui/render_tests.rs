@@ -76,14 +76,67 @@ fn shuffle_inspector_normal_and_narrow() {
         })
         .unwrap();
     let shared = Rc::new(RefCell::new(state::State::default()));
-    let mut inspector = inspector::Inspector(shared.clone(), Default::default());
+    let mut inspector =
+        inspector::Inspector(shared.clone(), Default::default(), Default::default());
     shared.borrow_mut().sync(&mut host);
     shared.borrow_mut().selected = vec![selected];
     context.io_mut().set_display_size([512., 480.]);
     context.io_mut().set_delta_time(1. / 60.);
     std::fs::create_dir_all("/tmp/fold-shuffle-ui").unwrap();
-    for (name, width) in [("normal", 420.), ("narrow", 280.)] {
-        for frame_index in 0..5 {
+    for (name, width) in [
+        ("normal", 420.),
+        ("narrow", 280.),
+        ("relative-normal", 420.),
+        ("relative-narrow", 280.),
+        ("shader-normal", 420.),
+        ("shader-narrow", 280.),
+        ("shader-interface-normal", 420.),
+        ("shader-interface-narrow", 280.),
+    ] {
+        if name.starts_with("relative") || name.starts_with("shader") {
+            let mut graph = crate::Composite::from_document(
+                &host.project.snapshot().state().documents[&document],
+            )
+            .unwrap();
+            let parameters = if name.starts_with("relative") {
+                Parameters::RelativeTransform {
+                    settings: Default::default(),
+                }
+            } else {
+                Parameters::Shader {
+                    settings: Default::default(),
+                }
+            };
+            let node = Node::new(parameters, vec![solid]);
+            let id = node.id;
+            graph.nodes.push(node);
+            host.project
+                .commit(EditBatch {
+                    base: host.project.snapshot().revision(),
+                    mutations: vec![Mutation::PutDocument(graph.document(document).unwrap())],
+                })
+                .unwrap();
+            shared.borrow_mut().sync(&mut host);
+            shared.borrow_mut().selected = vec![id];
+        }
+        for frame_index in 0..8 {
+            if name.starts_with("shader-interface") {
+                if frame_index == 1 || frame_index == 2 {
+                    context.io_mut().add_mouse_pos_event([30., 61.]);
+                    context
+                        .io_mut()
+                        .add_mouse_button_event(imgui::MouseButton::Left, frame_index == 1);
+                }
+                if frame_index == 3 || frame_index == 4 {
+                    context.io_mut().add_mouse_pos_event([45., 103.]);
+                    context
+                        .io_mut()
+                        .add_mouse_button_event(imgui::MouseButton::Left, frame_index == 3);
+                }
+            }
+            if frame_index == 5 {
+                context.io_mut().add_mouse_pos_event([500., 470.]);
+            }
             let ui = context.frame();
             ui.window("Node Inspector")
                 .position([0., 0.], imgui::Condition::Always)

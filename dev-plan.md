@@ -10,6 +10,7 @@ The foundation, ACES/GPU path, independent viewers, common Composition, integrat
 
 | Priority | Remaining work | Owning record | Completion evidence |
 | --- | --- | --- | --- |
+| Active authorized feature work | Reusable GPU effects, graph/Composition transitions, instance Timing, adjustments, typed Reference and live WGSL authoring | [Phase 57](docs/phase-57.md) | All slices 57A–G plus native/public-tool and uncached GPU evidence; in progress |
 | 1. Reconcile current baseline | Resolve stale Project/placement and public-schema gap descriptions against later work; reconcile UI dependency policy; retain inherited obligations | Phases 13, 21, 47, 51/51a, 52–56 | Each obligation has verified coverage or a specific remaining task; no missing native acceptance is inferred from source alone |
 | 2. Correctness and compositing | Fix the recorded StockX nearest-transform CPU/GPU discrepancy; complete remaining production-node/channel semantics | Phase 23 and EXR correction below | Matched sampling/color/alpha fixtures and actual editable workflow; no relaxed tolerance hiding a discrepancy |
 | 3. Sustained performance | Qualify uncached full-resolution EXR 24 fps; diagnose cold desktop scheduling/cache-fill after Phase 56; preserve accepted mixed-viewer behavior | EXR correction, Phase 56 follow-up, Phases 19A–19B regression evidence | Cold/uncached and warm desktop measurements, stage timings, resource peaks, audio and fair export progress |
@@ -29,7 +30,7 @@ This is the planning order for the remaining work, not new approval to implement
 
 ### Execution and completion rules
 
-- Before a new phase, write a brief `docs/phase-N.md` plan with scope, boundaries, tasks, acceptance and verification. Allocate an unused number after the existing series (currently through 56); preserve prior phase numbers, suffixes and links.
+- Before a new phase, write a brief `docs/phase-N.md` plan with scope, boundaries, tasks, acceptance and verification. Allocate an unused number after the existing series (currently through 57); preserve prior phase numbers, suffixes and links.
 - Mark a phase complete only against its own acceptance criteria and explicit scope decisions. Record artist acceptance, automated checks, hardware evidence and unverified behavior separately. An accepted feature can retain a named follow-up; a technical spike or source audit is not runtime acceptance.
 - During iteration, format touched files, check affected crates and run focused behavior tests. Reserve workspace suites, Clippy and boundary checks for integration checkpoints. Report pre-existing failures and unperformed checks.
 - Preserve Rust application logic, shared Dear ImGui UI, independent feature engines, generic Project/Render, stable references, transactional undo, immutable evaluation, exact time and unknown extension data. Apply the [Fold UI skill](.agents/skills/fold-ui/SKILL.md) for UI work.
@@ -709,3 +710,47 @@ Phases 34–40 are complete per user acceptance. Validation evidence and unverif
 
 - [ ] Measured performance follow-up: cold desktop playback on the isolated X11 virtual display advanced about 10 fps while filling the cache, despite the renderer-only frame budget passing. Diagnose desktop scheduling/cache-fill throughput separately; warm playback passes at 25 fps. Broader physical-monitor/Wayland/DPI acceptance remains unclaimed.
 - Scope boundaries: bundled dependencies are native groups/source/fonts; external media/documents remain explicit input dependencies. Coordinated interface migration across multiple source-owned definitions still rejects atomically rather than rewriting source. These are documented capabilities, not silent data loss.
+
+## Phase 57 — Reusable GPU effects, transitions and instance timing — complete pending review and optimizations
+
+Authorized 7 October 2026. The complete [Phase 57 design and implementation plan](docs/phase-57.md) records the agreed contracts, ownership, sequence, performance requirements and acceptance criteria. **Status: complete pending review and optimizations, accepted by the user on 7 October 2026.** Unchecked acceptance items below are retained as post-phase review and optimization follow-ups; completion does not claim unperformed verification or unfinished GPU work.
+
+- [x] Record agreed reusable definitions/instances, graph and Composition implementations, promoted interfaces, typed Input versus Reference, processing order and adjustment scope.
+- [x] Record exact transition/source timing, premultiplied Mix, duration-aware Timing, shared oscillator curves, clamp/repeat/ping-pong, fixed intro/outro templates and independent instance behavior.
+- [x] Record live WGSL interface/migration/background preview and GPU residency, compilation caching, varying Motion lowering and measured performance requirements.
+- [ ] 57A: shared timing/curves, context propagation, controls and template constructions.
+- [ ] 57B: reusable definitions, GPU effects and clip/Composition/Motion effect stacks.
+- [ ] 57C: timeline and Composition-backed transitions with duration-fitting templates.
+- [ ] 57D: scoped adjustments and common typed Reference authoring.
+- [ ] 57E: live WGSL source/interface authoring and GPU execution.
+- [ ] 57F: GPU Motion lowering, integrated native/public-tool and performance qualification.
+- [x] Record format-aware invocation, separate Relative Transform and scene-unit Motion canvas decisions (7 October expansion).
+- [ ] 57G: logical/output format separation, Relative Transform, Motion canvas/framing/layout and cross-format qualification.
+
+Public authoring operations now expose definition publication, instance inputs/values, Timing schemas, stacks, transitions, adjustments and Shader interface migration. The cancellable `fold.compositor.publish-shader` command validates source before saving. The Welcome to Fold demo below now qualifies one live public-tool artwork/save/reopen exercise; native Composition publication and coordinated migration workflows still need qualification.
+
+Phase 57 implementation checkpoint: shared timing/curves, format contracts, graph/Composition definitions, clip/layer stacks, timeline transitions and adjustments, GPU Shader execution/migration with cancellable worker source validation, native preset/promotion controls and logical Motion canvases are implemented in the working tree. Six cross-package effect/adjustment/template/public-batch tests pass, including independent mixed Motion/Compositing durations and undo/save/reopen. Native shader correctness/cache/recovery passes on GTX 1070. The first uncached 1080p hardware run records warm P95 readiness of 13.02 ms (Glow), 12.05 ms (eight effects), and 27.02 ms (1,024 static Motion instances + animated Glow); zero image readbacks. [Detailed evidence and limits](docs/phase-57.md#implementation-checkpoint--7-october-2026-phase-remains-open). Workspace and desktop all-target checks pass; Clippy completed with recorded warnings and the existing boundary-policy discrepancy remains. Varying Motion GPU lowering, definition preview in host context, native mixed-Composition publication, broader native/public-tool qualification and sustained/pressure measurements remain open. This was the pre-acceptance checkpoint; the current phase status is complete pending review and optimizations, with these limitations retained.
+
+7 October 2026 artwork checkpoint: [Welcome to Fold](demos/welcome-to-fold.md) / [project](demos/welcome-to-fold.fold), 18 seconds at 1080p30, uses all four contexts. Three Composition clips contain editable Motion text; Glass is attached to clip 1, Glitch to a layer in Composition 2, and Glow is instantiated directly in compositing graph 3. Actual Dissolve and Circular Wipe transitions span the two cuts. Public MCP candidate construction, GPU title/animation/transition renders, commit, save, desktop reopen and fresh renders at seven times passed; embedded fonts, effect stacks, keys, format and transitions survived reopen. Manual UI operation and sustained playback remain unqualified. No engine code changed for this demo.
+
+Public discovery gaps found during that exercise: `fold.app.document-settings` and effect-creation commands still lack argument schemas; MCP wrapper descriptions type arbitrary JSON edits/command arguments as strings although the server requires objects. The demo was authored with object payloads and the verified document-settings shape is recorded in the Fold effects reference. Fix discovery/wrapper schemas separately; no private APIs or project-archive edits were needed.
+
+Welcome to Fold navigation correction: user review rejected the original image-graph wrappers. The live demo now exposes direct Motion text and owned background graph layers in each of its three Compositions, a Composition Glitch adjustment, and a separate Glow-only compositing layer. Existing timeline clip/transition identities and user edits were retained where applicable; obsolete wrapper documents were removed in one undoable transaction. Five GPU sample frames passed and the corrected live revision was saved. Manual pointer navigation remains unverified; rendered acceptance alone did not qualify the original editing workflow.
+
+Phase 57 interaction completion (authorized): simplify clip and Composition inspectors to source/network access, transforms, opacity and effects; remove Precise Edit and Apply controls. Composition layer selection opens its network while retaining the container inspector until explicit node selection. Add transition-ID selection, compact transition inspector, edge/body drags and cut-boundary Add Transition. Move the demo's Glow onto its text-layer effect stack. Focused selection/gesture/undo tests and normal/narrow native layout review are recorded below.
+
+Phase 57 interaction follow-up implemented (7 October):
+- [x] Minimal timeline clip inspector: source, optional Open Network, transform, opacity/effects; remove Precise Edit and Apply controls.
+- [x] Composition container inspector with layer effect stacks; layer click opens the graph but retains container inspection until explicit node selection.
+- [x] Select transitions by ID; Inspector duration/alignment/parameters/Edit Graph; edge resize and body move bounded by source handles; select cuts and add a default Dissolve through the context menu.
+- [x] Undoable gesture previews and atomic default transition/definition creation; preserve clip source clocks.
+- [x] Move Welcome demo Glow onto the third text layer, remove obsolete halo layer/network, GPU-render and save while retaining user edits.
+- [x] Focused timeline (19), Composition (10), selection (1), and transition-creation (1) tests pass. Native Composition layouts reviewed at normal/narrow widths.
+- [x] Native timeline clip/transition and Composition inspector captures pass and were reviewed at normal/narrow widths ([captures](docs/evidence/phase-57/inspectors-normal-narrow.png)).
+- [ ] Manual live pointer/playback qualification. Native event-driven tests pass; the external computer-control runtime was unavailable for independent live pointer review.
+
+The earlier separate-Glow-layer demo checkpoint is superseded by this layer-stack correction. The broader Phase 57 GPU lowering, host-context definition preview, migration/publication and performance qualification items remain open.
+
+Final interaction build: `cargo build -p fold-app --features desktop --bin fold-desktop --locked` passes. The rebuilt desktop was relaunched with the saved Welcome demo using the GTX 1070 shared GPU backend. Diff whitespace checks pass; existing renderer dead-code warnings remain. Workspace-wide tests and Clippy were not repeated for this focused follow-up.
+
+- [x] **Phase 57 completion accepted (7 October 2026):** user reviewed the updated UI, requested committing the work, and marked the phase done pending review and optimizations. Remaining GPU lowering, host-context preview, publication/migration, discovery, cross-format and sustained-performance acceptance work stays explicitly tracked above and in the phase plan.

@@ -20,7 +20,7 @@ pub fn definition_grid() -> Definition {
         "Geometry",
         vec![
             Socket::required("content", Kind::Content),
-            scalar("cell_size", 6., "px"),
+            scalar("cell_size", 6., "units"),
             scalar("cell_scale", 1., "factor"),
             boolean("circular", false),
             boolean("world_aligned", false),

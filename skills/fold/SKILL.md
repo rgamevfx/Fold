@@ -25,6 +25,10 @@ For Motion objects, text, copies, or group interfaces, read [Motion authoring](r
 
 For graph restructuring, combined node creation, control publication, graph queries, or Rust Wrangles, read [Graph authoring and Rust Wrangles](references/graph-authoring.md). Use resolved signatures and mutation receipts to avoid reconstructing node plumbing.
 
+For reusable effects, transitions, live WGSL and duration/format-aware templates, read [Effects and timing](references/effects.md), available through `catalog guide="effects"` with its example batch. The included public batch example is regression-tested; discover the running build and qualify its rendered result before reuse.
+
+For a complete Timeline → Composition → Compositing → Motion effects example, inspect [Welcome to Fold](../../demos/welcome-to-fold.md). Its guide locates the clip Glass, Composition Glitch, graph Glow and two timeline transitions; the effects reference records its verified public authoring and save/reopen workflow.
+
 For slow playback, large instance counts, Wrangle/native performance choices, or output equivalence after optimization, read [Performance and output equivalence](references/performance.md). It separates artwork checks through MCP from engineering profiling and defines the evidence needed for a speed claim.
 
 Build the smallest useful part first: one visible source, its placement, and one driver or published control. Render it before multiplying copies or assembling a large graph. A successful validation proves structure, not appearance or editability. Before finalizing an instance-heavy effect, repeat the render check at its intended count and resolution; the small probe does not establish production throughput.

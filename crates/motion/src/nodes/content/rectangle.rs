@@ -7,9 +7,9 @@ pub fn definition() -> Definition {
         "Rectangle",
         "Content",
         vec![
-            scalar("width", 100., "px"),
-            scalar("height", 100., "px"),
-            scalar("radius", 0., "px"),
+            scalar("width", 100., "units"),
+            scalar("height", 100., "units"),
+            scalar("radius", 0., "units"),
         ],
         vec![("content", Kind::Content)],
         |e, n| {

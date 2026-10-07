@@ -11,7 +11,7 @@ pub fn has_sequence(snapshot: &Snapshot) -> bool {
     snapshot.state().documents.values().any(|d| {
         d.package_id == crate::PACKAGE
             && d.type_id == SEQUENCE
-            && [2, SEQUENCE_SCHEMA].contains(&d.schema_version)
+            && (2..=SEQUENCE_SCHEMA).contains(&d.schema_version)
     })
 }
 pub fn active(snapshot: &Snapshot) -> Result<(DocumentRef, Sequence), String> {
@@ -22,7 +22,7 @@ pub fn active(snapshot: &Snapshot) -> Result<(DocumentRef, Sequence), String> {
         .find(|d| {
             d.package_id == crate::PACKAGE
                 && d.type_id == SEQUENCE
-                && [2, SEQUENCE_SCHEMA].contains(&d.schema_version)
+                && (2..=SEQUENCE_SCHEMA).contains(&d.schema_version)
         })
         .ok_or("no editable multi-track sequence")?;
     Ok((
@@ -84,6 +84,7 @@ pub fn import_media(
         .map(|d| Sequence::from_document(d))
         .transpose()?
         .unwrap_or_else(|| Sequence {
+            transitions: vec![],
             dimensions: [640, 360],
             rate: [24, 1],
             tracks: vec![
@@ -157,6 +158,7 @@ pub fn import_media(
                 return Err("import destination is locked or incompatible".into());
             }
             sequence.clips.push(Clip {
+                effects: vec![],
                 id: ObjectId::new(),
                 track: track.id,
                 link,

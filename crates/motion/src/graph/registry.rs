@@ -28,6 +28,9 @@ pub fn definitions() -> &'static [Definition] {
         result.push(nodes::text_on_points::definition_labels());
         result.extend(nodes::animation::definitions());
         result.push(nodes::oscillator::definition_oscillator());
+        result.extend(nodes::timing::definitions());
+        result.push(nodes::format::definition_format());
+        result.push(nodes::format::definition_anchor());
         result.extend(nodes::influence::definitions());
         result.extend(nodes::response::definitions());
         result.extend(nodes::scene::definitions());

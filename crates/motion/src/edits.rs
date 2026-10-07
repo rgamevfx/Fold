@@ -44,6 +44,7 @@ impl Changes {
             }
             Ok(())
         }
+        field("canvas", &before.canvas, &after.canvas, &mut changes)?;
         field("info", &before.info, &after.info, &mut changes)?;
         field("graph", &before.graph, &after.graph, &mut changes)?;
         field("scene", &before.scene, &after.scene, &mut changes)?;
@@ -160,7 +161,7 @@ pub(crate) fn stage(
         };
         if matches!(
             field.as_str(),
-            "info" | "graph" | "scene" | "fonts" | "controls" | "groups"
+            "info" | "canvas" | "graph" | "scene" | "fonts" | "controls" | "groups"
         ) {
             let field = field.clone();
             path.remove(0);
@@ -171,6 +172,7 @@ pub(crate) fn stage(
     }
     for (field, changes) in fields {
         match field.as_str() {
+            "canvas" => apply_changes(&mut motion.canvas, changes, cancel)?,
             "info" => apply_changes(&mut motion.info, changes, cancel)?,
             "graph" => apply_changes(&mut motion.graph, changes, cancel)?,
             "scene" => apply_changes(&mut motion.scene, changes, cancel)?,

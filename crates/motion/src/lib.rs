@@ -1,6 +1,7 @@
 //! Motion-owned authoring payloads and immutable plan compilation.
 pub mod animation;
 pub mod authoring;
+pub mod canvas;
 pub mod document;
 pub mod evaluation;
 pub mod fields;

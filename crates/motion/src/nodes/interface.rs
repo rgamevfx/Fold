@@ -161,6 +161,8 @@ pub fn definitions() -> Vec<Definition> {
             nested.group_depth = e.group_depth + 1;
             nested.object_path = e.object_path.clone();
             nested.layer_times = e.layer_times.clone();
+            nested.instance_timing = e.instance_timing;
+            nested.output_format = e.output_format;
             nested.current_object = e.current_object;
             nested.budget = std::mem::take(&mut e.budget);
             let mut result = Outputs::new();
@@ -279,6 +281,7 @@ pub fn signature(
             unit: match p.unit.as_str() {
                 "integer" => "integer",
                 "px" => "px",
+                "units" => "units",
                 "degrees" => "degrees",
                 "seconds" => "seconds",
                 "Hz" => "Hz",

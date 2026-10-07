@@ -30,7 +30,7 @@ pub fn methods() -> Value {
         (
             "catalog",
             "Call without query arguments first for exact package type IDs and workflow guidance. Then discover method schemas, package operations, configured node signatures, shipped guides, or the SDK on demand.",
-            json!({"method":string,"type":string,"query":string,"nodes":{"type":"boolean"},"sdk":{"type":"boolean"},"guide":{"type":"string","enum":["workflow","motion","graph","glossary","candidates","live-tools","image-inputs","rust-assets","rust-sdk"]}}),
+            json!({"method":string,"type":string,"query":string,"nodes":{"type":"boolean"},"sdk":{"type":"boolean"},"guide":{"type":"string","enum":["workflow","motion","graph","glossary","candidates","live-tools","image-inputs","effects","rust-assets","rust-sdk"]}}),
             vec![],
         ),
         (

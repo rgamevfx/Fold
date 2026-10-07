@@ -6,6 +6,7 @@ pub mod graph;
 pub mod layer;
 mod model;
 pub mod package;
+pub mod reusable;
 pub use model::{Composition, Layer};
 #[cfg(feature = "ui")]
 pub mod ui;

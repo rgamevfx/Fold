@@ -272,10 +272,9 @@ impl Overlay {
             self.pick(ui, &mut state, host, rect, &motion, time);
             return;
         }
-        let scale = [
-            rect.size[0] as f64 / motion.info.width as f64,
-            rect.size[1] as f64 / motion.info.height as f64,
-        ];
+        let Ok((scale, canvas_offset)) = motion.viewport_mapping(rect.size) else {
+            return;
+        };
         let saved = ui.cursor_screen_pos();
         let mut controls = handles(&motion, selected);
         if !self.tools.edit_points {
@@ -328,8 +327,8 @@ impl Overlay {
             let screen = |p| {
                 let p = project(handle.matrix, p);
                 [
-                    rect.origin[0] + (p[0] * scale[0]) as f32,
-                    rect.origin[1] + (p[1] * scale[1]) as f32,
+                    rect.origin[0] + (canvas_offset[0] + p[0] * scale[0]) as f32,
+                    rect.origin[1] + (canvas_offset[1] + p[1] * scale[1]) as f32,
                 ]
             };
             let draw = ui.get_window_draw_list();
@@ -372,8 +371,8 @@ impl Overlay {
         for (i, handle) in controls.iter().enumerate() {
             let document = project(handle.matrix, handle.point);
             let center = [
-                rect.origin[0] + (document[0] * scale[0]) as f32,
-                rect.origin[1] + (document[1] * scale[1]) as f32,
+                rect.origin[0] + (canvas_offset[0] + document[0] * scale[0]) as f32,
+                rect.origin[1] + (canvas_offset[1] + document[1] * scale[1]) as f32,
             ];
             let p = if matches!(handle.target, Target::Rotation | Target::Scale) {
                 [center[0] + 50., center[1]]
@@ -463,8 +462,8 @@ impl Overlay {
                         Target::Rotation | Target::Scale => {
                             let origin = project(gesture.handle.matrix, gesture.handle.point);
                             let screen = [
-                                rect.origin[0] + (origin[0] * scale[0]) as f32,
-                                rect.origin[1] + (origin[1] * scale[1]) as f32,
+                                rect.origin[0] + (canvas_offset[0] + origin[0] * scale[0]) as f32,
+                                rect.origin[1] + (canvas_offset[1] + origin[1] * scale[1]) as f32,
                             ];
                             let local = |p: [f32; 2]| {
                                 let x = (p[0] - screen[0]) as f64 / scale[0];
@@ -574,14 +573,13 @@ impl Overlay {
         let Some(result) = self.picking.current(key) else {
             return;
         };
-        let scale = [
-            rect.size[0] as f64 / m.info.width as f64,
-            rect.size[1] as f64 / m.info.height as f64,
-        ];
+        let Ok((scale, canvas_offset)) = m.viewport_mapping(rect.size) else {
+            return;
+        };
         let screen = |p: [f64; 2]| {
             [
-                rect.origin[0] + (p[0] * scale[0]) as f32,
-                rect.origin[1] + (p[1] * scale[1]) as f32,
+                rect.origin[0] + (canvas_offset[0] + p[0] * scale[0]) as f32,
+                rect.origin[1] + (canvas_offset[1] + p[1] * scale[1]) as f32,
             ]
         };
         for outline in &result.outlines {
@@ -634,8 +632,8 @@ impl Overlay {
         }
         let mouse = ui.io().mouse_pos();
         let p = [
-            (mouse[0] - rect.origin[0]) as f64 / scale[0],
-            (mouse[1] - rect.origin[1]) as f64 / scale[1],
+            ((mouse[0] - rect.origin[0]) as f64 - canvas_offset[0]) / scale[0],
+            ((mouse[1] - rect.origin[1]) as f64 - canvas_offset[1]) / scale[1],
         ];
         let hit = result
             .outlines

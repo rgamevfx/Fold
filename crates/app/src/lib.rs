@@ -4,6 +4,7 @@ mod browser_ingest;
 pub mod color;
 pub mod composition;
 pub mod composition_layers;
+mod timeline_transition;
 pub mod document_placement;
 pub mod ingest;
 pub mod media_workflow;

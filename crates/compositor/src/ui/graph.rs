@@ -32,6 +32,15 @@ impl Context<'_> {
                     ..Default::default()
                 },
             },
+            P::RelativeTransform {
+                settings: crate::RelativeTransform {
+                    source_size: [graph.info.width as f64, graph.info.height as f64],
+                    ..Default::default()
+                },
+            },
+            P::Shader {
+                settings: Default::default(),
+            },
             P::Crop { rect },
             P::GaussianBlur {
                 size: [3.; 2],
@@ -95,6 +104,25 @@ impl Context<'_> {
                 .values()
                 .filter(|d| Some(d.id) != self.state.document)
             {
+                if let Ok(interface) = self.host.effect_interface(d.id) {
+                    let reference = DocumentRef {
+                        document: d.id,
+                        output: "video".into(),
+                        extensions: Default::default(),
+                    };
+                    templates.push((
+                        NodeTemplate {
+                            key: format!("effect:{:?}", d.id),
+                            label: fold_ui::sdk::effects::name(self.host, &reference),
+                            category: "Effects".into(),
+                        },
+                        P::Instance {
+                            instance: fold_ui::sdk::effects::new_instance(reference, &interface),
+                            images: interface.images,
+                        },
+                    ));
+                    continue;
+                }
                 if let Ok(info) = self.host.video_info(d.id)
                     && let Ok(duration) = info.time(info.frames)
                 {
@@ -118,7 +146,7 @@ impl Context<'_> {
                                     .map(|item| item.name.as_str())
                                     .unwrap_or("Untitled")
                             ),
-                            category: "Document output".into(),
+                            category: "Image references".into(),
                         },
                         P::Read {
                             source: Source::Document {
@@ -210,7 +238,7 @@ impl GraphContext for Context<'_> {
         GraphPresentation::VerticalCompact
     }
     fn primary_input<'a>(&self, node: &'a NodeView) -> Option<&'a str> {
-        ["background", "image", "A"]
+        ["source", "outgoing", "background", "image", "A"]
             .into_iter()
             .find(|key| node.inputs.iter().any(|port| port.key == *key))
     }
@@ -255,7 +283,11 @@ impl GraphContext for Context<'_> {
                                 })
                                 .unwrap_or("Document".into())
                         } else {
-                            op.label().to_string()
+                            if let P::Instance { instance, .. } = &n.parameters {
+                                fold_ui::sdk::effects::name(self.host, &instance.definition)
+                            } else {
+                                op.label().to_string()
+                            }
                         },
                         summary: summary(&n.parameters),
                         position: n.position,
@@ -271,19 +303,16 @@ impl GraphContext for Context<'_> {
                             P::Merge | P::Composite { .. } => GRAPH_COLORS.merge,
                             _ => color(op.output),
                         },
-                        inputs: op
-                            .inputs
-                            .iter()
-                            .enumerate()
-                            .map(|(i, kind)| PortView {
-                                key: op.input_key(i).into(),
+                        inputs: (0..n.parameters.input_count())
+                            .map(|i| PortView {
+                                key: n.parameters.input_key(i).into(),
                                 label: match (op.id, i) {
                                     ("Merge", 0) => "A · Foreground",
                                     ("Merge", 1) => "B · Background",
-                                    _ => op.input_label(i),
+                                    _ => n.parameters.input_key(i),
                                 }
                                 .into(),
-                                color: color(*kind),
+                                color: color(n.parameters.input_type(i)),
                             })
                             .chain(op.supports_effect().then(|| PortView {
                                 key: "mask".into(),
@@ -324,7 +353,7 @@ impl GraphContext for Context<'_> {
                                 },
                                 target: Socket {
                                     node: n.id,
-                                    key: n.parameters.operator().input_key(i).into(),
+                                    key: n.parameters.input_key(i).into(),
                                 },
                             })
                         })
@@ -419,6 +448,11 @@ fn color(kind: PortType) -> [f32; 4] {
 }
 fn summary(p: &P) -> String {
     match p {
+        P::Shader { .. } => "GPU image shader".into(),
+        P::RelativeTransform { .. } => "Relative image placement".into(),
+        P::Input { id } => format!("Input: {id}"),
+        P::Instance { .. } => "Reusable effect".into(),
+        P::Dissolve { .. } => "Duration-driven mix".into(),
         P::Unary { operation } => operation.label().into(),
         P::Shape { shape, .. } => shape.label().into(),
         P::GaussianBlur { size, .. } => format!("Gaussian {:.1} × {:.1} px", size[0], size[1]),

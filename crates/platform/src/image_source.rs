@@ -83,6 +83,13 @@ pub fn compile(
             context.cancel,
         )?)));
     }
+    // Procedural document references inherit explicit instance duration. Media
+    // assets retain their own source bounds; fitting a template never retimes them.
+    if context.context.is_some()
+        && let Source::Output(reference) = &request.source
+    {
+        return (context.resolve_image)(reference, request.time)?.select(None);
+    }
     let Some(time) = request.mapped_time()? else {
         return Ok(single(ImageOp::Solid { rgba: [0.; 4] }));
     };

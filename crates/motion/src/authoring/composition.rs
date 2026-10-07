@@ -26,10 +26,16 @@ pub fn place(
     duration: Time,
     name: String,
 ) -> Result<ObjectId, String> {
+    let canvas = m.canvas_size();
+    let scale = (canvas[0] / info.width as f64)
+        .min(canvas[1] / info.height as f64)
+        .min(1.);
+    let size = [info.width as f64 * scale, info.height as f64 * scale];
     let id = scene::create_object(m, KIND)?;
     node(m, id)?.settings = serde_json::to_value(Settings {
         source: Some(source),
         info: info.clone(),
+        size: Some(size),
         start: at,
         source_start,
     })
@@ -48,7 +54,7 @@ pub fn place(
     let transform = object.transform.unwrap();
     node(m, transform)?.set(
         "translation",
-        Datum::Vector([info.width as f64 / 2., info.height as f64 / 2.]),
+        Datum::Vector([canvas[0] / 2., canvas[1] / 2.]),
     );
     Ok(id)
 }

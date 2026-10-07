@@ -19,6 +19,9 @@ use serde_json::{Value, json};
 #[derive(Deserialize, schemars::JsonSchema)]
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 enum Edit {
+    Canvas {
+        canvas: crate::canvas::Canvas,
+    },
     ObjectInputs {
         object: ObjectId,
         role: String,
@@ -147,7 +150,7 @@ pub fn catalog() -> Value {
 pub fn inspect(document: &Document) -> Result<Value, String> {
     let m = Motion::from_document(document)?;
     Ok(
-        json!({"info":m.info,"graph":m.graph,"groups":m.groups,"scene":m.scene,"controls":m.controls,
+        json!({"info":m.info,"canvas":m.canvas,"graph":m.graph,"groups":m.groups,"scene":m.scene,"controls":m.controls,
         "rust_assets":m.extensions.get(crate::program::METADATA),
         "fonts":m.fonts.iter().map(|(id,f)|json!({"id":id,"name":f.name,"face_index":f.face_index,"bytes":f.bytes().len(),"fingerprint":font_identity(f)})).collect::<Vec<_>>()}),
     )
@@ -265,7 +268,14 @@ pub fn author_cancellable(
                     },
                 );
             }
-            Edit::Info { value } => patch(&mut m.info, &value)?,
+            Edit::Canvas { canvas } => {
+                canvas.validate()?;
+                m.canvas = Some(canvas);
+            }
+            Edit::Info { value } => {
+                m.retain_canvas();
+                patch(&mut m.info, &value)?;
+            }
             Edit::Add { id, kind, group } => {
                 let g = graph(&mut m, group)?;
                 if g.nodes.iter().any(|n| n.id == id) {

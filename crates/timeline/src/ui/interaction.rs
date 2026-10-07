@@ -176,3 +176,56 @@ pub fn snap_offset(
     }
     Ok(best.map(|(_, offset)| offset))
 }
+
+/// A transition gesture only changes its interval; clip clocks stay untouched.
+pub struct TransitionDrag {
+    pub base: Revision,
+    pub original: Sequence,
+    pub id: ObjectId,
+    pub handle: Handle,
+    pub grab_frame: f64,
+}
+impl TransitionDrag {
+    pub fn proposal(&self, pointer: f64) -> Result<SequenceEdit, String> {
+        let original = self
+            .original
+            .transitions
+            .iter()
+            .find(|t| t.id == self.id)
+            .ok_or("Missing transition")?;
+        let delta = (pointer - self.grab_frame).round() as i64;
+        let proposal = |frames: i64| -> Result<SequenceEdit, String> {
+            let delta = time(frames, self.original.rate)?;
+            let mut transition = original.clone();
+            let mut end = original.end()?;
+            if self.handle != Handle::Right {
+                transition.start = transition
+                    .start
+                    .checked_add(delta)
+                    .map_err(|e| e.to_string())?;
+            }
+            if self.handle != Handle::Left {
+                end = end.checked_add(delta).map_err(|e| e.to_string())?;
+            }
+            transition.duration = end
+                .checked_sub(transition.start)
+                .map_err(|e| e.to_string())?;
+            let edit = SequenceEdit::Transition { transition };
+            self.original.edited(&edit)?;
+            Ok(edit)
+        };
+        // Valid intervals form a contiguous range around the original. Clamp to
+        // source handles, adjacent cuts and neighbouring transitions in O(log n).
+        let mut low = 0i64;
+        let mut high = delta.saturating_abs();
+        while low < high {
+            let mid = low + (high - low + 1) / 2;
+            if proposal(mid * delta.signum()).is_ok() {
+                low = mid;
+            } else {
+                high = mid - 1;
+            }
+        }
+        proposal(low * delta.signum())
+    }
+}

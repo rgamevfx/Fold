@@ -118,7 +118,7 @@ fn choice(
         }
     }
 }
-fn timing(
+pub(super) fn timing(
     ui: &Ui,
     settings: &mut serde_json::Value,
     key: &str,

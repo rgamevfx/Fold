@@ -1,0 +1,144 @@
+{
+  "request_id": "reusable-dissolve-example",
+  "revision": 0,
+  "project_epoch": 0,
+  "label": "Create reusable dissolve",
+  "ids": [
+    "definition",
+    "host",
+    "a",
+    "b",
+    "mix",
+    "instance",
+    "output"
+  ],
+  "operations": [
+    {
+      "op": "command",
+      "id": "fold.compositor.create-effect",
+      "arguments": {
+        "id": {
+          "$ref": "definition"
+        },
+        "preset": "Dissolve"
+      }
+    },
+    {
+      "op": "create",
+      "id": {
+        "$ref": "host"
+      },
+      "kind": "fold.compositor.composite",
+      "name": "Reusable dissolve"
+    },
+    {
+      "op": "edit",
+      "document": {
+        "$ref": "host"
+      },
+      "edits": [
+        {
+          "op": "info",
+          "value": {
+            "width": 1920,
+            "height": 1080,
+            "rate": [
+              24,
+              1
+            ],
+            "frames": 24
+          }
+        },
+        {
+          "op": "create_node",
+          "id": {
+            "$ref": "a"
+          },
+          "parameters": {
+            "Solid": {
+              "rgba": [
+                0.5,
+                0,
+                0,
+                0.5
+              ]
+            }
+          },
+          "inputs": {}
+        },
+        {
+          "op": "create_node",
+          "id": {
+            "$ref": "b"
+          },
+          "parameters": {
+            "Solid": {
+              "rgba": [
+                0,
+                0,
+                0.25,
+                0.25
+              ]
+            }
+          },
+          "inputs": {}
+        },
+        {
+          "op": "create_node",
+          "id": {
+            "$ref": "mix"
+          },
+          "parameters": {
+            "Instance": {
+              "instance": {
+                "id": {
+                  "$ref": "instance"
+                },
+                "definition": {
+                  "document": {
+                    "$ref": "definition"
+                  },
+                  "output": "video"
+                },
+                "version": 1,
+                "values": {},
+                "animation": {},
+                "enabled": true
+              },
+              "images": [
+                "outgoing",
+                "incoming"
+              ]
+            }
+          },
+          "inputs": {
+            "outgoing": {
+              "$ref": "a"
+            },
+            "incoming": {
+              "$ref": "b"
+            }
+          }
+        },
+        {
+          "op": "create_node",
+          "id": {
+            "$ref": "output"
+          },
+          "parameters": "Output",
+          "inputs": {
+            "image": {
+              "$ref": "mix"
+            }
+          }
+        },
+        {
+          "op": "output",
+          "node": {
+            "$ref": "output"
+          }
+        }
+      ]
+    }
+  ]
+}

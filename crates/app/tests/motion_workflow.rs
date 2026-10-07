@@ -144,10 +144,12 @@ fn motion_nests_in_compositor_and_timeline_without_flattening() {
     };
     let track = Track::new(TrackKind::Video, "Motion title");
     let seq = Sequence {
+        transitions: vec![],
         dimensions: [64, 64],
         rate: [24, 1],
         tracks: vec![track.clone()],
         clips: vec![Clip {
+            effects: vec![],
             id: ObjectId::new(),
             track: track.id,
             link: None,

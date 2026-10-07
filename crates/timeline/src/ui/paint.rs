@@ -291,6 +291,56 @@ impl Canvas {
                     }
                 }
             }
+            if let Some(cut) = self
+                .cut
+                .and_then(|id| {
+                    shown
+                        .clips
+                        .iter()
+                        .find(|c| c.id == id && c.track == track.id)
+                })
+                .and_then(|c| c.end().ok())
+            {
+                let x = self
+                    .view
+                    .x(interaction::frame(cut, shown.rate), layout.body.min[0]);
+                draw.add_line([x, row.min[1] + 2.], [x, row.max[1] - 2.], colors.selected)
+                    .thickness(3.)
+                    .build();
+            }
+            for transition in shown.transitions.iter().filter(|t| {
+                shown
+                    .clips
+                    .iter()
+                    .any(|c| c.id == t.outgoing && c.track == track.id)
+            }) {
+                let Ok(end) = transition.end() else { continue };
+                let x0 = self.view.x(
+                    interaction::frame(transition.start, shown.rate),
+                    layout.body.min[0],
+                );
+                let x1 = self
+                    .view
+                    .x(interaction::frame(end, shown.rate), layout.body.min[0]);
+                let min = [x0, row.max[1] - 18. * layout.scale];
+                let max = [x1, row.max[1] - 3. * layout.scale];
+                draw.add_rect(min, max, colors.header).filled(true).build();
+                draw.add_rect(
+                    min,
+                    max,
+                    if model.selected.contains(&transition.id) {
+                        colors.selected
+                    } else {
+                        colors.text
+                    },
+                )
+                .thickness(2.)
+                .build();
+                draw.add_line([x0, min[1]], [x1, max[1]], colors.text)
+                    .build();
+                draw.add_line([x0, max[1]], [x1, min[1]], colors.text)
+                    .build();
+            }
         }
         if let Some(drag) = &self.drag {
             for clip in model

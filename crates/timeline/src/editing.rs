@@ -17,6 +17,26 @@ pub enum ClipEdit {
 }
 #[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
 pub enum SequenceEdit {
+    Transform {
+        id: ObjectId,
+        transform: crate::Transform,
+    },
+    AddAdjustment {
+        id: ObjectId,
+        track: ObjectId,
+        start: Time,
+        duration: Time,
+    },
+    Transition {
+        transition: crate::Transition,
+    },
+    RemoveTransition {
+        id: ObjectId,
+    },
+    Effects {
+        id: ObjectId,
+        effects: Vec<fold_platform::effects::Instance>,
+    },
     Selection {
         ids: Vec<ObjectId>,
         linked: bool,
@@ -49,6 +69,100 @@ impl Sequence {
         self.validate()?;
         let mut result = self.clone();
         match edit {
+            SequenceEdit::Transform { id, transform } => {
+                transform.validate()?;
+                let clip = result
+                    .clips
+                    .iter()
+                    .find(|c| c.id == *id)
+                    .ok_or("Missing clip")?;
+                if result.track(clip.track)?.locked
+                    || result.track(clip.track)?.kind != TrackKind::Video
+                {
+                    return Err("Choose an unlocked video clip".into());
+                }
+                result
+                    .clips
+                    .iter_mut()
+                    .find(|c| c.id == *id)
+                    .unwrap()
+                    .extensions
+                    .insert(
+                        crate::transform::KEY.into(),
+                        serde_json::to_value(transform).map_err(|e| e.to_string())?,
+                    );
+            }
+            SequenceEdit::AddAdjustment {
+                id,
+                track,
+                start,
+                duration,
+            } => {
+                if result.track(*track)?.locked || result.track(*track)?.kind != TrackKind::Video {
+                    return Err("Choose an unlocked video track for an adjustment".into());
+                }
+                result.clips.push(crate::Clip {
+                    id: *id,
+                    track: *track,
+                    link: None,
+                    asset: fold_foundation::AssetId::new(),
+                    info: crate::SourceMedia::Adjustment,
+                    start: *start,
+                    source_start: Time::ZERO,
+                    duration: *duration,
+                    level: 1.,
+                    effects: vec![],
+                    extensions: Default::default(),
+                });
+            }
+            SequenceEdit::Transition { transition } => {
+                for id in [transition.outgoing, transition.incoming] {
+                    let clip = result
+                        .clips
+                        .iter()
+                        .find(|c| c.id == id)
+                        .ok_or("Missing transition clip")?;
+                    if result.track(clip.track)?.locked {
+                        return Err("Unlock transition clips before editing".into());
+                    }
+                }
+                result.transitions.retain(|t| t.id != transition.id);
+                result.transitions.push(transition.clone());
+            }
+            SequenceEdit::RemoveTransition { id } => {
+                let t = result
+                    .transitions
+                    .iter()
+                    .find(|t| t.id == *id)
+                    .ok_or("Missing transition")?;
+                let clip = result
+                    .clips
+                    .iter()
+                    .find(|c| c.id == t.outgoing)
+                    .ok_or("Missing transition clip")?;
+                if result.track(clip.track)?.locked {
+                    return Err("Unlock transition track before editing".into());
+                }
+                result.transitions.retain(|t| t.id != *id);
+            }
+
+            SequenceEdit::Effects { id, effects } => {
+                let clip = result
+                    .clips
+                    .iter()
+                    .find(|c| c.id == *id)
+                    .ok_or("Missing clip")?;
+                if result.track(clip.track)?.locked {
+                    return Err("Unlock the track before editing effects".into());
+                }
+                result
+                    .clips
+                    .iter_mut()
+                    .find(|c| c.id == *id)
+                    .unwrap()
+                    .effects = effects.clone();
+            }
+
             SequenceEdit::Selection { ids, linked, edit } => {
                 result.apply_selection(ids, *linked, edit)?
             }
@@ -94,6 +208,57 @@ impl Sequence {
             }
             SequenceEdit::Clip { id, linked, edit } => result.apply_clip(*id, *linked, edit)?,
         }
+        for clip in &mut result.clips {
+            if let Some(before) = self.clips.iter().find(|old| old.id == clip.id)
+                && clip.start != before.start
+                && clip.source_start == before.source_start
+                && clip.duration == before.duration
+            {
+                let delta = clip
+                    .start
+                    .checked_sub(before.start)
+                    .map_err(|e| e.to_string())?;
+                for effect in &mut clip.effects {
+                    effect.shift_time(delta)?;
+                }
+            }
+        }
+        // Preserve transition alignment when its cut moves. A split of the
+        // outgoing clip transfers ownership to the new segment touching the cut.
+        for transition in &mut result.transitions {
+            let Some(old) = self.transitions.iter().find(|t| t.id == transition.id) else {
+                continue;
+            };
+            let Some(before) = self.clips.iter().find(|c| c.id == old.outgoing) else {
+                continue;
+            };
+            let old_cut = before.end()?;
+            if let Some(right) = result.clips.iter().find(|c| {
+                c.track == before.track
+                    && !self.clips.iter().any(|old_clip| old_clip.id == c.id)
+                    && c.end().ok() == Some(old_cut)
+                    && c.start > before.start
+            }) {
+                transition.outgoing = right.id;
+            }
+            if let (Some(a), Some(b)) = (
+                result.clips.iter().find(|c| c.id == transition.outgoing),
+                result.clips.iter().find(|c| c.id == transition.incoming),
+            ) {
+                if a.end()? == b.start {
+                    let delta = b.start.checked_sub(old_cut).map_err(|e| e.to_string())?;
+                    transition.effect.shift_time(delta)?;
+                    transition.start = transition
+                        .start
+                        .checked_add(delta)
+                        .map_err(|e| e.to_string())?;
+                }
+            }
+        }
+        result.transitions.retain(|t| {
+            result.clips.iter().any(|c| c.id == t.outgoing)
+                && result.clips.iter().any(|c| c.id == t.incoming)
+        });
         result.validate()?;
         Ok(result)
     }
@@ -169,6 +334,9 @@ impl Sequence {
                         .checked_sub(original.start)
                         .and_then(|delta| clip.source_start.checked_add(delta))
                         .map_err(|e| e.to_string())?;
+                    if matches!(clip.info, crate::SourceMedia::Adjustment) {
+                        clip.source_start = Time::ZERO;
+                    }
                     clip.start = *start;
                     clip.duration = end.checked_sub(*start).map_err(|e| e.to_string())?;
                 }
@@ -177,6 +345,9 @@ impl Sequence {
                         return Err("split must be strictly inside clip".into());
                     }
                     let mut right = clip.clone();
+                    for effect in &mut right.effects {
+                        effect.id = ObjectId::new();
+                    }
                     right.id = if clip.id == id {
                         *right_id
                     } else {
@@ -185,6 +356,9 @@ impl Sequence {
                     right.link = new_link;
                     right.start = *at;
                     right.source_start = clip.source_time(*at)?.ok_or("split outside clip")?;
+                    if matches!(right.info, crate::SourceMedia::Adjustment) {
+                        right.source_start = Time::ZERO;
+                    }
                     right.duration = clip.end()?.checked_sub(*at).map_err(|e| e.to_string())?;
                     clip.duration = at.checked_sub(clip.start).map_err(|e| e.to_string())?;
                     right_clips.push(right);

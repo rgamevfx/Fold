@@ -110,6 +110,7 @@ pub fn create(snapshot: &Snapshot, args: &[u8], _: &Cancel) -> Result<EditBatch,
         let source = match &clip.info {
             SourceMedia::Video(_) | SourceMedia::Image(_) => Source::Asset(clip.asset),
             SourceMedia::Document { source, .. } => Source::Output(source.clone()),
+            SourceMedia::Adjustment => return Err("An adjustment reads lower tracks; nest its complete lower-track scope instead of this clip alone".into()),
             _ => return Err("Cannot nest audio into a composition layer".into()),
         };
         let source_info = match &clip.info {
@@ -126,6 +127,14 @@ pub fn create(snapshot: &Snapshot, args: &[u8], _: &Cancel) -> Result<EditBatch,
             .checked_add(clip.duration)
             .map_err(|e| e.to_string())?;
         layer.state.opacity = clip.level as f64;
+        layer.effects = clip.effects.clone();
+        for effect in &mut layer.effects {
+            for curve in effect.animation.values_mut().flatten() {
+                for key in &mut curve.keys {
+                    key.time = key.time.checked_sub(start).map_err(|e| e.to_string())?;
+                }
+            }
+        }
         layer.origin = layer.start;
         layer.source_start = clip.source_start;
         layers.push(layer);
@@ -146,6 +155,7 @@ pub fn create(snapshot: &Snapshot, args: &[u8], _: &Cancel) -> Result<EditBatch,
         }
     }
     sequence.clips.push(Clip {
+        effects: vec![],
         id: selected[0].id,
         track: selected[0].track,
         link: None,

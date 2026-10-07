@@ -39,6 +39,7 @@ pub fn register(registry: &mut PanelRegistry) -> Result<(), String> {
 use crate::keyed_parameters::input_label;
 
 mod oscillator;
+mod timing;
 
 mod color_ramp;
 

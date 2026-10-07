@@ -244,7 +244,10 @@ impl DocumentProvider for Documents {
         crate::COMPOSITION
     }
     fn schema(&self) -> u32 {
-        1
+        3
+    }
+    fn supports_schema(&self, schema: u32) -> bool {
+        [1, 2, 3].contains(&schema)
     }
     fn validate(&self, document: &Document) -> Result<(), String> {
         Composition::from_document(document).map(|_| ())
@@ -389,7 +392,7 @@ pub fn register_with_edit(
             host_api: HOST_API,
             dependencies: &[],
             panels: PANELS,
-            build: "composition-schema1-evaluator2-layer-context",
+            build: "composition-schema3-evaluator3-effects",
         },
         documents: vec![Box::new(Documents)],
         video: vec![Box::new(crate::compile::Provider)],

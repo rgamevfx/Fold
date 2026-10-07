@@ -111,7 +111,7 @@ impl DocumentProvider for Documents {
         SEQUENCE_SCHEMA
     }
     fn supports_schema(&self, schema: u32) -> bool {
-        [2, 3, SEQUENCE_SCHEMA].contains(&schema)
+        [2, 3, 4, SEQUENCE_SCHEMA].contains(&schema)
     }
     fn validate(&self, document: &Document) -> Result<(), String> {
         Sequence::from_document(document).map(|_| ())
@@ -205,7 +205,10 @@ pub fn register(registry: &mut PackageRegistry) -> Result<(), String> {
             host_api: HOST_API,
             dependencies: &[],
             panels: PANELS,
-            build: concat!(env!("CARGO_PKG_VERSION"), ":timeline-schema4-evaluator4"),
+            build: concat!(
+                env!("CARGO_PKG_VERSION"),
+                ":timeline-schema5-evaluator5-effects"
+            ),
         },
         documents: vec![
             Box::new(Documents),

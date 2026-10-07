@@ -11,7 +11,7 @@ mod prepared;
 use std::sync::Arc;
 pub const EDIT: &str = "fold.motion.edit";
 pub const CHANGE: &str = "fold.motion.change.v1";
-const BUILD: &str = "motion-schema7-evaluator9-layer-context1-solver1-noto-b85c38ec";
+const BUILD: &str = "motion-schema8-evaluator11-layer-context1-solver1-noto-b85c38ec";
 pub const PANEL: &str = "fold.motion.editor";
 pub const INSPECTOR: &str = "fold.motion.inspector";
 pub const PANELS: &[PanelDescriptor] = &[
@@ -85,6 +85,7 @@ impl DocumentProvider for Documents {
         settings: &fold_platform::settings::DocumentSettings,
     ) -> Result<Document, String> {
         let mut value = crate::Motion::from_document(document)?;
+        value.retain_canvas();
         value.info = settings.format.clone();
         value.document(document.id)
     }
@@ -179,10 +180,10 @@ impl DocumentProvider for Documents {
         MOTION
     }
     fn schema(&self) -> u32 {
-        7
+        8
     }
     fn supports_schema(&self, schema: u32) -> bool {
-        [1, 2, 3, 4, 5, 6, 7].contains(&schema)
+        [1, 2, 3, 4, 5, 6, 7, 8].contains(&schema)
     }
     fn validate(&self, d: &Document) -> Result<(), String> {
         self.0.get(d).map(|_| ())
@@ -283,7 +284,32 @@ impl VideoProvider for Provider {
         } else {
             Default::default()
         };
+        if request.graph_context.is_none()
+            && let Some(context) = request.context
+        {
+            let authored_end = motion.info.time(motion.info.frames)?;
+            if motion.scene.as_ref().is_some_and(|scene| {
+                scene
+                    .objects
+                    .iter()
+                    .any(|o| o.start == fold_foundation::Time::ZERO && o.end == authored_end)
+            }) {
+                let end = context
+                    .timing
+                    .start
+                    .checked_add(context.timing.duration)
+                    .map_err(|e| e.to_string())?;
+                for object in &mut motion.to_mut().scene.as_mut().unwrap().objects {
+                    if object.start == fold_foundation::Time::ZERO && object.end == authored_end {
+                        object.start = context.timing.start;
+                        object.end = end;
+                    }
+                }
+            }
+        }
         let mut evaluator = crate::evaluation::Evaluator::for_graph(&motion, &motion.graph, time)?;
+        evaluator.instance_timing = request.context.map(|c| c.timing);
+        evaluator.output_format = request.context.map(|c| c.format);
         evaluator.layer_times = Arc::new(layer_times);
         evaluator.scene_output = scene_output;
         evaluator.runtime = self.1.clone();

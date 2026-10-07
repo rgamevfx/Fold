@@ -7,6 +7,14 @@ use serde_json::{Value, json};
 #[derive(Deserialize)]
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 enum Edit {
+    ShaderInterface {
+        node: ObjectId,
+        settings: crate::shader::Shader,
+        #[serde(default)]
+        renames: std::collections::BTreeMap<String, String>,
+        #[serde(default)]
+        remove: Vec<String>,
+    },
     CreateNode {
         id: ObjectId,
         parameters: Parameters,
@@ -62,6 +70,9 @@ enum Edit {
     Info {
         value: Value,
     },
+    Publish {
+        definition: crate::reusable::Definition,
+    },
     Layout,
 }
 pub fn catalog() -> Value {
@@ -78,13 +89,20 @@ pub fn catalog() -> Value {
         {"op":"disconnect","node":"$node","input":"image"},
         {"op":"remove","nodes":["$node"]},{"op":"output","node":"$node"},
         {"op":"info","value":{"width":960,"height":540,"rate":[24,1],"frames":120}},{"op":"layout"}
-    ],"parameter_examples":[
+    ],"effect_commands":[{"command":"fold.compositor.create-effect","arguments":{"id":"$definition","preset":"Glow"}}],
+    "effect_presets":["CustomEffect","Glow","Dissolve","CircularWipe","FilmLook","Grain"],
+    "effect_contract":{"image_stack_inputs":["source"],"transition_inputs":["outgoing","incoming"],"instance_values":"Stable promoted control IDs map to scalar/vector/color component arrays; per-instance animation uses the host clock.","gpu":"Shader definitions require GPU execution; loop-free WGSL only. Native graph operators implement convolution kernels."},
+    "parameter_examples":[
+        {"Input":{"id":"source"}},
+        {"Dissolve":{"curve":{"curve":[[0,0],[1,1]],"smooth":false}}},
+        {"Shader":{"settings":{"source":"fn effect(uv:vec2<f32>)->vec4<f32>{return source(uv);}","images":["source"],"controls":[]}}},
+        {"RelativeTransform":{"settings":{"source_size":[1920,1080],"anchor":[0.5,0.5],"position":[0,0],"size":100,"size_reference":"Placement","fit":"Fit","filter":"Bilinear"}}},
         {"Solid":{"rgba":[0,0,0,1]}},{"GaussianBlur":{"size":[5,5],"edges":"Clamp"}},
         {"Composite":{"mode":"Over"}},"Output",{"Grade":{"gain":[1,1,1]}},
         {"Transform":{"translate":[0,0],"scale":[1,1],"opacity":1}},
         {"Read":{"source":{"Document":{"source":{"document":"$motion","output":"video"},"info":{"width":960,"height":540,"rate":[24,1],"frames":120}}},"start":{"numerator":0,"denominator":1},"source_start":{"numerator":0,"denominator":1},"duration":{"numerator":5,"denominator":1}}},
         {"Shuffle":{"mappings":[{"destination":"rgba.red","source":{"A":"diffuse.red"}},{"destination":"rgba.green","source":{"A":"diffuse.green"}},{"destination":"rgba.blue","source":{"A":"diffuse.blue"}},{"destination":"rgba.alpha","source":{"A":"diffuse.alpha"}}]}}
-    ],"notes":"node merges parameters/animation/effect/position while retaining extensions. input_color sets a Read's per-use OCIO input space; null restores the asset/default interpretation. EXR Read color_layers selects which named RGB layers receive that transform. Groups are currently provided by Motion, not the compositor model.",
+    ],"notes":"node merges parameters/animation/effect/position while retaining extensions. input_color sets a Read's per-use OCIO input space; null restores the asset/default interpretation. EXR Read color_layers selects which named RGB layers receive that transform. Reusable effects use publish with {interface:{version,images,controls},bindings:[{control,node,property}]}. Instantiate with Instance {instance:{id,definition,version,values,animation,enabled},images:[stable input IDs]}. shader_interface {node,settings,renames,remove} performs explicit port migration; node patches cannot change Shader ports. Dynamic sockets are returned by query.node.",
     "operators":crate::OPERATORS.iter().map(|o|json!({"id":o.id,"version":o.version,"inputs":(0..o.inputs.len()).map(|i|json!({"id":o.input_key(i),"type":format!("{:?}",o.inputs[i])})).collect::<Vec<_>>(),"output":o.output_key()})).collect::<Vec<_>>()}))
 }
 pub fn inspect(d: &Document) -> Result<Value, String> {
@@ -94,6 +112,18 @@ pub fn author(d: &Document, edits: &[Value]) -> Result<Document, String> {
     let mut c = Composite::from_document(d)?;
     for v in edits {
         match decode::<Edit>(v)? {
+            Edit::ShaderInterface {
+                node,
+                settings,
+                renames,
+                remove,
+            } => {
+                c.migrate_shader(node, settings, &renames, &remove)?;
+            }
+            Edit::Publish { definition } => {
+                c.extensions
+                    .insert(crate::reusable::KEY.into(), encode(definition)?);
+            }
             Edit::CreateNode {
                 id,
                 parameters,
@@ -119,9 +149,8 @@ pub fn author(d: &Document, edits: &[Value]) -> Result<Document, String> {
                     return Err("cannot insert a node into itself".into());
                 }
                 let n = c.node(node)?;
-                let op = n.parameters.operator();
-                let slot = (0..op.inputs.len())
-                    .find(|&i| op.input_key(i) == input)
+                let slot = (0..n.parameters.input_count())
+                    .find(|&i| n.parameters.input_key(i) == input)
                     .ok_or("missing input")?;
                 let previous = n.inputs[slot].ok_or("input is disconnected")?;
                 c.connect(previous, modifier, &modifier_input)?;
@@ -143,9 +172,12 @@ pub fn author(d: &Document, edits: &[Value]) -> Result<Document, String> {
                 let n = c.node(node)?;
                 let a = n.parameters.operator();
                 let b = parameters.operator();
-                if a.inputs != b.inputs
+                if n.parameters.input_count() != parameters.input_count()
                     || a.output != b.output
-                    || (0..a.inputs.len()).any(|i| a.input_key(i) != b.input_key(i))
+                    || (0..n.parameters.input_count()).any(|i| {
+                        n.parameters.input_key(i) != parameters.input_key(i)
+                            || n.parameters.input_type(i) != parameters.input_type(i)
+                    })
                 {
                     return Err("replacement has an incompatible socket interface".into());
                 }
@@ -187,7 +219,24 @@ pub fn author(d: &Document, edits: &[Value]) -> Result<Document, String> {
                 }) {
                     return Err("node patch allows parameters/animation/effect/position".into());
                 }
+                let previous = c.node(node)?.parameters.clone();
                 patch(c.node_mut(node)?, &value)?;
+                if let (Parameters::Shader { settings: a }, Parameters::Shader { settings: b }) =
+                    (&previous, &c.node(node)?.parameters)
+                {
+                    if a.images != b.images
+                        || a.controls
+                            .iter()
+                            .map(|c| (&c.id, c.default.len()))
+                            .collect::<Vec<_>>()
+                            != b.controls
+                                .iter()
+                                .map(|c| (&c.id, c.default.len()))
+                                .collect::<Vec<_>>()
+                    {
+                        return Err("Use shader_interface with explicit renames/removals to change Shader ports".into());
+                    }
+                }
             }
             Edit::InputColor { node, space } => {
                 let n = c.node_mut(node)?;
@@ -269,7 +318,7 @@ pub fn query(d: &Document, q: &Value) -> Result<Value, String> {
     let limit = q["limit"].as_u64().unwrap_or(50).clamp(1, 200) as usize;
     let nodes:Vec<_>=c.nodes.iter().filter(|n|ids.contains(&n.id)).skip(offset).take(limit).map(|n|{
         let op=n.parameters.operator();let consumers:Vec<_>=c.nodes.iter().filter(|o|o.dependencies().any(|id|id==n.id)).map(|o|o.id).collect();
-        json!({"node":n,"inputs":(0..op.inputs.len()).map(|i|json!({"id":op.input_key(i),"kind":format!("{:?}",op.inputs[i]),"source":n.inputs[i]})).collect::<Vec<_>>(),"output":{"id":op.output_key(),"kind":format!("{:?}",op.output)},"consumers":consumers})
+        json!({"node":n,"inputs":(0..n.parameters.input_count()).map(|i|json!({"id":n.parameters.input_key(i),"kind":format!("{:?}",n.parameters.input_type(i)),"source":n.inputs[i]})).collect::<Vec<_>>(),"output":{"id":op.output_key(),"kind":format!("{:?}",op.output)},"consumers":consumers})
     }).collect();
     Ok(json!({"nodes":nodes,"total":ids.len(),"offset":offset}))
 }

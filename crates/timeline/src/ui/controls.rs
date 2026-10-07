@@ -14,6 +14,11 @@ pub fn toolbar(
     selected: &[ObjectId],
     frame: u32,
 ) -> Option<SequenceEdit> {
+    let selected_transition = sequence
+        .transitions
+        .iter()
+        .find(|t| selected.contains(&t.id))
+        .map(|t| t.id);
     let selected_clips: Vec<_> = selected
         .iter()
         .copied()
@@ -147,6 +152,12 @@ pub fn toolbar(
         ui.text_disabled("Shift-click add · drag empty space to select");
         ui.text_disabled("Alt+arrows nudge · Alt+Up/Down change track");
         ui.text_disabled("Double-click nested clips to open source");
+    }
+    if keyboard
+        && ui.is_key_pressed(Key::Delete)
+        && let Some(id) = selected_transition
+    {
+        return Some(SequenceEdit::RemoveTransition { id });
     }
     if keyboard && !selected.is_empty() {
         if ui.is_key_pressed(Key::Delete) {

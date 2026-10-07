@@ -14,7 +14,7 @@ pub fn definition_sweep() -> Definition {
         vec![
             Socket::required("content", Kind::Content),
             boolean("enabled", true),
-            vector("offset", [0., 0.], "px"),
+            vector("offset", [0., 0.], "units"),
         ],
         vec![("content", Kind::Content)],
         |e, n| {

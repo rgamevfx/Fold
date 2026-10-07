@@ -28,10 +28,12 @@ fn fixture() -> (Session, [DocumentId; 3]) {
     };
     let track = Track::new(TrackKind::Video, "Motion");
     let sequence = Sequence {
+        transitions: vec![],
         dimensions: [64, 64],
         rate: [24, 1],
         tracks: vec![track.clone()],
         clips: vec![Clip {
+            effects: vec![],
             id: ObjectId::new(),
             track: track.id,
             link: None,

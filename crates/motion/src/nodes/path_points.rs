@@ -19,7 +19,7 @@ pub fn definition_points() -> Definition {
             boolean("travel", false),
             boolean("closed", true),
             boolean("orient", true),
-            scalar("wave", 0., "px"),
+            scalar("wave", 0., "units"),
             scalar("frequency", 0.4, "Hz"),
             scalar("pulse", 0., "factor"),
         ],

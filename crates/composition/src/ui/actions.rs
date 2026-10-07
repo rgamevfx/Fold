@@ -30,6 +30,18 @@ pub(super) fn draw(ui: &Ui, host: &mut dyn DesktopClient, state: &mut State) {
             if ui.menu_item("New nested composition") {
                 state.command(host,package::NEST,serde_json::json!({"document":document,"child":DocumentId::new(),"name":"Nested composition","layers":[]}));
             }
+            if ui.menu_item("Add adjustment layer") {
+                let c = state.composition.as_mut().unwrap();
+                match Layer::new("Adjustment", None, c.info.clone()) {
+                    Ok(mut layer) => {
+                        layer.adjustment = true;
+                        state.selected = vec![layer.id];
+                        c.layers.insert(0, layer);
+                        state.commit(host);
+                    }
+                    Err(e) => state.error = e,
+                }
+            }
             if ui.menu_item("New group") {
                 let c = state.composition.as_mut().unwrap();
                 match Layer::new("Group", None, c.info.clone()) {

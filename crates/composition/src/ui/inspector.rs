@@ -32,17 +32,84 @@ impl Panel for Inspector {
             edit.changed = true;
         }
         edit.finished |= ui.is_item_deactivated_after_edit();
-        if ui.checkbox("Visible", &mut layer.state.visible) {
-            edit.changed = true;
-            edit.finished = true;
-        }
         drop(disabled);
-        ui.same_line();
-        if ui.checkbox("Locked", &mut layer.state.locked) {
-            edit.changed = true;
-            edit.finished = true;
-        }
+        let open_network =
+            layer.source.as_ref().is_some_and(|source| {
+                matches!(source, fold_platform::image_source::Source::Output(_))
+            }) && ui.small_button("Open Network");
         let disabled = ui.begin_disabled_with_cond(locked);
+        if !layer.adjustment {
+            let mut translation = [layer.offset[4], layer.offset[5]];
+            let mut channels = std::collections::BTreeMap::new();
+            for i in 0..2 {
+                if let Some(curve) = layer.animation.get(&format!("transform.{}", i + 4)) {
+                    channels.insert(format!("position.{i}"), curve.clone());
+                }
+            }
+            AnimatedProperty {
+                id: "position",
+                label: "Position",
+                components: &["X", "Y"],
+                unit: "px",
+                range: None,
+                color: None,
+            }
+            .draw(
+                ui,
+                &mut translation,
+                &mut channels,
+                time,
+                auto_key,
+                &mut edit,
+            );
+            layer.offset[4..6].copy_from_slice(&translation);
+            for i in 0..2 {
+                let path = format!("transform.{}", i + 4);
+                if let Some(curve) = channels.remove(&format!("position.{i}")) {
+                    layer.animation.insert(path, curve);
+                } else {
+                    layer.animation.remove(&path);
+                }
+            }
+            let (mut scale, mut rotation, shear) = crate::layer::components(layer.offset);
+            let original = (scale, rotation);
+            let state = &mut layer.state;
+            AnimatedProperty {
+                id: "scene.scale",
+                label: "Scale",
+                components: &["X", "Y"],
+                unit: "",
+                range: None,
+                color: None,
+            }
+            .draw(
+                ui,
+                &mut scale,
+                &mut state.animation,
+                time,
+                auto_key,
+                &mut edit,
+            );
+            AnimatedProperty {
+                id: "scene.rotation",
+                label: "Rotation",
+                components: &[""],
+                unit: "°",
+                range: None,
+                color: None,
+            }
+            .draw(
+                ui,
+                std::slice::from_mut(&mut rotation),
+                &mut state.animation,
+                time,
+                auto_key,
+                &mut edit,
+            );
+            if original != (scale, rotation) {
+                crate::layer::set_components(&mut state.offset, scale, rotation, shear);
+            }
+        }
         AnimatedProperty {
             id: "scene.opacity",
             label: "Opacity",
@@ -59,96 +126,23 @@ impl Panel for Inspector {
             auto_key,
             &mut edit,
         );
-        // Matrix coefficients retain exact existing affine semantics. Translation is
-        // exposed first; advanced axes live under a disclosure, with the same keys.
-        let mut translation = [layer.offset[4], layer.offset[5]];
-        let mut channels = std::collections::BTreeMap::new();
-        for i in 0..2 {
-            if let Some(curve) = layer.animation.get(&format!("transform.{}", i + 4)) {
-                channels.insert(format!("position.{i}"), curve.clone());
-            }
-        }
-        AnimatedProperty {
-            id: "position",
-            label: "Position",
-            components: &["X", "Y"],
-            unit: "px",
-            range: None,
-            color: None,
-        }
-        .draw(
-            ui,
-            &mut translation,
-            &mut channels,
-            time,
-            auto_key,
-            &mut edit,
-        );
-        layer.offset[4..6].copy_from_slice(&translation);
-        for i in 0..2 {
-            let path = format!("transform.{}", i + 4);
-            if let Some(curve) = channels.remove(&format!("position.{i}")) {
-                layer.animation.insert(path, curve);
-            } else {
-                layer.animation.remove(&path);
-            }
-        }
-        if ui.collapsing_header("Transform axes", imgui::TreeNodeFlags::empty()) {
-            let state = &mut layer.state;
-            AnimatedProperty {
-                id: "transform",
-                label: "Axes",
-                components: &["XX", "YX", "XY", "YY"],
-                unit: "",
-                range: None,
-                color: None,
-            }
-            .draw(
-                ui,
-                &mut state.offset[..4],
-                &mut state.animation,
-                time,
-                auto_key,
-                &mut edit,
-            );
-        }
-        if layer.source.is_some() {
-            let rate = match &layer.source {
-                Some(fold_platform::image_source::Source::Output(reference)) => host
-                    .video_info(reference.document)
-                    .map(|info| info.rate)
-                    .unwrap_or(layer.info.rate),
-                _ => layer.info.rate,
-            };
-            let mut source_in = sdk::time_view::frame(layer.source_start, rate) as i32;
-            ui.text("Source in (frames)");
-            ui.set_next_item_width(ui.content_region_avail()[0]);
-            if ui.input_int("##source-in", &mut source_in) && source_in >= 0 {
-                if let Ok(value) = sdk::time_view::time(i64::from(source_in), rate) {
-                    layer.source_start = value;
-                    edit.changed = true;
-                }
-            }
-            edit.finished |= ui.is_item_deactivated_after_edit();
-        }
+        let effect_navigation = sdk::effects::stack(ui, host, &mut layer.effects, time, &mut edit);
         drop(disabled);
-        if let Some(fold_platform::image_source::Source::Output(source)) = &layer.source {
-            let name = host
-                .snapshot()
-                .map(|s| {
-                    fold_platform::browser::item_name(
-                        &s,
-                        fold_project::ItemId::Document(source.document),
-                        &layer.name,
-                    )
-                })
-                .unwrap_or_else(|| "Graph".into());
-            ui.text_wrapped(format!("Source: {name}"));
-            if ui.button("Edit layer graph") {
-                if let Err(e) = state.open(host, id) {
-                    state.error = e;
-                }
+        if open_network {
+            if let Err(e) = state.open(host, id) {
+                state.error = e;
             }
+        }
+        if let Some(source) = effect_navigation {
+            state.cancel(host);
+            host.command(fold_platform::desktop::DesktopCommand::Navigate(
+                fold_platform::desktop::ViewLocation {
+                    document: source.document,
+                    time,
+                    label: "Effect".into(),
+                },
+            ));
+            return;
         }
         if ui.is_key_pressed(imgui::Key::Escape) && state.editing {
             state.cancel(host);

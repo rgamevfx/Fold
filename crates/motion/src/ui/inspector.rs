@@ -341,6 +341,45 @@ impl Panel for Inspector {
             }
         }
         let mut response = Response::default();
+        if node.kind == "fold.motion.output" {
+            let mut canvas = motion.canvas.unwrap_or(crate::canvas::Canvas {
+                size: [motion.info.width as f64, motion.info.height as f64],
+                framing: crate::canvas::Framing::Fit,
+            });
+            let mut changed = false;
+            for (i, label) in ["Canvas width", "Canvas height"].iter().enumerate() {
+                let edited = Drag::new(label)
+                    .speed(1.)
+                    .range(1., 1e6)
+                    .display_format(fold_ui::sdk::imgui::NumericFormat::new("%.1f").unwrap())
+                    .build(ui, &mut canvas.size[i]);
+                response.item(ui, edited);
+                changed |= edited;
+            }
+            let label = format!("{:?}", canvas.framing);
+            if let Some(_combo) = ui.begin_combo("Framing", &label) {
+                for framing in [
+                    crate::canvas::Framing::Fit,
+                    crate::canvas::Framing::Fill,
+                    crate::canvas::Framing::Responsive,
+                ] {
+                    if ui.selectable(format!("{framing:?}")) {
+                        canvas.framing = framing;
+                        changed = true;
+                        response.changed = true;
+                        response.finished = true;
+                    }
+                }
+            }
+            tooltip(
+                ui,
+                "Canvas dimensions are scene units. Output resolution controls raster detail. Responsive framing preserves logical height and adapts width.",
+            );
+            if changed {
+                motion.canvas = Some(canvas);
+            }
+        }
+
         let group = state.group;
         super::wrangle::draw(ui, node, group, &mut state.wrangle_drafts, &mut response);
         let mut assign_group = None;
@@ -352,6 +391,7 @@ impl Panel for Inspector {
         let mut add_color_ramp = None;
         super::color_ramp::draw(ui, node, &mut motion.groups, aces, &mut response);
         super::oscillator::draw(ui, node, &mut motion.groups, time, &mut response);
+        super::timing::draw(ui, node, time, &mut response);
         if let Some(_menu) = icon_menu(ui, "node-controls", "Drivers and published controls") {
             if let Some(group) = group_id {
                 if state.group.is_none() && ui.menu_item("Load procedural asset…") {
@@ -756,6 +796,8 @@ impl Panel for Inspector {
         } else if !matches!(
             node.kind.as_str(),
             "fold.motion.oscillator"
+                | "fold.motion.timing"
+                | "fold.motion.curve"
                 | "fold.motion.color_ramp"
                 | "fold.motion.wrangle"
                 | "fold.motion.scene_children"

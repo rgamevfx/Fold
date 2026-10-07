@@ -9,7 +9,7 @@ pub(super) fn definition() -> Definition {
         vec![
             Socket::required("content", Kind::Content),
             Socket::required("sample", Kind::ImageField),
-            vector("displacement", [0.; 2], "px"),
+            vector("displacement", [0.; 2], "units"),
             scalar("scale", 0., "factor"),
             scalar("rotation", 0., "degrees"),
             scalar("color", 0., "factor"),
@@ -28,7 +28,7 @@ pub(super) fn definition() -> Definition {
                 rotation: e.scalar(n, "rotation")? as f32,
                 color: e.scalar(n, "color")? as f32,
                 alpha: e.scalar(n, "opacity")? as f32,
-                dimensions: [e.motion.info.width as f64, e.motion.info.height as f64],
+                dimensions: [e.canvas_size()?[0], e.canvas_size()?[1]],
                 cache: Default::default(),
             };
             Ok(content(response.apply(&c, &mut e.budget, 0)?))

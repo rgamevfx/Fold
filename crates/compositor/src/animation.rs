@@ -5,8 +5,8 @@ use fold_foundation::Time;
 use std::collections::BTreeMap;
 
 pub struct Property {
-    pub id: &'static str,
-    pub label: &'static str,
+    pub id: String,
+    pub label: String,
     pub unit: &'static str,
     pub channels: &'static [&'static str],
     pub values: Vec<f64>,
@@ -14,15 +14,50 @@ pub struct Property {
 }
 impl Parameters {
     pub fn animated_properties(&self) -> Vec<Property> {
-        let property = |id, label, unit, channels, values, range| Property {
-            id,
-            label,
+        let property = |id: &str, label: &str, unit, channels, values, range| Property {
+            id: id.into(),
+            label: label.into(),
             unit,
             channels,
             values,
             range,
         };
         match self {
+            Self::Shader { settings } => settings
+                .controls
+                .iter()
+                .map(|c| Property {
+                    id: c.id.clone(),
+                    label: c.label.clone(),
+                    unit: "",
+                    channels: match c.default.len() {
+                        1 => &["Value"],
+                        2 => &["X", "Y"],
+                        3 => &["R", "G", "B"],
+                        _ => &["R", "G", "B", "A"],
+                    },
+                    values: c.default.clone(),
+                    range: c.range,
+                })
+                .collect(),
+            Self::RelativeTransform { settings } => vec![
+                property(
+                    "position",
+                    "Position",
+                    "%",
+                    &["X", "Y"],
+                    settings.position.to_vec(),
+                    None,
+                ),
+                property(
+                    "size",
+                    "Size",
+                    "%",
+                    &["Value"],
+                    vec![settings.size],
+                    Some([0.001, 10000.]),
+                ),
+            ],
             Self::Shape { bounds, .. } => vec![property(
                 "bounds",
                 "Bounds",
@@ -195,6 +230,21 @@ impl Parameters {
     }
     pub fn set_property(&mut self, id: &str, values: &[f64]) -> Result<(), String> {
         match (self, id, values) {
+            (Self::Shader { settings }, id, values) => {
+                let control = settings
+                    .controls
+                    .iter_mut()
+                    .find(|c| c.id == id)
+                    .ok_or("Missing shader control")?;
+                if values.len() != control.default.len() || values.iter().any(|v| !v.is_finite()) {
+                    return Err("Shader control type mismatch".into());
+                }
+                control.default = values.to_vec();
+            }
+            (Self::RelativeTransform { settings }, "position", [x, y]) => {
+                settings.position = [*x, *y]
+            }
+            (Self::RelativeTransform { settings }, "size", [v]) => settings.size = *v,
             (Self::Shape { bounds, .. }, "bounds", [a, b, c, d]) => *bounds = [*a, *b, *c, *d],
             (
                 Self::Unary {
@@ -261,8 +311,8 @@ impl Node {
         let mut properties = self.parameters.animated_properties();
         if self.parameters.operator().supports_effect() {
             properties.push(Property {
-                id: "mix",
-                label: "Mix",
+                id: "mix".into(),
+                label: "Mix".into(),
                 unit: "",
                 channels: &["Value"],
                 values: vec![self.effect.mix as f64],
@@ -312,13 +362,13 @@ impl Node {
         for mut property in parameters.animated_properties() {
             let mut animated = false;
             for (i, value) in property.values.iter_mut().enumerate() {
-                if let Some(curve) = self.animation.get(&path(property.id, i)) {
+                if let Some(curve) = self.animation.get(&path(&property.id, i)) {
                     *value = curve.sample(time).ok_or("Empty animation channel")?;
                     animated = true;
                 }
             }
             if animated {
-                parameters.set_property(property.id, &property.values)?;
+                parameters.set_property(&property.id, &property.values)?;
             }
         }
         parameters.validate()?;
@@ -328,7 +378,7 @@ impl Node {
         let available: BTreeMap<_, _> = self
             .animated_properties()
             .into_iter()
-            .flat_map(|p| (0..p.values.len()).map(move |i| (path(p.id, i), p.range)))
+            .flat_map(|p| (0..p.values.len()).map(move |i| (path(&p.id, i), p.range)))
             .collect();
         for (path, curve) in &self.animation {
             if !available.contains_key(path) {

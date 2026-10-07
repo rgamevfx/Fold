@@ -40,9 +40,15 @@ pub enum Action {
         at: Time,
     },
     Open(ObjectId),
+    AddTransition(ObjectId),
     Select(Vec<ObjectId>),
     Seek(u32),
     Pause,
+    Preview {
+        base: Revision,
+        edit: SequenceEdit,
+    },
+    CancelPreview,
     Commit {
         base: Revision,
         edit: SequenceEdit,
@@ -80,6 +86,8 @@ pub struct Canvas {
     pub fit: bool,
     pub message: String,
     drag: Option<Drag>,
+    pub(super) transition_drag: Option<interaction::TransitionDrag>,
+    cut: Option<ObjectId>,
     scrub: bool,
     pan: Option<[f32; 2]>,
     scroll_bar: bool,
@@ -110,6 +118,8 @@ impl Default for Canvas {
             fit: true,
             message: String::new(),
             drag: None,
+            transition_drag: None,
+            cut: None,
             scrub: false,
             pan: None,
             scroll_bar: false,
@@ -344,6 +354,15 @@ impl Canvas {
             (end + f64::from(sequence.rate[0]) / f64::from(sequence.rate[1]) * 10.0).max(visible);
         self.view.scroll_y = self.view.scroll_y.clamp(0.0, max_y);
         self.view.first = self.view.first.clamp(0.0, (total - visible).max(0.0));
+        if self
+            .transition_drag
+            .as_ref()
+            .is_some_and(|d| d.base != model.revision)
+        {
+            self.transition_drag = None;
+            actions.push(Action::CancelPreview);
+            self.message = "Project changed; drag cancelled.".into();
+        }
         if self.drag.as_ref().is_some_and(|d| d.base != model.revision) {
             self.drag = None;
             self.message = "Project changed; drag cancelled.".into();
@@ -419,7 +438,30 @@ impl Canvas {
                 }
             }
         }
+        let hovered_cut = hovered_row
+            .and_then(|(_, track)| {
+                sequence.clips.iter().find(|a| {
+                    a.track == track.id
+                        && a.end().is_ok_and(|cut| {
+                            (self
+                                .view
+                                .x(interaction::frame(cut, sequence.rate), layout.body.min[0])
+                                - point[0])
+                                .abs()
+                                <= 5. * scale
+                                && sequence
+                                    .clips
+                                    .iter()
+                                    .any(|b| b.track == a.track && b.start == cut)
+                        })
+                })
+            })
+            .map(|c| c.id);
+        if hovered && ui.is_mouse_clicked(MouseButton::Left) {
+            self.cut = hovered_cut;
+        }
         if hovered && ui.is_mouse_clicked(MouseButton::Right) {
+            self.cut = hovered_cut;
             self.context_track = hovered_row.map(|(_, t)| t.id);
             self.context_clip = hovered_row
                 .and_then(|(i, t)| {
@@ -451,6 +493,12 @@ impl Canvas {
             ui.open_popup("timeline-context");
         }
         if let Some(_popup) = ui.begin_popup("timeline-context") {
+            if let Some(outgoing) = self.cut {
+                if ui.menu_item("Add Transition") {
+                    actions.push(Action::AddTransition(outgoing));
+                }
+                ui.separator();
+            }
             if let Some(id) = self.context_clip {
                 if sequence
                     .clips
@@ -591,6 +639,46 @@ impl Canvas {
                         });
                     } else {
                         actions.push(Action::Select(vec![track.id]));
+                    }
+                } else if let Some((transition, rect)) = sequence
+                    .transitions
+                    .iter()
+                    .filter_map(|t| {
+                        let outgoing = sequence
+                            .clips
+                            .iter()
+                            .find(|c| c.id == t.outgoing && c.track == track.id)?;
+                        let _ = outgoing;
+                        let rect = Rect {
+                            min: [
+                                self.view.x(
+                                    interaction::frame(t.start, sequence.rate),
+                                    layout.body.min[0],
+                                ),
+                                row.max[1] - 18. * scale,
+                            ],
+                            max: [
+                                self.view.x(
+                                    interaction::frame(t.end().ok()?, sequence.rate),
+                                    layout.body.min[0],
+                                ),
+                                row.max[1] - 3. * scale,
+                            ],
+                        };
+                        rect.contains(point).then_some((t, rect))
+                    })
+                    .next()
+                {
+                    actions.push(Action::Select(vec![transition.id]));
+                    if !track.locked {
+                        actions.push(Action::Pause);
+                        self.transition_drag = Some(interaction::TransitionDrag {
+                            base: model.revision,
+                            original: sequence.clone(),
+                            id: transition.id,
+                            handle: interaction::handle(rect, point, scale),
+                            grab_frame: self.view.frame_at(point[0], layout.body.min[0]),
+                        });
                     }
                 } else if let Some(clip) = sequence.clips.iter().find(|c| {
                     c.track == track.id
@@ -738,6 +826,43 @@ impl Canvas {
             }
         }
         let mut preview = placement_preview;
+        if let Some(drag) = &self.transition_drag {
+            ui.set_mouse_cursor(Some(if drag.handle == Handle::Move {
+                MouseCursor::ResizeAll
+            } else {
+                MouseCursor::ResizeEW
+            }));
+            if ui.is_key_pressed(Key::Escape) {
+                self.transition_drag = None;
+                actions.push(Action::CancelPreview);
+            } else if let Ok(edit) = drag.proposal(self.view.frame_at(point[0], layout.body.min[0]))
+            {
+                preview = drag.original.edited(&edit).ok();
+                actions.push(Action::Preview {
+                    base: drag.base,
+                    edit: edit.clone(),
+                });
+                if ui.is_mouse_released(MouseButton::Left) {
+                    if let SequenceEdit::Transition { transition } = &edit {
+                        let old = drag
+                            .original
+                            .transitions
+                            .iter()
+                            .find(|t| t.id == drag.id)
+                            .unwrap();
+                        if transition.start != old.start || transition.duration != old.duration {
+                            actions.push(Action::Commit {
+                                base: drag.base,
+                                edit,
+                            });
+                        }
+                    }
+                    self.transition_drag = None;
+                    actions.push(Action::CancelPreview);
+                }
+            }
+        }
+
         let mut proposed = None;
         if let Some(drag) = &self.drag {
             ui.set_mouse_cursor(Some(if drag.handle == Handle::Move {
@@ -848,6 +973,48 @@ impl Canvas {
             ) != Handle::Move
             {
                 ui.set_mouse_cursor(Some(MouseCursor::ResizeEW));
+            }
+        }
+        if hovered
+            && self.drag.is_none()
+            && self.transition_drag.is_none()
+            && let Some((index, track)) = hovered_row
+        {
+            let row = layout.row_rect(index, self.view.scroll_y);
+            for transition in &sequence.transitions {
+                if !sequence
+                    .clips
+                    .iter()
+                    .any(|c| c.id == transition.outgoing && c.track == track.id)
+                {
+                    continue;
+                }
+                let rect = Rect {
+                    min: [
+                        self.view.x(
+                            interaction::frame(transition.start, sequence.rate),
+                            layout.body.min[0],
+                        ),
+                        row.max[1] - 18. * scale,
+                    ],
+                    max: [
+                        self.view.x(
+                            interaction::frame(transition.end().unwrap(), sequence.rate),
+                            layout.body.min[0],
+                        ),
+                        row.max[1] - 3. * scale,
+                    ],
+                };
+                if rect.contains(point) {
+                    ui.set_mouse_cursor(Some(
+                        if interaction::handle(rect, point, scale) == Handle::Move {
+                            MouseCursor::ResizeAll
+                        } else {
+                            MouseCursor::ResizeEW
+                        },
+                    ));
+                    break;
+                }
             }
         }
         self.paint(

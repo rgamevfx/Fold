@@ -10,7 +10,7 @@ pub(crate) fn channels(document: &Document, _: Option<ObjectId>) -> Result<Vec<C
     for (index, node) in graph.nodes.iter().enumerate() {
         for property in node.animated_properties() {
             for (i, component) in property.channels.iter().enumerate() {
-                let path = crate::animation::path(property.id, i);
+                let path = crate::animation::path(&property.id, i);
                 if let Some(curve) = node.animation.get(&path) {
                     result.push(Channel {
                         target: Target {
@@ -19,8 +19,8 @@ pub(crate) fn channels(document: &Document, _: Option<ObjectId>) -> Result<Vec<C
                             path,
                         },
                         node_label: format!("{} {}", node.parameters.operator().label(), index + 1),
-                        property: property.id.into(),
-                        property_label: property.label.into(),
+                        property: property.id.clone(),
+                        property_label: property.label.clone(),
                         component: (*component).into(),
                         curve: curve.clone(),
                     });

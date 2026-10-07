@@ -12,7 +12,7 @@ pub fn definition_points() -> Definition {
         "Distribution",
         vec![
             Socket::required("content", Kind::Content),
-            scalar("spacing", 20., "px"),
+            scalar("spacing", 20., "units"),
             vector("origin", [0., 0.], "input coordinates"),
         ],
         vec![("points", Kind::Points)],

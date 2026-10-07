@@ -29,6 +29,7 @@ enum Completed {
     Message(String),
 }
 struct Background {
+    extension: Option<fold_platform::packages::CommandRequest>,
     export: bool,
     project_file: bool,
     completed: bool,
@@ -165,6 +166,11 @@ impl Session {
         }
     }
     fn background(&mut self, command: DesktopCommand) {
+        let extension = if let DesktopCommand::Extension(request) = &command {
+            Some(request.clone())
+        } else {
+            None
+        };
         let export = matches!(command, DesktopCommand::Export { .. });
         let project_file = matches!(
             command,
@@ -272,6 +278,7 @@ impl Session {
             let _ = sender.send(result);
         });
         self.background.push(Background {
+            extension,
             export,
             project_file,
             completed: false,
@@ -432,6 +439,19 @@ impl DesktopClient for Session {
     ) -> Result<fold_media::VideoInfo, String> {
         crate::packages::builtins().output(&self.project.snapshot(), document)
     }
+    fn extension_pending(&self, request: &fold_platform::packages::CommandRequest) -> bool {
+        self.background.iter().any(|job| {
+            job.extension.as_ref().is_some_and(|r| {
+                r.id == request.id && r.base == request.base && r.arguments == request.arguments
+            })
+        })
+    }
+    fn effect_interface(
+        &self,
+        document: fold_foundation::DocumentId,
+    ) -> Result<fold_platform::effects::Interface, String> {
+        crate::packages::builtins().effect_interface(&self.project.snapshot(), document)
+    }
     fn workspace_project(&self) -> Option<String> {
         self.workspace_project.clone()
     }
@@ -578,6 +598,7 @@ impl DesktopClient for Session {
             let mut job = self.background.remove(index);
             let cancelled = job.cancel.check().is_err();
             let project_file = job.project_file;
+            let extension = job.extension.is_some();
             // Mark completion before dropping: successful ingest proposals retain
             // their token and must not cancel themselves on worker teardown.
             job.completed = true;
@@ -628,7 +649,11 @@ impl DesktopClient for Session {
                     Ok(_) => {
                         self.overlay = None;
                         self.refresh();
-                        self.state.status = "Import committed".into();
+                        self.state.status = if extension {
+                            String::new()
+                        } else {
+                            "Import committed".into()
+                        };
                     }
                     Err(e) => self.state.status = e.to_string(),
                 },
@@ -847,6 +872,18 @@ impl DesktopClient for Session {
                         }),
                     Err(error) => Err(error),
                 }
+            }
+            DesktopCommand::CancelExtension(request) => {
+                for job in &self.background {
+                    if job.extension.as_ref().is_some_and(|r| {
+                        r.id == request.id
+                            && r.base == request.base
+                            && r.arguments == request.arguments
+                    }) {
+                        job.cancel.cancel();
+                    }
+                }
+                return;
             }
             DesktopCommand::Cancel => {
                 for job in &self.background {

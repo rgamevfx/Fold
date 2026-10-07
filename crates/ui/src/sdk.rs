@@ -339,3 +339,9 @@ impl EditorColors {
         }
     }
 }
+
+#[path = "effects.rs"]
+pub mod effects;
+
+#[path = "normalized_curve.rs"]
+pub mod normalized_curve;

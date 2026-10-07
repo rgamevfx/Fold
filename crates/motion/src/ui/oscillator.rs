@@ -7,11 +7,7 @@ use crate::{
     },
 };
 use fold_foundation::{ObjectId, Time};
-use fold_ui::sdk::{
-    EditResponse, EditorColors,
-    imgui::{Drag, MouseButton, Ui},
-    toolbar::tooltip,
-};
+use fold_ui::sdk::{EditResponse, imgui::Ui};
 use std::collections::BTreeMap;
 
 pub(super) fn is_oscillator(node: &Node) -> bool {
@@ -79,141 +75,36 @@ pub(super) fn draw(
         };
         &mut inner.settings
     };
+    draw_curve(ui, settings, &shape, cursor, true, response);
+}
+
+/// Preserve the oscillator's authored settings while sharing the curve widget.
+pub(super) fn draw_curve(
+    ui: &Ui,
+    settings: &mut serde_json::Value,
+    shape: &str,
+    cursor: f64,
+    periodic: bool,
+    response: &mut EditResponse,
+) {
     let Ok(mut cycle) = serde_json::from_value::<Settings>(settings.clone()) else {
         return;
     };
-    if cycle.validate().is_err() {
-        return;
-    }
-    let before = serde_json::to_value(&cycle).unwrap();
-    let origin = ui.cursor_screen_pos();
-    let size = [
-        ui.content_region_avail()[0].max(40.),
-        ui.frame_height() * 4.,
-    ];
-    let point = |p: [f64; 2]| {
-        [
-            origin[0] + p[0] as f32 * size[0],
-            origin[1] + (1. - p[1] as f32) * size[1],
-        ]
-    };
-    let colors = EditorColors::from_ui(ui);
-    {
-        let draw = ui.get_window_draw_list();
-        draw.add_rect(
-            origin,
-            [origin[0] + size[0], origin[1] + size[1]],
-            colors.muted,
-        )
-        .build();
-        draw.add_line(point([0., 0.5]), point([1., 0.5]), colors.muted)
-            .build();
-        let points = (0..=128)
-            .map(|i| {
-                let x = i as f64 / 128.;
-                point([x, cycle.sample(&shape, x.min(1. - 1e-9)).unwrap_or(0.5)])
-            })
-            .collect::<Vec<_>>();
-        draw.add_polyline(points, colors.selected)
-            .thickness(2.)
-            .build();
-        if cursor.is_finite() {
-            draw.add_line(point([cursor, 0.]), point([cursor, 1.]), colors.playhead)
-                .build();
-        }
-    }
-    ui.invisible_button("cycle", size);
-    tooltip(
+    let before = cycle.clone();
+    let preview = |x: f64| before.sample(shape, x.min(1. - 1e-9)).unwrap_or(0.5);
+    fold_ui::sdk::normalized_curve::draw(
         ui,
-        if shape == "Custom" {
-            "One cycle. Double-click to add a point; drag points or right-click for numeric controls. Curve edits affect this group definition."
+        &mut cycle.curve_data,
+        if periodic && shape != "Custom" {
+            Some(&preview)
         } else {
-            "One normalized cycle. The marker shows the current phase of the first channel."
+            None
         },
+        cursor,
+        response,
     );
-    if shape == "Custom" {
-        if ui.is_item_hovered()
-            && ui.is_mouse_double_clicked(MouseButton::Left)
-            && cycle.curve.len() < 64
-        {
-            let mouse = ui.io().mouse_pos();
-            let p = [
-                ((mouse[0] - origin[0]) / size[0]).clamp(0., 1.) as f64,
-                (1. - (mouse[1] - origin[1]) / size[1]).clamp(0., 1.) as f64,
-            ];
-            if cycle.curve.iter().all(|v| (v[0] - p[0]).abs() > 0.001) {
-                cycle.curve.push(p);
-                cycle.curve.sort_by(|a, b| a[0].total_cmp(&b[0]));
-                response.finished = true;
-            }
-        }
-        let positions = cycle.curve.clone();
-        let mut remove = None;
-        for (i, p) in cycle.curve.iter_mut().enumerate() {
-            let _id = ui.push_id(i as i32);
-            let xy = point(*p);
-            ui.set_cursor_screen_pos([xy[0] - 6., xy[1] - 6.]);
-            ui.invisible_button("point", [12., 12.]);
-            let mut changed = false;
-            let edge = i == 0 || i + 1 == positions.len();
-            let range = if edge {
-                [p[0], p[0]]
-            } else {
-                [positions[i - 1][0] + 0.0001, positions[i + 1][0] - 0.0001]
-            };
-            if ui.is_item_active() && ui.is_mouse_dragging(MouseButton::Left) {
-                let mouse = ui.io().mouse_pos();
-                if !edge {
-                    p[0] = ((mouse[0] - origin[0]) / size[0]) as f64;
-                    p[0] = p[0].clamp(range[0], range[1]);
-                }
-                p[1] = (1. - (mouse[1] - origin[1]) / size[1]).clamp(0., 1.) as f64;
-                changed = true;
-            }
-            response.item(ui, changed);
-            ui.get_window_draw_list()
-                .add_circle(xy, 4., colors.playhead)
-                .filled(true)
-                .build();
-            if let Some(_popup) = ui.begin_popup_context_item() {
-                if !edge {
-                    let changed = Drag::new("Phase")
-                        .speed(0.001)
-                        .range(range[0], range[1])
-                        .build(ui, &mut p[0]);
-                    p[0] = p[0].clamp(range[0], range[1]);
-                    response.item(ui, changed);
-                }
-                let changed = Drag::new("Value")
-                    .speed(0.01)
-                    .range(0., 1.)
-                    .build(ui, &mut p[1]);
-                p[1] = p[1].clamp(0., 1.);
-                response.item(ui, changed);
-                if !edge && ui.menu_item("Remove point") {
-                    remove = Some(i);
-                    response.finished = true;
-                }
-            }
-        }
-        if let Some(i) = remove {
-            cycle.curve.remove(i);
-        }
-        ui.set_cursor_screen_pos([
-            origin[0],
-            origin[1] + size[1] + ui.clone_style().item_spacing()[1],
-        ]);
-        let changed = ui.checkbox("Smooth curve", &mut cycle.smooth);
-        response.item(ui, changed);
-        tooltip(
-            ui,
-            "Smooth interpolation between points; disable for straight segments.",
-        );
-    }
-    let after = serde_json::to_value(&cycle).unwrap();
-    if before != after {
-        settings["curve"] = after["curve"].clone();
-        settings["smooth"] = after["smooth"].clone();
-        response.changed = true;
+    if cycle.curve_data != before.curve_data {
+        settings["curve"] = serde_json::to_value(&cycle.curve).unwrap();
+        settings["smooth"] = serde_json::json!(cycle.smooth);
     }
 }

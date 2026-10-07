@@ -51,8 +51,8 @@ pub fn definition_fit() -> Definition {
         "Geometry",
         vec![
             Socket::required("content", Kind::Content),
-            vector("origin", [0., 0.], "px"),
-            vector("size", [640., 360.], "px"),
+            vector("origin", [0., 0.], "units"),
+            vector("size", [640., 360.], "units"),
             vector("anchor", [0.5, 0.5], "fraction"),
         ],
         vec![("content", Kind::Content)],

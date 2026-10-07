@@ -98,6 +98,7 @@ pub fn place(
         return Ok(document);
     }
     let object = crate::authoring::scene::create_object(&mut motion, "fold.motion.image_card")?;
+    let canvas_size = motion.canvas_size();
     let card = motion
         .graph
         .nodes
@@ -105,8 +106,8 @@ pub fn place(
         .find(|n| n.id == object)
         .unwrap();
     card.connect("image", source_node.id, "image");
-    let fit = (motion.info.width as f64 / info.width as f64)
-        .min(motion.info.height as f64 / info.height as f64)
+    let fit = (canvas_size[0] / info.width as f64)
+        .min(canvas_size[1] / info.height as f64)
         .min(1.);
     card.set(
         "size",

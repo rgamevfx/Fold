@@ -187,7 +187,7 @@ pub fn create(m: &mut Motion) -> Result<ObjectId, String> {
         Kind::Scalar,
         Some(Datum::Scalar(4.)),
         "Appearance",
-        "px",
+        "units",
     )?;
     let color = port(
         &mut nodes,
@@ -252,7 +252,7 @@ pub fn from_object(m: &mut Motion, attractor: ObjectId) -> Result<ObjectId, Stri
     }
     a::scene::assets::set_reference(&mut candidate, owner, "attractor", attractor, false)?;
     let scatter = a::add_node(&mut candidate, "fold.motion.scatter_points")?;
-    let size = [candidate.info.width as f64, candidate.info.height as f64];
+    let size = [candidate.canvas_size()[0], candidate.canvas_size()[1]];
     node(&mut candidate, scatter)?.set("size", Datum::Vector(size));
     node(&mut candidate, scatter)?.set("center", Datum::Vector([size[0] * 0.5, size[1] * 0.5]));
     node(&mut candidate, scatter)?.set("perimeter", Datum::Bool(true));

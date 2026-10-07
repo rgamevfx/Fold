@@ -10,6 +10,7 @@ pub mod gpu;
 mod graph;
 pub mod operations;
 mod preparation;
+pub mod shader;
 pub use preparation::{PreparedSources, prepare_sources};
 pub mod region;
 mod sampling;

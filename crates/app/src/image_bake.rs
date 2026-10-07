@@ -155,6 +155,9 @@ fn bake(snapshot: &Snapshot, args: &Args, cancel: &Cancel) -> Result<EditBatch, 
         let describe = |r: &fold_project::DocumentRef| packages.channels(snapshot, r);
         let context = fold_platform::VideoCompile {
             graph_context: None,
+            invocation: None,
+            context: None,
+            resolve_effect: &|_, _, _| Err("Effect invocation unavailable in this context".into()),
             resolve_graph: &|_, _, _| {
                 Err("Layer graph evaluation is unavailable in this context".into())
             },

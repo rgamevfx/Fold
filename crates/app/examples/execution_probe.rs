@@ -84,6 +84,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let title = DocumentId::new();
     let track = Track::new(TrackKind::Video, "Procedural title");
     sequence.clips.push(Clip {
+        effects: vec![],
         id: ObjectId::new(),
         track: track.id,
         link: None,

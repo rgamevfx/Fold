@@ -5,7 +5,10 @@ pub fn definition_direction() -> Definition {
         "fold.motion.direction",
         "Direction",
         "Values",
-        vec![scalar("angle", 0., "degrees"), scalar("length", 1., "px")],
+        vec![
+            scalar("angle", 0., "degrees"),
+            scalar("length", 1., "units"),
+        ],
         vec![("value", Kind::Vector)],
         |e, n| {
             let angle = e.field(n, "angle")?;

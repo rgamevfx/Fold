@@ -31,6 +31,7 @@ fn panel_toolbar_fits_wide_and_narrow_windows_without_editing() {
     let mut project = Project::new(8);
     let document = DocumentId::new();
     let sequence = Sequence {
+        transitions: vec![],
         tracks: vec![crate::Track::new(TrackKind::Video, "V1")],
         clips: vec![],
         dimensions: [640, 360],

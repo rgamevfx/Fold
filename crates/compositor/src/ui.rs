@@ -7,6 +7,8 @@ mod inspector;
 mod read;
 #[cfg(test)]
 mod render_tests;
+mod reusable;
+mod shader;
 mod state;
 #[cfg(test)]
 mod tests;
@@ -19,6 +21,6 @@ pub fn register(registry: &mut PanelRegistry) -> Result<(), String> {
     registry.register(crate::PACKAGE, canvas::Canvas::new(state.clone()))?;
     registry.register_inspector(
         crate::PACKAGE,
-        inspector::Inspector(state, Default::default()),
+        inspector::Inspector(state, Default::default(), Default::default()),
     )
 }

@@ -39,6 +39,7 @@ impl Sequence {
                 .get(&clip.asset)
                 .ok_or("missing audio asset")?;
             let source = match &clip.info {
+                SourceMedia::Adjustment => return Err("Adjustment on an audio track".into()),
                 SourceMedia::Image(_) => return Err("Image on audio track".into()),
                 SourceMedia::Document { .. } => {
                     return Err("nested audio is unsupported; retain audio in the sequence".into());

@@ -216,6 +216,9 @@ impl ColorPipeline {
         let shader = format!(
             "#version 450\nlayout(local_size_x=8,local_size_y=8) in;\nlayout(set=0,binding=0) uniform texture2D source_image;\nlayout(set=0,binding=1) uniform sampler source_sampler;\nlayout(set=0,binding=2,{format}) uniform writeonly image2D destination;\nlayout(set=0,binding=3,std430) buffer Validation {{ uint invalid; }};\nlayout(set=0,binding=4,std140) uniform Settings {{ uvec4 settings; }};\n{text}\nvoid main() {{\n ivec2 xy=ivec2(gl_GlobalInvocationID.xy); if(any(greaterThanEqual(xy,imageSize(destination)))) return;\n vec4 p=texelFetch(sampler2D(source_image,source_sampler),xy,0);\n if(settings.x != 0u) p.a=1.0;\n vec4 v=vec4(0.0);\n if(p.a>0.0) {{ vec3 straight=p.rgb/p.a; v=vec4(fold_ocio(vec4(straight,p.a)).rgb*p.a,p.a); if(any(isinf(straight))||any(isnan(straight))) v=vec4(uintBitsToFloat(0x7f800000u)); }}\n imageStore(destination,xy,v);\n}}\n"
         );
+        let _compile_guard = super::shader::COMPILE_LOCK
+            .lock()
+            .map_err(|_| "Shader compiler lock poisoned")?;
         device.push_error_scope(wgpu::ErrorFilter::Validation);
         let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("OCIO GPU"),

@@ -1,17 +1,23 @@
 //! Feature-neutral scalar animation. Authoritative times remain rational;
 //! floating point is used only for interpolation within a located segment.
+pub mod timing;
+
 use fold_foundation::{ObjectId, Time};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema,
+)]
 pub enum Interpolation {
     Hold,
     #[default]
     Linear,
     Bezier,
 }
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema,
+)]
 pub enum Tangents {
     #[default]
     Auto,
@@ -20,7 +26,7 @@ pub enum Tangents {
 }
 /// Handle time is a fraction of its adjacent interval (0..=0.5), value is
 /// an offset from the key. Bounded fractions guarantee monotone Bézier time.
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct Handle {
     pub fraction: f64,
     pub value: f64,
@@ -33,7 +39,7 @@ impl Default for Handle {
         }
     }
 }
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct Key {
     pub id: ObjectId,
     pub time: Time,
@@ -56,7 +62,7 @@ impl Key {
         }
     }
 }
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct Curve {
     pub keys: Vec<Key>,
 }

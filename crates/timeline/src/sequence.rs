@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 pub const SEQUENCE: &str = "fold.timeline.sequence";
-pub const SEQUENCE_SCHEMA: u32 = 4;
+pub const SEQUENCE_SCHEMA: u32 = 5;
 const MAX_PAYLOAD: usize = 1024 * 1024;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
@@ -41,6 +41,8 @@ impl Track {
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SourceMedia {
+    /// Processes lower video tracks; no media asset or source clock.
+    Adjustment,
     Video(VideoInfo),
     Image(VideoInfo),
     Audio(WaveInfo),
@@ -53,6 +55,7 @@ pub enum SourceMedia {
 impl SourceMedia {
     pub fn duration(&self) -> Result<Time, String> {
         match self {
+            Self::Adjustment => Err("Adjustment clips have no source duration".into()),
             Self::Video(info) | Self::Image(info) | Self::Document { info, .. } => {
                 info.validate()?;
                 info.time(info.frames)
@@ -74,6 +77,8 @@ pub struct Clip {
     pub duration: Time,
     /// Video opacity or audio gain, depending on the destination track.
     pub level: f32,
+    #[serde(default)]
+    pub effects: Vec<fold_platform::effects::Instance>,
     #[serde(flatten)]
     pub extensions: Metadata,
 }
@@ -99,6 +104,8 @@ pub struct Sequence {
     pub rate: [u32; 2],
     pub tracks: Vec<Track>,
     pub clips: Vec<Clip>,
+    #[serde(default)]
+    pub transitions: Vec<crate::Transition>,
     #[serde(flatten)]
     pub extensions: Metadata,
 }
@@ -176,11 +183,15 @@ impl Sequence {
         Ok(ids)
     }
     pub fn validate(&self) -> Result<(), String> {
-        unshadowed(&self.extensions, &["clips", "tracks", "dimensions", "rate"])?;
+        unshadowed(
+            &self.extensions,
+            &["clips", "tracks", "dimensions", "rate", "transitions"],
+        )?;
         if self.clips.len() > 4096 || self.tracks.len() > 32 {
             return Err("sequence exceeds 4096 clips / 32 tracks".into());
         }
         self.info()?;
+        self.validate_transitions()?;
         let mut ids = BTreeSet::new();
         for track in &self.tracks {
             unshadowed(
@@ -209,9 +220,14 @@ impl Sequence {
                     "source_start",
                     "duration",
                     "level",
+                    "effects",
                 ],
             )?;
             let track = self.track(clip.track)?;
+            fold_platform::effects::validate_stack(&clip.effects)?;
+            if track.kind != TrackKind::Video && !clip.effects.is_empty() {
+                return Err("Image effects require a video clip".into());
+            }
             if let SourceMedia::Document { source, .. } = &clip.info
                 && (source.output != "video"
                     || track.kind != TrackKind::Video
@@ -231,19 +247,33 @@ impl Sequence {
                 .source_start
                 .checked_add(clip.duration)
                 .map_err(|e| e.to_string())?;
-            let source_duration = clip.info.duration()?;
+            let adjustment = matches!(clip.info, SourceMedia::Adjustment);
+            if adjustment
+                && (track.kind != TrackKind::Video
+                    || clip.link.is_some()
+                    || clip.source_start != Time::ZERO)
+            {
+                return Err(
+                    "Adjustments require an unlinked video track and no source offset".into(),
+                );
+            }
+            let source_duration = if adjustment {
+                None
+            } else {
+                Some(clip.info.duration()?)
+            };
             if !ids.insert(clip.id)
                 || clip.start < Time::ZERO
                 || clip.source_start < Time::ZERO
                 || clip.duration <= Time::ZERO
-                || source_end > source_duration
-                || source_duration > Time::new(600, 1).unwrap()
+                || source_duration.is_some_and(|d| source_end > d || d > Time::new(600, 1).unwrap())
                 || !clip.level.is_finite()
                 || !(0.0..=1.0).contains(&clip.level)
                 || (track.kind == TrackKind::Video && matches!(clip.info, SourceMedia::Audio(_)))
             {
                 return Err("invalid clip identity, placement, source range, or level".into());
             }
+            clip.transform()?;
             if let Some(link) = clip.link {
                 links.entry(link).or_default().push(clip);
             }
@@ -277,7 +307,12 @@ impl Sequence {
     fn assets(&self) -> Vec<AssetId> {
         self.clips
             .iter()
-            .filter(|c| !matches!(c.info, SourceMedia::Document { .. }))
+            .filter(|c| {
+                !matches!(
+                    c.info,
+                    SourceMedia::Document { .. } | SourceMedia::Adjustment
+                )
+            })
             .map(|c| c.asset)
             .collect::<BTreeSet<_>>()
             .into_iter()
@@ -290,6 +325,16 @@ impl Sequence {
                 && !refs.contains(source)
             {
                 refs.push(source.clone());
+            }
+        }
+        for effect in self
+            .clips
+            .iter()
+            .flat_map(|c| &c.effects)
+            .chain(self.transitions.iter().map(|t| &t.effect))
+        {
+            if !refs.contains(&effect.definition) {
+                refs.push(effect.definition.clone());
             }
         }
         refs
@@ -315,14 +360,28 @@ impl Sequence {
     pub fn from_document(document: &Document) -> Result<Self, String> {
         if document.package_id != super::PACKAGE
             || document.type_id != SEQUENCE
-            || ![2, 3, SEQUENCE_SCHEMA].contains(&document.schema_version)
+            || ![2, 3, 4, SEQUENCE_SCHEMA].contains(&document.schema_version)
             || document.payload.len() > MAX_PAYLOAD
         {
-            return Err("unsupported sequence document (multi-track schema 2–4 required)".into());
+            return Err("unsupported sequence document (multi-track schema 2–5 required)".into());
         }
         let sequence: Self =
             serde_json::from_slice(&document.payload).map_err(|e| e.to_string())?;
         sequence.validate()?;
+        if document.schema_version < 5
+            && (!sequence.transitions.is_empty()
+                || sequence.clips.iter().any(|c| !c.effects.is_empty()))
+        {
+            return Err("Effects and transitions require sequence schema 5".into());
+        }
+        if document.schema_version < 5
+            && sequence
+                .clips
+                .iter()
+                .any(|c| matches!(c.info, SourceMedia::Adjustment))
+        {
+            return Err("Adjustment clips require schema 5".into());
+        }
         if document.schema_version < 4
             && sequence
                 .clips

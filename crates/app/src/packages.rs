@@ -37,6 +37,12 @@ pub fn builtins() -> Arc<PackageRegistry> {
                     audio: vec![],
                     commands: vec![
                         CommandRegistration {
+                            id: crate::timeline_transition::ADD,
+                            title: "Add Transition",
+                            execution: Execution::Immediate,
+                            handler: crate::timeline_transition::add,
+                        },
+                        CommandRegistration {
                             id: fold_platform::settings::PROJECT_COMMAND,
                             title: "Project settings",
                             execution: Execution::Worker,

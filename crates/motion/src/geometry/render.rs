@@ -46,6 +46,24 @@ pub fn compile_images(
     cancel: &fold_media::Cancel,
     resolve: &dyn Fn(&fold_platform::image_source::Request) -> Result<RenderGraph, String>,
 ) -> Result<RenderGraph, String> {
+    compile_images_mapped(
+        content,
+        width,
+        height,
+        [scale[0], 0., 0., scale[1], 0., 0.],
+        cancel,
+        resolve,
+    )
+}
+pub fn compile_images_mapped(
+    content: &Content,
+    width: u32,
+    height: u32,
+    matrix: [f64; 6],
+    cancel: &fold_media::Cancel,
+    resolve: &dyn Fn(&fold_platform::image_source::Request) -> Result<RenderGraph, String>,
+) -> Result<RenderGraph, String> {
+    let scale = [matrix[0].hypot(matrix[1]), matrix[2].hypot(matrix[3])];
     struct Builder<'a> {
         nodes: Vec<ImageOp>,
         dimensions: [u32; 2],
@@ -369,7 +387,7 @@ pub fn compile_images(
         scale,
         cancel,
     };
-    let output = b.content(content, [scale[0], 0., 0., scale[1], 0., 0.], 0)?;
+    let output = b.content(content, matrix, 0)?;
     Ok(RenderGraph {
         width,
         height,

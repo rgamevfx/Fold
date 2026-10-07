@@ -16,10 +16,10 @@ pub fn definition_labels() -> Definition {
         vec![
             Socket::required("points", Kind::Points),
             Socket::value("text", Datum::Text("Fold".into()), ""),
-            scalar("size", 12., "px"),
+            scalar("size", 12., "units"),
             scalar("line_spacing", 1.2, "factor"),
             scalar("alignment", 0., "0 left, 0.5 center, 1 right"),
-            vector("offset", [0., -16.], "px"),
+            vector("offset", [0., -16.], "units"),
             boolean("selection", true),
         ],
         vec![("content", Kind::Content)],

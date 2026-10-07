@@ -100,7 +100,7 @@ fn compositor_graph_composition_and_inspector_draw_without_authoring() {
     context.io_mut().set_delta_time(1. / 60.);
     let mut canvas = canvas::Canvas::new(state.clone());
     canvas.initialize(&context, Some(&typography));
-    let mut inspector = inspector::Inspector(state, Default::default());
+    let mut inspector = inspector::Inspector(state, Default::default(), Default::default());
     for frame in 0..40 {
         let width = if frame % 20 >= 10 { 280. } else { 850. };
         context.io_mut().add_mouse_pos_event([width - 20., 700.]);
@@ -239,7 +239,7 @@ fn inspector_does_not_finish_an_animation_gesture() {
     state.preview(&mut host);
     assert!(state.editing && !state.property_editing);
     let state = Rc::new(RefCell::new(state));
-    let mut inspector = inspector::Inspector(state.clone(), Default::default());
+    let mut inspector = inspector::Inspector(state.clone(), Default::default(), Default::default());
     let mut context = imgui::Context::create();
     context.set_ini_filename(None::<String>).unwrap();
     context
@@ -338,7 +338,7 @@ fn production_node_inspectors_fit_normal_and_narrow_panels_without_edits() {
         .unwrap();
     let before = host.project.snapshot().revision();
     let state = Rc::new(RefCell::new(state::State::default()));
-    let mut inspector = inspector::Inspector(state.clone(), Default::default());
+    let mut inspector = inspector::Inspector(state.clone(), Default::default(), Default::default());
     state.borrow_mut().sync(&mut host);
     let mut context = imgui::Context::create();
     context.set_ini_filename(None::<String>).unwrap();

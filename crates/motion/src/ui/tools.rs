@@ -110,9 +110,10 @@ pub(super) fn select(state: &mut State, host: &mut dyn DesktopClient, id: Object
     }));
 }
 fn position(rect: ViewerRect, m: &Motion, p: [f32; 2]) -> [f64; 2] {
+    let (scale, offset) = m.viewport_mapping(rect.size).unwrap_or(([1.; 2], [0.; 2]));
     [
-        (p[0] - rect.origin[0]) as f64 / rect.size[0] as f64 * m.info.width as f64,
-        (p[1] - rect.origin[1]) as f64 / rect.size[1] as f64 * m.info.height as f64,
+        ((p[0] - rect.origin[0]) as f64 - offset[0]) / scale[0],
+        ((p[1] - rect.origin[1]) as f64 - offset[1]) / scale[1],
     ]
 }
 pub(super) fn path_segments(points: &[([f64; 2], [f64; 2])], closed: bool) -> Vec<Segment> {
@@ -292,10 +293,11 @@ impl Tools {
             && self.tool == Tool::Pen
         {
             let m = &g.base;
+            let (scale, offset) = m.viewport_mapping(rect.size).unwrap_or(([1.; 2], [0.; 2]));
             let screen = |p: [f64; 2]| {
                 [
-                    rect.origin[0] + (p[0] / m.info.width as f64) as f32 * rect.size[0],
-                    rect.origin[1] + (p[1] / m.info.height as f64) as f32 * rect.size[1],
+                    rect.origin[0] + (p[0] * scale[0] + offset[0]) as f32,
+                    rect.origin[1] + (p[1] * scale[1] + offset[1]) as f32,
                 ]
             };
             let draw = ui.get_window_draw_list();

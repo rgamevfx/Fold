@@ -10,6 +10,7 @@ native-video = ["gpu", "fold-media/native-video", "dep:fold-native-video", "fold
 gpu = ["dep:wgpu", "dep:bytemuck", "dep:pollster", "block_compression/wgpu"]
 
 [dependencies]
+naga = { version = "27", features = ["wgsl-in"] }
 block_compression = { version = "=0.7.0", default-features = false, features = ["bc7"] }
 wgpu = { version = "27", optional = true, features = ["glsl"] }
 bytemuck = { version = "1", optional = true, features = ["derive"] }

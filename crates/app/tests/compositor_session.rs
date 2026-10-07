@@ -225,9 +225,11 @@ fn returning_to_timeline_restores_transport_and_evaluates_nested_frames() {
     };
     let track = Track::new(TrackKind::Video, "V1");
     let sequence = Sequence {
+        transitions: vec![],
         dimensions: [16, 16],
         rate: [24, 1],
         clips: vec![Clip {
+            effects: vec![],
             id: ObjectId::new(),
             track: track.id,
             link: None,
@@ -342,4 +344,85 @@ fn missing_input_is_a_render_diagnostic_not_a_silent_bypass() {
             .unwrap_err()
             .contains("connect 'image'")
     );
+}
+
+#[test]
+fn shader_publication_validates_on_worker_and_cancel_never_publishes() {
+    let (mut session, id, mut graph) = fixture();
+    let source = graph
+        .nodes
+        .iter()
+        .find(|n| matches!(n.parameters, P::Solid { .. }))
+        .unwrap()
+        .id;
+    let shader = Node::new(
+        P::Shader {
+            settings: Default::default(),
+        },
+        vec![source],
+    );
+    graph.nodes.push(shader.clone());
+    let make_request = |session: &Session, graph: &Composite| CommandRequest {
+        id: package::SHADER_EDIT.into(),
+        base: session.snapshot().unwrap().revision(),
+        arguments: serde_json::to_vec(&package::EditArgs {
+            document: id,
+            composite: graph.clone(),
+        })
+        .unwrap(),
+    };
+    let drain = |session: &mut Session| {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        while session.state().busy {
+            session.poll();
+            assert!(std::time::Instant::now() < deadline);
+            std::thread::sleep(std::time::Duration::from_millis(2));
+        }
+    };
+    let before = session.snapshot().unwrap();
+    let request = make_request(&session, &graph);
+    session.command(C::Extension(request.clone()));
+    assert!(session.extension_pending(&request));
+    {
+        let mut panel = fold_platform::panel_context::PanelContext::for_panel(
+            &mut session,
+            fold_platform::workspace::PanelInstanceId(1),
+        );
+        assert!(panel.extension_pending(&request));
+        panel.command(C::CancelExtension(request));
+    }
+    drain(&mut session);
+    assert_eq!(session.snapshot().unwrap().revision(), before.revision());
+    session.command(C::Extension(make_request(&session, &graph)));
+    drain(&mut session);
+    assert_ne!(session.snapshot().unwrap().revision(), before.revision());
+    let good = session.snapshot().unwrap();
+    if let P::Shader { settings } = &mut graph.node_mut(shader.id).unwrap().parameters {
+        settings.source = "invalid WGSL".into();
+    }
+    session.command(C::Extension(make_request(&session, &graph)));
+    drain(&mut session);
+    assert_eq!(session.snapshot().unwrap().revision(), good.revision());
+    assert!(!session.state().status.is_empty());
+}
+
+#[test]
+fn scoped_inspector_can_discover_published_effect_interfaces() {
+    let id = DocumentId::new();
+    let mut project = Project::new(8);
+    let document =
+        fold_compositor::presets::create(fold_compositor::presets::Preset::Glow, id).unwrap();
+    project
+        .commit(EditBatch {
+            base: project.snapshot().revision(),
+            mutations: vec![Mutation::PutDocument(document)],
+        })
+        .unwrap();
+    let mut session = Session::new(project);
+    let expected = session.effect_interface(id).unwrap();
+    let panel = fold_platform::panel_context::PanelContext::for_panel(
+        &mut session,
+        fold_platform::workspace::PanelInstanceId(1),
+    );
+    assert_eq!(panel.effect_interface(id).unwrap(), expected);
 }

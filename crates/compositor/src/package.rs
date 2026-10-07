@@ -5,6 +5,7 @@ use fold_platform::packages::*;
 use fold_project::{Document, EditBatch, Mutation, Snapshot};
 use serde::{Deserialize, Serialize};
 
+pub const SHADER_EDIT: &str = "fold.compositor.publish-shader";
 pub const EDIT: &str = "fold.compositor.edit";
 pub const PANEL: &str = "fold.compositor.editor";
 pub const INSPECTOR: &str = "fold.compositor.inspector";
@@ -37,6 +38,26 @@ fn edit(snapshot: &Snapshot, args: &[u8], _: &Cancel) -> Result<EditBatch, Strin
         base: snapshot.revision(),
         mutations: vec![Mutation::PutDocument(document)],
     })
+}
+fn publish_shader(snapshot: &Snapshot, args: &[u8], cancel: &Cancel) -> Result<EditBatch, String> {
+    let candidate: EditArgs = serde_json::from_slice(args).map_err(|e| e.to_string())?;
+    for node in &candidate.composite.nodes {
+        cancel.check()?;
+        if let crate::Parameters::Shader { settings } = &node.parameters {
+            settings
+                .program(
+                    fold_platform::format::Format::square([
+                        candidate.composite.info.width,
+                        candidate.composite.info.height,
+                    ]),
+                    0.,
+                    0.,
+                )?
+                .validate_source()?;
+        }
+    }
+    cancel.check()?;
+    edit(snapshot, args, cancel)
 }
 struct Documents;
 impl DocumentProvider for Documents {
@@ -138,10 +159,10 @@ impl DocumentProvider for Documents {
         crate::COMPOSITE
     }
     fn schema(&self) -> u32 {
-        5
+        6
     }
     fn supports_schema(&self, schema: u32) -> bool {
-        [1, 2, 3, 4, 5].contains(&schema)
+        [1, 2, 3, 4, 5, 6].contains(&schema)
     }
     fn validate(&self, document: &Document) -> Result<(), String> {
         Composite::from_document(document).map(|_| ())
@@ -203,15 +224,29 @@ pub fn register(registry: &mut PackageRegistry) -> Result<(), String> {
             host_api: HOST_API,
             dependencies: &[],
             panels: PANELS,
-            build: concat!(env!("CARGO_PKG_VERSION"), ":compositor-schema5-evaluator6"),
+            build: concat!(env!("CARGO_PKG_VERSION"), ":compositor-schema6-evaluator8"),
         },
         documents: vec![Box::new(Documents)],
-        commands: vec![CommandRegistration {
-            id: EDIT,
-            title: "Edit composite",
-            execution: Execution::Immediate,
-            handler: edit,
-        }],
+        commands: vec![
+            CommandRegistration {
+                id: SHADER_EDIT,
+                title: "Validate and publish shader",
+                execution: Execution::Worker,
+                handler: publish_shader,
+            },
+            CommandRegistration {
+                id: "fold.compositor.create-effect",
+                title: "Create reusable effect",
+                execution: Execution::Immediate,
+                handler: crate::presets::command,
+            },
+            CommandRegistration {
+                id: EDIT,
+                title: "Edit composite",
+                execution: Execution::Immediate,
+                handler: edit,
+            },
+        ],
         video: vec![Box::new(crate::compile::Provider)],
         audio: vec![],
     })

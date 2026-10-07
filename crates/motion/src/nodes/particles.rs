@@ -39,9 +39,9 @@ pub fn definitions() -> Vec<Definition> {
         "Distribution",
         vec![
             scalar("count", 800., "integer"),
-            vector("size", [960., 540.], "px"),
-            vector("center", [480., 270.], "px"),
-            vector("jitter", [0., 0.], "px"),
+            vector("size", [960., 540.], "units"),
+            vector("center", [480., 270.], "units"),
+            vector("jitter", [0., 0.], "units"),
             boolean("perimeter", false),
             scalar("seed", 1., "integer"),
         ],

@@ -6,6 +6,7 @@ use fold_project::{Document, Snapshot};
 
 pub fn create(id: DocumentId) -> Result<Document, String> {
     Sequence {
+        transitions: vec![],
         dimensions: [1280, 720],
         rate: [24, 1],
         tracks: vec![
@@ -169,6 +170,7 @@ pub fn place(
         let id = ObjectId::new();
         placed.push(id);
         sequence.clips.push(Clip {
+            effects: vec![],
             id,
             track: track.id,
             link,

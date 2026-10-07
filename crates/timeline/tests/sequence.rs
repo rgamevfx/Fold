@@ -21,10 +21,12 @@ fn setup_kind(kind: TrackKind) -> (Project, DocumentId, ObjectId) {
     let clip = ObjectId::new();
     let track = Track::new(kind, "Track 1");
     let sequence = Sequence {
+        transitions: vec![],
         tracks: vec![track.clone()],
         dimensions: [2, 2],
         rate: [24000, 1001],
         clips: vec![Clip {
+            effects: vec![],
             id: clip,
             track: track.id,
             link: None,
@@ -216,6 +218,9 @@ fn source_handles_and_video_lowering_use_exact_half_open_ranges() {
     let compile = |output: &str, time| {
         SequenceProvider.compile(fold_platform::VideoCompile {
             graph_context: None,
+            invocation: None,
+            context: None,
+            resolve_effect: &|_, _, _| Err("Effect invocation unavailable in this context".into()),
             resolve_graph: &|_, _, _| {
                 Err("Layer graph evaluation is unavailable in this context".into())
             },
@@ -328,4 +333,52 @@ fn malformed_documents_and_shadowed_extensions_are_rejected() {
         info.frames = 18000;
     } // exceeds PCM budget
     assert!(seq.document(id).is_err());
+}
+
+#[test]
+fn moving_effect_keys_follows_clip_and_split_has_independent_identity() {
+    let (project, id, clip) = setup();
+    let mut seq = sequence(&project.snapshot(), id);
+    let mut curve = fold_animation::Curve::default();
+    curve.insert(t(12), 0.25);
+    curve.insert(t(20), 1.);
+    let instance = fold_platform::effects::Instance {
+        id: ObjectId::new(),
+        definition: fold_project::DocumentRef {
+            document: DocumentId::new(),
+            output: "video".into(),
+            extensions: Default::default(),
+        },
+        version: 1,
+        values: Default::default(),
+        animation: [("strength".into(), vec![curve])].into(),
+        enabled: true,
+        extensions: Default::default(),
+    };
+    seq.clips[0].effects.push(instance.clone());
+    let moved = seq
+        .edited(&fold_timeline::SequenceEdit::Clip {
+            id: clip,
+            linked: false,
+            edit: ClipEdit::Move { start: t(15) },
+        })
+        .unwrap();
+    let key = &moved.clips[0].effects[0].animation["strength"][0].keys[0];
+    assert_eq!(key.time, t(17));
+    assert_eq!(key.id, instance.animation["strength"][0].keys[0].id);
+    let split = moved
+        .edited(&fold_timeline::SequenceEdit::Clip {
+            id: clip,
+            linked: false,
+            edit: ClipEdit::Split {
+                at: t(25),
+                right_id: ObjectId::new(),
+            },
+        })
+        .unwrap();
+    assert_ne!(split.clips[0].effects[0].id, split.clips[1].effects[0].id);
+    assert_eq!(
+        split.clips[0].effects[0].animation,
+        split.clips[1].effects[0].animation
+    );
 }

@@ -24,6 +24,8 @@ impl<'a> Evaluator<'a> {
         result.identity = self.identity.clone();
         result.object_path = self.object_path.clone();
         result.layer_times = self.layer_times.clone();
+        result.instance_timing = self.instance_timing;
+        result.output_format = self.output_format;
         result.current_object = self.current_object;
         result.budget = std::mem::take(&mut self.budget);
         let rebuild = (|| {
@@ -80,6 +82,8 @@ impl<'a> Evaluator<'a> {
         };
         Ok(crate::simulation::Key {
             identity,
+            timing: self.instance_timing,
+            format: self.output_format,
             scope: self.scope.clone(),
             object: self.current_object,
             node,
