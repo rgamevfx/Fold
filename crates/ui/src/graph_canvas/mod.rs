@@ -1,7 +1,9 @@
 //! One node editor for all feature graphs. Adapters describe stable objects and
 //! translate events to domain transactions; native IDs, navigation, selection,
 //! search, layout, hit testing and gesture lifetime belong to this module.
+mod compact;
 mod editor;
+mod interactions;
 mod navigation;
 #[cfg(test)]
 mod tests;
@@ -56,6 +58,13 @@ pub struct NodeTemplate {
     pub label: String,
     pub category: String,
 }
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum GraphPresentation {
+    #[default]
+    Horizontal,
+    VerticalCompact,
+}
+
 #[derive(Clone, Debug)]
 pub enum GraphChange {
     Add {
@@ -64,6 +73,11 @@ pub enum GraphChange {
     },
     Connect(WireView),
     Disconnect(Socket),
+    /// One atomic topology edit, used for insertion and moving an existing wire.
+    Rewire {
+        remove: Vec<Socket>,
+        add: Vec<WireView>,
+    },
     Delete(Vec<ObjectId>),
     Positions(Vec<(ObjectId, [f32; 2])>),
 }
@@ -82,6 +96,21 @@ pub enum GraphEvent {
 /// in the editor. Validation must be side-effect free; failed batches must not
 /// leave partially applied changes. Adapters retain ownership of project undo.
 pub trait GraphContext {
+    fn presentation(&self) -> GraphPresentation {
+        GraphPresentation::Horizontal
+    }
+    /// Includes connections hidden by a scoped graph view.
+    fn can_insert(&self, _node: ObjectId) -> bool {
+        true
+    }
+    /// Feature-owned main pipe; ambiguous nodes leave the choice to the artist.
+    fn primary_input<'a>(&self, node: &'a NodeView) -> Option<&'a str> {
+        (node.inputs.len() == 1).then(|| node.inputs[0].key.as_str())
+    }
+
+    fn primary_output<'a>(&self, node: &'a NodeView) -> Option<&'a str> {
+        (node.outputs.len() == 1).then(|| node.outputs[0].key.as_str())
+    }
     fn graph(&self) -> GraphView;
     fn catalog(&self) -> Vec<NodeTemplate>;
     fn validate(&self, change: &GraphChange) -> Result<(), String>;

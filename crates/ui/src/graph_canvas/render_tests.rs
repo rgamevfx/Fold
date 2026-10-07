@@ -35,6 +35,10 @@ fn graph_typography_renders_across_zoom_dpi_and_ui_scale() {
         ("candidate-narrow", 340., 1., 1., 0.),
         ("candidate-conflict", 340., 1., 1., 0.),
         ("normal", 1000., 1., 1., 0.),
+        ("composite-normal", 1000., 1., 1., 0.),
+        ("composite-narrow", 380., 1., 1., 0.),
+        ("composite-large-ui", 1000., 1., 1.5, 0.),
+        ("composite-dpi-2", 500., 2., 1., 0.),
         ("zoom-in", 1000., 1., 1., 3.),
         ("overview", 1000., 1., 1., -5.),
         ("narrow", 380., 1., 1., 0.),
@@ -102,6 +106,9 @@ fn graph_typography_renders_across_zoom_dpi_and_ui_scale() {
             }];
             node.position =
                 (name == "eight-nodes").then_some([(i % 4) as f32 * 300., (i / 4) as f32 * 280.]);
+        }
+        if name.starts_with("composite") {
+            graph = composite_fixture();
         }
         let mut settings = crate::settings::Settings::new(fonts.clone(), None);
         settings.open = name.starts_with("settings");

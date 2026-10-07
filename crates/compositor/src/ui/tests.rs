@@ -363,3 +363,112 @@ fn production_node_inspectors_fit_normal_and_narrow_panels_without_edits() {
     }
     assert_eq!(host.project.snapshot().revision(), before);
 }
+
+#[test]
+fn merge_insertion_uses_b_and_undo_restores_position_and_original_pipe() {
+    let (mut host, mut state) = setup();
+    let source = state.graph.as_ref().unwrap().nodes[0].id;
+    let output = state.graph.as_ref().unwrap().output;
+    {
+        let mut context = graph::Context {
+            state: &mut state,
+            host: &mut host,
+        };
+        context
+            .event(GraphEvent::Commit(vec![GraphChange::Add {
+                template: "Merge".into(),
+                position: [320., 160.],
+            }]))
+            .unwrap();
+    }
+    let merge = state.selected[0];
+    let before = host.project.snapshot();
+    let mut context = graph::Context {
+        state: &mut state,
+        host: &mut host,
+    };
+    assert_eq!(context.presentation(), GraphPresentation::VerticalCompact);
+    let view = context.graph();
+    let node = view.nodes.iter().find(|n| n.id == merge).unwrap();
+    assert_eq!(context.primary_input(node), Some("background"));
+    let pipe = GraphChange::Rewire {
+        remove: vec![Socket {
+            node: output,
+            key: "image".into(),
+        }],
+        add: vec![
+            WireView {
+                source: Socket {
+                    node: source,
+                    key: "image".into(),
+                },
+                target: Socket {
+                    node: merge,
+                    key: "background".into(),
+                },
+            },
+            WireView {
+                source: Socket {
+                    node: merge,
+                    key: "image".into(),
+                },
+                target: Socket {
+                    node: output,
+                    key: "image".into(),
+                },
+            },
+        ],
+    };
+    context.validate(&pipe).unwrap();
+    context
+        .event(GraphEvent::PreviewPositions(vec![(merge, [0., 80.])]))
+        .unwrap();
+    context.event(GraphEvent::Commit(vec![pipe])).unwrap();
+    let composite = context.state.graph.as_ref().unwrap();
+    assert_eq!(composite.node(merge).unwrap().inputs, [None, Some(source)]);
+    assert_eq!(composite.node(output).unwrap().inputs, [Some(merge)]);
+    assert_eq!(composite.node(merge).unwrap().position, Some([0., 80.]));
+    let saved = Composite::from_document(
+        &host.project.snapshot().state().documents[&state.document.unwrap()],
+    )
+    .unwrap();
+    assert_eq!(saved.node(merge).unwrap().inputs, [None, Some(source)]);
+    host.project.undo().unwrap();
+    state.sync(&mut host);
+    assert_eq!(
+        host.project.snapshot().state().documents,
+        before.state().documents
+    );
+}
+
+#[test]
+fn invalid_rewire_batch_never_partially_disconnects() {
+    let (mut host, mut state) = setup();
+    let before = state.graph.clone();
+    let graph = state.graph.as_ref().unwrap();
+    let source = graph.nodes[0].id;
+    let target = graph.output;
+    let mut context = graph::Context {
+        state: &mut state,
+        host: &mut host,
+    };
+    let change = GraphChange::Rewire {
+        remove: vec![Socket {
+            node: target,
+            key: "image".into(),
+        }],
+        add: vec![WireView {
+            source: Socket {
+                node: source,
+                key: "image".into(),
+            },
+            target: Socket {
+                node: target,
+                key: "invalid".into(),
+            },
+        }],
+    };
+    assert!(context.validate(&change).is_err());
+    assert!(context.event(GraphEvent::Commit(vec![change])).is_err());
+    assert_eq!(state.graph, before);
+}

@@ -35,7 +35,7 @@ impl crate::Operator {
         )
     }
     pub fn optional_input(&self, slot: usize) -> bool {
-        self.id == "Shuffle" && slot == 1
+        (self.id == "Shuffle" && slot == 1) || (self.id == "Merge" && slot == 0)
     }
 
     /// Stable socket names within the versioned operator schema, never UI labels.
@@ -58,6 +58,13 @@ impl crate::Operator {
     }
 }
 impl Node {
+    /// Inserting a Merge on B leaves A available without interrupting the pipe.
+    pub(crate) fn background_only_merge(&self) -> bool {
+        matches!(
+            self.parameters,
+            Parameters::Merge | Parameters::Composite { .. }
+        ) && self.inputs.first().is_some_and(Option::is_none)
+    }
     pub fn dependencies(&self) -> impl Iterator<Item = ObjectId> + '_ {
         self.inputs
             .iter()
@@ -137,7 +144,11 @@ impl Composite {
         for id in order.iter().rev() {
             if needed.contains(id) {
                 let n = self.node(*id)?;
-                if let Some(mask) = n.effect.mask.filter(|_| !n.effect.mask_disabled) {
+                if let Some(mask) = n
+                    .effect
+                    .mask
+                    .filter(|_| !n.effect.mask_disabled && !n.background_only_merge())
+                {
                     needed.insert(mask);
                 }
                 for (slot, input) in n.inputs.iter().enumerate() {

@@ -340,3 +340,87 @@ fn long_sequence_manifest_stays_on_the_asset_and_read_serialization_stays_small(
     changed.frames.remove(&1000);
     assert!(!summary.matches(&changed));
 }
+
+#[test]
+fn merge_a_is_foreground_b_is_background_and_mask_preserves_b() {
+    for parameters in [
+        P::Merge,
+        P::Composite {
+            mode: Default::default(),
+        },
+    ] {
+        let a = Node::new(
+            P::Solid {
+                rgba: [0.5, 0., 0., 0.5],
+            },
+            vec![],
+        );
+        let b = Node::new(
+            P::Solid {
+                rgba: [0., 0., 1., 1.],
+            },
+            vec![],
+        );
+        let mask = Node::new(
+            P::Solid {
+                rgba: [0.25, 0., 0., 1.],
+            },
+            vec![],
+        );
+        let mut merge = Node::new(parameters, vec![a.id, b.id]);
+        assert_eq!(merge.parameters.operator().input_key(0), "foreground");
+        assert_eq!(merge.parameters.operator().input_key(1), "background");
+        merge.effect.mask = Some(mask.id);
+        merge.effect.mask_channel = name("rgba.red");
+        let id = merge.id;
+        let mask_id = mask.id;
+        let mut composite = fixture(vec![a, b, mask, merge]);
+        for (coverage, expected) in [
+            (0., [0., 0., 1., 1.]),
+            (0.25, [0.125, 0., 0.875, 1.]),
+            (1., [0.5, 0., 0.5, 1.]),
+        ] {
+            composite.node_mut(mask_id).unwrap().parameters = P::Solid {
+                rgba: [coverage, 0., 0., 1.],
+            };
+            let image = fold_render::render(compile(&composite).unwrap()).unwrap();
+            assert_eq!(image.pixels(), &[expected; 6]);
+        }
+        composite.node_mut(id).unwrap().effect.invert = true;
+        let image = fold_render::render(compile(&composite).unwrap()).unwrap();
+        assert_eq!(image.pixels(), &[[0., 0., 1., 1.]; 6]);
+        composite.node_mut(id).unwrap().effect.mask_disabled = true;
+        let image = fold_render::render(compile(&composite).unwrap()).unwrap();
+        assert_eq!(image.pixels(), &[[0.5, 0., 0.5, 1.]; 6]);
+    }
+}
+
+#[test]
+fn inserted_merge_passes_b_through_until_a_is_connected() {
+    for parameters in [
+        P::Merge,
+        P::Composite {
+            mode: fold_render::operations::MergeMode::Multiply,
+        },
+    ] {
+        let background = Node::new(
+            P::Solid {
+                rgba: [0.1, 0.2, 0.3, 0.5],
+            },
+            vec![],
+        );
+        let unused_mask = Node::disconnected(P::Grade { gain: [2.; 3] });
+        let mut merge = Node::disconnected(parameters);
+        merge.inputs[1] = Some(background.id);
+        merge.effect.mask = Some(unused_mask.id);
+        let id = merge.id;
+        let mut composite = fixture(vec![background, unused_mask, merge]);
+        let image = fold_render::render(
+            compile(&composite).expect("a background-only Merge keeps the main pipe alive"),
+        )
+        .unwrap();
+        assert_eq!(image.pixels(), &[[0.1, 0.2, 0.3, 0.5]; 6]);
+        composite.disconnect(id, "background").unwrap();
+        assert!(compile(&composite).is_err(), "B remains required");
+    }
+}

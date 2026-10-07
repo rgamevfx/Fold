@@ -203,6 +203,11 @@ fn compile(request: VideoCompile<'_>) -> Result<ChannelGraph, String> {
             ids.insert(id, ids[&node.inputs[0].unwrap()].clone());
             continue;
         }
+        if node.background_only_merge() {
+            let background = node.inputs[1].ok_or("Merge: connect 'background' input")?;
+            ids.insert(id, ids[&background].clone());
+            continue;
+        }
         if parameters.operator().supports_effect() {
             let inputs: Vec<_> = node.inputs.iter().flatten().map(|id| &ids[id]).collect();
             let mask = effect

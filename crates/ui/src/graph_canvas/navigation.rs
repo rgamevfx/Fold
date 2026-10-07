@@ -25,18 +25,28 @@ impl HitMap {
 fn inside(r: Rect, p: Point, margin: f32) -> bool {
     (0..2).all(|i| p[i] >= r[0][i] - margin && p[i] < r[1][i] + margin)
 }
-/// Match imgui-node-editor 0.18's eased horizontal pin tangents. Pins use
-/// point pivots; project this curve to screen space with the native camera.
-pub(super) fn link_curve(a: Point, b: Point, strength: f32) -> Curve {
+/// Match the native editor’s eased per-pin tangents.
+pub(super) fn directed_curve(
+    a: Point,
+    b: Point,
+    source: Point,
+    target: Point,
+    strength: f32,
+) -> Curve {
     let half = (b[0] - a[0]).hypot(b[1] - a[1]) * 0.5;
     let strength = if half < strength {
         strength * (std::f32::consts::FRAC_PI_2 * half / strength).sin()
     } else {
         strength
     };
-    [a, [a[0] + strength, a[1]], [b[0] - strength, b[1]], b]
+    [
+        a,
+        [0, 1].map(|i| a[i] + source[i] * strength),
+        [0, 1].map(|i| b[i] + target[i] * strength),
+        b,
+    ]
 }
-fn near_curve(c: Curve, p: Point) -> bool {
+pub(super) fn near_curve(c: Curve, p: Point) -> bool {
     let min = [0, 1].map(|i| c.iter().map(|v| v[i]).fold(f32::INFINITY, f32::min));
     let max = [0, 1].map(|i| c.iter().map(|v| v[i]).fold(f32::NEG_INFINITY, f32::max));
     if !inside([min, max], p, 8.0) {
@@ -66,6 +76,42 @@ fn near_curve(c: Curve, p: Point) -> bool {
     }
     false
 }
+/// A pipe passing through the node body is a drop target, even when native
+/// grid snapping leaves the node center a few pixels to either side of it.
+pub(super) fn curve_intersects(c: Curve, rect: Rect) -> bool {
+    let mut a = c[0];
+    for step in 1..=64 {
+        let t = step as f32 / 64.;
+        let u = 1. - t;
+        let b = [0, 1].map(|i| {
+            u * u * u * c[0][i]
+                + 3. * u * u * t * c[1][i]
+                + 3. * u * t * t * c[2][i]
+                + t * t * t * c[3][i]
+        });
+        let mut enter = 0_f32;
+        let mut exit = 1_f32;
+        for i in 0..2 {
+            let delta = b[i] - a[i];
+            if delta.abs() < 0.0001 {
+                if a[i] < rect[0][i] || a[i] > rect[1][i] {
+                    exit = -1.;
+                }
+            } else {
+                let first = (rect[0][i] - a[i]) / delta;
+                let second = (rect[1][i] - a[i]) / delta;
+                enter = enter.max(first.min(second));
+                exit = exit.min(first.max(second));
+            }
+        }
+        if enter <= exit {
+            return true;
+        }
+        a = b;
+    }
+    false
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -74,7 +120,13 @@ mod tests {
         let map = HitMap {
             bounds: Some([[0.0; 2], [600.0; 2]]),
             nodes: vec![[[10.0, 10.0], [100.0, 100.0]]],
-            links: vec![link_curve([100.0, 50.0], [400.0, 250.0], 100.0)],
+            links: vec![directed_curve(
+                [100.0, 50.0],
+                [400.0, 250.0],
+                [1., 0.],
+                [-1., 0.],
+                100.0,
+            )],
         };
         assert!(!map.background([50.0, 50.0]));
         assert!(!map.background([103.0, 50.0])); // pin edge

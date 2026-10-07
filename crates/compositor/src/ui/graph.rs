@@ -173,6 +173,14 @@ impl Context<'_> {
                 }
                 graph.connect(wire.source.node, wire.target.node, &wire.target.key)?;
             }
+            GraphChange::Rewire { remove, add } => {
+                for socket in remove {
+                    self.apply(graph, &GraphChange::Disconnect(socket.clone()))?;
+                }
+                for wire in add {
+                    self.apply(graph, &GraphChange::Connect(wire.clone()))?;
+                }
+            }
             GraphChange::Disconnect(socket) => graph.disconnect(socket.node, &socket.key)?,
             GraphChange::Delete(ids) => graph.remove(ids)?,
             GraphChange::Positions(positions) => {
@@ -198,6 +206,15 @@ impl Context<'_> {
     }
 }
 impl GraphContext for Context<'_> {
+    fn presentation(&self) -> GraphPresentation {
+        GraphPresentation::VerticalCompact
+    }
+    fn primary_input<'a>(&self, node: &'a NodeView) -> Option<&'a str> {
+        ["background", "image", "A"]
+            .into_iter()
+            .find(|key| node.inputs.iter().any(|port| port.key == *key))
+    }
+
     fn graph(&self) -> GraphView {
         let graph = self.state.graph.as_ref().unwrap();
         GraphView {
@@ -238,7 +255,7 @@ impl GraphContext for Context<'_> {
                                 })
                                 .unwrap_or("Document".into())
                         } else {
-                            op.label().to_uppercase()
+                            op.label().to_string()
                         },
                         summary: summary(&n.parameters),
                         position: n.position,
@@ -260,7 +277,12 @@ impl GraphContext for Context<'_> {
                             .enumerate()
                             .map(|(i, kind)| PortView {
                                 key: op.input_key(i).into(),
-                                label: op.input_label(i).into(),
+                                label: match (op.id, i) {
+                                    ("Merge", 0) => "A · Foreground",
+                                    ("Merge", 1) => "B · Background",
+                                    _ => op.input_label(i),
+                                }
+                                .into(),
                                 color: color(*kind),
                             })
                             .chain(op.supports_effect().then(|| PortView {

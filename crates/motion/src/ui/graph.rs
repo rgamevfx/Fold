@@ -24,6 +24,14 @@ fn apply(motion: &mut Motion, change: &GraphChange) -> Result<Option<ObjectId>, 
                 socket: w.source.key.clone(),
             },
         )?,
+        GraphChange::Rewire { remove, add } => {
+            for socket in remove {
+                apply(motion, &GraphChange::Disconnect(socket.clone()))?;
+            }
+            for wire in add {
+                apply(motion, &GraphChange::Connect(wire.clone()))?;
+            }
+        }
         GraphChange::Disconnect(socket) => {
             a::node(motion, socket.node)?.inputs.remove(&socket.key);
         }
@@ -46,6 +54,31 @@ fn apply(motion: &mut Motion, change: &GraphChange) -> Result<Option<ObjectId>, 
     Ok(None)
 }
 impl GraphContext for Context<'_> {
+    fn primary_input<'a>(&self, node: &'a NodeView) -> Option<&'a str> {
+        node.inputs
+            .iter()
+            .find(|p| p.key == "content")
+            .map(|p| p.key.as_str())
+            .or_else(|| (node.inputs.len() == 1).then(|| node.inputs[0].key.as_str()))
+    }
+    fn primary_output<'a>(&self, node: &'a NodeView) -> Option<&'a str> {
+        node.outputs
+            .iter()
+            .find(|p| p.key == "content")
+            .map(|p| p.key.as_str())
+            .or_else(|| (node.outputs.len() == 1).then(|| node.outputs[0].key.as_str()))
+    }
+    fn can_insert(&self, node: ObjectId) -> bool {
+        self.state.view_motion().is_some_and(|motion| {
+            motion.graph.nodes.iter().all(|n| {
+                n.inputs.values().all(|input| match input {
+                    Input::Link(link) => n.id != node && link.node != node,
+                    _ => true,
+                })
+            })
+        })
+    }
+
     fn graph(&self) -> GraphView {
         let motion = self.state.view_motion().unwrap();
         let mut error = self.state.error.clone();
@@ -493,4 +526,94 @@ pub(super) fn socket_exposed(node: &crate::graph::Node, key: &str) -> bool {
                         "offset_x" | "offset_y" | "rotation" | "scale" | "color"
                     ))
         })
+}
+
+#[cfg(test)]
+mod insertion_tests {
+    use super::*;
+
+    #[test]
+    fn motion_insertion_and_invalid_rewire_share_atomic_undo() {
+        let mut host = crate::ui::tests::Host::new();
+        let mut state = State::default();
+        state.create(&mut host);
+        state.change(&mut host, |m| {
+            a::add_content(m, "fold.motion.rectangle").map(Some)
+        });
+        state.document_network = true;
+        let mut context = Context {
+            state: &mut state,
+            host: &mut host,
+        };
+        let original_wire = context.graph().wires[0].clone();
+        context
+            .event(GraphEvent::Commit(vec![GraphChange::Add {
+                template: "fold.motion.transform".into(),
+                position: [320., 200.],
+            }]))
+            .unwrap();
+        let added = context.state.selected[0];
+        let graph = context.graph();
+        let node = graph.nodes.iter().find(|n| n.id == added).unwrap();
+        assert_eq!(context.primary_input(node), Some("content"));
+        assert_eq!(context.primary_output(node), Some("content"));
+        assert!(context.can_insert(added));
+        let before = context.host.snapshot().unwrap();
+        let change = GraphChange::Rewire {
+            remove: vec![original_wire.target.clone()],
+            add: vec![
+                WireView {
+                    source: original_wire.source.clone(),
+                    target: Socket {
+                        node: added,
+                        key: "content".into(),
+                    },
+                },
+                WireView {
+                    source: Socket {
+                        node: added,
+                        key: "content".into(),
+                    },
+                    target: original_wire.target.clone(),
+                },
+            ],
+        };
+        context.validate(&change).unwrap();
+        context
+            .event(GraphEvent::PreviewPositions(vec![(added, [180., 50.])]))
+            .unwrap();
+        context.event(GraphEvent::Commit(vec![change])).unwrap();
+        assert_eq!(
+            context.host.snapshot().unwrap().revision().0,
+            before.revision().0 + 1
+        );
+        assert!(!context.can_insert(added));
+        context.state.document_network = false;
+        assert!(context.graph().wires.is_empty());
+        assert!(
+            !context.can_insert(added),
+            "hidden connections still prevent insertion"
+        );
+        context.state.document_network = true;
+        let after = context.state.view_motion().unwrap();
+        let invalid = GraphChange::Rewire {
+            remove: vec![original_wire.target.clone()],
+            add: vec![WireView {
+                source: original_wire.source.clone(),
+                target: Socket {
+                    node: added,
+                    key: "missing".into(),
+                },
+            }],
+        };
+        assert!(context.validate(&invalid).is_err());
+        assert!(context.event(GraphEvent::Commit(vec![invalid])).is_err());
+        assert_eq!(context.state.view_motion().unwrap(), after);
+        host.project.undo().unwrap();
+        state.sync(&mut host);
+        assert_eq!(
+            host.project.snapshot().state().documents,
+            before.state().documents
+        );
+    }
 }
