@@ -127,7 +127,7 @@ fn direct_ui_edits_are_one_transaction_and_group_edits_preserve_root_output() {
 }
 
 #[test]
-fn composition_keys_modifier_internals_and_undo_preserves_root() {
+fn network_keeps_modifier_graph_and_does_not_handle_keyframe_shortcut() {
     use fold_ui::sdk::graph_canvas::{GraphContext, GraphEvent};
     let _guard = super::IMGUI_TEST_LOCK.lock().unwrap();
     let mut host = Host::new();
@@ -175,7 +175,6 @@ fn composition_keys_modifier_internals_and_undo_preserves_root() {
         files: Default::default(),
         canvas: Default::default(),
         overlay: Default::default(),
-        animation: Default::default(),
     };
     for frame in 0..6 {
         context.io_mut().add_key_event(imgui::Key::I, frame == 3);
@@ -192,30 +191,18 @@ fn composition_keys_modifier_internals_and_undo_preserves_root() {
         context.end_frame();
     }
     let after = host.project.snapshot();
-    assert_eq!(after.revision().0, before.revision().0 + 1);
+    assert_eq!(after.revision(), before.revision());
     let edited = Motion::from_document(&after.state().documents[&document]).unwrap();
     assert_eq!(edited.graph, root.graph);
-    let curve = &edited.groups[&group]
-        .graph
-        .node(rectangle)
-        .unwrap()
-        .animation["width.0"];
-    assert_eq!(curve.keys.len(), 2);
-    assert!(
-        curve
+    assert_eq!(
+        edited.groups[&group]
+            .graph
+            .node(rectangle)
+            .unwrap()
+            .animation["width.0"]
             .keys
-            .iter()
-            .any(|key| key.time == Time::new(1, 2).unwrap())
-    );
-    host.project.undo().unwrap();
-    assert_eq!(
-        host.project.snapshot().state().documents,
-        before.state().documents
-    );
-    host.project.redo().unwrap();
-    assert_eq!(
-        host.project.snapshot().state().documents,
-        after.state().documents
+            .len(),
+        1
     );
 }
 
@@ -301,7 +288,6 @@ fn drawing_motion_graph_inspector_and_handles_does_not_mutate_project() {
         files: Default::default(),
         canvas: Default::default(),
         overlay: Default::default(),
-        animation: Default::default(),
     };
     canvas.initialize(&context, Some(&typography));
     let mut inspector = inspector::Inspector {

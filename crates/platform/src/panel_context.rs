@@ -247,6 +247,13 @@ impl DesktopClient for PanelContext<'_> {
     fn supports_document(&self, document: &fold_project::Document) -> bool {
         self.host.supports_document(document)
     }
+    fn animation_channels(
+        &self,
+        document: fold_foundation::DocumentId,
+        object: Option<fold_foundation::ObjectId>,
+    ) -> Result<Vec<crate::animation::Channel>, String> {
+        self.host.animation_channels(document, object)
+    }
     fn image_inputs(
         &self,
         document: fold_foundation::DocumentId,
@@ -276,6 +283,10 @@ impl DesktopClient for PanelContext<'_> {
             return;
         }
         match command {
+            DesktopCommand::AutoKey(enabled) => {
+                self.host.command(DesktopCommand::AutoKey(enabled));
+                self.state.auto_key = self.host.state().auto_key;
+            }
             DesktopCommand::Select(selection) => {
                 if selection.document != self.editor.as_ref().and_then(|e| e.document()) {
                     self.state.status = "Selection does not belong to this editor target".into();

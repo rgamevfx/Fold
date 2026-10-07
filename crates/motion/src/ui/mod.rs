@@ -1,5 +1,4 @@
 //! UI-only presentation over transactional graph edits.
-mod animation;
 mod canvas;
 mod composition;
 mod gradient;
@@ -12,7 +11,6 @@ mod picking;
 mod relationships;
 #[cfg(test)]
 mod render_tests;
-mod scene;
 mod scene_inspector;
 mod state;
 #[cfg(test)]
@@ -31,21 +29,12 @@ pub fn register(registry: &mut PanelRegistry) -> Result<(), String> {
             files: Default::default(),
             canvas: Default::default(),
             overlay: Default::default(),
-            animation: Default::default(),
         },
     )?;
     registry.register_inspector(crate::PACKAGE, inspector::Inspector { state })
 }
 
-fn input_label(motion: &crate::Motion, node: &crate::graph::Node, key: &str) -> String {
-    node.settings::<crate::nodes::interface::GroupSettings>()
-        .ok()
-        .and_then(|s| s.group)
-        .and_then(|id| motion.groups.get(&id))
-        .and_then(|g| g.inputs.iter().find(|p| p.id == key))
-        .map(|p| inspector::property_label(&p.name))
-        .unwrap_or_else(|| inspector::property_label(key))
-}
+use crate::keyed_parameters::input_label;
 
 mod oscillator;
 

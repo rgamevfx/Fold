@@ -19,7 +19,7 @@ impl Panel for Inspector {
             return;
         };
         let time = state::time(host);
-        let auto_key = state.auto_key;
+        let auto_key = host.state().auto_key;
         let c = state.composition.as_mut().unwrap();
         let locked = c.locked(id);
         let Ok(layer) = c.layer_mut(id) else {

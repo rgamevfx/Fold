@@ -340,7 +340,7 @@ Conceptual workspace, not a final skin. The central editing surface changes whil
 
 ## Navigation and feedback
 
-The top bar exposes project state, workspace, undo/redo, command search, and render queue. The left region holds media, documents, layers, or node search. The central viewer supports direct tools and overlays. The right inspector shows selected objects, property stacks, and published controls. The lower region switches among timeline, graph, dope sheet, and curves.
+The top bar exposes project state, workspace, undo/redo, command search, and render queue. The left region holds media, documents, layers, or node search. The central viewer supports direct tools and overlays. The right inspector shows selected objects, property stacks, and published controls. The lower region hosts Timeline, Network, and Composition. Composition has a Track view with keyed parameters beneath their layers and a Curve Editor for those same channels, including graph-internal parameters. There is no separate Animation panel or Dope Sheet mode; Network remains the node graph.
 
 Selecting an item reveals its editable properties and source context. A breadcrumb shows nested documents and local time. The viewer always identifies draft resolution, proxy use, approximated effects, missing dependencies, and pending work. Stale renders must not appear as current results after a seek.
 

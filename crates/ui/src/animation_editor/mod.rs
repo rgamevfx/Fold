@@ -1,4 +1,4 @@
-//! Compact shared Dope Sheet / Curve Editor. Features supply channels and apply
+//! Compact shared Track view / Curve Editor. Features supply channels and apply
 //! changed curves through their own transaction lifecycle.
 mod canvas;
 mod menu;
@@ -44,6 +44,8 @@ pub struct Editor {
     pub(crate) header_pixels: Option<f32>,
     pub(crate) view: View,
     pub(crate) selected: BTreeSet<ObjectId>,
+    viewport_width: f32,
+    known_channels: BTreeSet<(ObjectId, String)>,
     pub(crate) visible_channels: BTreeSet<(ObjectId, String)>,
     pub(crate) collapsed_nodes: BTreeSet<ObjectId>,
     pub(crate) collapsed_properties: BTreeSet<(ObjectId, String)>,
@@ -127,15 +129,27 @@ impl Editor {
             if self.curves {
                 ToolbarIcon::Curve
             } else {
-                ToolbarIcon::DopeSheet
+                ToolbarIcon::Tracks
             },
             if self.curves {
-                "Curve Editor — switch to Dope Sheet"
+                "Curve Editor — switch to Track view"
             } else {
-                "Dope Sheet — switch to Curve Editor"
+                "Track view — switch to Curve Editor"
             },
         ) {
             self.curves = !self.curves;
+            if self.curves {
+                let keyed: BTreeSet<_> = channels
+                    .iter()
+                    .filter(|c| c.curve.keys.iter().any(|k| self.selected.contains(&k.id)))
+                    .map(|c| (c.object, c.path.clone()))
+                    .collect();
+                if !keyed.is_empty() {
+                    self.visible_channels = keyed;
+                }
+            }
+            self.hide_timing = false;
+            self.fitted = false;
         }
         let wide = ui.content_region_avail()[0] > 170.;
         if wide {
@@ -187,9 +201,9 @@ impl Editor {
             let label = if *context.auto_key {
                 "Auto Key"
             } else if self.curves {
-                "Curves"
+                "Curve Editor"
             } else {
-                "Dope Sheet"
+                "Track view"
             };
             if ui.content_region_avail()[0] >= ui.calc_text_size(label)[0] {
                 ui.text_disabled(label);
@@ -230,6 +244,44 @@ impl Editor {
                 }
             }
         }
+        let width = ui.content_region_avail()[0];
+        if self.viewport_width != width {
+            self.fitted = false;
+            self.viewport_width = width;
+        }
+        let known: BTreeSet<_> = channels
+            .iter()
+            .map(|c| (c.object, c.path.clone()))
+            .collect();
+        if known != self.known_channels {
+            self.fitted = false;
+            self.known_channels = known;
+        }
+        self.visible_channels.retain(|(object, path)| {
+            channels
+                .iter()
+                .any(|c| c.object == *object && c.path == *path)
+        });
+        if self.curves && self.visible_channels.is_empty() {
+            let selected: BTreeSet<_> = channels
+                .iter()
+                .filter(|c| {
+                    self.matches(c, &context)
+                        && (context.nodes.contains(&c.object)
+                            || c.curve.keys.iter().any(|k| self.selected.contains(&k.id)))
+                })
+                .map(|c| (c.object, c.path.clone()))
+                .collect();
+            self.visible_channels = if selected.is_empty() {
+                channels
+                    .iter()
+                    .filter(|c| self.matches(c, &context))
+                    .map(|c| (c.object, c.path.clone()))
+                    .collect()
+            } else {
+                selected
+            };
+        }
         if !self.fitted {
             self.view.first = channels
                 .iter()
@@ -268,9 +320,23 @@ impl Editor {
                 {
                     continue;
                 }
-                for k in &c.curve.keys {
+                for (index, k) in c.curve.keys.iter().enumerate() {
                     low = low.min(k.value);
                     high = high.max(k.value);
+                    for incoming in [true, false] {
+                        let segment = if incoming {
+                            index.checked_sub(1)
+                        } else {
+                            (index + 1 < c.curve.keys.len()).then_some(index)
+                        };
+                        if segment.is_some_and(|i| {
+                            c.curve.keys[i].interpolation == fold_animation::Interpolation::Bezier
+                        }) {
+                            let value = k.value + c.curve.handle(index, incoming).value;
+                            low = low.min(value);
+                            high = high.max(value);
+                        }
+                    }
                 }
             }
             if !low.is_finite() {
@@ -280,28 +346,6 @@ impl Editor {
             let padding = ((high - low) * 0.15).max(0.5);
             self.value_range = [low - padding, high + padding];
             self.fitted = true;
-        }
-        self.visible_channels.retain(|(object, path)| {
-            channels
-                .iter()
-                .any(|c| c.object == *object && c.path == *path)
-        });
-        if self.curves && self.visible_channels.is_empty() {
-            let channel = channels
-                .iter()
-                .find(|c| {
-                    self.matches(c, &context)
-                        && c.curve.keys.iter().any(|k| self.selected.contains(&k.id))
-                })
-                .or_else(|| {
-                    channels
-                        .iter()
-                        .find(|c| self.matches(c, &context) && context.nodes.contains(&c.object))
-                })
-                .or_else(|| channels.iter().find(|c| self.matches(c, &context)));
-            if let Some(c) = channel {
-                self.visible_channels.insert((c.object, c.path.clone()));
-            }
         }
         self.canvas(ui, channels, &context, &mut response);
         if channels.is_empty() && context.tracks.is_empty() {

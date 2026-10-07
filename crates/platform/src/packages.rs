@@ -49,6 +49,22 @@ pub struct CommandRegistration {
     pub handler: CommandHandler,
 }
 pub trait DocumentProvider: Send + Sync {
+    fn animation_channels(
+        &self,
+        _document: &Document,
+        _object: Option<fold_foundation::ObjectId>,
+    ) -> Result<Vec<crate::animation::Channel>, String> {
+        Ok(vec![])
+    }
+    fn edit_animation(
+        &self,
+        _document: &Document,
+        _channels: &[crate::animation::Channel],
+        _time: Time,
+    ) -> Result<Document, String> {
+        Err("Animation editing is unavailable for this provider".into())
+    }
+
     fn settings(
         &self,
         _document: &Document,
@@ -185,6 +201,39 @@ pub struct PackageRegistry {
     audio: Vec<Box<dyn AudioProvider>>,
 }
 impl PackageRegistry {
+    pub fn animation_channels(
+        &self,
+        document: &Document,
+        object: Option<fold_foundation::ObjectId>,
+    ) -> Result<Vec<crate::animation::Channel>, String> {
+        self.documents
+            .iter()
+            .find(|p| p.package_id() == document.package_id && p.type_id() == document.type_id)
+            .ok_or("Unavailable animation provider")?
+            .animation_channels(document, object)
+    }
+    pub fn edit_animation(
+        &self,
+        document: &Document,
+        channels: &[crate::animation::Channel],
+        time: Time,
+    ) -> Result<Document, String> {
+        let provider = self
+            .documents
+            .iter()
+            .find(|p| p.package_id() == document.package_id && p.type_id() == document.type_id)
+            .ok_or("Unavailable animation provider")?;
+        let result = provider.edit_animation(document, channels, time)?;
+        if result.id != document.id
+            || result.type_id != document.type_id
+            || result.package_id != document.package_id
+        {
+            return Err("Animation edit changed document identity".into());
+        }
+        provider.validate(&result)?;
+        Ok(result)
+    }
+
     pub fn image_inputs(
         &self,
         snapshot: &Snapshot,

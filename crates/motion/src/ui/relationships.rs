@@ -56,14 +56,6 @@ pub(super) fn draw(
             }
         }
     }
-    scalar(
-        ui,
-        clock,
-        ("scene.opacity", "Opacity"),
-        &mut object.state.opacity,
-        &mut object.state.animation,
-        response,
-    );
     if ui.checkbox("Isolate group effects", &mut object.isolated) {
         response.changed = true;
         response.finished = true;

@@ -1,5 +1,6 @@
 //! Shared hierarchy, layer timing and animation for all graph types.
 mod actions;
+mod channels;
 mod inspector;
 #[cfg(test)]
 mod render_tests;
@@ -10,7 +11,7 @@ use crate::package;
 use fold_platform::desktop::{DesktopCommand, TransportAction};
 use fold_ui::sdk::{
     self, ExtensionUi, Panel, PanelRegistry,
-    animation_editor::{Channel, Context, Editor, LayerControls, Track},
+    animation_editor::{Context, Editor, LayerControls, Track},
 };
 use state::Shared;
 
@@ -113,45 +114,14 @@ impl Panel for Canvas {
                 }),
             })
             .collect();
-        let mut channels: Vec<_> = composition
-            .layers
-            .iter()
-            .flat_map(|l| {
-                l.animation.iter().map(move |(path, curve)| Channel {
-                    object: l.id,
-                    node_label: l.name.clone(),
-                    property: if path == "scene.opacity.0" {
-                        "opacity"
-                    } else if path == "transform.4" || path == "transform.5" {
-                        "position"
-                    } else {
-                        "axes"
-                    }
-                    .into(),
-                    property_label: if path == "scene.opacity.0" {
-                        "Opacity"
-                    } else if path == "transform.4" || path == "transform.5" {
-                        "Position"
-                    } else {
-                        "Transform axes"
-                    }
-                    .into(),
-                    component: match path.as_str() {
-                        "scene.opacity.0" => "",
-                        "transform.0" => "XX",
-                        "transform.1" => "YX",
-                        "transform.2" => "XY",
-                        "transform.3" => "YY",
-                        "transform.4" => "X",
-                        "transform.5" => "Y",
-                        _ => "",
-                    }
-                    .into(),
-                    path: path.clone(),
-                    curve: curve.clone(),
-                })
-            })
-            .collect();
+        let mut channels =
+            match channels::Channels::collect(composition, &state.graph_channels, &state.key_ids) {
+                Ok(channels) => channels,
+                Err(error) => {
+                    ui.text_wrapped(&error);
+                    return;
+                }
+            };
         if !state.error.is_empty() {
             ui.text_wrapped(&state.error);
         }
@@ -159,9 +129,10 @@ impl Panel for Canvas {
         let size = ui.content_region_avail();
         let selected = state.selected.clone();
         let time = state::time(host);
+        let mut auto_key = host.state().auto_key;
         let response = self.animation.draw(
             ui,
-            &mut channels,
+            &mut channels.rows,
             Context {
                 cache: &host
                     .cache_reference()
@@ -175,9 +146,12 @@ impl Panel for Canvas {
                 frames: info.frames,
                 nodes: &selected,
                 tracks: &tracks,
-                auto_key: &mut state.auto_key,
+                auto_key: &mut auto_key,
             },
         );
+        if auto_key != host.state().auto_key {
+            host.command(DesktopCommand::AutoKey(auto_key));
+        }
         if let Some(id) = response.select_node {
             state.select_layer(host, id, ui.io().key_shift(), ui.io().key_ctrl());
         }
@@ -246,15 +220,18 @@ impl Panel for Canvas {
                 }
             }
             if response.edit.changed {
-                for channel in channels {
-                    if !c.locked(channel.object) {
-                        let l = c.layer_mut(channel.object).unwrap();
-                        if channel.curve.keys.is_empty() {
-                            l.animation.remove(&channel.path);
-                        } else {
-                            l.animation.insert(channel.path, channel.curve);
-                        }
-                    }
+                let state::State {
+                    composition,
+                    graph_channels,
+                    key_ids,
+                    ..
+                } = &mut *state;
+                if let Err(error) =
+                    channels.apply(composition.as_mut().unwrap(), graph_channels, time, key_ids)
+                {
+                    state.error = error;
+                    state.cancel(host);
+                    return;
                 }
                 state.preview(host);
             }

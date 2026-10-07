@@ -7,7 +7,6 @@ pub struct Canvas {
     pub(super) files: fold_ui::sdk::project_drop::FileDrop,
     pub canvas: GraphCanvas,
     pub overlay: super::overlay::Overlay,
-    pub(super) animation: super::animation::Animation,
 }
 impl Panel for Canvas {
     fn external_drag(&mut self, position: Option<[f32; 2]>) {
@@ -66,7 +65,6 @@ impl Panel for Canvas {
                 files: Default::default(),
                 canvas: Default::default(),
                 overlay: Default::default(),
-                animation: Default::default(),
             }),
             inspector: Box::new(super::inspector::Inspector { state }),
         })
@@ -126,72 +124,10 @@ impl Panel for Canvas {
         self.canvas.accepts_background_pan(position)
     }
     fn draw(&mut self, context: ExtensionUi<'_>) {
-        self.state.borrow_mut().sync(context.host);
-        if let Some(document) = self.state.borrow().document {
-            let time = context
-                .host
-                .state()
-                .navigation
-                .last()
-                .map(|n| n.time)
-                .unwrap_or(fold_foundation::Time::ZERO);
-            self.files.region(
-                context.ui,
-                context.ui.cursor_screen_pos(),
-                context.ui.content_region_avail(),
-                fold_ui::sdk::project_drop::placement(document, time),
-                None,
-            );
-        }
-        let group = self.state.borrow().group;
-        if let Some(group) = group {
-            let label = self
-                .state
-                .borrow()
-                .motion
-                .as_ref()
-                .and_then(|m| m.groups.get(&group))
-                .map(|g| g.name.clone())
-                .unwrap_or_else(|| "Modifier".into());
-            if fold_ui::sdk::toolbar::icon_button(
-                context.ui,
-                "composition-root",
-                fold_ui::sdk::toolbar::ToolbarIcon::Back,
-                "Return to composition",
-            ) {
-                let mut state = self.state.borrow_mut();
-                state.cancel(context.host);
-                state.group = None;
-                state.parents.clear();
-                state.selected = state.network_object.into_iter().collect();
-                context
-                    .host
-                    .command(fold_platform::desktop::DesktopCommand::Select(
-                        fold_platform::desktop::Selection {
-                            document: state.document,
-                            objects: state.selected.clone(),
-                        },
-                    ));
-            }
-            context.ui.same_line();
-            context.ui.text(label);
-        }
-        if self.state.borrow().group.is_some() {
-            self.animation.draw_scoped(&self.state, context);
-        } else {
-            super::scene::draw(&self.state, &mut self.animation, context);
-        }
+        self.draw_network(context);
     }
+
     fn draw_network(&mut self, context: ExtensionUi<'_>) {
-        let animation = {
-            let mut state = self.state.borrow_mut();
-            context.ui.checkbox("Animation", &mut state.graph_animation);
-            state.graph_animation
-        };
-        if animation {
-            self.animation.draw_scoped(&self.state, context);
-            return;
-        }
         let ExtensionUi { ui, host } = context;
         self.canvas.clear_hit_map();
         let mut state = self.state.borrow_mut();
@@ -279,7 +215,13 @@ impl Panel for Canvas {
             } else {
                 "Select a graph"
             });
-        ui.text(format!("MoGraph / {label}"));
+        let label = format!("MoGraph / {label}");
+        if ui.content_region_avail()[0] >= ui.calc_text_size(&label)[0] {
+            ui.text_disabled(&label);
+        } else {
+            fold_ui::sdk::toolbar::tooltip(ui, &label);
+            ui.new_line();
+        }
         self.canvas.draw_inline(
             ui,
             &mut Context {

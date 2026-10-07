@@ -15,8 +15,12 @@ pub(super) struct State {
     pub base: Revision,
     pub generation: u64,
     pub selected: Vec<ObjectId>,
-    pub auto_key: bool,
     pub editing: bool,
+    pub key_ids: super::channels::KeyIds,
+    pub graph_channels:
+        std::collections::BTreeMap<ObjectId, Vec<fold_platform::animation::Channel>>,
+    original_channels: std::collections::BTreeMap<ObjectId, Vec<fold_platform::animation::Channel>>,
+    edit_time: Option<Time>,
     pub error: String,
     network_layer: Option<(DocumentId, ObjectId, DocumentId)>,
 }
@@ -36,13 +40,37 @@ impl State {
             if self.editing {
                 host.command(DesktopCommand::CancelPreviewEdit);
             }
-            if desired != self.document {}
             self.document = desired;
             self.base = snapshot.revision();
             self.editing = false;
             self.composition = desired
                 .and_then(|id| Composition::from_document(&snapshot.state().documents[&id]).ok());
             self.original = self.composition.clone();
+            self.graph_channels.clear();
+            if let Some(composition) = &self.composition {
+                for layer in &composition.layers {
+                    let Some(fold_platform::image_source::Source::Output(source)) = &layer.source
+                    else {
+                        continue;
+                    };
+                    // Nested compositions own their own editor and clock.
+                    if snapshot
+                        .state()
+                        .documents
+                        .get(&source.document)
+                        .is_none_or(|d| d.type_id == crate::COMPOSITION)
+                    {
+                        continue;
+                    }
+                    match host.animation_channels(source.document, layer.graph_object()) {
+                        Ok(channels) => {
+                            self.graph_channels.insert(layer.id, channels);
+                        }
+                        Err(error) => self.error = error,
+                    }
+                }
+            }
+            self.original_channels = self.graph_channels.clone();
             self.generation += 1;
         }
         if let Some(composition) = &self.composition {
@@ -63,6 +91,31 @@ impl State {
             arguments: serde_json::to_vec(&package::EditArgs {
                 document: self.document.ok_or("No composition")?,
                 composition: self.composition.clone().ok_or("No composition")?,
+                graph_animation: self
+                    .graph_channels
+                    .iter()
+                    .filter_map(|(layer, channels)| {
+                        if self.composition.as_ref()?.locked(*layer) {
+                            return None;
+                        }
+                        let original = self.original_channels.get(layer)?;
+                        let changed: Vec<_> = channels
+                            .iter()
+                            .filter(|c| {
+                                original
+                                    .iter()
+                                    .find(|o| o.target == c.target)
+                                    .is_none_or(|o| o.curve != c.curve)
+                            })
+                            .cloned()
+                            .collect();
+                        (!changed.is_empty()).then_some(package::GraphAnimationEdit {
+                            layer: *layer,
+                            channels: changed,
+                            time: self.edit_time.unwrap_or(Time::ZERO),
+                        })
+                    })
+                    .collect(),
             })
             .map_err(|e| e.to_string())?,
         })
@@ -70,10 +123,12 @@ impl State {
     pub fn cancel(&mut self, host: &mut dyn DesktopClient) {
         host.command(DesktopCommand::CancelPreviewEdit);
         self.composition = self.original.clone();
+        self.graph_channels = self.original_channels.clone();
         self.editing = false;
         self.generation += 1;
     }
     pub fn preview(&mut self, host: &mut dyn DesktopClient) {
+        self.edit_time = Some(time(host));
         match self
             .composition
             .as_ref()
@@ -92,7 +147,7 @@ impl State {
         }
     }
     pub fn commit(&mut self, host: &mut dyn DesktopClient) {
-        if self.original == self.composition {
+        if self.original == self.composition && self.graph_channels == self.original_channels {
             self.cancel(host);
             return;
         }

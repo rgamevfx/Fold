@@ -28,7 +28,7 @@ pub enum ToolbarIcon {
     Grid,
     List,
     Curve,
-    DopeSheet,
+    Tracks,
     Unlink,
     Lock,
     Unlock,
@@ -188,7 +188,7 @@ pub fn draw_icon_on(
                 line(a, b);
             }
         }
-        ToolbarIcon::DopeSheet => {
+        ToolbarIcon::Tracks => {
             for (x, y) in [(-0.5, -0.6), (0.4, 0.6)] {
                 line([-1., y], [1., y]);
                 draw.add_polyline(

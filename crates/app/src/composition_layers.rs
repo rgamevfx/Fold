@@ -300,11 +300,62 @@ pub fn edit(snapshot: &Snapshot, bytes: &[u8], cancel: &Cancel) -> Result<EditBa
                 .position(|l| l.graph_object() == Some(object.id))
                 .unwrap_or(usize::MAX)
         });
-        if motion != old {
+        if motion != old
+            || original.extensions.get(fold_composition::LAYER_GRAPH)
+                != Some(&serde_json::Value::Bool(true))
+        {
             let mut document = motion.document(graph_id)?;
             document.extensions = original.extensions.clone();
+            document
+                .extensions
+                .insert(fold_composition::LAYER_GRAPH.into(), true.into());
             batch.mutations.push(Mutation::PutDocument(document));
         }
+    }
+    let registry = crate::packages::builtins();
+    let mut edited_targets = std::collections::BTreeMap::new();
+    for edit in &args.graph_animation {
+        let layer = args.composition.layer(edit.layer)?;
+        if args.composition.locked(edit.layer) {
+            return Err("Unlock the layer before editing keys".into());
+        }
+        let Some(Source::Output(source)) = &layer.source else {
+            return Err("Layer has no animation graph".into());
+        };
+        let original = snapshot
+            .state()
+            .documents
+            .get(&source.document)
+            .ok_or("Missing animation graph")?;
+        if original.type_id == fold_composition::COMPOSITION {
+            return Err("Open the nested composition to edit its keys".into());
+        }
+        let allowed = registry.animation_channels(original, layer.graph_object())?;
+        for channel in &edit.channels {
+            if !allowed.iter().any(|c| c.target == channel.target) {
+                return Err("Animation channel does not belong to this layer".into());
+            }
+            let key = (source.document, channel.target.clone());
+            if let Some(previous) = edited_targets.insert(key, channel.curve.clone())
+                && previous != channel.curve
+            {
+                return Err("Shared graph channel received conflicting edits".into());
+            }
+        }
+        let current = batch
+            .mutations
+            .iter()
+            .find_map(|m| match m {
+                Mutation::PutDocument(d) if d.id == source.document => Some(d),
+                _ => None,
+            })
+            .unwrap_or(original);
+        let updated =
+            registry.edit_animation(current, &edit.channels, layer.local_time(edit.time)?)?;
+        batch
+            .mutations
+            .retain(|m| !matches!(m, Mutation::PutDocument(d) if d.id == source.document));
+        batch.mutations.push(Mutation::PutDocument(updated));
     }
     Ok(batch)
 }

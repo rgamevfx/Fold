@@ -203,13 +203,13 @@ pub fn author_cancellable(
             }
             Edit::ObjectProperties { object, value } => {
                 let allowed = [
-                    "name", "visible", "locked", "opacity", "start", "end", "masks", "isolated",
+                    "name", "visible", "locked", "start", "end", "masks", "isolated",
                 ];
                 if value
                     .as_object()
                     .is_none_or(|v| v.keys().any(|k| !allowed.contains(&k.as_str())))
                 {
-                    return Err("object_properties accepts name, visible, locked, opacity, start, end, masks, isolated".into());
+                    return Err("object_properties accepts name, visible, locked, start, end, masks, isolated; edit layer opacity in Composition".into());
                 }
                 let o = m
                     .scene

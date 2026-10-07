@@ -340,7 +340,7 @@ impl Editor {
                     Row::Channel(i) => {
                         let c = &channels[*i];
                         (
-                            28. + depth as f32 * 12.,
+                            (if c.component == "Value" { 12. } else { 28. }) + depth as f32 * 12.,
                             if c.component == "Value" {
                                 c.property_label.as_str()
                             } else {
@@ -444,6 +444,9 @@ impl Editor {
                     [body[0], top + row_height],
                 ) {
                     row_hit = Some(r);
+                    if ui.calc_text_size(label)[0] > header - controls_width - 16. - indent {
+                        ui.tooltip_text(label);
+                    }
                 }
                 if !self.curves {
                     draw.with_clip_rect(body, end, || {
@@ -727,6 +730,7 @@ impl Editor {
                 };
                 let c = visible[index];
                 self.visible_channels = BTreeSet::from([(c.object, c.path.clone())]);
+                self.fitted = false;
                 response.select_node = Some(c.object);
             }
             if ui.is_key_pressed(Key::Enter) {
@@ -811,6 +815,11 @@ impl Editor {
                     match row {
                         Row::Node(id, _, _, _) => {
                             self.selected.clear();
+                            self.visible_channels = indices
+                                .iter()
+                                .map(|&i| (channels[i].object, channels[i].path.clone()))
+                                .collect();
+                            self.fitted = false;
                             if mouse[0]
                                 < origin[0]
                                     + controls_width
@@ -837,6 +846,7 @@ impl Editor {
                             }
                         }
                         Row::Channel(i) => {
+                            self.fitted = false;
                             if !ui.io().key_ctrl() {
                                 self.visible_channels.clear();
                             }
@@ -1327,5 +1337,5 @@ fn diamond(draw: &crate::sdk::imgui::DrawListMut<'_>, p: [f32; 2], r: f32, color
 }
 
 pub(super) fn header_width(width: f32) -> f32 {
-    (width * 0.35).clamp(110., 210.).min((width - 40.).max(0.))
+    (width * 0.45).clamp(140., 210.).min((width - 40.).max(0.))
 }

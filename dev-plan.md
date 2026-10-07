@@ -452,13 +452,21 @@ Phases 34–40 are complete per user acceptance. Validation evidence and unverif
   - Direction: **one Composition type** owns layers containing either MoGraph or Compositing graphs, with shared visibility, lock, timing, transforms and animation. Nested compositions remain supported; Light Wrap is excluded.
   - User adjustment: no legacy-project shims or automatic adoption. Update the project artifacts directly. Removed the automatic conversion module, command registration and background-open mutation.
   - Badge Wave correction: update both checked-in Badge Wave files, preserve editable graphs and source relationships, restore the Composition editor context/group badge in saved workspaces, and create a missing editor on explicit document open.
-  - Retire standalone Animation and MoGraph windows; retain graph editing and graph-internal animation in Network. Common layer curves use the shared editor. Graph navigation preserves the parent stack, selection and exact clock.
+  - Retire standalone Animation and MoGraph windows. **Corrected by 51a:** Network retains graph editing; all keyed parameters and curves belong in Composition. Graph navigation preserves the parent stack, selection and exact clock.
   - Mixed graph creation, named inputs, processing chains, Project placement, nested clocks and atomic precomposition remain in this phase; keep engines independent through provider capabilities.
   - Hierarchy correction verification: 26 focused app tests and 135 affected UI/Motion/Composition library tests pass, including the original failing hierarchy/selection regressions. Actual native panels are captured at normal/narrow widths. Normal open preserves content and clean state. Details and limits: [phase 51](docs/phase-51.md). User accepted the corrected UI on 2026-10-07 and requested phase completion.
 
+- [x] 51a. Complete Composition animation consolidation (completed and user-accepted 2026-10-07).
+  - User reviewed the result ("looks good") and requested completion and commit on 2026-10-07.
+  - Composition has exactly Track view and Curve Editor; keyed layer and graph parameters appear beneath their owning layer in both views.
+  - Removed both Network Animation toggles and obsolete Animation/MoGraph authoring surfaces and state. Shared curve editing and provider-owned animation evaluation remain.
+  - Verified channel discovery, exact source-clock mapping, key/tangent editing, selection, locking, preview/cancel, undo/redo and persistence. 62 focused app/Composition/shared-editor/MoGraph/Compositor checks pass, including the actual registered Composition panel with native normal/narrow captures. Release desktop build passes.
+  - Follow-up audit corrected shared-source key identity collisions. The user rejected the added whole-scene opacity compatibility fallback; it is removed. Composition owns layer opacity and its keys; graph providers expose graph parameters. Rust Orbit now uses native Composition/layer ownership with Radius/Speed keys; the saved demo is the native UI regression fixture (insert, mode switch, curve drag, rendered response, undo/redo, save/reopen). Original artwork is preserved. Only the referenced Orbit demo is in scope; do not migrate other demos.
+  - Phase 51's retained Network-animation exception is superseded. [Implementation and verification](docs/phase-51.md#phase-51a--complete-animation-consolidation-2026-10-07). Live desktop dragging is not certified; tests inject Dear ImGui events directly. Existing `fold-ui -> fold-media/fold-project` boundary-check failures remain unrelated; workspace/Clippy checks deferred.
+
 ## Live agent access and reusable workflows
 
-- [ ] Follow-up from phase 51: provide and verify common Composition/layer creation in the public SDK before claiming the existing live Badge generator reproduces the updated demo. Its source-graph editing bindings are retained.
+- [ ] Follow-up from phase 51: provide typed Composition/layer authoring and inspection schemas and high-level scene adoption in the public SDK. Low-level `create` + `fold.composition.edit` is now verified by Rust Orbit; this does not certify that the existing live Badge generator reproduces the updated demo. Its source-graph editing bindings are retained.
 
 - [x] 50. GPU-native Image Bake and ten-video performance (user-authorized).
   - Plan, benchmarks and acceptance: [phase 50](docs/phase-50-image-bake.md).

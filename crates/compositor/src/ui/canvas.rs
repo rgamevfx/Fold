@@ -11,7 +11,6 @@ pub(super) struct Canvas {
     state: Shared,
     files: fold_ui::sdk::project_drop::FileDrop,
     canvas: GraphCanvas,
-    animation: fold_ui::sdk::animation_editor::Editor,
 }
 impl Canvas {
     pub fn new(state: Shared) -> Self {
@@ -19,7 +18,6 @@ impl Canvas {
             state,
             files: Default::default(),
             canvas: GraphCanvas::default(),
-            animation: Default::default(),
         }
     }
 }
@@ -43,7 +41,7 @@ impl Panel for Canvas {
         true
     }
     fn draw(&mut self, context: ExtensionUi<'_>) {
-        super::animation::draw(&mut self.animation, &self.state, context);
+        self.draw_network(context);
     }
 
     fn new_instance(&self) -> Option<fold_ui::sdk::EditorPanels> {
@@ -76,15 +74,6 @@ impl Panel for Canvas {
         self.canvas.accepts_background_pan(position)
     }
     fn draw_network(&mut self, context: ExtensionUi<'_>) {
-        let animation = {
-            let mut state = self.state.borrow_mut();
-            context.ui.checkbox("Animation", &mut state.graph_animation);
-            state.graph_animation
-        };
-        if animation {
-            self.draw(context);
-            return;
-        }
         let ExtensionUi { ui, host } = context;
         self.canvas.clear_hit_map();
         let mut state = self.state.borrow_mut();

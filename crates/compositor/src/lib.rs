@@ -23,3 +23,5 @@ pub const COMPOSITE: &str = "fold.compositor.composite";
 mod automation;
 
 mod inputs;
+
+mod keyed_parameters;

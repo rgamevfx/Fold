@@ -55,20 +55,18 @@ fn motion_tools_and_inspector_render_normal_and_narrow() {
         files: Default::default(),
         canvas: Default::default(),
         overlay: Default::default(),
-        animation: Default::default(),
     };
     canvas.initialize(&context, Some(&fonts));
     let mut inspector = inspector::Inspector { state: shared };
     context.io_mut().set_display_size([1280., 800.]);
     context.io_mut().set_delta_time(1. / 60.);
     for (name, width, properties) in [
-        ("composition-normal", 850., 400.),
-        ("composition-narrow", 280., 280.),
-        ("composition-modifier-normal", 850., 400.),
-        ("composition-modifier-narrow", 280., 280.),
-        ("composition-nested-normal", 850., 400.),
-        ("composition-nested-narrow", 280., 280.),
-        ("composition-settings", 850., 400.),
+        ("network-normal", 850., 400.),
+        ("network-narrow", 280., 280.),
+        ("network-modifier-normal", 850., 400.),
+        ("network-modifier-narrow", 280., 280.),
+        ("nested-source-normal", 850., 400.),
+        ("nested-source-narrow", 280., 280.),
         ("images-bake-normal", 850., 400.),
         ("images-bake-narrow", 390., 280.),
         ("images-bake-compact-normal", 850., 400.),
@@ -83,8 +81,6 @@ fn motion_tools_and_inspector_render_normal_and_narrow() {
         ("images-ascii-narrow", 390., 280.),
         ("normal", 850., 400.),
         ("narrow", 390., 280.),
-        ("scene-drop-normal", 850., 400.),
-        ("scene-drop-narrow", 390., 280.),
         ("network", 850., 400.),
         ("duplicator-normal", 850., 400.),
         ("duplicator-narrow", 390., 280.),
@@ -304,7 +300,7 @@ fn motion_tools_and_inspector_render_normal_and_narrow() {
             state.inspector_return = Some((ramp, owner));
             state.selected = vec![ramp];
         }
-        if name.starts_with("composition-modifier-") {
+        if name.starts_with("network-modifier-") {
             use fold_ui::sdk::graph_canvas::{GraphContext, GraphEvent};
             let mut state = canvas.state.borrow_mut();
             state.create(&mut host);
@@ -332,7 +328,7 @@ fn motion_tools_and_inspector_render_normal_and_narrow() {
                 Ok(Some(rectangle))
             });
         }
-        if name.starts_with("composition-nested-") {
+        if name.starts_with("nested-source-") {
             let mut state = canvas.state.borrow_mut();
             state.create(&mut host);
             state.change_scene(&mut host, |m| {
@@ -340,12 +336,8 @@ fn motion_tools_and_inspector_render_normal_and_narrow() {
             });
             super::composition::nest(&mut state, &mut host, false);
         }
-        if name == "composition-settings" {
-            let mut state = canvas.state.borrow_mut();
-            state.composition_settings = state.motion.as_ref().map(|m| m.info.clone());
-        }
         for frame_index in 0..12 {
-            if name.starts_with("scene-drop-") || name == "network" {
+            if name == "network" {
                 context
                     .io_mut()
                     .add_key_event(imgui::Key::Escape, frame_index == 0);
@@ -353,16 +345,6 @@ fn motion_tools_and_inspector_render_normal_and_narrow() {
                     context
                         .io_mut()
                         .add_mouse_button_event(imgui::MouseButton::Left, false);
-                }
-            }
-            if name.starts_with("scene-drop-") {
-                context
-                    .io_mut()
-                    .add_mouse_pos_event([100., if frame_index < 5 { 662. } else { 724. }]);
-                if frame_index == 4 {
-                    context
-                        .io_mut()
-                        .add_mouse_button_event(imgui::MouseButton::Left, true);
                 }
             }
 
@@ -412,25 +394,14 @@ fn motion_tools_and_inspector_render_normal_and_narrow() {
                         host: &mut host,
                     })
                 });
-            ui.window("Composition")
+            ui.window("Network")
                 .position([0., 508.], imgui::Condition::Always)
                 .size([width, 280.], imgui::Condition::Always)
                 .build(|| {
-                    if name == "network"
-                        || name == "duplicator-network"
-                        || name == "wave-driver"
-                        || name == "color-ramp-network"
-                    {
-                        canvas.draw_network(ExtensionUi {
-                            ui,
-                            host: &mut host,
-                        })
-                    } else {
-                        canvas.draw(ExtensionUi {
-                            ui,
-                            host: &mut host,
-                        })
-                    }
+                    canvas.draw_network(ExtensionUi {
+                        ui,
+                        host: &mut host,
+                    });
                 });
             let frame = context.render(renderer.renderer_consumer().unwrap());
             let mut encoder = device.create_command_encoder(&Default::default());

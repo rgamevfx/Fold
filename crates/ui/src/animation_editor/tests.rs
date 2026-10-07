@@ -46,7 +46,7 @@ fn compact_views_fit_normal_and_narrow_panels_without_mutations() {
         for curves in [false, true] {
             for frame in 0..4 {
                 let ui = context.frame();
-                ui.window("Animation")
+                ui.window("Composition")
                     .position([0.; 2], Condition::Always)
                     .size([width, 600.], Condition::Always)
                     .build(|| {
@@ -105,7 +105,7 @@ fn dragging_keys_previews_releases_once_and_escape_restores_original() {
         let mut response = Response::default();
         let mut body = [0.; 2];
         let ui = context.frame();
-        ui.window("Animation")
+        ui.window("Composition")
             .position([0.; 2], Condition::Always)
             .size([900., 500.], Condition::Always)
             .build(|| {
@@ -633,7 +633,7 @@ fn delete_selected_keys_does_not_request_layer_deletion() {
         }
         context.io_mut().add_key_event(Key::Delete, step >= 3);
         let ui = context.frame();
-        ui.window("Animation")
+        ui.window("Composition")
             .position([0.; 2], Condition::Always)
             .size([700., 500.], Condition::Always)
             .focused(true)
@@ -660,4 +660,177 @@ fn delete_selected_keys_does_not_request_layer_deletion() {
     assert!(!channels[0].curve.keys.iter().any(|k| k.id == key));
     assert_eq!(channels[0].curve.keys.len(), 1);
     assert_eq!(channels[1].curve.keys.len(), 2);
+}
+
+#[test]
+fn composition_mode_button_reveals_curves_and_curve_drag_preserves_key_identity() {
+    let _guard = crate::IMGUI_TEST_LOCK.lock().unwrap();
+    let mut imgui = context();
+    let mut editor = Editor::default();
+    let document = DocumentId::new();
+    let mut channels = channels();
+    channels[0].curve.keys[0].interpolation = fold_animation::Interpolation::Bezier;
+    let object = channels[0].object;
+    let tracks = vec![Track {
+        id: object,
+        parent: None,
+        label: "Layer".into(),
+        locked: false,
+        range: Some((Time::ZERO, Time::new(4, 1).unwrap())),
+        layer: Some(LayerControls {
+            accepts_children: false,
+            visible: true,
+            icon: "L",
+        }),
+    }];
+    let mut auto = false;
+    let draw =
+        |imgui: &mut ImGui, editor: &mut Editor, channels: &mut Vec<Channel>, auto: &mut bool| {
+            let mut response = Response::default();
+            let mut geometry = ([0.; 2], [0.; 2], [0.; 2]);
+            let ui = imgui.frame();
+            ui.window("Composition")
+                .position([0.; 2], Condition::Always)
+                .size([900., 500.], Condition::Always)
+                .build(|| {
+                    let origin = ui.cursor_screen_pos();
+                    geometry.0 = [origin[0] + 8., origin[1] + 8.];
+                    response = editor.draw(
+                        ui,
+                        channels,
+                        super::Context {
+                            cache: &Default::default(),
+                            document,
+                            generation: 0,
+                            time: Time::ZERO,
+                            rate: [24, 1],
+                            frames: 96,
+                            nodes: &[object],
+                            tracks: &tracks,
+                            auto_key: auto,
+                        },
+                    );
+                    geometry.1 = [
+                        ui.item_rect_min()[0] + 210.,
+                        ui.item_rect_min()[1] + ui.text_line_height() + 6.,
+                    ];
+                    geometry.2 = ui.item_rect_max();
+                });
+            drop(imgui.render_legacy());
+            (response, geometry)
+        };
+    for _ in 0..3 {
+        draw(&mut imgui, &mut editor, &mut channels, &mut auto);
+    }
+    editor.hide_timing = true;
+    let (_, (button, _, _)) = draw(&mut imgui, &mut editor, &mut channels, &mut auto);
+    imgui.io_mut().add_mouse_pos_event(button);
+    draw(&mut imgui, &mut editor, &mut channels, &mut auto);
+    imgui
+        .io_mut()
+        .add_mouse_button_event(MouseButton::Left, true);
+    draw(&mut imgui, &mut editor, &mut channels, &mut auto);
+    imgui
+        .io_mut()
+        .add_mouse_button_event(MouseButton::Left, false);
+    let (_, (_, body, end)) = draw(&mut imgui, &mut editor, &mut channels, &mut auto);
+    assert!(
+        editor.curves && !editor.hide_timing,
+        "Curve Editor must show its graph on switching"
+    );
+    assert_eq!(
+        editor.visible_channels.len(),
+        2,
+        "both keyed components of the layer are shown"
+    );
+    let key = channels[0].curve.keys[0].clone();
+    let height = (end[1] - body[1] - 16.).max(1.);
+    let p = [
+        editor.view.x(24., body[0]),
+        end[1]
+            - 8.
+            - ((key.value - editor.value_range[0])
+                / (editor.value_range[1] - editor.value_range[0])) as f32
+                * height,
+    ];
+    imgui.io_mut().add_mouse_pos_event(p);
+    draw(&mut imgui, &mut editor, &mut channels, &mut auto);
+    imgui
+        .io_mut()
+        .add_mouse_button_event(MouseButton::Left, true);
+    draw(&mut imgui, &mut editor, &mut channels, &mut auto);
+    imgui.io_mut().add_mouse_pos_event([p[0] + 25., p[1] - 30.]);
+    let (response, _) = draw(&mut imgui, &mut editor, &mut channels, &mut auto);
+    assert!(response.edit.changed && !response.edit.finished);
+    assert_eq!(channels[0].curve.keys[0].id, key.id);
+    assert!(channels[0].curve.keys[0].time > key.time);
+    assert!(channels[0].curve.keys[0].value > key.value);
+    imgui
+        .io_mut()
+        .add_mouse_button_event(MouseButton::Left, false);
+    assert!(
+        draw(&mut imgui, &mut editor, &mut channels, &mut auto)
+            .0
+            .edit
+            .finished
+    );
+    assert!(
+        !draw(&mut imgui, &mut editor, &mut channels, &mut auto)
+            .0
+            .edit
+            .finished
+    );
+    let handle = channels[0].curve.handle(0, false);
+    let key = &channels[0].curve.keys[0];
+    let adjacent = &channels[0].curve.keys[1];
+    let f = crate::sdk::time_view::frame(key.time, [24, 1]);
+    let hf = f + (crate::sdk::time_view::frame(adjacent.time, [24, 1]) - f) * handle.fraction;
+    let hp = [
+        editor.view.x(hf, body[0]),
+        end[1]
+            - 8.
+            - ((key.value + handle.value - editor.value_range[0])
+                / (editor.value_range[1] - editor.value_range[0])) as f32
+                * height,
+    ];
+    imgui.io_mut().add_mouse_pos_event(hp);
+    draw(&mut imgui, &mut editor, &mut channels, &mut auto);
+    imgui
+        .io_mut()
+        .add_mouse_button_event(MouseButton::Left, true);
+    draw(&mut imgui, &mut editor, &mut channels, &mut auto);
+    imgui
+        .io_mut()
+        .add_mouse_pos_event([hp[0] + 8., hp[1] - 20.]);
+    assert!(
+        draw(&mut imgui, &mut editor, &mut channels, &mut auto)
+            .0
+            .edit
+            .changed
+    );
+    imgui
+        .io_mut()
+        .add_mouse_button_event(MouseButton::Left, false);
+    assert!(
+        draw(&mut imgui, &mut editor, &mut channels, &mut auto)
+            .0
+            .edit
+            .finished
+    );
+    assert_ne!(
+        channels[0].curve.handle(0, false),
+        handle,
+        "Bézier handles edit the same channel"
+    );
+    imgui.io_mut().add_mouse_pos_event(button);
+    draw(&mut imgui, &mut editor, &mut channels, &mut auto);
+    imgui
+        .io_mut()
+        .add_mouse_button_event(MouseButton::Left, true);
+    draw(&mut imgui, &mut editor, &mut channels, &mut auto);
+    imgui
+        .io_mut()
+        .add_mouse_button_event(MouseButton::Left, false);
+    draw(&mut imgui, &mut editor, &mut channels, &mut auto);
+    assert!(!editor.curves, "the same button returns to tracks");
 }

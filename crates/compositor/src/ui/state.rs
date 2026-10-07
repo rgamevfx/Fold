@@ -9,7 +9,6 @@ use std::{cell::RefCell, rc::Rc};
 pub type Shared = Rc<RefCell<State>>;
 #[derive(Default)]
 pub struct State {
-    pub graph_animation: bool,
     pub document: Option<DocumentId>,
     pub base: Revision,
     pub original: Option<Composite>,
@@ -18,7 +17,6 @@ pub struct State {
     pub error: String,
     pub generation: u64,
     pub editing: bool,
-    pub auto_key: bool,
     /// Only the inspector may finish/cancel a property gesture.
     pub property_editing: bool,
     root: Option<std::sync::Arc<fold_project::Document>>,

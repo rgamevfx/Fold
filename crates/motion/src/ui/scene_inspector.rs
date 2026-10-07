@@ -51,27 +51,25 @@ pub(super) fn draw(
             finished |= ui.is_item_deactivated_after_edit();
         }
         let mut relationship_response = fold_ui::sdk::EditResponse::default();
-        let action = if ui.collapsing_header(
-            "Relationships and opacity",
-            fold_ui::sdk::imgui::TreeNodeFlags::empty(),
-        ) {
-            super::relationships::draw(
-                ui,
-                state.motion.as_ref().unwrap(),
-                &mut object,
-                &mut relationship_response,
-                (
-                    host.state()
-                        .navigation
-                        .last()
-                        .map(|n| n.time)
-                        .unwrap_or(fold_foundation::Time::ZERO),
-                    state.auto_key,
-                ),
-            )
-        } else {
-            None
-        };
+        let action =
+            if ui.collapsing_header("Relationships", fold_ui::sdk::imgui::TreeNodeFlags::empty()) {
+                super::relationships::draw(
+                    ui,
+                    state.motion.as_ref().unwrap(),
+                    &mut object,
+                    &mut relationship_response,
+                    (
+                        host.state()
+                            .navigation
+                            .last()
+                            .map(|n| n.time)
+                            .unwrap_or(fold_foundation::Time::ZERO),
+                        host.state().auto_key,
+                    ),
+                )
+            } else {
+                None
+            };
         changed |= relationship_response.changed;
         finished |= relationship_response.finished;
         if let Some(action) = action {

@@ -513,6 +513,19 @@ impl DesktopClient for Session {
     fn take_imported_items(&mut self) -> Vec<fold_project::ItemId> {
         std::mem::take(&mut self.imported_items)
     }
+    fn animation_channels(
+        &self,
+        document: fold_foundation::DocumentId,
+        object: Option<fold_foundation::ObjectId>,
+    ) -> Result<Vec<fold_platform::animation::Channel>, String> {
+        let snapshot = self.project.snapshot();
+        let document = snapshot
+            .state()
+            .documents
+            .get(&document)
+            .ok_or("Missing animation document")?;
+        crate::packages::builtins().animation_channels(document, object)
+    }
     fn image_inputs(
         &self,
         document: fold_foundation::DocumentId,
@@ -676,6 +689,10 @@ impl DesktopClient for Session {
     }
     fn command(&mut self, command: DesktopCommand) {
         let result = match command {
+            DesktopCommand::AutoKey(enabled) => {
+                self.state.auto_key = enabled;
+                return;
+            }
             DesktopCommand::NewProject => {
                 if self.state.busy {
                     self.state.status =

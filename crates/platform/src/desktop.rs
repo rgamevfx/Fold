@@ -91,6 +91,8 @@ pub struct DesktopState {
     pub viewer_document: Option<fold_foundation::DocumentId>,
     pub playback_range: PlaybackRange,
     pub playing: bool,
+    /// Session authoring preference shared by Composition and graph inspectors.
+    pub auto_key: bool,
     pub priming: bool,
     pub audio_clock: bool,
     pub underruns: u64,
@@ -122,6 +124,7 @@ impl Default for DesktopState {
             viewer_document: None,
             playback_range: PlaybackRange::default(),
             playing: false,
+            auto_key: false,
             priming: false,
             audio_clock: false,
             underruns: 0,
@@ -185,6 +188,7 @@ pub struct ViewerTransport {
 
 #[derive(Clone, Debug)]
 pub enum DesktopCommand {
+    AutoKey(bool),
     ViewerTransport {
         viewer: crate::workspace::PanelInstanceId,
         transport: ViewerTransport,
@@ -281,6 +285,13 @@ pub trait DesktopClient {
         self.state().preview_key(self.state().frame, 1)
     }
 
+    fn animation_channels(
+        &self,
+        _document: fold_foundation::DocumentId,
+        _object: Option<fold_foundation::ObjectId>,
+    ) -> Result<Vec<crate::animation::Channel>, String> {
+        Ok(vec![])
+    }
     fn image_inputs(
         &self,
         _document: fold_foundation::DocumentId,

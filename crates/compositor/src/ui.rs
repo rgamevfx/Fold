@@ -1,6 +1,5 @@
 //! Spatial graph authoring through the shared UI SDK. Canvas and inspector
 //! share UI-only gesture state; all persistent changes are host transactions.
-mod animation;
 mod canvas;
 mod channels;
 mod graph;

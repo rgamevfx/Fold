@@ -1,7 +1,11 @@
 use crate::{MOTION, Motion, package};
-use fold_foundation::{DocumentId, ObjectId, Time};
+#[cfg(test)]
+use fold_foundation::Time;
+use fold_foundation::{DocumentId, ObjectId};
+#[cfg(test)]
+use fold_platform::desktop::ViewLocation;
 use fold_platform::{
-    desktop::{DesktopClient, DesktopCommand, ViewLocation},
+    desktop::{DesktopClient, DesktopCommand},
     packages::CommandRequest,
 };
 use fold_project::Revision;
@@ -9,7 +13,6 @@ use std::{cell::RefCell, rc::Rc};
 pub type Shared = Rc<RefCell<State>>;
 #[derive(Default)]
 pub struct State {
-    pub graph_animation: bool,
     pub wrangle_drafts: super::wrangle::Drafts,
     pub document: Option<DocumentId>,
     pub motion: Option<Motion>,
@@ -22,7 +25,6 @@ pub struct State {
     pub parents: Vec<Option<ObjectId>>,
     pub error: String,
     pub editing: bool,
-    pub auto_key: bool,
     pub network_requested: bool,
     pub path_attribute_names: std::collections::BTreeMap<(ObjectId, String), String>,
     /// Only the inspector may finish/cancel a property gesture.
@@ -359,6 +361,7 @@ impl State {
             }
         }
     }
+    #[cfg(test)]
     pub fn view(&self, host: &mut dyn DesktopClient) {
         if let Some(document) = self.document {
             host.command(DesktopCommand::Navigate(ViewLocation {

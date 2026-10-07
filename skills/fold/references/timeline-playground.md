@@ -16,3 +16,11 @@ Inspect state afterward to discover the new `fold.composition.document`; rename 
 5. Render representative media-only and nested-source times, inspect linked pairs, save through `save`, and refresh state. Keep linked assets beside the demo and disclose manual interaction checks separately from rendered evidence.
 
 Current public gaps: common Composition typed authoring/inspection and command argument schemas; `place_asset` has no explicit destination-track/new-track or insert/overwrite arguments. Discover current catalogs before assuming these limitations remain.
+
+## Existing MoGraph demo → Composition (Rust Orbit verification)
+
+`demos/fold-rust-orbit.fold` now exercises native layer ownership and keyed group inputs. A public `create` operation with `kind: "fold.composition.document"` is supported even though typed Composition authoring discovery is incomplete. In the same guarded batch, `command` with `id: "fold.composition.edit"` accepts `{document, composition: {info, layers}}`. A layer carries its inspected scene object's shared state, source `{"Output":{"document":"GRAPH_UUID","output":"video","fold.layer.object":"OBJECT_UUID"}}`, source `info`, and rational `origin`/`source_start`. Binding objects through this command also marks their graph as layer-owned, enabling Composition → Network selection routing. Preserve any inspected extension data; do not rebuild existing graphs.
+
+For published group inputs whose values currently come from defaults, first materialize literal instance inputs using `node` or `set`. A `node` patch can retain native scalar curves in `fold.motion.animation` (for example `radius.0` and `speed.0`); obtain the exact key schema from a tool-created example/current catalog. Rust Orbit uses constant-value Bézier keys at 0 and 4 seconds to expose editable channels without changing the existing output. Verify both the native UI and the renders: a successful graph edit alone does not prove Composition discovery or Curve Editor interaction.
+
+The saved Orbit regression verifies public save, reopen, Composition insertion and curve dragging, rendered response, and undo/redo. Typed Composition inspection/edit schemas and a high-level scene adoption operation remain public API gaps; track them in dev-plan rather than editing project archives.

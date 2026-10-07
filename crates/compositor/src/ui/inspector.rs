@@ -47,7 +47,7 @@ impl Panel for Inspector {
         });
         self.1.select(state.document.map(|document| (document, id)));
         let document = state.document;
-        let auto_key = state.auto_key;
+        let auto_key = host.state().auto_key;
         let time = host
             .state()
             .navigation

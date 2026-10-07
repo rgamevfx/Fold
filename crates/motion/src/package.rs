@@ -55,6 +55,22 @@ fn edit(snapshot: &Snapshot, args: &[u8], _: &Cancel) -> Result<EditBatch, Strin
 }
 struct Documents(Arc<prepared::Cache>);
 impl DocumentProvider for Documents {
+    fn animation_channels(
+        &self,
+        document: &Document,
+        object: Option<fold_foundation::ObjectId>,
+    ) -> Result<Vec<fold_platform::animation::Channel>, String> {
+        crate::keyed_parameters::channels(document, object)
+    }
+    fn edit_animation(
+        &self,
+        document: &Document,
+        channels: &[fold_platform::animation::Channel],
+        time: fold_foundation::Time,
+    ) -> Result<Document, String> {
+        crate::keyed_parameters::edit(document, channels, time)
+    }
+
     fn settings(
         &self,
         document: &Document,

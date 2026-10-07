@@ -507,7 +507,7 @@ impl Panel for Inspector {
                         &mut values,
                         &mut node.animation,
                         time,
-                        state.auto_key,
+                        host.state().auto_key,
                         &mut response,
                         &mut property_menu,
                     );
@@ -845,21 +845,8 @@ impl Panel for Inspector {
         }
     }
 }
-pub(super) fn property_label(key: &str) -> String {
-    if key == "domain" {
-        return "Scope".into();
-    }
-    key.split('_')
-        .map(|word| {
-            let mut chars = word.chars();
-            chars
-                .next()
-                .map(|first| first.to_uppercase().collect::<String>() + chars.as_str())
-                .unwrap_or_default()
-        })
-        .collect::<Vec<_>>()
-        .join(" ")
-}
+pub(super) use crate::keyed_parameters::label as property_label;
+
 fn alignment(ui: &Ui, value: &mut Datum, aces: bool, response: &mut Response) {
     let Datum::Scalar(v) = value else {
         datum(ui, value, aces, response);

@@ -1,4 +1,5 @@
 //! Static capability contracts. Only the application assembles implementations.
+pub mod animation;
 pub mod application;
 pub mod browser;
 pub mod color;

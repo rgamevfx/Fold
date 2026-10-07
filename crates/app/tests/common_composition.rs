@@ -688,3 +688,328 @@ fn deleting_the_only_graph_layer_is_undoable_for_both_providers() {
         assert!(before.same_content(&project.snapshot()));
     }
 }
+
+#[test]
+fn composition_discovers_keyed_graph_parameters() {
+    let (_, id, mut motion) = fixture();
+    let object = motion.scene.as_ref().unwrap().objects[0].clone();
+    let node = motion
+        .graph
+        .nodes
+        .iter_mut()
+        .find(|n| n.id == object.source.node)
+        .unwrap();
+    let mut curve = fold_animation::Curve::default();
+    curve.insert(Time::ZERO, 12.);
+    curve.insert(Time::new(1, 1).unwrap(), 24.);
+    node.animation.insert("width.0".into(), curve.clone());
+    let channels = packages::builtins()
+        .animation_channels(&motion.document(id).unwrap(), Some(object.id))
+        .unwrap();
+    assert_eq!(
+        channels.len(),
+        1,
+        "keyed graph parameters must be available to Composition"
+    );
+    assert_eq!(channels[0].curve, curve);
+    assert_eq!(channels[0].property_label, "Width");
+}
+
+#[test]
+fn composition_graph_key_edits_are_atomic_undoable_and_keep_provider_data() {
+    let (mut project, motion_id, mut motion) = fixture();
+    let object = motion.scene.as_ref().unwrap().objects[0].clone();
+    let mut curve = fold_animation::Curve::default();
+    curve.insert(Time::ZERO, 12.);
+    curve.insert(Time::new(1, 1).unwrap(), 24.);
+    motion
+        .graph
+        .nodes
+        .iter_mut()
+        .find(|n| n.id == object.source.node)
+        .unwrap()
+        .animation
+        .insert("width.0".into(), curve);
+    put(&mut project, vec![motion.document(motion_id).unwrap()]);
+    let id = DocumentId::new();
+    let mut source = reference(motion_id);
+    source.extensions.insert(
+        fold_composition::graph::OBJECT.into(),
+        serde_json::to_value(object.id).unwrap(),
+    );
+    let mut layer = Layer::new(
+        "Rectangle",
+        Some(Source::Output(source)),
+        motion.info.clone(),
+    )
+    .unwrap();
+    layer.origin = Time::new(1, 2).unwrap();
+    layer.source_start = Time::new(1, 4).unwrap();
+    let layer_id = layer.id;
+    let mut composition = Composition {
+        info: motion.info.clone(),
+        layers: vec![layer],
+        extensions: Default::default(),
+    };
+    put(&mut project, vec![composition.document(id).unwrap()]);
+    let before = project.snapshot();
+    let before_pixels = pixels(&project, id, Time::new(1, 2).unwrap());
+    let mut channels = packages::builtins()
+        .animation_channels(&before.state().documents[&motion_id], Some(object.id))
+        .unwrap();
+    channels[0].curve.keys[0].value = 4.;
+    channels[0].curve.keys[0].interpolation = fold_animation::Interpolation::Bezier;
+    channels[0].curve.keys[0].outgoing.value = 6.;
+    composition.layers[0].opacity = 0.7;
+    let args = serde_json::json!({"document":id,"composition":composition,"graph_animation":[{"layer":layer_id,"channels":channels,"time":Time::new(1,2).unwrap()}]});
+    let batch = stage(&project, fold_composition::package::EDIT, args.clone()).unwrap();
+    assert_eq!(
+        project.snapshot().state(),
+        before.state(),
+        "preview staging does not mutate committed state"
+    );
+    project.commit(batch).unwrap();
+    let after = project.snapshot();
+    let updated = fold_motion::Motion::from_document(&after.state().documents[&motion_id]).unwrap();
+    assert_eq!(
+        updated.graph.node(object.source.node).unwrap().animation["width.0"],
+        channels[0].curve
+    );
+    assert_eq!(
+        updated.extensions["unknown.future"],
+        motion.extensions["unknown.future"]
+    );
+    assert_eq!(updated.scene.as_ref().unwrap().objects[0].opacity, 0.7);
+    assert_ne!(
+        pixels(&project, id, Time::new(1, 2).unwrap()),
+        before_pixels
+    );
+    project.undo().unwrap();
+    assert!(before.same_content(&project.snapshot()));
+    project.redo().unwrap();
+    assert!(after.same_content(&project.snapshot()));
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("keys.fold");
+    fold_project::save(&project.snapshot(), &path).unwrap();
+    let reopened = fold_project::load(&path, 32).unwrap();
+    assert_eq!(reopened.snapshot().state(), project.snapshot().state());
+    // Removing the last keys retains the sampled value at source-local playhead.
+    let sample = channels[0].curve.sample(Time::new(1, 4).unwrap()).unwrap();
+    channels[0].curve.keys.clear();
+    apply(
+        &mut project,
+        fold_composition::package::EDIT,
+        serde_json::json!({"document":id,"composition":composition,"graph_animation":[{"layer":layer_id,"channels":channels,"time":Time::new(1,2).unwrap()}]}),
+    );
+    let updated =
+        fold_motion::Motion::from_document(&project.snapshot().state().documents[&motion_id])
+            .unwrap();
+    let node = updated.graph.node(object.source.node).unwrap();
+    assert!(node.animation.is_empty());
+    assert_eq!(
+        node.inputs["width"],
+        fold_motion::graph::Input::Value(fold_motion::fields::Datum::Scalar(sample))
+    );
+    composition.layers[0].locked = true;
+    assert!(stage(&project, fold_composition::package::EDIT, serde_json::json!({"document":id,"composition":composition,"graph_animation":[{"layer":layer_id,"channels":channels,"time":Time::ZERO}]})).is_err());
+}
+
+#[test]
+fn composition_exposes_compositor_and_modifier_internal_keys_without_network_editor() {
+    let mut project = Project::new(16);
+    let id = DocumentId::new();
+    put(
+        &mut project,
+        vec![Composition::default().document(id).unwrap()],
+    );
+    apply(
+        &mut project,
+        workflow::ADD,
+        serde_json::json!({"document":id,"kind":"image"}),
+    );
+    let composition =
+        Composition::from_document(&project.snapshot().state().documents[&id]).unwrap();
+    let layer = &composition.layers[0];
+    let Some(Source::Output(source)) = &layer.source else {
+        panic!()
+    };
+    let mut graph = fold_compositor::Composite::from_document(
+        &project.snapshot().state().documents[&source.document],
+    )
+    .unwrap();
+    let mut curve = fold_animation::Curve::default();
+    curve.insert(Time::ZERO, 0.2);
+    curve.insert(Time::new(1, 1).unwrap(), 0.8);
+    graph.nodes[0].animation.insert("color.3".into(), curve);
+    put(&mut project, vec![graph.document(source.document).unwrap()]);
+    let mut channels = packages::builtins()
+        .animation_channels(
+            &project.snapshot().state().documents[&source.document],
+            None,
+        )
+        .unwrap();
+    assert_eq!(channels.len(), 1);
+    channels[0].curve.keys[0].value = 0.4;
+    apply(
+        &mut project,
+        fold_composition::package::EDIT,
+        serde_json::json!({"document":id,"composition":composition,"graph_animation":[{"layer":layer.id,"channels":channels,"time":Time::ZERO}]}),
+    );
+    let edited = fold_compositor::Composite::from_document(
+        &project.snapshot().state().documents[&source.document],
+    )
+    .unwrap();
+    assert_eq!(edited.nodes[0].animation["color.3"].keys[0].value, 0.4);
+
+    let (_, motion_id, mut motion) = fixture();
+    let object = motion.scene.as_ref().unwrap().objects[0].clone();
+    let instance = fold_motion::authoring::group_node(&mut motion, object.source.node).unwrap();
+    let group = motion
+        .graph
+        .node(instance)
+        .unwrap()
+        .settings::<fold_motion::nodes::interface::GroupSettings>()
+        .unwrap()
+        .group
+        .unwrap();
+    let node = motion
+        .groups
+        .get_mut(&group)
+        .unwrap()
+        .graph
+        .nodes
+        .iter_mut()
+        .find(|n| n.id == object.source.node)
+        .unwrap();
+    let mut curve = fold_animation::Curve::default();
+    curve.insert(Time::ZERO, 12.);
+    node.set("width", fold_motion::fields::Datum::Scalar(12.));
+    node.animation.insert("width.0".into(), curve);
+    let original = motion.document(motion_id).unwrap();
+    let mut channels = packages::builtins()
+        .animation_channels(&original, Some(object.id))
+        .unwrap();
+    let channel = channels
+        .iter_mut()
+        .find(|c| c.target.group == Some(group) && c.target.path == "width.0")
+        .expect("keyed modifier internals belong to the layer");
+    channel.curve.insert(Time::new(1, 2).unwrap(), 30.);
+    let updated = packages::builtins()
+        .edit_animation(&original, &channels, Time::ZERO)
+        .unwrap();
+    let updated = fold_motion::Motion::from_document(&updated).unwrap();
+    assert_eq!(updated.graph, motion.graph);
+    assert_eq!(
+        updated.groups[&group]
+            .graph
+            .node(object.source.node)
+            .unwrap()
+            .animation["width.0"]
+            .keys
+            .len(),
+        2
+    );
+}
+
+#[test]
+fn composition_auto_key_is_shared_with_graph_inspector_contexts() {
+    use fold_platform::{
+        desktop::{DesktopClient, DesktopCommand, Selection, ViewLocation},
+        panel_context::PanelContext,
+        workspace::{EditorInstance, LinkGroup},
+    };
+    let (project, id, _) = fixture();
+    let mut host = fold_app::session::Session::new(project);
+    let mut editor = EditorInstance {
+        contribution: fold_composition::package::PANEL.into(),
+        document_type: fold_motion::MOTION.into(),
+        group: LinkGroup::A,
+        navigation: vec![ViewLocation {
+            document: id,
+            time: Time::ZERO,
+            label: "Layer".into(),
+        }],
+        selection: Selection {
+            document: Some(id),
+            objects: vec![],
+        },
+        mapped_navigation: false,
+    };
+    let mut scoped = PanelContext::new(&mut host, &mut editor);
+    scoped.command(DesktopCommand::AutoKey(true));
+    assert!(scoped.state().auto_key);
+    drop(scoped);
+    let graph = PanelContext::new(&mut host, &mut editor);
+    assert!(graph.state().auto_key);
+}
+
+#[test]
+fn rust_orbit_opacity_is_authored_only_by_composition() {
+    let path =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../demos/fold-rust-orbit.fold");
+    let mut project = fold_project::load(&path, 32).unwrap();
+    let before = project.snapshot();
+    let document = before
+        .state()
+        .documents
+        .values()
+        .find(|d| d.type_id == fold_composition::COMPOSITION)
+        .unwrap();
+    let id = document.id;
+    let mut composition = Composition::from_document(document).unwrap();
+    let layer = &mut composition.layers[0];
+    let Some(Source::Output(source)) = &layer.source else {
+        panic!("Orbit graph missing");
+    };
+    let graph = source.document;
+    let object = layer.graph_object().unwrap();
+    let mut curve = fold_animation::Curve::default();
+    curve.insert(Time::ZERO, 0.25);
+    curve.insert(Time::new(2, 1).unwrap(), 0.75);
+    layer
+        .animation
+        .insert("scene.opacity.0".into(), curve.clone());
+    let original_pixels = pixels(&project, id, Time::ZERO);
+    apply(
+        &mut project,
+        fold_composition::package::EDIT,
+        serde_json::json!({"document":id,"composition":composition}),
+    );
+    let after = project.snapshot();
+    let source = &after.state().documents[&graph];
+    let motion = fold_motion::Motion::from_document(source).unwrap();
+    let evaluated = motion
+        .scene
+        .as_ref()
+        .unwrap()
+        .objects
+        .iter()
+        .find(|o| o.id == object)
+        .unwrap();
+    assert_eq!(
+        evaluated.animation["scene.opacity.0"], curve,
+        "graph evaluation receives Composition's authored layer state"
+    );
+    for scope in [None, Some(object)] {
+        let channels = packages::builtins()
+            .animation_channels(source, scope)
+            .unwrap();
+        assert_eq!(
+            channels
+                .iter()
+                .map(|c| c.target.path.as_str())
+                .collect::<Vec<_>>(),
+            ["radius.0", "speed.0"],
+            "graph provider exposes graph parameters only"
+        );
+    }
+    let faded = pixels(&project, id, Time::ZERO);
+    assert!(original_pixels.iter().any(|p| p[3] > 0.01));
+    for (a, b) in original_pixels.iter().zip(&faded) {
+        assert!((a[3] * 0.25 - b[3]).abs() < 0.005);
+    }
+    project.undo().unwrap();
+    assert!(before.same_content(&project.snapshot()));
+    project.redo().unwrap();
+    assert!(after.same_content(&project.snapshot()));
+}

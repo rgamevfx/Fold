@@ -1,4 +1,5 @@
-//! Stable animation paths for scene-owned controls, separate from node inputs.
+//! Animation paths for graph-owned constraints and masks. Layer animation is
+//! authored by Composition and only sampled by the graph evaluator.
 use super::*;
 pub type Channels = crate::animation::parameters::Channels;
 pub fn sample(channels: &Channels, path: &str, base: f64, time: Time) -> f64 {
@@ -13,9 +14,6 @@ pub fn channel_mut<'a>(
     path: &str,
 ) -> Option<(&'a mut f64, &'a mut Channels)> {
     for object in &mut scene.objects {
-        if object.id == id && path == "scene.opacity.0" {
-            return Some((&mut object.state.opacity, &mut object.state.animation));
-        }
         for c in &mut object.constraints {
             if c.id == id {
                 return match path {

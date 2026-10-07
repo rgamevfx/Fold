@@ -29,6 +29,16 @@ pub const PANELS: &[PanelDescriptor] = &[
 pub struct EditArgs {
     pub document: DocumentId,
     pub composition: Composition,
+    #[serde(default)]
+    pub graph_animation: Vec<GraphAnimationEdit>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct GraphAnimationEdit {
+    pub layer: ObjectId,
+    /// Curves retain the source graph clock.
+    pub channels: Vec<fold_platform::animation::Channel>,
+    /// Composition playhead, mapped to source time when removing the last key.
+    pub time: fold_foundation::Time,
 }
 pub fn edit(snapshot: &Snapshot, bytes: &[u8], cancel: &Cancel) -> Result<EditBatch, String> {
     cancel.check()?;

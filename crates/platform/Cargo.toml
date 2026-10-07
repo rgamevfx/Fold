@@ -11,6 +11,7 @@ gpu = ["fold-render/gpu"]
 serde_json.workspace = true
 serde.workspace = true
 fold-foundation.workspace = true
+fold-animation.workspace = true
 fold-color.workspace = true
 fold-project.workspace = true
 fold-media.workspace = true

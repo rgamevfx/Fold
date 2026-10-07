@@ -140,3 +140,5 @@ pub mod edits;
 mod automation;
 
 mod inputs;
+
+mod keyed_parameters;

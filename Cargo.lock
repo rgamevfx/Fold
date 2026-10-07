@@ -1366,6 +1366,7 @@ dependencies = [
 name = "fold-platform"
 version = "0.1.0"
 dependencies = [
+ "fold-animation",
  "fold-color",
  "fold-foundation",
  "fold-media",
