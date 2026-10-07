@@ -27,6 +27,31 @@ pub fn query_cancellable(
         return super::fonts::discover(q, cancel);
     }
     let m = Motion::from_document(document)?;
+    if q["mode"] == "bake_status" {
+        let node: ObjectId =
+            serde_json::from_value(q["node"].clone()).map_err(|e| e.to_string())?;
+        let group: Option<ObjectId> =
+            serde_json::from_value(q.get("group").cloned().unwrap_or(Value::Null))
+                .map_err(|e| e.to_string())?;
+        let graph = match group {
+            Some(id) => &m.groups.get(&id).ok_or("missing group")?.graph,
+            None => &m.graph,
+        };
+        let node = graph.node(node)?;
+        if node.kind != "fold.motion.image_bake" {
+            return Err("select an Image Bake node".into());
+        }
+        let settings = node.settings::<crate::nodes::image::bake::Settings>()?;
+        let key = crate::nodes::image::bake::Args {
+            document: document.id,
+            node: node.id,
+            group,
+        }
+        .progress_key();
+        return Ok(
+            json!({"cache_selected":settings.bake.is_some(),"settings_stale":settings.bake.as_ref().is_some_and(|b|b.options!=settings.options()),"progress":fold_platform::image_bake::progress(&key)}),
+        );
+    }
     if q["mode"] == "construction" {
         let id: ObjectId = serde_json::from_value(q["node"].clone()).map_err(|e| e.to_string())?;
         let n = m.graph.node(id)?;
@@ -372,6 +397,7 @@ fn validate_query(q: &Value) -> Result<(), String> {
         "handles" => &["mode", "group", "nodes"],
         "construction" => &["mode", "node"],
         "signature" => &["mode", "kind", "settings"],
+        "bake_status" => &["mode", "node", "group"],
         "validate" => &["mode", "edits"],
         "parameters" => &["mode", "node", "time"],
         "text_metrics" => &["mode", "node", "time", "limit"],

@@ -53,6 +53,7 @@ pub fn paint(
                         item.stroke = Some(stroke.clone());
                     }
                 }
+                Geometry::Image(_) => {}
                 Geometry::Point => return Err("style requires paths/text, not points".into()),
             }
             if matches!(item.geometry, Geometry::Group(_) | Geometry::Instance(_)) {

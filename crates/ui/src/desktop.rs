@@ -297,7 +297,8 @@ impl Desktop {
                     & (wgpu::Features::FLOAT32_FILTERABLE
                         | wgpu::Features::TIMESTAMP_QUERY
                         | wgpu::Features::TIMESTAMP_QUERY_INSIDE_ENCODERS
-                        | wgpu::Features::TEXTURE_COMPRESSION_BC),
+                        | wgpu::Features::TEXTURE_COMPRESSION_BC
+                        | wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES),
                 ..Default::default()
             }))?;
         // Read once before starting the desktop; redraw/persistence remain worker-only.
@@ -322,7 +323,8 @@ impl Desktop {
         match std::env::var("FOLD_RENDER_BACKEND").as_deref() {
             Ok("cpu") => eprintln!("Fold render backend: CPU reference"),
             Ok("gpu") | Err(std::env::VarError::NotPresent) => {
-                let host = fold_platform::gpu::Host::from_device(
+                let host = fold_platform::gpu::Host::from_adapter_device(
+                    &adapter,
                     device.clone(),
                     queue.clone(),
                     u64::from(budgets.gpu_mib) * 1024 * 1024,

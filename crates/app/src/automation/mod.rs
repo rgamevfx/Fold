@@ -73,6 +73,7 @@ pub fn catalog(params: &Value) -> Result<Value, String> {
         }
         let text = match topic {
             "workflow" => include_str!("../../../../skills/fold/SKILL.md"),
+            "image-inputs" => include_str!("../../../../skills/fold/references/image-inputs.md"),
             "motion" => include_str!("../../../../skills/fold/references/motion.md"),
             "graph" => include_str!("../../../../skills/fold/references/graph-authoring.md"),
             "glossary" => include_str!("../../../../skills/fold/references/glossary.md"),
@@ -80,13 +81,13 @@ pub fn catalog(params: &Value) -> Result<Value, String> {
             "candidates" => include_str!("../../../../skills/fold/references/candidates.md"),
             _ => {
                 return Err(
-                    "unknown guide; supported: workflow, motion, graph, glossary, candidates"
+                    "unknown guide; supported: workflow, motion, graph, glossary, candidates, live-tools, image-inputs"
                         .into(),
                 );
             }
         };
         return Ok(
-            json!({"topic":topic,"build":env!("CARGO_PKG_VERSION"),"text":text,"related_topics":["workflow","live-tools","motion","graph","glossary","candidates"],"lookup":"Fetch another topic using catalog guide; repository access is unnecessary."}),
+            json!({"topic":topic,"build":env!("CARGO_PKG_VERSION"),"text":text,"related_topics":["workflow","live-tools","motion","graph","glossary","candidates","image-inputs"],"lookup":"Fetch another topic using catalog guide; repository access is unnecessary."}),
         );
     }
     if params.get("sdk") == Some(&Value::Bool(true)) {
@@ -160,7 +161,7 @@ pub fn catalog(params: &Value) -> Result<Value, String> {
     Ok(
         json!({"version":VERSION,"authoring_contract":{"version":2,"status":"incremental; see unsupported capabilities","wire_version":VERSION},"types":catalogs.iter().map(|c|c["type"].clone()).collect::<Vec<_>>(),
        "methods":schema::methods().as_array().unwrap().iter().map(|m|m["name"].clone()).collect::<Vec<_>>(),
-       "guides":["workflow","live-tools","motion","graph","glossary","candidates"],
+       "guides":["workflow","live-tools","motion","graph","glossary","candidates","image-inputs"],
        "workflow":{"guidance":"catalog guide=workflow; fetch referenced topic names through catalog guide", "discover":"catalog method for exact request schemas; catalog type for package operations","sdk":"catalog sdk=true returns the native fluent authoring SDK and generated operation declarations",
        "author":"candidate begin, then author with bounded SDK JavaScript or candidate edit with a typed batch; use the returned generation and revision for the next edit","evaluate":"inspect/render with candidate, generation and project_epoch; evidence is only valid for that generation","commit":"candidate commit with base revision, generation and label; one undo step","limits":"four candidates; 900 idle seconds; 4096 mutations and 64 MiB document payload per candidate","unsupported":["automatic rebase","TypeScript type stripping; author executes JavaScript","analytical motion verification"]},
        "commands":registry.commands().map(|c|json!({"id":c.id,"title":c.title})).collect::<Vec<_>>(),

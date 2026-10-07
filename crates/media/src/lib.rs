@@ -40,6 +40,7 @@ pub const MAX_SOURCE_BYTES: usize = MAX_PIXELS * 3 + 4096;
 pub struct RgbImage {
     dimensions: [u32; 2],
     rgb: Arc<Vec<u8>>,
+    identity: Arc<std::sync::OnceLock<String>>,
     /// Tightly packed reconstructed G, B, R float planes (not working color).
     signal: Option<Arc<Vec<f32>>>,
     _storage: Arc<budget::Lease>,
@@ -119,6 +120,7 @@ impl RgbImage {
         Ok(Self {
             dimensions,
             rgb: Arc::new(rgb.to_vec()),
+            identity: Default::default(),
             signal: None,
             _storage: storage,
         })
@@ -133,6 +135,7 @@ impl RgbImage {
         Ok(Self {
             dimensions,
             rgb: Arc::new(rgb),
+            identity: Default::default(),
             signal: None,
             _storage: storage,
         })
@@ -158,6 +161,7 @@ impl RgbImage {
         Ok(Self {
             dimensions,
             rgb: Arc::new(Vec::new()),
+            identity: Default::default(),
             signal: Some(Arc::new(pixels)),
             _storage: storage,
         })
@@ -193,6 +197,15 @@ impl RgbImage {
             .map_or(self.rgb.len() as u64, |p| p.len() as u64 * 4)
     }
 
+    /// Content identity for immutable RGB8 still reuse; native float planes use
+    /// their decoder-owned identities instead.
+    pub fn rgb_identity(&self) -> Option<&str> {
+        (!self.is_signal()).then(|| {
+            self.identity
+                .get_or_init(|| content_hash(&self.rgb))
+                .as_str()
+        })
+    }
     pub fn dimensions(&self) -> [u32; 2] {
         self.dimensions
     }
@@ -296,3 +309,5 @@ mod tests {
         }
     }
 }
+
+pub mod still;

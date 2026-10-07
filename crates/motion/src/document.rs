@@ -277,16 +277,67 @@ impl Motion {
         serde_json::to_vec(&semantic).map_err(|e| e.to_string())
     }
 
+    fn image_dependencies(
+        &self,
+    ) -> Result<
+        (
+            Vec<fold_project::DocumentRef>,
+            Vec<fold_foundation::AssetId>,
+        ),
+        String,
+    > {
+        let mut documents = Vec::new();
+        let mut assets = std::collections::BTreeSet::new();
+        for graph in std::iter::once(&self.graph).chain(self.groups.values().map(|g| &g.graph)) {
+            for node in &graph.nodes {
+                if node.kind == "fold.motion.image" {
+                    for entry in node.settings::<crate::nodes::image::Settings>()?.sources {
+                        match entry.source {
+                            fold_platform::image_source::Source::Asset(id) => {
+                                assets.insert(id);
+                            }
+                            fold_platform::image_source::Source::Output(reference) => {
+                                if !documents.contains(&reference) {
+                                    documents.push(reference);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Ok((documents, assets.into_iter().collect()))
+    }
     pub fn document(&self, id: DocumentId) -> Result<Document, String> {
         self.validate()?;
+        let (dependencies, assets) = self.image_dependencies()?;
         Ok(Document {
             id,
             package_id: crate::PACKAGE.into(),
             type_id: MOTION.into(),
-            schema_version: if self.scene.is_some() { 4 } else { 2 },
+            schema_version: if std::iter::once(&self.graph)
+                .chain(self.groups.values().map(|g| &g.graph))
+                .any(|g| g.nodes.iter().any(|n| n.kind == "fold.motion.image_bake"))
+            {
+                6
+            } else if std::iter::once(&self.graph)
+                .chain(self.groups.values().map(|g| &g.graph))
+                .any(|g| {
+                    g.nodes.iter().any(|n| {
+                        n.kind.starts_with("fold.motion.image")
+                            || n.kind == "fold.motion.sample_image"
+                    })
+                })
+            {
+                5
+            } else if self.scene.is_some() {
+                4
+            } else {
+                2
+            },
             revision: Revision::default(),
-            dependencies: vec![],
-            assets: vec![],
+            dependencies,
+            assets,
             payload: serde_json::to_vec(self).map_err(|e| e.to_string())?,
             extensions: Default::default(),
         })
@@ -294,14 +345,16 @@ impl Motion {
     pub fn from_document(document: &Document) -> Result<Self, String> {
         if document.package_id != crate::PACKAGE
             || document.type_id != MOTION
-            || ![1, 2, 3, 4].contains(&document.schema_version)
-            || !document.dependencies.is_empty()
-            || !document.assets.is_empty()
+            || ![1, 2, 3, 4, 5, 6].contains(&document.schema_version)
         {
             return Err("unsupported motion document envelope".into());
         }
         let result: Self = serde_json::from_slice(&document.payload).map_err(|e| e.to_string())?;
         result.validate()?;
+        let (dependencies, assets) = result.image_dependencies()?;
+        if dependencies != document.dependencies || assets != document.assets {
+            return Err("motion image dependencies do not match envelope".into());
+        }
         Ok(result)
     }
 }

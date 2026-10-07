@@ -23,7 +23,10 @@ pub(crate) enum AllocationKind {
     Scratch = 4,
 }
 fn image_kind(image: &Image) -> AllocationKind {
-    if image.texture.format() == wgpu::TextureFormat::Rgba32Float {
+    if matches!(
+        image.texture.format(),
+        wgpu::TextureFormat::Rgba32Float | wgpu::TextureFormat::Rgba16Float
+    ) {
         AllocationKind::Working
     } else {
         AllocationKind::Presentation
@@ -40,6 +43,7 @@ struct Shared {
     device: wgpu::Device,
     queue: wgpu::Queue,
     budget: u64,
+    textured_format: wgpu::TextureFormat,
     pool: Mutex<Pool>,
     sources: Mutex<super::still::Cache>,
     stopped: Arc<Mutex<Option<String>>>,
@@ -130,12 +134,41 @@ impl Host {
                     & (wgpu::Features::FLOAT32_FILTERABLE
                         | wgpu::Features::TIMESTAMP_QUERY
                         | wgpu::Features::TIMESTAMP_QUERY_INSIDE_ENCODERS
-                        | wgpu::Features::TEXTURE_COMPRESSION_BC),
+                        | wgpu::Features::TEXTURE_COMPRESSION_BC
+                        | wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES),
                 ..Default::default()
             })
             .await
             .map_err(|e| e.to_string())?;
-        Ok((Self::from_device(device, queue, budget)?, info))
+        Ok((
+            Self::from_adapter_device(&adapter, device, queue, budget)?,
+            info,
+        ))
+    }
+
+    /// Preserve full working precision when the native adapter supports blending
+    /// RGBA32F. Other adapters use the portable RGBA16F surface.
+    pub fn from_adapter_device(
+        adapter: &wgpu::Adapter,
+        device: wgpu::Device,
+        queue: wgpu::Queue,
+        budget: u64,
+    ) -> Result<Self, String> {
+        let full_precision = device
+            .features()
+            .contains(wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES)
+            && adapter
+                .get_texture_format_features(wgpu::TextureFormat::Rgba32Float)
+                .flags
+                .contains(wgpu::TextureFormatFeatureFlags::BLENDABLE);
+        let mut host = Self::from_device(device, queue, budget)?;
+        if full_precision {
+            Arc::get_mut(&mut host.0).unwrap().textured_format = wgpu::TextureFormat::Rgba32Float;
+        }
+        Ok(host)
+    }
+    pub(super) fn textured_format(&self) -> wgpu::TextureFormat {
+        self.0.textured_format
     }
 
     /// The application host transfers error/device-loss handling to this service.
@@ -165,6 +198,7 @@ impl Host {
             device,
             queue,
             budget,
+            textured_format: wgpu::TextureFormat::Rgba16Float,
             pool: Mutex::new(Pool {
                 images: vec![],
                 by_kind: [0; 5],
@@ -266,6 +300,7 @@ impl Host {
             * u64::from(height)
             * match format {
                 wgpu::TextureFormat::Rgba32Float => 16,
+                wgpu::TextureFormat::Rgba16Float => 8,
                 wgpu::TextureFormat::Bc7RgbaUnorm => 1,
                 _ => 4,
             };
@@ -280,7 +315,10 @@ impl Host {
         // Drop only leases not held by callers, recording encoders, or submitted
         // work. Completion callbacks own submitted leases independently of frames.
         pool.make_room(bytes, self.0.budget)?;
-        let kind = if format == wgpu::TextureFormat::Rgba32Float {
+        let kind = if matches!(
+            format,
+            wgpu::TextureFormat::Rgba32Float | wgpu::TextureFormat::Rgba16Float
+        ) {
             AllocationKind::Working
         } else {
             AllocationKind::Presentation
@@ -303,6 +341,14 @@ impl Host {
             usage: wgpu::TextureUsages::TEXTURE_BINDING
                 | wgpu::TextureUsages::COPY_SRC
                 | wgpu::TextureUsages::COPY_DST
+                | if matches!(
+                    format,
+                    wgpu::TextureFormat::Rgba16Float | wgpu::TextureFormat::Rgba32Float
+                ) {
+                    wgpu::TextureUsages::RENDER_ATTACHMENT
+                } else {
+                    wgpu::TextureUsages::empty()
+                }
                 | if compressed {
                     wgpu::TextureUsages::empty()
                 } else {

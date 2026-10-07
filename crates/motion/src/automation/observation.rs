@@ -69,6 +69,12 @@ pub fn evaluate(m: &Motion, q: &Value, cancel: &Cancel) -> Result<Value, String>
     };
     let mut result = json!({"time":q.time,"space":if q.node.is_some(){"node output coordinates; depends on upstream construction"}else{"document"},"target":{"object":q.object,"node":q.node},"evidence":"evaluated geometry; visibility includes effects, masks and clipping only in rendered images","unsupported":["paint_bounds","layout_bounds","parameter_contributions","pixel_visibility","provenance"]});
     match value {
+        Evaluated::Image(_) | Evaluated::ImageField(_) => {
+            result["kind"] = json!(value.kind());
+            result["status"] = json!("inconclusive");
+            result["reason"] =
+                json!("image values are deferred render dependencies; use rendered observation");
+        }
         Evaluated::Field(field) => {
             result["kind"] = json!(field.kind);
             if field.varying {
@@ -85,7 +91,7 @@ pub fn evaluate(m: &Motion, q: &Value, cancel: &Cancel) -> Result<Value, String>
                     "analytic outline/point bounds in the reported coordinate space; excludes stroke, effects, masks and clipping"
                 );
             }
-            let mut counts = [0usize; 5];
+            let mut counts = [0usize; 6];
             let mut elements = Vec::new();
             walk(
                 &c,
@@ -98,7 +104,7 @@ pub fn evaluate(m: &Motion, q: &Value, cancel: &Cancel) -> Result<Value, String>
                 cancel,
             )?;
             if fields.iter().any(|s| s == "counts") {
-                result["counts"] = json!({"top_level":c.len(),"paths":counts[0],"glyphs":counts[1],"points":counts[2],"instances":counts[3],"groups":counts[4]});
+                result["counts"] = json!({"top_level":c.len(),"paths":counts[0],"glyphs":counts[1],"points":counts[2],"instances":counts[3],"groups":counts[4],"images":counts[5]});
             }
             if fields.iter().any(|s| s == "elements") {
                 result["elements"] = json!(elements);
@@ -110,7 +116,7 @@ pub fn evaluate(m: &Motion, q: &Value, cancel: &Cancel) -> Result<Value, String>
                     result["diagnostics"] = json!([{"kind":"nested_glyphs","message":"Glyphs exist only inside groups/instances; a top-level Glyphs consumer matches zero elements. Whole-object motion can use the object's transform; descendant glyph editing needs explicit traversal."}]);
                 }
             }
-            result["empty"] = json!(counts[0] + counts[1] + counts[2] == 0);
+            result["empty"] = json!(counts[0] + counts[1] + counts[2] + counts[5] == 0);
         }
     }
     Ok(result)
@@ -121,7 +127,7 @@ fn walk(
     parent: [f64; 6],
     opacity: f64,
     depth: usize,
-    counts: &mut [usize; 5],
+    counts: &mut [usize; 6],
     elements: &mut Vec<Value>,
     limit: usize,
     cancel: &Cancel,
@@ -137,6 +143,7 @@ fn walk(
         let transform = multiply(parent, e.transform);
         let opacity = opacity * e.opacity;
         let (index, kind) = match &e.geometry {
+            Geometry::Image(_) => (5, "image"),
             Geometry::Path(_) => (0, "path"),
             Geometry::Glyph { .. } => (1, "glyph"),
             Geometry::Point => (2, "point"),
@@ -220,6 +227,9 @@ pub fn parameters(m: &Motion, query: &Value, cancel: &Cancel) -> Result<Value, S
                         .count()
                 });
                 json!({"status":"geometry","top_level_count":content.len(),"domain":domain,"matched_count":matched,"diagnostic":if matched == Some(0) { Some("selected domain matches zero top-level elements; inspect descendants and choose an explicit scope") } else { None },"guidance":"inspect evaluated output for counts and bounds"})
+            }
+            Ok(Evaluated::Image(_)) | Ok(Evaluated::ImageField(_)) => {
+                json!({"status":"deferred","reason":"evaluated by the image renderer"})
             }
             Err(error) => json!({"status":"unavailable","reason":error}),
         };

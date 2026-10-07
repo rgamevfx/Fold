@@ -1,0 +1,4 @@
+AdapterInfo { name: "NVIDIA GeForce GTX 1070", vendor: 4318, device: 7137, device_type: DiscreteGpu, driver: "NVIDIA", driver_info: "580.173.02", backend: Vulkan }
+frame=0 max_code_error=1
+frame=1 max_code_error=1
+warm_mean_ms=157.118 warm_ready_mean_ms=151.157

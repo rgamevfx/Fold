@@ -61,6 +61,16 @@ impl Affine {
 /// declared scene-linear working space (legacy linear-sRGB or explicit ACEScg).
 #[derive(Clone, Debug)]
 pub enum ImageOp {
+    Baked(std::sync::Arc<crate::baked::Texture>),
+    BakedTextured {
+        batch: std::sync::Arc<crate::baked::Batch>,
+        driver: Option<ImageId>,
+    },
+    Textured {
+        input: ImageId,
+        driver: ImageId,
+        draw: std::sync::Arc<crate::textured::Draw>,
+    },
     /// Spatial source adapter. Decoders may still require a full native frame;
     /// downstream operators receive only this region at the requested scale.
     WindowedSource {
@@ -210,6 +220,9 @@ impl ImageOp {
             | Self::Gaussian { input, .. }
             | Self::Blur { input, .. }
             | Self::Grade { input, .. } => [Some(input), None, None],
+            Self::Textured { input, driver, .. } => [Some(input), Some(driver), None],
+            Self::Baked(_) => [None, None, None],
+            Self::BakedTextured { driver, .. } => [driver, None, None],
             Self::Merge { first, second, .. } => [Some(first), Some(second), None],
             Self::Mask { input, mask } => [Some(input), Some(mask), None],
             Self::Over {
@@ -247,6 +260,15 @@ impl RenderGraph {
                 return Err("invalid nested graph ordering".into());
             }
             match op {
+                ImageOp::BakedTextured { driver, .. } => {
+                    if let Some(id) = driver {
+                        *id += offset;
+                    }
+                }
+                ImageOp::Textured { input, driver, .. } => {
+                    *input += offset;
+                    *driver += offset;
+                }
                 ImageOp::Shuffle { first, second, .. } => {
                     *first += offset;
                     if let Some(second) = second {
@@ -461,6 +483,9 @@ pub(crate) fn validate(graph: &RenderGraph, aces: bool) -> Result<usize, String>
                 }
                 source.info.frame_at(time)?;
             }
+            ImageOp::Textured { ref draw, .. } => draw.validate()?,
+            ImageOp::Baked(ref texture) => texture.validate()?,
+            ImageOp::BakedTextured { ref batch, .. } => batch.validate()?,
             ImageOp::Vector(ref drawings) => crate::vector::validate_working(drawings, aces)?,
             ImageOp::Over { .. } | ImageOp::Media(_) => {}
         }
@@ -675,6 +700,43 @@ pub(crate) fn evaluate(
                         }
                     }));
                 }
+            }
+            ImageOp::Baked(ref texture) => {
+                if texture.aces != aces
+                    || texture.config.as_deref()
+                        != config.map(|c| c.identity().content_sha256.as_str())
+                {
+                    return Err("Baked texture color configuration changed; rebuild".into());
+                }
+                pixels = crate::baked::fullscreen(texture.clone(), [graph.width, graph.height])
+                    .rasterize(None, graph.width, graph.height, cancel, aces)?;
+            }
+            ImageOp::BakedTextured { ref batch, driver } => {
+                if batch.textures.iter().any(|t| {
+                    t.aces != aces
+                        || t.config.as_deref()
+                            != config.map(|c| c.identity().content_sha256.as_str())
+                }) {
+                    return Err("Baked texture color configuration changed; rebuild".into());
+                }
+                pixels =
+                    batch.rasterize(driver.map(input), graph.width, graph.height, cancel, aces)?;
+            }
+            ImageOp::Textured {
+                input: source,
+                driver,
+                ref draw,
+            } => {
+                drop(pixels);
+                pixels = crate::textured::rasterize(
+                    draw,
+                    input(source),
+                    input(driver),
+                    graph.width,
+                    graph.height,
+                    cancel,
+                    aces,
+                )?;
             }
             ImageOp::Vector(ref drawings) => {
                 // Raster surface + resulting float pixels coexist; do not reserve

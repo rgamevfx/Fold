@@ -32,6 +32,12 @@ pub fn builtins() -> Arc<PackageRegistry> {
                     audio: vec![],
                     commands: vec![
                         CommandRegistration {
+                            id: fold_platform::image_bake::COMMAND,
+                            title: "Bake image textures",
+                            execution: Execution::Worker,
+                            handler: crate::image_bake::run,
+                        },
+                        CommandRegistration {
                             id: crate::read_source::REPLACE,
                             title: "Choose Read source",
                             execution: Execution::Worker,

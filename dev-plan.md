@@ -446,6 +446,30 @@ Phases 34–40 are complete per user acceptance. Validation evidence and unverif
 
 ## Live agent access and reusable workflows
 
+- [x] 50. GPU-native Image Bake and ten-video performance (user-authorized).
+  - Plan, benchmarks and acceptance: [phase 50](docs/phase-50-image-bake.md).
+  - [x] Reproducible ten-video baseline, shared/offset/held-frame comparisons and bottleneck attribution.
+  - [x] Mipmapped GPU texture cache with explicit color/alpha, bounds, source invalidation and CPU reference.
+  - [x] Image Bake node, background preparation, rebuild/clear/cancel and public authoring.
+  - [x] Native-size sampling and compatible texture-array instancing; verify output and benchmark before/after.
+  - [x] Tests, normal/narrow UI review, save/reopen and verified Fold workflow guidance.
+  - [x] Delivered the ten-video desktop test on 2026-10-06: opened `/tmp/fold-video-benchmark/ten-video-demo.fold` in `target/release/fold-desktop`, selected the ten-card output and verified its displayed frame without errors. The saved demo uses ten synthetic video sources, 512-pixel BC7 textures and a 31-frame range at 30 fps. Local media/cache files remain outside git; the public benchmark script recreates the inputs. Interactive playback testing is handed to the user.
+
+  - Evidence: [timings and limits](docs/phase-50-image-bake.md), [raw final profile](docs/video-texture-baked-profile.json), [quality](docs/video-texture-quality.json). GTX 1070: ten live sources **2666 ms/frame**; 512-pixel bake **25.2 ms first playback / 18.1 ms repeated loop**. Held full-resolution cards **12.4 ms**, 1,000 instances **14.2 ms**. Two compute passes plus one instanced draw, no scene readback; full-resolution streaming remains slower. Native CPU/GPU parity ≤2 display codes at 1080p (≤1 at 960×540); save/reopen PNG byte-identical.
+  - Follow-up: native decoder LRU/process admission together; validated asynchronous texture streaming and selective mip residency. BC7 is lossy, compact SDR clamping is explicit, Float16 preserves HDR/negative values. Current cache is local `.foldtex`, not KTX2 interchange. Sustained 60 fps/other adapters are not certified.
+
+- [x] 49. Media inputs, textures and image-driven Motion (user-authorized).
+  - Plan and evidence: [phase 49](docs/phase-49-motion-images.md).
+  - [x] Shared image references, source-time mapping and dependency validation; asset/document placement with undo.
+  - [x] GPU textured cards and deformable grids with retained UVs, whole-image/per-cell mapping and collection selection.
+  - [x] GPU image sampling for color/luminance/alpha, image-driven responses and ASCII glyphs; explicit bounded CPU reference/fallback behavior.
+  - [x] Artist controls, public authoring examples, save/load and CPU/GPU parity checks.
+  - [x] Grid/carousel/ASCII performance probes and normal/narrow UI verification; record measured limits.
+  - Delivered [editable examples](demos/motion-image-inputs.md), [public workflow](skills/fold/references/image-inputs.md), and final release desktop/CLI builds. Eight Motion image tests, six scene regressions, prepared-cache/still tests and five native GPU renderer tests pass. Three saved/reopened outputs match byte-for-byte; full-scene CPU/GPU comparisons stay within one display code on the GTX 1070. Normal/narrow inspector captures reviewed.
+  - Final 1080p GTX 1070 warm display-ready means: grid **13.10 ms**, six-card mixed-media carousel **30.35 ms**, video ASCII **16.07 ms**; scene pixel readback is zero. [Raw performance evidence](docs/motion-image-inputs-profile.json) separates cold, warm, p95, transfers and memory. No continuous 60 fps claim; native full-precision blending is selected where supported.
+  - Explicit scope: existing MP4/H.264, EXR/EXR sequences and P6 PPM inputs; deferred ImageField consumers rather than CPU Math/Wrangle pixel sampling. Live pointer interaction, continuous desktop playback and full workspace checks/Clippy remain unverified. Details and portable half-float precision limits are in the phase note.
+  - [ ] Performance follow-up: reduce full-frame intermediate work for mixed-source card batches and preserve native source resolution where possible; the carousel is above a 16.67 ms frame budget and ASCII exceeds it at p95. Benchmark distinct video sources/times and continuous playback before claiming 60 fps.
+
 - [x] 48. Live procedural authoring and artist handoff.
   - Accepted scope and gates: [phase 48](docs/phase-48.md). Build on phase 47's existing runtime, candidates and observation; phase 47 remains independently incomplete.
   - [x] Public SDK tools backed by shared Rust authoring; persistent namespaced identities and explicit creation/update behavior.

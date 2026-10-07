@@ -4,6 +4,9 @@
 //! No renderer or device is initialized in CPU-only/headless builds by default.
 mod cache;
 pub use cache::PresentationCompressor;
+mod baked;
+mod bake_encoder;
+pub use bake_encoder::BakeEncoder;
 mod color;
 mod display;
 mod fusion;
@@ -12,6 +15,7 @@ mod host;
 mod preparation;
 mod sampling;
 mod still;
+mod textured;
 mod upload;
 pub use display::Display;
 #[cfg(all(feature = "native-video", target_os = "linux"))]
@@ -311,6 +315,8 @@ pub struct Renderer {
     vector: vector::VectorPipeline,
     gaussian: gaussian::Gaussian,
     sampling: sampling::Sampling,
+    textured: textured::Pipeline,
+    baked: baked::Cache,
     #[cfg(all(feature = "native-video", target_os = "linux"))]
     native_video: Option<native_video::NativeVideo>,
 }
@@ -397,6 +403,7 @@ impl Renderer {
         });
         let gaussian = gaussian::Gaussian::new(&host);
         let sampling = sampling::Sampling::new(&host);
+        let textured = textured::Pipeline::new(&host);
         let yuv = yuv::YuvPipeline::new(&host);
         let vector = vector::VectorPipeline::new(&host);
         host.check()?;
@@ -417,6 +424,8 @@ impl Renderer {
             data_display,
             gaussian,
             sampling,
+            textured,
+            baked: Default::default(),
             host,
             pipeline,
             yuv,
@@ -604,6 +613,8 @@ impl Renderer {
             self.host.sources().clear();
             self.yuv.clear();
             self.vector.clear();
+            self.textured.clear();
+            self.baked.clear();
             self.uploads.clear();
             #[cfg(all(feature = "native-video", target_os = "linux"))]
             if let Some(native) = self.native_video.as_mut() {
@@ -704,6 +715,7 @@ impl Renderer {
         // read: distinct passes provide barriers. It does not escape to the host
         // pool until the entire submission completes.
         let mut scratch = Vec::<Arc<Image>>::new();
+        let mut textured_surface = None;
         let mut uploads = Vec::new();
         let mut immutable = vec![false; graph.nodes.len()];
         let mut retained = Vec::new();
@@ -944,6 +956,75 @@ impl Renderer {
                     }
                     stats.compute_passes += 2;
                     scratch.push(intermediate);
+                    compute = false;
+                }
+                ImageOp::Baked(_) | ImageOp::BakedTextured { .. } => {
+                    let fullscreen;
+                    let (batch, driver) = match op {
+                        ImageOp::Baked(texture) => {
+                            fullscreen = crate::baked::fullscreen(texture.clone(), dimensions);
+                            (&fullscreen, None)
+                        }
+                        ImageOp::BakedTextured { batch, driver } => (batch.as_ref(), *driver),
+                        _ => unreachable!(),
+                    };
+                    if batch.textures.iter().any(|t| {
+                        t.aces != aces
+                            || t.config.as_deref()
+                                != config.map(|c| c.identity().content_sha256.as_str())
+                    }) {
+                        return Err("Baked texture color configuration changed; rebuild".into());
+                    }
+                    let (source, reservations, uploaded) =
+                        self.baked.acquire(&self.host, &batch.textures)?;
+                    stats.upload_bytes += uploaded;
+                    buffers.extend(reservations);
+                    leases.push(source.clone());
+                    if textured_surface.is_none() {
+                        let image = self
+                            .host
+                            .image_format(dimensions, self.host.textured_format())?;
+                        leases.push(image.clone());
+                        textured_surface = Some(image);
+                    }
+                    let (reservations, bytes) = self.textured.encode(
+                        &self.host,
+                        &mut encoder,
+                        &source,
+                        if driver.is_some() { first } else { &source },
+                        &output,
+                        textured_surface.as_ref().unwrap(),
+                        &batch.draw,
+                        &status,
+                        aces,
+                    )?;
+                    buffers.extend(reservations);
+                    stats.upload_bytes += bytes;
+                    stats.compute_passes += 2;
+                    compute = false;
+                }
+                ImageOp::Textured { draw, .. } => {
+                    if textured_surface.is_none() {
+                        let image = self
+                            .host
+                            .image_format(dimensions, self.host.textured_format())?;
+                        leases.push(image.clone());
+                        textured_surface = Some(image);
+                    }
+                    let (reservations, bytes) = self.textured.encode(
+                        &self.host,
+                        &mut encoder,
+                        first,
+                        second,
+                        &output,
+                        textured_surface.as_ref().unwrap(),
+                        draw,
+                        &status,
+                        aces,
+                    )?;
+                    buffers.extend(reservations);
+                    stats.upload_bytes += bytes;
+                    stats.compute_passes += 2;
                     compute = false;
                 }
                 ImageOp::Vector(drawings) => {

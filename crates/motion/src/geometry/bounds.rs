@@ -122,6 +122,16 @@ pub fn content_with_budget(
             let m = multiply(m, e.transform);
             match &e.geometry {
                 Geometry::Path(path) | Geometry::Glyph { path, .. } => b.path(path, m, budget)?,
+                Geometry::Image(image) => {
+                    if image.driver.is_some() {
+                        return Err("image-driven bounds require rendered observation".into());
+                    }
+                    for v in &image.draw.mesh.vertices {
+                        budget.spend()?;
+                        let [x, y] = v.position.map(f64::from);
+                        b.point([m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]]);
+                    }
+                }
                 Geometry::Point => b.point([m[4], m[5]]),
                 Geometry::Group(children) | Geometry::Instance(children) => {
                     walk(children, m, b, budget, depth + 1)?

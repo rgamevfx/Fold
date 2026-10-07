@@ -82,7 +82,7 @@ mod tests {
         assert_eq!(cache.0.lock().unwrap().len(), MAX_ROOTS);
         assert!(!Arc::ptr_eq(&next, &cache.get(&document).unwrap()));
         let mut invalid = document;
-        invalid.schema_version = 5;
+        invalid.schema_version = u32::MAX;
         assert!(cache.get(&invalid).is_err());
     }
 }

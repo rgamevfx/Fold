@@ -48,6 +48,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let start = setting("FOLD_PROFILE_START", 0)?;
     let step = setting("FOLD_PROFILE_STEP", 2)?;
     let rate = u32::try_from(setting("FOLD_PROFILE_RATE", 24)?)?;
+    let cycle = setting("FOLD_PROFILE_CYCLE", 0)?;
+    if cycle < 0 {
+        return Err("profile cycle must be nonnegative".into());
+    }
     let source = DocumentRef {
         document,
         output: "video".into(),
@@ -60,7 +64,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     ))?;
     eprintln!("{adapter:?}");
     let mut renderer = fold_render::gpu::Renderer::new(host.clone())?;
-    let mut decoder = fold_media::Decoder::default();
+    let mut decoder = fold_media::Decoder::from_environment()?;
     let mut total = 0.;
     let mut ready_total = 0.;
     for frame in 0..count {
@@ -68,7 +72,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let graph = packages.video_with(
             &snapshot,
             &source,
-            Time::new(start + i64::from(frame) * step, rate)?,
+            Time::new(
+                start
+                    + if cycle > 0 {
+                        (i64::from(frame) * step).rem_euclid(cycle)
+                    } else {
+                        i64::from(frame) * step
+                    },
+                rate,
+            )?,
             size,
             &cancel,
         )?;
@@ -108,7 +120,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         println!(
             "{}",
-            serde_json::json!({"frame":frame,"nodes":nodes,"wall_ms":ms,"ready_ms":ready_ms,"output_cpu_ms":output.statistics.output_cpu_nanoseconds as f64/1e6,"cpu_adapter_nodes":stats.cpu_adapter_nodes,"compile_ms":compile_ms,"gpu_ms":scene.gpu_nanoseconds()?.map(|n|n/1e6),"vector_prepare_ms":stats.vector_prepare_nanoseconds as f64/1e6,"evaluate_ms":stats.evaluate_cpu_nanoseconds as f64/1e6,"passes":stats.compute_passes,"vector_upload_bytes":stats.vector_upload_bytes,"vector_geometry_upload_bytes":stats.vector_geometry_upload_bytes,"vector_instance_upload_bytes":stats.vector_instance_upload_bytes,"vector_instances":stats.vector_instances,"vector_unique_triangles":stats.vector_unique_triangles,"vector_execution_triangles":stats.vector_execution_triangles,"vector_cpu_transform_fallbacks":stats.vector_cpu_transform_fallbacks,"upload_bytes":stats.upload_bytes,"peak_bytes":host.memory().peak,"allocated_bytes":host.memory().allocated})
+            serde_json::json!({"frame":frame,"nodes":nodes,"wall_ms":ms,"ready_ms":ready_ms,"output_cpu_ms":output.statistics.output_cpu_nanoseconds as f64/1e6,"cpu_adapter_nodes":stats.cpu_adapter_nodes,"native_video_nodes":stats.native_video_nodes,"resident_video_nodes":stats.resident_video_nodes,"native_decode_ms":stats.native_decode_nanoseconds as f64/1e6,"native_codec_call_ms":stats.native_codec_call_nanoseconds as f64/1e6,"native_copy_ready_ms":stats.native_copy_ready_nanoseconds as f64/1e6,"native_allocate_ms":stats.native_allocate_nanoseconds as f64/1e6,"native_seeks":stats.native_seeks,"native_forward_reuses":stats.native_forward_reuses,"native_gpu_local_copy_bytes":stats.native_gpu_local_copy_bytes,"native_pipe_bytes":stats.native_pipe_bytes,"graph_prepare_ms":stats.graph_prepare_nanoseconds as f64/1e6,"queue_submit_ms":stats.queue_submit_nanoseconds as f64/1e6,"resident_still_nodes":stats.resident_still_nodes,"scene_readback_bytes":stats.readback_bytes,"compile_ms":compile_ms,"gpu_ms":scene.gpu_nanoseconds()?.map(|n|n/1e6),"vector_prepare_ms":stats.vector_prepare_nanoseconds as f64/1e6,"evaluate_ms":stats.evaluate_cpu_nanoseconds as f64/1e6,"passes":stats.compute_passes,"vector_upload_bytes":stats.vector_upload_bytes,"vector_geometry_upload_bytes":stats.vector_geometry_upload_bytes,"vector_instance_upload_bytes":stats.vector_instance_upload_bytes,"vector_instances":stats.vector_instances,"vector_unique_triangles":stats.vector_unique_triangles,"vector_execution_triangles":stats.vector_execution_triangles,"vector_cpu_transform_fallbacks":stats.vector_cpu_transform_fallbacks,"upload_bytes":stats.upload_bytes,"peak_bytes":host.memory().peak,"allocated_bytes":host.memory().allocated})
         );
         if let Some(directory) = std::env::var_os("FOLD_PROFILE_IMAGES") {
             use std::io::Write;
@@ -132,6 +144,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Ok(frame)
             })?;
             let expected = fold_app::color::delivery(&snapshot, document, &expected_frame)?;
+            if let Some(directory) = std::env::var_os("FOLD_PROFILE_IMAGES") {
+                use std::io::Write;
+                let path = std::path::Path::new(&directory).join(format!("reference-{frame}.ppm"));
+                let mut file = std::io::BufWriter::new(std::fs::File::create_new(path)?);
+                writeln!(file, "P6\n{} {}\n255", size[0], size[1])?;
+                for pixel in expected.rgba().chunks_exact(4) {
+                    file.write_all(&pixel[..3])?;
+                }
+                file.flush()?;
+            }
             let max = image
                 .rgba()
                 .iter()
@@ -140,8 +162,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .max()
                 .unwrap_or(0);
             eprintln!("frame={frame} max_code_error={max}");
-            if max > 1 {
-                return Err("CPU/GPU differ by more than one code".into());
+            let tolerance = std::env::var("FOLD_PROFILE_CODE_TOLERANCE")
+                .ok()
+                .map(|v| v.parse::<u8>())
+                .transpose()?
+                .unwrap_or(1);
+            if max > tolerance {
+                return Err(
+                    format!("CPU/GPU differ by more than {tolerance} display codes").into(),
+                );
             }
         }
     }

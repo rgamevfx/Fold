@@ -1,0 +1,25 @@
+{
+  "minified_comparison": [
+    {
+      "frame": 0,
+      "mean_code_error_full": 1.8900802147633744,
+      "p95_code_error_full": 13,
+      "p99_code_error_full": 31,
+      "max_code_error": 194
+    },
+    {
+      "frame": 15,
+      "mean_code_error_full": 1.924843106995885,
+      "p95_code_error_full": 13,
+      "p99_code_error_full": 31,
+      "max_code_error": 188
+    }
+  ],
+  "native_comparison": {
+    "description": "Native-size source 0, frame 0, 1920x1080: GPU BC7 plus explicit SDR clamp versus original GPU; no minification",
+    "mean_code_error": 0.9286022698045268,
+    "p95": 2,
+    "p99": 14,
+    "maximum": 177
+  }
+}

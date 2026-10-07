@@ -16,6 +16,8 @@ use std::{
 };
 #[derive(Clone, Debug)]
 pub enum Value {
+    Image(Arc<Vec<fold_platform::image_source::Request>>),
+    ImageField(Arc<crate::nodes::image::Samples>),
     Field(Field),
     Content(Content),
     Points(Content),
@@ -24,6 +26,8 @@ impl Value {
     pub fn kind(&self) -> Kind {
         match self {
             Self::Field(f) => f.kind,
+            Self::Image(_) => Kind::Image,
+            Self::ImageField(_) => Kind::ImageField,
             Self::Content(_) => Kind::Content,
             Self::Points(_) => Kind::Points,
         }
@@ -301,10 +305,21 @@ pub fn compile_runtime(
 
 /// The provider supplies a validated immutable root and its cached identity.
 pub(crate) fn compile_evaluator(
+    evaluator: Evaluator<'_>,
+    width: u32,
+    height: u32,
+    cancel: &fold_media::Cancel,
+) -> Result<RenderGraph, String> {
+    compile_evaluator_images(evaluator, width, height, cancel, &|_| {
+        Err("image inputs require a project render context".into())
+    })
+}
+pub(crate) fn compile_evaluator_images(
     mut evaluator: Evaluator<'_>,
     width: u32,
     height: u32,
     cancel: &fold_media::Cancel,
+    resolve: &dyn Fn(&fold_platform::image_source::Request) -> Result<RenderGraph, String>,
 ) -> Result<RenderGraph, String> {
     cancel.check()?;
     let motion = evaluator.motion;
@@ -317,7 +332,7 @@ pub(crate) fn compile_evaluator(
     let Value::Content(content) = value else {
         return Err("motion output must be scene content".into());
     };
-    crate::geometry::render::compile(
+    crate::geometry::render::compile_images(
         &content,
         width,
         height,
@@ -326,5 +341,6 @@ pub(crate) fn compile_evaluator(
             height as f64 / motion.info.height as f64,
         ],
         cancel,
+        resolve,
     )
 }

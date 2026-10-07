@@ -119,6 +119,9 @@ impl Plan {
                         height: high[1] - low[1],
                     }
                 }
+                ImageOp::Textured { .. } | ImageOp::Baked(_) | ImageOp::BakedTextured { .. } => {
+                    Region::full(dimensions)
+                }
                 _ => output,
             };
             for source in graph.nodes[id].inputs() {

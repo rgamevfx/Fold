@@ -135,6 +135,7 @@ pub(crate) fn state_bytes(content: &Content, budget: &mut Budget) -> Result<usiz
                 Geometry::Group(children) | Geometry::Instance(children) => {
                     walk(children, budget, depth + 1)?
                 }
+                Geometry::Image(_) => return Err("Solver state cannot retain render-dependent image geometry; apply images after the Solver".into()),
                 Geometry::Point => 0,
             });
             if bytes > 64 * 1024 * 1024 {

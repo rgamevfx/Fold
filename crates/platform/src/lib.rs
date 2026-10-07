@@ -298,3 +298,6 @@ impl VideoRegistry {
 }
 
 pub mod authoring;
+
+pub mod image_bake;
+pub mod image_source;

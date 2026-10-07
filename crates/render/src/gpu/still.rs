@@ -9,12 +9,13 @@ use std::{collections::VecDeque, sync::Arc};
 #[derive(Clone, PartialEq, Eq)]
 pub(super) struct Key {
     fingerprint: String,
-    info: fold_media::exr::Info,
+    info: Option<fold_media::exr::Info>,
+    rgb_dimensions: Option<[u32; 2]>,
     channels: [Option<String>; 4],
     processor: Option<String>,
     dimensions: [u32; 2],
-    path: std::path::PathBuf,
-    stamp: fold_media::exr::cache::Stamp,
+    path: Option<std::path::PathBuf>,
+    stamp: Option<fold_media::exr::cache::Stamp>,
 }
 impl Key {
     pub fn new(
@@ -22,6 +23,22 @@ impl Key {
         dimensions: [u32; 2],
         processors: &std::collections::BTreeMap<String, fold_color::Processor>,
     ) -> Result<Option<Self>, String> {
+        if let ImageOp::Media(image) = op {
+            if let Some(identity) = image.rgb_identity() {
+                return Ok(Some(Self {
+                    fingerprint: identity.into(),
+                    info: None,
+                    rgb_dimensions: Some(image.dimensions()),
+                    channels: Default::default(),
+                    processor: processors
+                        .get(fold_color::settings::SRGB_INPUT)
+                        .map(|p| p.identity().to_owned()),
+                    dimensions,
+                    path: None,
+                    stamp: None,
+                }));
+            }
+        }
         let ImageOp::Exr {
             source,
             channels,
@@ -32,18 +49,19 @@ impl Key {
         };
         Ok(Some(Self {
             fingerprint: source.fingerprint.clone(),
-            info: source.info.clone(),
+            info: Some(source.info.clone()),
+            rgb_dimensions: None,
             channels: channels.clone(),
             processor: space
                 .as_ref()
                 .and_then(|s| processors.get(s))
                 .map(|p| p.identity().to_owned()),
             dimensions,
-            path: source.path.clone(),
-            stamp: fold_media::exr::cache::Stamp::read(
+            path: Some(source.path.clone()),
+            stamp: Some(fold_media::exr::cache::Stamp::read(
                 &source.path,
                 &fold_media::Cancel::default(),
-            )?,
+            )?),
         }))
     }
     fn bytes(&self) -> u64 {
@@ -97,10 +115,10 @@ impl Cache {
         // Do not publish a stamp sampled after a concurrent source replacement.
         // Decode verified the bytes; the pre/post stamps must also agree.
         if !Self::eligible(&key, budget)
-            || fold_media::exr::cache::Stamp::read(&key.path, &fold_media::Cancel::default())
-                .ok()
-                .as_ref()
-                != Some(&key.stamp)
+            || key.path.as_ref().is_some_and(|path| {
+                fold_media::exr::cache::Stamp::read(path, &fold_media::Cancel::default()).ok()
+                    != key.stamp
+            })
         {
             return;
         }

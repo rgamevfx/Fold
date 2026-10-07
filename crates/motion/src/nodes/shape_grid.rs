@@ -182,7 +182,11 @@ fn grid(
                 };
                 item.stroke = None;
             }
-            Geometry::Point => return Err("Shape Grid requires filled paths".into()),
+            Geometry::Image(_) | Geometry::Point => {
+                return Err(
+                    "Shape Grid requires filled paths; use Textured Grid for images".into(),
+                );
+            }
         }
         result.push(item);
     }

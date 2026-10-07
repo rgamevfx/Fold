@@ -86,3 +86,5 @@ pub mod shape_points;
 pub mod direction;
 pub mod particle_targets;
 pub mod particles;
+
+pub mod image;

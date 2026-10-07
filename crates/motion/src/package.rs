@@ -11,7 +11,7 @@ mod prepared;
 use std::sync::Arc;
 pub const EDIT: &str = "fold.motion.edit";
 pub const CHANGE: &str = "fold.motion.change.v1";
-const BUILD: &str = "motion-schema4-evaluator5-solver1-noto-b85c38ec";
+const BUILD: &str = "motion-schema6-evaluator6-solver1-noto-b85c38ec";
 pub const PANEL: &str = "fold.motion.editor";
 pub const INSPECTOR: &str = "fold.motion.inspector";
 pub const PANELS: &[PanelDescriptor] = &[
@@ -95,6 +95,14 @@ impl DocumentProvider for Documents {
     fn create(&self, id: fold_foundation::DocumentId) -> Result<Document, String> {
         crate::document::Motion::new_scene().document(id)
     }
+    fn place(
+        &self,
+        snapshot: &fold_project::Snapshot,
+        placement: &fold_platform::browser::Placement,
+        info: Option<fold_media::VideoInfo>,
+    ) -> Result<Document, String> {
+        crate::nodes::image::place(snapshot, placement, info)
+    }
     fn package_id(&self) -> &'static str {
         crate::PACKAGE
     }
@@ -102,10 +110,10 @@ impl DocumentProvider for Documents {
         MOTION
     }
     fn schema(&self) -> u32 {
-        4
+        6
     }
     fn supports_schema(&self, schema: u32) -> bool {
-        [1, 2, 3, 4].contains(&schema)
+        [1, 2, 3, 4, 5, 6].contains(&schema)
     }
     fn validate(&self, d: &Document) -> Result<(), String> {
         self.0.get(d).map(|_| ())
@@ -133,6 +141,9 @@ impl VideoProvider for Provider {
         true
     }
     fn compile(&self, request: fold_platform::VideoCompile<'_>) -> Result<RenderGraph, String> {
+        let image_request = |source: &fold_platform::image_source::Request| {
+            fold_platform::image_source::compile(source, &request)
+        };
         let fold_platform::VideoCompile {
             document: d,
             reference,
@@ -177,7 +188,13 @@ impl VideoProvider for Provider {
         if !reference.extensions.contains_key("fold.controls") {
             evaluator.identity = Some(prepared.identity.clone());
         }
-        crate::evaluation::compile_evaluator(evaluator, dimensions[0], dimensions[1], cancel)
+        crate::evaluation::compile_evaluator_images(
+            evaluator,
+            dimensions[0],
+            dimensions[1],
+            cancel,
+            &image_request,
+        )
     }
 }
 pub fn register(registry: &mut PackageRegistry) -> Result<(), String> {

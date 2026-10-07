@@ -18,3 +18,8 @@ pub(crate) fn file() -> std::io::Result<tempfile::NamedTempFile> {
     let path = root().read().unwrap().clone();
     tempfile::NamedTempFile::new_in(path)
 }
+
+/// Selected cache root, for bounded versioned engine caches.
+pub fn cache_root() -> PathBuf {
+    root().read().unwrap().clone()
+}

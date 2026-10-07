@@ -5,6 +5,8 @@ use std::sync::Arc;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 pub enum Kind {
+    Image,
+    ImageField,
     Scalar,
     Vector,
     Color,

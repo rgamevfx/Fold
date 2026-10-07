@@ -156,6 +156,7 @@ impl YuvFrame {
         Ok(crate::RgbImage {
             dimensions,
             rgb: Arc::new(Vec::new()),
+            identity: Default::default(),
             signal: Some(Arc::new(planes)),
             _storage: storage,
         })

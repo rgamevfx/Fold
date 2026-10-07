@@ -239,6 +239,29 @@ fn walk(
                     fills.push((start..out.len(), e.even_odd));
                 }
             }
+            Geometry::Image(image) => {
+                // Authored mesh is the edit cage; GPU displacement does not force readback.
+                for triangle in image.draw.mesh.indices.chunks_exact(3) {
+                    *budget = budget
+                        .checked_sub(4)
+                        .ok_or("Picking geometry exceeds point budget")?;
+                    let start = out.len();
+                    let mut points = triangle
+                        .iter()
+                        .map(|i| {
+                            transform(
+                                m,
+                                image.draw.mesh.vertices[*i as usize]
+                                    .position
+                                    .map(f64::from),
+                            )
+                        })
+                        .collect::<Vec<_>>();
+                    points.push(points[0]);
+                    out.push(points);
+                    fills.push((start..out.len(), false));
+                }
+            }
             Geometry::Point => {}
         }
     }

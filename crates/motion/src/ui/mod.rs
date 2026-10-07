@@ -55,3 +55,7 @@ mod color_ramp;
 mod simulation;
 
 mod wrangle;
+
+mod images;
+
+mod image_bake;

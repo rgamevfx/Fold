@@ -2,6 +2,7 @@
 use std::io::{self, Write};
 
 pub mod audio;
+pub mod baked;
 pub mod channels;
 pub mod frame;
 #[cfg(feature = "gpu")]
@@ -13,6 +14,7 @@ pub use preparation::{PreparedSources, prepare_sources};
 pub mod region;
 mod sampling;
 pub mod scheduling;
+pub mod textured;
 pub mod vector;
 mod vector_geometry;
 #[cfg(feature = "gpu")]

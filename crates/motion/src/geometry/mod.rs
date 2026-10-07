@@ -19,6 +19,7 @@ pub enum Domain {
 }
 #[derive(Clone, Debug)]
 pub enum Geometry {
+    Image(Arc<crate::nodes::image::ImageGeometry>),
     Path(Arc<Vec<Segment>>),
     Glyph {
         path: Arc<Vec<Segment>>,
@@ -170,6 +171,9 @@ pub fn drawings_with(
                     depth + 1,
                     traversal,
                 )?,
+                Geometry::Image(_) => {
+                    return Err("image geometry requires image-plan compilation".into());
+                }
                 Geometry::Point => return Err("points must be instanced before rendering".into()),
             }
         }

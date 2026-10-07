@@ -68,6 +68,22 @@ impl Panel for Inspector {
             .and_then(|m| m.scene.as_ref())
             .map(|s| s.objects.iter().map(|o| (o.id, o.name.clone())).collect())
             .unwrap_or_default();
+        let image_info = motion.info.clone();
+        if let Ok(node) = motion.graph.node(selected) {
+            if let Some(Input::Link(source)) = node.inputs.get("image") {
+                if ui.small_button("Edit image source") {
+                    state.selected = vec![source.node];
+                    state.inspector_return = Some((source.node, selected));
+                    host.command(fold_platform::desktop::DesktopCommand::Select(
+                        fold_platform::desktop::Selection {
+                            document: state.document,
+                            objects: vec![source.node],
+                        },
+                    ));
+                    return;
+                }
+            }
+        }
         let mut signature = motion
             .graph
             .node(selected)
@@ -542,7 +558,9 @@ impl Panel for Inspector {
                     Some(Input::Value(value)) => {
                         if matches!(
                             node.kind.as_str(),
-                            "fold.motion.text" | "fold.motion.text_on_points"
+                            "fold.motion.text"
+                                | "fold.motion.text_on_points"
+                                | "fold.motion.image_ascii"
                         ) && key == "alignment"
                         {
                             alignment(ui, value, aces, &mut response);
@@ -571,7 +589,7 @@ impl Panel for Inspector {
         }
         if matches!(
             node.kind.as_str(),
-            "fold.motion.text" | "fold.motion.text_on_points"
+            "fold.motion.text" | "fold.motion.text_on_points" | "fold.motion.image_ascii"
         ) {
             let current = node
                 .settings
@@ -679,6 +697,8 @@ impl Panel for Inspector {
             {
                 settings(ui, segments, &mut response, 0);
             }
+        } else if super::image_bake::draw(ui, host, node, state.document, group, &mut response) {
+        } else if super::images::draw(ui, host, node, &image_info, &mut response) {
         } else if super::simulation::draw(ui, node, &mut response) {
         } else if node.kind == "fold.motion.keyframes" {
             ui.text_disabled("Edit keys in the Animation panel.");

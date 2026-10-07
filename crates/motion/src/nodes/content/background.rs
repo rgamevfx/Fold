@@ -88,6 +88,15 @@ fn measure(
                     }
                 }
             }
+            Geometry::Image(image) => {
+                if image.driver.is_some() {
+                    return Err("image-driven bounds require rendered observation".into());
+                }
+                for v in &image.draw.mesh.vertices {
+                    budget.spend()?;
+                    include(m, v.position.map(f64::from), bounds);
+                }
+            }
             Geometry::Point => {}
         }
     }

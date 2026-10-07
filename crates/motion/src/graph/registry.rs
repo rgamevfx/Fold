@@ -38,6 +38,7 @@ pub fn definitions() -> &'static [Definition] {
         result.push(nodes::convex_sweep::definition_sweep());
         result.push(nodes::direction::definition_direction());
         result.extend(nodes::particles::definitions());
+        result.extend(nodes::image::definitions());
         result
     })
 }

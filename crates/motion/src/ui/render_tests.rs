@@ -62,6 +62,18 @@ fn motion_tools_and_inspector_render_normal_and_narrow() {
     context.io_mut().set_display_size([1280., 800.]);
     context.io_mut().set_delta_time(1. / 60.);
     for (name, width, properties) in [
+        ("images-bake-normal", 850., 400.),
+        ("images-bake-narrow", 390., 280.),
+        ("images-bake-compact-normal", 850., 400.),
+        ("images-bake-compact-narrow", 390., 280.),
+        ("images-source-normal", 850., 400.),
+        ("images-source-narrow", 390., 280.),
+        ("images-grid-normal", 850., 400.),
+        ("images-grid-narrow", 390., 280.),
+        ("images-sample-normal", 850., 400.),
+        ("images-sample-narrow", 390., 280.),
+        ("images-ascii-normal", 850., 400.),
+        ("images-ascii-narrow", 390., 280.),
         ("normal", 850., 400.),
         ("narrow", 390., 280.),
         ("scene-drop-normal", 850., 400.),
@@ -96,6 +108,36 @@ fn motion_tools_and_inspector_render_normal_and_narrow() {
             if !name.starts_with(&filter) {
                 continue;
             }
+        }
+        if name.starts_with("images-") && name.ends_with("normal") {
+            let mut state = inspector.state.borrow_mut();
+            state.create(&mut host);
+            state.change_scene(&mut host, |m| {
+                let kind = if name.contains("bake") {
+                    "fold.motion.image_bake"
+                } else if name.contains("source") {
+                    "fold.motion.image"
+                } else if name.contains("sample") {
+                    "fold.motion.sample_image"
+                } else if name.contains("ascii") {
+                    "fold.motion.image_ascii"
+                } else {
+                    "fold.motion.image_grid"
+                };
+                let id = crate::authoring::add_node(m, kind)?;
+                if name.contains("bake-compact") {
+                    let node = crate::authoring::node(m, id)?;
+                    node.settings["format"] = serde_json::json!("Bc7");
+                    node.settings["clamp_sdr"] = serde_json::json!(true);
+                }
+                if kind == "fold.motion.image_ascii" {
+                    let font = fold_foundation::ObjectId::new();
+                    m.fonts.insert(font, crate::document::Font::builtin());
+                    crate::authoring::node(m, id)?.settings["font"] = serde_json::json!(font);
+                }
+                Ok(Some(id))
+            });
+            assert!(state.error.is_empty(), "{}", state.error);
         }
         if name == "wrangle-normal" {
             let mut state = inspector.state.borrow_mut();
