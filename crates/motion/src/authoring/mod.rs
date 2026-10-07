@@ -188,3 +188,5 @@ pub fn radial_influence(motion: &mut Motion, response: ObjectId) -> Result<Objec
 
 pub mod drift;
 pub mod particles;
+
+pub(crate) mod network_scope;

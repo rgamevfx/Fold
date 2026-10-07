@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 pub const SEQUENCE: &str = "fold.timeline.sequence";
-pub const SEQUENCE_SCHEMA: u32 = 3;
+pub const SEQUENCE_SCHEMA: u32 = 4;
 const MAX_PAYLOAD: usize = 1024 * 1024;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
@@ -42,6 +42,7 @@ impl Track {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SourceMedia {
     Video(VideoInfo),
+    Image(VideoInfo),
     Audio(WaveInfo),
     /// Video-only nested capability; `Clip::asset` is ignored for this variant.
     Document {
@@ -52,7 +53,7 @@ pub enum SourceMedia {
 impl SourceMedia {
     pub fn duration(&self) -> Result<Time, String> {
         match self {
-            Self::Video(info) | Self::Document { info, .. } => {
+            Self::Video(info) | Self::Image(info) | Self::Document { info, .. } => {
                 info.validate()?;
                 info.time(info.frames)
             }
@@ -207,6 +208,11 @@ impl Sequence {
                         .into(),
                 );
             }
+            if matches!(clip.info, SourceMedia::Image(_))
+                && (track.kind != TrackKind::Video || clip.link.is_some())
+            {
+                return Err("Images require an unlinked video track".into());
+            }
             let source_end = clip
                 .source_start
                 .checked_add(clip.duration)
@@ -295,16 +301,22 @@ impl Sequence {
     pub fn from_document(document: &Document) -> Result<Self, String> {
         if document.package_id != super::PACKAGE
             || document.type_id != SEQUENCE
-            || ![2, SEQUENCE_SCHEMA].contains(&document.schema_version)
+            || ![2, 3, SEQUENCE_SCHEMA].contains(&document.schema_version)
             || document.payload.len() > MAX_PAYLOAD
         {
-            return Err(
-                "unsupported sequence document (multi-track schema 2 or 3 required)".into(),
-            );
+            return Err("unsupported sequence document (multi-track schema 2–4 required)".into());
         }
         let sequence: Self =
             serde_json::from_slice(&document.payload).map_err(|e| e.to_string())?;
         sequence.validate()?;
+        if document.schema_version < 4
+            && sequence
+                .clips
+                .iter()
+                .any(|c| matches!(c.info, SourceMedia::Image(_)))
+        {
+            return Err("Image clips require schema 4".into());
+        }
         if document.schema_version == 2 && !sequence.dependencies().is_empty() {
             return Err("nested sequence clips require schema 3".into());
         }

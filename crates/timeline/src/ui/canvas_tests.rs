@@ -299,3 +299,38 @@ fn snapping_uses_exact_clip_edges_and_excludes_the_moving_selection() {
         None
     );
 }
+
+#[test]
+fn native_drop_uses_scrolled_scaled_lanes_and_fractional_frame_time() {
+    let track = Track::new(TrackKind::Video, "V1");
+    let sequence = Sequence {
+        dimensions: [64, 36],
+        rate: [30000, 1001],
+        tracks: vec![track.clone()],
+        clips: vec![],
+        extensions: Default::default(),
+    };
+    let mut canvas = Canvas::default();
+    canvas.snapping = false;
+    canvas.view.first = 10.;
+    canvas.view.pixels_per_frame = 2.;
+    canvas.view.scroll_y = 20.;
+    let layout = Layout::new([30., 40.], [900., 600.], 1.5);
+    canvas.drop_layout = Some(layout);
+    let row = layout.row_rect(0, canvas.view.scroll_y);
+    let position = [layout.body.min[0] + 40., row.min[1] + 25.];
+    let target = DocumentId::new();
+    let request = canvas
+        .native_placement(target, &sequence, position, 0)
+        .unwrap();
+    assert_eq!(request.target, target);
+    assert_eq!(request.track, Some(track.id));
+    assert_eq!(request.at, Time::new(1001, 1000).unwrap());
+    assert!(!request.new_track);
+    assert!(!request.audio_only);
+    assert!(
+        canvas
+            .native_placement(target, &sequence, [layout.area.min[0], position[1]], 0)
+            .is_none()
+    );
+}

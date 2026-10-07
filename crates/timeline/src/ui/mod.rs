@@ -77,6 +77,28 @@ struct TimelinePanel {
     )>,
 }
 impl Panel for TimelinePanel {
+    fn external_drag(&mut self, position: Option<[f32; 2]>) {
+        self.canvas.external_pointer = position;
+    }
+    fn files_dropped(
+        &mut self,
+        position: [f32; 2],
+        paths: &[std::path::PathBuf],
+        host: &mut dyn DesktopClient,
+    ) -> bool {
+        let Some((_, document, sequence, _)) = &self.cached else {
+            return false;
+        };
+        let Some(request) =
+            self.canvas
+                .native_placement(*document, sequence, position, host.state().frame)
+        else {
+            return false;
+        };
+        fold_ui::sdk::project_drop::import_and_place(host, paths, request);
+        true
+    }
+
     fn prepare_frame(&mut self, context: &mut fold_ui::sdk::imgui::Context) {
         self.thumbnails.prepare(context);
     }
@@ -257,6 +279,7 @@ impl Panel for TimelinePanel {
                 _ => None,
             };
             let request = fold_platform::browser::Placement {
+                graph: None,
                 source,
                 target: *document,
                 track,
@@ -292,6 +315,7 @@ impl Panel for TimelinePanel {
                     Ok(source) => host.command(DesktopCommand::Browser(
                         fold_platform::browser::BrowserCommand::Place(
                             fold_platform::browser::Placement {
+                                graph: None,
                                 source,
                                 target: *document,
                                 track,

@@ -121,8 +121,22 @@ impl DocumentProvider for Documents {
         snapshot: &fold_project::Snapshot,
         placement: &fold_platform::browser::Placement,
         info: Option<fold_media::VideoInfo>,
-    ) -> Result<Document, String> {
-        crate::nodes::image::place(snapshot, placement, info)
+    ) -> Result<EditBatch, String> {
+        let document = crate::nodes::image::place(snapshot, placement, info)?;
+        let before = Motion::from_document(&snapshot.state().documents[&placement.target])?;
+        let after = Motion::from_document(&document)?;
+        let mut mutations = vec![Mutation::PutDocument(document)];
+        crate::layer_edits::append(
+            snapshot,
+            placement.target,
+            before.scene.as_ref(),
+            &after,
+            &mut mutations,
+        )?;
+        Ok(EditBatch {
+            base: snapshot.revision(),
+            mutations,
+        })
     }
     fn package_id(&self) -> &'static str {
         crate::PACKAGE

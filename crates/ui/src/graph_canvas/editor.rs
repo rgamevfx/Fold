@@ -66,6 +66,8 @@ pub struct GraphCanvas {
     fit: u8,
     size: [f32; 2],
     hit_map: HitMap,
+    drop_transform: [[f32; 2]; 2],
+    drop_bounds: Option<[[f32; 2]; 2]>,
     search: String,
     pub(super) popup_position: [f32; 2],
     context_node: Option<ObjectId>,
@@ -123,12 +125,22 @@ impl GraphCanvas {
         self.editor = Some(editor);
         self.frame_all();
     }
+    pub fn drop_bounds(&self) -> Option<[[f32; 2]; 2]> {
+        self.drop_bounds
+    }
+    pub fn drop_transform(&self) -> [[f32; 2]; 2] {
+        self.drop_transform
+    }
+    pub fn drop_position(&self, p: [f32; 2]) -> [f32; 2] {
+        [0, 1].map(|i| self.drop_transform[0][i] + p[i] * self.drop_transform[1][i])
+    }
     pub fn frame_all(&mut self) {
         self.fit = 2;
     }
     /// Clear stale event-time geometry when the panel has no graph to draw.
     pub fn clear_hit_map(&mut self) {
         self.hit_map.clear();
+        self.drop_bounds = None;
     }
     pub fn accepts_background_pan(&self, position: [f32; 2]) -> bool {
         self.hit_map.background(position)
@@ -142,6 +154,7 @@ impl GraphCanvas {
     }
     fn draw_with(&mut self, ui: &imgui::Ui, context: &mut impl GraphContext, inline: bool) {
         self.hit_map.clear();
+        self.drop_bounds = None;
         let mut graph = context.graph();
         let changed = self.key != Some(graph.key);
         if changed {
@@ -335,7 +348,14 @@ impl GraphCanvas {
         // Begin temporarily transforms ImGui's pointer into canvas space.
         // Capture screen coordinates first, then convert exactly once.
         let pointer = ui.io().mouse_pos();
+        self.drop_bounds = Some([origin, [origin[0] + size[0], origin[1] + size[1]]]);
         let editor = ui.node_editor(native, "fold-graph-canvas", size);
+        let zero = editor.screen_to_canvas([0., 0.]);
+        let basis = editor.screen_to_canvas([256., 256.]);
+        self.drop_transform = [
+            zero,
+            [(basis[0] - zero[0]) / 256., (basis[1] - zero[1]) / 256.],
+        ];
         let pointer_inside =
             (0..2).all(|i| pointer[i] >= origin[i] && pointer[i] < origin[i] + size[i]);
         if pointer_inside

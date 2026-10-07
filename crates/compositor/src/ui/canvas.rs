@@ -1,6 +1,5 @@
 use super::{graph::Context, state::Shared};
 use crate::package;
-use fold_foundation::Time;
 use fold_ui::sdk::{
     ExtensionUi, Panel,
     graph_canvas::GraphCanvas,
@@ -10,6 +9,7 @@ use fold_ui::sdk::{
 
 pub(super) struct Canvas {
     state: Shared,
+    files: fold_ui::sdk::project_drop::FileDrop,
     canvas: GraphCanvas,
     animation: fold_ui::sdk::animation_editor::Editor,
 }
@@ -17,12 +17,25 @@ impl Canvas {
     pub fn new(state: Shared) -> Self {
         Self {
             state,
+            files: Default::default(),
             canvas: GraphCanvas::default(),
             animation: Default::default(),
         }
     }
 }
 impl Panel for Canvas {
+    fn external_drag(&mut self, position: Option<[f32; 2]>) {
+        self.files.begin_frame(position);
+    }
+    fn files_dropped(
+        &mut self,
+        position: [f32; 2],
+        paths: &[std::path::PathBuf],
+        host: &mut dyn fold_platform::desktop::DesktopClient,
+    ) -> bool {
+        self.files.dropped(position, paths, host)
+    }
+
     fn supports_network(&self) -> bool {
         true
     }
@@ -95,8 +108,6 @@ impl Panel for Canvas {
             }
             return;
         }
-        let drop_origin = ui.cursor_screen_pos();
-        let drop_size = ui.content_region_avail();
         self.canvas.draw_inline(
             ui,
             &mut Context {
@@ -104,10 +115,30 @@ impl Panel for Canvas {
                 host,
             },
         );
-        if let Some(entry) = fold_ui::sdk::project_drop::canvas_target(ui, drop_origin, drop_size)
-            && let Some(document) = state.document
-        {
-            fold_ui::sdk::project_drop::place(host, entry, document, None, Time::ZERO);
+        let Some([drop_origin, drop_end]) = self.canvas.drop_bounds() else {
+            return;
+        };
+        let drop_size = [drop_end[0] - drop_origin[0], drop_end[1] - drop_origin[1]];
+        if let Some(document) = state.document {
+            let mut request =
+                fold_ui::sdk::project_drop::placement(document, fold_foundation::Time::ZERO);
+            request.graph = Some(fold_platform::browser::GraphPlacement {
+                position: self.canvas.drop_position(ui.io().mouse_pos()),
+                group: None,
+                object: None,
+            });
+            self.files.region(
+                ui,
+                drop_origin,
+                drop_size,
+                request.clone(),
+                Some(self.canvas.drop_transform()),
+            );
+            if let Some(entry) =
+                fold_ui::sdk::project_drop::canvas_target(ui, drop_origin, drop_size)
+            {
+                fold_ui::sdk::project_drop::place_request(host, entry, request);
+            }
         }
     }
 }

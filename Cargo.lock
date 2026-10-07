@@ -1439,6 +1439,9 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
+ "url",
+ "wayland-backend",
+ "wayland-client",
  "winit",
  "x11rb",
 ]

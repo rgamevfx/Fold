@@ -246,7 +246,7 @@ impl GraphContext for Context<'_> {
                         && !self.state.document_network
                         && let (Some(id), Some(owner)) = (added, self.state.network_object)
                     {
-                        super::network_scope::include(&mut motion, owner, [id]);
+                        crate::authoring::network_scope::include(&mut motion, owner, [id]);
                     }
                     selected = added.or(selected);
                 }
@@ -303,7 +303,7 @@ pub(super) fn visible_nodes(
         return m.graph.nodes.iter().map(|n| n.id).collect();
     }
     object
-        .map(|id| super::network_scope::members(m, id))
+        .map(|id| crate::authoring::network_scope::members(m, id))
         .unwrap_or_default()
 }
 pub(super) fn node_label(m: &Motion, n: &crate::graph::Node) -> String {

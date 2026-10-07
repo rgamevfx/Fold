@@ -85,7 +85,12 @@ pub fn place(
         },
         vec![],
     );
-    node.position = Some([0., graph.nodes.len() as f32 * 100.]);
+    node.position = Some(
+        request
+            .graph
+            .as_ref()
+            .map_or([0., graph.nodes.len() as f32 * 100.], |g| g.position),
+    );
     graph.nodes.push(node);
     let mut document = graph.document(request.target)?;
     document.extensions = old.extensions.clone();

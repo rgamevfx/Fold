@@ -28,6 +28,10 @@ pub enum BrowserCommand {
         paths: Vec<std::path::PathBuf>,
         destination: fold_project::Parent,
     },
+    ImportAndPlace {
+        paths: Vec<std::path::PathBuf>,
+        placement: Placement,
+    },
     ChooseImport(fold_project::Parent),
     Relink(AssetId),
     NewBin {
@@ -68,7 +72,15 @@ pub enum PlacementMode {
     Overwrite,
 }
 #[derive(Clone, Debug)]
+pub struct GraphPlacement {
+    pub position: [f32; 2],
+    pub group: Option<ObjectId>,
+    pub object: Option<ObjectId>,
+}
+#[derive(Clone, Debug)]
 pub struct Placement {
+    /// Graph source placement; None creates a clip or visible layer/object.
+    pub graph: Option<GraphPlacement>,
     pub source: PlacementSource,
     pub target: DocumentId,
     pub track: Option<ObjectId>,

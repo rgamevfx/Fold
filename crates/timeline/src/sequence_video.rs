@@ -21,16 +21,12 @@ impl VideoProvider for SequenceProvider {
         Sequence::from_document(document)?.info()
     }
     fn compile(&self, request: VideoCompile<'_>) -> Result<RenderGraph, String> {
-        let VideoCompile {
-            snapshot,
-            document,
-            reference,
-            time,
-            dimensions: [width, height],
-            cancel,
-            resolve,
-            ..
-        } = request;
+        let snapshot = request.snapshot;
+        let document = request.document;
+        let reference = request.reference;
+        let time = request.time;
+        let [width, height] = request.dimensions;
+        let cancel = request.cancel;
         let output = reference.output.as_str();
         cancel.check()?;
         if output != "video" || time < Time::ZERO {
@@ -59,7 +55,7 @@ impl VideoProvider for SequenceProvider {
                 if let Some(time) = clip.source_time(time)? {
                     let (source, opaque) = match &clip.info {
                         SourceMedia::Document { source, .. } => {
-                            (graph.append(resolve(source, time)?)?, false)
+                            (graph.append((request.resolve)(source, time)?)?, false)
                         }
                         SourceMedia::Video(info) => {
                             let asset = snapshot
@@ -78,6 +74,20 @@ impl VideoProvider for SequenceProvider {
                                 fold_platform::color::input(&asset.extensions)?,
                             ));
                             (id, true)
+                        }
+                        SourceMedia::Image(info) => {
+                            let source = fold_platform::image_source::compile(
+                                &fold_platform::image_source::Request {
+                                    source: fold_platform::image_source::Source::Asset(clip.asset),
+                                    time,
+                                    info: info.clone(),
+                                    outside: Default::default(),
+                                    color_space: None,
+                                    bake: None,
+                                },
+                                &request,
+                            )?;
+                            (graph.append(source)?, false)
                         }
                         SourceMedia::Audio(_) => return Err("non-video clip on video track".into()),
                     };

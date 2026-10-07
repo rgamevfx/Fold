@@ -46,6 +46,13 @@ pub struct IngestProposal {
     pub items: Vec<ItemId>,
 }
 impl IngestProposal {
+    pub(crate) fn new(batch: EditBatch, cancel: Cancel, items: Vec<ItemId>) -> Self {
+        Self {
+            batch,
+            cancel,
+            items,
+        }
+    }
     pub(crate) fn into_batch(self) -> Result<EditBatch, String> {
         self.cancel.check()?;
         Ok(self.batch)
@@ -88,8 +95,8 @@ pub fn import(
     let _permit = fold_render::scheduling::Scheduler::shared()
         .enter(fold_render::scheduling::Class::Background, cancel)?;
     check_base(snapshot, request.base, cancel)?;
-    if request.paths.is_empty() || request.paths.len() > 32 {
-        return Err("import requires 1–32 files".into());
+    if request.paths.is_empty() || request.paths.len() > 4096 {
+        return Err("import requires 1–4096 files or folders".into());
     }
     if let Parent::Bin(id) = request.destination
         && !snapshot.state().organization.bins.contains_key(&id)
@@ -99,9 +106,10 @@ pub fn import(
     let mut assets = snapshot.state().assets.clone();
     let mut mutations = Vec::new();
     let mut items = Vec::new();
-    for path in &request.paths {
+    let files = expand_import(&request.paths, request.destination, &mut mutations, cancel)?;
+    for (path, parent) in files {
         let source =
-            inspect_linked(path, cancel).map_err(|e| format!("{}: {e}", path.display()))?;
+            inspect_linked(&path, cancel).map_err(|e| format!("{}: {e}", path.display()))?;
         let location = source
             .path
             .to_str()
@@ -157,7 +165,7 @@ pub fn import(
                 .and_then(|s| s.to_str())
                 .unwrap_or("Media")
                 .into(),
-            parent: request.destination,
+            parent,
             order: (snapshot.state().organization.items.len() + items.len()) as u64,
             extensions: Metadata::new(),
         };
@@ -357,4 +365,65 @@ impl Drop for IngestWorker {
     fn drop(&mut self) {
         self.cancel.cancel();
     }
+}
+
+/// Enumerate off-thread, preserving folders as bins. Directory symlinks are not
+/// followed (avoids cycles and accidentally importing outside the dropped tree).
+fn expand_import(
+    paths: &[PathBuf],
+    destination: Parent,
+    mutations: &mut Vec<Mutation>,
+    cancel: &Cancel,
+) -> Result<Vec<(PathBuf, Parent)>, String> {
+    let mut pending: Vec<_> = paths
+        .iter()
+        .rev()
+        .map(|p| (p.clone(), destination, 0usize))
+        .collect();
+    let mut files = Vec::new();
+    let mut visited = 0;
+    while let Some((path, parent, depth)) = pending.pop() {
+        cancel.check()?;
+        visited += 1;
+        if visited > 4096 || depth > 64 {
+            return Err("Import exceeds 4096 entries or 64 folder levels".into());
+        }
+        let metadata =
+            std::fs::symlink_metadata(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+        if metadata.is_dir() {
+            let bin = fold_project::Bin {
+                id: Default::default(),
+                parent,
+                name: path
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .into_owned(),
+                order: visited,
+                extensions: Default::default(),
+            };
+            let parent = Parent::Bin(bin.id);
+            mutations.push(Mutation::PutBin(bin));
+            let mut children = Vec::new();
+            for entry in std::fs::read_dir(&path).map_err(|e| e.to_string())? {
+                cancel.check()?;
+                if visited as usize + pending.len() + children.len() >= 4096 {
+                    return Err("Import exceeds 4096 entries".into());
+                }
+                children.push(entry.map_err(|e| e.to_string())?.path());
+            }
+            children.sort();
+            pending.extend(children.into_iter().rev().map(|p| (p, parent, depth + 1)));
+        } else if metadata.is_file() || (depth == 0 && metadata.file_type().is_symlink()) {
+            // Folder contents can include sidecars and documents. Explicit file
+            // drops still report unsupported formats instead of silently ignoring.
+            let supported = path.extension().and_then(|s| s.to_str()).is_some_and(|s| {
+                ["mp4", "wav", "ppm", "exr"].contains(&s.to_ascii_lowercase().as_str())
+            });
+            if depth == 0 || supported {
+                files.push((path, parent));
+            }
+        }
+    }
+    Ok(files)
 }

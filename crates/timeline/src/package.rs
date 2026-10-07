@@ -63,8 +63,13 @@ impl DocumentProvider for Documents {
         snapshot: &Snapshot,
         placement: &fold_platform::browser::Placement,
         info: Option<fold_media::VideoInfo>,
-    ) -> Result<Document, String> {
-        crate::placement::place(snapshot, placement, info)
+    ) -> Result<EditBatch, String> {
+        Ok(EditBatch {
+            base: snapshot.revision(),
+            mutations: vec![fold_project::Mutation::PutDocument(
+                crate::placement::place(snapshot, placement, info)?,
+            )],
+        })
     }
     fn package_id(&self) -> &'static str {
         crate::PACKAGE
@@ -76,7 +81,7 @@ impl DocumentProvider for Documents {
         SEQUENCE_SCHEMA
     }
     fn supports_schema(&self, schema: u32) -> bool {
-        [2, SEQUENCE_SCHEMA].contains(&schema)
+        [2, 3, SEQUENCE_SCHEMA].contains(&schema)
     }
     fn validate(&self, document: &Document) -> Result<(), String> {
         Sequence::from_document(document).map(|_| ())
@@ -96,6 +101,12 @@ impl DocumentProvider for Documents {
         {
             let compatible = match (&clip.info, &metadata.profile) {
                 (crate::SourceMedia::Video(a), SourceProfile::Video(b)) => a == b,
+                (crate::SourceMedia::Image(a), SourceProfile::Ppm { dimensions }) => {
+                    [a.width, a.height] == *dimensions
+                }
+                (crate::SourceMedia::Image(a), SourceProfile::Exr(b)) => {
+                    [a.width, a.height] == b.dimensions
+                }
                 (crate::SourceMedia::Audio(a), SourceProfile::Wave(b)) => a == b,
                 _ => false,
             };
@@ -164,7 +175,7 @@ pub fn register(registry: &mut PackageRegistry) -> Result<(), String> {
             host_api: HOST_API,
             dependencies: &[],
             panels: PANELS,
-            build: concat!(env!("CARGO_PKG_VERSION"), ":timeline-schema3-evaluator3"),
+            build: concat!(env!("CARGO_PKG_VERSION"), ":timeline-schema4-evaluator4"),
         },
         documents: vec![
             Box::new(Documents),

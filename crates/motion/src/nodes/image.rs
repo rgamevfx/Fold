@@ -127,7 +127,7 @@ fn card_mesh(size: [f64; 2], source: &Request, node: &Node) -> Result<Arc<Mesh>,
 pub fn definitions() -> Vec<Definition> {
     let mut source = definition(
         "fold.motion.image",
-        "Image Source",
+        "Media Texture",
         "Image",
         vec![scalar("time_offset", 0., "seconds")],
         vec![("image", Kind::Image)],

@@ -19,6 +19,9 @@ use winit::{
 #[cfg(target_os = "linux")]
 #[path = "native_drop.rs"]
 mod native_drop;
+#[cfg(target_os = "linux")]
+#[path = "wayland_drop.rs"]
+mod wayland_drop;
 
 type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
@@ -43,13 +46,6 @@ pub(crate) fn run(
         error: None,
     };
     let mut builder = EventLoop::builder();
-    // The pinned winit release has no Wayland data-device/file-drop support.
-    // Use XWayland on the reference Linux desktop until that backend supports it.
-    #[cfg(target_os = "linux")]
-    {
-        use winit::platform::x11::EventLoopBuilderExtX11;
-        builder.with_x11();
-    }
     let event_loop = builder.build()?;
     let proxy = event_loop.create_proxy();
     app.preview
@@ -181,29 +177,53 @@ impl ApplicationHandler for App {
                         .and_then(|p| p.position(desktop.platform.hidpi_factor()))
                         .unwrap_or([-1.; 2]);
                 }
-                if desktop.dropped_files.len() < 33 {
+                if desktop.dropped_files.len() < 4097 {
                     desktop.dropped_files.push(path);
                 }
             }
             WindowEvent::RedrawRequested => {
                 #[cfg(target_os = "linux")]
-                if desktop.external_drag {
+                if desktop.external_drag && desktop.drop_pointer.is_some() {
                     desktop.pointer = desktop
                         .drop_pointer
                         .as_ref()
                         .and_then(|p| p.position(desktop.platform.hidpi_factor()))
                         .unwrap_or([-1.; 2]);
                 }
-                desktop
-                    .shell
-                    .external_drag(desktop.external_drag.then_some(desktop.pointer));
-                if !desktop.dropped_files.is_empty() {
-                    let paths = std::mem::take(&mut desktop.dropped_files);
+                #[cfg(target_os = "linux")]
+                if let Some(drop) = &mut desktop.wayland_drop {
+                    let update = drop.poll(
+                        (desktop.window.scale_factor() / desktop.platform.hidpi_factor()) as f32,
+                    );
+                    desktop.external_drag = update.position.is_some();
+                    if let Some(position) = update.position {
+                        desktop.pointer = position;
+                    }
+                    if let Some((position, paths)) = update.dropped {
+                        desktop.pointer = position;
+                        desktop.dropped_files = paths;
+                    }
+                    if let Some(error) = update.error {
+                        desktop
+                            .client
+                            .command(fold_platform::desktop::DesktopCommand::Notify(error));
+                    }
+                }
+                let paths = std::mem::take(&mut desktop.dropped_files);
+                let position =
+                    (desktop.external_drag || !paths.is_empty()).then_some(desktop.pointer);
+                desktop.shell.external_drag(position);
+                if let Some([x, y]) = position {
+                    desktop.context.io_mut().add_mouse_pos_event([x, y]);
+                }
+                let result = desktop.draw();
+                // Resolve against this frame's visible, unobscured panels and
+                // transforms, after native pointer coordinates reach ImGui.
+                if result.is_ok() && !paths.is_empty() {
                     desktop
                         .shell
                         .files_dropped(desktop.pointer, &paths, desktop.client.as_mut());
                 }
-                let result = desktop.draw();
                 if desktop.shell.project_menu.quit {
                     event_loop.exit();
                 }
@@ -244,6 +264,8 @@ struct Desktop {
     external_drag: bool,
     #[cfg(target_os = "linux")]
     drop_pointer: Option<native_drop::DropPointer>,
+    #[cfg(target_os = "linux")]
+    wayland_drop: Option<wayland_drop::WaylandDrop>,
     // Context tears down backend attachments while their resources are still alive.
     context: Context,
     platform: WinitPlatform,
@@ -417,6 +439,11 @@ impl Desktop {
             external_drag: false,
             #[cfg(target_os = "linux")]
             drop_pointer: native_drop::DropPointer::new(&window),
+            #[cfg(target_os = "linux")]
+            wayland_drop: wayland_drop::WaylandDrop::new(
+                window.clone(),
+                event_loop.owned_display_handle(),
+            ),
             preview: preview_host,
             title: String::new(),
             client: preview,

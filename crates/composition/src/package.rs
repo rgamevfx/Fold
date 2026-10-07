@@ -271,7 +271,7 @@ impl DocumentProvider for Documents {
         snapshot: &Snapshot,
         placement: &Placement,
         info: Option<fold_media::VideoInfo>,
-    ) -> Result<Document, String> {
+    ) -> Result<EditBatch, String> {
         if placement.audio_only {
             return Err("A composition layer requires video or an image".into());
         }
@@ -317,10 +317,27 @@ impl DocumentProvider for Documents {
             .map_err(|e| e.to_string())?;
         layer.origin = placement.at;
         layer.source_start = placement.source_start;
-        composition.layers.insert(0, layer);
+        let index = if let Some(before) = placement.track {
+            if composition.locked(before) {
+                return Err("Destination layer is locked".into());
+            }
+            let index = composition
+                .layers
+                .iter()
+                .position(|l| l.id == before)
+                .ok_or("Missing destination layer")?;
+            layer.parent = composition.layers[index].parent;
+            index
+        } else {
+            0
+        };
+        composition.layers.insert(index, layer);
         let mut document = composition.document(placement.target)?;
         document.extensions = original.extensions.clone();
-        Ok(document)
+        Ok(EditBatch {
+            base: snapshot.revision(),
+            mutations: vec![Mutation::PutDocument(document)],
+        })
     }
 }
 pub fn register(registry: &mut PackageRegistry) -> Result<(), String> {

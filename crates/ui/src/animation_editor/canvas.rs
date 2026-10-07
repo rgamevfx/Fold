@@ -297,6 +297,13 @@ impl Editor {
                 if top + row_height < body[1] || top > end[1] {
                     continue;
                 }
+                if let Row::Node(id, ..) = row {
+                    self.layer_drop_rows.push((
+                        *id,
+                        [origin[0], top.max(body[1])],
+                        [end[0], (top + row_height).min(end[1])],
+                    ));
+                }
                 let list = row.channels();
                 let owner = match row {
                     Row::Node(id, ..) | Row::Property(id, ..) => *id,

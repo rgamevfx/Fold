@@ -71,7 +71,7 @@ pub fn edit(snapshot: &Snapshot, command: BrowserCommand) -> Result<EditBatch, S
             return crate::ingest::delete_item(snapshot, id).map_err(|uses| uses.join("\n"));
         }
         BrowserCommand::Place(request) => {
-            return crate::packages::builtins().place(snapshot, &request);
+            return place(snapshot, &request);
         }
         _ => return Err("browser operation requires a worker".into()),
     };
@@ -95,4 +95,32 @@ pub fn choose_files(multiple: bool) -> Option<Vec<std::path::PathBuf>> {
     } else {
         dialog.pick_file().map(|p| vec![p])
     }
+}
+
+/// Common owning-layer locks also apply to drops into a provider's network.
+fn place(
+    snapshot: &Snapshot,
+    request: &fold_platform::browser::Placement,
+) -> Result<EditBatch, String> {
+    for doc in snapshot
+        .state()
+        .documents
+        .values()
+        .filter(|d| d.type_id == fold_composition::COMPOSITION)
+    {
+        let composition = fold_composition::Composition::from_document(doc)?;
+        for layer in &composition.layers {
+            if matches!(&layer.source, Some(fold_platform::image_source::Source::Output(r)) if r.document == request.target)
+                && request
+                    .graph
+                    .as_ref()
+                    .and_then(|g| g.object)
+                    .is_none_or(|object| layer.graph_object() == Some(object))
+                && composition.locked(layer.id)
+            {
+                return Err("Destination layer is locked".into());
+            }
+        }
+    }
+    crate::packages::builtins().place(snapshot, request)
 }

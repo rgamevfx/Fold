@@ -28,6 +28,7 @@ pub fn register(registry: &mut PanelRegistry) -> Result<(), String> {
         crate::PACKAGE,
         canvas::Canvas {
             state: state.clone(),
+            files: Default::default(),
             canvas: Default::default(),
             overlay: Default::default(),
             animation: Default::default(),
@@ -45,8 +46,6 @@ fn input_label(motion: &crate::Motion, node: &crate::graph::Node, key: &str) -> 
         .map(|p| inspector::property_label(&p.name))
         .unwrap_or_else(|| inspector::property_label(key))
 }
-
-mod network_scope;
 
 mod oscillator;
 

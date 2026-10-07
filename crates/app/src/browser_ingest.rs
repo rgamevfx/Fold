@@ -1,13 +1,95 @@
 //! Worker-only Project import/relink. Native chooser never blocks the frame loop.
 use fold_media::Cancel;
 use fold_platform::browser::BrowserCommand;
-use fold_project::Snapshot;
+use fold_project::{Candidate, CommittedSnapshot};
 
 pub fn run(
-    snapshot: &Snapshot,
+    snapshot: &CommittedSnapshot,
     command: BrowserCommand,
     cancel: &Cancel,
 ) -> Result<Option<crate::ingest::IngestProposal>, String> {
+    if let BrowserCommand::ImportAndPlace { paths, placement } = command {
+        let proposal = crate::ingest::import(
+            snapshot,
+            &crate::ingest::ImportRequest {
+                base: snapshot.revision(),
+                destination: Default::default(),
+                paths,
+            },
+            cancel,
+        )?;
+        let items = proposal.items.clone();
+        let mut candidate = Candidate::new(snapshot.clone());
+        let batch = proposal.into_batch()?;
+        if !batch.mutations.is_empty() {
+            candidate = candidate.apply(batch)?;
+        }
+        let mut placement = placement;
+        for item in &items {
+            cancel.check()?;
+            let fold_project::ItemId::Asset(asset) = item else {
+                continue;
+            };
+            placement.source = fold_platform::browser::PlacementSource::Asset(*asset);
+            let before_clips: std::collections::BTreeSet<_> = candidate
+                .snapshot()
+                .state()
+                .documents
+                .get(&placement.target)
+                .filter(|d| d.type_id == fold_timeline::SEQUENCE)
+                .map(|d| fold_timeline::Sequence::from_document(d))
+                .transpose()?
+                .into_iter()
+                .flat_map(|s| s.clips.into_iter().map(|c| c.id))
+                .collect();
+            let batch = crate::browser::edit(
+                candidate.snapshot(),
+                BrowserCommand::Place(placement.clone()),
+            )?;
+            candidate = candidate.apply(batch)?;
+            if let Some(graph) = &mut placement.graph {
+                graph.position[0] += 240.;
+            }
+            // Batch timeline drops append each source, preserving its exact duration.
+            if candidate
+                .snapshot()
+                .state()
+                .documents
+                .get(&placement.target)
+                .is_some_and(|d| d.type_id == fold_timeline::SEQUENCE)
+            {
+                let sequence = fold_timeline::Sequence::from_document(
+                    &candidate.snapshot().state().documents[&placement.target],
+                )?;
+                placement.at = sequence
+                    .clips
+                    .iter()
+                    .filter(|c| !before_clips.contains(&c.id))
+                    .filter_map(|c| c.start.checked_add(c.duration).ok())
+                    .max()
+                    .unwrap_or(placement.at);
+                if placement.new_track {
+                    placement.track = sequence
+                        .clips
+                        .iter()
+                        .find(|c| {
+                            !before_clips.contains(&c.id)
+                                && sequence.track(c.track).is_ok_and(|t| {
+                                    (t.kind == fold_timeline::TrackKind::Audio)
+                                        == placement.audio_only
+                                })
+                        })
+                        .map(|c| c.track);
+                    placement.new_track = placement.track.is_none();
+                }
+            }
+        }
+        return Ok(Some(crate::ingest::IngestProposal::new(
+            candidate.proposal(),
+            cancel.clone(),
+            items,
+        )));
+    }
     let (paths, destination, relink) = match command {
         BrowserCommand::Import { paths, destination } => (paths, destination, None),
         BrowserCommand::ChooseImport(destination) => {

@@ -4,11 +4,35 @@ use fold_ui::sdk::{ExtensionUi, Panel, graph_canvas::GraphCanvas, imgui};
 
 pub struct Canvas {
     pub state: Shared,
+    pub(super) files: fold_ui::sdk::project_drop::FileDrop,
     pub canvas: GraphCanvas,
     pub overlay: super::overlay::Overlay,
     pub(super) animation: super::animation::Animation,
 }
 impl Panel for Canvas {
+    fn external_drag(&mut self, position: Option<[f32; 2]>) {
+        self.files.begin_frame(position);
+    }
+    fn files_dropped(
+        &mut self,
+        position: [f32; 2],
+        paths: &[std::path::PathBuf],
+        host: &mut dyn fold_platform::desktop::DesktopClient,
+    ) -> bool {
+        let Some(request) = self.files.placement(position) else {
+            return false;
+        };
+        if request
+            .graph
+            .as_ref()
+            .is_some_and(|g| g.group.is_none() && g.object.is_none())
+        {
+            self.state.borrow_mut().document_network = true;
+        }
+        fold_ui::sdk::project_drop::import_and_place(host, paths, request);
+        true
+    }
+
     fn take_network_request(&mut self) -> bool {
         std::mem::take(&mut self.state.borrow_mut().network_requested)
     }
@@ -39,6 +63,7 @@ impl Panel for Canvas {
         Some(fold_ui::sdk::EditorPanels {
             editor: Box::new(Self {
                 state: state.clone(),
+                files: Default::default(),
                 canvas: Default::default(),
                 overlay: Default::default(),
                 animation: Default::default(),
@@ -57,7 +82,32 @@ impl Panel for Canvas {
         super::tools::insets(ui)
     }
     fn draw_viewer_overlay(&mut self, context: ExtensionUi<'_>, rect: fold_ui::sdk::ViewerRect) {
-        self.overlay.draw(&self.state, context, rect);
+        let ExtensionUi { ui, host } = context;
+        self.overlay
+            .draw(&self.state, ExtensionUi { ui, host }, rect);
+        if rect.editable
+            && let Some(document) = self.state.borrow().document
+        {
+            let time = host
+                .state()
+                .navigation
+                .last()
+                .map(|n| n.time)
+                .unwrap_or(fold_foundation::Time::ZERO);
+            let request = fold_ui::sdk::project_drop::placement(document, time);
+            self.files.region(
+                ui,
+                rect.canvas_origin,
+                rect.canvas_size,
+                request.clone(),
+                None,
+            );
+            if let Some(entry) =
+                fold_ui::sdk::project_drop::canvas_target(ui, rect.canvas_origin, rect.canvas_size)
+            {
+                fold_ui::sdk::project_drop::place_request(host, entry, request);
+            }
+        }
     }
     fn id(&self) -> &'static str {
         package::PANEL
@@ -77,6 +127,22 @@ impl Panel for Canvas {
     }
     fn draw(&mut self, context: ExtensionUi<'_>) {
         self.state.borrow_mut().sync(context.host);
+        if let Some(document) = self.state.borrow().document {
+            let time = context
+                .host
+                .state()
+                .navigation
+                .last()
+                .map(|n| n.time)
+                .unwrap_or(fold_foundation::Time::ZERO);
+            self.files.region(
+                context.ui,
+                context.ui.cursor_screen_pos(),
+                context.ui.content_region_avail(),
+                fold_ui::sdk::project_drop::placement(document, time),
+                None,
+            );
+        }
         let group = self.state.borrow().group;
         if let Some(group) = group {
             let label = self
@@ -214,8 +280,6 @@ impl Panel for Canvas {
                 "Select a graph"
             });
         ui.text(format!("MoGraph / {label}"));
-        let drop_origin = ui.cursor_screen_pos();
-        let drop_size = ui.content_region_avail();
         self.canvas.draw_inline(
             ui,
             &mut Context {
@@ -223,16 +287,37 @@ impl Panel for Canvas {
                 host,
             },
         );
-        if let Some(entry) = fold_ui::sdk::project_drop::canvas_target(ui, drop_origin, drop_size)
-            && let Some(document) = state.document
-        {
-            fold_ui::sdk::project_drop::place(
-                host,
-                entry,
-                document,
-                None,
-                fold_foundation::Time::ZERO,
+        let Some([drop_origin, drop_end]) = self.canvas.drop_bounds() else {
+            return;
+        };
+        let drop_size = [drop_end[0] - drop_origin[0], drop_end[1] - drop_origin[1]];
+        if let Some(document) = state.document {
+            let mut request =
+                fold_ui::sdk::project_drop::placement(document, fold_foundation::Time::ZERO);
+            request.graph = Some(fold_platform::browser::GraphPlacement {
+                position: self.canvas.drop_position(ui.io().mouse_pos()),
+                group: state.group,
+                object: if state.document_network {
+                    None
+                } else {
+                    state.network_object
+                },
+            });
+            self.files.region(
+                ui,
+                drop_origin,
+                drop_size,
+                request.clone(),
+                Some(self.canvas.drop_transform()),
             );
+            if let Some(entry) =
+                fold_ui::sdk::project_drop::canvas_target(ui, drop_origin, drop_size)
+            {
+                if state.group.is_none() && state.network_object.is_none() {
+                    state.document_network = true;
+                }
+                fold_ui::sdk::project_drop::place_request(host, entry, request);
+            }
         }
     }
 }

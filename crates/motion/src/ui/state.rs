@@ -257,7 +257,7 @@ impl State {
             return;
         }
         if let (Some(before), Some(after)) = (&self.original, &mut self.motion) {
-            super::network_scope::retain(before, after);
+            crate::authoring::network_scope::retain(before, after);
         }
         match self
             .motion

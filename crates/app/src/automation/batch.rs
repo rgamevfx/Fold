@@ -209,6 +209,7 @@ pub fn stage(
                     .place(
                         &snap,
                         &fold_platform::browser::Placement {
+                            graph: None,
                             source: fold_platform::browser::PlacementSource::Output(
                                 fold_project::DocumentRef {
                                     document: source,
@@ -238,6 +239,7 @@ pub fn stage(
                     .place(
                         &snap,
                         &fold_platform::browser::Placement {
+                            graph: None,
                             source: fold_platform::browser::PlacementSource::Asset(source),
                             target,
                             track: None,

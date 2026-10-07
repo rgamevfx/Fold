@@ -56,6 +56,8 @@ pub struct ClipVisual {
     pub texture: Option<fold_ui::sdk::imgui::texture::ManagedTextureId>,
 }
 pub struct Canvas {
+    pub external_pointer: Option<[f32; 2]>,
+    drop_layout: Option<Layout>,
     pub visuals: BTreeMap<ObjectId, ClipVisual>,
     pub cache: BTreeMap<u32, fold_ui::sdk::cache_indicator::Coverage>,
     pub blade: bool,
@@ -85,6 +87,8 @@ pub struct Canvas {
 impl Default for Canvas {
     fn default() -> Self {
         Self {
+            external_pointer: None,
+            drop_layout: None,
             visuals: BTreeMap::new(),
             cache: BTreeMap::new(),
             blade: false,
@@ -251,6 +255,7 @@ fn unchanged(sequence: &Sequence, edit: &SequenceEdit) -> bool {
 }
 impl Canvas {
     pub fn draw(&mut self, ui: &Ui, model: CanvasModel<'_>) -> Vec<Action> {
+        self.drop_layout = None;
         let mut actions = Vec::new();
         let sequence = model.sequence;
         let size = ui.content_region_avail();
@@ -285,6 +290,9 @@ impl Canvas {
         let max_y = (36. * scale + layout.heights[..track_rows.len()].iter().sum::<f32>()
             - (layout.body.max[1] - layout.body.min[1]))
             .max(0.0);
+        self.drop_layout = ui
+            .is_window_hovered_with_flags(fold_ui::sdk::imgui::WindowHoveredFlags::CHILD_WINDOWS)
+            .then_some(layout);
         ui.invisible_button("timeline-canvas", size);
         let hovered = ui.is_item_hovered();
         let point = ui.mouse_pos();
@@ -870,6 +878,69 @@ impl Canvas {
             .build();
             draw.add_text(p, EditorColors::from_ui(ui).text, text);
         }
+        if let Some(pointer) = self.external_pointer.filter(|p| layout.body.contains(*p)) {
+            let draw = ui.get_window_draw_list();
+            draw.add_line(
+                [pointer[0], layout.body.min[1]],
+                [pointer[0], layout.body.max[1]],
+                ui.style_color(fold_ui::sdk::imgui::StyleColor::DragDropTarget),
+            )
+            .thickness(2.)
+            .build();
+        }
+
         actions
+    }
+}
+
+impl Canvas {
+    pub fn native_placement(
+        &self,
+        document: fold_foundation::DocumentId,
+        sequence: &Sequence,
+        point: [f32; 2],
+        playhead: u32,
+    ) -> Option<fold_platform::browser::Placement> {
+        let layout = self.drop_layout?;
+        if !layout.body.contains(point) {
+            return None;
+        }
+        let tracks = rows(sequence);
+        let hovered = tracks
+            .iter()
+            .enumerate()
+            .find(|(i, _)| layout.row_rect(*i, self.view.scroll_y).contains(point));
+        let mut at = interaction::time(
+            self.view
+                .frame_at(point[0], layout.body.min[0])
+                .round()
+                .max(0.) as i64,
+            sequence.rate,
+        )
+        .ok()?;
+        if self.snapping
+            && let Some(offset) = interaction::snap_offset(
+                sequence,
+                &[],
+                &[at],
+                interaction::time(i64::from(playhead), sequence.rate).ok()?,
+                7. * f64::from(layout.scale) / self.view.pixels_per_frame,
+            )
+            .ok()
+            .flatten()
+        {
+            at = at.checked_add(offset).ok()?;
+        }
+        let mut request = fold_ui::sdk::project_drop::placement(document, at);
+        request.track = hovered.map(|(_, t)| t.id);
+        request.new_track = hovered.is_none();
+        request.audio_only = hovered.is_some_and(|(_, t)| t.kind == TrackKind::Audio)
+            || point[1] >= layout.row_rect(tracks.len(), self.view.scroll_y).min[1];
+        request.mode = match self.mode {
+            crate::EditMode::Move => fold_platform::browser::PlacementMode::Place,
+            crate::EditMode::Insert => fold_platform::browser::PlacementMode::Insert,
+            crate::EditMode::Overwrite => fold_platform::browser::PlacementMode::Overwrite,
+        };
+        Some(request)
     }
 }

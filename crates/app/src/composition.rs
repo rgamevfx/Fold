@@ -108,12 +108,14 @@ pub fn create(snapshot: &Snapshot, args: &[u8], _: &Cancel) -> Result<EditBatch,
     let mut layers = vec![];
     for clip in selected.iter().rev() {
         let source = match &clip.info {
-            SourceMedia::Video(_) => Source::Asset(clip.asset),
+            SourceMedia::Video(_) | SourceMedia::Image(_) => Source::Asset(clip.asset),
             SourceMedia::Document { source, .. } => Source::Output(source.clone()),
             _ => return Err("Cannot nest audio into a composition layer".into()),
         };
         let source_info = match &clip.info {
-            SourceMedia::Video(info) | SourceMedia::Document { info, .. } => info.clone(),
+            SourceMedia::Video(info)
+            | SourceMedia::Image(info)
+            | SourceMedia::Document { info, .. } => info.clone(),
             _ => unreachable!(),
         };
         let mut layer = Layer::new("Clip", Some(source), source_info)?;

@@ -264,6 +264,7 @@ fn placement_is_undoable_and_rejects_document_cycles() {
     let placed = fold_motion::nodes::image::place(
         &project.snapshot(),
         &Placement {
+            graph: None,
             source: PlacementSource::Asset(asset),
             target: id,
             track: None,
@@ -300,6 +301,7 @@ fn placement_is_undoable_and_rejects_document_cycles() {
     let mut registry = fold_platform::packages::PackageRegistry::default();
     fold_motion::package::register(&mut registry).unwrap();
     let request = Placement {
+        graph: None,
         source: PlacementSource::Output(fold_project::DocumentRef {
             document: id,
             output: "video".into(),

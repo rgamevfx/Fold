@@ -36,6 +36,7 @@ use std::collections::BTreeSet;
 
 #[derive(Default)]
 pub struct Editor {
+    pub(crate) layer_drop_rows: Vec<(ObjectId, [f32; 2], [f32; 2])>,
     document: Option<DocumentId>,
     generation: u64,
     pub(crate) curves: bool,
@@ -83,12 +84,17 @@ pub struct Response {
     pub lock: Option<(ObjectId, bool)>,
 }
 impl Editor {
+    pub fn layer_drop_rows(&self) -> &[(ObjectId, [f32; 2], [f32; 2])] {
+        &self.layer_drop_rows
+    }
+
     pub fn reset_gesture(&mut self) {
         self.gesture = None;
         self.drop_hover = None;
         self.numeric_edit = false;
     }
     pub fn draw(&mut self, ui: &Ui, channels: &mut [Channel], context: Context<'_>) -> Response {
+        self.layer_drop_rows.clear();
         if self.document != Some(context.document) {
             *self = Self {
                 document: Some(context.document),

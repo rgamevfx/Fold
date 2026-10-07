@@ -52,6 +52,7 @@ fn motion_tools_and_inspector_render_normal_and_narrow() {
     }
     let mut canvas = canvas::Canvas {
         state: shared.clone(),
+        files: Default::default(),
         canvas: Default::default(),
         overlay: Default::default(),
         animation: Default::default(),

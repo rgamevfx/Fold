@@ -26,7 +26,9 @@ pub fn place(
         }
     };
     let duration = request.range(info.time(info.frames)?)?;
-    if let Source::Output(reference) = &source {
+    if let Source::Output(reference) = &source
+        && request.graph.is_none()
+    {
         let name = snapshot
             .state()
             .organization
@@ -63,6 +65,38 @@ pub fn place(
         ..Default::default()
     })
     .map_err(|e| e.to_string())?;
+    if let Some(target) = &request.graph {
+        source_node.position = target.position;
+        let id = source_node.id;
+        if let Some(group) = target.group {
+            motion
+                .groups
+                .get_mut(&group)
+                .ok_or("Missing destination group")?
+                .graph
+                .nodes
+                .push(source_node);
+        } else {
+            if let Some(object) = target.object {
+                let scene = motion.scene.as_ref().ok_or("Missing destination scene")?;
+                let object = scene
+                    .objects
+                    .iter()
+                    .find(|o| o.id == object)
+                    .ok_or("Missing destination object")?;
+                if object.locked {
+                    return Err("Destination object is locked".into());
+                }
+            }
+            motion.graph.nodes.push(source_node);
+            if let Some(object) = target.object {
+                crate::authoring::network_scope::include(&mut motion, object, [id]);
+            }
+        }
+        let mut document = motion.document(request.target)?;
+        document.extensions = old.extensions.clone();
+        return Ok(document);
+    }
     let object = crate::authoring::scene::create_object(&mut motion, "fold.motion.image_card")?;
     let card = motion
         .graph
@@ -88,6 +122,11 @@ pub fn place(
         .iter_mut()
         .find(|o| o.id == object)
         .unwrap();
+    let item_id = match &request.source {
+        PlacementSource::Asset(id) => fold_project::ItemId::Asset(*id),
+        PlacementSource::Output(reference) => fold_project::ItemId::Document(reference.document),
+    };
+    item.name = fold_platform::browser::item_name(snapshot, item_id, "Image Card");
     item.start = request.at;
     item.end = request
         .at

@@ -539,7 +539,7 @@ impl Shell {
             }
         }
         host.command(DesktopCommand::Notify(
-            "Import files into a Project bin before placing them in an editor".into(),
+            "Drop media onto Project, a timeline, a composition, or a node graph".into(),
         ));
     }
     pub fn accepts_background_pan(&self, position: [f32; 2]) -> bool {
@@ -2300,6 +2300,9 @@ impl Shell {
         let mut binding = binding.clone();
         if let Some(location) = binding.navigation.last_mut() {
             location.time = viewer.time;
+        }
+        if !self.visible_editors.contains(&editor_id) {
+            self.visible_editors.push(editor_id);
         }
         let selected = {
             let mut context = PanelContext::new(client, &mut binding).instance(id);

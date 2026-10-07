@@ -21,17 +21,31 @@ pub fn register(registry: &mut PanelRegistry) -> Result<(), String> {
 }
 struct Canvas {
     state: Shared,
+    files: fold_ui::sdk::project_drop::FileDrop,
     animation: Editor,
 }
 impl Canvas {
     fn new(state: Shared) -> Self {
         Self {
             state,
+            files: Default::default(),
             animation: Editor::default(),
         }
     }
 }
 impl Panel for Canvas {
+    fn external_drag(&mut self, position: Option<[f32; 2]>) {
+        self.files.begin_frame(position);
+    }
+    fn files_dropped(
+        &mut self,
+        position: [f32; 2],
+        paths: &[std::path::PathBuf],
+        host: &mut dyn fold_platform::desktop::DesktopClient,
+    ) -> bool {
+        self.files.dropped(position, paths, host)
+    }
+
     fn id(&self) -> &'static str {
         package::PANEL
     }
@@ -249,8 +263,24 @@ impl Panel for Canvas {
                 state.commit(host);
             }
         }
+        let mut request = sdk::project_drop::placement(document, time);
+        self.files.region(ui, origin, size, request.clone(), None);
+        for &(layer, min, max) in self.animation.layer_drop_rows() {
+            let mut row_request = request.clone();
+            row_request.track = Some(layer);
+            self.files.region(
+                ui,
+                min,
+                [max[0] - min[0], max[1] - min[1]],
+                row_request,
+                None,
+            );
+            if sdk::project_drop::inside(ui.io().mouse_pos(), min, max) {
+                request.track = Some(layer);
+            }
+        }
         if let Some(entry) = sdk::project_drop::canvas_target(ui, origin, size) {
-            sdk::project_drop::place(host, entry, document, None, time);
+            sdk::project_drop::place_request(host, entry, request);
         }
     }
 }

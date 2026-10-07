@@ -40,6 +40,7 @@ fn create(project: &mut Project, kind: &str) -> DocumentId {
 }
 fn placement(source: PlacementSource, target: DocumentId) -> Placement {
     Placement {
+        graph: None,
         source,
         target,
         track: None,
@@ -498,4 +499,355 @@ fn timeline_new_track_placement_and_collision_modes_share_atomic_history() {
         )
         .unwrap();
     assert_eq!(read(&project).clips.len(), 2);
+}
+
+fn wait_for_ingest(session: &mut fold_app::session::Session) {
+    use fold_platform::desktop::DesktopClient;
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(15);
+    while session.state().busy {
+        assert!(std::time::Instant::now() < deadline, "ingest timeout");
+        session.poll();
+        std::thread::sleep(std::time::Duration::from_millis(2));
+    }
+}
+fn still(dir: &std::path::Path, name: &str) -> std::path::PathBuf {
+    let path = dir.join(name);
+    std::fs::write(&path, b"P6\n1 1\n255\n\xff\x00\x00").unwrap();
+    path
+}
+#[test]
+fn folder_import_preserves_bins_skips_sidecars_and_undoes_together() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().join("Footage");
+    let child = root.join("Day 1");
+    std::fs::create_dir_all(&child).unwrap();
+    still(&root, "a.ppm");
+    still(&child, "b.ppm");
+    std::fs::write(child.join("notes.txt"), "sidecar").unwrap();
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(&root, child.join("cycle")).unwrap();
+    let mut project = Project::new(16);
+    let proposal = ingest::import(
+        &project.snapshot(),
+        &ingest::ImportRequest {
+            base: project.snapshot().revision(),
+            destination: Parent::Root,
+            paths: vec![root],
+        },
+        &Cancel::default(),
+    )
+    .unwrap();
+    proposal.commit(&mut project).unwrap();
+    let snapshot = project.snapshot();
+    let organization = &snapshot.state().organization;
+    let root = organization
+        .bins
+        .values()
+        .find(|b| b.name == "Footage")
+        .unwrap();
+    let child = organization
+        .bins
+        .values()
+        .find(|b| b.name == "Day 1")
+        .unwrap();
+    assert_eq!(child.parent, Parent::Bin(root.id));
+    assert_eq!(
+        organization
+            .items
+            .iter()
+            .find(|i| i.name == "b.ppm")
+            .unwrap()
+            .parent,
+        Parent::Bin(child.id)
+    );
+    assert_eq!(snapshot.state().assets.len(), 2);
+    assert_eq!(organization.bins.len(), 2);
+    project.undo().unwrap();
+    assert!(project.snapshot().state().assets.is_empty());
+    assert!(project.snapshot().state().organization.bins.is_empty());
+    project.redo().unwrap();
+    let archive = dir.path().join("folders.fold");
+    fold_project::save(&project.snapshot(), &archive).unwrap();
+    assert_eq!(
+        fold_project::load(archive, 16)
+            .unwrap()
+            .snapshot()
+            .state()
+            .organization,
+        project.snapshot().state().organization
+    );
+}
+#[test]
+fn native_drop_imports_and_places_all_targets_in_one_undo() {
+    use fold_platform::desktop::{DesktopClient, DesktopCommand};
+    let dir = tempfile::tempdir().unwrap();
+    let path = still(dir.path(), "source.ppm");
+    for (kind, graph) in [
+        (fold_timeline::SEQUENCE, false),
+        (fold_composition::COMPOSITION, false),
+        (fold_compositor::COMPOSITE, true),
+        (fold_motion::MOTION, true),
+        (fold_motion::MOTION, false),
+    ] {
+        let mut project = Project::new(16);
+        let target = create(&mut project, kind);
+        let before = project.snapshot();
+        let mut request = placement(PlacementSource::Asset(Default::default()), target);
+        if graph {
+            request.graph = Some(fold_platform::browser::GraphPlacement {
+                position: [123., 456.],
+                group: None,
+                object: None,
+            });
+        }
+        let mut session = fold_app::session::Session::new(project);
+        session.command(DesktopCommand::Browser(Command::ImportAndPlace {
+            paths: vec![path.clone()],
+            placement: request.clone(),
+        }));
+        wait_for_ingest(&mut session);
+        assert!(
+            session.state().status.is_empty(),
+            "{kind}: {}",
+            session.state().status
+        );
+        let after = session.snapshot().unwrap();
+        assert_eq!(after.state().assets.len(), 1);
+        assert_ne!(
+            after.state().documents[&target],
+            before.state().documents[&target]
+        );
+        let archive = dir.path().join("drop.fold");
+        fold_project::save(&after, &archive).unwrap();
+        assert_eq!(
+            fold_project::load(&archive, 16).unwrap().snapshot().state(),
+            after.state()
+        );
+        if kind == fold_timeline::SEQUENCE {
+            let reference = DocumentRef {
+                document: target,
+                output: "video".into(),
+                extensions: Default::default(),
+            };
+            let graph = packages::builtins()
+                .video(&after, &reference, Time::ZERO, 64, 36)
+                .unwrap();
+            assert!(
+                fold_render::render(graph)
+                    .unwrap()
+                    .pixels()
+                    .iter()
+                    .all(|p| p[0] > 0.9 && p[1] < 0.01)
+            );
+        }
+        if kind == fold_motion::MOTION {
+            let motion =
+                fold_motion::Motion::from_document(&after.state().documents[&target]).unwrap();
+            let source = motion
+                .graph
+                .nodes
+                .iter()
+                .find(|n| n.kind == "fold.motion.image")
+                .unwrap();
+            if graph {
+                assert_eq!(source.position, [123., 456.]);
+                assert!(
+                    !motion
+                        .graph
+                        .nodes
+                        .iter()
+                        .any(|n| n.kind == "fold.motion.image_card")
+                );
+            } else {
+                assert!(
+                    motion
+                        .graph
+                        .nodes
+                        .iter()
+                        .any(|n| n.kind == "fold.motion.image_card")
+                );
+            }
+        }
+        if kind == fold_compositor::COMPOSITE {
+            let comp = fold_compositor::Composite::from_document(&after.state().documents[&target])
+                .unwrap();
+            assert!(comp.nodes.iter().any(|n| matches!(
+                n.parameters,
+                fold_compositor::Parameters::Read { .. }
+            ) && n.position == Some([123., 456.])));
+        }
+        session.command(DesktopCommand::Undo);
+        let undone = session.snapshot().unwrap();
+        assert!(undone.state().assets.is_empty());
+        assert_eq!(undone.state().documents, before.state().documents);
+        session.command(DesktopCommand::Redo);
+        assert_eq!(session.snapshot().unwrap().state().assets.len(), 1);
+        // Reuse preserves existing media when undoing the second placement.
+        request.at = Time::new(5, 1).unwrap();
+        session.command(DesktopCommand::Browser(Command::ImportAndPlace {
+            paths: vec![path.clone()],
+            placement: request,
+        }));
+        wait_for_ingest(&mut session);
+        assert!(
+            session.state().status.is_empty(),
+            "{kind}: {}",
+            session.state().status
+        );
+        assert_eq!(session.snapshot().unwrap().state().assets.len(), 1);
+        session.command(DesktopCommand::Undo);
+        assert_eq!(
+            session.snapshot().unwrap().state().documents,
+            after.state().documents
+        );
+        assert_eq!(session.snapshot().unwrap().state().assets.len(), 1);
+    }
+}
+#[test]
+fn rejected_native_drop_leaves_no_import_or_partial_placement() {
+    use fold_platform::desktop::{DesktopClient, DesktopCommand};
+    let dir = tempfile::tempdir().unwrap();
+    let path = still(dir.path(), "source.ppm");
+    let mut project = Project::new(16);
+    let target = create(&mut project, fold_timeline::SEQUENCE);
+    let mut sequence =
+        fold_timeline::Sequence::from_document(&project.snapshot().state().documents[&target])
+            .unwrap();
+    let track = sequence
+        .tracks
+        .iter_mut()
+        .find(|t| t.kind == fold_timeline::TrackKind::Video)
+        .unwrap();
+    track.locked = true;
+    let track = track.id;
+    project
+        .commit(fold_project::EditBatch {
+            base: project.snapshot().revision(),
+            mutations: vec![fold_project::Mutation::PutDocument(
+                sequence.document(target).unwrap(),
+            )],
+        })
+        .unwrap();
+    let before = project.snapshot();
+    let mut session = fold_app::session::Session::new(project);
+    let mut request = placement(PlacementSource::Asset(Default::default()), target);
+    request.track = Some(track);
+    session.command(DesktopCommand::Browser(Command::ImportAndPlace {
+        paths: vec![path],
+        placement: request,
+    }));
+    wait_for_ingest(&mut session);
+    assert!(
+        session.state().status.to_lowercase().contains("lock"),
+        "{}",
+        session.state().status
+    );
+    assert_eq!(session.snapshot().unwrap().state(), before.state());
+}
+#[test]
+fn multiple_native_images_are_sequential_on_one_new_timeline_track() {
+    use fold_platform::desktop::{DesktopClient, DesktopCommand};
+    let dir = tempfile::tempdir().unwrap();
+    let paths = vec![still(dir.path(), "a.ppm"), still(dir.path(), "b.ppm")];
+    let mut project = Project::new(16);
+    let target = create(&mut project, fold_timeline::SEQUENCE);
+    let mut session = fold_app::session::Session::new(project);
+    let mut request = placement(PlacementSource::Asset(Default::default()), target);
+    request.new_track = true;
+    session.command(DesktopCommand::Browser(Command::ImportAndPlace {
+        paths,
+        placement: request,
+    }));
+    wait_for_ingest(&mut session);
+    assert!(
+        session.state().status.is_empty(),
+        "{}",
+        session.state().status
+    );
+    let sequence = fold_timeline::Sequence::from_document(
+        &session.snapshot().unwrap().state().documents[&target],
+    )
+    .unwrap();
+    assert_eq!(sequence.clips.len(), 2);
+    assert_eq!(sequence.clips[0].track, sequence.clips[1].track);
+    assert_eq!(sequence.clips[1].start, sequence.clips[0].end().unwrap());
+}
+
+#[test]
+fn motion_card_drop_updates_owning_composition_and_graph_drop_respects_its_lock() {
+    use fold_platform::desktop::{DesktopClient, DesktopCommand};
+    let dir = tempfile::tempdir().unwrap();
+    let path = still(dir.path(), "card.ppm");
+    let mut project = Project::new(16);
+    let root = create(&mut project, fold_composition::COMPOSITION);
+    let add = fold_app::composition_layers::add(
+        &project.snapshot(),
+        &serde_json::to_vec(&serde_json::json!({"document":root,"kind":"motion"})).unwrap(),
+        &Cancel::default(),
+    )
+    .unwrap();
+    project.commit(add).unwrap();
+    let target = project
+        .snapshot()
+        .state()
+        .documents
+        .values()
+        .find(|d| d.type_id == fold_motion::MOTION)
+        .unwrap()
+        .id;
+    let before = project.snapshot();
+    let mut session = fold_app::session::Session::new(project);
+    session.command(DesktopCommand::Browser(Command::ImportAndPlace {
+        paths: vec![path.clone()],
+        placement: placement(PlacementSource::Asset(Default::default()), target),
+    }));
+    wait_for_ingest(&mut session);
+    assert!(
+        session.state().status.is_empty(),
+        "{}",
+        session.state().status
+    );
+    let composition = fold_composition::Composition::from_document(
+        &session.snapshot().unwrap().state().documents[&root],
+    )
+    .unwrap();
+    assert_eq!(composition.layers.len(), 2);
+    assert!(composition.layers.iter().any(|l| l.name == "card.ppm"));
+    session.command(DesktopCommand::Undo);
+    assert_eq!(
+        session.snapshot().unwrap().state().documents,
+        before.state().documents
+    );
+    // Build a locked owning layer and attempt an unconnected graph source drop.
+    let mut project = Project::fork(&before);
+    let mut composition =
+        fold_composition::Composition::from_document(&before.state().documents[&root]).unwrap();
+    composition.layers[0].locked = true;
+    project
+        .commit(fold_project::EditBatch {
+            base: project.snapshot().revision(),
+            mutations: vec![fold_project::Mutation::PutDocument(
+                composition.document(root).unwrap(),
+            )],
+        })
+        .unwrap();
+    let locked = project.snapshot();
+    let mut session = fold_app::session::Session::new(project);
+    let mut request = placement(PlacementSource::Asset(Default::default()), target);
+    request.graph = Some(fold_platform::browser::GraphPlacement {
+        position: [12., 30.],
+        group: None,
+        object: composition.layers[0].graph_object(),
+    });
+    session.command(DesktopCommand::Browser(Command::ImportAndPlace {
+        paths: vec![path],
+        placement: request,
+    }));
+    wait_for_ingest(&mut session);
+    assert!(
+        session.state().status.to_lowercase().contains("lock"),
+        "{}",
+        session.state().status
+    );
+    assert_eq!(session.snapshot().unwrap().state(), locked.state());
 }

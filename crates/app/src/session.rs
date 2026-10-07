@@ -708,6 +708,7 @@ impl DesktopClient for Session {
                 if matches!(
                     command,
                     BrowserCommand::Import { .. }
+                        | BrowserCommand::ImportAndPlace { .. }
                         | BrowserCommand::ChooseImport(_)
                         | BrowserCommand::Relink(_)
                 ) {

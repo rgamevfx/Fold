@@ -6,7 +6,7 @@ use std::collections::BTreeSet;
 
 const MEMBERS: &str = "fold.motion.network_nodes";
 
-pub(super) fn members(m: &Motion, object: ObjectId) -> BTreeSet<ObjectId> {
+pub(crate) fn members(m: &Motion, object: ObjectId) -> BTreeSet<ObjectId> {
     let Some(object) = m
         .scene
         .as_ref()
@@ -39,7 +39,7 @@ pub(super) fn members(m: &Motion, object: ObjectId) -> BTreeSet<ObjectId> {
     visible
 }
 
-pub(super) fn include(m: &mut Motion, object: ObjectId, nodes: impl IntoIterator<Item = ObjectId>) {
+pub(crate) fn include(m: &mut Motion, object: ObjectId, nodes: impl IntoIterator<Item = ObjectId>) {
     let mut saved = members(m, object);
     saved.extend(nodes.into_iter().filter(|id| m.graph.node(*id).is_ok()));
     if let Some(object) = m
@@ -56,7 +56,8 @@ pub(super) fn include(m: &mut Motion, object: ObjectId, nodes: impl IntoIterator
 
 /// Retain disconnected branches in the same transaction as the edit. Explicitly
 /// deleted nodes are omitted, and unchanged constructions need no extra metadata.
-pub(super) fn retain(before: &Motion, after: &mut Motion) {
+#[cfg(feature = "ui")]
+pub(crate) fn retain(before: &Motion, after: &mut Motion) {
     let Some(scene) = &before.scene else {
         return;
     };

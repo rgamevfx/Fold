@@ -89,8 +89,13 @@ impl DocumentProvider for Documents {
         snapshot: &Snapshot,
         placement: &fold_platform::browser::Placement,
         info: Option<fold_media::VideoInfo>,
-    ) -> Result<Document, String> {
-        crate::placement::place(snapshot, placement, info)
+    ) -> Result<EditBatch, String> {
+        Ok(EditBatch {
+            base: snapshot.revision(),
+            mutations: vec![Mutation::PutDocument(crate::placement::place(
+                snapshot, placement, info,
+            )?)],
+        })
     }
     fn package_id(&self) -> &'static str {
         crate::PACKAGE

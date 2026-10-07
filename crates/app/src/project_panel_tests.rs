@@ -170,11 +170,17 @@ fn typed_drag_moves_an_item_into_a_bin_as_one_undoable_edit() {
     }
     let (_, min, max) = panel.bin_rects[0];
     let paths = vec![std::path::PathBuf::from("source.mp4")];
+    context
+        .io_mut()
+        .add_mouse_pos_event([min[0] + 2., min[1] + 2.]);
+    frame(&mut context, &mut panel, &mut host);
     assert!(panel.files_dropped([min[0] + 2., min[1] + 2.], &paths, &mut host));
     assert_eq!(
         host.imports.pop().unwrap(),
         (Parent::Bin(bin), paths.clone())
     );
+    context.io_mut().add_mouse_pos_event([20., 550.]);
+    frame(&mut context, &mut panel, &mut host);
     assert!(panel.files_dropped([20., 550.], &paths, &mut host));
     assert_eq!(host.imports.pop().unwrap(), (Parent::Root, paths.clone()));
     assert!(!panel.files_dropped([900., 650.], &paths, &mut host));

@@ -211,6 +211,7 @@ fn nested_placement_moving_trimming_and_mixed_rate_local_time_are_exact() {
         .place(
             &project.snapshot(),
             &Placement {
+                graph: None,
                 source: PlacementSource::Output(reference(child)),
                 target: parent,
                 track: None,
@@ -259,6 +260,7 @@ fn nested_placement_moving_trimming_and_mixed_rate_local_time_are_exact() {
     let cycle = registry.place(
         &project.snapshot(),
         &Placement {
+            graph: None,
             source: PlacementSource::Output(reference(parent)),
             target: child,
             track: None,

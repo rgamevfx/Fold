@@ -140,6 +140,9 @@ impl Panel for Inspector {
                     ));
                 }
             }
+            SourceMedia::Image(info) => {
+                ui.text(format!("Image • {} × {}", info.width, info.height))
+            }
             SourceMedia::Video(info) => ui.text(format!(
                 "{}×{} • {}/{} fps",
                 info.width, info.height, info.rate[0], info.rate[1]

@@ -54,9 +54,22 @@ pub fn place(
                 SourceProfile::Video(info) => SourceMedia::Video(info),
                 SourceProfile::Wave(info) => SourceMedia::Audio(info),
                 SourceProfile::Ppm { .. } | SourceProfile::Exr(_) => {
-                    return Err(
-                        "still-image clips are not supported by this timeline provider".into(),
-                    );
+                    let defaults = fold_media::VideoInfo {
+                        width: sequence.dimensions[0],
+                        height: sequence.dimensions[1],
+                        rate: sequence.rate,
+                        frames: fold_foundation::Time::new(5, 1)
+                            .unwrap()
+                            .to_ticks(
+                                sequence.rate[0],
+                                sequence.rate[1],
+                                fold_foundation::Rounding::Ceil,
+                            )
+                            .map_err(|e| e.to_string())? as u32,
+                    };
+                    SourceMedia::Image(fold_platform::image_source::asset_info(
+                        snapshot, *id, &defaults,
+                    )?)
                 }
             };
             (*id, info, audio)

@@ -172,6 +172,7 @@ fn composition_keys_modifier_internals_and_undo_preserves_root() {
     context.io_mut().set_delta_time(1. / 60.);
     let mut canvas = canvas::Canvas {
         state: shared.clone(),
+        files: Default::default(),
         canvas: Default::default(),
         overlay: Default::default(),
         animation: Default::default(),
@@ -297,6 +298,7 @@ fn drawing_motion_graph_inspector_and_handles_does_not_mutate_project() {
     context.io_mut().set_delta_time(1. / 60.);
     let mut canvas = canvas::Canvas {
         state: state.clone(),
+        files: Default::default(),
         canvas: Default::default(),
         overlay: Default::default(),
         animation: Default::default(),

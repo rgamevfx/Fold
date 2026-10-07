@@ -465,6 +465,7 @@ impl Panel for ProjectPanel {
     }
     fn external_drag(&mut self, position: Option<[f32; 2]>) {
         self.external_drag = position;
+        self.rect = None;
     }
     fn prepare_frame(&mut self, context: &mut imgui::Context) {
         self.thumbnails.prepare(context);
@@ -526,7 +527,9 @@ impl Panel for ProjectPanel {
         self.bin_rects.clear();
         let origin = ui.cursor_screen_pos();
         let available = ui.content_region_avail();
-        self.rect = Some((origin, [origin[0] + available[0], origin[1] + available[1]]));
+        self.rect = ui
+            .is_window_hovered_with_flags(imgui::WindowHoveredFlags::CHILD_WINDOWS)
+            .then_some((origin, [origin[0] + available[0], origin[1] + available[1]]));
         if icon_button(ui, "up", ToolbarIcon::Back, "Parent folder (Alt+Up)") {
             self.folder = match self.folder {
                 Parent::Root => Parent::Root,

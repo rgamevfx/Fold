@@ -132,7 +132,7 @@ pub trait DocumentProvider: Send + Sync {
         _snapshot: &Snapshot,
         _placement: &crate::browser::Placement,
         _info: Option<VideoInfo>,
-    ) -> Result<Document, String> {
+    ) -> Result<EditBatch, String> {
         Err("this editor does not support this Project item".into())
     }
     /// Validate every authored use before relinking. Unknown providers fail closed.
@@ -353,15 +353,21 @@ impl PackageRegistry {
                 Some(self.output(snapshot, source.document)?)
             }
         };
-        let document = provider.place(snapshot, placement, info)?;
-        provider.validate(&document)?;
-        if document.id != placement.target {
-            return Err("placement changed destination identity".into());
+        let batch = provider.place(snapshot, placement, info)?;
+        if batch.base != snapshot.revision()
+            || !batch
+                .mutations
+                .iter()
+                .any(|m| matches!(m, Mutation::PutDocument(d) if d.id == placement.target && d.type_id == target.type_id && d.package_id == target.package_id))
+        {
+            return Err("placement changed destination identity or revision".into());
         }
-        Ok(EditBatch {
-            base: snapshot.revision(),
-            mutations: vec![Mutation::PutDocument(document)],
-        })
+        for mutation in &batch.mutations {
+            if let Mutation::PutDocument(document) = mutation {
+                self.validate_document(document)?;
+            }
+        }
+        Ok(batch)
     }
     pub fn manifests(&self) -> impl Iterator<Item = &Manifest> {
         self.manifests.values()
