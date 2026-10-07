@@ -604,3 +604,60 @@ fn scene_drag_targets_expand_commit_once_and_cancel_at_normal_and_narrow_widths(
         }
     }
 }
+
+#[test]
+fn delete_selected_keys_does_not_request_layer_deletion() {
+    let _guard = crate::IMGUI_TEST_LOCK.lock().unwrap();
+    let mut context = context();
+    let mut editor = Editor::default();
+    let document = DocumentId::new();
+    let mut channels = channels();
+    let object = channels[0].object;
+    let key = channels[0].curve.keys[0].id;
+    let tracks = [Track {
+        id: object,
+        parent: None,
+        label: "Layer".into(),
+        locked: false,
+        range: None,
+        layer: Some(LayerControls {
+            accepts_children: false,
+            visible: true,
+            icon: "L",
+        }),
+    }];
+    let mut auto = false;
+    for step in 0..45 {
+        if step == 3 {
+            editor.selected.insert(key);
+        }
+        context.io_mut().add_key_event(Key::Delete, step >= 3);
+        let ui = context.frame();
+        ui.window("Animation")
+            .position([0.; 2], Condition::Always)
+            .size([700., 500.], Condition::Always)
+            .focused(true)
+            .build(|| {
+                let response = editor.draw(
+                    ui,
+                    &mut channels,
+                    super::Context {
+                        cache: &Default::default(),
+                        document,
+                        generation: 0,
+                        time: Time::ZERO,
+                        rate: [24, 1],
+                        frames: 96,
+                        nodes: &[object],
+                        tracks: &tracks,
+                        auto_key: &mut auto,
+                    },
+                );
+                assert!(!response.delete_layers);
+            });
+        context.end_frame();
+    }
+    assert!(!channels[0].curve.keys.iter().any(|k| k.id == key));
+    assert_eq!(channels[0].curve.keys.len(), 1);
+    assert_eq!(channels[1].curve.keys.len(), 2);
+}

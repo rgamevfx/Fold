@@ -810,6 +810,7 @@ impl Editor {
                     }
                     match row {
                         Row::Node(id, _, _, _) => {
+                            self.selected.clear();
                             if mouse[0]
                                 < origin[0]
                                     + controls_width

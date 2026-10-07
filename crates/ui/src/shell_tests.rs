@@ -1361,3 +1361,121 @@ fn composition_surface_has_a_context_after_restoring_a_workspace_without_one() {
     assert_eq!(shell.workspace.composition_editor, Some(id));
     assert_eq!(shell.workspace.editors.len(), 1);
 }
+
+#[test]
+fn editor_content_context_menu_survives_right_button_release() {
+    use dear_imgui_rs::MouseButton;
+    #[derive(Default)]
+    struct Observed {
+        point: [f32; 2],
+        open: bool,
+        tab: [f32; 2],
+        tab_menu: bool,
+    }
+    struct Clip(Rc<RefCell<Observed>>);
+    impl Panel for Clip {
+        fn id(&self) -> &'static str {
+            "test.clip"
+        }
+        fn document_type(&self) -> Option<&'static str> {
+            Some("test.kind")
+        }
+        fn new_instance(&self) -> Option<EditorPanels> {
+            Some(EditorPanels {
+                editor: Box::new(Self(self.0.clone())),
+                inspector: Box::new(Self(self.0.clone())),
+            })
+        }
+        fn draw(&mut self, context: ExtensionUi<'_>) {
+            let ui = context.ui;
+            let pos = ui.window_pos();
+            self.0.borrow_mut().tab = [pos[0] + 45., pos[1] + ui.text_line_height() * 0.5];
+            self.0.borrow_mut().tab_menu = ui.is_popup_open("editor-tab-menu");
+            let p = ui.cursor_screen_pos();
+            self.0.borrow_mut().point = [p[0] + 40., p[1] + 30.];
+            ui.invisible_button("clip", [180., 80.]);
+            if ui.is_item_hovered() && ui.is_mouse_clicked(MouseButton::Right) {
+                ui.open_popup("clip-menu");
+            }
+            let popup = ui.begin_popup("clip-menu");
+            self.0.borrow_mut().open = popup.is_some();
+            if popup.is_some() {
+                ui.menu_item("New composition from clip");
+            }
+        }
+    }
+    let _guard = crate::IMGUI_TEST_LOCK.lock().unwrap();
+    let mut context = Context::create();
+    context.set_ini_filename(None::<String>).unwrap();
+    context
+        .io_mut()
+        .set_config_flags(ConfigFlags::DOCKING_ENABLE);
+    context
+        .font_atlas()
+        .try_claim_legacy_renderer()
+        .unwrap()
+        .build();
+    context.io_mut().set_display_size([1000., 600.]);
+    context.io_mut().set_delta_time(1. / 60.);
+    let seen = Rc::new(RefCell::new(Observed::default()));
+    let mut shell = Shell::new(vec![RegisteredPanel {
+        descriptor: fold_platform::packages::PanelDescriptor {
+            id: "test.clip",
+            title: "Timeline",
+            placement: PanelPlacement::Editor,
+        },
+        panel: Box::new(Clip(seen.clone())),
+        key: WindowKey::new("test.clip", "Timeline").unwrap(),
+    }]);
+    shell.bootstrap = false;
+    let docs = [DocumentId::new(), DocumentId::new()];
+    let mut host = Host {
+        documents: docs,
+        state: Default::default(),
+        delivery: docs[0],
+        commands: vec![],
+    };
+    for step in 0..23 {
+        context
+            .io_mut()
+            .add_key_event(dear_imgui_rs::Key::Escape, step == 12);
+        if step == 16 {
+            context.io_mut().add_mouse_pos_event(seen.borrow().tab);
+        }
+        if step == 17 {
+            context
+                .io_mut()
+                .add_mouse_button_event(MouseButton::Right, true);
+        }
+        if step == 19 {
+            context
+                .io_mut()
+                .add_mouse_button_event(MouseButton::Right, false);
+        }
+        if step == 5 {
+            context.io_mut().add_mouse_pos_event(seen.borrow().point);
+        }
+        if step == 6 {
+            context
+                .io_mut()
+                .add_mouse_button_event(MouseButton::Right, true);
+        }
+        if step == 8 {
+            context
+                .io_mut()
+                .add_mouse_button_event(MouseButton::Right, false);
+        }
+        let ui = context.frame();
+        shell.controls(ui, &mut host).unwrap();
+        if (7..12).contains(&step) {
+            assert!(seen.borrow().open, "clip menu disappeared at frame {step}");
+        }
+        if step >= 20 {
+            assert!(
+                seen.borrow().tab_menu,
+                "right-clicking the tab must open Close editor"
+            );
+        }
+        context.end_frame();
+    }
+}

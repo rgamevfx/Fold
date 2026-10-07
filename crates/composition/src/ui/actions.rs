@@ -55,32 +55,8 @@ pub(super) fn draw(ui: &Ui, host: &mut dyn DesktopClient, state: &mut State) {
                     let document = state.document.unwrap();
                     state.command(host,package::NEST,serde_json::json!({"document":document,"child":DocumentId::new(),"name":"Nested composition","layers":selected}));
                 }
-                if ui.menu_item("Delete selected layers") {
-                    let c = state.composition.as_mut().unwrap();
-                    if selected.iter().any(|id| c.locked(*id)) {
-                        state.error = "Unlock layers before deleting".into();
-                    } else {
-                        let mut removed = selected;
-                        loop {
-                            let before = removed.len();
-                            for l in &c.layers {
-                                if l.parent.is_some_and(|p| removed.contains(&p))
-                                    && !removed.contains(&l.id)
-                                {
-                                    removed.push(l.id);
-                                }
-                            }
-                            if before == removed.len() {
-                                break;
-                            }
-                        }
-                        if removed.iter().any(|id| c.locked(*id)) {
-                            state.error = "Unlock descendant layers before deleting".into();
-                        } else {
-                            c.layers.retain(|l| !removed.contains(&l.id));
-                            state.commit(host);
-                        }
-                    }
+                if ui.menu_item("Delete selected layers (Delete)") {
+                    delete_selected(host, state);
                 }
             }
             if let Some(id) = state.selected.first().copied() {
@@ -100,6 +76,37 @@ pub(super) fn draw(ui: &Ui, host: &mut dyn DesktopClient, state: &mut State) {
                     );
                 }
             }
+        }
+    }
+}
+
+/// Shared by the Layer menu and the focused layer editor shortcut.
+pub(super) fn delete_selected(host: &mut dyn DesktopClient, state: &mut State) {
+    let selected = state.selected.clone();
+    if selected.is_empty() {
+        return;
+    }
+    let c = state.composition.as_mut().unwrap();
+    if selected.iter().any(|id| c.locked(*id)) {
+        state.error = "Unlock layers before deleting".into();
+    } else {
+        let mut removed = selected;
+        loop {
+            let before = removed.len();
+            for l in &c.layers {
+                if l.parent.is_some_and(|p| removed.contains(&p)) && !removed.contains(&l.id) {
+                    removed.push(l.id);
+                }
+            }
+            if before == removed.len() {
+                break;
+            }
+        }
+        if removed.iter().any(|id| c.locked(*id)) {
+            state.error = "Unlock descendant layers before deleting".into();
+        } else {
+            c.layers.retain(|l| !removed.contains(&l.id));
+            state.commit(host);
         }
     }
 }

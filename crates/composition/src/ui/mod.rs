@@ -263,6 +263,9 @@ impl Panel for Canvas {
                 state.commit(host);
             }
         }
+        if response.delete_layers {
+            actions::delete_selected(host, &mut state);
+        }
         let mut request = sdk::project_drop::placement(document, time);
         self.files.region(ui, origin, size, request.clone(), None);
         for &(layer, min, max) in self.animation.layer_drop_rows() {

@@ -977,6 +977,7 @@ impl Shell {
             })
             .collect();
         let mut seeks = Vec::new();
+        let mut layer_graphs = Vec::new();
         let mut close_editor = None;
         let mut group_changes = Vec::new();
         let mut publish = Vec::new();
@@ -1025,6 +1026,10 @@ impl Shell {
                     WindowKey::new(format!("fold.editor.{}", id.0), "Unavailable editor").unwrap()
                 });
             let visible = ui.window(&key).focused(self.focus == Some(id)).build(|| {
+                // Immediately after Begin, the last item is this window's dock tab/title.
+                if let Some(_popup) = ui.begin_popup_context_item_with_label(Some("editor-tab-menu")) {
+                    if ui.menu_item("Close editor") { close_editor = Some(id); }
+                }
                 if ui.is_window_focused() { self.workspace.focused_editor = Some(id); }
                 if let Some(group) = group_selector::draw_choices(ui, binding.group, |group| group == workspace::LinkGroup::Unlinked || !memberships.iter().any(|(other, occupied, contribution)| *other != id && *occupied == group && *contribution == binding.contribution)) { group_changes.push((id, group)); }
                 ui.same_line();
@@ -1039,9 +1044,6 @@ impl Shell {
                         }
                     }
                 }
-                if let Some(_popup) = ui.begin_popup_context_window() {
-                    if ui.menu_item("Close editor") { close_editor = Some(id); }
-                }
                 if let Some(editor) = self.editors.get_mut(&id)
                     && editor.panels.editor.document_type() == Some(binding.document_type.as_str())
                 {
@@ -1052,6 +1054,7 @@ impl Shell {
                     editor.panels.editor.draw(ExtensionUi { ui, host: &mut context });
                     if let Some(time) = context.seek_request() { seeks.push((id, time)); }
                     if context.selection_requested() { publish.push(id); }
+                    if let Some(graph) = context.take_layer_graph() { layer_graphs.push(graph); }
                     drop(context);
                     binding.selection = scoped.selection.clone();
                     if scoped.navigation != navigation { publish.push(id); binding.navigation = scoped.navigation; binding.document_type = scoped.document_type; binding.mapped_navigation = scoped.mapped_navigation; }
@@ -1095,7 +1098,6 @@ impl Shell {
         self.focus = None;
         self.refresh_viewer_targets(client);
         self.visible_panels.clear();
-        let mut layer_graphs = Vec::new();
         let mut graph_selections = Vec::new();
         let layer_graph_types: Vec<_> = self
             .panels
@@ -1120,6 +1122,13 @@ impl Shell {
                             && registered.descriptor.id == crate::sdk::network::PANEL_ID),
                 )
                 .build(|| {
+                    if registered.descriptor.id == crate::sdk::composition::PANEL_ID
+                        && let Some(_menu) =
+                            ui.begin_popup_context_item_with_label(Some("composition-tab-menu"))
+                        && ui.menu_item("Close composition context")
+                    {
+                        close_editor = self.workspace.composition_editor;
+                    }
                     if registered.descriptor.placement == PanelPlacement::Inspector
                         || registered.descriptor.id == crate::sdk::composition::PANEL_ID
                         || registered.descriptor.id == crate::sdk::network::PANEL_ID
@@ -1380,12 +1389,6 @@ impl Shell {
                                     "Select a linked viewer to choose the animation edit time.",
                                 );
                                 return;
-                            }
-                            if registered.descriptor.id == crate::sdk::composition::PANEL_ID
-                                && let Some(_menu) = ui.begin_popup_context_window()
-                                && ui.menu_item("Close composition context")
-                            {
-                                close_editor = Some(id);
                             }
                             let scope = format!(
                                 "editor-{}-viewer-{:?}",

@@ -301,3 +301,131 @@ fn selecting_a_layer_requests_its_graph_without_navigating_the_composition() {
     assert_eq!(binding.navigation, navigation);
     assert_eq!(binding.selection.objects, vec![layer]);
 }
+
+#[test]
+fn reselecting_the_only_layer_requests_its_network_again() {
+    let (mut host, shared) = setup();
+    let mut state = shared.borrow_mut();
+    let id = state.selected[0];
+    let child = match &state
+        .composition
+        .as_ref()
+        .unwrap()
+        .layer(id)
+        .unwrap()
+        .source
+    {
+        Some(Source::Output(source)) => source.document,
+        _ => unreachable!(),
+    };
+    let mut document = (*host.project.snapshot().state().documents[&child]).clone();
+    document
+        .extensions
+        .insert(crate::LAYER_GRAPH.into(), true.into());
+    host.project
+        .commit(EditBatch {
+            base: host.project.snapshot().revision(),
+            mutations: vec![Mutation::PutDocument(document)],
+        })
+        .unwrap();
+    state.sync(&mut host);
+    state
+        .composition
+        .as_mut()
+        .unwrap()
+        .layers
+        .retain(|l| l.id == id);
+    state.commit(&mut host);
+    let mut editor = fold_platform::workspace::EditorInstance {
+        contribution: package::PANEL.into(),
+        document_type: crate::COMPOSITION.into(),
+        group: fold_platform::workspace::LinkGroup::A,
+        navigation: host.state.navigation.clone(),
+        selection: host.state.selection.clone(),
+        mapped_navigation: false,
+    };
+    let mut scoped = fold_platform::panel_context::PanelContext::new(&mut host, &mut editor);
+    state.follow_layer(&mut scoped);
+    assert!(scoped.take_layer_graph().is_some());
+    state.select_layer(&mut scoped, id, false, false);
+    assert!(
+        scoped.take_layer_graph().is_some(),
+        "clicking the selected layer must restore its network"
+    );
+}
+
+#[test]
+fn delete_key_removes_selected_layer_and_undo_restores_it() {
+    let _guard = IMGUI_LOCK.lock().unwrap();
+    let (mut host, state) = setup();
+    let before = host.project.snapshot();
+    let selected = state.borrow().selected[0];
+    let mut context = imgui::Context::create();
+    context.set_ini_filename(None::<String>).unwrap();
+    context
+        .font_atlas()
+        .try_claim_legacy_renderer()
+        .unwrap()
+        .build();
+    context.io_mut().set_display_size([900., 700.]);
+    context.io_mut().set_delta_time(1. / 60.);
+    let mut canvas = Canvas::new(state.clone());
+    for step in 0..6 {
+        context
+            .io_mut()
+            .add_key_event(imgui::Key::Delete, step == 3);
+        let ui = context.frame();
+        ui.window("Composition")
+            .position([0., 0.], imgui::Condition::Always)
+            .size([700., 600.], imgui::Condition::Always)
+            .focused(true)
+            .build(|| {
+                canvas.draw(ExtensionUi {
+                    ui,
+                    host: &mut host,
+                });
+            });
+        context.end_frame();
+    }
+    assert!(
+        state
+            .borrow()
+            .composition
+            .as_ref()
+            .unwrap()
+            .layer(selected)
+            .is_err()
+    );
+    host.project.undo().unwrap();
+    assert!(before.same_content(&host.project.snapshot()));
+}
+
+#[test]
+fn deleting_a_group_protects_locked_descendants_and_undo_restores_hierarchy() {
+    let (mut host, shared) = setup();
+    let mut state = shared.borrow_mut();
+    let child = state.selected[0];
+    let c = state.composition.as_mut().unwrap();
+    let group = c.layers[1].id;
+    c.layer_mut(child).unwrap().parent = Some(group);
+    c.layer_mut(child).unwrap().locked = true;
+    state.commit(&mut host);
+    state.select(&mut host, vec![group]);
+    let locked = host.project.snapshot();
+    actions::delete_selected(&mut host, &mut state);
+    assert!(locked.same_content(&host.project.snapshot()));
+    assert_eq!(state.error, "Unlock descendant layers before deleting");
+    state
+        .composition
+        .as_mut()
+        .unwrap()
+        .layer_mut(child)
+        .unwrap()
+        .locked = false;
+    state.commit(&mut host);
+    let before = host.project.snapshot();
+    actions::delete_selected(&mut host, &mut state);
+    assert!(state.composition.as_ref().unwrap().layers.is_empty());
+    host.project.undo().unwrap();
+    assert!(before.same_content(&host.project.snapshot()));
+}

@@ -653,3 +653,38 @@ fn precompose_retains_badge_hierarchy_and_rejects_splitting_shared_graph_layers(
     project.undo().unwrap();
     assert!(snapshot.same_content(&project.snapshot()));
 }
+
+#[test]
+fn deleting_the_only_graph_layer_is_undoable_for_both_providers() {
+    for kind in ["motion", "image"] {
+        let mut project = Project::new(8);
+        let document = DocumentId::new();
+        put(
+            &mut project,
+            vec![Composition::default().document(document).unwrap()],
+        );
+        apply(
+            &mut project,
+            workflow::ADD,
+            serde_json::json!({"document":document,"kind":kind}),
+        );
+        let before = project.snapshot();
+        let mut composition =
+            Composition::from_document(&before.state().documents[&document]).unwrap();
+        assert_eq!(composition.layers.len(), 1);
+        composition.layers.clear();
+        apply(
+            &mut project,
+            fold_composition::package::EDIT,
+            serde_json::json!({"document":document,"composition":composition}),
+        );
+        assert!(
+            Composition::from_document(&project.snapshot().state().documents[&document])
+                .unwrap()
+                .layers
+                .is_empty()
+        );
+        project.undo().unwrap();
+        assert!(before.same_content(&project.snapshot()));
+    }
+}

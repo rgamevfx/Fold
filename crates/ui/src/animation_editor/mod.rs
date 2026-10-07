@@ -77,6 +77,7 @@ pub struct Response {
     pub seek: Option<Time>,
     pub select_node: Option<ObjectId>,
     pub open_node: Option<ObjectId>,
+    pub delete_layers: bool,
     pub range: Option<(ObjectId, Time, Time)>,
     pub reorder: Option<(ObjectId, ObjectId, bool)>,
     pub reparent: Option<(ObjectId, Option<ObjectId>)>,
@@ -218,8 +219,15 @@ impl Editor {
                     self.select_all(channels, &context);
                 }
             }
-            if ui.is_key_pressed(Key::Delete) {
-                self.delete(channels, &mut response);
+            if ui.is_key_pressed_with_repeat(Key::Delete, false) {
+                if self.selected.is_empty() {
+                    response.delete_layers = context
+                        .tracks
+                        .iter()
+                        .any(|track| track.layer.is_some() && context.nodes.contains(&track.id));
+                } else {
+                    self.delete(channels, &mut response);
+                }
             }
         }
         if !self.fitted {

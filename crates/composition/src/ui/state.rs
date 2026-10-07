@@ -124,6 +124,8 @@ impl State {
             document: self.document,
             objects: ids,
         }));
+        // An explicit selection also restores a network changed in another panel.
+        self.network_layer = None;
         self.follow_layer(host);
     }
     pub fn select_layer(
