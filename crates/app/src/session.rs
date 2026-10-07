@@ -50,6 +50,7 @@ impl Drop for Background {
 }
 
 pub struct Session {
+    settings_request: Option<Option<fold_foundation::DocumentId>>,
     automation: crate::automation::host::Host,
     project: Project,
     saved_project: fold_project::CommittedSnapshot,
@@ -78,6 +79,7 @@ impl Default for Session {
 impl Session {
     pub fn new(project: Project) -> Self {
         let mut session = Self {
+            settings_request: None,
             automation: Default::default(),
             saved_project: crate::color::new_project(32).snapshot(),
             project,
@@ -282,6 +284,22 @@ impl Session {
 #[path = "session_candidate.rs"]
 mod candidate_preview;
 impl DesktopClient for Session {
+    fn take_settings_request(&mut self) -> Option<Option<fold_foundation::DocumentId>> {
+        self.settings_request.take()
+    }
+    fn document_settings(
+        &self,
+        id: fold_foundation::DocumentId,
+    ) -> Result<Option<fold_platform::settings::DocumentSettings>, String> {
+        let snapshot = self.project.snapshot();
+        let document = snapshot
+            .state()
+            .documents
+            .get(&id)
+            .ok_or("Missing document")?;
+        crate::packages::builtins().document_settings(document)
+    }
+
     fn agent_preview(&self) -> Option<fold_platform::desktop::AgentPreview> {
         self.candidate_preview_info().ok().flatten()
     }
@@ -818,6 +836,10 @@ impl DesktopClient for Session {
                     job.cancel.cancel();
                 }
                 self.state.status = "Cancellation requested".into();
+                return;
+            }
+            DesktopCommand::OpenSettings(target) => {
+                self.settings_request = Some(target);
                 return;
             }
             DesktopCommand::SetOutputColor {

@@ -38,6 +38,7 @@ struct RuntimeEditor {
 pub(crate) struct Shell {
     pub(crate) cached_previews: Vec<PreviewKey>,
     pub(crate) settings: Option<crate::settings::Settings>,
+    document_settings: Option<crate::document_settings::Dialog>,
     pub(crate) typography: Option<crate::sdk::typography::Typography>,
     viewer: WindowKey,
     delivery: WindowKey,
@@ -95,6 +96,7 @@ impl Shell {
         let empty = WindowKey::new("fold.editors.empty", "Editors").unwrap();
         let mut shell = Self {
             settings: None,
+            document_settings: None,
             typography: None,
             viewer,
             delivery,
@@ -893,6 +895,9 @@ impl Shell {
                 }
             }
             if let Some(_menu) = ui.begin_menu("Fold") {
+                if ui.menu_item("Project Settings…") {
+                    client.command(DesktopCommand::OpenSettings(None));
+                }
                 if ui.menu_item("Settings…")
                     && let Some(settings) = &mut self.settings
                 {
@@ -900,6 +905,17 @@ impl Shell {
                 }
             }
         });
+        if let Some(target) = client.take_settings_request() {
+            match crate::document_settings::Dialog::new(client, target) {
+                Ok(dialog) => self.document_settings = Some(dialog),
+                Err(error) => client.command(DesktopCommand::Notify(error)),
+            }
+        }
+        if let Some(dialog) = &mut self.document_settings {
+            if !dialog.draw(ui, client) {
+                self.document_settings = None;
+            }
+        }
         self.project_menu.confirmation(ui, client);
         self.workspace_menu.dialog(ui, self.settings.as_ref());
         if let Some(settings) = &mut self.settings {
@@ -1032,6 +1048,8 @@ impl Shell {
                 }
                 if ui.is_window_focused() { self.workspace.focused_editor = Some(id); }
                 if let Some(group) = group_selector::draw_choices(ui, binding.group, |group| group == workspace::LinkGroup::Unlinked || !memberships.iter().any(|(other, occupied, contribution)| *other != id && *occupied == group && *contribution == binding.contribution)) { group_changes.push((id, group)); }
+                ui.same_line();
+                crate::document_settings::button(ui, client, binding.document());
                 ui.same_line();
                 if let Some(action) = target_selector::draw(ui, &label, binding.navigation.len() > 1, &choices) {
                     client.command(DesktopCommand::CancelPreviewEdit);
@@ -1220,6 +1238,16 @@ impl Shell {
                                     }
                                 })
                                 .unwrap_or("Choose context".into());
+                            let settings_target = self
+                                .workspace
+                                .inspector_lock
+                                .as_ref()
+                                .filter(|_| !composition)
+                                .map(|(_, b)| b)
+                                .or_else(|| current.and_then(|id| self.workspace.editors.get(&id)))
+                                .and_then(|b| b.document());
+                            crate::document_settings::button(ui, client, settings_target);
+                            ui.same_line();
                             let mut choose = None;
                             ui.set_next_item_width(
                                 (ui.content_region_avail()[0] - ui.frame_height() - 12.).max(32.),

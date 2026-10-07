@@ -1,9 +1,6 @@
-use super::state::{self, Shared, State};
-use fold_platform::desktop::{DesktopClient, DesktopCommand};
+use super::state::{self, Shared};
 use fold_ui::sdk::{
-    self, EditResponse, ExtensionUi, Panel,
-    animated_property::AnimatedProperty,
-    imgui::{self, Ui},
+    self, EditResponse, ExtensionUi, Panel, animated_property::AnimatedProperty, imgui,
 };
 pub(super) struct Inspector(pub Shared);
 impl Panel for Inspector {
@@ -166,66 +163,5 @@ impl Panel for Inspector {
         if !state.error.is_empty() {
             ui.text_wrapped(&state.error);
         }
-    }
-}
-pub(super) fn settings(ui: &Ui, host: &mut dyn DesktopClient, state: &mut State) {
-    let Some(mut info) = state.settings.clone() else {
-        return;
-    };
-    let mut open = true;
-    let mut apply = false;
-    let mut cancel = false;
-    ui.window("Composition settings##common-composition")
-        .opened(&mut open)
-        .flags(imgui::WindowFlags::ALWAYS_AUTO_RESIZE)
-        .build(|| {
-            let mut values = [
-                info.width,
-                info.height,
-                info.frames,
-                info.rate[0],
-                info.rate[1],
-            ];
-            for (label, value) in [
-                "Width",
-                "Height",
-                "Duration (frames)",
-                "Rate numerator",
-                "Rate denominator",
-            ]
-            .into_iter()
-            .zip(&mut values)
-            {
-                let mut v = (*value).min(i32::MAX as u32) as i32;
-                ui.text(label);
-                ui.set_next_item_width(220.);
-                if ui.input_int(format!("##{label}"), &mut v) && v > 0 {
-                    *value = v as u32;
-                }
-            }
-            info.width = values[0];
-            info.height = values[1];
-            info.frames = values[2];
-            info.rate = [values[3], values[4]];
-            apply = ui.button("Apply");
-            ui.same_line();
-            cancel = ui.button("Cancel");
-        });
-    if apply {
-        match info.validate() {
-            Ok(()) => {
-                state.composition.as_mut().unwrap().info = info;
-                state.commit(host);
-                state.settings = None;
-            }
-            Err(e) => {
-                state.error = e;
-                host.command(DesktopCommand::Notify(state.error.clone()));
-            }
-        }
-    } else if !open || cancel {
-        state.settings = None;
-    } else {
-        state.settings = Some(info);
     }
 }

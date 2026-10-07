@@ -24,8 +24,8 @@ impl Sequence {
                 continue;
             }
             let start = ticks(clip.start)?;
-            let end = ticks(clip.end()?)?;
-            if start == end {
+            let end = ticks(clip.end()?)?.min(end);
+            if start >= end {
                 continue;
             }
             let source_offset = clip

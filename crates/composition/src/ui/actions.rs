@@ -15,10 +15,6 @@ pub(super) fn draw(ui: &Ui, host: &mut dyn DesktopClient, state: &mut State) {
             ));
         }
         if let Some(document) = state.document {
-            if ui.menu_item("Composition settings…") {
-                state.settings = state.composition.as_ref().map(|c| c.info.clone());
-            }
-            ui.separator();
             for (label, kind) in [
                 ("Add MoGraph layer", "motion"),
                 ("Add Compositing layer", "image"),

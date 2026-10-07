@@ -48,17 +48,9 @@ fn common_composition_normal_and_narrow() {
     for (name, width) in [
         ("normal", 850.),
         ("narrow", 280.),
-        ("settings", 850.),
         ("add-layer-menu", 850.),
         ("add-layer-menu-narrow", 280.),
     ] {
-        if name == "settings" {
-            let mut state = inspector.0.borrow_mut();
-            state.settings = state.composition.as_ref().map(|c| c.info.clone());
-        }
-        if name.starts_with("add-layer-menu") {
-            inspector.0.borrow_mut().settings = None;
-        }
         // Let native graph camera framing settle after changing panel width.
         for frame_index in 0..40 {
             if name.starts_with("add-layer-menu") {

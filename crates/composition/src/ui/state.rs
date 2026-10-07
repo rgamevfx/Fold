@@ -18,7 +18,6 @@ pub(super) struct State {
     pub auto_key: bool,
     pub editing: bool,
     pub error: String,
-    pub settings: Option<fold_media::VideoInfo>,
     network_layer: Option<(DocumentId, ObjectId, DocumentId)>,
 }
 impl State {
@@ -37,9 +36,7 @@ impl State {
             if self.editing {
                 host.command(DesktopCommand::CancelPreviewEdit);
             }
-            if desired != self.document {
-                self.settings = None;
-            }
+            if desired != self.document {}
             self.document = desired;
             self.base = snapshot.revision();
             self.editing = false;

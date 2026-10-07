@@ -4,6 +4,7 @@ use super::imgui::{PopupToken, StyleColor, Ui};
 
 #[derive(Clone, Copy)]
 pub enum ToolbarIcon {
+    Settings,
     Blade,
     Snap,
     Link,
@@ -73,6 +74,19 @@ pub fn draw_icon_on(
             .build();
     };
     match icon {
+        ToolbarIcon::Settings => {
+            draw.add_circle(center, unit * 0.65, color)
+                .thickness(1.5)
+                .build();
+            draw.add_circle(center, unit * 0.23, color).build();
+            for index in 0..8 {
+                let angle = index as f32 * std::f32::consts::FRAC_PI_4;
+                line(
+                    [angle.cos() * 0.7, angle.sin() * 0.7],
+                    [angle.cos(), angle.sin()],
+                );
+            }
+        }
         ToolbarIcon::Blade => {
             line([-1., 1.], [1., -1.]);
             line([-1., -1.], [1., 1.]);

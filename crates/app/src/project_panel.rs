@@ -210,6 +210,12 @@ impl ProjectPanel {
         }
         if let Some(row) = row {
             ui.separator();
+            if let Entry::Item(ItemId::Document(id)) = row.entry {
+                if host.document_settings(id).ok().flatten().is_some() && ui.menu_item("Settings…")
+                {
+                    host.command(DesktopCommand::OpenSettings(Some(id)));
+                }
+            }
             if matches!(row.entry, Entry::Bin(_) | Entry::Item(ItemId::Document(_)))
                 && ui.menu_item_with_shortcut("Open", "Enter")
             {

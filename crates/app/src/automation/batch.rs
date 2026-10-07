@@ -147,7 +147,7 @@ pub fn stage(
                     return Err("document ID already exists".into());
                 }
                 vec![
-                    Mutation::PutDocument(registry.create(&kind, id)?),
+                    Mutation::PutDocument(registry.create_with_defaults(&snap, &kind, id)?),
                     Mutation::PutItem(Item {
                         id: ItemId::Document(id),
                         name,

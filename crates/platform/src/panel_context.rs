@@ -198,6 +198,13 @@ impl<'a> PanelContext<'a> {
     }
 }
 impl DesktopClient for PanelContext<'_> {
+    fn document_settings(
+        &self,
+        document: fold_foundation::DocumentId,
+    ) -> Result<Option<crate::settings::DocumentSettings>, String> {
+        self.host.document_settings(document)
+    }
+
     fn cache_reference(&self) -> Option<PreviewKey> {
         self.cache_reference
             .clone()

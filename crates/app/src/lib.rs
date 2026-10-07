@@ -14,6 +14,7 @@ pub mod playback;
 #[cfg(feature = "desktop")]
 pub mod project_panel;
 pub mod session;
+pub mod settings;
 pub mod timeline_workflow;
 
 mod read_source;

@@ -1,6 +1,7 @@
 //! Shared Dear ImGui presentation. Project mutations and jobs belong to the host.
 mod cache;
 mod desktop;
+mod document_settings;
 mod group_selector;
 #[cfg(feature = "native-probe")]
 mod native_probe;

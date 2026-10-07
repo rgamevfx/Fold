@@ -192,6 +192,7 @@ pub enum DesktopCommand {
     CloseViewer(crate::workspace::PanelInstanceId),
     MonitorViewer(Option<crate::workspace::PanelInstanceId>),
     Notify(String),
+    OpenSettings(Option<fold_foundation::DocumentId>),
     Browser(crate::browser::BrowserCommand),
     Import(Vec<PathBuf>),
     Extension(crate::packages::CommandRequest),
@@ -433,6 +434,15 @@ pub trait DesktopClient {
     }
     fn take_imported_items(&mut self) -> Vec<fold_project::ItemId> {
         vec![]
+    }
+    fn take_settings_request(&mut self) -> Option<Option<fold_foundation::DocumentId>> {
+        None
+    }
+    fn document_settings(
+        &self,
+        _document: fold_foundation::DocumentId,
+    ) -> Result<Option<crate::settings::DocumentSettings>, String> {
+        Ok(None)
     }
     fn document_kinds(&self) -> Vec<crate::browser::DocumentKind> {
         vec![]

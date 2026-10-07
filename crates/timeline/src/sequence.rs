@@ -114,9 +114,23 @@ impl Sequence {
             .iter()
             .try_fold(Time::ZERO, |end, clip| Ok(end.max(clip.end()?)))
     }
+    pub fn output_duration(&self) -> Result<Option<Time>, String> {
+        self.extensions
+            .get("fold.timeline.output-duration")
+            .map(|value| {
+                let time: Time =
+                    serde_json::from_value(value.clone()).map_err(|e| e.to_string())?;
+                if time <= Time::ZERO {
+                    return Err("Output duration must be positive".into());
+                }
+                Ok(time)
+            })
+            .transpose()
+    }
     pub fn info(&self) -> Result<VideoInfo, String> {
         let frames = self
-            .end()?
+            .output_duration()?
+            .unwrap_or(self.end()?)
             .to_ticks(self.rate[0], self.rate[1], Rounding::Ceil)
             .map_err(|e| e.to_string())?;
         let info = VideoInfo {

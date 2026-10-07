@@ -6,6 +6,7 @@ pub mod desktop;
 pub mod layer_graph;
 pub mod packages;
 pub mod panel_context;
+pub mod settings;
 pub mod workspace;
 
 use fold_foundation::Time;

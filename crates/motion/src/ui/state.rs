@@ -10,7 +10,6 @@ pub type Shared = Rc<RefCell<State>>;
 #[derive(Default)]
 pub struct State {
     pub graph_animation: bool,
-    pub composition_settings: Option<fold_media::VideoInfo>,
     pub wrangle_drafts: super::wrangle::Drafts,
     pub document: Option<DocumentId>,
     pub motion: Option<Motion>,
@@ -75,7 +74,6 @@ impl State {
                 host.command(DesktopCommand::CancelPreviewEdit);
             }
             if chosen != self.document {
-                self.composition_settings = None;
                 self.wrangle_drafts.clear();
                 self.group = None;
                 self.network_object = None;
@@ -336,7 +334,6 @@ impl State {
     }
     #[cfg(test)]
     pub fn create(&mut self, host: &mut dyn DesktopClient) {
-        self.composition_settings = None;
         self.cancel(host);
         self.group = None;
         self.parents.clear();

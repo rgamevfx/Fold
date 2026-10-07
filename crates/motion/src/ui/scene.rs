@@ -12,9 +12,6 @@ pub(super) fn draw(shared: &Shared, animation: &mut Animation, context: Extensio
         let mut state = shared.borrow_mut();
         state.sync(host);
         if let Some(_menu) = menu_button(ui, "MoGraph", "Layer graph actions") {
-            if ui.menu_item("Graph settings…") {
-                state.composition_settings = state.motion.as_ref().map(|m| m.info.clone());
-            }
             if ui.menu_item("Show output") {
                 state.view(host);
             }
@@ -200,6 +197,6 @@ pub(super) fn draw(shared: &Shared, animation: &mut Animation, context: Extensio
             }
         }
     }
-    super::composition::settings(ui, host, &mut shared.borrow_mut());
+
     animation.draw(shared, ExtensionUi { ui, host });
 }

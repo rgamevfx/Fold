@@ -202,6 +202,24 @@ pub fn nest(snapshot: &Snapshot, bytes: &[u8], cancel: &Cancel) -> Result<EditBa
 }
 struct Documents;
 impl DocumentProvider for Documents {
+    fn settings(
+        &self,
+        document: &Document,
+    ) -> Result<Option<fold_platform::settings::DocumentSettings>, String> {
+        Ok(Some(fold_platform::settings::DocumentSettings::fixed(
+            Composition::from_document(document)?.info,
+        )))
+    }
+    fn set_settings(
+        &self,
+        document: &Document,
+        settings: &fold_platform::settings::DocumentSettings,
+    ) -> Result<Document, String> {
+        let mut value = Composition::from_document(document)?;
+        value.info = settings.format.clone();
+        value.document(document.id)
+    }
+
     fn package_id(&self) -> &'static str {
         crate::PACKAGE
     }

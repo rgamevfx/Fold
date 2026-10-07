@@ -22,7 +22,7 @@ pub fn edit(snapshot: &Snapshot, command: BrowserCommand) -> Result<EditBatch, S
                 .title;
             let id = Default::default();
             vec![
-                Mutation::PutDocument(registry.create(&kind, id)?),
+                Mutation::PutDocument(registry.create_with_defaults(snapshot, &kind, id)?),
                 Mutation::PutItem(Item {
                     id: ItemId::Document(id),
                     name: title.into(),

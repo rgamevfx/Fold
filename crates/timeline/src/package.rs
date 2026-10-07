@@ -39,6 +39,36 @@ fn import(snapshot: &Snapshot, args: &[u8], cancel: &Cancel) -> Result<EditBatch
 }
 struct Documents;
 impl DocumentProvider for Documents {
+    fn settings(
+        &self,
+        document: &Document,
+    ) -> Result<Option<fold_platform::settings::DocumentSettings>, String> {
+        let value = crate::Sequence::from_document(document)?;
+        Ok(Some(fold_platform::settings::DocumentSettings {
+            format: value.info()?,
+            output_duration: value.output_duration()?,
+            timeline: true,
+        }))
+    }
+    fn set_settings(
+        &self,
+        document: &Document,
+        settings: &fold_platform::settings::DocumentSettings,
+    ) -> Result<Document, String> {
+        let mut value = crate::Sequence::from_document(document)?;
+        value.dimensions = [settings.format.width, settings.format.height];
+        value.rate = settings.format.rate;
+        if let Some(duration) = settings.output_duration {
+            value.extensions.insert(
+                "fold.timeline.output-duration".into(),
+                serde_json::to_value(duration).map_err(|e| e.to_string())?,
+            );
+        } else {
+            value.extensions.remove("fold.timeline.output-duration");
+        }
+        value.document(document.id)
+    }
+
     fn authoring_catalog(&self) -> serde_json::Value {
         crate::automation::catalog()
     }

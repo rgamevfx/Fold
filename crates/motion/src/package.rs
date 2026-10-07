@@ -55,6 +55,24 @@ fn edit(snapshot: &Snapshot, args: &[u8], _: &Cancel) -> Result<EditBatch, Strin
 }
 struct Documents(Arc<prepared::Cache>);
 impl DocumentProvider for Documents {
+    fn settings(
+        &self,
+        document: &Document,
+    ) -> Result<Option<fold_platform::settings::DocumentSettings>, String> {
+        Ok(Some(fold_platform::settings::DocumentSettings::fixed(
+            crate::Motion::from_document(document)?.info,
+        )))
+    }
+    fn set_settings(
+        &self,
+        document: &Document,
+        settings: &fold_platform::settings::DocumentSettings,
+    ) -> Result<Document, String> {
+        let mut value = crate::Motion::from_document(document)?;
+        value.info = settings.format.clone();
+        value.document(document.id)
+    }
+
     fn image_inputs(
         &self,
         document: &Document,

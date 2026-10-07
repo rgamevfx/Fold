@@ -85,7 +85,6 @@ impl Panel for Canvas {
         state.sync(host);
         state.follow_layer(host);
         actions::draw(ui, host, &mut state);
-        inspector::settings(ui, host, &mut state);
         let Some(document) = state.document else {
             ui.text_disabled("Create a composition or open one from Project.");
             return;

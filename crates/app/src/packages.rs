@@ -37,6 +37,18 @@ pub fn builtins() -> Arc<PackageRegistry> {
                     audio: vec![],
                     commands: vec![
                         CommandRegistration {
+                            id: fold_platform::settings::PROJECT_COMMAND,
+                            title: "Project settings",
+                            execution: Execution::Worker,
+                            handler: crate::settings::project,
+                        },
+                        CommandRegistration {
+                            id: fold_platform::settings::DOCUMENT_COMMAND,
+                            title: "Document settings",
+                            execution: Execution::Immediate,
+                            handler: crate::settings::document,
+                        },
+                        CommandRegistration {
                             id: crate::composition_layers::ADD,
                             title: "Add graph",
                             execution: Execution::Immediate,

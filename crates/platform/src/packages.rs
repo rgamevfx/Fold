@@ -49,6 +49,20 @@ pub struct CommandRegistration {
     pub handler: CommandHandler,
 }
 pub trait DocumentProvider: Send + Sync {
+    fn settings(
+        &self,
+        _document: &Document,
+    ) -> Result<Option<crate::settings::DocumentSettings>, String> {
+        Ok(None)
+    }
+    fn set_settings(
+        &self,
+        _document: &Document,
+        _settings: &crate::settings::DocumentSettings,
+    ) -> Result<Document, String> {
+        Err("Document settings are unavailable".into())
+    }
+
     fn image_inputs(
         &self,
         _document: &Document,
@@ -290,6 +304,51 @@ impl PackageRegistry {
             .extend(package.commands.into_iter().map(|c| (c.id, c)));
         self.manifests.insert(package.manifest.id, package.manifest);
         Ok(())
+    }
+    pub fn document_settings(
+        &self,
+        document: &Document,
+    ) -> Result<Option<crate::settings::DocumentSettings>, String> {
+        self.documents
+            .iter()
+            .find(|p| p.type_id() == document.type_id && p.package_id() == document.package_id)
+            .ok_or("Unavailable document provider")?
+            .settings(document)
+    }
+    pub fn set_document_settings(
+        &self,
+        original: &Document,
+        settings: &crate::settings::DocumentSettings,
+    ) -> Result<Document, String> {
+        settings.format.validate()?;
+        let provider = self
+            .documents
+            .iter()
+            .find(|p| p.type_id() == original.type_id && p.package_id() == original.package_id)
+            .ok_or("Unavailable document provider")?;
+        let mut document = provider.set_settings(original, settings)?;
+        if document.id != original.id
+            || document.type_id != original.type_id
+            || document.package_id != original.package_id
+        {
+            return Err("Settings changed document identity".into());
+        }
+        document.extensions = original.extensions.clone();
+        provider.validate(&document)?;
+        Ok(document)
+    }
+    pub fn create_with_defaults(
+        &self,
+        snapshot: &Snapshot,
+        kind: &str,
+        id: DocumentId,
+    ) -> Result<Document, String> {
+        let document = self.create(kind, id)?;
+        let Some(mut settings) = self.document_settings(&document)? else {
+            return Ok(document);
+        };
+        settings.format = crate::settings::ProjectDefaults::read(snapshot)?.format;
+        self.set_document_settings(&document, &settings)
     }
     pub fn document_kinds(&self) -> Vec<crate::browser::DocumentKind> {
         self.documents
