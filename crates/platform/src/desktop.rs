@@ -5,7 +5,7 @@ pub use fold_render::region::Region as PreviewRegion;
 pub use fold_render::view::{Range as DisplayRange, View as ChannelView};
 use std::path::PathBuf;
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct PreviewKey {
     /// Spatial crop in the full raster at `dimensions`; None means full frame.
     pub region: Option<fold_render::region::Region>,
@@ -359,6 +359,10 @@ pub trait DesktopClient {
         None
     }
     /// Immutable committed state, never a mutable project or device handle.
+    /// Retention policy only; renderer cache keys contain no feature models.
+    fn timeline_cache(&self, _key: &PreviewKey) -> bool {
+        false
+    }
     fn snapshot(&self) -> Option<fold_project::CommittedSnapshot> {
         None
     }

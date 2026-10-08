@@ -357,6 +357,7 @@ impl Desktop {
             }
             _ => return Err("FOLD_RENDER_BACKEND must be cpu or gpu".into()),
         }
+        preview_host.configure_retention(budgets.clone());
         let size = window.inner_size();
         let mut config = surface
             .get_default_config(&adapter, size.width.max(1), size.height.max(1))
@@ -517,6 +518,8 @@ impl Desktop {
         let ui = self.context.frame();
         if let Some(settings) = &mut self.shell.settings {
             settings.cache_usage = self.preview.cache_usage();
+            settings.retention_usage = self.preview.retention_usage();
+            settings.retention_error = self.preview.retention_error();
         }
         self.shell.controls(ui, self.client.as_mut())?;
         #[cfg(feature = "native-probe")]
@@ -529,6 +532,11 @@ impl Desktop {
         {
             self.preview
                 .clear_unused(&mut self.renderer, self.client.as_mut())?;
+        }
+        if let Some(settings) = &mut self.shell.settings {
+            for tier in settings.clear_retention.drain(..) {
+                self.preview.clear_retention(tier);
+            }
         }
         let demands = self.shell.keys(self.client.as_ref());
         self.preview.select_viewers(&demands, self.client.as_mut());

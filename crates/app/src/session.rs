@@ -552,6 +552,14 @@ impl DesktopClient for Session {
     ) -> Result<Vec<fold_platform::layer_graph::ImageInput>, String> {
         crate::packages::builtins().image_inputs(&self.project.snapshot(), document)
     }
+    fn timeline_cache(&self, key: &fold_platform::desktop::PreviewKey) -> bool {
+        let snapshot = self.project.snapshot();
+        key.target
+            .map(|t| t.0)
+            .or(self.state.viewer_document)
+            .and_then(|id| snapshot.state().documents.get(&id))
+            .is_some_and(|document| document.type_id == fold_timeline::SEQUENCE)
+    }
     fn document_kinds(&self) -> Vec<fold_platform::browser::DocumentKind> {
         crate::packages::builtins().document_kinds()
     }

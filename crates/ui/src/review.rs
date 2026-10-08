@@ -2,6 +2,19 @@
 use fold_foundation::Time;
 use fold_platform::desktop::{PlaybackRange, PreviewKey};
 
+/// Shared hot memory is divided across reviews; disk reservations are divided
+/// only among reviews using that store. Composition work cannot shrink timeline disk allowance.
+pub(crate) fn allowance(
+    gpu: usize,
+    ram: u64,
+    disk: u64,
+    viewers: usize,
+    disk_viewers: usize,
+) -> (usize, bool) {
+    let lower = (ram / viewers.max(1) as u64).max(disk / disk_viewers.max(1) as u64) as usize;
+    ((gpu / viewers.max(1)).max(lower), lower > 0)
+}
+
 #[derive(Clone, Copy)]
 pub(crate) enum Action {
     Prepare,
@@ -20,6 +33,7 @@ pub(crate) struct Plan {
     pub cursor: u32,
     pub cached_playing: bool,
     pub message: Option<String>,
+    retained: std::collections::BTreeSet<u32>,
 }
 impl Plan {
     pub fn new(
@@ -29,19 +43,20 @@ impl Plan {
         range: PlaybackRange,
         frames: u32,
         available: usize,
+        compressed: bool,
     ) -> Self {
         let (start, end) = range.bounds(frames);
-        let bytes = template
-            .image_dimensions()
-            .iter()
-            .map(|n| u64::from(*n))
-            .product::<u64>()
-            * 4;
+        let [width, height] = template.image_dimensions();
+        let bytes = if compressed {
+            // Include a conservative metadata allowance for persistent entries.
+            u64::from(width.div_ceil(4)) * u64::from(height.div_ceil(4)) * 16 + 1024
+        } else {
+            u64::from(width) * u64::from(height) * 4
+        };
         let total = end - start + 1;
-        // RGBA8 is the fallback: admission never assumes BC7 will pass quality.
-        // Leave capacity for current-frame replacement and bound key bookkeeping.
+        // Leave space for frame replacement and bound metadata independently.
         let count = total
-            .min(512)
+            .min(fold_platform::playback_cache::ENTRY_LIMIT as u32)
             .min((available as u64 / bytes.max(1)).saturating_sub(2) as u32);
         Self {
             generation,
@@ -54,6 +69,7 @@ impl Plan {
             cursor: 0,
             cached_playing: false,
             message: None,
+            retained: Default::default(),
         }
     }
     pub fn key(&self, offset: u32) -> PreviewKey {
@@ -80,10 +96,30 @@ impl Plan {
             && self.template.target.map(|t| t.0) == key.target.map(|t| t.0)
             && self.range == range
     }
-    pub fn resident(&self, contains: impl Fn(&PreviewKey) -> bool) -> u32 {
-        (0..self.count)
-            .filter(|&offset| contains(&self.key(offset)))
-            .count() as u32
+    pub fn contains(&self, key: &PreviewKey) -> bool {
+        key.frame >= self.start
+            && key.frame - self.start < self.count
+            && *key == self.key(key.frame - self.start)
+    }
+    pub fn limit(&mut self, count: u32) {
+        self.count = self.count.min(count);
+        self.retained
+            .retain(|frame| *frame - self.start < self.count);
+    }
+    pub fn update_retained(&mut self, key: &PreviewKey, present: bool) {
+        if self.contains(key) {
+            if present {
+                self.retained.insert(key.frame);
+            } else {
+                self.retained.remove(&key.frame);
+            }
+        }
+    }
+    pub fn resident<'a>(&self, gpu_keys: impl Iterator<Item = &'a PreviewKey>) -> u32 {
+        self.retained.len() as u32
+            + gpu_keys
+                .filter(|key| !self.retained.contains(&key.frame) && self.contains(key))
+                .count() as u32
     }
     pub fn preparing_key(&self, key: &PreviewKey) -> bool {
         self.message.is_none()
@@ -127,7 +163,10 @@ impl Plan {
         }
     }
     pub fn can_replay(&self, resident: u32) -> bool {
-        self.message.is_none() && self.count == self.total && resident == self.total
+        self.message.is_none()
+            && self.cursor == self.count
+            && self.count == self.total
+            && resident == self.total
     }
 }
 
@@ -154,7 +193,28 @@ mod tests {
             },
             100,
             bytes,
+            false,
         )
+    }
+    #[test]
+    fn independent_disk_store_keeps_its_allowance_when_another_review_opens() {
+        let mib = 1024 * 1024;
+        assert_eq!(
+            allowance(256 * mib, 1024 * mib as u64, 20 * 1024 * mib as u64, 1, 1).0,
+            20 * 1024 * mib
+        );
+        assert_eq!(
+            allowance(256 * mib, 1024 * mib as u64, 20 * 1024 * mib as u64, 2, 1).0,
+            20 * 1024 * mib
+        );
+        assert_eq!(
+            allowance(256 * mib, 1024 * mib as u64, 20 * 1024 * mib as u64, 2, 2).0,
+            10 * 1024 * mib
+        );
+        assert_eq!(
+            allowance(256 * mib, 1024 * mib as u64, 0, 2, 1).0,
+            512 * mib
+        );
     }
     #[test]
     fn exact_range_and_conservative_pressure_limit() {
@@ -171,6 +231,10 @@ mod tests {
     #[test]
     fn completed_preparation_does_not_refill_evicted_frames_forever() {
         let mut plan = plan(7 * 1024);
+        assert!(
+            !plan.can_replay(5),
+            "GPU-only coverage cannot finish lower-tier preparation early"
+        );
         assert!(plan.next(|_| true).is_none());
         assert!(plan.can_replay(5));
         assert!(!plan.can_replay(4));
@@ -191,6 +255,26 @@ mod tests {
             !plan.preparing_key(&early),
             "completed ranges remain evictable"
         );
+    }
+    #[test]
+    fn tier_coverage_counts_unique_matching_frames_without_scanning_the_range() {
+        let mut plan = plan(7 * 1024);
+        let first = plan.key(0);
+        let second = plan.key(1);
+        plan.update_retained(&first, true);
+        plan.update_retained(&second, true);
+        assert_eq!(plan.resident([&first].into_iter()), 2);
+        let mut other = first.clone();
+        other.channels = fold_platform::desktop::ChannelView::Channel {
+            name: "depth.Z".to_string().try_into().unwrap(),
+            range: Default::default(),
+        };
+        plan.update_retained(&other, true);
+        assert_eq!(plan.resident(std::iter::empty()), 2);
+        plan.update_retained(&first, false);
+        assert_eq!(plan.resident(std::iter::empty()), 1);
+        plan.limit(1);
+        assert_eq!(plan.resident(std::iter::empty()), 0);
     }
     #[test]
     fn seek_edit_port_color_and_resolution_interrupt_preparation() {

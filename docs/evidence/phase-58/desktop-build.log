@@ -1,0 +1,8 @@
+    Blocking waiting for file lock on artifact directory
+   Compiling fold-ui v0.1.0 (/home/rgame/dev/Fold_Dev/Fold/crates/ui)
+   Compiling fold-app v0.1.0 (/home/rgame/dev/Fold_Dev/Fold/crates/app)
+   Compiling fold-composition v0.1.0 (/home/rgame/dev/Fold_Dev/Fold/crates/composition)
+   Compiling fold-compositor v0.1.0 (/home/rgame/dev/Fold_Dev/Fold/crates/compositor)
+   Compiling fold-timeline v0.1.0 (/home/rgame/dev/Fold_Dev/Fold/crates/timeline)
+   Compiling fold-motion v0.1.0 (/home/rgame/dev/Fold_Dev/Fold/crates/motion)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1m 47s

@@ -1,21 +1,23 @@
 //! Byte-bounded LRU policy, independent of GPU APIs for deterministic tests.
-use std::collections::VecDeque;
-pub(crate) struct Entry<K, V> {
-    pub key: K,
-    pub value: V,
-    pub bytes: usize,
+use std::{collections::HashMap, hash::Hash};
+struct Entry<V> {
+    value: V,
+    bytes: usize,
+    age: u64,
 }
 pub(crate) struct Cache<K, V> {
-    entries: VecDeque<Entry<K, V>>,
+    entries: HashMap<K, Entry<V>>,
+    clock: u64,
     pub bytes: usize,
     pub budget: usize,
     pub hits: u64,
     pub misses: u64,
 }
-impl<K: PartialEq, V> Cache<K, V> {
+impl<K: Eq + Hash + Clone, V> Cache<K, V> {
     pub fn new(budget: usize) -> Self {
         Self {
-            entries: VecDeque::new(),
+            entries: HashMap::new(),
+            clock: 0,
             bytes: 0,
             budget,
             hits: 0,
@@ -23,45 +25,55 @@ impl<K: PartialEq, V> Cache<K, V> {
         }
     }
     pub fn get(&mut self, key: &K) -> Option<&V> {
-        if let Some(index) = self.entries.iter().position(|e| &e.key == key) {
-            let entry = self.entries.remove(index).unwrap();
-            self.entries.push_back(entry);
+        self.clock += 1;
+        if let Some(entry) = self.entries.get_mut(key) {
+            entry.age = self.clock;
             self.hits += 1;
-            Some(&self.entries.back().unwrap().value)
+            Some(&entry.value)
         } else {
             self.misses += 1;
             None
         }
     }
     pub fn peek(&self, key: &K) -> Option<&V> {
-        self.entries
-            .iter()
-            .find(|e| &e.key == key)
-            .map(|e| &e.value)
+        self.entries.get(key).map(|entry| &entry.value)
     }
     pub fn keys(&self) -> impl Iterator<Item = &K> {
-        self.entries.iter().map(|e| &e.key)
+        self.entries.keys()
     }
-    pub fn entries_mut(&mut self) -> impl Iterator<Item = &mut Entry<K, V>> {
-        self.entries.iter_mut()
+    pub fn entries_mut(&mut self) -> impl Iterator<Item = (&K, &mut V)> {
+        self.entries
+            .iter_mut()
+            .map(|(key, entry)| (key, &mut entry.value))
     }
     pub fn needs_room(&self, bytes: usize) -> bool {
-        self.bytes + bytes > self.budget || self.entries.len() >= 512
+        bytes > self.budget.saturating_sub(self.bytes)
     }
     pub fn evict(&mut self, eligible: impl Fn(&K, &V) -> bool) -> Option<V> {
-        let index = self
+        let key = self
             .entries
             .iter()
-            .position(|e| eligible(&e.key, &e.value))?;
-        let entry = self.entries.remove(index).unwrap();
+            .filter(|(key, entry)| eligible(key, &entry.value))
+            .min_by_key(|(_, entry)| entry.age)?
+            .0
+            .clone();
+        let entry = self.entries.remove(&key).unwrap();
         self.bytes -= entry.bytes;
         Some(entry.value)
     }
     pub fn insert(&mut self, key: K, value: V, bytes: usize) {
         assert!(!self.needs_room(bytes));
-        assert!(self.peek(&key).is_none());
+        assert!(!self.entries.contains_key(&key));
+        self.clock += 1;
         self.bytes += bytes;
-        self.entries.push_back(Entry { key, value, bytes });
+        self.entries.insert(
+            key,
+            Entry {
+                value,
+                bytes,
+                age: self.clock,
+            },
+        );
     }
 }
 #[cfg(test)]
@@ -129,6 +141,15 @@ mod tests {
         }
     }
 
+    #[test]
+    fn retention_is_not_limited_to_512_small_frames() {
+        let mut cache = Cache::new(4096);
+        for key in 0..1024 {
+            cache.insert(key, (), 4);
+        }
+        assert_eq!(cache.bytes, 4096);
+        assert!(cache.needs_room(1));
+    }
     #[test]
     fn lru_byte_budget_and_protected_entries() {
         let mut cache = Cache::new(8);

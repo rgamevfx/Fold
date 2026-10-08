@@ -31,3 +31,26 @@ fn machine_preferences_validate_and_configure_real_media_limits() {
     };
     assert_eq!(app.effective().ram_mib, 768);
 }
+
+#[test]
+fn old_preferences_and_independent_large_cache_limits() {
+    let old: Application = serde_json::from_str(
+        r#"{"automatic":false,"gpu_mib":4096,"viewer_mib":1024,"ram_mib":768}"#,
+    )
+    .unwrap();
+    assert_eq!(old.viewer_ram_mib, 1024);
+    assert_eq!(old.timeline_disk_gib, 0);
+    let mut settings = Application {
+        viewer_ram_mib: 32768,
+        timeline_disk_gib: 20,
+        composition_disk_gib: 100,
+        ..Default::default()
+    };
+    settings.validate().unwrap();
+    let active = settings.effective();
+    assert_eq!(active.viewer_ram_mib, 32768);
+    assert_eq!(active.timeline_disk_gib, 20);
+    assert_ne!(active.playback_path(true), active.playback_path(false));
+    settings.timeline_cache_folder = "relative".into();
+    assert!(settings.validate().is_err());
+}

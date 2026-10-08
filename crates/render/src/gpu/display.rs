@@ -29,6 +29,30 @@ impl std::fmt::Debug for Display {
     }
 }
 impl Display {
+    pub(super) fn restored(
+        host: Host,
+        image: Arc<Image>,
+        dimensions: [u32; 2],
+        ready: Completion,
+        bytes: u64,
+    ) -> Self {
+        Self {
+            host,
+            image,
+            dimensions,
+            parent: ready.clone(),
+            ready,
+            dependencies: vec![],
+            compression: None,
+            identity: "cached SDR presentation".into(),
+            timing: None,
+            statistics: Statistics {
+                upload_bytes: bytes,
+                ..Default::default()
+            },
+        }
+    }
+
     pub fn gpu_nanoseconds(&self) -> Result<Option<f64>, String> {
         let compression = match &self.compression {
             Some(completion) => completion.gpu_nanoseconds()?,

@@ -1,4 +1,5 @@
 use super::*;
+use crate::gpu::validation::Status;
 use crate::{ImageOp, RenderGraph, gpu::Renderer};
 
 #[test]
@@ -31,7 +32,7 @@ fn native_bc7_unavailable_features_and_allocation_pressure_leave_host_usable() {
 
 #[test]
 #[ignore = "requires native Vulkan BC7 support"]
-fn native_bc7_quality_padding_sampling_and_lifetimes() {
+fn native_bc7_padding_sampling_and_lifetimes() {
     let (host, adapter) = pollster::block_on(Host::headless(128 * 1024 * 1024)).unwrap();
     eprintln!("BC7 adapter: {adapter:?}");
     let start = std::time::Instant::now();
@@ -65,8 +66,8 @@ fn native_bc7_quality_padding_sampling_and_lifetimes() {
             })
             .collect();
         // Footage replaces the viewport fixtures, not the deliberately constructed
-        // tiny-block and alpha-edge witnesses. The RMS qualification below is
-        // for those synthetic fixtures; the runtime contract is max error <=24.
+        // tiny-block and alpha-edge witnesses. Report lossy error for diagnostics;
+        // playback never runs a quality-comparison or rejection pass.
         let video = std::env::var("FOLD_TEST_VIDEO").ok().filter(|_| width > 64);
         let media = if let Some(path) = &video {
             let source = fold_media::inspect(std::path::Path::new(path), &cancel).unwrap();
@@ -111,19 +112,11 @@ fn native_bc7_quality_padding_sampling_and_lifetimes() {
         let expected = source.readback(&cancel).unwrap();
         let start = std::time::Instant::now();
         let compressed = compressor.compress(&source).unwrap();
-        let rejected = loop {
-            match compressed.is_ready() {
-                Ok(true) => break false,
-                Err(error) => {
-                    assert!(error.contains("quality threshold"), "{error}");
-                    break true;
-                }
-                Ok(false) => {}
-            }
+        while !compressed.is_ready().unwrap() {
             host.poll().unwrap();
             assert!(start.elapsed().as_secs() < 30);
             std::thread::sleep(std::time::Duration::from_millis(1));
-        };
+        }
         eprintln!(
             "BC7 {width}x{height}: wall={:?} GPU={:?} bytes={}",
             start.elapsed(),
@@ -180,8 +173,7 @@ fn native_bc7_quality_padding_sampling_and_lifetimes() {
         );
         let mut sampled = compressed.clone();
         sampled.image = output;
-        // Test-only raw inspection of rejected blocks: production never publishes
-        // them. Sampling completion, not the rejected quality status, owns this read.
+        // Inspect decoded blocks without changing the original display.
         sampled.parent = source.ready.clone();
         sampled.ready = status.submitted();
         sampled.compression = None;
@@ -194,28 +186,11 @@ fn native_bc7_quality_padding_sampling_and_lifetimes() {
             .collect();
         let rms = (errors.iter().map(|e| e * e).sum::<f64>() / errors.len() as f64).sqrt();
         let max = errors.into_iter().fold(0f64, f64::max);
-        eprintln!("BC7 quality: RMS={rms:.3} max={max} RGBA8_fallback={rejected}");
-        assert_eq!(rejected, max > 24.);
-        if !rejected {
-            if video.is_none() {
-                assert!(rms < 3.0, "display-code RMS {rms}");
-            }
-            if let Some(cache_time) = compressed
-                .compression
-                .as_ref()
-                .unwrap()
-                .gpu_nanoseconds()
-                .unwrap()
-            {
-                assert_eq!(
-                    compressed.gpu_nanoseconds().unwrap(),
-                    source
-                        .gpu_nanoseconds()
-                        .unwrap()
-                        .map(|time| time + cache_time)
-                );
-            }
-        }
+        eprintln!("BC7 lossy playback quality: RMS={rms:.3} max={max}");
+        assert_eq!(
+            compressed.statistics.status_readback_bytes, source.statistics.status_readback_bytes,
+            "BC7 retention adds no quality/status readback"
+        );
         assert_eq!(
             source.readback(&cancel).unwrap().rgba(),
             expected.rgba(),

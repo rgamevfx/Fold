@@ -10,6 +10,7 @@ The foundation, ACES/GPU path, independent viewers, common Composition, integrat
 
 | Priority | Remaining work | Owning record | Completion evidence |
 | --- | --- | --- | --- |
+| Completed cache work | Dedicated viewer RAM, independent timeline/composition disk caches, BC7 without the quality pass, graph-free cached replay | [Phase 58](docs/phase-58.md) | Complete at user request; engineering checks pass; further performance/manual verification tracked |
 | Active authorized feature work | Reusable GPU effects, graph/Composition transitions, instance Timing, adjustments, typed Reference and live WGSL authoring | [Phase 57](docs/phase-57.md) | All slices 57A–G plus native/public-tool and uncached GPU evidence; in progress |
 | 1. Reconcile current baseline | Resolve stale Project/placement and public-schema gap descriptions against later work; reconcile UI dependency policy; retain inherited obligations | Phases 13, 21, 47, 51/51a, 52–56 | Each obligation has verified coverage or a specific remaining task; no missing native acceptance is inferred from source alone |
 | 2. Correctness and compositing | Fix the recorded StockX nearest-transform CPU/GPU discrepancy; complete remaining production-node/channel semantics | Phase 23 and EXR correction below | Matched sampling/color/alpha fixtures and actual editable workflow; no relaxed tolerance hiding a discrepancy |
@@ -51,7 +52,7 @@ New projects use ACEScg with pinned OCIO 2.4.2 / ACES 1.3 Studio 2.2.0. Input in
 
 ### Viewer cache and resource ownership
 
-Retain the display-image policy in [ADR 0001](docs/adr/0001-viewer-cache.md) with its later BC7 and zoom/region refinements. Immediate RGBA8 and quality-gated BC7 retain display-transformed SDR images, not export sources. The shared Host default is 1 GiB; the presentation-cache limit is 256 MiB. Decoder/driver allocations require separate measurement. See product §§7–8 and Phases 18–19B/28.
+Retain the display-image policy in [ADR 0001](docs/adr/0001-viewer-cache.md) with its later BC7 and zoom/region refinements. Immediate RGBA8 and BC7 retain display-transformed SDR images, not export sources. Phase 58 supersedes the quality gate with unconditional lossy BC7 playback retention and adds separate RAM/disk tiers; see its plan for current acceptance. The shared Host default is 1 GiB; the presentation-cache limit is 256 MiB. Decoder/driver allocations require separate measurement. See product §§7–8 and Phases 18–19B/28.
 
 ### Playback modes and uninterrupted presentation
 
@@ -776,3 +777,11 @@ The earlier separate-Glow-layer demo checkpoint is superseded by this layer-stac
 Final interaction build: `cargo build -p fold-app --features desktop --bin fold-desktop --locked` passes. The rebuilt desktop was relaunched with the saved Welcome demo using the GTX 1070 shared GPU backend. Diff whitespace checks pass; existing renderer dead-code warnings remain. Workspace-wide tests and Clippy were not repeated for this focused follow-up.
 
 - [x] **Phase 57 completion accepted (7 October 2026):** user reviewed the updated UI, requested committing the work, and marked the phase done pending review and optimizations. Remaining GPU lowering, host-context preview, publication/migration, discovery, cross-format and sustained-performance acceptance work stays explicitly tracked above and in the phase plan.
+
+## Phase 58 — Tiered playback caches and resource settings — complete
+
+Authorized 7 October 2026. [Design, implementation slices and acceptance gates](docs/phase-58.md).
+Dedicated viewer RAM retention, independent timeline/composition disk folders and
+budgets, clear resource settings, and a protected direct GPU presentation path.
+Clean ownership, bounded background work and measured performance are mandatory.
+Status: complete at the user’s request on 7 October 2026 (“Mark as complete and commit”). Focused engineering checks, native GTX 1070 cache replay and settings visual review pass. Sustained real-project performance and manual application testing remain post-phase follow-ups. [Evidence and testing steps](docs/phase-58.md#engineering-checkpoint--7-october-2026).

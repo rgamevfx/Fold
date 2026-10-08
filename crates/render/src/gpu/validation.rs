@@ -15,6 +15,16 @@ pub(super) struct Status {
 #[derive(Clone)]
 pub(super) struct Completion(ResultState);
 impl Completion {
+    pub(super) fn submitted(queue: &wgpu::Queue, image: Arc<super::host::Image>) -> Self {
+        let state = Arc::new(Mutex::new(None));
+        let done = state.clone();
+        queue.on_submitted_work_done(move || {
+            drop(image);
+            *done.lock().unwrap() = Some(Ok(None));
+        });
+        Self(state)
+    }
+
     pub fn gpu_nanoseconds(&self) -> Result<Option<f64>, String> {
         match self.0.lock().unwrap().as_ref() {
             Some(Ok(time)) => Ok(*time),

@@ -1,0 +1,11 @@
+   Compiling fold-platform v0.1.0 (/home/rgame/dev/Fold_Dev/Fold/crates/platform)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.10s
+     Running unittests src/lib.rs (target/debug/deps/fold_platform-4cfbbdc02843bdb7)
+
+running 4 tests
+test playback_cache::tests::byte_budget_lru_and_disabled_memory ... ok
+test playback_cache::disk::tests::startup_discards_truncated_files_and_owned_temps_and_disabled_clear_works ... ok
+test playback_cache::disk::tests::disk_budget_evicts_and_disabled_store_does_not_create_folder ... ok
+test playback_cache::disk::tests::restart_isolation_corruption_and_scoped_clear ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.01s

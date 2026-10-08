@@ -19,8 +19,9 @@ mod gpu_tests;
 #[path = "preview_tests.rs"]
 mod tests;
 
-#[path = "preview_compression.rs"]
-mod compression;
+#[path = "preview_retention.rs"]
+mod retention;
+pub(crate) use retention::Tier;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 fn realtime_next(
@@ -60,7 +61,8 @@ struct Texture {
     _texture: wgpu::Texture,
     gpu_lease: Option<fold_platform::gpu::Display>,
     dimensions: [u32; 2],
-    compression_attempted: bool,
+    retention_attempted: bool,
+    timeline: bool,
     in_flight: Arc<AtomicUsize>,
 }
 enum Prepared {
@@ -79,8 +81,7 @@ pub(crate) struct PreviewHost {
     pub state: Preview,
     render_host: Option<u64>,
     capture_host: Option<fold_platform::gpu::Host>,
-    compression: Option<compression::Compression>,
-    compression_error: Option<String>,
+    retention: Option<retention::Retention>,
     result_key: Option<PreviewKey>,
     displayed: Option<PreviewKey>,
     cache: Cache<PreviewKey, Texture>,
@@ -108,8 +109,7 @@ impl PreviewHost {
             state: Preview::Pending,
             render_host: None,
             capture_host: None,
-            compression: None,
-            compression_error: None,
+            retention: None,
             result_key: None,
             displayed: None,
             cache: Cache::new(256 * 1024 * 1024),
@@ -133,13 +133,6 @@ impl PreviewHost {
     pub fn attach_host(&mut self, host: &fold_platform::gpu::Host) {
         self.render_host = Some(host.id());
         self.capture_host = Some(host.clone());
-        if host
-            .device()
-            .features()
-            .contains(wgpu::Features::TEXTURE_COMPRESSION_BC)
-        {
-            self.compression = Some(compression::Compression::new(host.clone()));
-        }
     }
     #[cfg(feature = "native-probe")]
     pub fn probe_frame(&self) -> (Option<u32>, bool) {
@@ -151,22 +144,45 @@ impl PreviewHost {
         (Some(key.frame), self.demands.get(&id) == Some(key))
     }
     pub fn cached_keys(&self) -> Vec<PreviewKey> {
+        // Coverage remains GPU-ready only; lower tiers are asynchronous retention.
         self.cache.keys().cloned().collect()
     }
+    pub fn configure_retention(&mut self, settings: fold_platform::application::Application) {
+        if let Some(host) = &self.capture_host {
+            self.retention = Some(retention::Retention::new(host.clone(), settings));
+        }
+    }
+    pub fn retention_usage(&self) -> [(u64, u64); 3] {
+        self.retention
+            .as_ref()
+            .map_or([(0, 0); 3], |cache| cache.usage)
+    }
+    pub fn retention_error(&self) -> Option<String> {
+        self.retention
+            .as_ref()
+            .and_then(|cache| cache.error.clone())
+    }
+    pub fn clear_retention(&mut self, tier: Tier) {
+        if let Some(cache) = &mut self.retention {
+            cache.clear(tier);
+        }
+    }
+
     pub fn statistics(&self) -> String {
         format!(
-            "GPU RGBA8/BC7 cache: {:.1}/256 MiB | hits {} | misses {} | displayed frame {:?} | {}",
+            "GPU RGBA8/BC7 cache: {:.1}/{:.0} MiB | hits {} | misses {} | displayed frame {:?} | retention read/upload {:?} | {}",
             self.cache.bytes as f64 / 1048576.0,
+            self.cache.budget as f64 / 1048576.0,
             self.cache.hits,
             self.cache.misses,
             self.displayed.as_ref().map(|key| key.frame),
-            self.compression_error
-                .as_deref()
-                .unwrap_or(if self.compression.is_some() {
-                    "BC7 enabled"
-                } else {
-                    "RGBA8 fallback"
-                })
+            self.retention
+                .as_ref()
+                .map(|cache| (cache.readback, cache.upload)),
+            self.retention
+                .as_ref()
+                .and_then(|cache| cache.error.as_deref())
+                .unwrap_or("BC7 playback retention")
         )
     }
     pub fn select_viewers(
@@ -211,11 +227,7 @@ impl PreviewHost {
             }
         }
         self.failures.retain(|(key, _)| {
-            self.consumers.contains(key)
-                || self
-                    .reviews
-                    .values()
-                    .any(|p| (0..p.count).any(|n| p.key(n) == *key))
+            self.consumers.contains(key) || self.reviews.values().any(|p| p.contains(key))
         });
         self.update_reviews(client);
         self.send_demands(client);
@@ -225,12 +237,25 @@ impl PreviewHost {
             || (self.pending.is_some() && self.result_key.as_ref() == Some(key))
     }
     fn send_demands(&mut self, client: &mut dyn DesktopClient) {
+        if let Some(retention) = &mut self.retention {
+            for key in self.demands.values() {
+                if self.cache.peek(key).is_none()
+                    && !(self.pending.is_some() && self.result_key.as_ref() == Some(key))
+                {
+                    retention.restore(key, client.timeline_cache(key));
+                }
+            }
+        }
         let mut missing: Vec<_> = self
             .demands
             .iter()
             .filter(|(id, key)| {
                 !self.reviews.get(id).is_some_and(|plan| plan.cached_playing)
                     && !self.preparing_or_resident(key)
+                    && !self
+                        .retention
+                        .as_ref()
+                        .is_some_and(|cache| cache.contains(key))
                     && !self.failures.iter().any(|(failed, _)| failed == *key)
             })
             .map(|(&id, key)| PreviewDemand {
@@ -245,9 +270,7 @@ impl PreviewHost {
         // from explicit range review.
         // Present_viewer still rejects early frames and retired generations.
         for (&id, key) in &self.demands {
-            if !self.preparing_or_resident(key)
-                || self.reviews.get(&id).is_some_and(|p| p.cached_playing)
-            {
+            if !self.preparing_or_resident(key) {
                 continue;
             }
             let Some(transport) = client.viewer_transport(id) else {
@@ -264,7 +287,20 @@ impl PreviewHost {
                 let Some(next) = realtime_next(&ahead, &transport, state.rate, state.frames) else {
                     break;
                 };
+                if self.cache.peek(&next).is_none() {
+                    if let Some(cache) = &mut self.retention {
+                        cache.restore(&next, client.timeline_cache(&next));
+                    }
+                }
                 if !self.preparing_or_resident(&next)
+                    && !self
+                        .retention
+                        .as_ref()
+                        .is_some_and(|cache| cache.contains(&next))
+                    && !self
+                        .reviews
+                        .get(&id)
+                        .is_some_and(|plan| plan.cached_playing)
                     && !self.failures.iter().any(|(failed, _)| failed == &next)
                 {
                     missing.push(PreviewDemand {
@@ -279,7 +315,24 @@ impl PreviewHost {
             }
         }
         for (&id, plan) in &mut self.reviews {
-            if let Some(key) = plan.next(|key| self.cache.peek(key).is_some()) {
+            let tiered = self
+                .retention
+                .as_ref()
+                .is_some_and(|cache| cache.enabled(client.timeline_cache(&plan.template)));
+            if let Some(key) = plan.next(|key| {
+                if tiered {
+                    self.retention
+                        .as_ref()
+                        .is_some_and(|cache| cache.contains(key))
+                } else {
+                    self.cache.peek(key).is_some()
+                }
+            }) {
+                if self.cache.peek(&key).is_some()
+                    || (self.pending.is_some() && self.result_key.as_ref() == Some(&key))
+                {
+                    continue;
+                }
                 if let Some((_, error)) = self.failures.iter().find(|(failed, _)| failed == &key) {
                     plan.message = Some(format!("Review preparation failed: {error}"));
                 } else {
@@ -301,7 +354,7 @@ impl PreviewHost {
 
     pub fn review_state(&self, id: PanelInstanceId) -> (Option<String>, bool) {
         self.reviews.get(&id).map_or((None, false), |plan| {
-            let resident = plan.resident(|key| self.cache.peek(key).is_some());
+            let resident = plan.resident(self.cache.keys());
             (Some(plan.status(resident)), plan.can_replay(resident))
         })
     }
@@ -343,6 +396,34 @@ impl PreviewHost {
                     return;
                 }
                 let generation = client.viewer_request(id).map_or(0, |r| r.0);
+                let mut classes: BTreeMap<_, _> = self
+                    .reviews
+                    .iter()
+                    .map(|(id, plan)| (*id, client.timeline_cache(&plan.template)))
+                    .collect();
+                classes.insert(id, client.timeline_cache(&template));
+                let retention = self.retention.as_ref();
+                let gpu = self.cache.budget;
+                let allowance = |id: PanelInstanceId| {
+                    let timeline = classes[&id];
+                    let (ram, disk) =
+                        retention
+                            .filter(|cache| cache.enabled(timeline))
+                            .map_or((0, 0), |cache| {
+                                (
+                                    cache.usage[0].1,
+                                    cache.usage[if timeline { 1 } else { 2 }].1,
+                                )
+                            });
+                    crate::review::allowance(
+                        gpu,
+                        ram,
+                        disk,
+                        classes.len(),
+                        classes.values().filter(|class| **class == timeline).count(),
+                    )
+                };
+                let (available, compressed) = allowance(id);
                 self.reviews.insert(
                     id,
                     Plan::new(
@@ -351,11 +432,12 @@ impl PreviewHost {
                         state.rate,
                         transport.range,
                         state.frames,
-                        self.cache.budget,
+                        available,
+                        compressed,
                     ),
                 );
-                let available = self.cache.budget / self.reviews.len();
-                for plan in self.reviews.values_mut() {
+                for (&review_id, plan) in &mut self.reviews {
+                    let (available, compressed) = allowance(review_id);
                     let bounded = Plan::new(
                         plan.generation,
                         plan.template.clone(),
@@ -363,8 +445,17 @@ impl PreviewHost {
                         plan.range,
                         plan.start + plan.total,
                         available,
+                        compressed,
                     );
-                    plan.count = plan.count.min(bounded.count);
+                    plan.limit(bounded.count);
+                }
+                if let Some(cache) = &self.retention {
+                    for key in cache.keys() {
+                        self.reviews
+                            .get_mut(&id)
+                            .unwrap()
+                            .update_retained(key, true);
+                    }
                 }
             }
             Action::PlayCached => {
@@ -374,7 +465,7 @@ impl PreviewHost {
                 let Some(plan) = self.reviews.get_mut(&id) else {
                     return;
                 };
-                if !plan.can_replay(plan.resident(|key| self.cache.peek(key).is_some())) {
+                if !plan.can_replay(plan.resident(self.cache.keys())) {
                     return;
                 }
                 transport.time = plan.key(0).target.unwrap().1;
@@ -399,7 +490,13 @@ impl PreviewHost {
             };
             let key = &self.demands[&id];
             let valid = plan.compatible(self.generations[&id], key, transport.range);
-            let miss = plan.cached_playing && transport.playing && self.cache.peek(key).is_none();
+            let miss = plan.cached_playing
+                && transport.playing
+                && self.cache.peek(key).is_none()
+                && !self
+                    .retention
+                    .as_ref()
+                    .is_some_and(|cache| cache.contains(key));
             if plan.cached_playing && !transport.playing {
                 plan.cached_playing = false;
             }
@@ -529,7 +626,12 @@ impl PreviewHost {
                 && texture.in_flight.load(Ordering::Acquire) == 0
         };
         let outside_review = self.cache.evict(|key, texture| {
-            unused(key, texture) && !self.reviews.values().any(|plan| plan.preparing_key(key))
+            unused(key, texture)
+                && (self
+                    .retention
+                    .as_ref()
+                    .is_some_and(|cache| cache.contains(key))
+                    || !self.reviews.values().any(|plan| plan.preparing_key(key)))
         });
         // Preparation must not evict an earlier resident frame in its own range.
         // Foreground pressure may interrupt that promise, never block interaction.
@@ -557,12 +659,79 @@ impl PreviewHost {
                 .viewer_transport(id)
                 .is_some_and(|transport| transport.playing)
         });
-        self.poll_compression(renderer, !playing)?;
+        if let Some(retention) = &self.retention {
+            retention.set_idle(!playing && !self.requested && !client.state().transient);
+        }
+        let restored = self
+            .retention
+            .as_mut()
+            .and_then(|retention| retention.poll());
+        if let Some(retention) = &mut self.retention {
+            if let Some(retry) = retention.retry.take() {
+                for (key, texture) in self.cache.entries_mut() {
+                    if key == &retry {
+                        texture.retention_attempted = false;
+                    }
+                }
+            }
+            if let Some(failed) = retention.retention_failed.take() {
+                for plan in self
+                    .reviews
+                    .values_mut()
+                    .filter(|plan| plan.preparing_key(&failed))
+                {
+                    plan.message = Some(format!(
+                        "Review retention paused: {}",
+                        retention.error.as_deref().unwrap_or("cache unavailable")
+                    ));
+                }
+            }
+            for key in std::mem::take(&mut retention.changes) {
+                let present = retention.contains(&key);
+                for plan in self.reviews.values_mut() {
+                    plan.update_retained(&key, present);
+                }
+            }
+        }
+        {
+            if let Some((key, Ok(frame))) = restored {
+                if self.cache.peek(&key).is_some() && frame.is_compressed() {
+                    self.install_compressed(key, frame, renderer)?;
+                } else if self.pending.is_none() && self.cache.peek(&key).is_none() {
+                    self.admitted = self
+                        .demands
+                        .iter()
+                        .filter(|(_, demand)| **demand == key)
+                        .map(|(id, _)| (*id, self.generations[id]))
+                        .collect();
+                    self.result_key = Some(key);
+                    self.pending = Some(Prepared::Gpu(Box::new(frame)));
+                }
+            }
+        }
         // One host-pending frame and one worker result can already be ready.
         // Drain both without imposing another UI refresh interval on the worker.
         for _ in 0..2 {
             if !self.poll_result(client, device, queue, renderer)? {
                 break;
+            }
+        }
+        if !playing && !self.requested && self.pending.is_none() && !client.state().transient {
+            if let Some(retention) = &mut self.retention {
+                retention.set_idle(true);
+                if retention.can_retain() {
+                    for (key, texture) in self.cache.entries_mut() {
+                        let timeline = texture.timeline;
+                        if texture.retention_attempted {
+                            continue;
+                        }
+                        if let Some(frame) = &texture.gpu_lease {
+                            texture.retention_attempted = true;
+                            retention.retain(key.clone(), timeline, frame.clone());
+                            break;
+                        }
+                    }
+                }
             }
         }
         Ok(())
@@ -633,7 +802,10 @@ impl PreviewHost {
             return Ok(false);
         };
         let [width, height] = frame.dimensions();
-        let bytes = width as usize * height as usize * 4;
+        let bytes = match frame {
+            Prepared::Gpu(frame) => frame.storage_bytes() as usize,
+            Prepared::Cpu(_) => width as usize * height as usize * 4,
+        };
         if bytes > self.cache.budget
             || width > device.limits().max_texture_dimension_2d
             || height > device.limits().max_texture_dimension_2d
@@ -738,7 +910,11 @@ impl PreviewHost {
                 _texture: texture,
                 gpu_lease,
                 dimensions: [width, height],
-                compression_attempted: false,
+                timeline: client.timeline_cache(&key),
+                retention_attempted: self
+                    .retention
+                    .as_ref()
+                    .is_some_and(|cache| cache.contains(&key)),
                 in_flight: Arc::new(AtomicUsize::new(0)),
             },
             bytes,
@@ -748,68 +924,41 @@ impl PreviewHost {
         self.send_demands(client);
         Ok(true)
     }
-    fn poll_compression(&mut self, renderer: &mut WgpuRenderer, idle: bool) -> Result<()> {
-        let Some(compression) = &mut self.compression else {
-            return Ok(());
-        };
-        if let Some(result) = compression.take() {
-            match result {
-                Ok((key, frame)) => {
-                    // Do not replace a displayed registration or unfinished UI use.
-                    if let Some(old) = self.cache.evict(|candidate, texture| {
-                        candidate == &key
-                            && !self.consumers.contains(candidate)
-                            && !self.held.values().any(|held| held == candidate)
-                            && self.displayed.as_ref() != Some(candidate)
-                            && texture.in_flight.load(Ordering::Acquire) == 0
-                    }) {
-                        let registration = renderer.register_external_texture(
-                            &frame.texture().create_view(&Default::default()),
-                        )?;
-                        renderer.unregister_external_texture(old.registration)?;
-                        let bytes = frame.storage_bytes() as usize;
-                        self.cache.insert(
-                            key,
-                            Texture {
-                                registration,
-                                _texture: frame.texture().clone(),
-                                dimensions: frame.dimensions(),
-                                gpu_lease: Some(frame),
-                                compression_attempted: true,
-                                in_flight: Arc::new(AtomicUsize::new(0)),
-                            },
-                            bytes,
-                        );
-                    }
-                }
-                Err(error) => self.compression_error = Some(format!("RGBA8 retained: {error}")),
-            }
-        }
-        // A full lookahead is deadline headroom, not idle GPU time. Start cache
-        // compression only while paused; collect already submitted work above.
-        if idle && compression.can_accept() && !self.requested && self.pending.is_none() {
-            for entry in self.cache.entries_mut() {
-                let texture = &mut entry.value;
-                if texture.compression_attempted
-                    || self.consumers.contains(&entry.key)
-                    || self.held.values().any(|key| key == &entry.key)
-                    || self.displayed.as_ref() == Some(&entry.key)
-                    || texture.in_flight.load(Ordering::Acquire) != 0
-                {
-                    continue;
-                }
-                if let Some(frame) = &texture.gpu_lease {
-                    texture.compression_attempted = true;
-                    let [width, height] = frame.dimensions();
-                    if u64::from(width.div_ceil(4)) * u64::from(height.div_ceil(4)) * 16
-                        >= frame.storage_bytes()
-                    {
-                        continue;
-                    }
-                    compression.request(entry.key.clone(), frame.clone());
-                    break;
-                }
-            }
+    fn install_compressed(
+        &mut self,
+        key: PreviewKey,
+        frame: fold_platform::gpu::Display,
+        renderer: &mut WgpuRenderer,
+    ) -> Result<()> {
+        // Do not replace a displayed registration or unfinished UI use.
+        if let Some(old) = self.cache.evict(|candidate, texture| {
+            candidate == &key
+                && !self.consumers.contains(candidate)
+                && !self.held.values().any(|held| held == candidate)
+                && self.displayed.as_ref() != Some(candidate)
+                && texture.in_flight.load(Ordering::Acquire) == 0
+        }) {
+            let registration = renderer
+                .register_external_texture(&frame.texture().create_view(&Default::default()))?;
+            renderer.unregister_external_texture(old.registration)?;
+            let bytes = frame.storage_bytes() as usize;
+            let retained = self
+                .retention
+                .as_ref()
+                .is_none_or(|cache| !cache.enabled(old.timeline) || cache.contains(&key));
+            self.cache.insert(
+                key,
+                Texture {
+                    registration,
+                    _texture: frame.texture().clone(),
+                    dimensions: frame.dimensions(),
+                    gpu_lease: Some(frame),
+                    retention_attempted: retained,
+                    timeline: old.timeline,
+                    in_flight: Arc::new(AtomicUsize::new(0)),
+                },
+                bytes,
+            );
         }
         Ok(())
     }
@@ -841,7 +990,7 @@ impl PreviewHost {
         }
     }
     pub fn release(&mut self, renderer: &mut WgpuRenderer) -> Result<()> {
-        self.compression.take();
+        self.retention.take();
         while let Some(texture) = self.cache.evict(|_, _| true) {
             renderer.unregister_external_texture(texture.registration)?;
         }

@@ -1,0 +1,13 @@
+    Blocking waiting for file lock on artifact directory
+   Compiling fold-render v0.1.0 (/home/rgame/dev/Fold_Dev/Fold/crates/render)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 29.49s
+     Running unittests src/lib.rs (target/debug/deps/fold_render-4c70347494b7e8dd)
+
+running 1 test
+Cache transfer adapter: AdapterInfo { name: "NVIDIA GeForce GTX 1070", vendor: 4318, device: 7137, device_type: DiscreteGpu, driver: "NVIDIA", driver_info: "580.173.02", backend: Vulkan }
+[64, 64]: RGBA8=16384 BC7=4096 transfer/restore/verify=3.684002ms
+[479, 273]: RGBA8=523068 BC7=132480 transfer/restore/verify=3.984943ms
+[1920, 1080]: RGBA8=8294400 BC7=2073600 transfer/restore/verify=10.111958ms
+test gpu::presentation::tests::native_presentation_roundtrip_reuses_staging_and_preserves_bc7 ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 36 filtered out; finished in 18.27s

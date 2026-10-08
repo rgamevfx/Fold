@@ -1,0 +1,35 @@
+   Compiling fold-render v0.1.0 (/home/rgame/dev/Fold_Dev/Fold/crates/render)
+warning: field `format` is never read
+  --> crates/render/src/gpu/yuv.rs:22:9
+   |
+16 | pub(super) struct Layout {
+   |                   ------ field in this struct
+...
+22 |     pub format: fold_media::VideoFormat,
+   |         ^^^^^^
+   |
+   = note: `Layout` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `parameters` is never used
+  --> crates/render/src/gpu/yuv.rs:26:8
+   |
+25 | impl Layout {
+   | ----------- method in this implementation
+26 |     fn parameters(self, size: u64) -> Result<[u32; 20], String> {
+   |        ^^^^^^^^^^
+
+   Compiling fold-platform v0.1.0 (/home/rgame/dev/Fold_Dev/Fold/crates/platform)
+warning: `fold-render` (lib) generated 2 warnings
+   Compiling fold-ui v0.1.0 (/home/rgame/dev/Fold_Dev/Fold/crates/ui)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 14.06s
+     Running unittests src/lib.rs (target/debug/deps/fold_ui-1f9d5465a483be91)
+
+running 3 tests
+test preview::gpu_tests::native_range_spills_beyond_gpu_and_replays_without_render_demands ... Tiered 16-frame 1080p replay: graph requests=0, P50=1.639ms P95=5.030ms; GPU RGBA8/BC7 cache: 15.8/16 MiB | hits 0 | misses 16 | displayed frame Some(15) | retention read/upload Some((33177600, 31104000)) | BC7 playback retention
+ok
+test preview::gpu_tests::real_textures_hold_until_replacement_and_remain_protected_under_pressure ... Phase 15A presentation adapter: AdapterInfo { name: "NVIDIA GeForce GTX 1070", vendor: 4318, device: 7137, device_type: DiscreteGpu, driver: "NVIDIA", driver_info: "580.173.02", backend: Vulkan }
+ok
+test preview::retention::tests::native_bc7_ram_disk_restart_clear_and_gpu_only_transfers ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 111 filtered out; finished in 2.37s

@@ -1,0 +1,22 @@
+   Compiling fold-render v0.1.0 (/home/rgame/dev/Fold_Dev/Fold/crates/render)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.73s
+     Running unittests src/lib.rs (target/debug/deps/fold_render-4c70347494b7e8dd)
+
+running 2 tests
+test gpu::cache::tests::native_bc7_padding_sampling_and_lifetimes ... BC7 adapter: AdapterInfo { name: "NVIDIA GeForce GTX 1070", vendor: 4318, device: 7137, device_type: DiscreteGpu, driver: "NVIDIA", driver_info: "580.173.02", backend: Vulkan }
+BC7 pipeline setup: 196.121904ms
+BC7 479x273: wall=7.40366ms GPU=None bytes=132480
+BC7 lossy playback quality: RMS=0.746 max=4
+BC7 480x480: wall=10.277948ms GPU=None bytes=230400
+BC7 lossy playback quality: RMS=0.757 max=3
+BC7 1x1: wall=4.467858ms GPU=None bytes=16
+BC7 lossy playback quality: RMS=1.225 max=2
+BC7 4x4: wall=3.871555ms GPU=None bytes=16
+BC7 lossy playback quality: RMS=43.503 max=117
+BC7 64x64: wall=6.251323ms GPU=None bytes=4096
+BC7 lossy playback quality: RMS=0.576 max=1
+BC7 host memory: Memory { allocated: 27341728, reusable: 15639200, peak: 27892440, budget: 134217728, working: 17664528, presentation: 3819152, decoded: 0, geometry: 0, scratch: 5858048 }
+ok
+test gpu::cache::tests::native_bc7_unavailable_features_and_allocation_pressure_leave_host_usable ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 35 filtered out; finished in 2.25s

@@ -118,6 +118,18 @@ impl Scheduler {
                 .0;
         }
     }
+    /// Opportunistic cache transfers never queue behind demand or take its turn.
+    pub fn try_enter_idle(&self) -> Option<Permit> {
+        let mut state = self.0.0.try_lock().ok()?;
+        if state.active[0] || state.waiting.iter().any(|(_, class)| class.lane() == 0) {
+            return None;
+        }
+        state.active[0] = true;
+        Some(Permit {
+            scheduler: self.clone(),
+            lane: 0,
+        })
+    }
     pub fn queue_depth(&self) -> (usize, usize) {
         let state = self.0.0.lock().unwrap();
         (state.waiting.len(), state.peak)
@@ -127,6 +139,22 @@ impl Scheduler {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn opportunistic_retention_never_queues_ahead_of_demand() {
+        let scheduler = Scheduler::default();
+        let permit = scheduler.try_enter_idle().unwrap();
+        assert!(scheduler.try_enter_idle().is_none());
+        drop(permit);
+        scheduler
+            .0
+            .0
+            .lock()
+            .unwrap()
+            .waiting
+            .push((1, Class::Viewer));
+        assert!(scheduler.try_enter_idle().is_none());
+        assert_eq!(scheduler.queue_depth().0, 1);
+    }
     #[test]
     fn sustained_viewer_pressure_reserves_export_and_range_service() {
         let mut state = State::default();

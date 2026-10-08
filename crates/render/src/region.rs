@@ -4,7 +4,7 @@
 //! processing when the dependency footprint is smaller than the image.
 use crate::{Frame, ImageOp, RenderGraph};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct Region {
     pub x: u32,
     pub y: u32,

@@ -9,6 +9,11 @@ pub struct Application {
     pub gpu_mib: u32,
     pub viewer_mib: u32,
     pub ram_mib: u32,
+    pub viewer_ram_mib: u32,
+    pub timeline_disk_gib: u32,
+    pub composition_disk_gib: u32,
+    pub timeline_cache_folder: String,
+    pub composition_cache_folder: String,
     /// Empty selects the platform cache directory. Used for disposable media scratch.
     pub cache_folder: String,
 }
@@ -19,6 +24,11 @@ impl Default for Application {
             gpu_mib: 1024,
             viewer_mib: 256,
             ram_mib: 768,
+            viewer_ram_mib: 1024,
+            timeline_disk_gib: 0,
+            composition_disk_gib: 0,
+            timeline_cache_folder: String::new(),
+            composition_cache_folder: String::new(),
             cache_folder: String::new(),
         }
     }
@@ -26,13 +36,22 @@ impl Default for Application {
 impl Application {
     pub fn validate(&self) -> Result<(), String> {
         if !(128..=65536).contains(&self.gpu_mib)
-            || !(32..=16384).contains(&self.viewer_mib)
+            || !(32..=32768).contains(&self.viewer_mib)
             || self.viewer_mib > self.gpu_mib / 2
             || !(128..=262144).contains(&self.ram_mib)
+            || self.viewer_ram_mib > 262144
+            || self.timeline_disk_gib > 1048576
+            || self.composition_disk_gib > 1048576
         {
             return Err("Viewer cache must use at most half the GPU budget; memory budgets are out of range".into());
         }
-        if !self.cache_folder.is_empty() && !std::path::Path::new(&self.cache_folder).is_absolute()
+        if [
+            &self.cache_folder,
+            &self.timeline_cache_folder,
+            &self.composition_cache_folder,
+        ]
+        .iter()
+        .any(|path| !path.is_empty() && !std::path::Path::new(path).is_absolute())
         {
             return Err("Cache folder must be an absolute path".into());
         }
@@ -42,11 +61,30 @@ impl Application {
         if self.automatic {
             Self {
                 cache_folder: self.cache_folder.clone(),
+                viewer_ram_mib: self.viewer_ram_mib,
+                timeline_disk_gib: self.timeline_disk_gib,
+                composition_disk_gib: self.composition_disk_gib,
+                timeline_cache_folder: self.timeline_cache_folder.clone(),
+                composition_cache_folder: self.composition_cache_folder.clone(),
                 ..Self::default()
             }
         } else {
             self.clone()
         }
+    }
+    pub fn playback_path(&self, timeline: bool) -> PathBuf {
+        let folder = if timeline {
+            &self.timeline_cache_folder
+        } else {
+            &self.composition_cache_folder
+        };
+        let root = if folder.is_empty() {
+            self.cache_path()
+        } else {
+            PathBuf::from(folder)
+        };
+        root.join("playback-v1")
+            .join(if timeline { "timeline" } else { "composition" })
     }
     pub fn cache_path(&self) -> PathBuf {
         if !self.cache_folder.is_empty() {

@@ -536,3 +536,5 @@ mod tests {
         assert!(transparent.write_ppm(Vec::new()).is_err());
     }
 }
+
+pub mod presentation;

@@ -2,6 +2,8 @@
 //! float vector compositing and image operators remain GPU-resident. Native
 //! sample transport remains a measured CPU adapter where required.
 //! No renderer or device is initialized in CPU-only/headless builds by default.
+mod presentation;
+pub use presentation::PresentationTransfer;
 mod cache;
 pub use cache::PresentationCompressor;
 mod bake_encoder;

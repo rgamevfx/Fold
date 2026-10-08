@@ -104,6 +104,9 @@ pub fn content_for(
 ) -> Result<String, String> {
     let mut data =
         b"fold-video-evaluator-v7;analytic-vectors-all-spaces;gpu-operators-v1;rgba32f;ocio-2.4.2;aces-srgb-view-v1;native709-float;nearest;".to_vec();
+    // Persistent playback entries must not survive evaluator implementation
+    // changes. The build fingerprint is precomputed, never executable-file I/O.
+    data.extend_from_slice(env!("FOLD_SOURCE_SHA256").as_bytes());
     if let Some(color) = fold_platform::color::project(snapshot)? {
         data.extend(serde_json::to_vec(&color).map_err(|e| e.to_string())?);
     }

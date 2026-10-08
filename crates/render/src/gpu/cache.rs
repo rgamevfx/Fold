@@ -1,6 +1,6 @@
 //! Worker-owned BC7 encoding of already display-transformed images. This service
 //! never evaluates scenes, applies color, or reads image pixels back to the CPU.
-use super::{Display, Host, host::Reservation, validation::Status};
+use super::{Display, Host, host::Reservation, validation::Completion};
 use block_compression::{BC7Settings, CompressionVariant, GpuBlockCompressor};
 use std::sync::Arc;
 #[cfg(test)]
@@ -12,7 +12,6 @@ pub struct PresentationCompressor {
     compressor: GpuBlockCompressor,
     pad: wgpu::ComputePipeline,
     opaque: wgpu::ComputePipeline,
-    quality: wgpu::ComputePipeline,
     _parameters: Arc<Reservation>,
 }
 impl PresentationCompressor {
@@ -61,26 +60,12 @@ impl PresentationCompressor {
                 compilation_options: Default::default(),
                 cache: None,
             });
-        let shader = host
-            .device()
-            .create_shader_module(wgpu::include_wgsl!("cache_quality.wgsl"));
-        let quality = host
-            .device()
-            .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-                label: Some("BC7 display quality gate"),
-                layout: None,
-                module: &shader,
-                entry_point: Some("main"),
-                compilation_options: Default::default(),
-                cache: None,
-            });
         host.check()?;
         Ok(Self {
             host,
             compressor,
             pad,
             opaque,
-            quality,
             _parameters: parameters,
         })
     }
@@ -105,9 +90,6 @@ impl PresentationCompressor {
             .host
             .device()
             .create_command_encoder(&Default::default());
-        let mut status = Status::new(&self.host)?;
-        status.failure = "BC7 quality threshold exceeded; retain RGBA8";
-        status.start(&mut encoder);
         let input = if dimensions == source.dimensions() {
             source.image.clone()
         } else {
@@ -198,39 +180,6 @@ impl PresentationCompressor {
                 },
             );
         }
-        let bindings = self
-            .host
-            .device()
-            .create_bind_group(&wgpu::BindGroupDescriptor {
-                label: None,
-                layout: &self.quality.get_bind_group_layout(0),
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: wgpu::BindingResource::TextureView(&source.image.view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: wgpu::BindingResource::TextureView(&output.view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 2,
-                        resource: status.gpu.as_entire_binding(),
-                    },
-                ],
-            });
-        {
-            let mut pass = encoder.begin_compute_pass(&Default::default());
-            pass.set_pipeline(&self.quality);
-            pass.set_bind_group(0, &bindings, &[]);
-            pass.dispatch_workgroups(
-                source.dimensions()[0].div_ceil(8),
-                source.dimensions()[1].div_ceil(8),
-                1,
-            );
-        }
-        status.encode(&mut encoder);
-        let status_bytes = status.readback_bytes();
         self.host.submit(
             encoder,
             vec![source.image.clone(), input, output.clone()],
@@ -238,9 +187,11 @@ impl PresentationCompressor {
         );
         let mut result = source.clone();
         result.image = output;
-        result.compression = Some(status.submitted());
-        result.statistics.compute_passes += 3 + u32::from(dimensions != source.dimensions());
-        result.statistics.status_readback_bytes += status_bytes;
+        result.compression = Some(Completion::submitted(
+            self.host.queue(),
+            result.image.clone(),
+        ));
+        result.statistics.compute_passes += 2 + u32::from(dimensions != source.dimensions());
         Ok(result)
     }
 }
