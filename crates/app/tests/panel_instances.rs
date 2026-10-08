@@ -329,7 +329,17 @@ fn scoped_seeks_and_marks_do_not_use_global_selection_or_time() {
         Time::new(-1, 24).unwrap(),
     )));
     assert_eq!(context.state().viewer_document, Some(ids[1]));
+    let info = context.video_info(ids[0]).unwrap();
+    context.command(DesktopCommand::Navigate(location(
+        ids[0],
+        info.time(info.frames).unwrap(),
+    )));
+    assert_eq!(context.state().viewer_document, Some(ids[1]));
     drop(context);
+    assert_eq!(
+        session.state().status,
+        "Source time is outside the document range"
+    );
     assert_eq!(
         session.state().selection.document,
         global.selection.document
@@ -337,4 +347,62 @@ fn scoped_seeks_and_marks_do_not_use_global_selection_or_time() {
     assert_eq!(session.state().frame, global.frame);
     assert_eq!(session.state().navigation, global.navigation);
     assert!(!session.state().playing);
+}
+
+#[test]
+fn edit_effect_graph_opens_at_composition_time_beyond_definition_duration() {
+    let project = fold_project::load(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../demos/welcome-to-fold.fold"),
+        8,
+    )
+    .unwrap();
+    let snapshot = project.snapshot();
+    let (parent, effect) = snapshot
+        .state()
+        .documents
+        .values()
+        .find_map(|document| {
+            if document.type_id != fold_composition::COMPOSITION {
+                return None;
+            }
+            let composition = fold_composition::Composition::from_document(document).ok()?;
+            composition.layers.iter().find_map(|layer| {
+                layer
+                    .effects
+                    .first()
+                    .map(|effect| (document.id, effect.definition.document))
+            })
+        })
+        .expect("Welcome contains composition layer effects");
+    let mut session = Session::new(project);
+    let time = Time::new(5, 2).unwrap();
+    assert!(
+        session
+            .video_info(effect)
+            .unwrap()
+            .time(session.video_info(effect).unwrap().frames)
+            .unwrap()
+            < time
+    );
+    assert!(session.effect_interface(effect).is_ok());
+    let mut workspace = Workspace::default();
+    let id = workspace.add_editor("composition", fold_composition::COMPOSITION);
+    let binding = workspace.editors.get_mut(&id).unwrap();
+    binding.bind(location(parent, time));
+    let mut context = PanelContext::new(&mut session, binding);
+    // The composition inspector's Edit Graph button emits this command.
+    context.command(DesktopCommand::Navigate(ViewLocation {
+        document: effect,
+        time,
+        label: "Effect".into(),
+    }));
+    assert_eq!(
+        context.state().navigation.last().unwrap().document,
+        effect,
+        "Edit Graph must open the effect even beyond its standalone preview duration"
+    );
+    assert_eq!(context.state().navigation.last().unwrap().time, time);
+    context.command(DesktopCommand::NavigateBack);
+    assert_eq!(context.state().navigation.last().unwrap().document, parent);
+    assert_eq!(context.state().navigation.last().unwrap().time, time);
 }

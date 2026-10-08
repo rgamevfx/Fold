@@ -322,6 +322,15 @@ Status: complete and accepted by the user on 2026-10-07 after reviewing the Welc
 - [x] User acceptance of the Timeline → Composition → layer Network navigation correction, following the Welcome demo review. Automated regressions cover retaining Timeline, mapped Back navigation, and repeated graph selection; independent native gesture certification remains outside this acceptance.
 - [x] User acceptance of the revised workspace and linked navigation. Normal/narrow docking geometry, Group B isolation, pinned viewers, and inspector locks are covered by focused automated checks; no exhaustive native mouse/DPI matrix is claimed.
 
+### Effect graph navigation correction (2026-10-07)
+
+Status: complete and accepted by the user on 2026-10-07 (“Looks good. Mark as complete and commit”).
+
+- [x] Allow published effect definitions to open at their host's edit time beyond the definition's standalone preview duration. The Welcome demo's one-second effect definitions previously rejected Edit Graph at later composition times without navigating.
+- [x] Forward rejected navigation errors to visible application feedback instead of retaining them only in the temporary panel context. Keep negative-time and ordinary source-duration validation.
+- Regression: reproduced the failed Edit Graph command at 2.5 seconds using a real Welcome composition-layer effect. Cover exact effect/parent time on navigation and Back, ordinary source-range rejection, and visible errors. All 6 panel-instance tests pass (`cargo test -p fold-app --features desktop --test panel_instances --quiet`). Desktop rebuild passes (`cargo build -p fold-app --bin fold-desktop --features desktop --locked --quiet`); formatting and diff checks pass. Full workspace checks/Clippy remain deferred.
+- [x] User accepted the corrected Edit Graph behavior in the composition Inspector after the rebuilt fix. Native acceptance is user-reported; independent agent click-through verification is not claimed.
+
 ## Motion scene authoring and integrated animation
 
 - [x] 25. Implement object-based MoGraph authoring and connected creative contexts.

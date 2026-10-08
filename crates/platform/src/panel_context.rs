@@ -171,14 +171,20 @@ impl<'a> PanelContext<'a> {
     }
     fn navigate(&mut self, location: ViewLocation) {
         let result = self.host.video_info(location.document).and_then(|info| {
-            if location.time < Time::ZERO || location.time >= info.time(info.frames)? {
+            // Published effects run in the host's clock. Their standalone preview
+            // duration must not prevent opening the definition at that edit time.
+            if location.time < Time::ZERO
+                || (location.time >= info.time(info.frames)?
+                    && self.host.effect_interface(location.document).is_err())
+            {
                 Err("Source time is outside the document range".into())
             } else {
                 Ok(())
             }
         });
         if let Err(error) = result {
-            self.state.status = error;
+            self.state.status = error.clone();
+            self.host.command(DesktopCommand::Notify(error));
             return;
         }
         self.host.command(DesktopCommand::CancelPreviewEdit);
