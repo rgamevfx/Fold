@@ -184,8 +184,8 @@ impl<'a> PanelContext<'a> {
         self.host.command(DesktopCommand::CancelPreviewEdit);
         self.editor.as_mut().unwrap().navigate(location);
         self.sync();
-        // A nested source may be a peer document type. The shell replaces the
-        // contribution at this same instance ID, retaining the breadcrumb.
+        // A nested source may be a peer document type. The shell routes the
+        // returned context to that surface, retaining the source panel and breadcrumb.
         if let Some(snapshot) = self.host.snapshot()
             && let Some(document) = self
                 .editor

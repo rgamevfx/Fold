@@ -1140,3 +1140,94 @@ fn canvas_edits_persist_and_undo_without_rewriting_geometry() {
     let restored = Motion::from_document(&host.project.snapshot().state().documents[&id]).unwrap();
     assert_eq!(restored, before);
 }
+
+#[test]
+fn welcome_demo_layer_requests_open_their_motion_networks() {
+    use fold_platform::{panel_context::PanelContext, workspace::EditorInstance};
+    use fold_ui::sdk::graph_canvas::GraphContext;
+    let mut host = Host::new();
+    host.project = fold_project::load(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../demos/welcome-to-fold.fold"),
+        32,
+    )
+    .unwrap();
+    let snapshot = host.project.snapshot();
+    let mut state = state::State::default();
+    let mut checked = 0;
+    for document in snapshot
+        .state()
+        .documents
+        .values()
+        .filter(|d| d.type_id == fold_composition::COMPOSITION)
+    {
+        let composition = fold_composition::Composition::from_document(document).unwrap();
+        for layer in &composition.layers {
+            let Some(fold_platform::image_source::Source::Output(source)) = &layer.source else {
+                continue;
+            };
+            let graph_document = &snapshot.state().documents[&source.document];
+            if graph_document.type_id != crate::MOTION {
+                continue;
+            }
+            let object = layer
+                .graph_object()
+                .expect("demo motion layer references its object");
+            let mut parent = EditorInstance {
+                group: fold_platform::workspace::LinkGroup::A,
+                contribution: "composition".into(),
+                document_type: fold_composition::COMPOSITION.into(),
+                navigation: vec![ViewLocation {
+                    document: document.id,
+                    time: Time::ZERO,
+                    label: layer.name.clone(),
+                }],
+                selection: Selection {
+                    document: Some(document.id),
+                    objects: vec![layer.id],
+                },
+                mapped_navigation: false,
+            };
+            let mut context = PanelContext::new(&mut host, &mut parent);
+            context.command(DesktopCommand::OpenLayerGraph {
+                location: ViewLocation {
+                    document: source.document,
+                    time: Time::ZERO,
+                    label: layer.name.clone(),
+                },
+                objects: vec![object],
+            });
+            let mut requested = context.take_layer_graph().unwrap();
+            drop(context);
+            assert_eq!(parent.selection.objects, vec![layer.id]);
+            let mut context = PanelContext::new(&mut host, &mut requested);
+            state.sync(&mut context);
+            assert_eq!(state.network_object, Some(object), "{}", layer.name);
+            let motion = Motion::from_document(graph_document).unwrap();
+            let owner = motion
+                .scene
+                .as_ref()
+                .unwrap()
+                .objects
+                .iter()
+                .find(|o| o.id == object)
+                .unwrap();
+            let network = graph::Context {
+                state: &mut state,
+                host: &mut context,
+            };
+            let graph = network.graph();
+            assert!(
+                graph.nodes.iter().any(|n| n.id == owner.source.node),
+                "{} source must be visible",
+                layer.name
+            );
+            assert!(
+                graph.nodes.iter().any(|n| n.id == owner.output.node),
+                "{} output must be visible",
+                layer.name
+            );
+            checked += 1;
+        }
+    }
+    assert_eq!(checked, 3, "exercise all three Welcome motion-text layers");
+}

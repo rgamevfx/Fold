@@ -1300,13 +1300,17 @@ fn opening_a_layer_graph_retains_the_parent_stack_selection_and_clock() {
     child.document_type = "test.graph.kind".into();
     shell.workspace.composition_editor = Some(parent);
     shell.workspace.record_selection(parent);
-    child.selection.objects = vec![layer];
+    let object = fold_foundation::ObjectId::new();
+    child.selection.objects = vec![object];
     shell.open_layer_graph(child.clone());
     let graph = shell.workspace.focused_editor.unwrap();
     assert_ne!(graph, parent);
     assert_eq!(shell.workspace.inspector_editor(), Some(parent));
     assert_eq!(shell.workspace.network_editor, Some(graph));
-    assert!(shell.workspace.editors[&graph].selection.objects.is_empty());
+    assert_eq!(
+        shell.workspace.editors[&graph].selection.objects, child.selection.objects,
+        "Network must receive the requested motion object to open its graph"
+    );
     assert_eq!(shell.workspace.composition_editor, Some(parent));
     assert_eq!(
         shell.workspace.editors[&parent].navigation,
@@ -1319,10 +1323,29 @@ fn opening_a_layer_graph_retains_the_parent_stack_selection_and_clock() {
     assert_eq!(shell.workspace.editors[&graph].navigation, child.navigation);
     assert_eq!(shell.workspace.editors[&graph].document(), Some(source));
     let count = shell.workspace.editors.len();
+    shell.open_layer_graph(child.clone());
+    assert_eq!(
+        shell.workspace.editors[&graph].selection.objects,
+        vec![object]
+    );
+    // Another layer must replace the old object's scope in the same Network slot.
+    let next_object = fold_foundation::ObjectId::new();
+    child.selection.objects = vec![next_object];
     shell.open_layer_graph(child);
+    assert_eq!(
+        shell.workspace.editors[&graph].selection.objects,
+        vec![next_object]
+    );
+    assert_eq!(shell.workspace.inspector_editor(), Some(parent));
     assert_eq!(shell.workspace.focused_editor, Some(graph));
     assert_eq!(shell.workspace.editors.len(), count);
-    shell.workspace.editors.get_mut(&graph).unwrap().selection.objects = vec![layer];
+    shell
+        .workspace
+        .editors
+        .get_mut(&graph)
+        .unwrap()
+        .selection
+        .objects = vec![layer];
     shell.workspace.record_selection(graph);
     assert_eq!(shell.workspace.inspector_editor(), Some(graph));
     shell.workspace.record_selection(parent);
@@ -1489,4 +1512,161 @@ fn editor_content_context_menu_survives_right_button_release() {
         }
         context.end_frame();
     }
+}
+
+#[test]
+fn nested_navigation_preserves_timeline_and_follows_group_a() {
+    struct Editor(bool);
+    impl Panel for Editor {
+        fn id(&self) -> &'static str {
+            if self.0 { "test.comp" } else { "test.timeline" }
+        }
+        fn document_type(&self) -> Option<&'static str> {
+            Some(if self.0 { "test.comp" } else { "test.timeline" })
+        }
+        fn supports_composition(&self) -> bool {
+            self.0
+        }
+        fn new_instance(&self) -> Option<EditorPanels> {
+            Some(EditorPanels {
+                editor: Box::new(Self(self.0)),
+                inspector: Box::new(Self(self.0)),
+            })
+        }
+        fn draw(&mut self, _: ExtensionUi<'_>) {}
+    }
+    let mut shell = Shell::new(
+        [false, true]
+            .into_iter()
+            .map(|composition| {
+                let panel = Editor(composition);
+                RegisteredPanel {
+                    descriptor: fold_platform::packages::PanelDescriptor {
+                        id: panel.id(),
+                        title: panel.id(),
+                        placement: PanelPlacement::Editor,
+                    },
+                    key: WindowKey::new(panel.id(), panel.id()).unwrap(),
+                    panel: Box::new(panel),
+                }
+            })
+            .collect(),
+    );
+    let timeline = shell
+        .workspace
+        .editors
+        .iter()
+        .find(|(_, e)| e.contribution == "test.timeline")
+        .map(|(&id, _)| id)
+        .unwrap();
+    let comp = shell.workspace.composition_editor.unwrap();
+    let parent = DocumentId::new();
+    let child = DocumentId::new();
+    shell
+        .workspace
+        .editors
+        .get_mut(&timeline)
+        .unwrap()
+        .bind(ViewLocation {
+            document: parent,
+            time: Time::new(7, 24).unwrap(),
+            label: "Sequence".into(),
+        });
+    let viewer = *shell.workspace.viewers.keys().next().unwrap();
+    shell.workspace.follow_source(viewer, timeline);
+    let pinned = shell.workspace.add_viewer(ViewerInstance {
+        binding: ViewerBinding::Pinned(shell.workspace.editors[&timeline].output().unwrap()),
+        ..Default::default()
+    });
+    let b = shell.workspace.add_editor("test.comp", "test.comp");
+    shell
+        .workspace
+        .editors
+        .get_mut(&b)
+        .unwrap()
+        .bind(ViewLocation {
+            document: parent,
+            time: Time::ZERO,
+            label: "Other group".into(),
+        });
+    let other = shell.workspace.add_viewer(ViewerInstance {
+        group: workspace::LinkGroup::B,
+        source: Some("test.comp".into()),
+        time: Time::new(3, 24).unwrap(),
+        ..Default::default()
+    });
+    let selected = fold_foundation::ObjectId::new();
+    shell
+        .workspace
+        .editors
+        .get_mut(&timeline)
+        .unwrap()
+        .selection
+        .objects = vec![selected];
+    let before = shell.workspace.editors[&timeline].clone();
+    let mut target = before.clone();
+    target.navigate(ViewLocation {
+        document: child,
+        time: Time::new(1, 48).unwrap(),
+        label: "Shot".into(),
+    });
+    target.document_type = "test.comp".into();
+    shell.navigate_editor(timeline, target);
+    shell.sync_instances();
+    assert_eq!(
+        shell.workspace.editors[&timeline].document(),
+        Some(parent),
+        "opening a composition must retain the timeline tab and document"
+    );
+    assert_eq!(
+        shell.workspace.editors[&timeline].contribution,
+        "test.timeline"
+    );
+    assert_eq!(shell.workspace.editors[&comp].document(), Some(child));
+    assert_eq!(shell.workspace.composition_editor, Some(comp));
+    assert_eq!(shell.workspace.network_editor, Some(comp));
+    assert_eq!(shell.workspace.inspector_editor(), Some(comp));
+    assert_eq!(shell.focus, Some(comp));
+    assert_eq!(shell.workspace.resolve(viewer).unwrap().document, child);
+    assert_eq!(
+        shell.workspace.viewers[&viewer].time,
+        Time::new(1, 48).unwrap()
+    );
+    assert_eq!(shell.workspace.resolve(pinned).unwrap().document, parent);
+    assert_eq!(shell.workspace.resolve(other).unwrap().document, parent);
+    assert_eq!(
+        shell.workspace.viewers[&other].time,
+        Time::new(3, 24).unwrap()
+    );
+    assert_eq!(
+        shell.workspace.editors[&timeline].selection.objects,
+        vec![selected]
+    );
+    shell.workspace.toggle_inspector_lock();
+    let mut back = shell.workspace.editors[&comp].clone();
+    back.back();
+    back.document_type = "test.timeline".into();
+    shell.navigate_editor(comp, back);
+    shell.sync_instances();
+    assert_eq!(shell.focus, Some(timeline));
+    assert_eq!(
+        shell
+            .workspace
+            .inspector_lock
+            .as_ref()
+            .unwrap()
+            .1
+            .document(),
+        Some(child)
+    );
+    assert_eq!(
+        shell.workspace.editors[&timeline].selection.objects,
+        vec![selected]
+    );
+    assert_eq!(shell.workspace.editors[&comp].document(), Some(child));
+    assert_eq!(shell.workspace.resolve(viewer).unwrap().document, parent);
+    assert_eq!(
+        shell.workspace.viewers[&viewer].time,
+        Time::new(7, 24).unwrap()
+    );
 }

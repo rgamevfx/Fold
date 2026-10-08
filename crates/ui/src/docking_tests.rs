@@ -177,3 +177,96 @@ fn project_drag_delivers_once_and_preserves_the_canvas_cursor() {
     }
     assert_eq!(delivered, vec![entry]);
 }
+
+#[test]
+fn default_workspace_places_authoring_below_viewer_and_network_below_tools() {
+    let _guard = crate::IMGUI_TEST_LOCK.lock().unwrap();
+    for size in [[1440., 900.], [900., 600.]] {
+        let mut context = Context::create();
+        context.set_ini_filename(None::<String>).unwrap();
+        context
+            .io_mut()
+            .set_config_flags(ConfigFlags::DOCKING_ENABLE);
+        context
+            .font_atlas()
+            .try_claim_legacy_renderer()
+            .unwrap()
+            .build();
+        context.io_mut().set_display_size(size);
+        context.io_mut().set_delta_time(1. / 60.);
+        let mut shell = Shell::new(
+            [
+                ("test.timeline", "Timeline", PanelPlacement::Editor),
+                (
+                    crate::sdk::composition::PANEL_ID,
+                    "Composition",
+                    PanelPlacement::Editor,
+                ),
+                (
+                    crate::sdk::network::PANEL_ID,
+                    "Network",
+                    PanelPlacement::Editor,
+                ),
+                ("test.inspector", "Inspector", PanelPlacement::Inspector),
+                ("test.project", "Project", PanelPlacement::Browser),
+            ]
+            .into_iter()
+            .map(|(id, title, placement)| RegisteredPanel {
+                descriptor: fold_platform::packages::PanelDescriptor {
+                    id,
+                    title,
+                    placement,
+                },
+                key: WindowKey::new(id, title).unwrap(),
+                panel: Box::new(Canvas {
+                    project_drops: false,
+                }),
+            })
+            .collect(),
+        );
+        shell.rebuild_layout();
+        shell.layout.validate().unwrap();
+        let mut windows: Vec<_> = shell.panels.iter().map(|p| p.key.clone()).collect();
+        windows.push(shell.delivery.clone());
+        windows.push(shell.viewer.clone());
+        let mut rects = vec![([0.; 2], [0.; 2]); windows.len()];
+        for _ in 0..4 {
+            let ui = context.frame();
+            ui.dockspace()
+                .layout(&shell.layout, DockLayoutApply::IfMissing)
+                .build()
+                .unwrap();
+            for (index, key) in windows.iter().enumerate() {
+                ui.window(key).focused(true).build(|| {
+                    rects[index] = (ui.window_pos(), ui.window_size());
+                    ui.text("Panel content");
+                });
+            }
+            context.end_frame();
+        }
+        let [
+            timeline,
+            composition,
+            network,
+            inspector,
+            project,
+            delivery,
+            viewer,
+        ] = rects.as_slice()
+        else {
+            unreachable!()
+        };
+        assert_eq!(timeline, composition, "authoring panels share tabs");
+        assert_eq!(inspector, project, "Project shares the upper tools tabs");
+        assert_eq!(inspector, delivery);
+        assert!(timeline.0[1] >= viewer.0[1] + viewer.1[1]);
+        assert!(network.0[1] >= inspector.0[1] + inspector.1[1]);
+        assert!(network.0[0] >= timeline.0[0] + timeline.1[0]);
+        assert!(inspector.0[0] >= viewer.0[0] + viewer.1[0]);
+        assert!(
+            rects
+                .iter()
+                .all(|(_, size)| size[0] > 200. && size[1] > 200.)
+        );
+    }
+}

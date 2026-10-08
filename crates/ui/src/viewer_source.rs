@@ -98,7 +98,9 @@ pub(crate) fn draw(
     }
     crate::sdk::toolbar::tooltip(
         ui,
-        &format!("{label} — group sources follow their editor; all networks unlink this viewer"),
+        &format!(
+            "{label} — linked viewers follow navigation in their group; all networks unlink this viewer"
+        ),
     );
     source_changed
 }

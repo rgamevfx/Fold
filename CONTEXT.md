@@ -9,7 +9,7 @@ A named association of editors, viewers and inspectors within one editing contex
 _Avoid_: Playback group, document group
 
 **Group source**:
-An editor available within a panel link group. Each viewer independently chooses which editor type to follow; inspectors follow explicit selections within the group.
+An editor supplying the current document context within a panel link group. Explicit document navigation and authoring-tab selection carry linked viewers to that source; inspectors follow explicit selections within the group.
 _Avoid_: Last active panel, global selection
 
 **Unlinked output**:

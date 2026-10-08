@@ -330,7 +330,7 @@ Fold uses one native window with internal docking and multiple editor/viewer ins
 
 ## Navigation and feedback
 
-Editors have explicit document targets. Viewers choose an editor type within link group A–D or an Unlinked output. A group has at most one editor of each type; changing focus does not replace the viewer's chosen source. Inspectors follow group selection independently and may lock their target.
+Editors have explicit document targets. The default workspace places Viewer above tabbed Timeline/Composition on the left, tabbed Inspector/Project/Delivery above Network on the right, with primary contexts in group A. A group has at most one editor of each type. Opening a document or explicitly clicking an authoring tab carries linked viewers and the appropriate Network context to that source; merely changing keyboard focus does not. Nested navigation opens the matching peer surface in the same group without replacing the source panel, and Back retains exact parent time and selection. Unlinked viewers retain their chosen output. Inspectors follow group selection independently and may lock their target.
 
 Each viewer owns its transport, review range, loop, mode, resolution and displayed-frame context. Two viewers can show the same document at different times. Shared caches do not imply shared clocks. Navigation through a nested graph preserves parent stack, selection and exact source time.
 
