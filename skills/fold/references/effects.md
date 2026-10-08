@@ -1,5 +1,7 @@
 # Reusable image effects and timing
 
+> **Pre-rewrite reference — 8 October 2026.** These examples describe the old build. For new motion/MCP/agent work, use the [Motion System Rewrite Plan](../../../docs/Motion_System_Rewrite_Plan.md); this guide supplies no compatibility requirement. Requalify examples against the replacement public contract before publishing them as supported.
+
 Phase 57 introduces published Compositing/Composition definitions and instance-owned values. Discover the current package catalog before authoring; older running builds do not support this contract.
 
 The [reusable dissolve batch](../examples/reusable-dissolve.json) is exercised by `fold-app/tests/reusable_effects.rs` through the same public batch staging API. It creates an editable Dissolve definition, two partly transparent sources and an Instance node. The test verifies one-step undo/redo, save/reopen and true premultiplied interpolation. This is an API regression example, not a completed live desktop/MCP workflow qualification.

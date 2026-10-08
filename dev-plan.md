@@ -1,5 +1,7 @@
 # Development plan
 
+> **RETIRED ROADMAP — 8 October 2026.** The [Motion System Rewrite Plan](docs/Motion_System_Rewrite_Plan.md) now owns active priorities and acceptance. This ledger is preserved as historical evidence; its “active,” “next,” and future-work instructions are frozen. Old motion/MCP/agent plans are superseded; unrelated unfinished work is deferred, not complete. See the [retirement register](docs/Retired_Documentation.md).
+
 Current roadmap reconciled against source and phase records on **7 October 2026**. This is a documentation reconciliation, not a new runtime or performance acceptance run.
 
 The [product specification](docs/Fold_Application_Product_Architecture.md) owns product behavior and design rules. [Current architecture](docs/architecture.md) maps them to source and records implementation discrepancies. This file owns priorities, open obligations and acceptance status. Explicit later user decisions recorded here take precedence until incorporated into the specification.

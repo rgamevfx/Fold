@@ -1,5 +1,7 @@
 # Graph authoring and Rust Wrangles
 
+> **Pre-rewrite reference — 8 October 2026.** These examples describe the old build. For new motion/MCP/agent work, use the [Motion System Rewrite Plan](../../../docs/Motion_System_Rewrite_Plan.md); this guide supplies no compatibility requirement. Requalify examples against the replacement public contract before publishing them as supported.
+
 Use this reference when constructing or restructuring a network, publishing group controls, or writing a custom Rust Wrangle. Discover the running catalog first: older desktops will not expose these operations. Submit edits through the normal revision-checked `batch`; every example below is a package edit inside `{"op":"edit","document":DOCUMENT,"edits":[...]}`.
 
 ## Discover the actual interface

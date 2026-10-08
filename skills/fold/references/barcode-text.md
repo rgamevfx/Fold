@@ -1,5 +1,7 @@
 # Animated barcode text through MCP
 
+> **Pre-rewrite reference — 8 October 2026.** These examples describe the old build. For new motion/MCP/agent work, use the [Motion System Rewrite Plan](../../../docs/Motion_System_Rewrite_Plan.md); this guide supplies no compatibility requirement. Requalify examples against the replacement public contract before publishing them as supported.
+
 Use this construction for independently changing bars inside live text. The verified example is [Katie — Chromatic Bars](../../../demos/katie-chromatic-bars.md).
 
 1. Create a Motion text `object` to establish its embedded font and scene roles. Render and position it before building the treatment. Glyph geometry has a font-dependent vertical offset; inspect the rendered result rather than treating the source position as the visible top edge.

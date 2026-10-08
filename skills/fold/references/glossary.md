@@ -1,5 +1,7 @@
 # Fold authoring concepts
 
+> **Pre-rewrite reference — 8 October 2026.** These examples describe the old build. For new motion/MCP/agent work, use the [Motion System Rewrite Plan](../../../docs/Motion_System_Rewrite_Plan.md); this guide supplies no compatibility requirement. Requalify examples against the replacement public contract before publishing them as supported.
+
 Read this when planning a construction or resolving terminology. Use the live catalog for exact node IDs, sockets, defaults, settings, and current capability support.
 
 | Concept | Meaning and authoring consequence |

@@ -1,5 +1,7 @@
 # Programmable Motion nodes
 
+> **RETIRED DIRECTION — 8 October 2026.** Historical research only. Follow the [Motion System Rewrite Plan](../Motion_System_Rewrite_Plan.md); recommendations below to extend or retain the former engine, Rust builders or protocols are superseded.
+
 Decision update: phase 45 implements the user-selected **single inline Rust Wrangle**, compiling actual Rust to WebAssembly. The DSL and separate Field Code suggestions below are historical alternatives, superseded by that decision. Implementation progress is tracked in [dev-plan.md](../../dev-plan.md).
 
 Research date: 2026-10-05. Proposed design, not an implemented capability or a change to accepted phase priorities.

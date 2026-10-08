@@ -1,5 +1,7 @@
 # Motion authoring overhaul: programs that produce editable constructions
 
+> **RETIRED — 8 October 2026.** Historical design/implementation context only. The [Motion System Rewrite Plan](Motion_System_Rewrite_Plan.md) and its linked proposal supersede this document for motion and agent work. Examples and protocol descriptions below belong to the old system and are not rewrite contracts.
+
 2026-10-07. Engineering recommendation following the fframes investigation. This is a proposed refinement of the incomplete Phase 47, not a shipped interface, completed milestone, or authorization to migrate existing artwork. Code examples below are interface sketches and are not executable Fold SDK examples.
 
 The subsequent user-approved [Phase 56](phase-56-live-rust-assets.md) adopts Rust/Wasm as the first frontend and explicit code-owned internals/artist-owned controls. Its implementation contract supersedes the provisional JavaScript choice below; broader property reconciliation remains future work.

@@ -1,5 +1,7 @@
 # Live SDK tools
 
+> **Pre-rewrite reference — 8 October 2026.** These examples describe the old build. For new motion/MCP/agent work, use the [Motion System Rewrite Plan](../../../docs/Motion_System_Rewrite_Plan.md); this guide supplies no compatibility requirement. Requalify examples against the replacement public contract before publishing them as supported.
+
 Use for building or revising artist-editable badges, copies, drivers, or a live candidate preview. Fetch `catalog sdk=true` (SDK version 2) for declarations. Public operations also have generated schemas in the package catalog. No repository or Rust access is required.
 
 1. Read `state`; reuse the intended session and inspect artist selection. `inspect` with `query:{mode:"construction",node:ID}` returns a Motion object's children, input bindings, drivers and references. Discover detailed signatures only where needed.

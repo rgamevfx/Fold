@@ -1,5 +1,7 @@
 # Workflow: procedural chromatic dots, overlays, and glow
 
+> **Pre-rewrite reference — 8 October 2026.** These examples describe the old build. For new motion/MCP/agent work, use the [Motion System Rewrite Plan](../../../docs/Motion_System_Rewrite_Plan.md); this guide supplies no compatibility requirement. Requalify examples against the replacement public contract before publishing them as supported.
+
 Use this recipe for a morphing dot system with live labels, sampled stipple, guides, and artist-facing controls. It documents the editable `demos/cavalry-chromatic-motion.fold` project. The reference was `https://www.youtube.com/shorts/vCOame09Fns`; this is a procedural interpretation, not a pixel-identical reconstruction. Other briefs may need only some branches.
 
 Read [Motion authoring](motion.md) for public edit syntax and group/font setup; use the [glossary](glossary.md) for fields, domains, and coordinate spaces. This recipe is self-contained within the skill; the saved demo is an optional inspection fixture, not a requirement to read Rust or project archives.

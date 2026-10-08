@@ -1,8 +1,10 @@
 # Current architecture and dependency policy
 
+> **Pre-rewrite baseline — 8 October 2026.** This document describes the pre-rewrite source, not the target motion architecture. Use the [Motion System Rewrite Plan](Motion_System_Rewrite_Plan.md) for motion, MCP/agent ownership, priorities and acceptance, and its linked proposal for target semantics. Shared non-motion ownership remains useful; legacy motion and protocol descriptions below are removal context. The old dev-plan is retired.
+
 Source-inspection revision: 7 October 2026.
 
-This document maps the [product specification](Fold_Application_Product_Architecture.md) to current implementation. [dev-plan.md](../dev-plan.md#current-roadmap) owns priorities, unresolved acceptance and phase evidence. Historical phase/consolidation documents describe their own checkpoints; they are not current implementation inventories. This revision is a code audit, not a fresh runtime, performance or release certification.
+This document maps the [product specification](Fold_Application_Product_Architecture.md) to current implementation. [The rewrite plan](Motion_System_Rewrite_Plan.md) owns current priorities and acceptance; [dev-plan.md](../dev-plan.md) preserves the retired ledger. Historical phase/consolidation documents describe their own checkpoints; they are not current implementation inventories. This revision is a code audit, not a fresh runtime, performance or release certification.
 
 ## Ownership
 

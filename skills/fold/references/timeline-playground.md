@@ -1,5 +1,7 @@
 # Timeline demo authoring
 
+> **Pre-rewrite reference — 8 October 2026.** These examples describe the old build. For new motion/MCP/agent work, use the [Motion System Rewrite Plan](../../../docs/Motion_System_Rewrite_Plan.md); this guide supplies no compatibility requirement. Requalify examples against the replacement public contract before publishing them as supported.
+
 Use for editable timeline fixtures with linked media and nested Composition/graph clips. The verified artifact is `demos/timeline-playground.fold`; its artist guide describes the actual layout.
 
 1. Discover a session and guard each batch with its current revision/epoch. Build Motion → Composite → Sequence using `scripts/demo.py` only in a project where those additions are wanted.

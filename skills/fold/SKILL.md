@@ -3,6 +3,8 @@ name: fold
 description: Create and edit artwork in a running Fold project through MCP or fold-cli agent. Use for motion graphics, compositing, timelines, reusable artist-editable setups, and investigating slow artwork playback; repository implementation follows the repository's development instructions.
 ---
 
+> **Protocol retirement — 8 October 2026.** For the motion rewrite, follow the [Motion System Rewrite Plan](../../docs/Motion_System_Rewrite_Plan.md). The workflow below and linked examples describe the pre-rewrite build; they are historical guidance, not the replacement contract. Do not use them to implement or reintroduce old motion, Rust assets, Wrangles, Solver, SDKs or protocol fallbacks. For artwork in an explicitly selected existing build, discover its actual capabilities and identify it as legacy. The replacement workflow will be published with verified public-tool examples in phases M3–M7. Track rewrite capability gaps in the new plan.
+
 Operate Fold through its public tools. Use the live catalog, inspected documents, and this skill's references as the authoring contract. Routine artwork must not require reading Rust crates, editing project archives, or calling private native APIs. If the contract leaves a capability unclear, inspect a tool-created example or make a small reversible probe; report a missing capability when neither resolves it.
 
 ## Establish the task

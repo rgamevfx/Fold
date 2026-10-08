@@ -1,5 +1,7 @@
 # Candidate authoring and observation
 
+> **Pre-rewrite reference — 8 October 2026.** These examples describe the old build. For new motion/MCP/agent work, use the [Motion System Rewrite Plan](../../../docs/Motion_System_Rewrite_Plan.md); this guide supplies no compatibility requirement. Requalify examples against the replacement public contract before publishing them as supported.
+
 Use when making an experimental edit, constructing an effect, or inspecting animation without changing artist playback. Discover the actual running build with `catalog` first. CLI method names below have an MCP `fold_` prefix. Every asynchronous operation is complete only after `jobs` returns `status: "complete"` and `outcome.ok: true`.
 
 1. Read `state`. Record `revision` and `project_epoch`; identify the intended documents. Read the relevant package `catalog` and configured signatures before wiring unfamiliar nodes.

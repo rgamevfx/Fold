@@ -1,0 +1,711 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>Fold Motion Graphics Reference</title><style>*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:28px}body{margin:0;color:#202124;background:#fff;font:16px/1.68 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}.layout{max-width:1440px;margin:auto;display:grid;grid-template-columns:220px minmax(0,820px);gap:84px;padding:56px 48px 100px}.rail{position:sticky;top:28px;align-self:start;max-height:calc(100vh - 56px);overflow:auto;border-right:1px solid #e4e6e8;padding:4px 20px 12px 0}.rail-label,.eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:#70767b;font-weight:650}.rail ul{list-style:none;padding:0;margin:18px 0}.rail li{font-size:12px;line-height:1.4;margin:8px 0}.rail .level-1{font-weight:650}.rail a{color:#72777b;text-decoration:none}.rail a:hover{color:#202124}main{min-width:0}h1{font-size:42px;line-height:1.12;letter-spacing:-.04em;font-weight:620;margin:12px 0 20px}h2{font-size:27px;line-height:1.2;letter-spacing:-.025em;font-weight:610;margin:68px 0 20px;padding-top:20px;border-top:1px solid #e4e6e8}h3{font-size:18px;line-height:1.35;font-weight:620;margin:38px 0 12px}p{margin:0 0 18px}strong{font-weight:650}a{color:#425d74;text-decoration-color:#b8c3cc;text-underline-offset:3px}code{font:.86em ui-monospace,SFMono-Regular,Menlo,monospace;background:#f5f6f6;padding:.14em .34em;border-radius:4px;overflow-wrap:anywhere}pre{overflow:auto;background:#f6f7f7;border:1px solid #e4e6e8;padding:18px 20px;border-radius:8px;font:13px/1.65 ui-monospace,monospace}pre code{padding:0;background:none}table{width:100%;border-collapse:collapse;margin:24px 0 34px;font-size:14px;line-height:1.55}th{text-align:left;color:#70767b;font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-weight:650}th,td{vertical-align:top;padding:11px 12px;border-bottom:1px solid #e4e6e8}th:first-child,td:first-child{padding-left:0}th:last-child,td:last-child{padding-right:0}ul,ol{padding-left:22px}li{padding-left:3px;margin:7px 0}.diagram{margin:30px 0 38px;padding:18px 20px;background:#f6f7f7;border:1px solid #e4e6e8;border-radius:9px}.diagram figcaption{margin-top:12px;color:#70767b;font-size:11px;letter-spacing:.04em}.pipeline-flow,.exec-row{display:flex;align-items:center;justify-content:space-between;gap:12px}.pipeline-flow span,.exec-row span{font-size:13px;font-weight:600;white-space:nowrap}.pipeline-flow i,.exec-row b,.exec-down{font-style:normal;color:#939ba0;font-weight:500}.exec-row{justify-content:center;flex-wrap:wrap}.exec-row span{border:1px solid #dfe2e4;background:#fff;border-radius:5px;padding:8px 11px}.exec-down{text-align:center;line-height:1.7}@media(max-width:900px){.layout{grid-template-columns:175px 1fr;gap:38px;padding:36px 26px 76px}}@media(max-width:680px){.layout{display:block;padding:26px 20px 60px}.rail{position:static;max-height:none;border:0;border-bottom:1px solid #e4e6e8;padding:0 0 8px;margin-bottom:34px}.rail ul{columns:2;column-gap:20px}h1{font-size:34px}h2{font-size:24px;margin-top:50px}table{font-size:13px;display:block;overflow-x:auto}.pipeline-flow{flex-wrap:wrap;justify-content:flex-start}.pipeline-flow span,.exec-row span{font-size:12px;white-space:normal}.exec-row{gap:6px}}</style></head><body><aside style="padding:16px 32px;border-bottom:1px solid #e4e6e8"><strong>Retired — 8 October 2026.</strong> Historical reference for the old motion system. Follow the <a href="Motion_System_Rewrite_Plan.md">Motion System Rewrite Plan</a> for replacement work.</aside><div class="layout"><aside class="rail"><div class="rail-label">Fold / Reference</div><nav aria-label="Contents"><ul><li class="level-1"><a href="#fold-motion-graphics-reference">Fold motion graphics reference</a></li><li class="level-2"><a href="#engine-and-data">Engine and data</a></li><li class="level-2"><a href="#execution">Execution</a></li><li class="level-2"><a href="#math-and-animation">Math and animation</a></li><li class="level-2"><a href="#complete-built-in-node-list">Complete built-in node list</a></li><li class="level-2"><a href="#programmability-and-reusable-assets">Programmability and reusable assets</a></li><li class="level-2"><a href="#bounds-and-current-limits">Bounds and current limits</a></li><li class="level-2"><a href="#source-basis">Source basis</a></li></ul></nav></aside><main><h1 id="fold-motion-graphics-reference">Fold motion graphics reference</h1>
+<p>Source snapshot: 8 October 2026. Scope: the implemented Motion engine only. The compositor node system and render graph are excluded.</p>
+<h2 id="engine-and-data">Engine and data</h2>
+<p>Fold Motion is a procedural <strong>2D</strong> graphics engine. It creates vector shapes, shaped text, point distributions, shared copies, image geometry, animation, and bounded simulations. Its normal construction is <strong>Content → Distribution → Driver → Influence → Response</strong>.</p>
+<figure class="diagram pipeline"><div class="pipeline-flow"><span>Content</span><i>→</i><span>Distribution</span><i>→</i><span>Driver</span><i>→</i><span>Influence</span><i>→</i><span>Response</span></div><figcaption>Typical procedural construction</figcaption></figure><p>The engine is written in <strong>Rust, edition 2024</strong>, in <code>fold-motion</code>. Shared animation code is in <code>fold-animation</code>. The optional desktop interface uses Dear ImGui through Fold's shared UI SDK. Graphs and settings are serialized data, not executable Rust source. Rust code is optional for custom operations and reusable assets.</p>
+<table>
+<thead>
+<tr>
+<th>Term</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Content</td>
+<td>An ordered, shared collection of elements. Each element has an ID, geometry, affine transform, appearance, and named attributes.</td>
+</tr>
+<tr>
+<td>Geometry</td>
+<td>Path, shaped glyph, point, instance, group, or textured image geometry. Paths contain move, line, quadratic Bézier, cubic Bézier, and close segments.</td>
+</tr>
+<tr>
+<td>Instance</td>
+<td>A reference to shared source content, with its own transform and attributes. Copies do not require duplicate source paths.</td>
+</tr>
+<tr>
+<td>Field</td>
+<td>A typed function sampled by a consumer. It can be uniform or vary by element. Context includes position, index, stable ID, count, and time offset.</td>
+</tr>
+<tr>
+<td>Domain</td>
+<td>The elements a response changes: Points, Instances, Glyphs, or Children. Children selects the current content level. A glyph is not necessarily one character.</td>
+</tr>
+<tr>
+<td>Value types</td>
+<td>Scalar (<code>f64</code>), Vector (<code>[f64; 2]</code>), Color (<code>[f64; 4]</code>), Bool, Text, and Id (<code>u64</code>). Other socket types are Content, Points, Image, and ImageField. Generic sockets resolve to a declared concrete type.</td>
+</tr>
+</tbody>
+</table>
+<p>IDs and order are different. Random values can remain attached to an ID when order changes. Index-based operations follow current order. Source edits can add or remove IDs; text edits can change glyph correspondence.</p>
+<p>Coordinates increase right and down. Angles use degrees unless a function specifies radians. A transform applies <code>translation + pivot + rotation × scale × (point − pivot)</code>. Positive rotation is clockwise in these screen coordinates. Geometry and field math use mainly <code>f64</code>; GPU drawing uses lower-precision representations where required.</p>
+<p>A logical canvas separates scene units from output pixels. Fit and Fill preserve proportions; Responsive preserves logical height and adjusts width for aspect ratio. Format provides scene units per full-output pixel. Preview resolution does not change layout. Older documents without a logical canvas retain their original coordinate behavior.</p>
+<p>Colors use straight RGBA in the document's working space during authoring; drawing uses premultiplied alpha. Current new projects use scene-linear ACEScg. Legacy projects can use legacy linear sRGB interpretation. Finite HDR and negative RGB values are supported; display RGB values are not automatically working-space values. Opacity and paint alpha must remain in their supported 0–1 range.</p>
+<h2 id="execution">Execution</h2>
+<figure class="diagram execution"><div class="exec-row"><span>Immutable project snapshot</span><b>+</b><span>Exact time · output format · cancellation</span></div><div class="exec-down">↓</div><div class="exec-row"><span>Demand-driven evaluator</span><b>→</b><span>Typed fields · geometry · simulation</span><b>→</b><span>Immutable drawing data</span></div><div class="exec-down">↓</div><div class="exec-row"><span>Shared renderer</span><b>→</b><span>Preview · export · headless</span></div><figcaption>Frame evaluation flow</figcaption></figure><ol>
+<li>An edit changes a candidate document. Validation and a project transaction commit it with undo. Unknown extension data is retained.</li>
+<li>A frame request supplies an immutable project snapshot, exact rational time, output format, and cancellation state.</li>
+<li>The evaluator starts at the requested scene or graph output. It resolves dependencies on demand, dispatches nodes through the static registry, and caches node outputs within that evaluation. Cycles, missing demanded implementations, and invalid types produce errors.</li>
+<li>Field nodes build typed functions. A geometry consumer samples them in an explicit domain. Uniform evaluation rejects an element-varying field; it does not invent element zero. Numeric operations require compatible types and finite results.</li>
+<li>CPU code constructs geometry, samples ordinary fields, shapes text, and advances simulations. Shared geometry and per-instance transforms are retained where supported. Motion then supplies immutable drawing data to the shared renderer.</li>
+<li>GPU paths draw vectors, instances, textures, and image responses. <strong>Ordinary domain-varying fields and Rust Wrangles still execute on the CPU.</strong> GPU image sampling does not expose pixels to CPU Math or Wrangle nodes. Preview, export, and headless requests use the same Motion evaluation semantics.</li>
+</ol>
+<p>Pure animation can be evaluated at any requested time. Time is a rational fraction for requests, key positions, and temporal boundaries; numeric fields can convert it to floating-point seconds. Stagger converts delay to nanoseconds before applying its exact time offset. Per-card media offsets are quantized to microseconds.</p>
+<p>Solver is an explicit state region. For start <code>s</code>, step <code>h</code>, and request <code>t</code>, it evaluates <code>n = max(0, floor((t − s)/h))</code> updates. Initial state is sampled at <code>s</code>; update <code>j</code> runs at <code>s + jh</code>. There is no interpolation between solver steps. Valid checkpoints reduce replay work; eviction changes cost, not the intended result. Changes to evaluation identity prevent reuse of stale state.</p>
+<h2 id="math-and-animation">Math and animation</h2>
+<table>
+<thead>
+<tr>
+<th>Operation</th>
+<th>Rule</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Mix</td>
+<td><code>a + (b − a)w</code>, component by component. Weight is not automatically clamped.</td>
+</tr>
+<tr>
+<td>Map Range</td>
+<td><code>u = (x − source_min)/(source_max − source_min)</code>; optionally clamp <code>u</code>, then optionally use <code>u²(3 − 2u)</code>; return <code>target_min + (target_max − target_min)u</code>. A zero source interval is invalid.</td>
+</tr>
+<tr>
+<td>Falloff</td>
+<td>Normalize and clamp a coordinate or radial distance between two limits. Optionally apply smoothstep. Normal output is <code>1 − u</code>; invert returns <code>u</code>.</td>
+</tr>
+<tr>
+<td>Copy Progress / Palette</td>
+<td><code>i/max(N − 1, 1)</code>. Palette mixes its two colors with this weight.</td>
+</tr>
+<tr>
+<td>Wave</td>
+<td><code>offset + amplitude × shape(coordinate × frequency + phase)</code>. Sine uses <code>sin(2πu)</code>; triangle and square produce values from −1 to 1.</td>
+</tr>
+<tr>
+<td>Oscillator</td>
+<td>Phase is <code>(time + offset) × time_scale × frequency + phase + spread × i/max(N − 1, 1)</code>. Frequency is <code>1/duration</code> or <code>BPM/60</code>. Each channel can add a phase offset. Output mixes minimum/maximum with <code>0.5 + (wave01 − 0.5) × strength</code>.</td>
+</tr>
+<tr>
+<td>Stagger</td>
+<td>Sample the upstream value at <code>t − i × delay</code>. Animated upstream parameters and group inputs use the shifted time.</td>
+</tr>
+<tr>
+<td>Timing</td>
+<td>Normalize the owning range to progress. Clamp holds endpoints; Repeat wraps modulo 1; PingPong travels forward and back.</td>
+</tr>
+<tr>
+<td>Keys</td>
+<td>Hold, linear, or eased interpolation. Basic Ease uses smoothstep. Per-component animation curves also support cubic Bézier handles. Values hold outside the key range.</td>
+</tr>
+<tr>
+<td>Response</td>
+<td>Selection chooses elements; weight controls the change. Replace blends toward the requested value. Add adds a weighted amount. Multiply blends a multiplier from 1. Each response permits only its supported modes.</td>
+</tr>
+<tr>
+<td>Path travel</td>
+<td>Sample distance along a flattened path and derive its tangent. Quadratic curves use 64 subdivisions; cubic curves use 96. This is approximate arc length, not an analytic curve-length solution.</td>
+</tr>
+</tbody>
+</table>
+<p>Particle Step uses an implicit spring with drag. For each axis, let <code>h</code> be delta time, <code>q</code> the target, <code>x</code> position, and <code>v</code> velocity:</p>
+<pre><code class="language-text">ω = 2π × frequency × (1 − variation + 2 × variation × seeded_random)
+k = ω² × attraction
+c = 2 × damping × ω
+F = acceleration + turbulence × sin(2.3 × time + seeded_phase)
+v_next = (v + h × (k × (q − x) + F)) / (1 + c × h + k × h²)
+x_next = x + h × v_next
+</code></pre>
+<p>This is a point attraction system. It has no built-in collision, rigid-body, or fluid solver. Particle Targets assigns targets before simulation; it does not follow an animated target shape after Solver start.</p>
+<h2 id="complete-built-in-node-list">Complete built-in node list</h2>
+<p>All 88 registered node types are listed below. Each ID has the prefix <code>fold.motion.</code>. Names are current registry labels. These are Motion authoring nodes, not compositor nodes.</p>
+<h3 id="content-text-and-layout">Content, text, and layout</h3>
+<table>
+<thead>
+<tr>
+<th>Node</th>
+<th>ID suffix</th>
+<th>Function</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Rectangle</td>
+<td><code>rectangle</code></td>
+<td>Create a rectangle from width, height, and corner radius. Its origin is the top-left corner.</td>
+</tr>
+<tr>
+<td>Ellipse</td>
+<td><code>ellipse</code></td>
+<td>Create a four-cubic Bézier approximation of an ellipse from width and height.</td>
+</tr>
+<tr>
+<td>Path</td>
+<td><code>path</code></td>
+<td>Store editable path segments and named attribute stops along the path.</td>
+</tr>
+<tr>
+<td>Text</td>
+<td><code>text</code></td>
+<td>Shape a uniform string with an embedded font, size, line spacing, and horizontal alignment.</td>
+</tr>
+<tr>
+<td>Text Select</td>
+<td><code>text_select</code></td>
+<td>Select a newline-separated entry or Unicode scalar character by index; wrap or clamp. This is not grapheme selection.</td>
+</tr>
+<tr>
+<td>Format Text</td>
+<td><code>format_text</code></td>
+<td>Format scalar fields with <code>{value}</code>, <code>{x}</code>, and <code>{y}</code>; use 0–6 decimal places.</td>
+</tr>
+<tr>
+<td>Text on Points</td>
+<td><code>text_on_points</code></td>
+<td>Shape a text field at each selected point. Labels inherit point transforms and require an embedded font.</td>
+</tr>
+<tr>
+<td>Fit Background</td>
+<td><code>fit_background</code></td>
+<td>Create a padded rounded rectangle around input geometry. Uses path/control-point bounds; returns the background only.</td>
+</tr>
+<tr>
+<td>Align Content</td>
+<td><code>align_content</code></td>
+<td>Align the whole input's analytic outline bounds to a target and normalized anchor. Recompute after text or size changes.</td>
+</tr>
+<tr>
+<td>Fit Content</td>
+<td><code>fit_content</code></td>
+<td>Uniformly fit analytic outline bounds inside a box, with anchor placement.</td>
+</tr>
+<tr>
+<td>Format</td>
+<td><code>format</code></td>
+<td>Output logical canvas size, center, and scene units per output pixel.</td>
+</tr>
+<tr>
+<td>Anchor</td>
+<td><code>anchor</code></td>
+<td>Calculate a canvas-relative position with percentage offsets.</td>
+</tr>
+<tr>
+<td>Image Reference</td>
+<td><code>composition</code></td>
+<td>Place a referenced document video output. Source time is parent time minus start plus source start; outside source duration is transparent.</td>
+</tr>
+</tbody>
+</table>
+<p>Text uses Rustybuzz and Unicode bidi with embedded fonts. There is no implicit system-font fallback. Horizontal text alignment uses advance width. Align Content and Fit Content use outlines and exclude stroke, masks, and effects; they preserve child identity. Empty geometry passes through.</p>
+<h3 id="distribution-and-geometry">Distribution and geometry</h3>
+<table>
+<thead>
+<tr>
+<th>Node</th>
+<th>ID suffix</th>
+<th>Function</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Linear Points</td>
+<td><code>linear_points</code></td>
+<td>Place <code>N</code> points at <code>i × spacing</code>.</td>
+</tr>
+<tr>
+<td>Line Points</td>
+<td><code>line_points</code></td>
+<td>Place evenly spaced points between two endpoints.</td>
+</tr>
+<tr>
+<td>Grid Points</td>
+<td><code>grid_points</code></td>
+<td>Create a row-major grid from counts, spacing, and origin.</td>
+</tr>
+<tr>
+<td>Radial Points</td>
+<td><code>radial_points</code></td>
+<td>Place points around a center and radius; set start angle, sweep, and orientation. A full circle avoids a duplicate endpoint.</td>
+</tr>
+<tr>
+<td>Scatter Points</td>
+<td><code>scatter_points</code></td>
+<td>Create seeded points inside a rectangle or on its perimeter, with independent-axis jitter.</td>
+</tr>
+<tr>
+<td>Path Points</td>
+<td><code>path_points</code></td>
+<td>Distribute points along a path; add travel, tangent orientation, normal wave, scale pulse, and sampled path attributes.</td>
+</tr>
+<tr>
+<td>Path Motion</td>
+<td><code>path_motion</code></td>
+<td>Copy content along a path with per-copy time delay, speed, wave, pulse, orientation, and attribute transfer.</td>
+</tr>
+<tr>
+<td>Shape Points</td>
+<td><code>shape_points</code></td>
+<td>Sample filled paths/text on a grid and return flat points. Apply transforms and respect holes. IDs derive from grid coordinates.</td>
+</tr>
+<tr>
+<td>Shape Grid</td>
+<td><code>shape_grid</code></td>
+<td>Convert filled geometry into square or circular cell subpaths. Optional world alignment shares one lattice. Does not return points or instances.</td>
+</tr>
+<tr>
+<td>Copy to Points</td>
+<td><code>instance_on_points</code></td>
+<td>Place shared source content at each point; preserve point transforms and attributes on the copies.</td>
+</tr>
+<tr>
+<td>Realize Instances</td>
+<td><code>realize_instances</code></td>
+<td>Replace shared instances with explicit nested geometry, retaining transforms and appearance.</td>
+</tr>
+<tr>
+<td>Convex Sweep</td>
+<td><code>convex_sweep</code></td>
+<td>Form the convex hull of each profile and its translated copy. Requires uniform profile style; holes and concavity are lost.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="values-context-and-influence">Values, context, and influence</h3>
+<table>
+<thead>
+<tr>
+<th>Node</th>
+<th>ID suffix</th>
+<th>Function</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Value</td>
+<td><code>value</code></td>
+<td>Supply or pass through a value of the selected type.</td>
+</tr>
+<tr>
+<td>Combine XY</td>
+<td><code>combine_xy</code></td>
+<td>Combine two scalar fields into a 2D vector.</td>
+</tr>
+<tr>
+<td>Separate XY</td>
+<td><code>separate_xy</code></td>
+<td>Split a vector field into X and Y.</td>
+</tr>
+<tr>
+<td>Direction</td>
+<td><code>direction</code></td>
+<td>Return <code>length × [cos(angle), sin(angle)]</code>, with angle in degrees.</td>
+</tr>
+<tr>
+<td>Math</td>
+<td><code>math</code></td>
+<td>Add, subtract, multiply, divide, Euclidean modulo, min, max, absolute, negate, round, floor, ceil, or truncate. Numeric vector/color operations are component-wise.</td>
+</tr>
+<tr>
+<td>Compare</td>
+<td><code>compare</code></td>
+<td>Compare scalar fields: <code>&lt;</code>, <code>≤</code>, <code>=</code>, <code>&gt;</code>, <code>≥</code>, or <code>≠</code>; return Bool.</td>
+</tr>
+<tr>
+<td>Map Range</td>
+<td><code>map_range</code></td>
+<td>Remap a scalar interval, with optional clamp and smoothstep.</td>
+</tr>
+<tr>
+<td>Mix</td>
+<td><code>mix</code></td>
+<td>Blend matching numeric types with a scalar weight.</td>
+</tr>
+<tr>
+<td>Random Value</td>
+<td><code>random_value</code></td>
+<td>Generate a repeatable scalar range value from node seed, explicit seed, and stable element ID.</td>
+</tr>
+<tr>
+<td>Position</td>
+<td><code>position</code></td>
+<td>Read the consuming element's position in its sampling context. It is not an automatic world-space conversion.</td>
+</tr>
+<tr>
+<td>Index</td>
+<td><code>index</code></td>
+<td>Read zero-based order in the consumer's domain.</td>
+</tr>
+<tr>
+<td>Element ID</td>
+<td><code>element_id</code></td>
+<td>Read stable element identity.</td>
+</tr>
+<tr>
+<td>Domain Size</td>
+<td><code>domain_size</code></td>
+<td>Read the consumer's element count.</td>
+</tr>
+<tr>
+<td>Copy Progress</td>
+<td><code>copy_progress</code></td>
+<td>Return normalized element order from 0 to 1.</td>
+</tr>
+<tr>
+<td>Palette</td>
+<td><code>palette</code></td>
+<td>Blend two colors across element order.</td>
+</tr>
+<tr>
+<td>Color Ramp</td>
+<td><code>color_ramp</code></td>
+<td>Map a scalar to ordered color stops; use linear, smooth, or stepped RGBA interpolation in working space. Hold endpoints outside the stop range.</td>
+</tr>
+<tr>
+<td>Range Falloff</td>
+<td><code>range_falloff</code></td>
+<td>Produce influence from a scalar interval.</td>
+</tr>
+<tr>
+<td>Radial Falloff</td>
+<td><code>radial_falloff</code></td>
+<td>Produce influence from distance to a center.</td>
+</tr>
+<tr>
+<td>Expression</td>
+<td><code>expression</code></td>
+<td>Evaluate a typed expression tree with named inputs, time, index, count, position, and vector construction. Supports sin/cos, floor, abs, negate, and binary arithmetic/min/max.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="animation-and-responses">Animation and responses</h3>
+<table>
+<thead>
+<tr>
+<th>Node</th>
+<th>ID suffix</th>
+<th>Function</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Time</td>
+<td><code>time</code></td>
+<td>Return evaluation time in seconds, including a sampled time offset.</td>
+</tr>
+<tr>
+<td>Keyframes</td>
+<td><code>keyframes</code></td>
+<td>Sample scalar, vector, or color animation at exact authored key times.</td>
+</tr>
+<tr>
+<td>Wave</td>
+<td><code>wave</code></td>
+<td>Produce sine, triangle, or square output from an input coordinate.</td>
+</tr>
+<tr>
+<td>Oscillator</td>
+<td><code>oscillator</code></td>
+<td>Produce sine, triangle, square, sawtooth, or custom-curve animation; support duration/BPM, ranges, strength, and copy/channel phase.</td>
+</tr>
+<tr>
+<td>Stagger</td>
+<td><code>stagger</code></td>
+<td>Delay an upstream value by element index.</td>
+</tr>
+<tr>
+<td>Timing</td>
+<td><code>timing</code></td>
+<td>Return range progress, curve value, elapsed seconds, and duration. Does not retime media.</td>
+</tr>
+<tr>
+<td>Curve</td>
+<td><code>curve</code></td>
+<td>Map normalized progress through editable linear or smooth segments; clamp endpoints.</td>
+</tr>
+<tr>
+<td>Timing Segments</td>
+<td><code>timing_segments</code></td>
+<td>Return intro, hold, and outro progress. Compress intro/outro proportionally when total duration is short.</td>
+</tr>
+<tr>
+<td>Set Position</td>
+<td><code>set_position</code></td>
+<td>Add to or replace selected element positions.</td>
+</tr>
+<tr>
+<td>Set Rotation</td>
+<td><code>set_rotation</code></td>
+<td>Add to or replace selected element angles; retain position.</td>
+</tr>
+<tr>
+<td>Set Scale</td>
+<td><code>set_scale</code></td>
+<td>Multiply or replace selected element scale. Replacement rejects a singular transform.</td>
+</tr>
+<tr>
+<td>Set Color / Opacity</td>
+<td><code>set_color_opacity</code></td>
+<td>Replace, add, or multiply fill RGBA on selected elements.</td>
+</tr>
+<tr>
+<td>Set Opacity</td>
+<td><code>set_opacity</code></td>
+<td>Replace, add, or multiply element opacity.</td>
+</tr>
+<tr>
+<td>Copy Colors</td>
+<td><code>copy_colors</code></td>
+<td>Apply a two-color gradient across top-level copies; optionally preserve glyph colors.</td>
+</tr>
+<tr>
+<td>Apply Copy Color</td>
+<td><code>apply_copy_color</code></td>
+<td>Apply a color field per top-level copy; optionally affect shapes only.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="appearance-scene-and-reuse">Appearance, scene, and reuse</h3>
+<table>
+<thead>
+<tr>
+<th>Node</th>
+<th>ID suffix</th>
+<th>Function</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fill</td>
+<td><code>fill</code></td>
+<td>Apply uniform fill color and nonzero/even-odd fill rule.</td>
+</tr>
+<tr>
+<td>Stroke</td>
+<td><code>stroke</code></td>
+<td>Apply uniform stroke color, width, cap, and join.</td>
+</tr>
+<tr>
+<td>Transform</td>
+<td><code>transform</code></td>
+<td>Wrap whole content in a translation, rotation, scale, and pivot transform.</td>
+</tr>
+<tr>
+<td>Group</td>
+<td><code>group</code></td>
+<td>Combine back and front content in drawing order.</td>
+</tr>
+<tr>
+<td>Output</td>
+<td><code>output</code></td>
+<td>Expose final content; an unconnected output is transparent.</td>
+</tr>
+<tr>
+<td>Empty Content</td>
+<td><code>empty</code></td>
+<td>Return an empty content collection.</td>
+</tr>
+<tr>
+<td>Object Reference</td>
+<td><code>object_reference</code></td>
+<td>Reuse a scene object's output, with local, world, or owner-relative space options. Hidden source objects can still be referenced.</td>
+</tr>
+<tr>
+<td>Scene Group</td>
+<td><code>scene_children</code></td>
+<td>Collect active children of a scene object in drawing order.</td>
+</tr>
+<tr>
+<td>Published Control</td>
+<td><code>published_control</code></td>
+<td>Read a document-level typed override or its default. Supports scalar, vector, color, Bool, and Text.</td>
+</tr>
+<tr>
+<td>Group Input</td>
+<td><code>group_input</code></td>
+<td>Read a named typed input of a reusable group.</td>
+</tr>
+<tr>
+<td>Group Output</td>
+<td><code>group_output</code></td>
+<td>Expose a typed result from a reusable group.</td>
+</tr>
+<tr>
+<td>Node Group</td>
+<td><code>group_instance</code></td>
+<td>Evaluate a reusable group definition with instance input values or links.</td>
+</tr>
+</tbody>
+</table>
+<p>Scene relationships also provide transform parenting; Follow Transform, Copy Position, Copy Rotation, Copy Scale, Aim, and Follow Path constraints; and local/world masks with intersect, add, subtract, inversion, opacity, and feather. These are scene properties, not extra node types. Common layer timing, visibility, transforms, and animation control when and where objects appear.</p>
+<h3 id="attributes-simulation-and-code">Attributes, simulation, and code</h3>
+<table>
+<thead>
+<tr>
+<th>Node</th>
+<th>ID suffix</th>
+<th>Function</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Read Attribute</td>
+<td><code>read_attribute</code></td>
+<td>Read a named scalar/vector/color/Bool attribute by stable ID from supplied geometry; use a fallback if absent.</td>
+</tr>
+<tr>
+<td>Store Attribute</td>
+<td><code>store_attribute</code></td>
+<td>Sample and store a named typed attribute on each top-level element.</td>
+</tr>
+<tr>
+<td>Transfer Attribute to Color</td>
+<td><code>transfer_color</code></td>
+<td>Apply an inherited named color attribute to glyphs or shapes.</td>
+</tr>
+<tr>
+<td>Solver</td>
+<td><code>solver</code></td>
+<td>Run an editable update group at a fixed rational step, with Content or Points state and cached checkpoints.</td>
+</tr>
+<tr>
+<td>Previous State</td>
+<td><code>solver_state</code></td>
+<td>Inside Solver only: expose prior state, delta time, and step number.</td>
+</tr>
+<tr>
+<td>Geometry History</td>
+<td><code>history</code></td>
+<td>Sample upstream content at past exact intervals; combine oldest first with <code>fade^age</code> opacity and history attributes.</td>
+</tr>
+<tr>
+<td>Particle Targets</td>
+<td><code>particle_targets</code></td>
+<td>Assign each point a stable seeded target inside transformed filled paths/text, respecting holes.</td>
+</tr>
+<tr>
+<td>Particle Step</td>
+<td><code>particle_step</code></td>
+<td>Advance flat points with spring attraction, damping, speed variation, acceleration, and seeded sinusoidal turbulence.</td>
+</tr>
+<tr>
+<td>Rust Wrangle</td>
+<td><code>wrangle</code></td>
+<td>Run bounded Rust code on matching top-level elements. Read time/context/channels/attributes; write position, fill color, opacity, and attributes.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="images-used-by-motion">Images used by Motion</h3>
+<table>
+<thead>
+<tr>
+<th>Node</th>
+<th>ID suffix</th>
+<th>Function</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Media Texture</td>
+<td><code>image</code></td>
+<td>Supply an image/video/document-output collection with source-time offsets and Hold, Loop, Black, or Error range behavior.</td>
+</tr>
+<tr>
+<td>Image Card</td>
+<td><code>image_card</code></td>
+<td>Place one selected source on a sized textured card with fit settings. Source index wraps.</td>
+</tr>
+<tr>
+<td>Image Cards on Points</td>
+<td><code>image_cards</code></td>
+<td>Place cards on points with per-point source selection and media time offset.</td>
+</tr>
+<tr>
+<td>Textured Grid</td>
+<td><code>image_grid</code></td>
+<td>Create a textured mesh; use one image across it or repeat per cell. An offset field deforms vertices.</td>
+</tr>
+<tr>
+<td>Sample Image</td>
+<td><code>sample_image</code></td>
+<td>Produce a deferred GPU image field from working RGB, luminance, or alpha; use bilinear clamped UV sampling and gain/bias.</td>
+</tr>
+<tr>
+<td>Image Response</td>
+<td><code>image_response</code></td>
+<td>Use the GPU image field for displacement, scale, rotation, color, and opacity. Vector shapes use shared raster atlases. Combine response amounts in one node.</td>
+</tr>
+<tr>
+<td>Image to ASCII</td>
+<td><code>image_ascii</code></td>
+<td>Select glyphs on the GPU from a dark-to-light character atlas using image luminance. Requires an embedded font.</td>
+</tr>
+<tr>
+<td>Image Bake</td>
+<td><code>image_bake</code></td>
+<td>Build a background texture cache with mipmaps. Auto retains HDR with Float16; BC7 is lossy SDR. Rebuild stale caches or clear them to use the source.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="programmability-and-reusable-assets">Programmability and reusable assets</h2>
+<p><strong>Expression</strong> stores a typed abstract syntax tree. It executes native field functions and has no arbitrary source execution or implicit scalar/vector conversion.</p>
+<p><strong>Rust Wrangle</strong> compiles Rust to <code>wasm32-unknown-unknown</code>; Wasmtime executes it on the CPU. The guest has no host imports. Compilation requires <code>rustc</code>, the WebAssembly target, and <code>prlimit</code>. Cargo dependencies, build scripts, and source includes are unavailable. Runtime fuel and memory are bounded. Source and controls are saved; compiled artifacts are disposable. A Wrangle changes existing elements; it does not provide arbitrary geometry creation or shared hidden simulation state. Use attributes plus Solver for persistent state.</p>
+<p><strong>Live Rust assets</strong> execute at author time. The bounded Rust SDK returns a construction that becomes retained native groups, nodes, links, and expressions. Those native nodes evaluate each frame; the builder does not rerun each frame. Assets can include runtime Wrangles when needed. Stable interface keys retain compatible artist values, connections, and animation across source updates. Incompatible changes require explicit migration; conflicting internal edits are reported. Bundles include native groups, source, and fonts; external media and document inputs remain explicit dependencies.</p>
+<p>Reusable groups expose typed ports, defaults, units, sections, descriptions, and optional control ranges. Inspector ranges guide editing; they do not clamp evaluation automatically. Direct tools and public MCP/CLI authoring create the same editable native construction and commit through transactions. The built-in registry is static; runtime dynamic-library node loading is not supported.</p>
+<h2 id="bounds-and-current-limits">Bounds and current limits</h2>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Implemented bound or limit</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Work</td>
+<td>Default field budget: 2,000,000 work units per evaluator; cancellation is checked.</td>
+</tr>
+<tr>
+<td>Distribution</td>
+<td>Most point generators: 16,384 points. Path Points and Path Motion: 1,024. Shape Points: 65,536 candidate cells and 16,384 occupied points.</td>
+</tr>
+<tr>
+<td>Nesting</td>
+<td>Reusable group evaluation: 32 levels. Many geometry traversals: 64. Realization: 16,384 visited elements.</td>
+</tr>
+<tr>
+<td>Simulation</td>
+<td>Step at least 1 ms; request at most 100,000 steps. Default checkpoint cache: 64 MiB, at most 128 entries. Nested temporal Solvers are unsupported. Other state/work limits also apply.</td>
+</tr>
+<tr>
+<td>History / attributes</td>
+<td>At most 128 history samples; interval at least 1 ms. At most 64 stored attributes per element.</td>
+</tr>
+<tr>
+<td>Curves</td>
+<td>Keyframe track: at most 18,000 keys. Normalized Curve: 2–64 points. Color Ramp: 1–1,024 stops.</td>
+</tr>
+<tr>
+<td>Expression</td>
+<td>At most 512 terms and depth 32.</td>
+</tr>
+<tr>
+<td>Wrangle</td>
+<td>Source at most 32 KiB; 64 channels; 16 MiB guest memory; at most 100,000 fuel per element and 10,000,000 per node evaluation.</td>
+</tr>
+<tr>
+<td>Rust asset</td>
+<td>Source at most 64 KiB; construction at most 1,024 nodes and 64 inputs; output at most 1 MiB.</td>
+</tr>
+<tr>
+<td>Image geometry</td>
+<td>Textured Grid: at most 128 × 128 cells. ASCII: at most 16,384 cells and 64 ramp characters. Image Bake longest edge: 16–4,096 pixels, multiple of 4.</td>
+</tr>
+</tbody>
+</table>
+<p>There is no built-in 3D geometry/lighting system, text-to-path conversion node, path offset node, or path trim node in this registry. Path travel requires one path with one continuous contour; shaped Text is not accepted as a path target. Shape sampling ignores stroke paint. Broader text-script/fallback coverage is not certified. Image-driven bounds require rendered observation. Arbitrary GPU field execution and a general fused field compiler are not implemented. A scene's frame rate depends on its geometry, fields, simulation replay, media, and hardware; node support does not guarantee real-time playback.</p>
+<h2 id="source-basis">Source basis</h2>
+<p>Checked against the current implementation, not planned features:</p>
+<ul>
+<li><a href="../crates/motion/src/graph/registry.rs">Registry</a>, <a href="../crates/motion/src/nodes">node implementations</a>, and <a href="../crates/motion/src/evaluation">evaluation</a>.</li>
+<li><a href="../crates/motion/src/geometry">Geometry</a>, <a href="../crates/motion/src/fields">fields</a>, <a href="../crates/animation/src">animation</a>, and <a href="../crates/motion/src/simulation">simulation</a>.</li>
+<li><a href="../crates/motion/src/wrangle">Rust Wrangle</a>, <a href="../crates/motion/src/program">Rust assets</a>, and <a href="../crates/motion/src/scene/relationships.rs">scene relationships</a>.</li>
+<li><a href="Fold_Application_Product_Architecture.md">Product specification, sections 11–13</a>, <a href="architecture.md">implementation ownership</a>, and <a href="../dev-plan.md">status and known gaps</a>.</li>
+</ul></main></div></body></html>

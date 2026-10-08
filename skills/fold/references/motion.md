@@ -1,5 +1,7 @@
 # Motion authoring through the public tools
 
+> **Pre-rewrite reference — 8 October 2026.** These examples describe the old build. For new motion/MCP/agent work, use the [Motion System Rewrite Plan](../../../docs/Motion_System_Rewrite_Plan.md); this guide supplies no compatibility requirement. Requalify examples against the replacement public contract before publishing them as supported.
+
 Use `catalog(type="fold.motion.document", query=...)` for current sockets and settings. The conventions below were exercised through live MCP authoring and rendering. Resolve differences with the running catalog and a small rendered probe; these examples are not a substitute for discovery.
 
 ## Sources and coordinates

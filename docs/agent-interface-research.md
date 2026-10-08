@@ -1,5 +1,7 @@
 # Fold agent interface: research and recommendation
 
+> **RETIRED — 8 October 2026.** Historical design/implementation context only. The [Motion System Rewrite Plan](Motion_System_Rewrite_Plan.md) and its linked proposal supersede this document for motion and agent work. Examples and protocol descriptions below belong to the old system and are not rewrite contracts.
+
 Research checked 2026-10-05. This is a proposal, not an implementation commitment or development-plan change.
 
 ## Findings from current primary sources

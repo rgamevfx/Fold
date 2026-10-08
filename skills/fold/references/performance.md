@@ -1,5 +1,7 @@
 # Performance and output equivalence
 
+> **Pre-rewrite reference — 8 October 2026.** These examples describe the old build. For new motion/MCP/agent work, use the [Motion System Rewrite Plan](../../../docs/Motion_System_Rewrite_Plan.md); this guide supplies no compatibility requirement. Requalify examples against the replacement public contract before publishing them as supported.
+
 Use this workflow for slow playback, scaling an instance-heavy effect, comparing native nodes with Wrangles, or verifying an engine optimization. Artwork authoring stays on public MCP/API tools. Repository profiling is a separate engineering task; use the reproducible commands in [phase 46](../../../docs/phase-46-motion-performance.md) when that task is authorized.
 
 ## Establish a reproducible baseline

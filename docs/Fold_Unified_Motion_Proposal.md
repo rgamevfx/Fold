@@ -1,5 +1,7 @@
 # Fold Unified Motion — proposal
 
+> **RETIRED — 8 October 2026.** Historical design/implementation context only. The [Motion System Rewrite Plan](Motion_System_Rewrite_Plan.md) and its linked proposal supersede this document for motion and agent work. Examples and protocol descriptions below belong to the old system and are not rewrite contracts.
+
 8 October 2026 · Proposed design, not implemented behavior or a delivery commitment.
 
 ## 1. Product

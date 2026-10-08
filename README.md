@@ -17,6 +17,7 @@ See the [native video notes](docs/phase-18A.md) for CUDA decoding setup.
 
 ## Documentation
 
-- [Development plan](dev-plan.md)
+- [Motion System Rewrite Plan](docs/Motion_System_Rewrite_Plan.md) — active roadmap
+- [Retired documentation](docs/Retired_Documentation.md) — historical plans and evidence
 - [Architecture](docs/architecture.md)
 - [Development rules](AGENTS.md)

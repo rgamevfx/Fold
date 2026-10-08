@@ -1,5 +1,7 @@
 # Reusable particle attraction
 
+> **Pre-rewrite reference — 8 October 2026.** These examples describe the old build. For new motion/MCP/agent work, use the [Motion System Rewrite Plan](../../../docs/Motion_System_Rewrite_Plan.md); this guide supplies no compatibility requirement. Requalify examples against the replacement public contract before publishing them as supported.
+
 Use this branch for particles gathering into editable text or a filled shape. Discover `catalog(type="fold.motion.document", query="particle")` first. The shipped **Attract Particles** scene action is exposed as the `attract_particles` edit operation. It creates an editable layer, a separate Scatter Points source, a Random Palette, and native Attraction animation on the layer. It hides the attractor's direct rendering while retaining its content and object reference.
 
 ## Construct and inspect

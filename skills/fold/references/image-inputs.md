@@ -1,5 +1,7 @@
 # Image inputs in Motion
 
+> **Pre-rewrite reference — 8 October 2026.** These examples describe the old build. For new motion/MCP/agent work, use the [Motion System Rewrite Plan](../../../docs/Motion_System_Rewrite_Plan.md); this guide supplies no compatibility requirement. Requalify examples against the replacement public contract before publishing them as supported.
+
 Use for image/video carousels, deforming textures, ASCII, or images driving geometry. Discover the `Image` catalog category first; these nodes require a phase-49 build. Supported imported profiles are Fold's MP4/H.264, OpenEXR (including sequences), and P6 PPM. Other image formats need a supported-source conversion before import. Composition and Motion video outputs work through the same image socket; project dependency validation rejects feedback cycles.
 
 ## Source and placement

@@ -1,5 +1,7 @@
 # Live Rust assets
 
+> **Pre-rewrite reference — 8 October 2026.** These examples describe the old build. For new motion/MCP/agent work, use the [Motion System Rewrite Plan](../../../docs/Motion_System_Rewrite_Plan.md); this guide supplies no compatibility requirement. Requalify examples against the replacement public contract before publishing them as supported.
+
 For procedural asset creation and source revisions, use Rust asset SDK v1. Fetch `catalog guide="rust-sdk"` for the complete SDK. A Rust source body returns an `Asset`; Fold compiles it on a worker to a retained native group. Ordinary controls and native fields evaluate without recompiling source. Custom runtime Wrangles inside the group compile separately when needed.
 
 ## Create and review

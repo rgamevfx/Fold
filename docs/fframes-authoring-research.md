@@ -1,5 +1,7 @@
 # fframes authoring research
 
+> **RETIRED — 8 October 2026.** Historical design/implementation context only. The [Motion System Rewrite Plan](Motion_System_Rewrite_Plan.md) and its linked proposal supersede this document for motion and agent work. Examples and protocol descriptions below belong to the old system and are not rewrite contracts.
+
 Investigated 2026-10-07 for Fold's mograph authoring overhaul. Primary documentation and source were inspected through GitHub/raw source. The repository tree API resolved `main` to `30b48f3da60040e0fd7c811fdcd5b159e70a5b02`; source page reads used `main`, so this is a discovery revision, not a claim that every web-cached file was pinned to it. No renderer build, artwork run, or performance benchmark was performed. The clone did not complete and the source archive was incomplete.
 
 ## Decision
