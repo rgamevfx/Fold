@@ -48,7 +48,7 @@ pub struct Organization {
 }
 
 impl ProjectState {
-    /// Used at legacy load and after existing creation commands. Never rewrite
+    /// Used after creation commands. Never rewrite
     /// existing names, ordering or locations, nor interpret provider payloads.
     pub(crate) fn discover_items(&mut self) {
         let existing: BTreeSet<_> = self.organization.items.iter().map(|i| i.id).collect();

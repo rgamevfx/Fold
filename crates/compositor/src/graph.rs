@@ -61,10 +61,8 @@ impl crate::Operator {
 impl Node {
     /// Inserting a Merge on B leaves A available without interrupting the pipe.
     pub(crate) fn background_only_merge(&self) -> bool {
-        matches!(
-            self.configuration(),
-            OperationConfig::Merge | OperationConfig::Composite { .. }
-        ) && self.inputs.first().is_some_and(Option::is_none)
+        matches!(self.configuration(), OperationConfig::Composite { .. })
+            && self.inputs.first().is_some_and(Option::is_none)
     }
     pub fn dependencies(&self) -> impl Iterator<Item = ObjectId> + '_ {
         self.inputs

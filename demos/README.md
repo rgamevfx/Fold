@@ -19,7 +19,7 @@ objects, its own camera/light, an explicitly connected Read → Grade → Output
 compositing layer, and a transparent title scene with separate camera/light.
 Expand scene rows in Composition, select objects in Outliner, use Network's
 Graph/Source tabs, and edit keys in the shared Track/Curve view. The original
-three-scene `Make-it-move.fold` remains a separate, unchanged deliverable.
+three-scene `Make-it-move.fold` remains a separate deliverable.
 
 Regenerate from an empty public session:
 
@@ -31,7 +31,20 @@ The script uses discovery, inspected candidates, guarded Apply, frame observatio
 and public save only. See [cutover evidence](../docs/rewrite/evidence/m5a-compositor-cutover/result.md)
 for source/conflict/undo/reopen and native visual qualification.
 
-The older integrated fixture below is retained as earlier rewrite evidence.
+C1 re-authored these fixtures with Composition schema 3 and Grade v2. See
+[current verification](../docs/maintenance/evidence/c1/result.md). To recreate
+`m5b-background-spheres.fold` or `m5b-wrangle.fold`, open a disposable copy of
+`m5a-mixed-scene.fold` and run:
+
+```sh
+python3 demos/m5b-background-spheres.py <fold-cli> <socket> <new.fold> <new-report.json>
+# Or append wrangle to author the animated Rhai example.
+```
+
+Start from the base scene; a completed attribute fixture rejects an identical
+proposal as `NoChange`. These recipes discover current operation records.
+The integrated fixture below uses current Grid/Cloner contracts. Historical v1
+artwork remains in Git.
 
 # Try the Motion rewrite
 
@@ -42,7 +55,7 @@ From the repository root:
 ```
 
 This builds the current Linux desktop with spatial rendering, copies
-[`m5-integrated.fold`](m5-integrated.fold) into a fresh temporary directory, and
+[`m5b-integrated.fold`](m5b-integrated.fold) into a fresh temporary directory, and
 opens that copy. The printed path is your editable project. Use **Save As** to
 keep your work in your own project folder. A graphical desktop and Vulkan adapter
 are required; run this in your desktop terminal.

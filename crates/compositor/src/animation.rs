@@ -24,7 +24,6 @@ impl OperationConfig {
             Self::Unary { .. } => "operation",
             Self::Solid { .. } => "rgba",
             Self::Crop { .. } | Self::Mask { .. } => "rect",
-            Self::Transform { .. } if property == "position" => "translate",
             _ => property,
         }
     }
@@ -168,36 +167,6 @@ impl OperationConfig {
                 )
             })
             .collect(),
-            Self::Transform {
-                translate,
-                scale,
-                opacity,
-            } => vec![
-                property(
-                    "position",
-                    "Position",
-                    "px",
-                    &["X", "Y"],
-                    translate.to_vec(),
-                    Some([-1e6, 1e6]),
-                ),
-                property(
-                    "scale",
-                    "Scale",
-                    "",
-                    &["X", "Y"],
-                    scale.to_vec(),
-                    Some([-1e6, 1e6]),
-                ),
-                property(
-                    "opacity",
-                    "Opacity",
-                    "",
-                    &["Value"],
-                    vec![f64::from(*opacity)],
-                    Some([0., 1.]),
-                ),
-            ],
             Self::Crop { rect } | Self::Mask { rect } => vec![property(
                 "bounds",
                 "Bounds",
@@ -205,22 +174,6 @@ impl OperationConfig {
                 &["Left", "Top", "Right", "Bottom"],
                 rect.iter().map(|v| f64::from(*v)).collect(),
                 Some([0., 16384.]),
-            )],
-            Self::Blur { radius } => vec![property(
-                "radius",
-                "Radius",
-                "px",
-                &["Value"],
-                vec![f64::from(*radius)],
-                Some([0., 64.]),
-            )],
-            Self::Grade { gain } => vec![property(
-                "gain",
-                "Gain",
-                "",
-                &["R", "G", "B"],
-                gain.iter().map(|v| f64::from(*v)).collect(),
-                Some([0., 16.]),
             )],
             // Solid's authored colors are straight, evaluated output is premultiplied.
             Self::Solid { rgba } => {
@@ -299,15 +252,8 @@ impl OperationConfig {
                 };
                 *target = [*r as f32, *g as f32, *b as f32];
             }
-            (Self::Transform { translate, .. }, "position", [x, y]) => *translate = [*x, *y],
-            (Self::Transform { scale, .. }, "scale", [x, y]) => *scale = [*x, *y],
-            (Self::Transform { opacity, .. }, "opacity", [v]) => *opacity = v.clamp(0., 1.) as f32,
             (Self::Crop { rect } | Self::Mask { rect }, "bounds", [a, b, c, d]) => {
                 *rect = [*a, *b, *c, *d].map(|v| v.clamp(0., f64::from(u32::MAX)).round() as u32)
-            }
-            (Self::Blur { radius }, "radius", [v]) => *radius = v.clamp(0., 64.).round() as u32,
-            (Self::Grade { gain }, "gain", [r, g, b]) => {
-                *gain = [*r, *g, *b].map(|v| v.clamp(0., 16.) as f32)
             }
             (Self::Solid { rgba }, "color", [r, g, b, a]) => {
                 let a = a.clamp(0., 1.);

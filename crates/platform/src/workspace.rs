@@ -721,9 +721,7 @@ impl Workspace {
         if bytes.len() > 2 * 1024 * 1024 {
             return Err("Workspace exceeds size limit".into());
         }
-        let json = serde_json::from_slice(bytes).map_err(|e| e.to_string())?;
-        let mut value: Self =
-            serde_json::from_value(migration::upgrade(json)?).map_err(|e| e.to_string())?;
+        let mut value: Self = serde_json::from_slice(bytes).map_err(|e| e.to_string())?;
         if value.version != 4 || value.project != project {
             return Err("incompatible workspace or project association".into());
         }
@@ -785,8 +783,6 @@ fn test_output(document: DocumentId) -> Option<DocumentRef> {
 #[cfg(test)]
 #[path = "workspace_group_tests.rs"]
 mod group_tests;
-#[path = "workspace_migration.rs"]
-mod migration;
 
 #[cfg(test)]
 mod tests {
@@ -822,20 +818,6 @@ mod tests {
             Some(crate::desktop::PlaybackMode::EveryFrame)
         );
         assert_eq!(restored.viewers[&b].playback_mode, None);
-        let mut legacy = serde_json::to_value(&w).unwrap();
-        legacy["version"] = serde_json::json!(2);
-        legacy["group_sources"] = legacy["group_selections"].take();
-        for viewer in legacy["viewers"].as_object_mut().unwrap().values_mut() {
-            viewer.as_object_mut().unwrap().remove("playback_mode");
-        }
-        let migrated = Workspace::decode(&serde_json::to_vec(&legacy).unwrap(), "").unwrap();
-        assert_eq!(migrated.version, 4);
-        assert!(
-            migrated
-                .viewers
-                .values()
-                .all(|v| v.playback_mode.is_none() && !v.playing)
-        );
         assert_eq!(restored.viewers[&a].range, w.viewers[&a].range);
         assert_eq!(restored.monitored_viewer, Some(a));
         w.viewers.remove(&a);

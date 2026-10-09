@@ -1,0 +1,89 @@
+   Compiling fold-project v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/project)
+   Compiling fold-graph v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/graph)
+   Compiling fold-platform v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/platform)
+   Compiling fold-compositor v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/compositor)
+   Compiling fold-timeline v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/timeline)
+   Compiling fold-composition v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/composition)
+    Finished `test` profile [unoptimized] target(s) in 36.18s
+     Running unittests src/lib.rs (target/debug/deps/fold_composition-129f24668ea5395d)
+
+running 2 tests
+test layer::transform_tests::scale_rotation_controls_preserve_shear_and_sample_animation ... ok
+test model::cutover_tests::retired_graph_child_metadata_round_trips_as_an_unknown_extension ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/parameters.rs (target/debug/deps/parameters-bfd9e5dd54e14d01)
+
+running 1 test
+test layer_properties_share_native_animation_and_survive_rename_reparent_and_reopen ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/fold_compositor-b22fa51e07c395e4)
+
+running 1 test
+test automation::color_tests::read_color_override_preserves_extensions_and_can_be_cleared ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/agent_graph.rs (target/debug/deps/agent_graph-305fa8afc05c2e2c)
+
+running 1 test
+test agent_creation_insertion_query_and_receipt ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/animation.rs (target/debug/deps/animation-446064a62275a6cc)
+
+running 6 tests
+test removing_the_last_channel_holds_its_current_value_and_static_parameters_are_exact ... ok
+test retired_schema_is_rejected_and_component_curves_do_not_change_other_values ... ok
+test native_tracks_preserve_metadata_and_use_shared_combination_and_bezier_sampling ... ok
+test protected_tracks_reject_editor_removal_and_whole_document_replacement ... ok
+test animation_compiles_from_snapshots_roundtrips_extensions_and_undoes_atomically ... ok
+test retired_compositor_payload_is_preserved_opaquely_by_project_save_and_reopen ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.22s
+
+     Running tests/channels.rs (target/debug/deps/channels-7c68ef8219dfd962)
+
+running 10 tests
+test read_does_not_infer_color_processing_for_rgb_utility_layers ... ok
+test generated_shapes_connect_to_explicit_alpha_multiplication ... ok
+test data_rgb_without_alpha_can_be_processed_without_being_zeroed ... ok
+test disabled_mask_does_not_evaluate_an_incomplete_mask_branch ... ok
+test twenty_layers_survive_processing_and_shuffle_without_twenty_pixel_buffers ... ok
+test shuffle_swaps_simultaneously_and_requires_b_only_when_referenced ... ok
+test inserted_merge_passes_b_through_until_a_is_connected ... ok
+test arbitrary_image_channel_masks_are_optional_and_cycles_rollback ... ok
+test long_sequence_manifest_stays_on_the_asset_and_read_serialization_stays_small ... ok
+test merge_a_is_foreground_b_is_background_and_mask_preserves_b ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+     Running tests/graph_authoring.rs (target/debug/deps/graph_authoring-99bb751b67217ecd)
+
+running 6 tests
+test duplicate_allocates_new_native_connection_parameter_track_and_key_identities ... FAILED
+test incomplete_spare_nodes_are_preserved_but_not_silently_rendered ... ok
+test native_schema_roundtrips_without_reordering_or_dropping_extension_data ... ok
+test named_sockets_rewire_disconnect_delete_and_reject_cycles_atomically ... ok
+test storage_order_and_layout_are_not_execution_order ... ok
+test rewiring_retains_connection_identity_and_unknown_data_and_rejects_aliases ... ok
+
+failures:
+
+---- duplicate_allocates_new_native_connection_parameter_track_and_key_identities stdout ----
+
+thread 'duplicate_allocates_new_native_connection_parameter_track_and_key_identities' (868) panicked at crates/compositor/tests/graph_authoring.rs:137:54:
+called `Result::unwrap()` on an `Err` value: "Unknown animation channel radius.0"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    duplicate_allocates_new_native_connection_parameter_track_and_key_identities
+
+test result: FAILED. 5 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p fold-compositor --test graph_authoring`

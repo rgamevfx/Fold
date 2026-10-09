@@ -254,7 +254,7 @@ impl DocumentProvider for Documents {
         3
     }
     fn supports_schema(&self, schema: u32) -> bool {
-        [1, 2, 3].contains(&schema)
+        schema == 3
     }
     fn validate(&self, document: &Document) -> Result<(), String> {
         Composition::from_document(document).map(|_| ())

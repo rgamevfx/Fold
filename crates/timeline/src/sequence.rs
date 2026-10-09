@@ -360,39 +360,14 @@ impl Sequence {
     pub fn from_document(document: &Document) -> Result<Self, String> {
         if document.package_id != super::PACKAGE
             || document.type_id != SEQUENCE
-            || ![2, 3, 4, SEQUENCE_SCHEMA].contains(&document.schema_version)
+            || document.schema_version != SEQUENCE_SCHEMA
             || document.payload.len() > MAX_PAYLOAD
         {
-            return Err("unsupported sequence document (multi-track schema 2–5 required)".into());
+            return Err("unsupported sequence document (schema 5 required)".into());
         }
         let sequence: Self =
             serde_json::from_slice(&document.payload).map_err(|e| e.to_string())?;
         sequence.validate()?;
-        if document.schema_version < 5
-            && (!sequence.transitions.is_empty()
-                || sequence.clips.iter().any(|c| !c.effects.is_empty()))
-        {
-            return Err("Effects and transitions require sequence schema 5".into());
-        }
-        if document.schema_version < 5
-            && sequence
-                .clips
-                .iter()
-                .any(|c| matches!(c.info, SourceMedia::Adjustment))
-        {
-            return Err("Adjustment clips require schema 5".into());
-        }
-        if document.schema_version < 4
-            && sequence
-                .clips
-                .iter()
-                .any(|c| matches!(c.info, SourceMedia::Image(_)))
-        {
-            return Err("Image clips require schema 4".into());
-        }
-        if document.schema_version == 2 && !sequence.dependencies().is_empty() {
-            return Err("nested sequence clips require schema 3".into());
-        }
         if sequence.assets() != document.assets || sequence.dependencies() != document.dependencies
         {
             return Err("sequence asset declarations disagree with payload".into());

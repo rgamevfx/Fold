@@ -12,7 +12,6 @@ use std::{
 const FORMAT: &str = "fold-project";
 // Version 3 requires explicit color-aware application interpretation. Older
 // applications must reject new ACES archives, not silently render them as sRGB.
-// V1/V2 retain their settings and provider payloads without color migration.
 const VERSION: u32 = 3;
 
 #[derive(Serialize, Deserialize)]
@@ -63,14 +62,11 @@ pub fn load(path: impl AsRef<Path>, history_limit: usize) -> Result<Project, Loa
     let file = File::open(path).map_err(LoadError::Io)?;
     let mut archive: Archive =
         serde_json::from_reader(BufReader::new(file)).map_err(LoadError::Json)?;
-    if archive.format != FORMAT || !(1..=VERSION).contains(&archive.version) {
+    if archive.format != FORMAT || archive.version != VERSION {
         return Err(LoadError::UnsupportedFormat {
             format: archive.format,
             version: archive.version,
         });
-    }
-    if archive.version == 1 {
-        archive.project.discover_items();
     }
     validate(&archive.project).map_err(LoadError::InvalidProject)?;
     archive.project.archive_extensions = archive.extensions;

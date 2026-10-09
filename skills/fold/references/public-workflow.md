@@ -414,8 +414,10 @@ to the held frame. See the [pixel audit](../../../docs/rewrite/evidence/m5a-comp
 ## Native compositor source (schema 8)
 
 Compositor inspection returns `graph_source` alongside its `native` record and
-named `image_inputs`. Provider discovery lists all 28 operation/version entries
-and their native `record` examples. Example IDs are placeholders: allocate fresh
+named `image_inputs`. Provider discovery lists the 24 current operation/version entries
+and their native `record` examples. Grade, Merge, Transform and Blur use version 2;
+Blur is Gaussian. Old operation records remain opaque and cannot execute.
+Example IDs are placeholders: allocate fresh
 node/parameter IDs for creation; preserve inspected IDs when editing.
 
 Use a project edit with `op:"compositor_source"`, `document`, optional `nodes`,

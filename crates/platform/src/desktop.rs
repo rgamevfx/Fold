@@ -102,7 +102,6 @@ pub struct DesktopState {
     pub dimensions: [u32; 2],
     pub frames: u32,
     pub rate: [u32; 2],
-    pub foreground_opacity: f32,
     pub status: String,
     pub busy: bool,
 }
@@ -135,7 +134,6 @@ impl Default for DesktopState {
             dimensions: [640, 360],
             frames: 1,
             rate: [24, 1],
-            foreground_opacity: 0.5,
             status: String::new(),
             busy: false,
         }
@@ -208,7 +206,6 @@ pub enum DesktopCommand {
     Notify(String),
     OpenSettings(Option<fold_foundation::DocumentId>),
     Browser(crate::browser::BrowserCommand),
-    Import(Vec<PathBuf>),
     Extension(crate::packages::CommandRequest),
     PreviewExtension(crate::packages::CommandRequest),
     CancelPreviewEdit,
@@ -249,7 +246,6 @@ pub enum DesktopCommand {
     },
     Undo,
     Redo,
-    Opacity(f32),
     Export {
         path: PathBuf,
         start: u32,

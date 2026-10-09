@@ -103,7 +103,7 @@ fn decode(record: &Record) -> Result<OperationConfig, String> {
         );
     }
     let kernel = OPERATORS[index].kernel;
-    let value = if matches!(kernel, "ApplyMask" | "Merge" | "Output") {
+    let value = if matches!(kernel, "ApplyMask" | "Output") {
         if !fields.is_empty() {
             return Err("Operation has no parameters".into());
         }

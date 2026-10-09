@@ -103,9 +103,9 @@ fn organization_is_atomic_undoable_and_does_not_rewrite_targets() {
 }
 
 #[test]
-fn legacy_migration_is_deterministic_and_preserves_unknown_bytes_and_resources() {
+fn current_archive_preserves_unknown_bytes_and_resources() {
     let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("legacy.fold");
+    let path = dir.path().join("opaque.fold");
     let mut p = Project::new(5);
     let asset = Asset {
         id: AssetId::new(),
@@ -132,11 +132,6 @@ fn legacy_migration_is_deterministic_and_preserves_unknown_bytes_and_resources()
     save(&p.snapshot(), &path).unwrap();
     let mut archive: serde_json::Value =
         serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
-    archive["version"] = json!(1);
-    archive["project"]
-        .as_object_mut()
-        .unwrap()
-        .remove("organization");
     archive["vendor_archive"] = json!({"keep": true});
     archive["project"]["resources"] = json!(["uninterpreted"]);
     std::fs::write(&path, serde_json::to_vec(&archive).unwrap()).unwrap();

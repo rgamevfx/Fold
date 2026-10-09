@@ -1,7 +1,7 @@
 //! Image operation lowering and shared channel/mask behavior.
 use crate::{Effect, OperationConfig as P};
 use fold_render::{
-    Affine, ImageId, ImageOp as Op, RenderGraph,
+    ImageId, ImageOp as Op, RenderGraph,
     channels::{self, Channel, Channels, Value},
 };
 use std::collections::BTreeMap;
@@ -36,48 +36,9 @@ fn operation(
             second: inputs[1],
             mode: *mode,
         },
-        P::Transform {
-            translate,
-            scale: size,
-            opacity,
-        } => {
-            let input = graph.nodes.len();
-            graph.nodes.push(Op::Transform {
-                input: inputs[0],
-                transform: Affine {
-                    a: size[0],
-                    d: size[1],
-                    tx: translate[0] * scale[0],
-                    ty: translate[1] * scale[1],
-                    ..Affine::IDENTITY
-                },
-            });
-            Op::Opacity {
-                input,
-                opacity: *opacity,
-            }
-        }
         P::Crop { rect } => Op::Crop {
             input: inputs[0],
             rect: std::array::from_fn(|i| (f64::from(rect[i]) * scale[i % 2]).round() as u32),
-        },
-        P::Blur { radius } => {
-            let radius = (f64::from(*radius) * scale[0].max(scale[1])).round() as u32;
-            if radius > 64 {
-                return Err("Scaled legacy blur radius exceeds 64 pixels".into());
-            }
-            Op::Blur {
-                input: inputs[0],
-                radius,
-            }
-        }
-        P::Grade { gain } => Op::Grade {
-            input: inputs[0],
-            gain: *gain,
-        },
-        P::Merge => Op::Over {
-            foreground: inputs[0],
-            background: inputs[1],
         },
         _ => return Err("Unsupported image effect".into()),
     };
@@ -97,7 +58,7 @@ pub(super) fn effect(
     mask: Option<&Channels>,
     scale: [f64; 2],
 ) -> Result<Channels, String> {
-    let original_slot = usize::from(matches!(parameters, P::Merge | P::Composite { .. }));
+    let original_slot = usize::from(matches!(parameters, P::Composite { .. }));
     let mut result = inputs[original_slot].clone();
     if effect.mix == 0. {
         return Ok(result);
@@ -112,11 +73,7 @@ pub(super) fn effect(
             "alpha" => Some(3),
             _ => None,
         };
-        if matches!(
-            parameters,
-            P::Unary { .. } | P::Grade { .. } | P::ColorGrade { .. }
-        ) && index == Some(3)
-        {
+        if matches!(parameters, P::Unary { .. } | P::ColorGrade { .. }) && index == Some(3) {
             continue;
         }
         let key = if index.is_some() {

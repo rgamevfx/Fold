@@ -1,0 +1,11 @@
+   Compiling fold-app v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/app)
+    Finished `test` profile [unoptimized] target(s) in 6.51s
+     Running tests/agent_frames.rs (target/debug/deps/agent_frames-f6b1a41deb861a2f)
+
+running 3 tests
+test mixed_compositor_fixture_matches_preview_after_public_source_edits ... ok
+test mixed_scene_first_frame_retains_static_spheres_when_title_is_transparent ... ok
+test public_mixed_document_candidate_frames_match_committed_composition ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 69.10s
+

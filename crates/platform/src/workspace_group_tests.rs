@@ -187,96 +187,6 @@ fn all_network_choice_unlinks_one_viewer_and_lock_and_source_restore() {
     assert_eq!(restored.viewers[&x].time, w.viewers[&x].time);
 }
 #[test]
-fn version_three_duplicate_groups_preserve_viewed_document_during_migration() {
-    let (w, [a, b], [x, y], _) = fixture();
-    let mut json = serde_json::to_value(&w).unwrap();
-    json["version"] = serde_json::json!(3);
-    json["editors"][b.0.to_string()]["group"] = serde_json::json!("A");
-    json["group_sources"] = serde_json::json!({"A": b});
-    for viewer in [x, y] {
-        json["viewers"][viewer.0.to_string()]["group"] = serde_json::json!("A");
-    }
-    let mut restored = Workspace::decode(&serde_json::to_vec(&json).unwrap(), &w.project).unwrap();
-    restored.refresh_outputs(test_output);
-    assert_ne!(restored.editors[&a].group, restored.editors[&b].group);
-    assert_eq!(restored.inspector_editor(), Some(b));
-    for viewer in [x, y] {
-        assert_eq!(restored.resolve(viewer), w.output(&w.editors[&b]));
-        assert_eq!(restored.viewers[&viewer].time, w.viewers[&viewer].time);
-    }
-}
-#[test]
-fn migration_freezes_excess_sources_instead_of_merging_them_and_preserves_pins() {
-    let mut w = Workspace::default();
-    w.project = "/project/migration.fold".into();
-    let mut follows = Vec::new();
-    for _ in 0..5 {
-        let editor = w.add_editor("editor", "kind");
-        let document = DocumentId::new();
-        w.editors.get_mut(&editor).unwrap().bind(location(document));
-        w.refresh_outputs(test_output);
-        let viewer = w.add_viewer(Default::default());
-        follows.push((viewer, editor, document));
-    }
-    let pinned = DocumentRef {
-        document: DocumentId::new(),
-        output: "matte".into(),
-        extensions: Default::default(),
-    };
-    let pin = w.add_viewer(ViewerInstance {
-        binding: ViewerBinding::Pinned(pinned.clone()),
-        ..Default::default()
-    });
-    let mut json = serde_json::to_value(&w).unwrap();
-    json["version"] = serde_json::json!(1);
-    for (viewer, editor, _) in &follows {
-        json["viewers"][viewer.0.to_string()]["binding"] = serde_json::json!({"Follow": editor});
-    }
-    let mut restored = Workspace::decode(&serde_json::to_vec(&json).unwrap(), &w.project).unwrap();
-    restored.refresh_outputs(test_output);
-    for (viewer, _, document) in &follows {
-        assert_eq!(restored.resolve(*viewer).unwrap().document, *document);
-    }
-    assert_eq!(restored.group_selections.len(), 4);
-    assert!(matches!(
-        restored.viewers[&follows[4].0].binding,
-        ViewerBinding::Pinned(_)
-    ));
-    assert_eq!(restored.resolve(pin), Some(pinned));
-}
-
-#[test]
-fn legacy_follow_bindings_migrate_to_separate_groups_without_changing_time_or_pin() {
-    let (w, [a, b], [x, y], _) = fixture();
-    let mut json = serde_json::to_value(&w).unwrap();
-    json["version"] = serde_json::json!(1);
-    json.as_object_mut().unwrap().remove("group_selections");
-    json.as_object_mut().unwrap().remove("inspector_group");
-    for (viewer, editor) in [(x, a), (y, b)] {
-        let v = &mut json["viewers"][viewer.0.to_string()];
-        v.as_object_mut().unwrap().remove("group");
-        v["binding"] = serde_json::json!({"Follow": editor});
-    }
-    for editor in [a, b] {
-        json["editors"][editor.0.to_string()]
-            .as_object_mut()
-            .unwrap()
-            .remove("group");
-    }
-    let mut restored = Workspace::decode(&serde_json::to_vec(&json).unwrap(), &w.project).unwrap();
-    restored.refresh_outputs(test_output);
-    assert_eq!(restored.version, 4);
-    for viewer in [x, y] {
-        assert_eq!(restored.resolve(viewer), w.resolve(viewer));
-        assert_eq!(restored.viewers[&viewer].time, w.viewers[&viewer].time);
-    }
-    assert_eq!(restored.editors[&b].group, LinkGroup::B);
-    let mut invalid = serde_json::to_value(&restored).unwrap();
-    invalid["viewers"][x.0.to_string()]["group"] = serde_json::json!("E");
-    assert!(Workspace::decode(&serde_json::to_vec(&invalid).unwrap(), &w.project).is_err());
-}
-
-#[test]
 fn portable_presets_remove_all_project_bindings_but_keep_layout_and_links() {
     use crate::desktop::ViewLocation;
     use fold_foundation::{DocumentId, Time};
@@ -390,4 +300,13 @@ fn named_provider_outputs_refresh_navigation_pinning_and_restore_without_stale_d
         restored.resolve(pinned).is_some(),
         "Pinned intent survives provider unavailability"
     );
+}
+
+#[test]
+fn unsupported_workspace_generations_are_rejected() {
+    let mut value = serde_json::to_value(Workspace::default()).unwrap();
+    for version in [1, 2, 3, 5] {
+        value["version"] = serde_json::json!(version);
+        assert!(Workspace::decode(&serde_json::to_vec(&value).unwrap(), "").is_err());
+    }
 }

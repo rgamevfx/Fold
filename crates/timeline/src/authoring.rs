@@ -11,7 +11,7 @@ pub fn has_sequence(snapshot: &Snapshot) -> bool {
     snapshot.state().documents.values().any(|d| {
         d.package_id == crate::PACKAGE
             && d.type_id == SEQUENCE
-            && (2..=SEQUENCE_SCHEMA).contains(&d.schema_version)
+            && d.schema_version == SEQUENCE_SCHEMA
     })
 }
 pub fn active(snapshot: &Snapshot) -> Result<(DocumentRef, Sequence), String> {
@@ -22,7 +22,7 @@ pub fn active(snapshot: &Snapshot) -> Result<(DocumentRef, Sequence), String> {
         .find(|d| {
             d.package_id == crate::PACKAGE
                 && d.type_id == SEQUENCE
-                && (2..=SEQUENCE_SCHEMA).contains(&d.schema_version)
+                && d.schema_version == SEQUENCE_SCHEMA
         })
         .ok_or("no editable multi-track sequence")?;
     Ok((

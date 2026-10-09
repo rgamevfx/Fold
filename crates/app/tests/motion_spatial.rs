@@ -2025,7 +2025,9 @@ fn hierarchy_scene_outputs_composite_independently_and_preserve_depth() {
         vec![],
     );
     let merge = fold_compositor::Node::new(
-        fold_compositor::OperationConfig::Merge,
+        fold_compositor::OperationConfig::Composite {
+            mode: Default::default(),
+        },
         vec![solid.id, read.id],
     );
     let output =

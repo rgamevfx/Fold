@@ -187,35 +187,6 @@ fn run() -> Result<(), Box<dyn Error>> {
         save(&project.snapshot(), path)?;
         return Ok(());
     }
-    if args.first().is_some_and(|arg| arg == "import-video") {
-        if !(3..=4).contains(&args.len()) {
-            return Err(
-                "usage: fold-cli import-video <new-project.fold> <background.mp4> [foreground.mp4]"
-                    .into(),
-            );
-        }
-        let path = Path::new(&args[1]);
-        if path.exists() {
-            return Err("import project already exists".into());
-        }
-        let mut project = fold_app::color::new_project(32);
-        let paths = args[2..]
-            .iter()
-            .map(std::path::PathBuf::from)
-            .collect::<Vec<_>>();
-        let batch = fold_app::media_workflow::import(
-            &project.snapshot(),
-            &paths,
-            &fold_media::Cancel::default(),
-        )?;
-        project.commit(batch)?;
-        save(&project.snapshot(), path)?;
-        println!(
-            "Imported video layers to {} (audio ignored)",
-            path.display()
-        );
-        return Ok(());
-    }
     if args.first().is_some_and(|arg| arg == "export-video") {
         if args.len() != 5 {
             return Err("usage: fold-cli export-video <project.fold> <new-output.mp4|new-output.mov> <start-frame> <end-frame-exclusive>".into());

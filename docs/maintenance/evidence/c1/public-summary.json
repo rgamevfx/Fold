@@ -1,0 +1,73 @@
+{
+  "Make-it-move-public": {
+    "saved": {
+      "epoch": "832e9a75-69af-43c5-b0cd-13aae908c7d0",
+      "result": {
+        "durable": true,
+        "path": "/tmp/fold-c1-3qguhj8h/current.fold",
+        "revision": 7,
+        "session_file_changed": false,
+        "state": "saved",
+        "warning": null
+      },
+      "version": 2
+    },
+    "report_sha256": "ae9db6080d47ab8bf0aaa0e7b920b8e2265f9b39c7a3d3cd0e5914dbddda5205",
+    "observation_count": 3
+  },
+  "m5a-mixed-scene-public": {
+    "saved": {
+      "epoch": "bd864b44-8329-4ee5-b929-69c4da06cddf",
+      "result": {
+        "durable": true,
+        "path": "/tmp/fold-c1-almkttno/current.fold",
+        "revision": 13,
+        "session_file_changed": false,
+        "state": "saved",
+        "warning": null
+      },
+      "version": 2
+    },
+    "report_sha256": "525dac48c113b22e410e3c1c09f5b0b99c35765b5ea64fd264127be864dc15a9",
+    "observation_count": 3
+  },
+  "m5b-background-spheres-public": {
+    "saved": {
+      "epoch": "1ee22c2a-f5e8-488a-86c4-71f1ec384d27",
+      "result": {
+        "durable": true,
+        "path": "/tmp/fold-c1-n2wl2isq/current.fold",
+        "revision": 14,
+        "session_file_changed": false,
+        "state": "saved",
+        "warning": null
+      },
+      "version": 2
+    },
+    "report_sha256": "c576fd45c7c76366cc5e76547f6f41419adb4e860942efcf480f2c702626191c",
+    "observation_count": 3
+  },
+  "m5b-wrangle-public": {
+    "saved": {
+      "epoch": "dc1ab626-167e-4ac5-a3cb-1eda1fbc822d",
+      "result": {
+        "durable": true,
+        "path": "/tmp/fold-c1-gu9jt5c5/current.fold",
+        "revision": 17,
+        "session_file_changed": false,
+        "state": "saved",
+        "warning": null
+      },
+      "version": 2
+    },
+    "report_sha256": "cbf119e2c1dfae7bacb8ceb1f6a96866593873f180d75c0ce1afb2e5c43a842c",
+    "observation_count": 4
+  },
+  "fixtures": {
+    "Make-it-move.fold": "5964ac2f99a69dd7add87405758096bf8e6d287d3f35f292bdebdf1fcc981994",
+    "m5b-background-spheres.fold": "8d06c06ce7c1edc8477ea5e36b85642502e9da6373a99b809dee56d2589e9f1b",
+    "m5b-wrangle.fold": "253067fb7a9c378a3c0904559876fbefd6a82bcdb8ed09d48872e7e497461bb7",
+    "m5b-integrated.fold": "89d9bb90b35c5da0b0a3d783409c05f4d6345af3675ea9f399d60a0c3011ccbc",
+    "m5a-mixed-scene.fold": "25ae5fb73f4e8f319068b4499c9d2f3488f69b54d7f202aa529c046272434011"
+  }
+}

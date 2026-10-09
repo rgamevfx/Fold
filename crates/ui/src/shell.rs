@@ -152,19 +152,6 @@ impl Shell {
         shell
     }
     fn sync_instances(&mut self) {
-        let retired_editors: Vec<_> = self
-            .workspace
-            .editors
-            .iter()
-            .filter(|(_, editor)| {
-                self.panels.iter().any(|p| {
-                    p.descriptor.id == editor.contribution
-                        && (p.panel.supports_composition() || p.panel.is_layer_graph())
-                })
-            })
-            .map(|(&id, _)| id)
-            .collect();
-        crate::sdk::composition::migrate_workspace(&mut self.workspace, retired_editors);
         // The shared Composition surface always needs a context, including when
         // the restored layout does not contain this registered contribution.
         for panel in &self.panels {
@@ -187,24 +174,12 @@ impl Shell {
             }
             let id = self.workspace.panel(panel.descriptor.id);
             let name = format!("fold.panel.{}", id.0);
-            self.workspace.layout = self.workspace.layout.replace(
-                &format!("[Window][{}]", panel.descriptor.id),
-                &format!("[Window][{name}]"),
-            );
             panel.key = WindowKey::new(name, panel.descriptor.title).unwrap();
         }
         let delivery = self.workspace.panel("fold.ui.delivery");
         let empty = self.workspace.panel("fold.ui.empty-editors");
         let delivery_name = format!("fold.panel.{}", delivery.0);
         let empty_name = format!("fold.panel.{}", empty.0);
-        self.workspace.layout = self.workspace.layout.replace(
-            "[Window][fold.delivery.main]",
-            &format!("[Window][{delivery_name}]"),
-        );
-        self.workspace.layout = self.workspace.layout.replace(
-            "[Window][fold.editors.empty]",
-            &format!("[Window][{empty_name}]"),
-        );
         self.delivery = WindowKey::new(delivery_name, "Delivery").unwrap();
         self.empty = WindowKey::new(empty_name, "Editors").unwrap();
         self.editors
@@ -516,7 +491,12 @@ impl Shell {
                     context.load_ini_settings(&self.workspace.layout);
                 }
                 Ok(None) => {}
-                Err(error) => client.command(DesktopCommand::Notify(format!("Workspace: {error}"))),
+                Err(error) => {
+                    if self.restoring {
+                        self.apply_preset(self.default_workspace.clone(), context, client, false);
+                    }
+                    client.command(DesktopCommand::Notify(format!("Workspace: {error}")));
+                }
             }
             self.restoring = false;
         }

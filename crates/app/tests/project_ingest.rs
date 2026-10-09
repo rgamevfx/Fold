@@ -253,11 +253,26 @@ fn referenced_relink_validates_providers_invalidates_content_and_preserves_pinne
     let fold_media::ingest::SourceProfile::Video(info) = metadata.profile.clone() else {
         panic!()
     };
-    let document = fold_timeline::VideoLayers {
-        assets: vec![id],
-        info: info.clone(),
-        foreground_opacity: 1.0,
-        extensions: Metadata::new(),
+    let track = fold_timeline::Track::new(fold_timeline::TrackKind::Video, "V1");
+    let document = fold_timeline::Sequence {
+        dimensions: [info.width, info.height],
+        rate: info.rate,
+        clips: vec![fold_timeline::Clip {
+            id: Default::default(),
+            track: track.id,
+            link: None,
+            asset: id,
+            info: fold_timeline::SourceMedia::Video(info.clone()),
+            start: fold_foundation::Time::ZERO,
+            source_start: fold_foundation::Time::ZERO,
+            duration: info.time(info.frames).unwrap(),
+            level: 1.,
+            effects: vec![],
+            extensions: Default::default(),
+        }],
+        tracks: vec![track],
+        transitions: vec![],
+        extensions: Default::default(),
     }
     .document(DocumentId::new())
     .unwrap();

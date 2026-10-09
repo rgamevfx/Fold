@@ -207,9 +207,6 @@ impl Session {
             self.state.frames = 1;
             self.state.frame = 0;
         }
-        if let Ok((_, layers)) = workflow::active(&snapshot) {
-            self.state.foreground_opacity = layers.foreground_opacity;
-        }
     }
     fn background(&mut self, command: DesktopCommand) {
         let extension = if let DesktopCommand::Extension(request) = &command {
@@ -268,9 +265,6 @@ impl Session {
                     DesktopCommand::Extension(request) => crate::packages::builtins()
                         .stage(&snapshot, &request, &token)
                         .map(Completed::Imported),
-                    DesktopCommand::Import(paths) => {
-                        workflow::import(&snapshot, &paths, &token).map(Completed::Imported)
-                    }
                     DesktopCommand::Save(path) => fold_project::save(&snapshot, &path)
                         .map_err(|e| e.to_string())
                         .and_then(|_| std::fs::canonicalize(path).map_err(|e| e.to_string()))
@@ -1026,25 +1020,6 @@ impl DesktopClient for Session {
             }
             DesktopCommand::Undo => self.project.undo().map(|_| ()).map_err(|e| e.to_string()),
             DesktopCommand::Redo => self.project.redo().map(|_| ()).map_err(|e| e.to_string()),
-            DesktopCommand::Opacity(opacity) => (|| {
-                let snapshot = self.project.snapshot();
-                if crate::timeline_workflow::has_sequence(&snapshot) {
-                    return Err("Opacity is a legacy layer control, not a sequence edit".into());
-                }
-                let (reference, mut layers) = workflow::active(&snapshot)?;
-                layers.foreground_opacity = opacity;
-                let mut document = layers.document(reference.document)?;
-                document.extensions = snapshot.state().documents[&reference.document]
-                    .extensions
-                    .clone();
-                self.project
-                    .commit(EditBatch {
-                        base: snapshot.revision(),
-                        mutations: vec![Mutation::PutDocument(document)],
-                    })
-                    .map(|_| ())
-                    .map_err(|e| e.to_string())
-            })(),
             other => {
                 self.background(other);
                 return;

@@ -306,15 +306,8 @@ impl Panel for Inspector {
                 fold_ui::sdk::normalized_curve::draw(ui, curve, None, f64::NAN, &mut response);
             }
             P::Read { .. } => {}
-            P::Solid { .. }
-            | P::Transform { .. }
-            | P::Crop { .. }
-            | P::Mask { .. }
-            | P::Blur { .. }
-            | P::Grade { .. } => {}
-            P::Merge => ui.text_wrapped(
-                "Foreground over background, using premultiplied alpha in scene-linear light.",
-            ),
+            P::Solid { .. } | P::Crop { .. } | P::Mask { .. } => {}
+
             P::ApplyMask => ui.text_wrapped("Multiply image RGBA by the connected image’s alpha."),
             P::Output => {
                 if aces {
@@ -344,7 +337,7 @@ impl Panel for Inspector {
             super::channels::effect(
                 ui,
                 &mut node.effect,
-                if matches!(config, P::Merge | P::Composite { .. }) {
+                if matches!(config, P::Composite { .. }) {
                     &input_b
                 } else {
                     &input_a

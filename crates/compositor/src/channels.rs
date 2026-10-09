@@ -115,7 +115,7 @@ impl crate::Composite {
             let node = self.node(id)?;
             let primary = usize::from(matches!(
                 node.configuration(),
-                crate::OperationConfig::Merge | crate::OperationConfig::Composite { .. }
+                crate::OperationConfig::Composite { .. }
             ));
             let mut names = node
                 .input_ids()

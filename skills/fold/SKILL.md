@@ -41,7 +41,9 @@ payloads directly.
 
 M5a exposes public Composition/scene creation, hierarchy edits, object-scoped
 source edits and mixed-document candidates. Use discovery's `project_authoring`
-schema and inspect all changed documents before Apply. The new
+schema and inspect all changed documents before Apply. Current Composition writes
+schema 3; use the discovered v2 Grade/Merge/Transform/Blur records. C1 retired
+the two-layer Timeline provider and older executable schemas. The new
 [Make it move workflow](../../demos/make-it-move.py) uses three independent scene
 layers with shared Composition keys and no exposed controls. The separate
 [mixed-scene workflow](../../demos/m5a-mixed-scene.py) qualifies native compositor

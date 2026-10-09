@@ -11,10 +11,8 @@ fn fixture() -> Composite {
         vec![],
     );
     let transform = Node::new(
-        P::Transform {
-            translate: [0., 0.],
-            scale: [1., 1.],
-            opacity: 1.,
+        P::ColorGrade {
+            settings: Default::default(),
         },
         vec![source.id],
     );
@@ -51,7 +49,7 @@ fn animation_compiles_from_snapshots_roundtrips_extensions_and_undoes_atomically
     curve.insert(Time::new(2, 1).unwrap(), 1.);
     graph.nodes[1]
         .animation
-        .insert("opacity.0".into(), curve)
+        .insert("gain.0".into(), curve)
         .unwrap();
     let mut registry = PackageRegistry::default();
     fold_compositor::package::register(&mut registry).unwrap();
@@ -84,7 +82,7 @@ fn animation_compiles_from_snapshots_roundtrips_extensions_and_undoes_atomically
                 .unwrap(),
         )
         .unwrap();
-        assert_eq!(frame.pixels()[0], [expected, 0., 0., expected]);
+        assert_eq!(frame.pixels()[0], [expected, 0., 0., 1.]);
     }
     // Old immutable snapshots are unaffected by subsequent animation edits.
     let frame = fold_render::render(
@@ -114,6 +112,11 @@ fn animation_compiles_from_snapshots_roundtrips_extensions_and_undoes_atomically
 #[test]
 fn retired_schema_is_rejected_and_component_curves_do_not_change_other_values() {
     let mut graph = fixture();
+    graph.nodes[1]
+        .set_configuration(P::TransformImage {
+            settings: Default::default(),
+        })
+        .unwrap();
     let id = DocumentId::new();
     let mut legacy = graph.document(id).unwrap();
     legacy.schema_version = 2;
@@ -125,19 +128,14 @@ fn retired_schema_is_rejected_and_component_curves_do_not_change_other_values() 
         .animation
         .insert("position.0".into(), curve.clone())
         .unwrap();
-    let P::Transform {
-        translate,
-        scale,
-        opacity,
-    } = graph.nodes[1]
+    let P::TransformImage { settings } = graph.nodes[1]
         .evaluated_parameters(Time::new(1, 2).unwrap())
         .unwrap()
     else {
         panic!()
     };
-    assert_eq!(translate, [50., 0.]);
-    assert_eq!(scale, [1., 1.]);
-    assert_eq!(opacity, 1.);
+    assert_eq!(settings.translate, [50., 0.]);
+    assert_eq!(settings.scale, [1., 1.]);
     graph.nodes[1]
         .animation
         .insert("unavailable.0".into(), curve)
@@ -186,9 +184,9 @@ fn native_tracks_preserve_metadata_and_use_shared_combination_and_bezier_samplin
     curve.keys[0].outgoing.value = 0.1;
     graph.nodes[1]
         .animation
-        .insert("opacity.0".into(), curve.clone())
+        .insert("gain.0".into(), curve.clone())
         .unwrap();
-    let parameter = graph.nodes[1].animation.bindings()["opacity.0"].clone();
+    let parameter = graph.nodes[1].animation.bindings()["gain.0"].clone();
     let Binding::Track { mut track } = parameter.binding().unwrap() else {
         panic!()
     };
@@ -202,20 +200,20 @@ fn native_tracks_preserve_metadata_and_use_shared_combination_and_bezier_samplin
         .extensions
         .insert("future.key".into(), serde_json::json!({"x":true}));
     let mut native = serde_json::to_value(&graph.nodes[1].animation).unwrap();
-    native["opacity.0"]["future.parameter"] = serde_json::json!({"v":3});
-    native["opacity.0"]["value"] = serde_json::to_value(Binding::Track { track }).unwrap();
+    native["gain.0"]["future.parameter"] = serde_json::json!({"v":3});
+    native["gain.0"]["value"] = serde_json::to_value(Binding::Track { track }).unwrap();
     graph.nodes[1].animation = serde_json::from_value(native).unwrap();
     let time = Time::new(1, 1).unwrap();
-    let P::Transform { opacity, .. } = graph.nodes[1].evaluated_parameters(time).unwrap() else {
+    let P::ColorGrade { settings } = graph.nodes[1].evaluated_parameters(time).unwrap() else {
         panic!()
     };
-    assert!((f64::from(opacity) - (0.1 + curve.sample(time).unwrap())).abs() < 1e-7);
+    assert!((f64::from(settings.gain[0]) - (0.1 + curve.sample(time).unwrap())).abs() < 1e-7);
     curve.keys[0].value = 0.3;
     graph.nodes[1]
         .animation
-        .insert("opacity.0".into(), curve)
+        .insert("gain.0".into(), curve)
         .unwrap();
-    let after = &graph.nodes[1].animation.bindings()["opacity.0"];
+    let after = &graph.nodes[1].animation.bindings()["gain.0"];
     assert_eq!(after.id, parameter.id);
     assert_eq!(
         after.extensions["future.parameter"],
@@ -246,22 +244,22 @@ fn protected_tracks_reject_editor_removal_and_whole_document_replacement() {
     curve.insert(Time::ZERO, 0.4);
     graph.nodes[1]
         .animation
-        .insert("opacity.0".into(), curve.clone())
+        .insert("gain.0".into(), curve.clone())
         .unwrap();
     let mut native = serde_json::to_value(&graph.nodes[1].animation).unwrap();
-    native["opacity.0"]["protected"] = serde_json::json!(true);
+    native["gain.0"]["protected"] = serde_json::json!(true);
     graph.nodes[1].animation = serde_json::from_value(native).unwrap();
     let unchanged = graph.clone();
     curve.keys[0].value = 0.6;
     assert!(
         graph.nodes[1]
             .animation
-            .insert("opacity.0".into(), curve)
+            .insert("gain.0".into(), curve)
             .is_err()
     );
     assert!(
         graph.nodes[1]
-            .remove_animation_channel("opacity.0", Time::ZERO)
+            .remove_animation_channel("gain.0", Time::ZERO)
             .is_err()
     );
     assert_eq!(graph, unchanged);

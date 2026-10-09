@@ -342,7 +342,7 @@ fn malformed_unsupported_and_invalid_archives_are_rejected() {
         load(&path, 5),
         Err(LoadError::UnsupportedFormat { .. })
     ));
-    archive["version"] = json!(1);
+    archive["version"] = json!(3);
     let first = document();
     archive["project"]["documents"] = json!(std::collections::BTreeMap::from([(
         DocumentId::new(),
@@ -352,4 +352,23 @@ fn malformed_unsupported_and_invalid_archives_are_rejected() {
     assert!(matches!(load(&path, 5), Err(LoadError::InvalidProject(_))));
     std::fs::write(&path, b"{truncated").unwrap();
     assert!(matches!(load(&path, 5), Err(LoadError::Json(_))));
+}
+
+#[test]
+fn unsupported_archive_generations_are_rejected_without_rewriting() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("unsupported.fold");
+    save(&Project::new(5).snapshot(), &path).unwrap();
+    let mut archive: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    for version in [1, 2, 4, 999] {
+        archive["version"] = json!(version);
+        let bytes = serde_json::to_vec(&archive).unwrap();
+        std::fs::write(&path, &bytes).unwrap();
+        assert!(matches!(
+            load(&path, 5),
+            Err(LoadError::UnsupportedFormat { .. })
+        ));
+        assert_eq!(std::fs::read(&path).unwrap(), bytes);
+    }
 }

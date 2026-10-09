@@ -61,7 +61,15 @@ fn twenty_layers_survive_processing_and_shuffle_without_twenty_pixel_buffers() {
             .collect(),
     });
     layers.set_input(0, source.id).unwrap();
-    let grade = Node::new(P::Grade { gain: [2.; 3] }, vec![layers.id]);
+    let grade = Node::new(
+        P::ColorGrade {
+            settings: fold_render::operations::Grade {
+                gain: [2.; 3],
+                ..Default::default()
+            },
+        },
+        vec![layers.id],
+    );
     let mut select = Node::disconnected(P::Shuffle {
         mappings: vec![ChannelMapping {
             destination: name("rgba.red"),
@@ -91,7 +99,15 @@ fn arbitrary_image_channel_masks_are_optional_and_cycles_rollback() {
         },
         vec![],
     );
-    let mut grade = Node::new(P::Grade { gain: [2.; 3] }, vec![source.id]);
+    let mut grade = Node::new(
+        P::ColorGrade {
+            settings: fold_render::operations::Grade {
+                gain: [2.; 3],
+                ..Default::default()
+            },
+        },
+        vec![source.id],
+    );
     grade.effect.mask_channel = name("rgba.red");
     let grade_id = grade.id;
     let mask_id = mask.id;
@@ -274,8 +290,21 @@ fn disabled_mask_does_not_evaluate_an_incomplete_mask_branch() {
         },
         vec![],
     );
-    let mask = Node::disconnected(P::Grade { gain: [1.; 3] });
-    let mut grade = Node::new(P::Grade { gain: [2.; 3] }, vec![source.id]);
+    let mask = Node::disconnected(P::ColorGrade {
+        settings: fold_render::operations::Grade {
+            gain: [1.; 3],
+            ..Default::default()
+        },
+    });
+    let mut grade = Node::new(
+        P::ColorGrade {
+            settings: fold_render::operations::Grade {
+                gain: [2.; 3],
+                ..Default::default()
+            },
+        },
+        vec![source.id],
+    );
     grade.effect.set_mask(mask.id);
     grade.effect.mask_disabled = true;
     let id = grade.id;
@@ -349,7 +378,9 @@ fn long_sequence_manifest_stays_on_the_asset_and_read_serialization_stays_small(
 #[test]
 fn merge_a_is_foreground_b_is_background_and_mask_preserves_b() {
     for parameters in [
-        P::Merge,
+        P::Composite {
+            mode: Default::default(),
+        },
         P::Composite {
             mode: Default::default(),
         },
@@ -407,7 +438,9 @@ fn merge_a_is_foreground_b_is_background_and_mask_preserves_b() {
 #[test]
 fn inserted_merge_passes_b_through_until_a_is_connected() {
     for parameters in [
-        P::Merge,
+        P::Composite {
+            mode: Default::default(),
+        },
         P::Composite {
             mode: fold_render::operations::MergeMode::Multiply,
         },
@@ -418,7 +451,12 @@ fn inserted_merge_passes_b_through_until_a_is_connected() {
             },
             vec![],
         );
-        let unused_mask = Node::disconnected(P::Grade { gain: [2.; 3] });
+        let unused_mask = Node::disconnected(P::ColorGrade {
+            settings: fold_render::operations::Grade {
+                gain: [2.; 3],
+                ..Default::default()
+            },
+        });
         let mut merge = Node::disconnected(parameters);
         merge.set_input(1, background.id).unwrap();
         merge.effect.set_mask(unused_mask.id);

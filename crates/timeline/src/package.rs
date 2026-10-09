@@ -134,7 +134,7 @@ impl DocumentProvider for Documents {
         SEQUENCE_SCHEMA
     }
     fn supports_schema(&self, schema: u32) -> bool {
-        [2, 3, 4, SEQUENCE_SCHEMA].contains(&schema)
+        schema == SEQUENCE_SCHEMA
     }
     fn validate(&self, document: &Document) -> Result<(), String> {
         Sequence::from_document(document).map(|_| ())
@@ -175,35 +175,6 @@ impl DocumentProvider for Documents {
         Ok(())
     }
 }
-/// Read-only compatibility registration for the original two-layer media slice.
-/// It uses the same capability path as current sequence documents.
-struct LegacyLayers;
-impl DocumentProvider for LegacyLayers {
-    fn package_id(&self) -> &'static str {
-        crate::PACKAGE
-    }
-    fn type_id(&self) -> &'static str {
-        crate::VIDEO_LAYERS
-    }
-    fn schema(&self) -> u32 {
-        1
-    }
-    fn validate(&self, document: &Document) -> Result<(), String> {
-        crate::VideoLayers::from_document(document).map(|_| ())
-    }
-    fn validate_relink(
-        &self,
-        document: &Document,
-        _: fold_foundation::AssetId,
-        metadata: &fold_media::ingest::SourceMetadata,
-    ) -> Result<(), String> {
-        let layers = crate::VideoLayers::from_document(document)?;
-        if metadata.profile != fold_media::ingest::SourceProfile::Video(layers.info) {
-            return Err("relink changes legacy layer source profile".into());
-        }
-        Ok(())
-    }
-}
 struct Audio;
 impl AudioProvider for Audio {
     fn package_id(&self) -> &'static str {
@@ -233,11 +204,7 @@ pub fn register(registry: &mut PackageRegistry) -> Result<(), String> {
                 ":timeline-schema5-evaluator5-effects"
             ),
         },
-        documents: vec![
-            Box::new(Documents),
-            Box::new(LegacyLayers),
-            Box::new(crate::ImageSequenceProvider),
-        ],
+        documents: vec![Box::new(Documents), Box::new(crate::ImageSequenceProvider)],
         commands: vec![
             CommandRegistration {
                 id: EDIT,
@@ -254,7 +221,6 @@ pub fn register(registry: &mut PackageRegistry) -> Result<(), String> {
         ],
         video: vec![
             Box::new(crate::SequenceProvider),
-            Box::new(crate::VideoLayersProvider),
             Box::new(crate::ImageSequenceProvider),
         ],
         audio: vec![Box::new(Audio)],

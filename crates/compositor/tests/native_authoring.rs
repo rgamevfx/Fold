@@ -10,7 +10,15 @@ fn fixture() -> Composite {
         },
         vec![],
     );
-    let grade = Node::new(C::Grade { gain: [1.; 3] }, vec![solid.id]);
+    let grade = Node::new(
+        C::ColorGrade {
+            settings: fold_render::operations::Grade {
+                gain: [1.; 3],
+                ..Default::default()
+            },
+        },
+        vec![solid.id],
+    );
     let output = Node::new(C::Output, vec![grade.id]);
     Composite {
         info: fold_media::VideoInfo {
@@ -162,7 +170,7 @@ fn retired_parameter_protocol_and_unknown_versions_never_execute() {
 #[test]
 fn every_inventoried_operation_uses_native_records_without_losing_kernel_configuration() {
     let info = fixture().info;
-    assert_eq!(fold_compositor::OPERATORS.len(), 28);
+    assert_eq!(fold_compositor::OPERATORS.len(), 24);
     for operation in fold_compositor::OPERATORS {
         let config = operation.defaults(&info).unwrap();
         let node = Node::disconnected(config.clone());
@@ -272,7 +280,12 @@ fn native_rebase_preserves_disjoint_edits_and_rejects_conflicts_and_new_protecti
     let mut current = base.clone();
     current.nodes[0].name = "Artist plate".into();
     current.nodes[1]
-        .set_configuration(C::Grade { gain: [0.9; 3] })
+        .set_configuration(C::ColorGrade {
+            settings: fold_render::operations::Grade {
+                gain: [0.9; 3],
+                ..Default::default()
+            },
+        })
         .unwrap();
     let merged = Composite::rebase(&base, &proposed, &current).unwrap();
     assert_eq!(merged.nodes[0].name, "Artist plate");
@@ -380,17 +393,15 @@ fn parameter_service_samples_the_render_configuration_and_keeps_native_identity(
     use fold_graph::types::Literal;
     let mut graph = fixture();
     let mut transform = Node::new(
-        C::Transform {
-            translate: [0.; 2],
-            scale: [1.; 2],
-            opacity: 1.,
+        C::ColorGrade {
+            settings: Default::default(),
         },
         vec![graph.nodes[1].id],
     );
     transform
         .animation
         .insert(
-            "opacity.0".into(),
+            "gain.0".into(),
             fold_animation::Curve {
                 keys: vec![
                     fold_animation::Key::new(Time::ZERO, 0.25),
@@ -399,7 +410,7 @@ fn parameter_service_samples_the_render_configuration_and_keeps_native_identity(
             },
         )
         .unwrap();
-    let id = transform.parameters["opacity"].id;
+    let id = transform.animation.bindings()["gain.0"].id;
     graph.nodes[2].set_input(0, transform.id).unwrap();
     graph.nodes.push(transform);
     let document = graph.document(DocumentId::new()).unwrap();

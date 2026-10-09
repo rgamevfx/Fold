@@ -13,7 +13,6 @@ pub use authoring::{ImportArgs, active, has_sequence, import, import_media};
 pub use editing::{ClipEdit, SequenceEdit, edit_clip, edit_sequence};
 mod sequence_audio;
 mod sequence_video;
-mod video;
 use fold_foundation::{DocumentId, Rounding};
 use fold_media::RgbImage;
 use fold_platform::VideoProvider;
@@ -23,7 +22,6 @@ mod transitions;
 pub use sequence::{Clip, SEQUENCE, SEQUENCE_SCHEMA, Sequence, SourceMedia, Track, TrackKind};
 pub use sequence_video::SequenceProvider;
 pub use transitions::Transition;
-pub use video::{VIDEO_LAYERS, VideoLayers, VideoLayersProvider};
 
 pub const PACKAGE: &str = "fold.timeline";
 pub const IMAGE_SEQUENCE: &str = "fold.timeline.image-sequence";

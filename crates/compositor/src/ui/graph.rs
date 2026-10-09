@@ -16,13 +16,7 @@ impl Context<'_> {
         let graph = self.state.graph.as_ref().unwrap();
         let mut templates: Vec<_> = crate::OPERATORS
             .iter()
-            .filter(|op| {
-                !matches!(op.id, "Input" | "Effect" | "Dissolve" | "Output" | "Mask")
-                    && !matches!(
-                        (op.id, op.version),
-                        ("Transform" | "Blur" | "Grade" | "Merge", 1)
-                    )
-            })
+            .filter(|op| !matches!(op.id, "Input" | "Effect" | "Dissolve" | "Output" | "Mask"))
             .map(|op| op.defaults(&graph.info).expect("registered default"))
             .collect::<Vec<_>>()
             .into_iter()
@@ -241,7 +235,7 @@ impl GraphContext for Context<'_> {
                         ),
                         color: match n.configuration() {
                             P::Read { .. } | P::Solid { .. } => GRAPH_COLORS.source,
-                            P::Merge | P::Composite { .. } => GRAPH_COLORS.merge,
+                            P::Composite { .. } => GRAPH_COLORS.merge,
                             _ => color(op.output.clone()),
                         },
                         inputs: (0..n.configuration().input_count())
@@ -414,10 +408,6 @@ fn summary(p: &P) -> String {
             Source::Exr { image, .. } => format!("OpenEXR • {} channels", image.channels.len()),
             Source::Document { .. } => "Nested document".into(),
         },
-        P::Blur { radius } => format!("Radius {radius} px"),
-        P::Grade { gain } => format!("RGB {:.2} / {:.2} / {:.2}", gain[0], gain[1], gain[2]),
-        P::Transform { opacity, .. } => format!("Opacity {:.0}%", opacity * 100.),
-        P::Merge => "Foreground over background".into(),
         P::Output => "Document video output".into(),
         P::Mask { .. } => "Rectangle • mask".into(),
         P::ApplyMask => "Premultiplied alpha".into(),

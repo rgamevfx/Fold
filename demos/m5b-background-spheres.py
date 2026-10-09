@@ -63,26 +63,6 @@ for match in re.finditer(pattern, original, re.M | re.S):
     for p in re.finditer(r'^    ("[^\n]*?") (@\{[^\n]*?\}) = (.*);$', body, re.M):
         parameters[json.loads(p[1])] = (p[2], p[3])
     old[json.loads(name)] = {"meta": metadata, "key": json.loads(key), "mode": json.loads(mode), "parameters": parameters}
-# Superseded operation versions are preserved by public source as unresolved
-# records. Re-author only the requested Grid/Copy contracts, keeping their IDs.
-for match in re.finditer(r'^  unresolved (.*);$', original, re.M):
-    record = json.loads(match[1])
-    if (record["operation"], record["mode"]) not in [("fold.motion.distribute", "grid"), ("fold.motion.cloner", "points")]:
-        raise RuntimeError("Unexpected unresolved operation in the selected graph")
-    parameters = {}
-    for name, parameter in record["parameters"].items():
-        binding = parameter["value"]
-        metadata = {"id": parameter["id"], **parameter.get("extensions", {})}
-        if parameter.get("protected"):
-            metadata["protected"] = True
-        if binding["kind"] == "literal":
-            expression = "value(literal(" + json.dumps(binding["value"], separators=(",", ":")) + "))"
-        elif record["operation"] == "fold.motion.cloner" and name in ["prototype", "points"]:
-            expression = None  # Both connections are explicitly re-authored below.
-        else:
-            raise RuntimeError("Preserve this nonliteral Grid parameter with a scoped manual source edit: " + name)
-        parameters[name] = ("@" + json.dumps(metadata, separators=(",", ":")), expression)
-    old[record["name"]] = {"meta": "@" + json.dumps({"id": record["id"], **record.get("extensions", {})}, separators=(",", ":")), "key": record["operation"], "mode": record["mode"], "parameters": parameters}
 assert old, "Canonical graph could not be inspected"
 old_by_key = {(v["key"].split(".")[-1], v["mode"]): name for name, v in old.items()}
 dump = lambda value: json.dumps(value, separators=(",", ":"))

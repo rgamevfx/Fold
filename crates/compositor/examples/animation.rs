@@ -24,17 +24,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     let masked = Node::new(P::ApplyMask, vec![solid.id, mask.id]);
     let mut transform = Node::new(
-        P::Transform {
-            translate: [0., 0.],
-            scale: [1., 1.],
-            opacity: 1.,
+        P::TransformImage {
+            settings: Default::default(),
         },
         vec![masked.id],
     );
     for (path, values) in [
         ("position.0", [0., 200., 0.]),
         ("position.1", [0., 80., 0.]),
-        ("opacity.0", [1., 0.5, 1.]),
     ] {
         let mut curve = Curve::default();
         for (index, value) in values.into_iter().enumerate() {

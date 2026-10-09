@@ -1,0 +1,29 @@
+{
+  "workspace-tests": {
+    "passed": 755,
+    "failed": 2,
+    "ignored": 117
+  },
+  "focused-rerun": {
+    "passed": 9,
+    "failed": 0,
+    "ignored": 0
+  },
+  "fixture-gpu": {
+    "passed": 3,
+    "failed": 0,
+    "ignored": 0
+  },
+  "ops-tests": {
+    "passed": 22,
+    "failed": 0,
+    "ignored": 0
+  },
+  "final": {
+    "passing_cases": 760,
+    "remaining_ignored_cases": 114,
+    "unresolved_failures": 0,
+    "full_suite_runs": 1,
+    "notes": "Two initial test-expectation failures corrected; both affected suites passed all 9 tests. Three of the full run ignored tests passed in the explicit native fixture run. Rerun duplicate passes are not added twice."
+  }
+}

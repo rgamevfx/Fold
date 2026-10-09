@@ -452,13 +452,9 @@ fn compile(request: VideoCompile<'_>) -> Result<ChannelGraph, String> {
                 P::Unary { .. }
                 | P::GaussianBlur { .. }
                 | P::TransformImage { .. }
-                | P::Transform { .. }
                 | P::Crop { .. }
-                | P::Blur { .. }
-                | P::Grade { .. }
                 | P::ColorGrade { .. }
                 | P::Composite { .. }
-                | P::Merge
                 | P::Output
                 | P::Shuffle { .. }
                 | P::RemoveChannels { .. } => unreachable!("handled channel routing/effects"),

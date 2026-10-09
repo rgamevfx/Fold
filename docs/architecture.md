@@ -158,7 +158,7 @@ Source records retain stable node keys, source and the baseline native definitio
 
 ## Persistence and compatibility
 
-[Persistence](../crates/project/src/persistence.rs) writes a version-3 `fold-project` JSON archive and accepts versions 1–3. Version 1 can discover project items; older color interpretation is retained. Package schemas evolve separately. Unknown payload bytes, metadata, declared dependencies, archive extensions and assets survive load/save; core does not migrate unknown feature data.
+[Persistence](../crates/project/src/persistence.rs) writes a version-3 `fold-project` JSON archive and accepts only version 3. Unsupported containers fail without being rewritten. Executable provider schemas are Sequence 5, Composition 3 and Compositor 8; Compositor Grade/Merge/Transform/Blur use version 2. The two-layer Timeline provider and workspace upgrades are retired (C1). Unknown payload bytes, metadata, declared dependencies, archive extensions and assets survive load/save; core does not migrate unknown feature data.
 
 Save writes/syncs a temporary sibling, replaces the destination and syncs the directory on Unix. `SaveError::DirectorySync` reports visible replacement with unconfirmed durability. Save/export pin committed state, not an active gesture overlay. Recovery retention/autosave, migrations, complete environment restoration and broad-platform packaging remain open integration work.
 

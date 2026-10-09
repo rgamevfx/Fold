@@ -1,0 +1,46 @@
+    Blocking waiting for file lock on artifact directory
+   Compiling fold-project v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/project)
+   Compiling fold-graph v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/graph)
+   Compiling fold-platform v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/platform)
+   Compiling fold-compositor v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/compositor)
+    Finished `test` profile [unoptimized] target(s) in 1m 07s
+     Running tests/graph_authoring.rs (target/debug/deps/graph_authoring-99bb751b67217ecd)
+
+running 6 tests
+test incomplete_spare_nodes_are_preserved_but_not_silently_rendered ... ok
+test named_sockets_rewire_disconnect_delete_and_reject_cycles_atomically ... ok
+test native_schema_roundtrips_without_reordering_or_dropping_extension_data ... ok
+test rewiring_retains_connection_identity_and_unknown_data_and_rejects_aliases ... ok
+test storage_order_and_layout_are_not_execution_order ... ok
+test duplicate_allocates_new_native_connection_parameter_track_and_key_identities ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/native_authoring.rs (target/debug/deps/native_authoring-3d31d889d770a45a)
+
+running 11 tests
+test instance_overrides_keep_native_control_and_key_ids_across_inspector_projection ... ok
+test mixed_static_and_animated_override_projection_is_stable_and_preserves_protection ... ok
+test animation_cannot_bypass_protected_static_controls_or_effect_mix ... ok
+test masks_preserve_edge_identity_and_protected_effects_reject_replacement ... ok
+test public_source_and_whole_document_edits_cannot_bypass_native_protection ... ok
+test native_records_are_authoritative_and_scoped_source_preserves_neighbors ... ok
+test every_inventoried_operation_uses_native_records_without_losing_kernel_configuration ... ok
+test native_rebase_preserves_disjoint_edits_and_rejects_conflicts_and_new_protection ... ok
+test parameter_service_samples_the_render_configuration_and_keeps_native_identity ... ok
+test shared_composition_curves_edit_native_instance_overrides_without_changing_the_definition ... ok
+test retired_parameter_protocol_and_unknown_versions_never_execute ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.93s
+
+     Running tests/reusable.rs (target/debug/deps/reusable-670262e40dcba493)
+
+running 5 tests
+test shader_interface_rename_preserves_connections_values_and_key_identity ... ok
+test dissolve_interpolates_alpha_instead_of_over_compositing ... ok
+test incompatible_instance_versions_fail_instead_of_rebinding ... ok
+test library_presets_are_editable_graphs_with_valid_promoted_controls ... ok
+test independent_instances_share_source_work_and_preserve_definition ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+

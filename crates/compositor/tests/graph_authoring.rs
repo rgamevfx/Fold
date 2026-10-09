@@ -7,7 +7,13 @@ fn fixture() -> Composite {
         },
         vec![],
     );
-    let blur = Node::new(P::Blur { radius: 2 }, vec![source.id]);
+    let blur = Node::new(
+        P::GaussianBlur {
+            size: [2.; 2],
+            edges: Default::default(),
+        },
+        vec![source.id],
+    );
     let output = Node::new(P::Output, vec![blur.id]);
     Composite {
         info: fold_media::VideoInfo {
@@ -72,7 +78,12 @@ fn named_sockets_rewire_disconnect_delete_and_reject_cycles_atomically() {
 #[test]
 fn incomplete_spare_nodes_are_preserved_but_not_silently_rendered() {
     let mut graph = fixture();
-    let unused = Node::disconnected(P::Grade { gain: [1.0; 3] });
+    let unused = Node::disconnected(P::ColorGrade {
+        settings: fold_render::operations::Grade {
+            gain: [1.0; 3],
+            ..Default::default()
+        },
+    });
     let id = unused.id;
     graph.nodes.push(unused);
     graph.validate().unwrap();
@@ -131,7 +142,7 @@ fn duplicate_allocates_new_native_connection_parameter_track_and_key_identities(
     curve.insert(Time::ZERO, 2.);
     graph.nodes[2]
         .animation
-        .insert("radius.0".into(), curve)
+        .insert("size.0".into(), curve)
         .unwrap();
     let copy = ObjectId::new();
     let document = graph.document(DocumentId::new()).unwrap();
@@ -152,8 +163,8 @@ fn duplicate_allocates_new_native_connection_parameter_track_and_key_identities(
         original.inputs[0].as_ref().unwrap().id,
         duplicate.inputs[0].as_ref().unwrap().id
     );
-    let a = &original.animation.bindings()["radius.0"];
-    let b = &duplicate.animation.bindings()["radius.0"];
+    let a = &original.animation.bindings()["size.0"];
+    let b = &duplicate.animation.bindings()["size.0"];
     assert_ne!(a.id, b.id);
     let fold_graph::binding::Binding::Track { track: a } = a.binding().unwrap() else {
         panic!()

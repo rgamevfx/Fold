@@ -66,7 +66,15 @@ fn definition() -> Composite {
         },
         vec![],
     );
-    let grade = Node::new(P::Grade { gain: [1.; 3] }, vec![source.id]);
+    let grade = Node::new(
+        P::ColorGrade {
+            settings: fold_render::operations::Grade {
+                gain: [1.; 3],
+                ..Default::default()
+            },
+        },
+        vec![source.id],
+    );
     let mut g = graph(vec![source, grade.clone()]);
     let definition = Definition {
         extensions: Default::default(),
@@ -148,7 +156,9 @@ fn independent_instances_share_source_work_and_preserve_definition() {
     }
     let saved = Composite::from_document(&definition).unwrap();
     assert_eq!(saved, authored);
-    assert!(matches!(saved.nodes[1].configuration(),P::Grade {gain} if gain == [1.;3]));
+    assert!(
+        matches!(saved.nodes[1].configuration(),P::ColorGrade {settings} if settings.gain == [1.;3])
+    );
 }
 #[test]
 fn dissolve_interpolates_alpha_instead_of_over_compositing() {

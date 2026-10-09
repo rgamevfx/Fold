@@ -223,7 +223,12 @@ fn named_image_inputs_bind_independently_without_changing_other_sources() {
     };
     let a = read();
     let b = read();
-    let merge = Node::new(P::Merge, vec![a.id, b.id]);
+    let merge = Node::new(
+        P::Composite {
+            mode: Default::default(),
+        },
+        vec![a.id, b.id],
+    );
     let output = Node::new(P::Output, vec![merge.id]);
     let graph = Composite {
         info: image.info.clone(),

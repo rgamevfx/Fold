@@ -136,10 +136,10 @@ port=image_state['image_inputs'][0]['id']
 edit(c,[{'op':'connect_layers','composition':c,'source':layers[1]['id'],'target':image_layer['id'],'port':port}])
 image_state=json.loads(inspect(image_document))
 provider=next(p for p in discover()['result']['project_authoring']['providers'] if p['type']=='fold.compositor.composite')
-grade=next(op['record'] for op in provider['catalog']['operators'] if op['id']=='Grade' and op['version']==1)
+grade=next(op['record'] for op in provider['catalog']['operators'] if op['id']=='Grade' and op['version']==2)
 grade['id']=str(uuid.uuid4());grade['name']='Cool background'
 for parameter in grade['parameters'].values():parameter['id']=str(uuid.uuid4())
-for component,value in zip(grade['parameters']['gain']['value']['values'],[.7,.9,1.1]):component['value']['value']=value
+grade['parameters']['settings']['value']['value']['gain']=[.7,.9,1.1]
 edit(image_document,[{'op':'author','document':image_document,'expected':image_state,'edits':[
  {'op':'create_node','id':grade['id'],'record':grade},
  {'op':'insert','node':image_state['native']['output'],'input':'image','modifier':grade['id'],'modifier_input':'image'}]}])

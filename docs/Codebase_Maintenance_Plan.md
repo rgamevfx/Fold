@@ -1,7 +1,7 @@
 # Fold Codebase Maintenance Plan
 
 **Date:** 9 October 2026
-**Status:** C0 baseline complete, with native measurement failures recorded. C1–C9 not started.
+**Status:** C0 baseline complete, with native measurement failures recorded. C1 complete; desktop/native acceptance limitations remain recorded. C2–C9 not started.
 **Audit baseline:** `6280fb6` — Implement M5c parameter references and scoped inspection.
 
 ## Purpose and authority
@@ -29,7 +29,7 @@ M3–M5 and M5a–M5c acceptance remain open. The desktop freeze remains unresol
 | Phase | Outcome | Depends on | Status |
 | --- | --- | --- | --- |
 | C0 | Baseline, deletion inventory, and acceptance fixtures | None | Complete; native failures remain open |
-| C1 | One supported generation of documents and operations | C0 | Planned |
+| C1 | One supported generation of documents and operations | C0 | Complete; see evidence and limitations |
 | C2 | Typed failures and explicit provider capabilities | C1 | Planned |
 | C3 | Prepared Compositor representation | C2 | Planned |
 | C4 | Provider-owned agent editing | C3 | Planned |
@@ -57,7 +57,7 @@ The audit's package-boundary/headless-isolation check and nine boundary-policy t
 
 **C0 completion — 9 October 2026:** [Results and limitations](maintenance/evidence/c0/result.md), [deletion inventory](maintenance/c0-inventory.md), [workflow reproduction](maintenance/c0-workflows.md), and [frozen measurement profile](maintenance/c0-profile.json). Assigned 1,403 references across eight groups and inventoried 15 unchanged project archives. Recorded 84 passing Rust tests, 16 passing Python tests, focused Clippy with existing warnings, and three release benchmark runs. Implementation and evidence are recorded together in the C0 baseline commit.
 
-Native desktop captures failed with SIGSEGV in release and debug; a control also failed with the runtime probe disabled. The cause is unassigned, and a relationship to the earlier freeze is unproven. Native edit-to-present and preview GPU allocation measurements are unavailable; CPU allocator counts are also unmeasured. C0 records these failures under its gate rather than claiming native acceptance. Investigate before C6 native acceptance and establish successful measurements before C8 performance claims. No new visual feedback was added; C1 has not begun.
+Native desktop captures failed with SIGSEGV in release and debug; a control also failed with the runtime probe disabled. The cause is unassigned, and a relationship to the earlier freeze is unproven. Native edit-to-present and preview GPU allocation measurements are unavailable; CPU allocator counts are also unmeasured. C0 records these failures under its gate rather than claiming native acceptance. Investigate before C6 native acceptance and establish successful measurements before C8 performance claims. At C0 completion, no new visual feedback had been added and C1 had not begun.
 
 ## C1 — Delete superseded generations
 
@@ -75,6 +75,8 @@ Native desktop captures failed with SIGSEGV in release and debug; a control also
 **Gate:** Discovery and runtime dispatch expose only the selected current contracts. Current fixtures save/reopen and render correctly. Unsupported documents round-trip opaquely without execution; unsupported archive containers are not rewritten. Searches confirm deleted symbols have no executable registrations or callers.
 
 **Checkpoint:** Workspace check, full applicable tests, Clippy, package boundaries, and focused save/reopen plus media workflow acceptance.
+
+**C1 completion — 9 October 2026:** [Results and limitations](maintenance/evidence/c1/result.md). Removed two-layer execution, old provider schemas/operations, archive interpretations and workspace upgrades. Re-authored current fixtures through public tools. Workspace check, Clippy and boundaries passed; 760 tests pass after correcting two obsolete test expectations and explicitly running three native fixture tests. 114 other tests remain ignored. C0 desktop failures and Motion acceptance gates remain open; no C2 or M6 work was performed.
 
 ## C2 — Establish typed failures and provider capabilities
 

@@ -317,7 +317,7 @@ fn unavailable_nested_provider_fails_even_in_an_inactive_read() {
 }
 
 #[test]
-fn legacy_schema_is_readable_and_composition_rejects_locked_audio_without_mutation() {
+fn retired_schema_is_unavailable_and_current_composition_rejects_locked_audio() {
     let mut project = Project::new(4);
     let video = Track::new(TrackKind::Video, "Video");
     let mut audio = Track::new(TrackKind::Audio, "Audio");
@@ -348,8 +348,11 @@ fn legacy_schema_is_readable_and_composition_rejects_locked_audio_without_mutati
         extensions: Default::default(),
     };
     let id = DocumentId::new();
-    let mut legacy = sequence.document(id).unwrap();
-    legacy.schema_version = 2;
+    let document = sequence.document(id).unwrap();
+    let mut retired = document.clone();
+    retired.schema_version = 2;
+    assert!(!packages::builtins().supports(&retired));
+    assert!(Sequence::from_document(&retired).is_err());
     project
         .commit(EditBatch {
             base: project.snapshot().revision(),
@@ -360,7 +363,7 @@ fn legacy_schema_is_readable_and_composition_rejects_locked_audio_without_mutati
                     fingerprint: "fixture".into(),
                     extensions: Default::default(),
                 }),
-                Mutation::PutDocument(legacy),
+                Mutation::PutDocument(document),
             ],
         })
         .unwrap();

@@ -1,95 +1,7 @@
-use fold_foundation::AssetId;
 use fold_media::{Cancel, Decoder, Encoder, VideoInfo};
 use fold_platform::desktop::PreviewKey;
-use fold_project::{Asset, DocumentRef, EditBatch, Mutation, Snapshot};
-use fold_timeline::VideoLayers;
-use std::path::{Path, PathBuf};
-
-pub fn import(
-    snapshot: &Snapshot,
-    paths: &[PathBuf],
-    cancel: &Cancel,
-) -> Result<EditBatch, String> {
-    if crate::timeline_workflow::has_sequence(snapshot) {
-        return Err(
-            "An editable sequence is active. Use Import sequence, or open a layer-only project."
-                .into(),
-        );
-    }
-    if !(1..=2).contains(&paths.len()) {
-        return Err("import requires one or two matching videos".into());
-    }
-    let mut mutations = Vec::new();
-    let mut ids = Vec::new();
-    let mut info = None;
-    for path in paths {
-        let video = fold_media::inspect(path, cancel)?;
-        if info.as_ref().is_some_and(|i| i != &video.info) {
-            return Err("two-layer import currently requires matching dimensions, frame rate, and frame count".into());
-        }
-        info = Some(video.info);
-        let id = AssetId::new();
-        ids.push(id);
-        mutations.push(Mutation::PutAsset(Asset {
-            id,
-            location: video
-                .path
-                .to_str()
-                .ok_or("media path must be UTF-8")?
-                .into(),
-            fingerprint: video.fingerprint,
-            extensions: Default::default(),
-        }));
-    }
-    // Replace the active media document, preserving unknown documents/assets.
-    let previous = active_document(snapshot);
-    let id = previous.map(|d| d.id).unwrap_or_default();
-    let extensions = previous
-        .map(VideoLayers::from_document)
-        .transpose()?
-        .map(|layers| layers.extensions)
-        .unwrap_or_default();
-    let mut document = VideoLayers {
-        assets: ids,
-        info: info.unwrap(),
-        foreground_opacity: 0.5,
-        extensions,
-    }
-    .document(id)?;
-    if let Some(previous) = previous {
-        document.extensions = previous.extensions.clone();
-    }
-    mutations.push(Mutation::PutDocument(document));
-    Ok(EditBatch {
-        base: snapshot.revision(),
-        mutations,
-    })
-}
-
-fn active_document(snapshot: &Snapshot) -> Option<&fold_project::Document> {
-    snapshot
-        .state()
-        .documents
-        .values()
-        .find(|d| {
-            d.package_id == fold_timeline::PACKAGE
-                && d.type_id == fold_timeline::VIDEO_LAYERS
-                && d.schema_version == 1
-        })
-        .map(|d| d.as_ref())
-}
-
-pub fn active(snapshot: &Snapshot) -> Result<(DocumentRef, VideoLayers), String> {
-    let document = active_document(snapshot).ok_or("no supported video layers imported")?;
-    Ok((
-        DocumentRef {
-            document: document.id,
-            output: "video".into(),
-            extensions: Default::default(),
-        },
-        VideoLayers::from_document(document)?,
-    ))
-}
+use fold_project::{DocumentRef, EditBatch, Mutation, Snapshot};
+use std::path::Path;
 
 /// Hash authoring bytes, ordered asset identities, and implementation versions.
 /// Unrelated project revisions and undo/redo do not invalidate viewer textures.
@@ -349,27 +261,26 @@ pub fn output(snapshot: &Snapshot) -> Result<(DocumentRef, VideoInfo), String> {
         let info = output_info(snapshot, &reference)?;
         return Ok((reference, info));
     }
-    // Compatibility for projects written before explicit output selection.
+    // Choose a supported output when the project has no explicit selection.
     // An explicit but unavailable selection above never falls back silently.
     if crate::timeline_workflow::has_sequence(snapshot) {
         let (reference, sequence) = crate::timeline_workflow::active(snapshot)?;
         let _ = sequence;
         let info = crate::packages::builtins().output(snapshot, reference.document)?;
         Ok((reference, info))
-    } else if let Ok((reference, layers)) = active(snapshot) {
-        Ok((reference, layers.info))
     } else {
+        let packages = crate::packages::builtins();
         let document = snapshot
             .state()
             .documents
             .values()
-            .find(|d| d.type_id == fold_composition::COMPOSITION)
+            .find(|d| d.type_id == fold_composition::COMPOSITION && packages.supports(d))
             .or_else(|| {
                 snapshot
                     .state()
                     .documents
                     .values()
-                    .find(|d| matches!(d.type_id.as_str(), fold_compositor::COMPOSITE))
+                    .find(|d| d.type_id == fold_compositor::COMPOSITE && packages.supports(d))
             })
             .ok_or("no supported video document")?;
         let info = crate::packages::builtins().output(snapshot, document.id)?;

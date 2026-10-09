@@ -38,12 +38,8 @@ fn main() -> std::process::ExitCode {
                 path: args[1].clone().into(),
                 document_type: fold_compositor::COMPOSITE.into(),
             });
-        } else if args[0] == "--layers" {
-            session.command(DesktopCommand::Import(
-                args[1..].iter().map(Into::into).collect(),
-            ));
         } else if args[0] == "--timeline" {
-            // Explicit legacy fixture path; ordinary file arguments are asset-only.
+            // Explicit sequence import; ordinary file arguments are asset-only.
             let snapshot = session.snapshot().unwrap();
             let request = fold_timeline::package::request(
                 &snapshot,

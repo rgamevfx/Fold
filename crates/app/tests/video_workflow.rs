@@ -69,12 +69,26 @@ fn codec_timing_color_import_composition_export_and_persistence() {
     );
     let mut project = Project::new(8);
     project
-        .commit(workflow::import(&project.snapshot(), &[a.clone(), b], &cancel).unwrap())
+        .commit(fold_timeline::import(&project.snapshot(), &[a.clone(), b], &cancel).unwrap())
+        .unwrap();
+    let (reference, mut sequence) = fold_timeline::active(&project.snapshot()).unwrap();
+    sequence.clips[1].start = Time::ZERO;
+    sequence.clips[1].track = sequence.tracks[1].id;
+    sequence.clips[1].level = 0.5;
+    project
+        .commit(fold_project::EditBatch {
+            base: project.snapshot().revision(),
+            mutations: vec![fold_project::Mutation::PutDocument(
+                sequence.document(reference.document).unwrap(),
+            )],
+        })
         .unwrap();
     let pinned = project.snapshot();
     let content = workflow::content(&pinned).unwrap();
     project.undo().unwrap();
+    project.undo().unwrap();
     assert!(workflow::content(&project.snapshot()).is_err());
+    project.redo().unwrap();
     project.redo().unwrap();
     assert_eq!(content, workflow::content(&project.snapshot()).unwrap());
     let path = dir.path().join("video.fold");
@@ -306,7 +320,7 @@ fn saturated_colors_untagged_layout_and_explicit_profile_rejection() {
 }
 
 #[test]
-fn future_documents_and_extensions_survive_import_and_opacity_edits() {
+fn retired_documents_and_extensions_survive_import_and_sequence_edits() {
     use fold_foundation::DocumentId;
     use fold_project::{Document, EditBatch, Mutation, Revision};
     let dir = tempfile::tempdir().unwrap();
@@ -315,8 +329,8 @@ fn future_documents_and_extensions_survive_import_and_opacity_edits() {
     let future = Document {
         id: DocumentId::new(),
         package_id: fold_timeline::PACKAGE.into(),
-        type_id: fold_timeline::VIDEO_LAYERS.into(),
-        schema_version: 99,
+        type_id: "fold.timeline.video-layers".into(),
+        schema_version: 1,
         revision: Revision::default(),
         dependencies: vec![],
         assets: vec![],
@@ -332,7 +346,7 @@ fn future_documents_and_extensions_survive_import_and_opacity_edits() {
         .unwrap();
     project
         .commit(
-            workflow::import(
+            fold_timeline::import(
                 &project.snapshot(),
                 std::slice::from_ref(&input),
                 &Cancel::default(),
@@ -344,7 +358,7 @@ fn future_documents_and_extensions_survive_import_and_opacity_edits() {
         project.snapshot().state().documents[&future.id].payload,
         future.payload
     );
-    let (reference, mut layers) = workflow::active(&project.snapshot()).unwrap();
+    let (reference, mut layers) = fold_timeline::active(&project.snapshot()).unwrap();
     layers.extensions.insert("vendor-extra".into(), true.into());
     let mut document = layers.document(reference.document).unwrap();
     document
@@ -357,7 +371,23 @@ fn future_documents_and_extensions_survive_import_and_opacity_edits() {
         })
         .unwrap();
     let mut session = fold_app::session::Session::new(project);
-    session.command(DesktopCommand::Opacity(0.25));
+    let snapshot = session.snapshot().unwrap();
+    let (reference, sequence) = fold_timeline::active(&snapshot).unwrap();
+    session.command(DesktopCommand::Extension(
+        fold_timeline::package::request(
+            &snapshot,
+            fold_timeline::package::EDIT,
+            &fold_timeline::package::EditArgs {
+                document: reference.document,
+                edit: fold_timeline::SequenceEdit::Clip {
+                    id: sequence.clips[0].id,
+                    linked: false,
+                    edit: fold_timeline::ClipEdit::Level(0.25),
+                },
+            },
+        )
+        .unwrap(),
+    ));
     let path = dir.path().join("saved.fold");
     session.command(DesktopCommand::Save(path.clone()));
     let deadline = Instant::now() + Duration::from_secs(10);
@@ -368,17 +398,14 @@ fn future_documents_and_extensions_survive_import_and_opacity_edits() {
     }
     let mut reopened = load(&path, 8).unwrap();
     assert_eq!(
-        workflow::active(&reopened.snapshot())
-            .unwrap()
-            .1
-            .foreground_opacity,
+        fold_timeline::active(&reopened.snapshot()).unwrap().1.clips[0].level,
         0.25
     );
     reopened
-        .commit(workflow::import(&reopened.snapshot(), &[input], &Cancel::default()).unwrap())
+        .commit(fold_timeline::import(&reopened.snapshot(), &[input], &Cancel::default()).unwrap())
         .unwrap();
     let snapshot = reopened.snapshot();
-    let (reference, layers) = workflow::active(&snapshot).unwrap();
+    let (reference, layers) = fold_timeline::active(&snapshot).unwrap();
     assert_eq!(layers.extensions["vendor-extra"], true);
     assert_eq!(
         snapshot.state().documents[&reference.document].extensions["envelope-extra"],
@@ -395,11 +422,25 @@ fn latest_requests_cancel_export_and_nonblocking_commands() {
     let dir = tempfile::tempdir().unwrap();
     let input = dir.path().join("input.mp4");
     fixture(&input, &[0, 64, 128, 192, 255]);
-    // This fixture exercises the legacy transport/export contract without a
+    // This fixture exercises the sequence transport/export contract without a
     // native OCIO installation; ACES worker routing has its own integration test.
     let mut session = fold_app::session::Session::new(Project::new(32));
     let start = Instant::now();
-    session.command(DesktopCommand::Import(vec![input]));
+    session.command(DesktopCommand::Extension(
+        fold_timeline::package::request(
+            &session.snapshot().unwrap(),
+            fold_timeline::package::IMPORT,
+            &fold_timeline::ImportArgs {
+                document: None,
+                paths: vec![input],
+                at: None,
+                video_track: None,
+                audio_track: None,
+                audio_only: false,
+            },
+        )
+        .unwrap(),
+    ));
     assert!(start.elapsed() < Duration::from_millis(100));
     let deadline = Instant::now() + Duration::from_secs(30);
     while session.state().busy {

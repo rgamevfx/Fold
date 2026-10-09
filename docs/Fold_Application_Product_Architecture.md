@@ -2,6 +2,8 @@
 
 > **Scope update — 8 October 2026.** The [Motion System Rewrite Plan](Motion_System_Rewrite_Plan.md) and [new motion proposal](Fold_Motion_Architecture_and_Node_Set_Proposal.md) supersede motion authoring/evaluation, Rust assets/Wrangles/Solver, motion rendering integration, and MCP/agent contracts here, including conflicting parts of §§6, 11–13 and 16–20. Shared non-motion product rules remain active. The roadmap in §17 and dev-plan.md is retired; use the rewrite plan for priorities. Read historical claims below within that scope.
 
+> **Persistence update — 9 October 2026.** [C1](maintenance/evidence/c1/result.md) supports archive v3 and workspace v4 only. Retired provider schemas and unknown extensions remain opaque in supported archives; unsupported containers fail without rewriting artwork.
+
 *Product and architecture specification*
 
 Current design | 7 October 2026

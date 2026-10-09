@@ -32,20 +32,8 @@ pub enum OperationConfig {
     Solid {
         rgba: [f32; 4],
     },
-    /// Translation and scale in document pixels, plus opacity.
-    Transform {
-        translate: [f64; 2],
-        scale: [f64; 2],
-        opacity: f32,
-    },
     Crop {
         rect: [u32; 4],
-    },
-    Blur {
-        radius: u32,
-    },
-    Grade {
-        gain: [f32; 3],
     },
     Mask {
         rect: [u32; 4],
@@ -78,8 +66,6 @@ pub enum OperationConfig {
         channels: Vec<fold_render::channels::ChannelName>,
         keep: bool,
     },
-    /// Input 0 is foreground, input 1 background.
-    Merge,
     Output,
 }
 impl OperationConfig {
@@ -113,29 +99,25 @@ impl OperationConfig {
 
     pub fn operator(&self) -> &'static Operator {
         &OPERATORS[match self {
-            Self::Shader { .. } => 27,
-            Self::RelativeTransform { .. } => 26,
-            Self::Input { .. } => 23,
-            Self::Instance { .. } => 24,
-            Self::Dissolve { .. } => 25,
+            Self::Shader { .. } => 23,
+            Self::RelativeTransform { .. } => 22,
+            Self::Input { .. } => 19,
+            Self::Instance { .. } => 20,
+            Self::Dissolve { .. } => 21,
             Self::Read { .. } => 0,
             Self::Solid { .. } => 1,
-            Self::Transform { .. } => 2,
-            Self::Crop { .. } => 3,
-            Self::Blur { .. } => 4,
-            Self::Grade { .. } => 5,
-            Self::Mask { .. } => 6,
-            Self::ApplyMask => 7,
-            Self::Merge => 8,
-            Self::Output => 9,
-            Self::Shuffle { .. } => 10,
-            Self::RemoveChannels { .. } => 11,
-            Self::ColorGrade { .. } => 12,
-            Self::Composite { .. } => 13,
-            Self::TransformImage { .. } => 14,
-            Self::GaussianBlur { .. } => 15,
+            Self::Crop { .. } => 2,
+            Self::Mask { .. } => 3,
+            Self::ApplyMask => 4,
+            Self::Output => 5,
+            Self::Shuffle { .. } => 6,
+            Self::RemoveChannels { .. } => 7,
+            Self::ColorGrade { .. } => 8,
+            Self::Composite { .. } => 9,
+            Self::TransformImage { .. } => 10,
+            Self::GaussianBlur { .. } => 11,
             Self::Unary { operation } => {
-                16 + match operation {
+                12 + match operation {
                     fold_render::operations::Unary::Exposure { .. } => 0,
                     fold_render::operations::Unary::Invert => 1,
                     fold_render::operations::Unary::Clamp { .. } => 2,
@@ -145,9 +127,9 @@ impl OperationConfig {
             }
             Self::Shape { shape, .. } => {
                 if *shape == crate::Shape::Rectangle {
-                    21
+                    17
                 } else {
-                    22
+                    18
                 }
             }
         }]
@@ -262,30 +244,8 @@ impl OperationConfig {
             {
                 return Err("Solid requires finite RGB and alpha in 0..1".into());
             }
-            Self::Transform {
-                translate,
-                scale,
-                opacity,
-            } if translate
-                .iter()
-                .chain(scale)
-                .any(|v| !v.is_finite() || v.abs() > 1e6)
-                || scale.iter().any(|v| v.abs() < 1e-6)
-                || !opacity.is_finite()
-                || !(0.0..=1.0).contains(opacity) =>
-            {
-                return Err("Transform requires finite invertible scale and opacity 0..1".into());
-            }
             Self::Crop { rect } | Self::Mask { rect } if rect[0] > rect[2] || rect[1] > rect[3] => {
                 return Err("invalid rectangle".into());
-            }
-            Self::Blur { radius } if *radius > 64 => return Err("blur radius exceeds 64".into()),
-            Self::Grade { gain }
-                if gain
-                    .iter()
-                    .any(|v| !v.is_finite() || !(0.0..=16.0).contains(v)) =>
-            {
-                return Err("gain must be finite in 0..16".into());
             }
             _ => {}
         }

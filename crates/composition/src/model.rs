@@ -227,17 +227,7 @@ impl Composition {
             id,
             package_id: crate::PACKAGE.into(),
             type_id: crate::COMPOSITION.into(),
-            schema_version: if self.extensions.contains_key(crate::reusable::KEY) {
-                3
-            } else if self
-                .layers
-                .iter()
-                .any(|l| l.adjustment || !l.effects.is_empty())
-            {
-                2
-            } else {
-                1
-            },
+            schema_version: 3,
             revision: Revision::default(),
             dependencies,
             assets: assets.into_iter().collect(),
@@ -248,15 +238,12 @@ impl Composition {
     pub fn from_document(document: &Document) -> Result<Self, String> {
         if document.package_id != crate::PACKAGE
             || document.type_id != crate::COMPOSITION
-            || ![1, 2, 3].contains(&document.schema_version)
+            || document.schema_version != 3
         {
             return Err("Unsupported composition document".into());
         }
         let value: Self = serde_json::from_slice(&document.payload).map_err(|e| e.to_string())?;
         let canonical = value.document(document.id)?;
-        if document.schema_version < canonical.schema_version {
-            return Err("Composition features require their current schema version".into());
-        }
         if canonical.dependencies != document.dependencies || canonical.assets != document.assets {
             return Err("Composition dependencies do not match its layers".into());
         }
