@@ -172,7 +172,7 @@ fn shuffle_swaps_simultaneously_and_requires_b_only_when_referenced() {
             .pixels(),
         &[[0.3, 0.2, 0.1, 1.]; 6]
     );
-    let mut config = composite.nodes[1].configuration();
+    let mut config = composite.nodes[1].prepare().unwrap().config().clone();
     if let P::Shuffle { mappings } = &mut config {
         mappings[0].source = ChannelSource::B(name("rgba.red"));
     }
@@ -404,8 +404,26 @@ fn merge_a_is_foreground_b_is_background_and_mask_preserves_b() {
             vec![],
         );
         let mut merge = Node::new(parameters, vec![a.id, b.id]);
-        assert_eq!(merge.configuration().operator().input_key(0), "foreground");
-        assert_eq!(merge.configuration().operator().input_key(1), "background");
+        assert_eq!(
+            merge
+                .prepare()
+                .unwrap()
+                .config()
+                .clone()
+                .operator()
+                .input_key(0),
+            "foreground"
+        );
+        assert_eq!(
+            merge
+                .prepare()
+                .unwrap()
+                .config()
+                .clone()
+                .operator()
+                .input_key(1),
+            "background"
+        );
         merge.effect.set_mask(mask.id);
         merge.effect.mask_channel = name("rgba.red");
         let id = merge.id;

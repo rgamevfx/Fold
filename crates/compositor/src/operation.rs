@@ -75,7 +75,10 @@ pub(crate) fn record(config: &OperationConfig) -> Record {
         extensions: Metadata::new(),
     }
 }
-fn decode(record: &Record) -> Result<OperationConfig, String> {
+pub(crate) fn decode(
+    record: &Record,
+    counters: &mut crate::PreparationCounters,
+) -> Result<(OperationConfig, Option<crate::instance::Instance>), String> {
     let index = OPERATORS
         .iter()
         .position(|op| op.id == record.operation && op.version == record.version)
@@ -88,11 +91,15 @@ fn decode(record: &Record) -> Result<OperationConfig, String> {
     if !record.mode.is_empty() {
         return Err("Unsupported compositor operation mode".into());
     }
+    counters.decoded_records += 1;
+    #[cfg(test)]
+    DECODES.with(|count| count.set(count.get() + 1));
     let mut fields: serde_json::Map<String, Value> = record
         .parameters
         .iter()
         .map(|(name, p)| Ok((name.clone(), decode_value(&p.value)?)))
         .collect::<Result<_, String>>()?;
+    let mut native = None;
     if OPERATORS[index].kernel == "Instance" {
         let instance: crate::instance::Instance =
             serde_json::from_value(fields.remove("instance").ok_or("Missing effect instance")?)
@@ -101,6 +108,7 @@ fn decode(record: &Record) -> Result<OperationConfig, String> {
             "instance".into(),
             serde_json::to_value(instance.host()?).map_err(|e| e.to_string())?,
         );
+        native = Some(instance);
     }
     let kernel = OPERATORS[index].kernel;
     let value = if matches!(kernel, "ApplyMask" | "Output") {
@@ -116,7 +124,7 @@ fn decode(record: &Record) -> Result<OperationConfig, String> {
         return Err("Configuration disagrees with its versioned operation contract".into());
     }
     config.validate()?;
-    Ok(config)
+    Ok((config, native))
 }
 impl Node {
     pub(crate) fn set_native_instance(
@@ -150,24 +158,21 @@ impl Node {
         native_instance(&self.operation)
     }
     pub fn from_record(record: Record) -> Result<Self, String> {
-        let config = decode(&record)?;
-        let mut node = Self::disconnected(config);
-        node.operation = record;
-        Ok(node)
-    }
-    pub fn try_configuration(&self) -> Result<OperationConfig, String> {
-        decode(&self.operation)
-    }
-    /// Internal consumers only receive graphs admitted by Composite::validate.
-    pub fn configuration(&self) -> OperationConfig {
-        self.try_configuration()
-            .expect("validated compositor operation")
+        let (config, _) = decode(&record, &mut Default::default())?;
+        Ok(Self {
+            inputs: vec![None; config.input_count()],
+            operation: record,
+            animation: Default::default(),
+            effect: Default::default(),
+            position: None,
+            extensions: Default::default(),
+        })
     }
     pub fn edit_configuration(
         &mut self,
         edit: impl FnOnce(&mut OperationConfig),
     ) -> Result<(), String> {
-        let mut config = self.try_configuration()?;
+        let mut config = self.prepare()?.config().clone();
         edit(&mut config);
         self.set_configuration(config)
     }
@@ -277,3 +282,6 @@ fn native_instance(record: &Record) -> Result<Option<crate::instance::Instance>,
         .map(Some)
         .map_err(|e| e.to_string())
 }
+
+#[cfg(test)]
+thread_local! { pub(crate) static DECODES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) }; }

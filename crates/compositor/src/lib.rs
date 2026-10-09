@@ -42,3 +42,6 @@ pub use registry::{OPERATORS, Operator};
 mod instance;
 
 mod reconcile;
+
+mod prepared;
+pub use prepared::{PreparationCounters, PreparedComposite, PreparedNode};

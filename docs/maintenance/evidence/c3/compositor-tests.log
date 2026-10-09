@@ -1,0 +1,91 @@
+warning: field `format` is never read
+  --> crates/render/src/gpu/yuv.rs:22:9
+   |
+16 | pub(super) struct Layout {
+   |                   ------ field in this struct
+...
+22 |     pub format: fold_media::VideoFormat,
+   |         ^^^^^^
+   |
+   = note: `Layout` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `parameters` is never used
+  --> crates/render/src/gpu/yuv.rs:26:8
+   |
+25 | impl Layout {
+   | ----------- method in this implementation
+26 |     fn parameters(self, size: u64) -> Result<[u32; 20], fold_foundation::Failure> {
+   |        ^^^^^^^^^^
+
+warning: `fold-render` (lib) generated 2 warnings
+   Compiling fold-compositor v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/compositor)
+    Finished `test` profile [unoptimized] target(s) in 7.63s
+     Running tests/animation.rs (target/debug/deps/animation-d4c8f51489e469ab)
+
+running 6 tests
+test animation_compiles_from_snapshots_roundtrips_extensions_and_undoes_atomically ... ok
+test native_tracks_preserve_metadata_and_use_shared_combination_and_bezier_sampling ... ok
+test protected_tracks_reject_editor_removal_and_whole_document_replacement ... ok
+test removing_the_last_channel_holds_its_current_value_and_static_parameters_are_exact ... ok
+test retired_compositor_payload_is_preserved_opaquely_by_project_save_and_reopen ... ok
+test retired_schema_is_rejected_and_component_curves_do_not_change_other_values ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.32s
+
+     Running tests/channels.rs (target/debug/deps/channels-cd104005bdf61d00)
+
+running 10 tests
+test arbitrary_image_channel_masks_are_optional_and_cycles_rollback ... ok
+test data_rgb_without_alpha_can_be_processed_without_being_zeroed ... ok
+test disabled_mask_does_not_evaluate_an_incomplete_mask_branch ... ok
+test generated_shapes_connect_to_explicit_alpha_multiplication ... ok
+test inserted_merge_passes_b_through_until_a_is_connected ... ok
+test long_sequence_manifest_stays_on_the_asset_and_read_serialization_stays_small ... ok
+test merge_a_is_foreground_b_is_background_and_mask_preserves_b ... ok
+test read_does_not_infer_color_processing_for_rgb_utility_layers ... ok
+test shuffle_swaps_simultaneously_and_requires_b_only_when_referenced ... ok
+test twenty_layers_survive_processing_and_shuffle_without_twenty_pixel_buffers ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+     Running tests/graph_authoring.rs (target/debug/deps/graph_authoring-738d3ad7a94eae7c)
+
+running 6 tests
+test duplicate_allocates_new_native_connection_parameter_track_and_key_identities ... ok
+test incomplete_spare_nodes_are_preserved_but_not_silently_rendered ... ok
+test named_sockets_rewire_disconnect_delete_and_reject_cycles_atomically ... ok
+test native_schema_roundtrips_without_reordering_or_dropping_extension_data ... ok
+test rewiring_retains_connection_identity_and_unknown_data_and_rejects_aliases ... ok
+test storage_order_and_layout_are_not_execution_order ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/native_authoring.rs (target/debug/deps/native_authoring-2d78267bc87d2b8b)
+
+running 11 tests
+test animation_cannot_bypass_protected_static_controls_or_effect_mix ... ok
+test every_inventoried_operation_uses_native_records_without_losing_kernel_configuration ... ok
+test instance_overrides_keep_native_control_and_key_ids_across_inspector_projection ... ok
+test masks_preserve_edge_identity_and_protected_effects_reject_replacement ... ok
+test mixed_static_and_animated_override_projection_is_stable_and_preserves_protection ... ok
+test native_rebase_preserves_disjoint_edits_and_rejects_conflicts_and_new_protection ... ok
+test native_records_are_authoritative_and_scoped_source_preserves_neighbors ... ok
+test parameter_service_samples_the_render_configuration_and_keeps_native_identity ... ok
+test public_source_and_whole_document_edits_cannot_bypass_native_protection ... ok
+test retired_parameter_protocol_and_unknown_versions_never_execute ... ok
+test shared_composition_curves_edit_native_instance_overrides_without_changing_the_definition ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running tests/reusable.rs (target/debug/deps/reusable-25917a46d8ef8f2b)
+
+running 5 tests
+test dissolve_interpolates_alpha_instead_of_over_compositing ... ok
+test incompatible_instance_versions_fail_instead_of_rebinding ... ok
+test independent_instances_share_source_work_and_preserve_definition ... ok
+test library_presets_are_editable_graphs_with_valid_promoted_controls ... ok
+test shader_interface_rename_preserves_connections_values_and_key_identity ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+

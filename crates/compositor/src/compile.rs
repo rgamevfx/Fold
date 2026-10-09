@@ -33,7 +33,8 @@ impl VideoProvider for Provider {
         document: &fold_project::Document,
         resolve: &fold_platform::ChannelResolver<'_>,
     ) -> Result<Vec<fold_render::channels::ChannelName>, String> {
-        let composite = Composite::from_document(document)?;
+        let native = Composite::read_document(document)?;
+        let composite = native.prepare_document(document)?;
         composite.channel_names_with(composite.output, resolve)
     }
     fn compile_image(
@@ -60,9 +61,10 @@ fn compile(request: VideoCompile<'_>) -> Result<ChannelGraph, fold_foundation::F
     } = request;
     let output = reference.output.as_str();
     cancel.check()?;
-    let mut composite = Composite::from_document(document)?;
+    let composite = Composite::read_document(document)?;
+    let mut prepared = composite.prepare_document(document)?;
     if let Some(invocation) = request.invocation {
-        composite.bind_values(invocation)?;
+        prepared = prepared.with_invocation(invocation)?;
     }
     if output != "video"
         || (request.context.is_none()
@@ -70,6 +72,7 @@ fn compile(request: VideoCompile<'_>) -> Result<ChannelGraph, fold_foundation::F
     {
         return Err("unsupported composite output or time outside duration".into());
     }
+    let composite = prepared;
     let mut graph = request
         .invocation
         .map(|i| i.graph.clone())

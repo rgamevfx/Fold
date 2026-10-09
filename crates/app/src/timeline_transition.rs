@@ -63,10 +63,12 @@ pub fn add(
             .is_ok_and(|i| i.images == ["outgoing", "incoming"])
             && fold_compositor::Composite::from_document(d).is_ok_and(|g| {
                 g.nodes.iter().any(|n| {
-                    matches!(
-                        n.configuration(),
-                        fold_compositor::OperationConfig::Dissolve { .. }
-                    )
+                    n.prepare().is_ok_and(|p| {
+                        matches!(
+                            p.config(),
+                            fold_compositor::OperationConfig::Dissolve { .. }
+                        )
+                    })
                 })
             })
     });

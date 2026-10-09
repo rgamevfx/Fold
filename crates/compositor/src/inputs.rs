@@ -4,10 +4,11 @@ use fold_foundation::{ObjectId, Time};
 use fold_platform::{image_source::Source as ImageSource, layer_graph::ImageInput};
 use fold_project::{Document, Snapshot};
 pub(crate) fn describe(document: &Document) -> Result<Vec<ImageInput>, String> {
-    let graph = Composite::from_document(document)?;
+    let native = Composite::read_document(document)?;
+    let graph = native.prepare_document(document)?;
     let mut inputs = vec![];
     for (index, node) in graph.nodes.iter().enumerate() {
-        if let OperationConfig::Read { source, .. } = &node.configuration() {
+        if let OperationConfig::Read { source, .. } = &node.config() {
             inputs.push(ImageInput {
                 id: serde_json::to_string(&node.id).unwrap(),
                 label: format!("Read {}", index + 1),
@@ -26,7 +27,7 @@ pub(crate) fn describe(document: &Document) -> Result<Vec<ImageInput>, String> {
         let solids: Vec<_> = graph
             .nodes
             .iter()
-            .filter(|n| matches!(n.configuration(), OperationConfig::Solid { .. }))
+            .filter(|n| matches!(n.config(), OperationConfig::Solid { .. }))
             .collect();
         if let [node] = solids.as_slice()
             && node.animation.is_empty()
@@ -64,7 +65,7 @@ pub(crate) fn bind(
         .iter_mut()
         .find(|n| n.id == id)
         .ok_or("Missing input node")?;
-    let mut config = node.configuration();
+    let mut config = node.prepare()?.config().clone();
     match &mut config {
         OperationConfig::Read {
             source: current, ..

@@ -52,7 +52,7 @@ fn native_records_are_authoritative_and_scoped_source_preserves_neighbors() {
         .replace_source(Some(&[source]), &expected, &source_text)
         .unwrap();
     assert_eq!(
-        graph.nodes[0].configuration(),
+        graph.nodes[0].prepare().unwrap().config().clone(),
         C::Solid {
             rgba: [0.8, 0.3, 0.4, 1.]
         }
@@ -177,7 +177,7 @@ fn every_inventoried_operation_uses_native_records_without_losing_kernel_configu
         assert_eq!(node.operation.operation, operation.id);
         assert_eq!(node.operation.version, operation.version);
         assert_eq!(
-            node.try_configuration().unwrap(),
+            node.prepare().unwrap().config().clone(),
             config,
             "{} {}",
             operation.id,
@@ -186,7 +186,7 @@ fn every_inventoried_operation_uses_native_records_without_losing_kernel_configu
         let encoded = serde_json::to_vec(&node).unwrap();
         let decoded: Node = serde_json::from_slice(&encoded).unwrap();
         assert_eq!(node, decoded);
-        assert_eq!(decoded.try_configuration().unwrap(), config);
+        assert_eq!(decoded.prepare().unwrap().config().clone(), config);
     }
 }
 
@@ -211,9 +211,10 @@ fn instance_overrides_keep_native_control_and_key_ids_across_inspector_projectio
     native["protected"] = json!(true);
     native["vendor.control"] = json!({"keep":true});
     let before = node.clone();
-    node.set_configuration(node.configuration()).unwrap();
+    node.set_configuration(node.prepare().unwrap().config().clone())
+        .unwrap();
     assert_eq!(node, before);
-    let mut config = node.configuration();
+    let mut config = node.prepare().unwrap().config().clone();
     let C::Instance { instance, .. } = &mut config else {
         panic!()
     };
@@ -257,7 +258,14 @@ fn shared_composition_curves_edit_native_instance_overrides_without_changing_the
     assert_eq!(projected[0].curve.keys[0].id, key);
     assert_eq!(projected[0].curve.keys[0].value, 0.8);
     let updated = Composite::from_document(&changed).unwrap();
-    let C::Instance { instance, .. } = updated.node(id).unwrap().configuration() else {
+    let C::Instance { instance, .. } = updated
+        .node(id)
+        .unwrap()
+        .prepare()
+        .unwrap()
+        .config()
+        .clone()
+    else {
         panic!()
     };
     assert_eq!(
@@ -290,8 +298,8 @@ fn native_rebase_preserves_disjoint_edits_and_rejects_conflicts_and_new_protecti
     let merged = Composite::rebase(&base, &proposed, &current).unwrap();
     assert_eq!(merged.nodes[0].name, "Artist plate");
     assert_eq!(
-        merged.nodes[0].configuration(),
-        proposed.nodes[0].configuration()
+        merged.nodes[0].prepare().unwrap().config().clone(),
+        proposed.nodes[0].prepare().unwrap().config().clone()
     );
     assert_eq!(merged.nodes[1], current.nodes[1]);
     assert_eq!(
@@ -338,10 +346,14 @@ fn mixed_static_and_animated_override_projection_is_stable_and_preserves_protect
         json!({"kind":"literal","value":{"kind":"scalar","value":0.75}});
     parameter["protected"] = json!(true);
     let before = node.clone();
-    assert_eq!(node.configuration(), node.configuration());
-    node.set_configuration(node.configuration()).unwrap();
+    assert_eq!(
+        node.prepare().unwrap().config().clone(),
+        node.prepare().unwrap().config().clone()
+    );
+    node.set_configuration(node.prepare().unwrap().config().clone())
+        .unwrap();
     assert_eq!(node, before);
-    let mut edited = node.configuration();
+    let mut edited = node.prepare().unwrap().config().clone();
     let C::Instance { instance, .. } = &mut edited else {
         panic!()
     };

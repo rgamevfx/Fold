@@ -357,7 +357,7 @@ fn shader_publication_validates_on_worker_and_cancel_never_publishes() {
     let source = graph
         .nodes
         .iter()
-        .find(|n| matches!(n.configuration(), P::Solid { .. }))
+        .find(|n| matches!(n.prepare().unwrap().config().clone(), P::Solid { .. }))
         .unwrap()
         .id;
     let shader = Node::new(

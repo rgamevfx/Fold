@@ -98,7 +98,7 @@ pub struct ChannelMapping {
     pub source: ChannelSource,
 }
 
-impl crate::Composite {
+impl crate::PreparedComposite<'_> {
     /// Structural channel discovery uses no decoding and is safe for inspectors.
     pub fn channel_names(&self, output: ObjectId) -> Result<Vec<ChannelName>, String> {
         self.channel_names_with(output, &|_| {
@@ -111,10 +111,10 @@ impl crate::Composite {
         resolve: &fold_platform::ChannelResolver<'_>,
     ) -> Result<Vec<ChannelName>, String> {
         let mut outputs = std::collections::BTreeMap::<ObjectId, Vec<ChannelName>>::new();
-        for id in self.evaluation_order()? {
+        for &id in self.evaluation_order() {
             let node = self.node(id)?;
             let primary = usize::from(matches!(
-                node.configuration(),
+                node.config(),
                 crate::OperationConfig::Composite { .. }
             ));
             let mut names = node
@@ -127,7 +127,7 @@ impl crate::Composite {
                     RGBA.map(|name| ChannelName::try_from(name.to_owned()).unwrap())
                         .into()
                 });
-            match &node.configuration() {
+            match &node.config() {
                 crate::OperationConfig::Read {
                     source: crate::Source::Document { source, .. },
                     ..
@@ -176,5 +176,18 @@ impl crate::Composite {
         outputs
             .remove(&output)
             .ok_or_else(|| "Missing channel source".into())
+    }
+}
+
+impl crate::Composite {
+    pub fn channel_names(&self, output: ObjectId) -> Result<Vec<ChannelName>, String> {
+        self.prepare()?.channel_names(output)
+    }
+    pub fn channel_names_with(
+        &self,
+        output: ObjectId,
+        resolve: &fold_platform::ChannelResolver<'_>,
+    ) -> Result<Vec<ChannelName>, String> {
+        self.prepare()?.channel_names_with(output, resolve)
     }
 }

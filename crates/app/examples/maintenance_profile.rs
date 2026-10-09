@@ -127,15 +127,10 @@ fn main() -> Result<(), String> {
                 Ok(())
             },
         )?);
-        measurements.push(measure(
-            &format!("compositor_configurations_{count}"),
-            || {
-                for node in &graph.nodes {
-                    black_box(node.try_configuration()?);
-                }
-                Ok(())
-            },
-        )?);
+        measurements.push(measure(&format!("compositor_prepare_{count}"), || {
+            black_box(graph.prepare()?);
+            Ok(())
+        })?);
     }
     let mut scene_project = fold_project::load(root.join("demos/m5b-background-spheres.fold"), 32)
         .map_err(|e| e.to_string())?;

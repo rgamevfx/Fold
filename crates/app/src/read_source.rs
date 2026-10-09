@@ -24,7 +24,7 @@ pub fn replace(
         .ok_or("Missing composition")?;
     let mut composite = fold_compositor::Composite::from_document(previous)?;
     if !matches!(
-        composite.node(args.node)?.configuration(),
+        composite.node(args.node)?.prepare()?.config().clone(),
         fold_compositor::OperationConfig::Read { .. }
     ) {
         return Err("Select a Read node".into());
@@ -95,7 +95,7 @@ pub fn replace(
         composite.info.frames = composite.info.frames.max(source.info().frames);
     }
     let node = composite.node_mut(args.node)?;
-    let mut config = node.configuration();
+    let mut config = node.prepare()?.config().clone();
     let fold_compositor::OperationConfig::Read {
         source: old_source,
         source_start,

@@ -157,7 +157,7 @@ fn independent_instances_share_source_work_and_preserve_definition() {
     let saved = Composite::from_document(&definition).unwrap();
     assert_eq!(saved, authored);
     assert!(
-        matches!(saved.nodes[1].configuration(),P::ColorGrade {settings} if settings.gain == [1.;3])
+        matches!(saved.nodes[1].prepare().unwrap().config().clone(),P::ColorGrade {settings} if settings.gain == [1.;3])
     );
 }
 #[test]
@@ -268,7 +268,7 @@ fn shader_interface_rename_preserves_connections_values_and_key_identity() {
         node.animation.curve("amount.0").unwrap().unwrap().keys[0].id,
         key
     );
-    let P::Shader { settings } = &node.configuration() else {
+    let P::Shader { settings } = &node.prepare().unwrap().config().clone() else {
         panic!()
     };
     assert_eq!(settings.controls[0].default, vec![0.5]);
@@ -288,10 +288,10 @@ fn library_presets_are_editable_graphs_with_valid_promoted_controls() {
     ] {
         let document = fold_compositor::presets::create(preset, DocumentId::new()).unwrap();
         let graph = Composite::from_document(&document).unwrap();
-        graph.validate_reusable().unwrap();
+        graph.prepare().unwrap().validate_reusable().unwrap();
         assert!(graph.nodes.len() >= 3);
         for node in &graph.nodes {
-            if let P::Shader { settings } = &node.configuration() {
+            if let P::Shader { settings } = &node.prepare().unwrap().config().clone() {
                 settings
                     .program(fold_platform::format::Format::square([1920, 1080]), 0., 0.)
                     .unwrap()

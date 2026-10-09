@@ -1,0 +1,73 @@
+warning: field `format` is never read
+  --> crates/render/src/gpu/yuv.rs:22:9
+   |
+16 | pub(super) struct Layout {
+   |                   ------ field in this struct
+...
+22 |     pub format: fold_media::VideoFormat,
+   |         ^^^^^^
+   |
+   = note: `Layout` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `parameters` is never used
+  --> crates/render/src/gpu/yuv.rs:26:8
+   |
+25 | impl Layout {
+   | ----------- method in this implementation
+26 |     fn parameters(self, size: u64) -> Result<[u32; 20], fold_foundation::Failure> {
+   |        ^^^^^^^^^^
+
+warning: `fold-render` (lib) generated 2 warnings
+   Compiling fold-compositor v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/compositor)
+    Finished `test` profile [unoptimized] target(s) in 10.63s
+     Running unittests src/lib.rs (target/debug/deps/fold_compositor-49fa9c149ea6093e)
+
+running 12 tests
+test automation::color_tests::read_color_override_preserves_extensions_and_can_be_cleared ... ok
+test prepared::tests::consumers_share_one_decode_per_record_and_stable_indexes ... ok
+test prepared::tests::invalid_native_records_return_diagnostics_at_every_execution_entry ... ok
+test prepared::tests::invocation_shadows_tracks_without_redecoding_or_changing_native_protection ... ok
+test ui::channels::tests::changing_layer_routes_preserves_second_route_order_and_unmapped_channels ... ok
+test ui::render_tests::shuffle_inspector_normal_and_narrow ... ignored, native UI capture; writes /tmp/fold-shuffle-ui
+test ui::tests::compositor_graph_composition_and_inspector_draw_without_authoring ... ok
+test ui::tests::inspector_does_not_finish_an_animation_gesture ... ok
+test ui::tests::invalid_rewire_batch_never_partially_disconnects ... ok
+test ui::tests::merge_insertion_uses_b_and_undo_restores_position_and_original_pipe ... ok
+test ui::tests::production_node_inspectors_fit_normal_and_narrow_panels_without_edits ... ok
+test ui::tests::shared_editor_events_use_compositor_validation_and_atomic_undo ... ok
+
+test result: ok. 11 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.91s
+
+     Running tests/agent_graph.rs (target/debug/deps/agent_graph-f0b1e8cbbbf04aa9)
+
+running 1 test
+test agent_creation_insertion_query_and_receipt ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/animation.rs (target/debug/deps/animation-d4c8f51489e469ab)
+
+running 6 tests
+test animation_compiles_from_snapshots_roundtrips_extensions_and_undoes_atomically ... ok
+test native_tracks_preserve_metadata_and_use_shared_combination_and_bezier_sampling ... ok
+test protected_tracks_reject_editor_removal_and_whole_document_replacement ... ok
+test removing_the_last_channel_holds_its_current_value_and_static_parameters_are_exact ... FAILED
+test retired_compositor_payload_is_preserved_opaquely_by_project_save_and_reopen ... ok
+test retired_schema_is_rejected_and_component_curves_do_not_change_other_values ... ok
+
+failures:
+
+---- removing_the_last_channel_holds_its_current_value_and_static_parameters_are_exact stdout ----
+
+thread 'removing_the_last_channel_holds_its_current_value_and_static_parameters_are_exact' (259) panicked at crates/compositor/tests/animation.rs:155:24:
+called `Result::unwrap()` on an `Err` value: "Wrong compositor input count"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    removing_the_last_channel_holds_its_current_value_and_static_parameters_are_exact
+
+test result: FAILED. 5 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+error: test failed, to rerun pass `-p fold-compositor --test animation`

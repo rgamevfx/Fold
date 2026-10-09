@@ -327,7 +327,13 @@ fn production_node_inspectors_fit_normal_and_narrow_panels_without_edits() {
         for slot in 0..node.inputs.len() {
             node.set_input(slot, image).unwrap();
         }
-        if node.configuration().operator().supports_effect() {
+        if node
+            .prepare()
+            .unwrap()
+            .config()
+            .operator()
+            .supports_effect()
+        {
             node.effect.set_mask(image);
         }
         composite.nodes.push(node);
@@ -369,7 +375,7 @@ fn production_node_inspectors_fit_normal_and_narrow_panels_without_edits() {
                                 ui.scroll_max_x(),
                                 0.,
                                 "{} at {width}px",
-                                node.configuration().operator().label()
+                                node.prepare().unwrap().config().operator().label()
                             );
                         }
                     });

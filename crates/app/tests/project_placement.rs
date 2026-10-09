@@ -217,7 +217,7 @@ fn project_workflow_reuses_assets_and_outputs_and_preserves_history_and_content(
         &project.snapshot().state().documents[&composite],
     )
     .unwrap();
-    assert!(graph.nodes.iter().any(|n| matches!(n.configuration(), fold_compositor::OperationConfig::Read { source: fold_compositor::Source::Asset { asset: id, .. }, .. } if id == asset)));
+    assert!(graph.nodes.iter().any(|n| matches!(n.prepare().unwrap().config().clone(), fold_compositor::OperationConfig::Read { source: fold_compositor::Source::Asset { asset: id, .. }, .. } if id == asset)));
     let mut nested = placement(output(image), sequence);
     nested.at = Time::new(1, 1).unwrap();
     edit(&mut project, Command::Place(nested));
@@ -647,7 +647,7 @@ fn native_drop_imports_and_places_all_targets_in_one_undo() {
             let comp = fold_compositor::Composite::from_document(&after.state().documents[&target])
                 .unwrap();
             assert!(comp.nodes.iter().any(|n| matches!(
-                n.configuration(),
+                n.prepare().unwrap().config().clone(),
                 fold_compositor::OperationConfig::Read { .. }
             ) && n.position == Some([123., 456.])));
         }

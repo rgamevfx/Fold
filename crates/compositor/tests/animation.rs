@@ -129,6 +129,8 @@ fn retired_schema_is_rejected_and_component_curves_do_not_change_other_values() 
         .insert("position.0".into(), curve.clone())
         .unwrap();
     let P::TransformImage { settings } = graph.nodes[1]
+        .prepare()
+        .unwrap()
         .evaluated_parameters(Time::new(1, 2).unwrap())
         .unwrap()
     else {
@@ -145,22 +147,22 @@ fn retired_schema_is_rejected_and_component_curves_do_not_change_other_values() 
 
 #[test]
 fn removing_the_last_channel_holds_its_current_value_and_static_parameters_are_exact() {
-    let mut node = Node::new(
-        P::Crop {
-            rect: [0, 0, 100_000, 100_000],
-        },
-        vec![],
-    );
+    let mut node = Node::disconnected(P::Crop {
+        rect: [0, 0, 100_000, 100_000],
+    });
     assert_eq!(
-        node.evaluated_parameters(Time::ZERO).unwrap(),
-        node.configuration()
+        node.prepare()
+            .unwrap()
+            .evaluated_parameters(Time::ZERO)
+            .unwrap(),
+        node.prepare().unwrap().config().clone()
     );
     let mut curve = Curve::default();
     curve.insert(Time::ZERO, 0.);
     curve.insert(Time::new(1, 1).unwrap(), 100.);
     node.animation.insert("bounds.0".into(), curve).unwrap();
     let time = Time::new(1, 2).unwrap();
-    let value = node.evaluated_parameters(time).unwrap();
+    let value = node.prepare().unwrap().evaluated_parameters(time).unwrap();
     assert_eq!(
         value,
         P::Crop {
@@ -169,7 +171,7 @@ fn removing_the_last_channel_holds_its_current_value_and_static_parameters_are_e
     );
     node.remove_animation_channel("bounds.0", time).unwrap();
     assert!(node.animation.is_empty());
-    assert_eq!(node.configuration(), value);
+    assert_eq!(node.prepare().unwrap().config().clone(), value);
 }
 
 #[test]
@@ -204,7 +206,12 @@ fn native_tracks_preserve_metadata_and_use_shared_combination_and_bezier_samplin
     native["gain.0"]["value"] = serde_json::to_value(Binding::Track { track }).unwrap();
     graph.nodes[1].animation = serde_json::from_value(native).unwrap();
     let time = Time::new(1, 1).unwrap();
-    let P::ColorGrade { settings } = graph.nodes[1].evaluated_parameters(time).unwrap() else {
+    let P::ColorGrade { settings } = graph.nodes[1]
+        .prepare()
+        .unwrap()
+        .evaluated_parameters(time)
+        .unwrap()
+    else {
         panic!()
     };
     assert!((f64::from(settings.gain[0]) - (0.1 + curve.sample(time).unwrap())).abs() < 1e-7);

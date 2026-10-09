@@ -182,8 +182,10 @@ pub fn author(d: &Document, edits: &[Value]) -> Result<Document, String> {
                     return Err("cannot insert a node into itself".into());
                 }
                 let n = c.node(node)?;
-                let slot = (0..n.configuration().input_count())
-                    .find(|&i| n.configuration().input_key(i) == input)
+                let prepared = n.prepare()?;
+                let config = prepared.config();
+                let slot = (0..config.input_count())
+                    .find(|&i| config.input_key(i) == input)
                     .ok_or("missing input")?;
                 let previous = n.input_ids()[slot].ok_or("input is disconnected")?;
                 c.connect(previous, modifier, &modifier_input)?;
@@ -215,15 +217,17 @@ pub fn author(d: &Document, edits: &[Value]) -> Result<Document, String> {
             }
             Edit::Replace { node, record } => {
                 let replacement = Node::from_record(record)?;
-                let parameters = replacement.configuration();
+                let parameters = replacement.prepare()?.config().clone();
                 let n = c.node(node)?;
-                let a = n.configuration().operator();
+                let prepared = n.prepare()?;
+                let config = prepared.config();
+                let a = config.operator();
                 let b = parameters.operator();
-                if n.configuration().input_count() != parameters.input_count()
+                if config.input_count() != parameters.input_count()
                     || a.output != b.output
-                    || (0..n.configuration().input_count()).any(|i| {
-                        n.configuration().input_key(i) != parameters.input_key(i)
-                            || n.configuration().input_type(i) != parameters.input_type(i)
+                    || (0..config.input_count()).any(|i| {
+                        config.input_key(i) != parameters.input_key(i)
+                            || config.input_type(i) != parameters.input_type(i)
                     })
                 {
                     return Err("replacement has an incompatible socket interface".into());
@@ -258,13 +262,12 @@ pub fn author(d: &Document, edits: &[Value]) -> Result<Document, String> {
                 }) {
                     return Err("node patch allows operation/animation/effect/position".into());
                 }
-                let previous = c.node(node)?.configuration().clone();
+                let previous = c.node(node)?.prepare()?.config().clone();
                 patch(c.node_mut(node)?, &value)?;
-                c.node(node)?.try_configuration()?;
                 if let (
                     OperationConfig::Shader { settings: a },
                     OperationConfig::Shader { settings: b },
-                ) = (&previous, &c.node(node)?.configuration())
+                ) = (&previous, &c.node(node)?.prepare()?.config().clone())
                 {
                     if a.images != b.images
                         || a.controls
@@ -282,7 +285,7 @@ pub fn author(d: &Document, edits: &[Value]) -> Result<Document, String> {
             }
             Edit::InputColor { node, space } => {
                 let n = c.node_mut(node)?;
-                if !matches!(n.configuration(), OperationConfig::Read { .. }) {
+                if !matches!(n.prepare()?.config().clone(), OperationConfig::Read { .. }) {
                     return Err("input_color requires a Read node".into());
                 }
                 let key = fold_platform::color::INPUT_KEY;
@@ -360,9 +363,9 @@ pub fn query(d: &Document, q: &Value) -> Result<Value, String> {
     let offset = q["offset"].as_u64().unwrap_or(0) as usize;
     let limit = q["limit"].as_u64().unwrap_or(50).clamp(1, 200) as usize;
     let nodes:Vec<_>=c.nodes.iter().filter(|n|ids.contains(&n.id)).skip(offset).take(limit).map(|n|{
-        let op=n.configuration().operator();let consumers:Vec<_>=c.nodes.iter().filter(|o|o.dependencies().any(|id|id==n.id)).map(|o|o.id).collect();
-        json!({"node":n,"inputs":(0..n.configuration().input_count()).map(|i|json!({"id":n.configuration().input_key(i),"kind":format!("{:?}",n.configuration().input_type(i)),"source":n.input_ids()[i]})).collect::<Vec<_>>(),"output":{"id":op.output_key(),"kind":format!("{:?}",op.output)},"consumers":consumers})
-    }).collect();
+        let prepared = n.prepare()?; let config = prepared.config(); let op=config.operator();let consumers:Vec<_>=c.nodes.iter().filter(|o|o.dependencies().any(|id|id==n.id)).map(|o|o.id).collect();
+        Ok(json!({"node":n,"inputs":(0..config.input_count()).map(|i|json!({"id":config.input_key(i),"kind":format!("{:?}",config.input_type(i)),"source":n.input_ids()[i]})).collect::<Vec<_>>(),"output":{"id":op.output_key(),"kind":format!("{:?}",op.output)},"consumers":consumers}))
+    }).collect::<Result<_, String>>()?;
     Ok(json!({"nodes":nodes,"total":ids.len(),"offset":offset}))
 }
 pub fn receipt(before: &Document, after: &Document) -> Result<Value, String> {
@@ -374,7 +377,7 @@ pub fn receipt(before: &Document, after: &Document) -> Result<Value, String> {
         .filter(|n| old.nodes.iter().find(|o| o.id == n.id) != Some(n))
         .collect();
     Ok(
-        json!({"total_changed_nodes":changed.len(),"nodes":changed.iter().take(200).map(|n|json!({"node":n.id,"operator":n.configuration().operator().id})).collect::<Vec<_>>(),"removed":old.nodes.iter().filter(|n|!new.nodes.iter().any(|v|v.id==n.id)).take(200).map(|n|n.id).collect::<Vec<_>>(),"output":new.output,"truncated":changed.len()>200}),
+        json!({"total_changed_nodes":changed.len(),"nodes":changed.iter().take(200).map(|n|json!({"node":n.id,"operator":n.operation.operation})).collect::<Vec<_>>(),"removed":old.nodes.iter().filter(|n|!new.nodes.iter().any(|v|v.id==n.id)).take(200).map(|n|n.id).collect::<Vec<_>>(),"output":new.output,"truncated":changed.len()>200}),
     )
 }
 

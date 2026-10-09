@@ -2,6 +2,7 @@
 use crate::{Node, OperationConfig};
 mod bindings;
 pub use bindings::Channels;
+pub(crate) use bindings::PreparedChannels;
 use fold_foundation::Time;
 use std::collections::BTreeMap;
 
@@ -268,9 +269,51 @@ pub fn path(property: &str, component: usize) -> String {
     format!("{property}.{component}")
 }
 impl Node {
+    pub fn set_property(&mut self, id: &str, values: &[f64]) -> Result<(), String> {
+        let mut config = self.prepare()?.config().clone();
+        if id == "mix" && config.operator().supports_effect() {
+            if values.len() != 1 || !values[0].is_finite() || !(0.0..=1.).contains(&values[0]) {
+                return Err("Mix must be finite and in 0..1".into());
+            }
+            self.effect.mix = values[0] as f32;
+            Ok(())
+        } else {
+            config.set_property(id, values)?;
+            self.set_configuration(config)
+        }
+    }
+    pub fn remove_animation_channel(&mut self, path: &str, time: Time) -> Result<(), String> {
+        let value = self.animation.sample(path, time)?;
+        self.animation.remove(path)?;
+        if let Some(value) = value
+            && let Some((property, component)) = path.rsplit_once('.')
+            && let Ok(component) = component.parse::<usize>()
+            && let Some(mut p) = self
+                .prepare()?
+                .animated_properties()
+                .into_iter()
+                .find(|p| p.id == property)
+            && let Some(v) = p.values.get_mut(component)
+        {
+            *v = value;
+            self.set_property(property, &p.values)?;
+        }
+        Ok(())
+    }
+}
+impl crate::PreparedNode<'_> {
+    pub fn evaluated_effect(&self, time: Time) -> Result<crate::Effect, String> {
+        let mut effect = self.effect.clone();
+        if let Some(value) = self.tracks().sample("mix.0", time)? {
+            effect.mix = value as f32;
+        }
+        effect.validate()?;
+        Ok(effect)
+    }
+
     pub fn animated_properties(&self) -> Vec<Property> {
-        let mut properties = self.configuration().animated_properties();
-        if self.configuration().operator().supports_effect() {
+        let mut properties = self.config().animated_properties();
+        if self.config().operator().supports_effect() {
             properties.push(Property {
                 id: "mix".into(),
                 label: "Mix".into(),
@@ -282,52 +325,12 @@ impl Node {
         }
         properties
     }
-    pub fn set_property(&mut self, id: &str, values: &[f64]) -> Result<(), String> {
-        if id == "mix" && self.configuration().operator().supports_effect() {
-            if values.len() != 1 || !values[0].is_finite() || !(0.0..=1.).contains(&values[0]) {
-                return Err("Mix must be finite and in 0..1".into());
-            }
-            self.effect.mix = values[0] as f32;
-            Ok(())
-        } else {
-            let mut config = self.configuration();
-            config.set_property(id, values)?;
-            self.set_configuration(config)
-        }
-    }
-    pub fn evaluated_effect(&self, time: Time) -> Result<crate::Effect, String> {
-        let mut effect = self.effect.clone();
-        if let Some(value) = self.animation.sample("mix.0", time)? {
-            effect.mix = value as f32;
-        }
-        effect.validate()?;
-        Ok(effect)
-    }
-
-    pub fn remove_animation_channel(&mut self, path: &str, time: Time) -> Result<(), String> {
-        let value = self.animation.sample(path, time)?;
-        self.animation.remove(path)?;
-        if let Some(value) = value
-            && let Some((property, component)) = path.rsplit_once('.')
-            && let Ok(component) = component.parse::<usize>()
-            && let Some(mut p) = self
-                .animated_properties()
-                .into_iter()
-                .find(|p| p.id == property)
-            && let Some(v) = p.values.get_mut(component)
-        {
-            *v = value;
-            self.set_property(property, &p.values)?;
-        }
-        Ok(())
-    }
-
     pub fn evaluated_parameters(&self, time: Time) -> Result<OperationConfig, String> {
-        let mut parameters = self.try_configuration()?;
+        let mut parameters = self.config().clone();
         for mut property in parameters.animated_properties() {
             let mut animated = false;
             for (i, value) in property.values.iter_mut().enumerate() {
-                if let Some(sample) = self.animation.sample(&path(&property.id, i), time)? {
+                if let Some(sample) = self.tracks().sample(&path(&property.id, i), time)? {
                     *value = sample;
                     animated = true;
                 }
@@ -345,8 +348,7 @@ impl Node {
             .into_iter()
             .flat_map(|p| (0..p.values.len()).map(move |i| (path(&p.id, i), p.range)))
             .collect();
-        self.animation.validate()?;
-        for path in self.animation.bindings().keys() {
+        for path in self.tracks().paths() {
             if !available.contains_key(path) {
                 return Err(format!("Unknown animation channel {path}"));
             }

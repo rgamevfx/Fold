@@ -12,7 +12,7 @@ pub(super) struct Context<'a> {
     pub host: &'a mut dyn DesktopClient,
 }
 impl Context<'_> {
-    fn templates(&self) -> Vec<(NodeTemplate, P)> {
+    fn templates(&self) -> Result<Vec<(NodeTemplate, P)>, String> {
         let graph = self.state.graph.as_ref().unwrap();
         let mut templates: Vec<_> = crate::OPERATORS
             .iter()
@@ -99,11 +99,12 @@ impl Context<'_> {
                 }
             }
         }
-        for node in &graph.nodes {
+        let prepared = graph.prepare()?;
+        for node in prepared.nodes() {
             if let P::Read {
                 source: Source::Asset { asset, .. } | Source::Exr { asset, .. },
                 ..
-            } = &node.configuration()
+            } = node.config()
             {
                 templates.push((
                     NodeTemplate {
@@ -111,11 +112,11 @@ impl Context<'_> {
                         label: format!("Read media {asset:?}"),
                         category: "Media".into(),
                     },
-                    node.configuration().clone(),
+                    node.config().clone(),
                 ));
             }
         }
-        templates
+        Ok(templates)
     }
     fn apply(
         &self,
@@ -126,7 +127,8 @@ impl Context<'_> {
             GraphChange::Connect(wire) => {
                 if graph
                     .node(wire.source.node)?
-                    .configuration()
+                    .prepare()?
+                    .config()
                     .operator()
                     .output_key()
                     != wire.source.key
@@ -152,7 +154,7 @@ impl Context<'_> {
             }
             GraphChange::Add { template, position } => {
                 let parameters = self
-                    .templates()
+                    .templates()?
                     .into_iter()
                     .find(|(t, _)| &t.key == template)
                     .ok_or("Node template is no longer available")?
@@ -179,6 +181,13 @@ impl GraphContext for Context<'_> {
 
     fn graph(&self) -> GraphView {
         let graph = self.state.graph.as_ref().unwrap();
+        let prepared = graph.prepare();
+        let error = prepared
+            .as_ref()
+            .err()
+            .cloned()
+            .unwrap_or_else(|| self.state.error.clone());
+        let nodes = prepared.as_ref().map(|p| p.nodes()).unwrap_or(&[]);
         GraphView {
             key: GraphKey {
                 document: self.state.document.unwrap(),
@@ -187,19 +196,18 @@ impl GraphContext for Context<'_> {
             generation: self.state.generation,
             selected: self.state.selected.clone(),
             has_parent: false,
-            error: self.state.error.clone(),
-            nodes: graph
-                .nodes
+            error,
+            nodes: nodes
                 .iter()
                 .map(|n| {
-                    let config = n.configuration();
+                    let config = n.config();
                     let op = config.operator();
                     NodeView {
                         id: n.id,
                         label: if let P::Read {
                             source: Source::Document { source, .. },
                             ..
-                        } = &n.configuration()
+                        } = n.config()
                         {
                             self.host
                                 .snapshot()
@@ -218,36 +226,36 @@ impl GraphContext for Context<'_> {
                                 })
                                 .unwrap_or("Document".into())
                         } else {
-                            if let P::Instance { instance, .. } = &n.configuration() {
+                            if let P::Instance { instance, .. } = n.config() {
                                 fold_ui::sdk::effects::name(self.host, &instance.definition)
                             } else {
                                 op.label().to_string()
                             }
                         },
-                        summary: summary(&n.configuration()),
+                        summary: summary(n.config()),
                         position: n.position,
                         can_open: matches!(
-                            n.configuration(),
+                            n.config(),
                             P::Read {
                                 source: Source::Document { .. },
                                 ..
                             }
                         ),
-                        color: match n.configuration() {
+                        color: match n.config() {
                             P::Read { .. } | P::Solid { .. } => GRAPH_COLORS.source,
                             P::Composite { .. } => GRAPH_COLORS.merge,
                             _ => color(op.output.clone()),
                         },
-                        inputs: (0..n.configuration().input_count())
+                        inputs: (0..n.config().input_count())
                             .map(|i| PortView {
-                                key: n.configuration().input_key(i).into(),
+                                key: n.config().input_key(i).into(),
                                 label: match (op.id, i) {
                                     ("Merge", 0) => "A · Foreground",
                                     ("Merge", 1) => "B · Background",
                                     _ => config.input_key(i),
                                 }
                                 .into(),
-                                color: color(n.configuration().input_type(i)),
+                                color: color(n.config().input_type(i)),
                             })
                             .chain(op.supports_effect().then(|| PortView {
                                 key: "mask".into(),
@@ -255,7 +263,7 @@ impl GraphContext for Context<'_> {
                                 color: GRAPH_COLORS.mask,
                             }))
                             .collect(),
-                        outputs: if matches!(n.configuration(), P::Output) {
+                        outputs: if matches!(n.config(), P::Output) {
                             vec![]
                         } else {
                             vec![PortView {
@@ -267,8 +275,7 @@ impl GraphContext for Context<'_> {
                     }
                 })
                 .collect(),
-            wires: graph
-                .nodes
+            wires: nodes
                 .iter()
                 .flat_map(|n| {
                     n.input_ids()
@@ -278,17 +285,19 @@ impl GraphContext for Context<'_> {
                             source.map(|source| WireView {
                                 source: Socket {
                                     node: source,
-                                    key: graph
+                                    key: prepared
+                                        .as_ref()
+                                        .unwrap()
                                         .node(source)
                                         .unwrap()
-                                        .configuration()
+                                        .config()
                                         .operator()
                                         .output_key()
                                         .into(),
                                 },
                                 target: Socket {
                                     node: n.id,
-                                    key: n.configuration().input_key(i).into(),
+                                    key: n.config().input_key(i).into(),
                                 },
                             })
                         })
@@ -296,10 +305,12 @@ impl GraphContext for Context<'_> {
                             WireView {
                                 source: Socket {
                                     node: source,
-                                    key: graph
+                                    key: prepared
+                                        .as_ref()
+                                        .unwrap()
                                         .node(source)
                                         .unwrap()
-                                        .configuration()
+                                        .config()
                                         .operator()
                                         .output_key()
                                         .into(),
@@ -315,7 +326,11 @@ impl GraphContext for Context<'_> {
         }
     }
     fn catalog(&self) -> Vec<NodeTemplate> {
-        self.templates().into_iter().map(|(t, _)| t).collect()
+        self.templates()
+            .unwrap_or_default()
+            .into_iter()
+            .map(|(t, _)| t)
+            .collect()
     }
     fn validate(&self, change: &GraphChange) -> Result<(), String> {
         let mut graph = self.state.graph.clone().ok_or("No composite graph")?;

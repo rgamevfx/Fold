@@ -106,9 +106,16 @@ impl Panel for Inspector {
         let Some(node) = state.graph.as_mut().and_then(|g| g.node_mut(id).ok()) else {
             return;
         };
+        let config = match node.prepare() {
+            Ok(prepared) => prepared.config().clone(),
+            Err(error) => {
+                state.error = error;
+                return;
+            }
+        };
         ui.text(
             if matches!(
-                node.configuration(),
+                config,
                 P::Read {
                     source: crate::Source::Document { .. },
                     ..
@@ -116,7 +123,7 @@ impl Panel for Inspector {
             ) {
                 "Image Reference"
             } else {
-                node.configuration().operator().label()
+                config.operator().label()
             },
         );
         ui.separator();
@@ -125,8 +132,14 @@ impl Panel for Inspector {
             mut navigate,
             choose_source,
         } = super::read::draw(ui, node, host, aces, &mut response);
-        for property in node
-            .animated_properties()
+        let properties = match node.prepare() {
+            Ok(prepared) => prepared.animated_properties(),
+            Err(error) => {
+                state.error = error;
+                return;
+            }
+        };
+        for property in properties
             .into_iter()
             .filter(|property| property.id != "mix")
         {
@@ -143,7 +156,13 @@ impl Panel for Inspector {
             );
         }
         let mut shader_migration = None;
-        let mut config = node.configuration();
+        let mut config = match node.prepare() {
+            Ok(prepared) => prepared.config().clone(),
+            Err(error) => {
+                state.error = error;
+                return;
+            }
+        };
         match &mut config {
             P::Shader { settings } => {
                 shader_migration = self.2.draw(ui, document.map(|d| (d, id)), settings);
@@ -346,7 +365,10 @@ impl Panel for Inspector {
                 &mut response,
             );
             if let Some(property) = node
-                .animated_properties()
+                .prepare()
+                .ok()
+                .map(|p| p.animated_properties())
+                .unwrap_or_default()
                 .into_iter()
                 .find(|property| property.id == "mix")
             {

@@ -1,7 +1,7 @@
 # Fold Codebase Maintenance Plan
 
 **Date:** 9 October 2026
-**Status:** C0 baseline complete, with native measurement failures recorded. C1 and C2 complete; desktop/native acceptance limitations remain recorded. C3–C9 not started.
+**Status:** C0 baseline complete, with native measurement failures recorded. C1–C3 complete; desktop/native acceptance limitations remain recorded. C4–C9 not started.
 **Audit baseline:** `6280fb6` — Implement M5c parameter references and scoped inspection.
 
 ## Purpose and authority
@@ -31,7 +31,7 @@ M3–M5 and M5a–M5c acceptance remain open. The desktop freeze remains unresol
 | C0 | Baseline, deletion inventory, and acceptance fixtures | None | Complete; native failures remain open |
 | C1 | One supported generation of documents and operations | C0 | Complete; see evidence and limitations |
 | C2 | Typed failures and explicit provider capabilities | C1 | Complete; see evidence and limitations |
-| C3 | Prepared Compositor representation | C2 | Planned |
+| C3 | Prepared Compositor representation | C2 | Complete; see evidence and limitations |
 | C4 | Provider-owned agent editing | C3 | Planned |
 | C5 | Focused application coordinator | C4 | Planned |
 | C6 | Explicit desktop workspace and viewer state | C5 | Planned |
@@ -109,6 +109,8 @@ Native desktop captures failed with SIGSEGV in release and debug; a control also
 5. Preserve valid image kernels and shared graph semantics; remove the superseded conversion path.
 
 **Gate:** Current operations, animation, channels, masks, and reusable instances retain specified behavior and pixels. Invalid records return diagnostics. Preparation counters demonstrate configuration decoding is not repeated by each consumer within one preparation.
+
+**C3 completion — 9 October 2026:** [Results and limitations](maintenance/evidence/c3/result.md). Immutable validated Compositor preparation now shares typed operation/animation contracts and stable-ID indexes across execution consumers; native records remain authoritative. Deleted the repeated configuration accessors and their panic assumption. Decode counters prove one operation decode per prepared record, with unchanged counts after traversal, channels, sampling and invocation binding. 69 focused tests and affected desktop/all-target and headless checks passed; one native capture remains ignored. Existing desktop failures and Motion acceptance gates remain open. C4 and M6 have not begun.
 
 ## C4 — Rewrite agent dispatch around provider ownership
 

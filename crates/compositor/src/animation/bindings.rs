@@ -126,17 +126,6 @@ impl Channels {
         self.0.remove(path);
         Ok(())
     }
-    /// Instance values shadow definition tracks in a transient evaluation copy.
-    /// Protection still applies to every authored mutation of the definition.
-    pub(crate) fn for_evaluation_without(&self, prefix: &str) -> Self {
-        Self(
-            self.0
-                .iter()
-                .filter(|(path, _)| !path.starts_with(prefix))
-                .map(|(path, parameter)| (path.clone(), parameter.clone()))
-                .collect(),
-        )
-    }
     /// A shader interface rename moves the native record, not a reconstructed curve.
     pub fn remap(&self, names: &BTreeMap<String, Option<String>>) -> Result<Self, String> {
         let mut result = BTreeMap::new();
@@ -170,18 +159,32 @@ impl Channels {
         }
         Ok(copy)
     }
-    pub(crate) fn identities(&self) -> Result<Vec<fold_foundation::ObjectId>, String> {
-        let mut ids = Vec::new();
-        for parameter in self.0.values() {
-            let track = Self::track(parameter)?;
-            ids.extend([parameter.id, track.id]);
-            ids.extend(track.keys.iter().map(|key| key.id));
-        }
-        Ok(ids)
-    }
     pub fn validate(&self) -> Result<(), String> {
-        let mut ids = std::collections::BTreeSet::new();
-        for parameter in self.0.values() {
+        self.prepare().map(|_| ())
+    }
+    pub fn check_protection(&self, next: &Self) -> Result<(), String> {
+        for (path, parameter) in &self.0 {
+            if parameter.protected && next.0.get(path) != Some(parameter) {
+                return Err("Animation parameter is protected".into());
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Decoded scalar contracts shared by validation, sampling and channel inspection.
+pub(crate) struct PreparedChannels {
+    tracks: BTreeMap<String, Track>,
+    identities: Vec<fold_foundation::ObjectId>,
+    parameters: BTreeMap<fold_foundation::ObjectId, String>,
+}
+impl Channels {
+    pub(crate) fn prepare(&self) -> Result<PreparedChannels, String> {
+        let mut tracks = BTreeMap::new();
+        let mut identities = Vec::new();
+        let mut parameters = BTreeMap::new();
+        let mut unique = std::collections::BTreeSet::new();
+        for (path, parameter) in &self.0 {
             fold_graph::model::extension_keys(
                 &parameter.extensions,
                 &["id", "value", "protected"],
@@ -191,19 +194,52 @@ impl Channels {
                 .into_iter()
                 .chain(track.keys.iter().map(|key| key.id))
             {
-                if !ids.insert(id) {
+                if !unique.insert(id) {
                     return Err("Duplicate animation identity".into());
                 }
+                identities.push(id);
             }
+            parameters.insert(parameter.id, path.clone());
+            tracks.insert(path.clone(), track);
         }
-        Ok(())
+        Ok(PreparedChannels {
+            tracks,
+            identities,
+            parameters,
+        })
     }
-    pub fn check_protection(&self, next: &Self) -> Result<(), String> {
-        for (path, parameter) in &self.0 {
-            if parameter.protected && next.0.get(path) != Some(parameter) {
-                return Err("Animation parameter is protected".into());
-            }
-        }
-        Ok(())
+}
+impl PreparedChannels {
+    pub fn parameter_path(&self, id: fold_foundation::ObjectId) -> Option<&str> {
+        self.parameters.get(&id).map(String::as_str)
+    }
+    pub fn identities(&self) -> &[fold_foundation::ObjectId] {
+        &self.identities
+    }
+    pub fn len(&self) -> usize {
+        self.tracks.len()
+    }
+    pub fn paths(&self) -> impl Iterator<Item = &String> {
+        self.tracks.keys()
+    }
+    pub fn sample(&self, path: &str, time: Time) -> Result<Option<f64>, String> {
+        self.tracks
+            .get(path)
+            .map(|track| {
+                let Literal::Scalar { value } = track.sample(time)? else {
+                    return Err("Expected scalar animation result".into());
+                };
+                Ok(value)
+            })
+            .transpose()
+    }
+    pub fn curve(&self, path: &str) -> Result<Option<Curve>, String> {
+        self.tracks
+            .get(path)
+            .map(|track| Ok(fold_graph::curves::curves(track)?.remove(0).1))
+            .transpose()
+    }
+    pub fn shadow(&mut self, prefix: &str) {
+        self.tracks.retain(|path, _| !path.starts_with(prefix));
     }
 }

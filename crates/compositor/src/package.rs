@@ -42,10 +42,10 @@ fn edit(snapshot: &Snapshot, args: &[u8], _: &Cancel) -> Result<EditBatch, Strin
 }
 fn publish_shader(snapshot: &Snapshot, args: &[u8], cancel: &Cancel) -> Result<EditBatch, String> {
     let candidate: EditArgs = serde_json::from_slice(args).map_err(|e| e.to_string())?;
-    candidate.composite.validate()?;
-    for node in &candidate.composite.nodes {
+    let prepared = candidate.composite.prepare()?;
+    for node in prepared.nodes() {
         cancel.check()?;
-        if let crate::OperationConfig::Shader { settings } = &node.configuration() {
+        if let crate::OperationConfig::Shader { settings } = node.config() {
             settings
                 .program(
                     fold_platform::format::Format::square([
@@ -251,7 +251,9 @@ impl fold_platform::packages::Relink for Documents {
         asset: fold_foundation::AssetId,
         metadata: &fold_media::ingest::SourceMetadata,
     ) -> Result<(), String> {
-        for node in Composite::from_document(document)?.nodes {
+        let native = Composite::read_document(document)?;
+        let prepared = native.prepare_document(document)?;
+        for node in prepared.nodes() {
             if let crate::OperationConfig::Read {
                 source:
                     crate::Source::Exr {
@@ -261,7 +263,7 @@ impl fold_platform::packages::Relink for Documents {
                         ..
                     },
                 ..
-            } = &node.configuration()
+            } = node.config()
                 && *id == asset
                 && !matches!(&metadata.profile, fold_media::ingest::SourceProfile::Exr(new) if image.compatible_pixels(new) && match (sequence, &new.sequence) { (None,None) => true, (Some(expected),Some(actual)) => expected.matches(actual), _ => false })
             {
@@ -270,10 +272,10 @@ impl fold_platform::packages::Relink for Documents {
             if let crate::OperationConfig::Read {
                 source: crate::Source::Asset { asset: id, info },
                 ..
-            } = node.configuration()
-                && id == asset
+            } = node.config()
+                && *id == asset
                 && !match &metadata.profile {
-                    fold_media::ingest::SourceProfile::Video(updated) => *updated == info,
+                    fold_media::ingest::SourceProfile::Video(updated) => updated == info,
                     fold_media::ingest::SourceProfile::Ppm { dimensions } => {
                         *dimensions == [info.width, info.height]
                     }

@@ -6,10 +6,11 @@ use fold_platform::animation::{Channel, Target};
 use fold_project::Document;
 
 pub(crate) fn channels(document: &Document, _: Option<ObjectId>) -> Result<Vec<Channel>, String> {
-    let graph = Composite::from_document(document)?;
+    let native = Composite::read_document(document)?;
+    let graph = native.prepare_document(document)?;
     let mut result = vec![];
     for (index, node) in graph.nodes.iter().enumerate() {
-        if let Some(instance) = node.native_instance()? {
+        if let Some(instance) = node.instance.as_ref() {
             for (name, parameter) in &instance.overrides {
                 let Binding::List { values } = parameter.binding()? else {
                     return Err("Invalid instance override".into());
@@ -38,18 +39,14 @@ pub(crate) fn channels(document: &Document, _: Option<ObjectId>) -> Result<Vec<C
         for property in node.animated_properties() {
             for (i, component) in property.channels.iter().enumerate() {
                 let path = crate::animation::path(&property.id, i);
-                if let Some(curve) = node.animation.curve(&path)? {
+                if let Some(curve) = node.tracks().curve(&path)? {
                     result.push(Channel {
                         target: Target {
                             group: None,
                             object: node.id,
                             path,
                         },
-                        node_label: format!(
-                            "{} {}",
-                            node.configuration().operator().label(),
-                            index + 1
-                        ),
+                        node_label: format!("{} {}", node.config().operator().label(), index + 1),
                         property: property.id.clone(),
                         property_label: property.label.clone(),
                         component: (*component).into(),

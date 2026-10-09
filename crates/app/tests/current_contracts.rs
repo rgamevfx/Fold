@@ -88,11 +88,11 @@ fn retired_operation_records_roundtrip_without_execution() {
             .unwrap();
         let mut node = fold_compositor::Node::disconnected(operator.defaults(&info).unwrap());
         node.operation.version = 1;
-        assert!(node.try_configuration().is_err());
+        assert!(node.prepare().is_err());
         let encoded = serde_json::to_vec(&node).unwrap();
         let decoded: fold_compositor::Node = serde_json::from_slice(&encoded).unwrap();
         assert_eq!(serde_json::to_vec(&decoded).unwrap(), encoded);
-        assert!(decoded.try_configuration().is_err());
+        assert!(decoded.prepare().is_err());
     }
 }
 

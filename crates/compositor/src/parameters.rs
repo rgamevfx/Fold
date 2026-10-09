@@ -11,7 +11,8 @@ use fold_platform::parameters::{Descriptor, Target};
 use fold_project::Document;
 
 pub(crate) fn catalog(document: &Document) -> Result<Vec<Descriptor>, String> {
-    let graph = Composite::from_document(document)?;
+    let native = Composite::read_document(document)?;
+    let graph = native.prepare_document(document)?;
     let mut result = vec![];
     for node in &graph.nodes {
         for (name, parameter) in &node.operation.parameters {
@@ -62,31 +63,18 @@ pub(crate) fn sample(
     if !target.occurrence.is_empty() {
         return Err("Compositor occurrence sampling is not available".into());
     }
-    let graph = Composite::from_document(document)?;
-    let node = graph
-        .nodes
-        .iter()
-        .find(|node| Some(node.id) == target.object)
-        .ok_or("Missing parameter owner")?;
-    if let Some((path, _)) = node
-        .animation
-        .bindings()
-        .iter()
-        .find(|(_, p)| Some(p.id) == target.parameter.native())
-    {
+    let native = Composite::read_document(document)?;
+    let graph = native.prepare_document(document)?;
+    let node = graph.node(target.object.ok_or("Missing parameter owner")?)?;
+    let parameter = target.parameter.native().ok_or("Missing parameter")?;
+    if let Some(path) = node.tracks().parameter_path(parameter) {
         let value = node
-            .animation
+            .tracks()
             .sample(path, time)?
             .ok_or("Missing animation parameter")?;
         return fold_platform::parameters::select_component(Literal::Scalar { value }, target);
     }
-    let name = node
-        .operation
-        .parameters
-        .iter()
-        .find(|(_, p)| Some(p.id) == target.parameter.native())
-        .map(|(name, _)| name)
-        .ok_or("Missing parameter")?;
+    let name = node.parameter_name(parameter)?;
     let values = crate::operation::parameter_values(&node.evaluated_parameters(time)?);
     let value = values.get(name).ok_or("Missing evaluated parameter")?;
     let Binding::Literal { value } =

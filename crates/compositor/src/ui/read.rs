@@ -20,7 +20,11 @@ pub(super) fn draw(
     response: &mut Response,
 ) -> Actions {
     let mut actions = Actions::default();
-    let mut config = node.configuration();
+    let Ok(prepared) = node.prepare() else {
+        return actions;
+    };
+    let mut config = prepared.config().clone();
+    drop(prepared);
     let OperationConfig::Read {
         source,
         start,
@@ -300,7 +304,7 @@ pub(super) fn source_location(node: &Node, time: Time) -> Option<ViewLocation> {
         start,
         source_start,
         duration,
-    } = &node.configuration()
+    } = &node.prepare().ok()?.config().clone()
     else {
         return None;
     };
