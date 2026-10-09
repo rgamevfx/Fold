@@ -1,4 +1,31 @@
 use super::*;
+
+#[test]
+fn network_targets_are_per_group_and_independent_of_inspector_lock() {
+    let (mut workspace, [a, b], _, _) = fixture();
+    workspace.follow_network(a);
+    workspace.follow_network(b);
+    workspace.toggle_inspector_lock();
+    workspace.record_selection(b);
+    assert_eq!(workspace.inspector_editor(), Some(a));
+    assert_eq!(workspace.network_target(LinkGroup::A), Some(a));
+    assert_eq!(workspace.network_target(LinkGroup::B), Some(b));
+    workspace.network_group = LinkGroup::B;
+    assert_eq!(workspace.inspector_group, LinkGroup::A);
+    workspace.set_editor_group(b, LinkGroup::Unlinked);
+    workspace.follow_network(b);
+    workspace.record_selection(b);
+    assert!(!workspace.network_targets.contains_key(&LinkGroup::Unlinked));
+    assert!(
+        !workspace
+            .group_selections
+            .contains_key(&LinkGroup::Unlinked)
+    );
+    assert_eq!(workspace.network_target(LinkGroup::B), None);
+    workspace.close_editor(a);
+    assert!(workspace.inspector_lock.is_none());
+    assert_eq!(workspace.network_target(LinkGroup::A), None);
+}
 fn location(document: DocumentId) -> ViewLocation {
     ViewLocation {
         document,

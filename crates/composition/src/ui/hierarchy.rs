@@ -7,7 +7,6 @@ use std::collections::BTreeMap;
 
 #[derive(Default)]
 pub(super) struct Projection {
-    ids: BTreeMap<(ObjectId, ObjectId), ObjectId>,
     order: Vec<ObjectId>,
     pub rows: BTreeMap<ObjectId, Row>,
 }
@@ -29,17 +28,12 @@ impl Projection {
         hierarchy: Hierarchy,
         locked: bool,
     ) {
-        for row in &hierarchy.rows {
-            self.ids
-                .entry((layer.id, row.id))
-                .or_insert_with(ObjectId::new);
-        }
         for row in hierarchy.rows {
-            let id = self.ids[&(layer.id, row.id)];
+            let id = view_id(layer.id, row.id);
             self.order.push(id);
             let parent = row
                 .parent
-                .and_then(|parent| self.ids.get(&(layer.id, parent)).copied())
+                .map(|parent| view_id(layer.id, parent))
                 .unwrap_or(layer.id);
             self.rows.insert(
                 id,
@@ -68,14 +62,26 @@ impl Projection {
         }
     }
     pub fn view(&self, layer: ObjectId, object: ObjectId) -> Option<ObjectId> {
-        self.ids
-            .get(&(layer, object))
-            .copied()
-            .filter(|id| self.rows.contains_key(id))
+        let id = view_id(layer, object);
+        self.rows.contains_key(&id).then_some(id)
     }
     pub fn tracks(&self) -> impl Iterator<Item = Track> + '_ {
         self.order.iter().map(|id| self.rows[id].track.clone())
     }
+}
+
+// Stable across editor instances and workspace reopen; qualified by layer occurrence.
+fn view_id(layer: ObjectId, object: ObjectId) -> ObjectId {
+    use sha2::{Digest, Sha256};
+    let hash = Sha256::new()
+        .chain_update(b"fold.composition.hierarchy.v1")
+        .chain_update(layer.to_bytes())
+        .chain_update(object.to_bytes())
+        .finalize();
+    let mut bytes: [u8; 16] = hash[..16].try_into().unwrap();
+    bytes[6] = (bytes[6] & 0x0f) | 0x80;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    ObjectId::from_bytes(bytes)
 }
 
 #[cfg(test)]

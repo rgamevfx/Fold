@@ -23,7 +23,6 @@ pub(super) struct State {
     original_channels: std::collections::BTreeMap<ObjectId, Vec<fold_platform::animation::Channel>>,
     edit_time: Option<Time>,
     pub error: String,
-    network_layer: Option<(DocumentId, ObjectId, DocumentId)>,
 }
 impl State {
     pub fn sync(&mut self, host: &mut dyn DesktopClient) {
@@ -187,9 +186,6 @@ impl State {
             document: self.document,
             objects: ids,
         }));
-        // An explicit selection also restores a network changed in another panel.
-        self.network_layer = None;
-        self.follow_layer(host);
     }
     pub fn select_layer(
         &mut self,
@@ -222,57 +218,30 @@ impl State {
         }
         self.select(host, selected);
     }
-    pub fn follow_layer(&mut self, host: &mut dyn DesktopClient) {
-        let target = self.document.and_then(|document| {
-            let [id] = self.selected.as_slice() else {
-                return None;
-            };
-            let layer_id = self.hierarchy.rows.get(id).map_or(*id, |row| row.layer);
-            let layer = self.composition.as_ref()?.layer(layer_id).ok()?;
-            let Some(fold_platform::image_source::Source::Output(source)) = &layer.source else {
-                return None;
-            };
-            let snapshot = host.snapshot()?;
-            let graph = snapshot.state().documents.get(&source.document)?;
-            (graph
-                .extensions
-                .get(crate::LAYER_GRAPH)
-                .and_then(|v| v.as_bool())
-                == Some(true))
-            .then_some((document, *id, source.document))
-        });
-        if target != self.network_layer {
-            self.network_layer = target;
-            if let Some((_, id, _)) = target
-                && let Err(error) = self.open(host, id)
-            {
-                self.error = error;
-            }
-        }
-    }
-    pub fn open(&mut self, host: &mut dyn DesktopClient, id: ObjectId) -> Result<(), String> {
-        let (layer_id, objects) = self
-            .hierarchy
-            .rows
-            .get(&id)
-            .map_or((id, vec![]), |row| (row.layer, vec![row.object]));
-        let layer = self
-            .composition
-            .as_ref()
-            .ok_or("No composition")?
-            .layer(layer_id)?;
-        let Some(fold_platform::image_source::Source::Output(source)) = &layer.source else {
-            return Err("This layer has no editable source graph".into());
+    pub fn selection_target(
+        &self,
+        host: &dyn DesktopClient,
+    ) -> Result<Option<fold_ui::sdk::SelectionTarget>, String> {
+        let [id] = self.selected.as_slice() else {
+            return Ok(None);
         };
-        let time = layer.local_time(time(host))?;
-        let info = host.video_info(source.document)?;
-        if time < Time::ZERO || time >= info.time(info.frames)? {
-            return Err("Playhead is outside the source range".into());
-        }
-        let location = ViewLocation {
-            document: source.document,
-            time,
-            label: layer.name.clone(),
+        Ok(self
+            .content_target(host, *id)?
+            .and_then(|(target, graph)| graph.then_some(target)))
+    }
+    fn content_target(
+        &self,
+        host: &dyn DesktopClient,
+        id: ObjectId,
+    ) -> Result<Option<(fold_ui::sdk::SelectionTarget, bool)>, String> {
+        let row = self.hierarchy.rows.get(&id);
+        let layer_id = row.map_or(id, |row| row.layer);
+        let Some(composition) = &self.composition else {
+            return Ok(None);
+        };
+        let layer = composition.layer(layer_id)?;
+        let Some(fold_platform::image_source::Source::Output(source)) = &layer.source else {
+            return Ok(None);
         };
         let graph = host.snapshot().is_some_and(|s| {
             s.state().documents.get(&source.document).is_some_and(|d| {
@@ -282,6 +251,32 @@ impl State {
                     == Some(true)
             })
         });
+        Ok(Some((
+            fold_ui::sdk::SelectionTarget {
+                location: ViewLocation {
+                    document: source.document,
+                    time: layer.local_time(time(host))?,
+                    label: layer.name.clone(),
+                },
+                objects: row.map(|row| vec![row.object]).unwrap_or_default(),
+                inspect_content: row.is_some(),
+            },
+            graph,
+        )))
+    }
+    pub fn open(&mut self, host: &mut dyn DesktopClient, id: ObjectId) -> Result<(), String> {
+        let (target, graph) = self
+            .content_target(host, id)?
+            .ok_or("This layer has no editable source graph")?;
+        let location = target.location;
+        let objects = target.objects;
+        // Source navigation requires a playable frame; selection linking does not.
+        if !graph {
+            let info = host.video_info(location.document)?;
+            if location.time < Time::ZERO || location.time >= info.time(info.frames)? {
+                return Err("Playhead is outside the source range".into());
+            }
+        }
         if graph {
             host.command(DesktopCommand::OpenLayerGraph { location, objects });
         } else {

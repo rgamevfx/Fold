@@ -196,6 +196,13 @@ impl Default for ViewerInstance {
         }
     }
 }
+/// Exact source occurrence for a linked content editor. No feature payload is stored.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SelectionLink {
+    pub parent: PanelInstanceId,
+    pub document: DocumentId,
+    pub occurrence: fold_foundation::ObjectId,
+}
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Workspace {
     /// Derived provider metadata, refreshed by the host and never persisted.
@@ -213,7 +220,13 @@ pub struct Workspace {
     #[serde(default)]
     pub composition_editor: Option<PanelInstanceId>,
     #[serde(default)]
-    pub network_editor: Option<PanelInstanceId>,
+    pub network_targets: BTreeMap<LinkGroup, PanelInstanceId>,
+    #[serde(default)]
+    pub selection_links: BTreeMap<PanelInstanceId, SelectionLink>,
+    #[serde(default)]
+    pub network_group: LinkGroup,
+    #[serde(default)]
+    pub outliner_group: LinkGroup,
     #[serde(default)]
     pub group_selections: BTreeMap<LinkGroup, PanelInstanceId>,
     #[serde(default)]
@@ -242,7 +255,10 @@ impl Default for Workspace {
             viewers: Default::default(),
             focused_editor: None,
             composition_editor: None,
-            network_editor: None,
+            network_targets: Default::default(),
+            selection_links: Default::default(),
+            network_group: LinkGroup::A,
+            outliner_group: LinkGroup::A,
             group_selections: Default::default(),
             inspector_group: LinkGroup::A,
             inspector_lock: None,
@@ -368,6 +384,9 @@ impl Workspace {
     /// Record explicit selection/navigation without retargeting existing viewers.
     pub fn record_selection(&mut self, editor: PanelInstanceId) {
         if let Some(binding) = self.editors.get(&editor) {
+            if binding.group == LinkGroup::Unlinked {
+                return;
+            }
             self.group_selections.insert(binding.group, editor);
             for viewer in self.viewers.values_mut().filter(|v| {
                 v.group == binding.group && v.binding == ViewerBinding::Linked && v.source.is_none()
@@ -405,6 +424,9 @@ impl Workspace {
         }
         self.editors.get_mut(&editor).unwrap().group = group;
         self.group_selections.retain(|_, id| *id != editor);
+        self.network_targets.retain(|_, id| *id != editor);
+        self.selection_links
+            .retain(|id, link| *id != editor && link.parent != editor);
     }
     pub fn set_viewer_group(&mut self, viewer: PanelInstanceId, group: LinkGroup) {
         if group == LinkGroup::Unlinked {
@@ -491,16 +513,37 @@ impl Workspace {
         if let Some((id, _)) = &self.inspector_lock {
             return Some(*id);
         }
+        self.selection_editor(self.inspector_group)
+    }
+    pub fn selection_editor(&self, group: LinkGroup) -> Option<PanelInstanceId> {
+        if group == LinkGroup::Unlinked {
+            return None;
+        }
         self.group_selections
-            .get(&self.inspector_group)
+            .get(&group)
             .copied()
-            .filter(|id| self.editors.contains_key(id))
+            .filter(|id| self.editors.get(id).is_some_and(|e| e.group == group))
             .or_else(|| {
                 self.editors
                     .iter()
-                    .find(|(_, e)| e.group == self.inspector_group && e.document().is_some())
+                    .find(|(_, e)| e.group == group && e.document().is_some())
                     .map(|(&id, _)| id)
             })
+    }
+    pub fn network_target(&self, group: LinkGroup) -> Option<PanelInstanceId> {
+        self.network_targets
+            .get(&group)
+            .copied()
+            .filter(|id| self.editors.get(id).is_some_and(|e| e.group == group))
+            .or_else(|| self.selection_editor(group))
+    }
+    pub fn follow_network(&mut self, editor: PanelInstanceId) {
+        if let Some(binding) = self.editors.get(&editor) {
+            if binding.group == LinkGroup::Unlinked {
+                return;
+            }
+            self.network_targets.insert(binding.group, editor);
+        }
     }
     pub fn toggle_inspector_lock(&mut self) {
         if self.inspector_lock.is_some() {
@@ -603,7 +646,17 @@ impl Workspace {
             }
         }
         self.group_selections
-            .retain(|_, id| self.editors.contains_key(id));
+            .retain(|group, id| self.editors.get(id).is_some_and(|e| e.group == *group));
+        self.network_targets
+            .retain(|group, id| self.editors.get(id).is_some_and(|e| e.group == *group));
+        self.selection_links.retain(|id, link| {
+            self.editors
+                .get(id)
+                .zip(self.editors.get(&link.parent))
+                .is_some_and(|(target, parent)| {
+                    target.group == parent.group && parent.document() == Some(link.document)
+                })
+        });
     }
     pub fn close_editor(&mut self, id: PanelInstanceId) {
         self.reconcile(); // Capture the last target before removing its owner.
@@ -624,9 +677,7 @@ impl Workspace {
         {
             self.inspector_lock = None;
         }
-        if self.network_editor == Some(id) {
-            self.network_editor = None;
-        }
+        self.network_targets.retain(|_, editor| *editor != id);
         if self.composition_editor == Some(id) {
             self.composition_editor = None;
         }
@@ -647,6 +698,7 @@ impl Workspace {
         preset.project.clear();
         preset.preset_name = None;
         preset.inspector_lock = None;
+        preset.selection_links.clear();
         for editor in preset.editors.values_mut() {
             editor.navigation.clear();
             editor.selection = Default::default();
@@ -682,7 +734,7 @@ impl Workspace {
                 .any(|id| value.viewers.contains_key(id) || value.panels.contains_key(id))
             || value.viewers.keys().any(|id| value.panels.contains_key(id))
             || value.editors.values().any(|e| {
-                e.navigation.len() > 64 || e.navigation.iter().any(|v| v.time < Time::ZERO)
+                e.navigation.len() > 64 || e.navigation.first().is_some_and(|v| v.time < Time::ZERO)
             })
             || value
                 .group_selections
@@ -691,7 +743,7 @@ impl Workspace {
             || value.inspector_lock.as_ref().is_some_and(|(id, e)| {
                 !value.editors.contains_key(id)
                     || e.navigation.len() > 64
-                    || e.navigation.iter().any(|v| v.time < Time::ZERO)
+                    || e.navigation.first().is_some_and(|v| v.time < Time::ZERO)
             })
             || value
                 .viewers

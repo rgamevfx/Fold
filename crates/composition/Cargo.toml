@@ -6,9 +6,10 @@ publish.workspace = true
 
 [features]
 default = []
-ui = ["dep:fold-ui"]
+ui = ["dep:fold-ui", "dep:sha2"]
 
 [dependencies]
+sha2 = { version = "0.10", optional = true }
 fold-animation.workspace = true
 fold-foundation.workspace = true
 fold-project.workspace = true

@@ -31,6 +31,8 @@ impl Shell {
         self.bootstrap = false;
         self.last_host_navigation = client.state().navigation_event;
         self.editors.clear();
+        self.selection_events.clear();
+        self.locked_inspector = None;
         self.viewers.clear();
         self.transports.clear();
         self.navigation.clear();

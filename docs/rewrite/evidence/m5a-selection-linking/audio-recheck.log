@@ -1,0 +1,7 @@
+
+running 3 tests
+test linked_edits_offline_audio_export_and_roundtrip ... ok
+test missing_audio_is_silent_and_pinned_pcm_rejects_metadata_changes ... ok
+test sequence_desktop_commands_are_transactional_and_nonblocking ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.45s

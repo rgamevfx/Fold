@@ -77,7 +77,21 @@ pub struct EditorPanels {
     pub editor: Box<dyn Panel>,
     pub inspector: Box<dyn Panel>,
 }
+/// A provider resolves a selection to editable content. The shell owns linking;
+/// observing this target must never issue navigation or selection commands.
+pub struct SelectionTarget {
+    pub location: fold_platform::desktop::ViewLocation,
+    pub objects: Vec<fold_foundation::ObjectId>,
+    /// Scene-object rows inspect their content; image layers inspect placement.
+    pub inspect_content: bool,
+}
 pub trait Panel {
+    fn selection_target(
+        &mut self,
+        _host: &mut dyn DesktopClient,
+    ) -> Result<Option<SelectionTarget>, String> {
+        Ok(None)
+    }
     /// Consume an explicit artist request to reveal the shared Network tab.
     fn take_network_request(&mut self) -> bool {
         false
@@ -99,7 +113,10 @@ pub trait Panel {
 
     /// Provider-owned graph edited inside a composition layer. No standalone window.
     /// Native graph selection expressed as its owning layer object, if any.
-    fn selected_layer_object(&self) -> Option<fold_foundation::ObjectId> {
+    fn selection_owner(
+        &mut self,
+        _host: &mut dyn DesktopClient,
+    ) -> Option<fold_foundation::ObjectId> {
         None
     }
     /// Resolve a graph selection back to the common hierarchy and inherited lock.
@@ -107,6 +124,7 @@ pub trait Panel {
         &self,
         _document: fold_foundation::DocumentId,
         _object: Option<fold_foundation::ObjectId>,
+        _occurrence: Option<fold_foundation::ObjectId>,
     ) -> Option<(fold_foundation::ObjectId, bool)> {
         None
     }

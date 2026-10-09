@@ -1,4 +1,11 @@
 //! Generic instance-aware workspace shell. Feature models stay in providers.
+#[cfg(feature = "native-probe")]
+#[path = "selection_probe.rs"]
+mod selection_probe;
+#[cfg(feature = "native-probe")]
+pub use selection_probe::WorkspaceProbe;
+#[path = "shell_linking.rs"]
+mod linking;
 use crate::{
     group_selector,
     sdk::{EditorPanels, ExtensionUi, RegisteredPanel},
@@ -67,6 +74,8 @@ pub(crate) struct Shell {
     presentation: BTreeMap<PanelInstanceId, (Option<PreviewKey>, Option<String>)>,
     review_actions: Vec<(PanelInstanceId, crate::review::Action)>,
     review_states: BTreeMap<PanelInstanceId, (Option<String>, bool)>,
+    selection_events: Vec<(PanelInstanceId, fold_platform::desktop::Selection)>,
+    locked_inspector: Option<linking::LockedInspector>,
     last_host_navigation: u64,
     bootstrap: bool,
     focus: Option<PanelInstanceId>,
@@ -126,6 +135,8 @@ impl Shell {
             presentation: Default::default(),
             review_actions: vec![],
             review_states: Default::default(),
+            selection_events: vec![],
+            locked_inspector: None,
             last_host_navigation: 0,
             bootstrap: true,
             focus: None,
@@ -334,66 +345,14 @@ impl Shell {
                 }
             }
         }
-        if let Some(editor) = self.editors.get(&id) {
-            if editor.panels.editor.supports_composition() {
-                self.workspace.composition_editor = Some(id);
-            }
-            // Restore the selected layer's graph when returning to its composition.
-            // Otherwise Network follows this document and shows its contextual prompt.
-            let graph = self
-                .workspace
-                .editors
-                .iter()
-                .find_map(|(&graph_id, graph)| {
-                    if graph.group != group || graph_id == id {
-                        return None;
-                    }
-                    let runtime = self.editors.get(&graph_id)?;
-                    let (layer, _) = editor.panels.editor.layer_for_graph(
-                        graph.document()?,
-                        runtime.panels.editor.selected_layer_object(),
-                    )?;
-                    binding
-                        .selection
-                        .objects
-                        .contains(&layer)
-                        .then_some(graph_id)
-                });
-            self.workspace.network_editor = Some(graph.unwrap_or(id));
+        if let Some(editor) = self.editors.get(&id)
+            && editor.panels.editor.supports_composition()
+        {
+            self.workspace.composition_editor = Some(id);
         }
+        self.selection_events
+            .push((id, self.workspace.editors[&id].selection.clone()));
         self.workspace.record_selection(id);
-        self.workspace.focused_editor = Some(id);
-        self.focus = Some(id);
-    }
-
-    /// Open layer content without replacing the parent composition's binding.
-    fn open_layer_graph(&mut self, mut graph: EditorInstance) {
-        let Some(template) = self.panels.iter().find(|p| {
-            p.panel.is_layer_graph()
-                && p.panel.document_type() == Some(graph.document_type.as_str())
-        }) else {
-            return;
-        };
-        let id = self
-            .workspace
-            .editors
-            .iter()
-            .find(|(_, e)| {
-                e.contribution == template.descriptor.id
-                    && e.group == graph.group
-                    && graph.group != workspace::LinkGroup::Unlinked
-            })
-            .map(|(&id, _)| id)
-            .unwrap_or_else(|| {
-                self.workspace
-                    .add_editor(template.descriptor.id, &graph.document_type)
-            });
-        graph.contribution = template.descriptor.id.into();
-        // Keep the requested object: Motion uses it to choose the layer's graph.
-        // Do not publish a group selection here; Composition retains Inspector
-        // ownership until the graph publishes an explicit node selection.
-        self.workspace.editors.insert(id, graph);
-        self.workspace.network_editor = Some(id);
         self.workspace.focused_editor = Some(id);
         self.focus = Some(id);
     }
@@ -549,6 +508,8 @@ impl Shell {
                     self.bootstrap = false;
                     self.last_host_navigation = client.state().navigation_event;
                     self.editors.clear();
+                    self.selection_events.clear();
+                    self.locked_inspector = None;
                     self.viewers.clear();
                     self.sync_instances();
                     self.rebuild_layout();
@@ -580,6 +541,7 @@ impl Shell {
             settings.prepare_frame(context);
         }
         self.sync_instances();
+        self.prepare_locked_inspector(context);
         for editor in self.editors.values_mut() {
             if !editor.initialized {
                 editor
@@ -1066,6 +1028,7 @@ impl Shell {
             .snapshot()
             .map(|s| workspace::document_labels(&s))
             .unwrap_or_default();
+        self.refresh_link_times(client);
         self.visible_editors.clear();
         let edit_times: BTreeMap<_, _> = self
             .workspace
@@ -1176,8 +1139,8 @@ impl Shell {
                     let mut context = PanelContext::new(client, &mut scoped).instance(id).with_cache(&self.cached_previews).with_cache_reference(editor_cache.get(&id).cloned().flatten());
                     editor.panels.editor.draw(ExtensionUi { ui, host: &mut context });
                     if let Some(time) = context.seek_request() { seeks.push((id, time)); }
-                    if context.selection_requested() { publish.push(id); }
-                    if let Some(graph) = context.take_layer_graph() { layer_graphs.push(graph); }
+                    if context.selection_requested() { publish.push((id, context.state().selection.clone())); }
+                    if let Some(graph) = context.take_layer_graph() { layer_graphs.push((id, graph)); }
                     drop(context);
                     if scoped.navigation != navigation { navigations.push((id, scoped)); }
                     else { binding.selection = scoped.selection; }
@@ -1190,9 +1153,7 @@ impl Shell {
         for (id, group) in group_changes {
             self.workspace.set_editor_group(id, group);
         }
-        for id in publish {
-            self.workspace.record_selection(id);
-        }
+        self.selection_events.extend(publish);
         for id in activations.drain(..) {
             self.activate_editor(id, false);
         }
@@ -1209,8 +1170,6 @@ impl Shell {
                 .is_some_and(|e| e.panels.editor.supports_composition())
         {
             self.workspace.composition_editor = Some(id);
-            self.workspace.inspector_group = self.workspace.editors[&id].group;
-            self.workspace.record_selection(id);
         }
         reveal_composition |= self
             .focus
@@ -1230,12 +1189,11 @@ impl Shell {
                 .get(&id)
                 .is_some_and(|e| e.panels.editor.is_layer_graph())
         {
-            self.workspace.network_editor = Some(id);
+            self.workspace.follow_network(id);
         }
         self.focus = None;
         self.refresh_viewer_targets(client);
         self.visible_panels.clear();
-        let mut graph_selections = Vec::new();
         let layer_graph_types: Vec<_> = self
             .panels
             .iter()
@@ -1244,6 +1202,12 @@ impl Shell {
             .collect();
         let mut publish = Vec::new();
         let mut seeks = Vec::new();
+        let graph_layers: BTreeMap<_, _> = self
+            .workspace
+            .editors
+            .keys()
+            .filter_map(|&id| self.linked_layer(id, None).map(|layer| (id, layer)))
+            .collect();
         for (index, registered) in self.panels.iter_mut().enumerate() {
             if registered.descriptor.placement == PanelPlacement::Editor
                 && registered.panel.document_type().is_some()
@@ -1293,48 +1257,52 @@ impl Shell {
                                     })
                                 {
                                     self.workspace.set_editor_group(id, group);
-                                    self.workspace.inspector_group = group;
+                                    publish
+                                        .push((id, self.workspace.editors[&id].selection.clone()));
                                 }
                             }
                         } else {
-                            if let Some(group) =
-                                group_selector::draw(ui, self.workspace.inspector_group)
+                            let group = if registered.descriptor.id == crate::sdk::network::PANEL_ID
                             {
-                                self.workspace.inspector_group = group;
-                                self.workspace.inspector_lock = None;
+                                &mut self.workspace.network_group
+                            } else if registered.descriptor.id == crate::sdk::outliner::PANEL_ID {
+                                &mut self.workspace.outliner_group
+                            } else {
+                                &mut self.workspace.inspector_group
+                            };
+                            if let Some(value) = group_selector::draw(ui, *group) {
+                                *group = value;
+                                if registered.descriptor.placement == PanelPlacement::Inspector {
+                                    self.workspace.inspector_lock = None;
+                                    client.command(DesktopCommand::CancelPreviewEdit);
+                                }
                             }
-                            ui.same_line();
-                            let locked = self.workspace.inspector_lock.is_some();
-                            if crate::sdk::toolbar::icon_button(
-                                ui,
-                                "inspector-lock",
-                                if locked {
-                                    crate::sdk::toolbar::ToolbarIcon::Lock
-                                } else {
-                                    crate::sdk::toolbar::ToolbarIcon::Unlock
-                                },
-                                if locked {
-                                    "Unlock inspected selection"
-                                } else {
-                                    "Lock inspected selection"
-                                },
-                            ) {
-                                self.workspace.toggle_inspector_lock();
+                            if registered.descriptor.placement == PanelPlacement::Inspector {
+                                ui.same_line();
+                                let locked = self.workspace.inspector_lock.is_some();
+                                if crate::sdk::toolbar::icon_button(
+                                    ui,
+                                    "inspector-lock",
+                                    if locked {
+                                        crate::sdk::toolbar::ToolbarIcon::Lock
+                                    } else {
+                                        crate::sdk::toolbar::ToolbarIcon::Unlock
+                                    },
+                                    if locked {
+                                        "Unlock inspected selection"
+                                    } else {
+                                        "Lock inspected selection"
+                                    },
+                                ) {
+                                    self.workspace.toggle_inspector_lock();
+                                    client.command(DesktopCommand::CancelPreviewEdit);
+                                }
                             }
                         }
-                        if !composition {
-                            target = if registered.descriptor.id == crate::sdk::network::PANEL_ID {
-                                self.workspace
-                                    .network_editor
-                                    .filter(|id| {
-                                        self.workspace.editors.get(id).is_some_and(|e| {
-                                            e.group == self.workspace.inspector_group
-                                        })
-                                    })
-                                    .or_else(|| self.workspace.inspector_editor())
-                            } else {
-                                self.workspace.inspector_editor()
-                            };
+                        if registered.descriptor.id == crate::sdk::network::PANEL_ID {
+                            target = self.workspace.network_target(self.workspace.network_group);
+                        } else if registered.descriptor.id == crate::sdk::outliner::PANEL_ID {
+                            target = self.workspace.network_target(self.workspace.outliner_group);
                         }
                         if registered.descriptor.id == crate::sdk::network::PANEL_ID
                             || registered.descriptor.id == crate::sdk::composition::PANEL_ID
@@ -1421,21 +1389,20 @@ impl Shell {
                                 {
                                     self.workspace.composition_editor = Some(id);
                                 }
-                                if !composition {
-                                    self.workspace.inspector_lock = None;
-                                }
                                 target = Some(id);
                                 if registered.descriptor.id == crate::sdk::network::PANEL_ID {
-                                    self.workspace.network_editor = Some(id);
+                                    self.workspace.follow_network(id);
                                 }
-                                self.workspace.inspector_group = self.workspace.editors[&id].group;
+                                if !composition {
+                                    self.workspace.network_group =
+                                        self.workspace.editors[&id].group;
+                                }
                                 self.workspace.focused_editor = Some(id);
                                 activations.push(id);
                             }
                         }
                         if (registered.descriptor.id == crate::sdk::network::PANEL_ID
                             || registered.descriptor.id == crate::sdk::composition::PANEL_ID)
-                            && (composition || self.workspace.inspector_lock.is_none())
                             && let Some(id) = target
                             && let Some(binding) = self.workspace.editors.get_mut(&id)
                             && binding.navigation.len() > 1
@@ -1467,38 +1434,13 @@ impl Shell {
                                 registered.descriptor.placement == PanelPlacement::Inspector
                             })
                             .map(|(_, binding)| binding.clone());
-                        let inspector_context = if composition
-                            || registered.descriptor.id == crate::sdk::network::PANEL_ID
-                        {
-                            target.and_then(|id| self.workspace.editor_context(id))
-                        } else {
-                            self.workspace.inspector_context()
-                        };
-                        let graph_layer = target.and_then(|id| {
-                            let graph = self.editors.get(&id)?;
-                            if !graph.panels.editor.is_layer_graph() {
-                                return None;
-                            }
-                            let document = self.workspace.editors.get(&id)?.document()?;
-                            let parent = self.workspace.composition_editor?;
-                            let parent = &self.editors.get(&parent)?.panels.editor;
-                            let selected = self
-                                .workspace
-                                .editors
-                                .get(&id)?
-                                .selection
-                                .objects
-                                .first()
-                                .copied();
-                            let layer =
-                                parent.layer_for_graph(document, selected).or_else(|| {
-                                    parent.layer_for_graph(
-                                        document,
-                                        graph.panels.editor.selected_layer_object(),
-                                    )
-                                })?;
-                            Some(layer)
-                        });
+                        let inspector_context =
+                            if registered.descriptor.placement != PanelPlacement::Inspector {
+                                target.and_then(|id| self.workspace.editor_context(id))
+                            } else {
+                                self.workspace.inspector_context()
+                            };
+                        let graph_layer = target.and_then(|id| graph_layers.get(&id).copied());
                         if let Some(id) = target
                             && let Some(binding) = self.workspace.editors.get_mut(&id)
                             && registered.panel.supports_document_type(
@@ -1535,6 +1477,12 @@ impl Shell {
                                 location.time = time;
                             }
                             let navigation = scoped.navigation.clone();
+                            // Property widgets belong to the inspected identities, not
+                            // merely to the reusable editor slot displaying them.
+                            let selection_identity = format!("selection:{:?}", scoped.selection);
+                            let _selection_scope = (registered.descriptor.placement
+                                == PanelPlacement::Inspector)
+                                .then(|| ui.push_id(&selection_identity));
                             let mut context = PanelContext::new(client, &mut scoped)
                                 .instance(id)
                                 .with_cache(&self.cached_previews)
@@ -1576,6 +1524,13 @@ impl Shell {
                                     ui,
                                     host: &mut context,
                                 });
+                            } else if locked_binding.is_some() {
+                                if let Some(locked) = &mut self.locked_inspector {
+                                    locked.panel.draw(ExtensionUi {
+                                        ui,
+                                        host: &mut context,
+                                    });
+                                }
                             } else {
                                 editor.panels.inspector.draw(ExtensionUi {
                                     ui,
@@ -1585,19 +1540,11 @@ impl Shell {
                             if let Some(time) = context.seek_request() {
                                 seeks.push((id, time, locked_binding.is_some()));
                             }
-                            if context.selection_requested() {
-                                publish.push(id);
-                                if editor.panels.editor.is_layer_graph()
-                                    && let Some(document) = context.state().selection.document
-                                {
-                                    graph_selections.push((
-                                        document,
-                                        editor.panels.editor.selected_layer_object(),
-                                    ));
-                                }
+                            if context.selection_requested() && locked_binding.is_none() {
+                                publish.push((id, context.state().selection.clone()));
                             }
                             if let Some(graph) = context.take_layer_graph() {
-                                layer_graphs.push(graph);
+                                layer_graphs.push((id, graph));
                             }
                             drop(context);
                             if locked_binding.is_some() {
@@ -1611,7 +1558,7 @@ impl Shell {
                                 {
                                     // Keep the parent stack open while its layer graph gets
                                     // its own editor context and exact local-time breadcrumb.
-                                    layer_graphs.push(scoped);
+                                    layer_graphs.push((id, scoped));
                                 } else {
                                     navigations.push((id, scoped));
                                 }
@@ -1641,29 +1588,16 @@ impl Shell {
                 self.visible_panels.push(index);
             }
         }
-        for id in publish {
-            self.workspace.record_selection(id);
-        }
+        self.selection_events.extend(publish);
         for id in activations {
             self.activate_editor(id, false);
         }
         for (id, target) in navigations {
             self.navigate_editor(id, target);
         }
-        for (document, object) in graph_selections {
-            if let Some(parent) = self.workspace.composition_editor
-                && let Some((layer, _)) = self
-                    .editors
-                    .get(&parent)
-                    .and_then(|e| e.panels.editor.layer_for_graph(document, object))
-                && let Some(binding) = self.workspace.editors.get_mut(&parent)
-            {
-                binding.selection.objects = vec![layer];
-                binding.selection.document = binding.document();
-            }
-        }
-        for graph in layer_graphs {
-            self.open_layer_graph(graph);
+        self.flush_selections(client);
+        for (parent, graph) in layer_graphs {
+            self.open_layer_graph(parent, graph);
         }
         // Navigation may have introduced a document not present in the previous
         // provider snapshot. Resolve it before matching queued editor seeks.

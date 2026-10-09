@@ -34,7 +34,7 @@ pub struct PreviewDemand {
     pub key: PreviewKey,
     pub background: bool,
 }
-#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Selection {
     pub document: Option<fold_foundation::DocumentId>,
     pub objects: Vec<fold_foundation::ObjectId>,

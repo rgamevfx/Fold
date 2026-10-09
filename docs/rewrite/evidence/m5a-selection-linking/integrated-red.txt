@@ -1,0 +1,9 @@
+REQUEST Some(ObjectId(ad0e8d0a-3f50-458c-9adf-1f1580850b23)) row 9c2bb9c9-4631-407e-b384-a45d820d7bdc: [[ObjectId(9c2bb9c9-4631-407e-b384-a45d820d7bdc)], [ObjectId(9c2bb9c9-4631-407e-b384-a45d820d7bdc)], [ObjectId(9c2bb9c9-4631-407e-b384-a45d820d7bdc)], [ObjectId(9c2bb9c9-4631-407e-b384-a45d820d7bdc)], [ObjectId(9c2bb9c9-4631-407e-b384-a45d820d7bdc)], [ObjectId(9c2bb9c9-4631-407e-b384-a45d820d7bdc)], [ObjectId(9c2bb9c9-4631-407e-b384-a45d820d7bdc)], [ObjectId(9c2bb9c9-4631-407e-b384-a45d820d7bdc)]]
+REQUEST Some(ObjectId(d2a26903-9839-4fe4-a6d2-c29e47ff0ded)) row dca92b0a-db3c-4d4c-8730-b564a6d403b1: [[ObjectId(9c2bb9c9-4631-407e-b384-a45d820d7bdc)], [ObjectId(dca92b0a-db3c-4d4c-8730-b564a6d403b1)], [ObjectId(9c2bb9c9-4631-407e-b384-a45d820d7bdc)], [ObjectId(dca92b0a-db3c-4d4c-8730-b564a6d403b1)], [ObjectId(9c2bb9c9-4631-407e-b384-a45d820d7bdc)], [ObjectId(dca92b0a-db3c-4d4c-8730-b564a6d403b1)], [ObjectId(9c2bb9c9-4631-407e-b384-a45d820d7bdc)], [ObjectId(dca92b0a-db3c-4d4c-8730-b564a6d403b1)]]
+REQUEST None row 2ff407cc-8654-47a6-ab07-11df78a2a584: [[ObjectId(9c2bb9c9-4631-407e-b384-a45d820d7bdc)], [ObjectId(9c2bb9c9-4631-407e-b384-a45d820d7bdc)], [ObjectId(9c2bb9c9-4631-407e-b384-a45d820d7bdc)], [ObjectId(9c2bb9c9-4631-407e-b384-a45d820d7bdc)], [ObjectId(9c2bb9c9-4631-407e-b384-a45d820d7bdc)], [ObjectId(9c2bb9c9-4631-407e-b384-a45d820d7bdc)], [ObjectId(9c2bb9c9-4631-407e-b384-a45d820d7bdc)], [ObjectId(9c2bb9c9-4631-407e-b384-a45d820d7bdc)]]
+
+thread 'main' (3) panicked at crates/ui/src/shell.rs:42:5:
+assertion `left == right` failed: Selection must remain on the requested item over idle frames
+  left: 2
+ right: 0
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace

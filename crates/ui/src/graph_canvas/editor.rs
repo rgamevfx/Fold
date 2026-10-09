@@ -184,6 +184,11 @@ impl GraphCanvas {
             self.cancel_create = true;
             self.insertion_choices.clear();
         }
+        // Editor selections can include an owning scene object. Native nodes are
+        // only a projection of that selection, never a reason to publish an edit.
+        graph
+            .selected
+            .retain(|id| graph.nodes.iter().any(|node| node.id == *id));
         let text = self
             .typography
             .as_ref()
@@ -690,7 +695,9 @@ impl GraphCanvas {
             && editor
                 .hovered_node()
                 .is_some_and(|node| selected.iter().any(|id| self.ids.nodes[id] == node.raw()));
-        if selected != graph.selected || reselected {
+        let changed = selected.len() != graph.selected.len()
+            || selected.iter().any(|id| !graph.selected.contains(id));
+        if changed || reselected {
             events.push(GraphEvent::Select(selected.clone()));
         }
         self.selection = selected;

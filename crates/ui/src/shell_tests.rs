@@ -1265,6 +1265,26 @@ fn ready_viewer_releases_image_draw_list_before_editor_overlay() {
     }
 }
 
+struct CompositionPanel;
+impl Panel for CompositionPanel {
+    fn id(&self) -> &'static str {
+        "test.composition"
+    }
+    fn document_type(&self) -> Option<&'static str> {
+        Some("test.composition.kind")
+    }
+    fn supports_composition(&self) -> bool {
+        true
+    }
+    fn new_instance(&self) -> Option<EditorPanels> {
+        Some(EditorPanels {
+            editor: Box::new(Self),
+            inspector: Box::new(Self),
+        })
+    }
+    fn draw(&mut self, _: ExtensionUi<'_>) {}
+}
+
 #[test]
 fn opening_a_layer_graph_retains_the_parent_stack_selection_and_clock() {
     struct Graph;
@@ -1278,20 +1298,35 @@ fn opening_a_layer_graph_retains_the_parent_stack_selection_and_clock() {
         fn is_layer_graph(&self) -> bool {
             true
         }
+        fn new_instance(&self) -> Option<EditorPanels> {
+            Some(EditorPanels {
+                editor: Box::new(Self),
+                inspector: Box::new(Self),
+            })
+        }
         fn draw(&mut self, _: ExtensionUi<'_>) {}
     }
-    let mut shell = Shell::new(vec![RegisteredPanel {
-        descriptor: fold_platform::packages::PanelDescriptor {
-            id: "test.graph",
-            title: "Layer graph",
-            placement: PanelPlacement::Editor,
+    let mut shell = Shell::new(vec![
+        RegisteredPanel {
+            descriptor: fold_platform::packages::PanelDescriptor {
+                id: "test.composition",
+                title: "Composition",
+                placement: PanelPlacement::Editor,
+            },
+            panel: Box::new(CompositionPanel),
+            key: WindowKey::new("test.composition", "Composition").unwrap(),
         },
-        panel: Box::new(Graph),
-        key: WindowKey::new("test.graph", "Layer graph").unwrap(),
-    }]);
-    let parent = shell
-        .workspace
-        .add_editor("test.composition", "test.composition.kind");
+        RegisteredPanel {
+            descriptor: fold_platform::packages::PanelDescriptor {
+                id: "test.graph",
+                title: "Layer graph",
+                placement: PanelPlacement::Editor,
+            },
+            panel: Box::new(Graph),
+            key: WindowKey::new("test.graph", "Layer graph").unwrap(),
+        },
+    ]);
+    let parent = shell.workspace.composition_editor.unwrap();
     let document = DocumentId::new();
     let source = DocumentId::new();
     let layer = fold_foundation::ObjectId::new();
@@ -1315,11 +1350,14 @@ fn opening_a_layer_graph_retains_the_parent_stack_selection_and_clock() {
     shell.workspace.record_selection(parent);
     let object = fold_foundation::ObjectId::new();
     child.selection.objects = vec![object];
-    shell.open_layer_graph(child.clone());
+    shell.open_layer_graph(parent, child.clone());
     let graph = shell.workspace.focused_editor.unwrap();
     assert_ne!(graph, parent);
     assert_eq!(shell.workspace.inspector_editor(), Some(parent));
-    assert_eq!(shell.workspace.network_editor, Some(graph));
+    assert_eq!(
+        shell.workspace.network_target(workspace::LinkGroup::A),
+        Some(graph)
+    );
     assert_eq!(
         shell.workspace.editors[&graph].selection.objects, child.selection.objects,
         "Network must receive the requested motion object to open its graph"
@@ -1336,7 +1374,7 @@ fn opening_a_layer_graph_retains_the_parent_stack_selection_and_clock() {
     assert_eq!(shell.workspace.editors[&graph].navigation, child.navigation);
     assert_eq!(shell.workspace.editors[&graph].document(), Some(source));
     let count = shell.workspace.editors.len();
-    shell.open_layer_graph(child.clone());
+    shell.open_layer_graph(parent, child.clone());
     assert_eq!(
         shell.workspace.editors[&graph].selection.objects,
         vec![object]
@@ -1344,7 +1382,7 @@ fn opening_a_layer_graph_retains_the_parent_stack_selection_and_clock() {
     // Another layer must replace the old object's scope in the same Network slot.
     let next_object = fold_foundation::ObjectId::new();
     child.selection.objects = vec![next_object];
-    shell.open_layer_graph(child);
+    shell.open_layer_graph(parent, child);
     assert_eq!(
         shell.workspace.editors[&graph].selection.objects,
         vec![next_object]
@@ -1363,30 +1401,14 @@ fn opening_a_layer_graph_retains_the_parent_stack_selection_and_clock() {
     assert_eq!(shell.workspace.inspector_editor(), Some(graph));
     shell.workspace.record_selection(parent);
     assert_eq!(shell.workspace.inspector_editor(), Some(parent));
-    assert_eq!(shell.workspace.network_editor, Some(graph));
+    assert_eq!(
+        shell.workspace.network_target(workspace::LinkGroup::A),
+        Some(graph)
+    );
 }
 
 #[test]
 fn composition_surface_has_a_context_after_restoring_a_workspace_without_one() {
-    struct CompositionPanel;
-    impl Panel for CompositionPanel {
-        fn id(&self) -> &'static str {
-            "test.composition"
-        }
-        fn document_type(&self) -> Option<&'static str> {
-            Some("test.composition.kind")
-        }
-        fn supports_composition(&self) -> bool {
-            true
-        }
-        fn new_instance(&self) -> Option<EditorPanels> {
-            Some(EditorPanels {
-                editor: Box::new(Self),
-                inspector: Box::new(Self),
-            })
-        }
-        fn draw(&mut self, _: ExtensionUi<'_>) {}
-    }
     let mut shell = Shell::new(vec![RegisteredPanel {
         descriptor: fold_platform::packages::PanelDescriptor {
             id: "test.composition",
@@ -1646,7 +1668,10 @@ fn nested_navigation_preserves_timeline_and_follows_group_a() {
     );
     assert_eq!(shell.workspace.editors[&comp].document(), Some(child));
     assert_eq!(shell.workspace.composition_editor, Some(comp));
-    assert_eq!(shell.workspace.network_editor, Some(comp));
+    assert_eq!(
+        shell.workspace.network_target(workspace::LinkGroup::A),
+        Some(comp)
+    );
     assert_eq!(shell.workspace.inspector_editor(), Some(comp));
     assert_eq!(shell.focus, Some(comp));
     assert_eq!(shell.workspace.resolve(viewer).unwrap().document, child);

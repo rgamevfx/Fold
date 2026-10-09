@@ -1,5 +1,11 @@
 # Desktop UI glitch/freeze after M5a delivery — 9 October 2026
 
+Follow-up: the user subsequently supplied a repeatable Camera → Light selection
+sequence and an unselectable grade layer. Both selection symptoms reproduce in
+the real native panels and share a selection-routing feedback loop. The repair
+and validation are tracked in the [grouped selection recovery](m5a-selection-linking/result.md).
+This does not establish the cause of the earlier process exit described below.
+
 The user reported that Fold's UI glitched, froze and crashed after delivery of
 `6db32c6`. They cannot recall the preceding action. Treat this as an open desktop
 workflow failure; earlier offscreen, public-frame and automated evidence does not

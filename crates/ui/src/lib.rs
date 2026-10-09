@@ -14,6 +14,8 @@ pub mod sdk;
 mod settings;
 mod settings_store;
 mod shell;
+#[cfg(feature = "native-probe")]
+pub use shell::WorkspaceProbe;
 mod target_selector;
 mod transport;
 mod viewer_navigation;

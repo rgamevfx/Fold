@@ -152,6 +152,33 @@ fn scale(canvas: &GraphCanvas) -> f32 {
 }
 
 #[test]
+fn scene_scope_does_not_emit_selection_without_input() {
+    let _guard = crate::IMGUI_TEST_LOCK.lock().unwrap();
+    let mut context = imgui::Context::create();
+    context.set_ini_filename(None::<String>).unwrap();
+    context
+        .font_atlas()
+        .try_claim_legacy_renderer()
+        .unwrap()
+        .build();
+    context.io_mut().set_display_size([1200., 800.]);
+    context.io_mut().set_delta_time(1. / 60.);
+    let mut canvas = GraphCanvas::default();
+    canvas.initialize(&context, None);
+    let mut graph = Context::new();
+    let scene_object = ObjectId::new();
+    for _ in 0..8 {
+        // Motion State::select retains the scene object alongside graph nodes.
+        graph.graph.selected = vec![scene_object];
+        frame(&mut context, &mut canvas, &mut graph);
+    }
+    assert_eq!(
+        graph.selections, 0,
+        "Idle drawing must not publish selections"
+    );
+}
+
+#[test]
 fn arrange_button_and_shortcut_commit_layout_once_and_allow_text_entry() {
     let _guard = crate::IMGUI_TEST_LOCK.lock().unwrap();
     let mut context = imgui::Context::create();

@@ -57,24 +57,38 @@ impl Panel for Canvas {
     fn supports_composition(&self) -> bool {
         true
     }
+    fn selection_target(
+        &mut self,
+        host: &mut dyn fold_platform::desktop::DesktopClient,
+    ) -> Result<Option<sdk::SelectionTarget>, String> {
+        let mut state = self.state.borrow_mut();
+        state.sync(host);
+        state.selection_target(host)
+    }
     fn layer_for_graph(
         &self,
         document: fold_foundation::DocumentId,
         object: Option<fold_foundation::ObjectId>,
+        occurrence: Option<fold_foundation::ObjectId>,
     ) -> Option<(fold_foundation::ObjectId, bool)> {
         let state = self.state.borrow();
         let composition = state.composition.as_ref()?;
         let matches = |layer: &&crate::Layer| matches!(&layer.source,Some(fold_platform::image_source::Source::Output(source)) if source.document==document);
-        let selected_layer = state
-            .selected
-            .first()
+        let selected_layer = occurrence
+            .as_ref()
+            .or_else(|| state.selected.first())
             .map(|id| state.hierarchy.rows.get(id).map_or(*id, |row| row.layer));
         let layer = composition
             .layers
             .iter()
             .filter(matches)
             .find(|layer| Some(layer.id) == selected_layer)
-            .or_else(|| composition.layers.iter().find(matches))?;
+            .or_else(|| {
+                occurrence
+                    .is_none()
+                    .then(|| composition.layers.iter().find(matches))
+                    .flatten()
+            })?;
         let row = object.and_then(|object| state.hierarchy.view(layer.id, object));
         Some((
             row.unwrap_or(layer.id),
@@ -99,7 +113,6 @@ impl Panel for Canvas {
         let ExtensionUi { ui, host } = context;
         let mut state = self.state.borrow_mut();
         state.sync(host);
-        state.follow_layer(host);
         actions::draw(ui, host, &mut state);
         let Some(document) = state.document else {
             ui.text_disabled("Create a composition or open one from Project.");

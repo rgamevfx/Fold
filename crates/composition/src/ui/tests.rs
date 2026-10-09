@@ -248,7 +248,7 @@ fn layer_range_and_toggle_selection_support_precompose_without_losing_anchor() {
 }
 
 #[test]
-fn selecting_a_layer_requests_its_graph_without_navigating_the_composition() {
+fn selecting_a_layer_resolves_its_graph_without_publishing_navigation() {
     use fold_platform::{panel_context::PanelContext, workspace::EditorInstance};
     let (mut host, shared) = setup();
     let parent = host.state.selection.document.unwrap();
@@ -285,12 +285,12 @@ fn selecting_a_layer_requests_its_graph_without_navigating_the_composition() {
     let mut state = shared.borrow_mut();
     state.sync(&mut scoped);
     state.select(&mut scoped, vec![layer]);
-    let graph = scoped
-        .take_layer_graph()
-        .expect("Selecting a layer opens its real graph directly");
-    assert_eq!(graph.document(), Some(graph_id));
-    assert!(graph.selection.objects.is_empty());
-    assert_eq!(graph.navigation.last().unwrap().time, navigation[0].time);
+    assert!(scoped.take_layer_graph().is_none());
+    let graph = state.selection_target(&scoped).unwrap().unwrap();
+    assert_eq!(graph.location.document, graph_id);
+    assert!(graph.objects.is_empty());
+    assert!(!graph.inspect_content);
+    assert_eq!(graph.location.time, navigation[0].time);
     assert_eq!(scoped.state().selection.document, Some(parent));
     assert_eq!(scoped.state().selection.objects, vec![layer]);
     drop(scoped);
@@ -341,12 +341,12 @@ fn reselecting_the_only_layer_requests_its_network_again() {
         mapped_navigation: false,
     };
     let mut scoped = fold_platform::panel_context::PanelContext::new(&mut host, &mut editor);
-    state.follow_layer(&mut scoped);
-    assert!(scoped.take_layer_graph().is_some());
+    assert!(state.selection_target(&scoped).unwrap().is_some());
+    assert!(!scoped.selection_requested());
     state.select_layer(&mut scoped, id, false, false);
     assert!(
-        scoped.take_layer_graph().is_some(),
-        "clicking the selected layer must restore its network"
+        scoped.selection_requested(),
+        "reselection must publish explicit intent for the shared router"
     );
 }
 
