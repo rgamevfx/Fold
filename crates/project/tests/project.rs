@@ -372,3 +372,32 @@ fn unsupported_archive_generations_are_rejected_without_rewriting() {
         assert_eq!(std::fs::read(&path).unwrap(), bytes);
     }
 }
+
+#[test]
+fn cancelled_replacement_save_preserves_existing_archive_and_cleans_temporary_file() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("project.fold");
+    let original = Project::new(8).snapshot();
+    fold_project::save(&original, &path).unwrap();
+    let bytes = std::fs::read(&path).unwrap();
+    let calls = std::cell::Cell::new(0);
+    let result = fold_project::save_cancellable(&original, &path, &|| {
+        calls.set(calls.get() + 1);
+        if calls.get() > 2 {
+            Err("cancel during serialization".into())
+        } else {
+            Ok(())
+        }
+    });
+    assert!(matches!(result, Err(fold_project::SaveError::Cancelled(_))));
+    assert!(calls.get() > 2);
+    assert_eq!(std::fs::read(&path).unwrap(), bytes);
+    assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 1);
+    fold_project::save_cancellable(&original, &path, &|| Ok(())).unwrap();
+    assert!(
+        fold_project::load(&path, 8)
+            .unwrap()
+            .snapshot()
+            .same_content(&original)
+    );
+}

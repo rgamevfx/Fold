@@ -1,7 +1,7 @@
 //! Explicit opt-in native device test. Runs against the default output device,
 //! not a fake clock. FOLD_NATIVE_SECONDS=600 exercises the ten-minute gate.
 #![cfg(feature = "desktop")]
-use fold_app::{media_workflow, playback::Playback, timeline_workflow};
+use fold_app::{output, playback::Playback, timeline_workflow};
 use fold_foundation::{Rounding, Time};
 use fold_media::{Cancel, Decoder, audio::AUDIO_RATE};
 use fold_platform::desktop::PreviewKey;
@@ -67,9 +67,9 @@ fn native_device_clock_seek_and_drift() {
         .commit(timeline_workflow::import(&project.snapshot(), &paths, &Cancel::default()).unwrap())
         .unwrap();
     let snapshot = project.snapshot();
-    let (source, info) = media_workflow::output(&snapshot).unwrap();
+    let (source, info) = output::output(&snapshot).unwrap();
     let mut playback = Playback::default();
-    let content = media_workflow::content(&snapshot).unwrap();
+    let content = output::content(&snapshot).unwrap();
     let mut decoder = Decoder::default();
     let mut key = PreviewKey {
         region: None,
@@ -81,7 +81,7 @@ fn native_device_clock_seek_and_drift() {
         view: 1,
         channels: Default::default(),
     };
-    media_workflow::evaluate(&snapshot, &key, &mut decoder, &Cancel::default()).unwrap();
+    output::evaluate(&snapshot, &key, &mut decoder, &Cancel::default()).unwrap();
     playback.play(snapshot.clone(), source.document, 0, info.frames);
     let deadline = Instant::now() + Duration::from_secs(u64::from(seconds) + 120);
     let mut anchor = None;
@@ -114,8 +114,7 @@ fn native_device_clock_seek_and_drift() {
             if frame < info.frames && frame != key.frame {
                 key.frame = frame;
                 let before = Instant::now();
-                media_workflow::evaluate(&snapshot, &key, &mut decoder, &Cancel::default())
-                    .unwrap();
+                output::evaluate(&snapshot, &key, &mut decoder, &Cancel::default()).unwrap();
                 max_render_latency = max_render_latency.max(before.elapsed());
                 video_demands += 1;
             }

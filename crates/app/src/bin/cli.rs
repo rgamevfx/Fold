@@ -55,7 +55,7 @@ fn run() -> Result<(), Box<dyn Error>> {
         let path = Path::new(&args[1]);
         let mut project = load(path, 32)?;
         let snapshot = project.snapshot();
-        let (output, _) = fold_app::media_workflow::output(&snapshot)?;
+        let (output, _) = fold_app::output::output(&snapshot)?;
         let mut transform = fold_platform::color::output(&snapshot, output.document)?;
         transform.display = args[2].to_str().ok_or("Invalid display")?.into();
         transform.view = args[3].to_str().ok_or("Invalid view")?.into();
@@ -192,7 +192,7 @@ fn run() -> Result<(), Box<dyn Error>> {
             return Err("usage: fold-cli export-video <project.fold> <new-output.mp4|new-output.mov> <start-frame> <end-frame-exclusive>".into());
         }
         let project = load(Path::new(&args[1]), 0)?;
-        fold_app::media_workflow::export(
+        fold_app::output::export(
             &project.snapshot(),
             Path::new(&args[2]),
             args[3].to_str().ok_or("invalid start")?.parse()?,
@@ -288,11 +288,11 @@ fn run() -> Result<(), Box<dyn Error>> {
             extensions: Default::default(),
         }
     } else {
-        fold_app::media_workflow::output(&snapshot)?.0
+        fold_app::output::output(&snapshot)?.0
     };
     let output = fold_app::output::OutputRenderer::from_environment()?.evaluate(
         &snapshot,
-        &fold_app::media_workflow::SceneRequest {
+        &fold_app::output::SceneRequest {
             region: None,
             preview: None,
             source,

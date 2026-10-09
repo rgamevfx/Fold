@@ -3,7 +3,7 @@
 use super::{Failure, encode, workers};
 use crate::{
     agent::jobs,
-    media_workflow::{self, SceneRequest},
+    output::{self, SceneRequest},
 };
 use fold_foundation::{DocumentId, ObjectId, Time};
 use fold_project::{DocumentRef, Revision, Snapshot};
@@ -238,7 +238,7 @@ fn run(
     provenance["region"] = json!(output_region);
     provenance["quality"] = json!("gpu_display_no_history");
     provenance["frames_available"] = json!(true);
-    let scene = media_workflow::evaluate_scene_gpu_admitted(
+    let scene = output::evaluate_scene_gpu_admitted(
         &snapshot,
         &SceneRequest {
             source,

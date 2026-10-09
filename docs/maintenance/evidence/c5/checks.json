@@ -1,0 +1,57 @@
+[
+  {
+    "log": "project-tests.log",
+    "command": "cargo test --offline --locked -p fold-project -- --test-threads=1",
+    "status": 0
+  },
+  {
+    "log": "focused-tests.log",
+    "command": "cargo test --offline --locked -p fold-app --features desktop --no-fail-fast --lib --test project_lifecycle --test agent_session --test viewer_transport --test compositor_session --test delivery_selection --test project_ingest --test agent_handoff --test agent_local -- --test-threads=1",
+    "status": 101
+  },
+  {
+    "log": "agent-session-tests.log",
+    "command": "cargo test --offline --locked -p fold-app --features desktop --test agent_session -- --test-threads=1",
+    "status": 0
+  },
+  {
+    "log": "desktop-check.log",
+    "command": "cargo check --offline --locked -p fold-app --all-targets --features desktop",
+    "status": 0
+  },
+  {
+    "log": "headless-check.log",
+    "command": "cargo check --offline --locked -p fold-app --all-targets --no-default-features",
+    "status": 0
+  },
+  {
+    "log": "clippy.log",
+    "command": "cargo clippy --offline --locked -p fold-app -p fold-project --all-targets --features fold-app/desktop",
+    "status": 0
+  },
+  {
+    "log": "agent-session-clippy.log",
+    "command": "cargo clippy --offline --locked -p fold-app --features desktop --test agent_session",
+    "status": 0
+  },
+  {
+    "log": "app-doctests.log",
+    "command": "cargo test --offline --locked -p fold-app --features desktop --doc",
+    "status": 0
+  },
+  {
+    "log": "format.log",
+    "command": "cargo fmt --all -- --check",
+    "status": 0
+  },
+  {
+    "log": "boundaries.log",
+    "command": "python3 scripts/check_boundaries.py",
+    "status": 0
+  },
+  {
+    "log": "ownership.log",
+    "command": "python3 scripts/check_proposal_ownership.py",
+    "status": 0
+  }
+]

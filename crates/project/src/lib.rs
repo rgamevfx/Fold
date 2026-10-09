@@ -13,6 +13,6 @@ pub use coordinator::{EditBatch, EditSession, Mutation, Project, ProjectError, R
 pub use model::{
     Asset, CommittedSnapshot, Document, DocumentRef, Metadata, ProjectState, Revision, Snapshot,
 };
-pub use persistence::{LoadError, SaveError, load, save, save_new};
+pub use persistence::{LoadError, SaveError, load, save, save_cancellable, save_new};
 
 pub mod proposals;

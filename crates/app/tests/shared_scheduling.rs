@@ -1,6 +1,6 @@
 //! End-to-end worker routing and concurrent export/ingest on the CPU reference.
 mod support;
-use fold_app::{media_workflow, session::Session};
+use fold_app::{output, session::Session};
 use fold_foundation::{DocumentId, Time};
 use fold_platform::{
     desktop::{DesktopClient, DesktopCommand, PreviewDemand, PreviewKey},
@@ -24,7 +24,7 @@ fn fixture() -> (Session, DocumentId) {
         })
         .unwrap();
     project
-        .commit(media_workflow::select_output(&project.snapshot(), id).unwrap())
+        .commit(output::select_output(&project.snapshot(), id).unwrap())
         .unwrap();
     (Session::new(project), id)
 }

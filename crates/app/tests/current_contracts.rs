@@ -58,7 +58,7 @@ fn retired_providers_and_schemas_are_opaque_and_non_executable() {
     for document in documents {
         assert!(packages.output(&reopened.snapshot(), document.id).is_err());
     }
-    assert!(fold_app::media_workflow::output(&reopened.snapshot()).is_err());
+    assert!(fold_app::output::output(&reopened.snapshot()).is_err());
 }
 
 #[test]

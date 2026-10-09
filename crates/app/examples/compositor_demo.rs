@@ -1,6 +1,6 @@
 //! Generate a self-contained multilayer compositor project for hands-on review.
 use exr::prelude::*;
-use fold_app::{media_workflow, packages};
+use fold_app::{output, packages};
 use fold_compositor::{
     ChannelMapping, ChannelSource, Composite, Node, OperationConfig as P, Source,
 };
@@ -215,9 +215,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             range: fold_render::view::Range::new(0., 1.)?,
         }),
     ] {
-        media_workflow::evaluate_scene(
+        output::evaluate_scene(
             &project.snapshot(),
-            &media_workflow::SceneRequest {
+            &output::SceneRequest {
                 region: None,
                 preview,
                 source: reference.clone(),

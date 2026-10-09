@@ -1,5 +1,5 @@
 //! Shared bounded preview execution over immutable snapshots.
-use crate::media_workflow as workflow;
+use crate::output as workflow;
 use fold_media::{Cancel, Decoder};
 use fold_platform::desktop::{PreviewDemand, PreviewKey, PreviewResult};
 use fold_platform::workspace::PanelInstanceId;

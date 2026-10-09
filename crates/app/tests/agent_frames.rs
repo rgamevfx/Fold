@@ -1,7 +1,7 @@
 #![cfg(feature = "spatial")]
 use fold_app::{
     agent::dispatch::Dispatcher,
-    media_workflow::{SceneRequest, evaluate_scene_gpu},
+    output::{SceneRequest, evaluate_scene_gpu},
 };
 use fold_foundation::{ObjectId, Time};
 use fold_project::{EditBatch, Mutation, Project};

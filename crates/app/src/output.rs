@@ -1,9 +1,25 @@
 //! Explicit delivery evaluation shared by still-image CLI and video export.
 //! One evaluator owns backend selection and retained resources for a pinned job.
-use crate::media_workflow::{SceneRequest, evaluate_scene};
+#[path = "output_export.rs"]
+mod export;
+#[path = "output_identity.rs"]
+mod identity;
+#[path = "output_scene.rs"]
+mod scene;
+pub use export::export;
+#[cfg(feature = "gpu")]
+pub(crate) use export::export_with_host;
 use fold_media::{Cancel, Decoder};
 use fold_project::CommittedSnapshot;
 use fold_render::DisplayFrame;
+pub(crate) use identity::reference;
+pub use identity::{content, content_for, output, select_output};
+#[cfg(feature = "gpu")]
+pub use scene::evaluate_scene_gpu;
+#[cfg(feature = "gpu")]
+pub(crate) use scene::evaluate_scene_gpu_admitted;
+pub use scene::{SceneRequest, evaluate, evaluate_scene};
+pub(crate) use scene::{compile_scene, preview_request};
 
 pub struct OutputRenderer {
     decoder: Decoder,
@@ -78,7 +94,7 @@ impl OutputRenderer {
         cancel.check()?;
         #[cfg(feature = "gpu")]
         let scene = if let Some(renderer) = self.gpu.as_mut() {
-            let mut scene = crate::media_workflow::evaluate_scene_gpu_admitted(
+            let mut scene = crate::output::evaluate_scene_gpu_admitted(
                 snapshot,
                 request,
                 renderer,
@@ -158,7 +174,7 @@ impl OutputRenderer {
         cancel.check()?;
         #[cfg(feature = "gpu")]
         if let Some(renderer) = self.gpu.as_mut() {
-            let scene = crate::media_workflow::evaluate_scene_gpu_admitted(
+            let scene = crate::output::evaluate_scene_gpu_admitted(
                 snapshot,
                 request,
                 renderer,

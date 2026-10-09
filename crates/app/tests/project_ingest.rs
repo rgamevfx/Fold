@@ -307,20 +307,17 @@ fn referenced_relink_validates_providers_invalidates_content_and_preserves_pinne
             Mutation::PutDocument(composite),
         ],
     );
-    let selection = fold_app::media_workflow::select_output(&p.snapshot(), doc_id).unwrap();
+    let selection = fold_app::output::select_output(&p.snapshot(), doc_id).unwrap();
     p.commit(selection).unwrap();
     let before = p.snapshot();
-    let content = fold_app::media_workflow::content(&before).unwrap();
-    let composite_content = fold_app::media_workflow::content_for(&before, composite_id).unwrap();
+    let content = fold_app::output::content(&before).unwrap();
+    let composite_content = fold_app::output::content_for(&before, composite_id).unwrap();
     let extra = dir.path().join("unplaced.ppm");
     ppm(&extra, &[2, 3, 4]);
     import_one(&mut p, &extra);
     assert_eq!(p.snapshot().state().documents, before.state().documents);
     assert_eq!(p.snapshot().state().settings, before.state().settings);
-    assert_eq!(
-        fold_app::media_workflow::content(&p.snapshot()).unwrap(),
-        content
-    );
+    assert_eq!(fold_app::output::content(&p.snapshot()).unwrap(), content);
     // Organization changes cannot alter evaluation identity.
     let mut item = p
         .snapshot()
@@ -333,10 +330,7 @@ fn referenced_relink_validates_providers_invalidates_content_and_preserves_pinne
         .clone();
     item.name = "Renamed".into();
     commit(&mut p, vec![Mutation::PutItem(item)]);
-    assert_eq!(
-        fold_app::media_workflow::content(&p.snapshot()).unwrap(),
-        content
-    );
+    assert_eq!(fold_app::output::content(&p.snapshot()).unwrap(), content);
     let req = RelinkRequest {
         base: p.snapshot().revision(),
         asset: id,
@@ -366,12 +360,9 @@ fn referenced_relink_validates_providers_invalidates_content_and_preserves_pinne
         .unwrap()
         .commit(&mut p)
         .unwrap();
+    assert_ne!(fold_app::output::content(&p.snapshot()).unwrap(), content);
     assert_ne!(
-        fold_app::media_workflow::content(&p.snapshot()).unwrap(),
-        content
-    );
-    assert_ne!(
-        fold_app::media_workflow::content_for(&p.snapshot(), composite_id).unwrap(),
+        fold_app::output::content_for(&p.snapshot(), composite_id).unwrap(),
         composite_content
     );
     assert_eq!(p.snapshot().state().documents, before.state().documents);

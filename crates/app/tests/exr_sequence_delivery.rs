@@ -1,5 +1,5 @@
 //! A real multilayer sequence, authored Shuffle, archive and encoded alpha movie.
-use fold_app::{media_workflow, packages};
+use fold_app::{output, packages};
 use fold_compositor::{
     ChannelMapping, ChannelSource, Composite, Node, OperationConfig as P, Source,
 };
@@ -140,7 +140,7 @@ fn build(path: &Path) -> (Project, DocumentRef, fold_foundation::ObjectId) {
         after.state().documents
     );
     project
-        .commit(media_workflow::select_output(&project.snapshot(), id).unwrap())
+        .commit(output::select_output(&project.snapshot(), id).unwrap())
         .unwrap();
     (
         project,
@@ -171,17 +171,17 @@ fn multilayer_sequence_shuffle_save_reopen_and_prores_alpha_delivery() {
         let saved = folder.join("sequence.fold");
         fold_project::save(&project.snapshot(), &saved).unwrap();
         let project = fold_project::load(&saved, 16).unwrap();
-        let info = media_workflow::output(&project.snapshot()).unwrap().1;
+        let info = output::output(&project.snapshot()).unwrap().1;
         // Nonsequential requests must select the same source frames as delivery.
         for index in [2, 0, 1] {
-            let request = media_workflow::SceneRequest {
+            let request = output::SceneRequest {
                 source: source.clone(),
                 time: info.time(1001 + index).unwrap(),
                 dimensions: [32, 16],
                 region: None,
                 preview: None,
             };
-            let frame = media_workflow::evaluate_scene(
+            let frame = output::evaluate_scene(
                 &project.snapshot(),
                 &request,
                 &mut Default::default(),
@@ -276,8 +276,7 @@ fn multilayer_sequence_shuffle_save_reopen_and_prores_alpha_delivery() {
         fixture(&folder.join("shot.1003.exr"), 0, multipart);
         let failed = folder.join("changed.mov");
         assert!(
-            media_workflow::export(&project.snapshot(), &failed, 1001, 1004, &Cancel::default())
-                .is_err()
+            output::export(&project.snapshot(), &failed, 1001, 1004, &Cancel::default()).is_err()
         );
         assert!(!failed.exists());
     }
@@ -316,14 +315,14 @@ fn sequence_offset_gap_policies_still_mode_and_relink_use_exact_frames() {
     commit(&mut project, &graph);
     let evaluation_info = graph.info.clone();
     let evaluate = |project: &Project, frame: u32| {
-        let request = media_workflow::SceneRequest {
+        let request = output::SceneRequest {
             source: source.clone(),
             time: evaluation_info.time(frame).unwrap(),
             dimensions: [32, 16],
             region: None,
             preview: None,
         };
-        media_workflow::evaluate_scene(
+        output::evaluate_scene(
             &project.snapshot(),
             &request,
             &mut Default::default(),
@@ -429,7 +428,7 @@ fn aces_output_transform_preserves_straight_alpha_before_and_after_encoding() {
             ],
         })
         .unwrap();
-    let request = media_workflow::SceneRequest {
+    let request = output::SceneRequest {
         source: source.clone(),
         time: Time::ZERO,
         dimensions: [32, 16],
@@ -450,7 +449,7 @@ fn aces_output_transform_preserves_straight_alpha_before_and_after_encoding() {
                 .unwrap(),
             )
             .unwrap();
-        let scene = media_workflow::evaluate_scene(
+        let scene = output::evaluate_scene(
             &project.snapshot(),
             &request,
             &mut Default::default(),
@@ -489,7 +488,7 @@ fn aces_output_transform_preserves_straight_alpha_before_and_after_encoding() {
             );
         }
         let movie = dir.path().join(format!("{display}.mov"));
-        media_workflow::export(&project.snapshot(), &movie, 0, 1, &Cancel::default()).unwrap();
+        output::export(&project.snapshot(), &movie, 0, 1, &Cancel::default()).unwrap();
         let alpha = Command::new("ffmpeg")
             .args(["-v", "error", "-i"])
             .arg(&movie)

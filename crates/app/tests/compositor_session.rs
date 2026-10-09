@@ -1,4 +1,4 @@
-use fold_app::{media_workflow, packages, session::Session};
+use fold_app::{output, packages, session::Session};
 use fold_compositor::{Composite, Node, OperationConfig as P, package};
 use fold_foundation::{DocumentId, Time};
 use fold_platform::{
@@ -64,7 +64,7 @@ fn gesture_updates_preview_only_cancel_restores_and_release_is_one_undo_entry() 
     }
     // Persist/export callers receive committed roots, not the overlay.
     assert_eq!(
-        media_workflow::content(&host.snapshot().unwrap()).unwrap(),
+        output::content(&host.snapshot().unwrap()).unwrap(),
         content.clone().unwrap()
     );
     host.command(C::CancelPreviewEdit);
@@ -135,9 +135,9 @@ fn navigation_preserves_exact_local_time_and_returns_to_parent_time() {
     assert_eq!(key.target, Some((other, exact)));
     assert_eq!(
         key.content,
-        media_workflow::content_for(&host.snapshot().unwrap(), other).unwrap()
+        output::content_for(&host.snapshot().unwrap(), other).unwrap()
     );
-    let frame = media_workflow::evaluate(
+    let frame = output::evaluate(
         &host.snapshot().unwrap(),
         &key,
         &mut Default::default(),
@@ -282,7 +282,7 @@ fn returning_to_timeline_restores_transport_and_evaluates_nested_frames() {
     assert_eq!(host.state().content, parent_content);
     let key = host.state().preview_key(6, 1).unwrap();
     assert_eq!(key.target, Some((timeline, Time::new(1, 4).unwrap())));
-    let before = media_workflow::evaluate(
+    let before = output::evaluate(
         &host.snapshot().unwrap(),
         &key,
         &mut Default::default(),
@@ -436,4 +436,26 @@ fn scoped_inspector_can_discover_published_effect_interfaces() {
         fold_platform::workspace::PanelInstanceId(1),
     );
     assert_eq!(panel.effect_interface(id).unwrap(), expected);
+}
+
+#[test]
+fn opening_during_a_transient_edit_preserves_the_gesture() {
+    let (mut host, id, mut graph) = fixture();
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("original.fold");
+    fold_project::save(&host.snapshot().unwrap(), &path).unwrap();
+    host.command(C::Open(path));
+    graph.info.width += 1;
+    host.command(C::PreviewExtension(request(&host, id, graph)));
+    let transient = host.state().content.clone();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    while host.state().busy {
+        assert!(std::time::Instant::now() < deadline);
+        host.poll();
+        std::thread::yield_now();
+    }
+    assert!(host.state().transient);
+    assert_eq!(host.state().content, transient);
+    assert!(host.state().project_path.is_none());
+    assert!(host.state().project_error.is_some());
 }

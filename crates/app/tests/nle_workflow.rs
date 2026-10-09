@@ -1,6 +1,6 @@
 //! Multi-track reference workflow through registered commands, not test-only
 //! mutations. Optional FOLD_NLE_ARTIFACT_DIR retains a native-demo project.
-use fold_app::{media_workflow, packages};
+use fold_app::{output, packages};
 use fold_foundation::{DocumentId, ObjectId, Time};
 use fold_media::{
     Cancel, Decoder,
@@ -306,7 +306,7 @@ fn multitrack_nle_edit_mix_render_save_reopen_and_export() {
     fold_project::save(&split, &saved).unwrap();
     let reopened = fold_project::load(&saved, 32).unwrap().snapshot();
     assert_eq!(split.state().documents, reopened.state().documents);
-    let content = media_workflow::content(&reopened).unwrap();
+    let content = output::content(&reopened).unwrap();
     let key = PreviewKey {
         region: None,
         output: "video".into(),
@@ -318,7 +318,7 @@ fn multitrack_nle_edit_mix_render_save_reopen_and_export() {
         channels: Default::default(),
     };
     let mut video_decoder = Decoder::default();
-    let preview = media_workflow::evaluate(&reopened, &key, &mut video_decoder, &Cancel::default())
+    let preview = output::evaluate(&reopened, &key, &mut video_decoder, &Cancel::default())
         .unwrap()
         .to_display()
         .unwrap();
@@ -326,7 +326,7 @@ fn multitrack_nle_edit_mix_render_save_reopen_and_export() {
     if output.exists() && std::env::var_os("FOLD_NLE_ARTIFACT_DIR").is_some() {
         std::fs::remove_file(&output).unwrap();
     }
-    media_workflow::export(&reopened, &output, 72, 96, &Cancel::default()).unwrap();
+    output::export(&reopened, &output, 72, 96, &Cancel::default()).unwrap();
     let encoded = fold_media::inspect(&output, &Cancel::default()).unwrap();
     assert_eq!(encoded.info.frames, 24);
     let image = video_decoder

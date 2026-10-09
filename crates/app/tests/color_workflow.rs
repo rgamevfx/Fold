@@ -1,5 +1,5 @@
 mod support;
-use fold_app::{color, media_workflow as workflow};
+use fold_app::{color, output as workflow};
 use fold_foundation::{DocumentId, Time};
 use fold_project::{EditBatch, Mutation, Project};
 

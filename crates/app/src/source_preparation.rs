@@ -1,6 +1,6 @@
 //! One bounded look-ahead worker for the preview service. It only prepares
 //! source samples: playback clocks and final-result publication stay unchanged.
-use crate::media_workflow as workflow;
+use crate::output as workflow;
 use fold_media::Cancel;
 use fold_platform::desktop::{PreviewKey, ViewerTransport};
 use fold_project::Snapshot;

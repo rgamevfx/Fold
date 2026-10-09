@@ -60,6 +60,8 @@ Creative UI dependencies are optional. App has no default features; `gpu` enable
 
 `CommittedSnapshot` is coordinator-issued and required by project save and application delivery. It exposes an immutable evaluation `Snapshot` with no reverse conversion. `EditSession` retains a transient proposal/generation; successive updates replace staged mutations, while previously issued evaluation snapshots remain immutable. Gesture completion commits once; cancellation drops the overlay.
 
+Maintenance C5 keeps [Session](../crates/app/src/session.rs) as the application publication coordinator. Focused command, worker and transport modules return explicit outcomes. File/export worker completions carry a project generation as well as their existing revision guards; replacement cancels work and retains admission until acknowledgement. Saved-state refresh is separate from cached output metadata preparation. See [C5 evidence and acceptance limits](maintenance/evidence/c5/result.md).
+
 Private agent candidates use isolated project state with their own validated snapshots and generation/base checks. Their observation does not publish into the active project. Committing a candidate still requires conflict checks against the live session. See [automation](../crates/app/src/session_automation.rs) and [candidate display](../crates/app/src/session_candidate.rs).
 
 ## Composition and creative models
@@ -78,7 +80,7 @@ Timeline independently owns sequences and linked A/V clip edits. Compositor owns
 
 Provider compilation operates on an immutable snapshot, output reference, exact time, dimensions and cancellation. Nested outputs contribute to shared image IR. Compilation/evaluation rejects unsupported references and invalid graphs; cancellation propagates through provider and execution work.
 
-[SceneRequest and scene evaluation](../crates/app/src/media_workflow.rs) separate scene demand from viewer presentation. [OutputRenderer](../crates/app/src/output.rs) owns retained delivery resources and uses a committed snapshot plus explicit output color settings. Preview and delivery share compilation/evaluation; full-quality equivalence requires matching requests and declared tolerances.
+[SceneRequest and scene evaluation](../crates/app/src/output_scene.rs) separate scene demand from viewer presentation. [OutputRenderer](../crates/app/src/output.rs) owns retained delivery resources and uses a committed snapshot plus explicit output color settings. Preview and delivery share compilation/evaluation; full-quality equivalence requires matching requests and declared tolerances.
 
 The CPU evaluator is a correctness/reference path. [GPU execution](../crates/render/src/gpu/mod.rs) implements image operations, native-plane reconstruction, OCIO, vector coverage/compositing, textured work and display/output processing. Core working images allocate RGBA32F; selected textured resources use an adapter-supported RGBA32F or RGBA16F format. GPU operation support does not imply every source/geometry preparation stage runs on GPU.
 

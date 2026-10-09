@@ -387,7 +387,7 @@ fn registered_mixed_motion_aces_preserves_screen_world_order() {
     registered_mixed(true);
 }
 fn registered_mixed(aces: bool) {
-    use fold_app::media_workflow::{SceneRequest, evaluate_scene_gpu};
+    use fold_app::output::{SceneRequest, evaluate_scene_gpu};
     use fold_motion::types::{Alpha, Encoding};
     use fold_render::gpu::Renderer;
     let id = DocumentId::new();
@@ -576,7 +576,7 @@ fn registered_mixed(aces: bool) {
 #[ignore = "requires a native Vulkan adapter"]
 fn motion_spatial_preview_worker_matches_direct_output_and_keeps_named_routing() {
     use fold_app::{
-        media_workflow::{SceneRequest, evaluate_scene_gpu},
+        output::{SceneRequest, evaluate_scene_gpu},
         session::Session,
     };
     use fold_platform::{
@@ -874,7 +874,7 @@ fn animated_cloner_gpu_matches_field_scale_palette_and_registered_output() {
 }
 
 fn qualify_cloner_gpu(animated: bool) {
-    use fold_app::media_workflow::{SceneRequest, evaluate_scene_gpu};
+    use fold_app::output::{SceneRequest, evaluate_scene_gpu};
     use fold_render::gpu::Renderer;
     let id = DocumentId::new();
     let (mut c, _, _) = fixture(id);
@@ -1489,7 +1489,7 @@ fn native_camera_planes_and_world_box_match_analytic_pixels_and_depth() {
                         .unwrap();
                     let pixels = frame.readback(&prepared.binding, &cancel).unwrap();
                     let depth = frame.read_depth(&prepared.binding, &cancel).unwrap();
-                    let request = fold_app::media_workflow::SceneRequest {
+                    let request = fold_app::output::SceneRequest {
                         source: fold_project::DocumentRef {
                             document,
                             output: c.definitions[0].outputs[0].id.to_string(),
@@ -1500,7 +1500,7 @@ fn native_camera_planes_and_world_box_match_analytic_pixels_and_depth() {
                         region: None,
                         preview: None,
                     };
-                    let mut registered = fold_app::media_workflow::evaluate_scene_gpu(
+                    let mut registered = fold_app::output::evaluate_scene_gpu(
                         &project.snapshot(),
                         &request,
                         &mut renderer,
@@ -1942,7 +1942,7 @@ fn camera_plane_text_and_outline_match_screen_interiors_and_retain_frames() {
 #[test]
 #[ignore = "requires a native Vulkan adapter"]
 fn hierarchy_scene_outputs_composite_independently_and_preserve_depth() {
-    use fold_app::media_workflow::{SceneRequest, evaluate_scene_gpu};
+    use fold_app::output::{SceneRequest, evaluate_scene_gpu};
     use fold_motion::{
         scene::{Scene, package},
         types::{Alpha, Encoding},

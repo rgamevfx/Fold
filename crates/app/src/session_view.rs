@@ -1,6 +1,7 @@
 //! Host-owned transient edits and output navigation. Never used by save/export.
 use super::*;
 use fold_foundation::{Rounding, Time};
+use fold_media::Cancel;
 use fold_platform::{
     desktop::{Selection, ViewLocation},
     packages::CommandRequest,

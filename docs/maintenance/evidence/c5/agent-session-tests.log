@@ -1,0 +1,10 @@
+   Compiling fold-app v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/app)
+    Finished `test` profile [unoptimized] target(s) in 24.90s
+     Running tests/agent_session.rs (target/debug/deps/agent_session-9b1dd0995d0da5f6)
+
+running 3 tests
+test new_and_open_replace_the_protocol_epoch_and_retire_old_handles ... ok
+test owner_applies_refreshes_undoes_and_preserves_active_artist_edits ... ok
+test viewer_activity_and_file_save_do_not_consume_or_publish_agent_worker_results ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 9.03s

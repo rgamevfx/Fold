@@ -1,4 +1,4 @@
-use fold_app::{media_workflow, timeline_workflow};
+use fold_app::{output, timeline_workflow};
 use fold_foundation::{ObjectId, Time};
 use fold_media::{
     Cancel,
@@ -156,11 +156,11 @@ fn linked_edits_offline_audio_export_and_roundtrip() {
     fold_project::save(&moved, &saved).unwrap();
     let reopened = fold_project::load(&saved, 8).unwrap();
     assert_eq!(
-        media_workflow::content(&reopened.snapshot()).unwrap(),
-        media_workflow::content(&moved).unwrap()
+        output::content(&reopened.snapshot()).unwrap(),
+        output::content(&moved).unwrap()
     );
     let output = dir.path().join("range.mp4");
-    media_workflow::export(&moved, &output, 12, 60, &cancel).unwrap();
+    output::export(&moved, &output, 12, 60, &cancel).unwrap();
     let source = fold_media::inspect(&output, &cancel).unwrap();
     assert_eq!(source.info.frames, 48);
     let probe = Command::new("ffprobe")
@@ -196,11 +196,11 @@ fn linked_edits_offline_audio_export_and_roundtrip() {
         .sum::<f32>()
         / AUDIO_RATE as f32;
     assert!(mse < 0.0001, "AAC range sample alignment MSE {mse}");
-    assert!(media_workflow::export(&moved, &output, 0, 1, &cancel).is_err());
+    assert!(output::export(&moved, &output, 0, 1, &cancel).is_err());
     let cancelled = Cancel::default();
     cancelled.cancel();
     let output = dir.path().join("cancel.mp4");
-    assert!(media_workflow::export(&moved, &output, 0, 24, &cancelled).is_err());
+    assert!(output::export(&moved, &output, 0, 24, &cancelled).is_err());
     assert!(!output.exists());
 }
 

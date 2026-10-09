@@ -364,7 +364,7 @@ fn compositor_read_preserves_motion_output_time_mapping_alpha_and_channels() {
 #[test]
 #[ignore = "requires a native Vulkan adapter"]
 fn registered_motion_text_matches_gpu_across_output_sizes_and_retained_revisions() {
-    use fold_app::media_workflow::{SceneRequest, evaluate_scene, evaluate_scene_gpu};
+    use fold_app::output::{SceneRequest, evaluate_scene, evaluate_scene_gpu};
     use fold_render::gpu::{Host, Renderer};
     let (mut project, id, mut c) = fixture();
     c.canvas.width = 640;
@@ -570,7 +570,7 @@ fn registered_motion_text_matches_gpu_across_output_sizes_and_retained_revisions
 #[test]
 #[ignore = "requires a native Vulkan adapter"]
 fn word_animated_motion_matches_gpu_for_reordered_samples_and_retained_frames() {
-    use fold_app::media_workflow::{SceneRequest, evaluate_scene, evaluate_scene_gpu};
+    use fold_app::output::{SceneRequest, evaluate_scene, evaluate_scene_gpu};
     use fold_motion::{registry, types::Space};
     use fold_render::gpu::{Host, Renderer};
     let (mut project, id, mut c) = fixture();

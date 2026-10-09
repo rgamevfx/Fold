@@ -25,9 +25,7 @@ fn still_cli_honors_native_backend_and_matches_software_delivery() {
     project.commit(batch).unwrap();
     let (source, _) = fold_timeline::active(&project.snapshot()).unwrap();
     project
-        .commit(
-            fold_app::media_workflow::select_output(&project.snapshot(), source.document).unwrap(),
-        )
+        .commit(fold_app::output::select_output(&project.snapshot(), source.document).unwrap())
         .unwrap();
     project
         .commit(

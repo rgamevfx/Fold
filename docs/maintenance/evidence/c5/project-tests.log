@@ -1,0 +1,65 @@
+    Blocking waiting for file lock on artifact directory
+   Compiling fold-foundation v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/foundation)
+   Compiling fold-project v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/project)
+    Finished `test` profile [unoptimized] target(s) in 44.32s
+     Running unittests src/lib.rs (target/debug/deps/fold_project-ac66a511810de1ad)
+
+running 4 tests
+test persistence::tests::cancelled_new_save_removes_temporary_data_before_publication ... ok
+test persistence::tests::concurrent_exclusive_saves_publish_exactly_one_complete_archive ... ok
+test persistence::tests::exclusive_save_retains_opaque_state_and_preserves_existing_entries ... ok
+test persistence::tests::failed_and_abandoned_writes_preserve_previous_archive ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.14s
+
+     Running tests/candidate.rs (target/debug/deps/candidate-2e8afdec9a1e4f91)
+
+running 1 test
+test independent_generations_conflict_with_live_edits_and_preserve_undo ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/organization.rs (target/debug/deps/organization-e05215a329dc12a3)
+
+running 2 tests
+test current_archive_preserves_unknown_bytes_and_resources ... ok
+test organization_is_atomic_undoable_and_does_not_rewrite_targets ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running tests/project.rs (target/debug/deps/project-ebda94f08aa325c9)
+
+running 9 tests
+test cancelled_replacement_save_preserves_existing_archive_and_cleans_temporary_file ... ok
+test cross_document_atomicity_snapshots_and_history ... ok
+test edit_preview_commits_once_or_cancels_and_stale_sessions_fail ... ok
+test extension_fields_cannot_shadow_authoritative_fields ... ok
+test history_limit_and_disabled_history ... ok
+test malformed_unsupported_and_invalid_archives_are_rejected ... ok
+test stale_cycles_and_missing_assets_publish_nothing ... ok
+test unknown_data_and_all_manifest_records_survive_save_reopen ... ok
+test unsupported_archive_generations_are_rejected_without_rewriting ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.28s
+
+     Running tests/retention.rs (target/debug/deps/retention-9441a33434194b52)
+
+running 1 test
+test history_payload_measurement_deduplicates_shared_documents_and_counts_snapshot_handles ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/serialization.rs (target/debug/deps/serialization-84727209f09e0957)
+
+running 2 tests
+test exhausted_revision_rejects_edits_without_wrapping ... ok
+test stable_ids_and_time_survive_serialization_and_time_is_validated ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+   Doc-tests fold_project
+
+running 1 test
+test crates/project/src/persistence.rs - persistence::save (line 79) - compile fail ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s

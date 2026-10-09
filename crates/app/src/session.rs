@@ -1,11 +1,9 @@
 //! Nonblocking project coordinator and bounded jobs. UI calls never perform I/O.
-use crate::media_workflow as workflow;
-use fold_media::Cancel;
+use crate::output as workflow;
 use fold_platform::desktop::{
     DesktopClient, DesktopCommand, DesktopState, PreviewKey, PreviewResult,
 };
-use fold_project::{EditBatch, Mutation, Project, Snapshot};
-use std::sync::mpsc::{self, Receiver};
+use fold_project::{Project, Snapshot};
 
 #[path = "session_transport.rs"]
 mod transport;
@@ -20,48 +18,25 @@ mod preview_metadata;
 mod preview_worker;
 use preview_worker::PreviewWorker;
 
-enum Completed {
-    Ingested(Option<crate::ingest::IngestProposal>),
-    Imported(EditBatch),
-    Opened(Project, fold_project::Revision, Option<String>, String),
-    Saved(String, fold_project::CommittedSnapshot),
-    Cancelled,
-    Message(String),
-}
-struct Background {
-    extension: Option<fold_platform::packages::CommandRequest>,
-    export: bool,
-    project_file: bool,
-    completed: bool,
-    cancel: Cancel,
-    result: Receiver<Result<Completed, String>>,
-    thread: Option<std::thread::JoinHandle<()>>,
-}
-impl Drop for Background {
-    fn drop(&mut self) {
-        if !self.completed {
-            self.cancel.cancel();
-        }
-        if let Some(t) = self.thread.take().filter(|t| t.is_finished()) {
-            let _ = t.join();
-        }
-        // A portal dialog may still await the user. Detached workers own only
-        // immutable snapshots and cannot publish after their receiver is gone.
-    }
-}
+#[path = "session_agent.rs"]
+mod agent_transport;
+#[path = "session_commands.rs"]
+mod commands;
+#[path = "session_jobs.rs"]
+mod jobs;
+use jobs::Completed;
 
 pub struct Session {
     settings_request: Option<Option<fold_foundation::DocumentId>>,
     project: Project,
-    agent: crate::agent::dispatch::Dispatcher,
-    #[cfg(target_os = "linux")]
-    agent_endpoint: Option<crate::agent::local::Endpoint>,
+    agent: agent_transport::Agent,
     saved_project: fold_project::CommittedSnapshot,
     state: DesktopState,
     overlay: Option<fold_project::EditSession>,
     preview: PreviewWorker,
     metadata: std::cell::RefCell<preview_metadata::Metadata>,
-    background: Vec<Background>,
+    jobs: jobs::Jobs,
+    project_epoch: u64,
     imported_items: Vec<fold_project::ItemId>,
     workspace_project: Option<String>,
     workspace_epoch: u64,
@@ -86,13 +61,12 @@ impl Session {
             saved_project: crate::color::new_project(32).snapshot(),
             project,
             agent: Default::default(),
-            #[cfg(target_os = "linux")]
-            agent_endpoint: None,
             state: DesktopState::default(),
             overlay: None,
             preview: PreviewWorker::new(),
             metadata: Default::default(),
-            background: vec![],
+            jobs: Default::default(),
+            project_epoch: 0,
             imported_items: Vec::new(),
             workspace_project: None,
             workspace_epoch: 0,
@@ -110,38 +84,34 @@ impl Session {
         &mut self,
         parent: &std::path::Path,
     ) -> std::io::Result<std::path::PathBuf> {
-        if self.agent_endpoint.is_none() {
-            self.agent_endpoint = Some(crate::agent::local::Endpoint::bind(parent)?);
-        }
-        Ok(self
-            .agent_endpoint
-            .as_ref()
-            .expect("enabled endpoint")
-            .path()
-            .to_owned())
+        self.agent.enable(parent)
     }
+
     /// Native owner entry point shared by local protocol adapters. Workers retain
     /// committed snapshots; only this owner can apply their inspected proposals.
     pub fn dispatch_agent(&mut self, bytes: &[u8]) -> Vec<u8> {
-        #[cfg(feature = "gpu")]
-        self.agent
-            .set_render_host(self.preview.shared.0.lock().unwrap().render_host.clone());
-        let before = self.project.snapshot().revision();
-        let response = self.agent.dispatch_with_edit_state(
+        let outcome = self.agent.dispatch(
             &mut self.project,
             bytes,
-            std::time::Instant::now(),
             self.overlay.is_some(),
+            #[cfg(feature = "gpu")]
+            self.preview.shared.0.lock().unwrap().render_host.clone(),
         );
-        if self.project.snapshot().revision() != before {
+        if outcome.changed {
             self.refresh();
         }
-        response
+        outcome.response
     }
-    fn refresh(&mut self) {
+    fn refresh_history(&mut self) {
         self.state.dirty = !self.project.snapshot().same_content(&self.saved_project);
         self.state.can_undo = self.project.can_undo();
         self.state.can_redo = self.project.can_redo();
+    }
+    fn refresh(&mut self) {
+        self.refresh_history();
+        self.refresh_output();
+    }
+    fn refresh_output(&mut self) {
         self.refresh_viewers();
         let committed = self.project.snapshot();
         if self
@@ -153,10 +123,36 @@ impl Session {
             self.state.navigation.clear();
         }
         let snapshot = self.preview_snapshot();
-        let content = if let Some(location) = self.state.navigation.last() {
-            workflow::content_for(&snapshot, location.document).ok()
+        let output = if let Some(location) = self.state.navigation.last() {
+            let registry = crate::packages::builtins();
+            registry
+                .default_output(&snapshot, location.document)
+                .and_then(|source| {
+                    self.metadata
+                        .borrow_mut()
+                        .output(&snapshot, &source)
+                        .map(|info| (source, info))
+                })
         } else {
-            workflow::content(&snapshot).ok()
+            workflow::reference(&snapshot).and_then(|source| {
+                self.metadata
+                    .borrow_mut()
+                    .output(&snapshot, &source)
+                    .map(|info| (source, info))
+            })
+        };
+        let content = if let Some(location) = self.state.navigation.last() {
+            self.metadata
+                .borrow_mut()
+                .content(&snapshot, location.document)
+                .ok()
+        } else {
+            output.as_ref().ok().and_then(|(source, _)| {
+                self.metadata
+                    .borrow_mut()
+                    .content(&snapshot, source.document)
+                    .ok()
+            })
         };
         self.state.transient = self.overlay.is_some();
         if self.state.content != content {
@@ -173,18 +169,6 @@ impl Session {
         {
             self.state.selection = Default::default();
         }
-        let output = if let Some(location) = self.state.navigation.last() {
-            let registry = crate::packages::builtins();
-            registry
-                .default_output(&snapshot, location.document)
-                .and_then(|source| {
-                    registry
-                        .output_ref(&snapshot, &source)
-                        .map(|info| (source, info))
-                })
-        } else {
-            workflow::output(&snapshot)
-        };
         self.playback_ranges
             .retain(|id, _| committed.state().documents.contains_key(id));
         self.state.viewer_document = output.as_ref().ok().map(|(source, _)| source.document);
@@ -208,124 +192,138 @@ impl Session {
             self.state.frame = 0;
         }
     }
+    fn replace_project(&mut self, project: Project) {
+        self.project_epoch += 1;
+        self.jobs.replace_project();
+        self.monitor_viewer(None);
+        self.stop_playback();
+        self.viewers.clocks.clear();
+        self.cancel_preview();
+        self.metadata = Default::default();
+        self.saved_project = project.snapshot();
+        self.project = project;
+        self.agent.replace_project();
+        self.imported_items.clear();
+        self.playback_ranges.clear();
+        self.overlay = None;
+        self.state.navigation.clear();
+        self.refresh_job_state();
+    }
     fn background(&mut self, command: DesktopCommand) {
-        let extension = if let DesktopCommand::Extension(request) = &command {
-            Some(request.clone())
-        } else {
-            None
-        };
-        let export = matches!(command, DesktopCommand::Export { .. });
-        let project_file = matches!(
+        let result = self.jobs.start(
             command,
-            DesktopCommand::Save(_)
-                | DesktopCommand::Open(_)
-                | DesktopCommand::OpenInWorkspace { .. }
-                | DesktopCommand::ChooseSave
-                | DesktopCommand::ChooseOpen
+            self.project.snapshot(),
+            self.state.project_path.clone(),
+            self.project_epoch,
+            #[cfg(feature = "gpu")]
+            self.preview.shared.0.lock().unwrap().render_host.clone(),
         );
-        if self.background.iter().any(|job| job.export == export) {
-            self.state.status = "A job of this kind is already running; cancel or wait.".into();
+        match result {
+            Ok(kind) => {
+                if kind.project_file() {
+                    self.state.project_error = None;
+                }
+                self.refresh_job_state();
+                self.state.status = "Background job running…".into();
+            }
+            Err(error) => self.state.status = error,
+        }
+    }
+    fn refresh_job_state(&mut self) {
+        self.state.busy = self.jobs.busy();
+        self.state.file_busy = self.jobs.file_busy();
+    }
+
+    fn accept_completion(&mut self, completion: jobs::Completion) {
+        self.refresh_job_state();
+        if completion.epoch != self.project_epoch {
             return;
         }
-        let snapshot = self.project.snapshot();
-        let suggested_path = self.state.project_path.clone();
-        let cancel = Cancel::default();
-        let token = cancel.clone();
-        let (sender, result) = mpsc::sync_channel(1);
+        let project_file = completion.kind.project_file();
+        let result = completion.result;
         if project_file {
-            self.state.project_error = None;
+            self.state.file_result_serial += 1;
+            self.state.project_error = result.as_ref().err().cloned();
         }
-        self.state.busy = true;
-        self.state.file_busy |= !export;
-        self.state.status = "Background job running…".into();
-        #[cfg(feature = "gpu")]
-        let render_host = self.preview.shared.0.lock().unwrap().render_host.clone();
-        let thread = std::thread::spawn(move || {
-            let result = token.check().map_err(String::from).and_then(|()| {
-                let command = match command {
-                    DesktopCommand::ChooseOpen | DesktopCommand::ChooseSave => {
-                        let save = matches!(command, DesktopCommand::ChooseSave);
-                        let Some(path) = choose_project(save, suggested_path.as_deref())? else {
-                            return Ok(Completed::Cancelled);
-                        };
-                        token.check()?;
-                        if save {
-                            DesktopCommand::Save(path)
+        match result {
+            Ok(Completed::Ingested(proposal)) => {
+                if self.overlay.is_some() {
+                    self.state.status =
+                        "Finish the current edit, then retry import or relink".into();
+                    return;
+                }
+                if let Some(proposal) = proposal {
+                    let items = proposal.items.clone();
+                    match proposal.commit(&mut self.project) {
+                        Ok(_) => {
+                            self.refresh();
+                            self.state.status.clear();
+                            self.imported_items = items;
+                        }
+                        Err(error) => self.state.status = error,
+                    }
+                } else {
+                    self.state.status.clear();
+                }
+            }
+            Ok(Completed::Edited(batch)) if batch.mutations.is_empty() => self.state.status.clear(),
+            Ok(Completed::Edited(_)) if self.overlay.is_some() => {
+                self.state.status = "Finish the current edit, then retry import or relink".into();
+            }
+            Ok(Completed::Edited(batch)) => match self.project.commit(batch) {
+                Ok(_) => {
+                    self.overlay = None;
+                    self.refresh();
+                    self.state.status.clear();
+                }
+                Err(e) => self.state.status = e.to_string(),
+            },
+            Ok(Completed::Cancelled) => self.state.status.clear(),
+            Ok(Completed::Saved(path, snapshot)) => {
+                self.saved_project = snapshot;
+                self.state.project_path = Some(path.clone().into());
+                self.state.save_serial += 1;
+                self.refresh_history();
+                self.workspace_project = Some(path);
+                self.workspace_epoch += 1;
+                self.workspace_restore = false;
+                self.state.status = "Project saved".into();
+            }
+            Ok(Completed::Opened(project, base, workspace, path)) => {
+                if self.project.snapshot().revision() != base || self.overlay.is_some() {
+                    self.state.status = "Project changed while opening; retry open".into();
+                    self.state.project_error = Some(self.state.status.clone());
+                } else {
+                    self.replace_project(project);
+                    self.state.project_path = Some(path.clone().into());
+                    self.workspace_project = Some(path);
+                    self.workspace_epoch += 1;
+                    self.workspace_restore = true;
+                    self.refresh();
+                    self.state.status = "Project opened".into();
+                    if let Some(kind) = workspace {
+                        let snapshot = self.project.snapshot();
+                        if let Some(document) = snapshot
+                            .state()
+                            .documents
+                            .values()
+                            .find(|d| d.type_id == kind)
+                        {
+                            self.navigate(fold_platform::desktop::ViewLocation {
+                                document: document.id,
+                                time: fold_foundation::Time::ZERO,
+                                label: kind.rsplit('.').next().unwrap_or("Document").into(),
+                            });
                         } else {
-                            DesktopCommand::Open(path)
+                            self.state.status =
+                                format!("Project opened; no document for workspace {kind}");
                         }
                     }
-                    other => other,
-                };
-                match command {
-                    DesktopCommand::Browser(command) => {
-                        crate::browser_ingest::run(&snapshot, command, &token)
-                            .map(Completed::Ingested)
-                    }
-                    DesktopCommand::Extension(request) => crate::packages::builtins()
-                        .stage(&snapshot, &request, &token)
-                        .map(Completed::Imported),
-                    DesktopCommand::Save(path) => fold_project::save(&snapshot, &path)
-                        .map_err(|e| e.to_string())
-                        .and_then(|_| std::fs::canonicalize(path).map_err(|e| e.to_string()))
-                        .map(|path| {
-                            Completed::Saved(path.to_string_lossy().into_owned(), snapshot.clone())
-                        }),
-                    DesktopCommand::Open(path) => fold_project::load(&path, 32)
-                        .map_err(|e| e.to_string())
-                        .and_then(|project| {
-                            let path = std::fs::canonicalize(path).map_err(|e| e.to_string())?;
-                            Ok(Completed::Opened(
-                                project,
-                                snapshot.revision(),
-                                None,
-                                path.to_string_lossy().into_owned(),
-                            ))
-                        }),
-                    DesktopCommand::OpenInWorkspace {
-                        path,
-                        document_type,
-                    } => fold_project::load(&path, 32)
-                        .map_err(|e| e.to_string())
-                        .and_then(|project| {
-                            let path = std::fs::canonicalize(path).map_err(|e| e.to_string())?;
-                            Ok(Completed::Opened(
-                                project,
-                                snapshot.revision(),
-                                Some(document_type),
-                                path.to_string_lossy().into_owned(),
-                            ))
-                        }),
-                    DesktopCommand::Export { path, start, end } => {
-                        #[cfg(feature = "gpu")]
-                        let result = workflow::export_with_host(
-                            &snapshot,
-                            &path,
-                            start,
-                            end,
-                            &token,
-                            render_host,
-                        );
-                        #[cfg(not(feature = "gpu"))]
-                        let result = workflow::export(&snapshot, &path, start, end, &token);
-                        result.map(|_| {
-                            Completed::Message(format!("Export complete: {}", path.display()))
-                        })
-                    }
-                    _ => unreachable!(),
                 }
-            });
-            let _ = sender.send(result);
-        });
-        self.background.push(Background {
-            extension,
-            export,
-            project_file,
-            completed: false,
-            cancel,
-            result,
-            thread: Some(thread),
-        });
+            }
+            Ok(Completed::Exported(message)) => self.state.status = message,
+            Err(error) => self.state.status = error,
+        }
     }
 }
 impl DesktopClient for Session {
@@ -375,7 +373,7 @@ impl DesktopClient for Session {
         let mut report = format!(
             "Demand {}/128 · execution queue {depth} (peak {peak}) · jobs {}/2 · pressure retries {}\nDecoded CPU {:.1}/{:.1} MiB (peak {:.1}) · pipe {:.1}/64 MiB\nSource copies {:.1}/4096 MiB · PCM disk {:.1}/512 MiB · WAVE scratch {:.1}/512 MiB\nHistory {} roots · {} external handles · {:.1} MiB unique payload (excludes metadata/allocator)",
             queue.depth(),
-            self.background.len(),
+            self.jobs.len(),
             queue.pressure_retries(),
             mib(decoded.bytes),
             mib(decoded.budget),
@@ -450,12 +448,9 @@ impl DesktopClient for Session {
         crate::packages::builtins().output(&self.project.snapshot(), document)
     }
     fn extension_pending(&self, request: &fold_platform::packages::CommandRequest) -> bool {
-        self.background.iter().any(|job| {
-            job.extension.as_ref().is_some_and(|r| {
-                r.id == request.id && r.base == request.base && r.arguments == request.arguments
-            })
-        })
+        self.jobs.extension_pending(request)
     }
+
     fn effect_interface(
         &self,
         document: fold_foundation::DocumentId,
@@ -608,27 +603,13 @@ impl DesktopClient for Session {
         crate::packages::builtins().supports(document)
     }
     fn poll(&mut self) {
-        self.agent.poll(std::time::Instant::now());
-        #[cfg(target_os = "linux")]
-        if let Some(endpoint) = &mut self.agent_endpoint {
-            endpoint.poll_waiters(&mut self.agent, std::time::Instant::now());
-        }
+        self.agent.poll();
         #[cfg(target_os = "linux")]
         for _ in 0..8 {
-            let Some(request) = self
-                .agent_endpoint
-                .as_ref()
-                .and_then(|endpoint| endpoint.next())
-            else {
-                break;
-            };
-            let Some(request) = self
-                .agent_endpoint
-                .as_mut()
-                .expect("active endpoint")
-                .defer(request, &mut self.agent, std::time::Instant::now())
-            else {
-                continue;
+            let request = match self.agent.next() {
+                agent_transport::Incoming::Idle => break,
+                agent_transport::Incoming::Deferred => continue,
+                agent_transport::Incoming::Request(request) => request,
             };
             let response = self.dispatch_agent(&request.bytes);
             let _ = request.response.try_send(response);
@@ -637,426 +618,17 @@ impl DesktopClient for Session {
             self.state.color_choices = choices;
         }
         self.poll_viewers();
-        #[cfg(feature = "desktop")]
-        if self.viewers.monitor.is_none() {
-            use fold_foundation::{Rounding, Time};
-            if let Some(sample) = self.playback.sample()
-                && self.state.playing
-            {
-                let frame = Time::new(sample as i64, fold_media::audio::AUDIO_RATE)
-                    .unwrap()
-                    .to_ticks(self.state.rate[0], self.state.rate[1], Rounding::Floor)
-                    .unwrap_or(0)
-                    .max(0) as u32;
-                self.seek(frame.min(self.state.playback_range.bounds(self.state.frames).1));
-            }
-            self.state.playing = self.playback.playing();
-            self.state.priming = self.playback.priming();
-            self.state.audio_clock = self.playback.audio_clock();
-            self.state.underruns = self.playback.underruns();
-            if let Some(error) = self.playback.take_error() {
-                self.state.status = error;
-            }
-        }
-        let completed = self.background.iter().enumerate().find_map(|(index, job)| {
-            match job.result.try_recv() {
-                Ok(result) => Some((index, result)),
-                Err(mpsc::TryRecvError::Disconnected) => {
-                    Some((index, Err("background worker stopped".into())))
-                }
-                Err(mpsc::TryRecvError::Empty) => None,
-            }
-        });
-        if let Some((index, result)) = completed {
-            let mut job = self.background.remove(index);
-            let cancelled = job.cancel.check().is_err();
-            let project_file = job.project_file;
-            let extension = job.extension.is_some();
-            // Mark completion before dropping: successful ingest proposals retain
-            // their token and must not cancel themselves on worker teardown.
-            job.completed = true;
-            drop(job);
-            self.state.busy = !self.background.is_empty();
-            self.state.file_busy = self.background.iter().any(|job| !job.export);
-            // Discard cancelled proposals, but never claim that an already
-            // finalized save/export was rolled back by a late cancel click.
-            let result = if cancelled
-                && matches!(
-                    &result,
-                    Ok(Completed::Imported(_) | Completed::Ingested(_) | Completed::Opened(..))
-                ) {
-                Err("job cancelled".into())
-            } else {
-                result
-            };
-            if project_file {
-                self.state.file_result_serial += 1;
-                self.state.project_error = result.as_ref().err().cloned();
-            }
-            match result {
-                Ok(Completed::Ingested(proposal)) => {
-                    if self.overlay.is_some() {
-                        self.state.status =
-                            "Finish the current edit, then retry import or relink".into();
-                        return;
-                    }
-                    if let Some(proposal) = proposal {
-                        let items = proposal.items.clone();
-                        match proposal.commit(&mut self.project) {
-                            Ok(_) => {
-                                self.refresh();
-                                self.state.status.clear();
-                                self.imported_items = items;
-                            }
-                            Err(error) => self.state.status = error,
-                        }
-                    } else {
-                        self.state.status.clear();
-                    }
-                }
-                Ok(Completed::Imported(batch)) if batch.mutations.is_empty() => {
-                    self.state.status.clear()
-                }
-                Ok(Completed::Imported(batch)) => match self.project.commit(batch) {
-                    Ok(_) => {
-                        self.overlay = None;
-                        self.refresh();
-                        self.state.status = if extension {
-                            String::new()
-                        } else {
-                            "Import committed".into()
-                        };
-                    }
-                    Err(e) => self.state.status = e.to_string(),
-                },
-                Ok(Completed::Cancelled) => self.state.status.clear(),
-                Ok(Completed::Saved(path, snapshot)) => {
-                    self.saved_project = snapshot;
-                    self.state.project_path = Some(path.clone().into());
-                    self.state.save_serial += 1;
-                    self.refresh();
-                    self.workspace_project = Some(path);
-                    self.workspace_epoch += 1;
-                    self.workspace_restore = false;
-                    self.state.status = "Project saved".into();
-                }
-                Ok(Completed::Opened(project, base, workspace, path)) => {
-                    if self.project.snapshot().revision() != base {
-                        self.state.status = "Project changed while opening; retry open".into();
-                        self.state.project_error = Some(self.state.status.clone());
-                    } else {
-                        self.monitor_viewer(None);
-                        self.viewers.clocks.clear();
-                        self.saved_project = project.snapshot();
-                        self.project = project;
-                        self.agent = Default::default();
-                        self.state.project_path = Some(path.clone().into());
-                        self.workspace_project = Some(path);
-                        self.workspace_epoch += 1;
-                        self.workspace_restore = true;
-                        self.imported_items.clear();
-                        self.playback_ranges.clear();
-                        self.overlay = None;
-                        self.state.navigation.clear();
-                        self.refresh();
-                        self.state.status = "Project opened".into();
-                        if let Some(kind) = workspace {
-                            let snapshot = self.project.snapshot();
-                            if let Some(document) = snapshot
-                                .state()
-                                .documents
-                                .values()
-                                .find(|d| d.type_id == kind)
-                            {
-                                self.navigate(fold_platform::desktop::ViewLocation {
-                                    document: document.id,
-                                    time: fold_foundation::Time::ZERO,
-                                    label: kind.rsplit('.').next().unwrap_or("Document").into(),
-                                });
-                            } else {
-                                self.state.status =
-                                    format!("Project opened; no document for workspace {kind}");
-                            }
-                        }
-                    }
-                }
-                Ok(Completed::Message(message)) => self.state.status = message,
-                Err(error) => self.state.status = error,
-            }
+        self.poll_playback();
+        if let Some(completion) = self.jobs.poll() {
+            self.accept_completion(completion);
         }
     }
+
     fn command(&mut self, command: DesktopCommand) {
-        let result = match command {
-            DesktopCommand::AutoKey(enabled) => {
-                self.state.auto_key = enabled;
-                return;
-            }
-            DesktopCommand::NewProject => {
-                if self.state.busy {
-                    self.state.status =
-                        "Wait for background jobs before closing the project".into();
-                    return;
-                }
-                self.monitor_viewer(None);
-                self.stop_playback();
-                self.viewers.clocks.clear();
-                self.cancel_preview();
-                self.project = crate::color::new_project(32);
-                self.agent = Default::default();
-                self.saved_project = self.project.snapshot();
-                self.workspace_project = None;
-                self.workspace_epoch += 1;
-                self.workspace_restore = false;
-                self.imported_items.clear();
-                self.playback_ranges.clear();
-                self.overlay = None;
-                let color_choices = std::mem::take(&mut self.state.color_choices);
-                self.state = DesktopState {
-                    color_choices,
-                    ..Default::default()
-                };
-                self.refresh();
-                return;
-            }
-            DesktopCommand::ViewerTransport { viewer, transport } => {
-                self.configure_viewer(viewer, transport);
-                return;
-            }
-            DesktopCommand::MonitorViewer(viewer) => {
-                self.monitor_viewer(viewer);
-                return;
-            }
-            DesktopCommand::CloseViewer(viewer) => {
-                if self.viewers.monitor == Some(viewer) {
-                    self.monitor_viewer(None);
-                }
-                self.viewers.clocks.remove(&viewer);
-                return;
-            }
-            DesktopCommand::Notify(message) => {
-                self.state.status = message;
-                return;
-            }
-            DesktopCommand::Browser(command) => {
-                use fold_platform::browser::BrowserCommand;
-                if matches!(
-                    command,
-                    BrowserCommand::Import { .. }
-                        | BrowserCommand::ImportAndPlace { .. }
-                        | BrowserCommand::ChooseImport(_)
-                        | BrowserCommand::Relink(_)
-                ) {
-                    self.background(DesktopCommand::Browser(command));
-                    return;
-                }
-                let creating = matches!(command, BrowserCommand::Create { .. });
-                crate::browser::edit(&self.project.snapshot(), command).and_then(|batch| {
-                    let location = if creating {
-                        batch.mutations.iter().find_map(|m| match m {
-                            Mutation::PutItem(item) => match item.id {
-                                fold_project::ItemId::Document(document) => {
-                                    Some(fold_platform::desktop::ViewLocation {
-                                        document,
-                                        time: fold_foundation::Time::ZERO,
-                                        label: item.name.clone(),
-                                    })
-                                }
-                                _ => None,
-                            },
-                            _ => None,
-                        })
-                    } else {
-                        None
-                    };
-                    self.project.commit(batch).map_err(|e| e.to_string())?;
-                    if let Some(location) = location {
-                        self.navigate(location);
-                    }
-                    Ok(())
-                })
-            }
-            DesktopCommand::PreviewExtension(request) => {
-                self.preview_edit(request);
-                return;
-            }
-            DesktopCommand::CancelPreviewEdit => {
-                self.overlay = None;
-                self.refresh();
-                return;
-            }
-            DesktopCommand::OpenLayerGraph { location, objects } => {
-                self.navigate(location.clone());
-                self.state.selection = fold_platform::desktop::Selection {
-                    document: Some(location.document),
-                    objects,
-                };
-                return;
-            }
-            DesktopCommand::Navigate(location) => {
-                self.navigate(location);
-                return;
-            }
-            DesktopCommand::NavigateBack => {
-                self.back();
-                return;
-            }
-            DesktopCommand::ActivateWorkspace(kind) => {
-                self.activate_workspace(&kind);
-                return;
-            }
-            DesktopCommand::Transport(action) => {
-                self.transport(action);
-                return;
-            }
-            DesktopCommand::Play => {
-                self.start_playback();
-                return;
-            }
-            DesktopCommand::Pause => {
-                self.stop_playback();
-                return;
-            }
-            DesktopCommand::Seek(frame) => {
-                self.seek(frame);
-                if self.state.playing {
-                    self.start_playback();
-                }
-                return;
-            }
-            DesktopCommand::Select(selection) => {
-                self.state.selection = selection;
-                return;
-            }
-            DesktopCommand::UnlockControls {
-                document,
-                object,
-                targets,
-                base,
-            } => crate::packages::builtins()
-                .unlock_for_artist(&self.project.snapshot(), base, document, object, &targets)
-                .and_then(|batch| {
-                    self.project
-                        .commit_named(batch, "Unlock controls".into())
-                        .map(|_| ())
-                        .map_err(|e| e.to_string())
-                }),
-            DesktopCommand::Extension(request) => {
-                let registry = crate::packages::builtins();
-                match registry.command(&request.id) {
-                    Ok(command)
-                        if command.execution == fold_platform::packages::Execution::Worker =>
-                    {
-                        self.background(DesktopCommand::Extension(request));
-                        return;
-                    }
-                    Ok(_) => registry
-                        .stage(&self.project.snapshot(), &request, &Cancel::default())
-                        .and_then(|batch| {
-                            self.project
-                                .commit(batch)
-                                .map(|_| ())
-                                .map_err(|e| e.to_string())
-                        }),
-                    Err(error) => Err(error),
-                }
-            }
-            DesktopCommand::CancelExtension(request) => {
-                for job in &self.background {
-                    if job.extension.as_ref().is_some_and(|r| {
-                        r.id == request.id
-                            && r.base == request.base
-                            && r.arguments == request.arguments
-                    }) {
-                        job.cancel.cancel();
-                    }
-                }
-                return;
-            }
-            DesktopCommand::Cancel => {
-                for job in &self.background {
-                    job.cancel.cancel();
-                }
-                self.state.status = "Cancellation requested".into();
-                return;
-            }
-            DesktopCommand::OpenSettings(target) => {
-                self.settings_request = Some(target);
-                return;
-            }
-            DesktopCommand::SetOutputColor {
-                document,
-                transform,
-            } => {
-                if !self.state.color_choices.outputs.iter().any(|choice| {
-                    choice.display == transform.display
-                        && choice.view == transform.view
-                        && choice.look == transform.look
-                }) {
-                    self.state.status = "Unavailable output color transform".into();
-                    return;
-                }
-                crate::color::set_output(&self.project.snapshot(), document, transform).and_then(
-                    |batch| {
-                        self.project
-                            .commit(batch)
-                            .map(|_| ())
-                            .map_err(|e| e.to_string())
-                    },
-                )
-            }
-            DesktopCommand::SetInputColor { asset, space } => (|| {
-                if !self.state.color_choices.inputs.contains(&space) {
-                    return Err("Unavailable input color space".into());
-                }
-                let snapshot = self.project.snapshot();
-                if fold_platform::color::project(&snapshot)?.is_none() {
-                    return Err("Legacy project retains its original input interpretation".into());
-                }
-                let mut asset = snapshot
-                    .state()
-                    .assets
-                    .get(&asset)
-                    .ok_or("Missing input asset")?
-                    .as_ref()
-                    .clone();
-                asset.extensions.insert(
-                    fold_platform::color::INPUT_KEY.into(),
-                    serde_json::Value::String(space),
-                );
-                self.project
-                    .commit(EditBatch {
-                        base: snapshot.revision(),
-                        mutations: vec![Mutation::PutAsset(asset)],
-                    })
-                    .map(|_| ())
-                    .map_err(|e| e.to_string())
-            })(),
-            DesktopCommand::SetOutput(document) => {
-                workflow::select_output(&self.project.snapshot(), document).and_then(|batch| {
-                    self.project
-                        .commit(batch)
-                        .map(|_| ())
-                        .map_err(|e| e.to_string())
-                })
-            }
-            DesktopCommand::Undo => self.project.undo().map(|_| ()).map_err(|e| e.to_string()),
-            DesktopCommand::Redo => self.project.redo().map(|_| ()).map_err(|e| e.to_string()),
-            other => {
-                self.background(other);
-                return;
-            }
-        };
-        match result {
-            Ok(()) => {
-                self.overlay = None;
-                self.refresh();
-                self.state.status = "Edit committed".into();
-            }
-            Err(error) => {
-                self.overlay = None;
-                self.refresh();
-                self.state.status = error;
-            }
+        if let commands::Outcome::Edit(result) = self.execute_command(command) {
+            self.overlay = None;
+            self.refresh();
+            self.state.status = result.err().unwrap_or_else(|| "Edit committed".into());
         }
     }
     fn request_preview(&mut self, key: PreviewKey) {
@@ -1136,32 +708,49 @@ impl DesktopClient for Session {
     }
 }
 
-fn choose_project(
-    save: bool,
-    current: Option<&std::path::Path>,
-) -> Result<Option<std::path::PathBuf>, String> {
-    #[cfg(feature = "desktop")]
-    {
-        let mut dialog = rfd::FileDialog::new().add_filter("Fold project", &["fold"]);
-        if let Some(parent) = current.and_then(std::path::Path::parent) {
-            dialog = dialog.set_directory(parent);
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn all_worker_outcomes_are_rejected_after_replacement_even_at_the_same_revision() {
+        let mut session = Session::default();
+        let old = session.project.snapshot();
+        let epoch = session.project_epoch;
+        session.command(DesktopCommand::NewProject);
+        assert_eq!(old.revision(), session.project.snapshot().revision());
+        let status = session.state.status.clone();
+        let outcomes = [
+            (
+                jobs::Kind::Save,
+                Completed::Saved("old.fold".into(), old.clone()),
+            ),
+            (
+                jobs::Kind::Open,
+                Completed::Opened(Project::new(8), old.revision(), None, "old.fold".into()),
+            ),
+            (
+                jobs::Kind::Ingest,
+                Completed::Edited(fold_project::EditBatch {
+                    base: old.revision(),
+                    mutations: vec![fold_project::Mutation::SetSettings(Default::default())],
+                }),
+            ),
+            (
+                jobs::Kind::Export,
+                Completed::Exported("old export completed".into()),
+            ),
+        ];
+        for (kind, result) in outcomes {
+            session.accept_completion(jobs::Completion {
+                kind,
+                epoch,
+                result: Ok(result),
+            });
+            assert_eq!(session.state.status, status);
+            assert!(session.state.project_path.is_none());
+            assert_eq!(session.state.save_serial, 0);
+            assert_eq!(session.state.file_result_serial, 0);
+            assert!(!session.state.dirty && !session.state.can_undo);
         }
-        Ok(if save {
-            dialog
-                .set_file_name(
-                    current
-                        .and_then(std::path::Path::file_name)
-                        .map(|name| name.to_string_lossy())
-                        .unwrap_or_else(|| "Untitled.fold".into()),
-                )
-                .save_file()
-        } else {
-            dialog.pick_file()
-        })
-    }
-    #[cfg(not(feature = "desktop"))]
-    {
-        let _ = (save, current);
-        Err("Native project dialogs require desktop support".into())
     }
 }

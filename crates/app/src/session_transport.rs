@@ -5,6 +5,30 @@ use fold_foundation::Time;
 use fold_platform::desktop::TransportAction;
 
 impl Session {
+    pub(super) fn poll_playback(&mut self) {
+        #[cfg(feature = "desktop")]
+        if self.viewers.monitor.is_none() {
+            use fold_foundation::{Rounding, Time};
+            if let Some(sample) = self.playback.sample()
+                && self.state.playing
+            {
+                let frame = Time::new(sample as i64, fold_media::audio::AUDIO_RATE)
+                    .unwrap()
+                    .to_ticks(self.state.rate[0], self.state.rate[1], Rounding::Floor)
+                    .unwrap_or(0)
+                    .max(0) as u32;
+                self.seek(frame.min(self.state.playback_range.bounds(self.state.frames).1));
+            }
+            self.state.playing = self.playback.playing();
+            self.state.priming = self.playback.priming();
+            self.state.audio_clock = self.playback.audio_clock();
+            self.state.underruns = self.playback.underruns();
+            if let Some(error) = self.playback.take_error() {
+                self.state.status = error;
+            }
+        }
+    }
+
     pub(super) fn stop_playback(&mut self) {
         #[cfg(feature = "desktop")]
         if self.viewers.monitor.is_none() {

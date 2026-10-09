@@ -272,7 +272,7 @@ fn project_workflow_reuses_assets_and_outputs_and_preserves_history_and_content(
         )
         .is_err()
     );
-    let content = fold_app::media_workflow::content_for(&snapshot, sequence).unwrap();
+    let content = fold_app::output::content_for(&snapshot, sequence).unwrap();
     edit(
         &mut project,
         Command::NewBin {
@@ -303,7 +303,7 @@ fn project_workflow_reuses_assets_and_outputs_and_preserves_history_and_content(
         },
     );
     assert_eq!(
-        fold_app::media_workflow::content_for(&project.snapshot(), sequence).unwrap(),
+        fold_app::output::content_for(&project.snapshot(), sequence).unwrap(),
         content
     );
     assert!(

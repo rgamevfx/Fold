@@ -1,6 +1,6 @@
 #![cfg(feature = "spatial")]
 //! Render the project authored by the public CLI workflow, without rebuilding its nodes here.
-use fold_app::media_workflow::{SceneRequest, evaluate_scene_gpu};
+use fold_app::output::{SceneRequest, evaluate_scene_gpu};
 use fold_foundation::{ObjectId, Time};
 use fold_render::gpu::{Host, Renderer};
 

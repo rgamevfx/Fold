@@ -1,4 +1,4 @@
-use fold_app::{composition, media_workflow, packages};
+use fold_app::{composition, output, packages};
 use fold_compositor::{Composite, Node, OperationConfig as P, Source};
 use fold_foundation::{DocumentId, ObjectId, Time};
 use fold_media::{Cancel, VideoInfo};
@@ -212,12 +212,12 @@ fn nested_timing_alpha_cache_persistence_and_atomic_cross_document_undo() {
     let nested =
         Sequence::from_document(&project.snapshot().state().documents[&sequence_id]).unwrap();
     assert_eq!(nested.clips[0].id, clip.id);
-    let hash = media_workflow::content(&project.snapshot()).unwrap();
+    let hash = output::content(&project.snapshot()).unwrap();
     project.undo().unwrap();
     assert_eq!(project.snapshot().state().documents.len(), 2);
     assert_eq!(pixels(&project, sequence_id, t(1)), original);
     project.redo().unwrap();
-    assert_eq!(media_workflow::content(&project.snapshot()).unwrap(), hash);
+    assert_eq!(output::content(&project.snapshot()).unwrap(), hash);
     let saved_snapshot = project.snapshot();
     let mut edited = inner;
     edited.nodes[0]
@@ -234,7 +234,7 @@ fn nested_timing_alpha_cache_persistence_and_atomic_cross_document_undo() {
         },
     );
     apply(&mut project, req);
-    assert_ne!(media_workflow::content(&project.snapshot()).unwrap(), hash);
+    assert_ne!(output::content(&project.snapshot()).unwrap(), hash);
     assert_eq!(
         pixels(&project, sequence_id, t(1)),
         vec![[0.0, 0.25, 0.0, 1.0]; 256]
@@ -254,21 +254,21 @@ fn nested_timing_alpha_cache_persistence_and_atomic_cross_document_undo() {
     fold_project::save(&project.snapshot(), &path).unwrap();
     let reopened = fold_project::load(&path, 32).unwrap();
     assert_eq!(
-        media_workflow::content(&reopened.snapshot()).unwrap(),
-        media_workflow::content(&project.snapshot()).unwrap()
+        output::content(&reopened.snapshot()).unwrap(),
+        output::content(&project.snapshot()).unwrap()
     );
     let key = PreviewKey {
         region: None,
         output: "video".into(),
         target: None,
-        content: media_workflow::content(&reopened.snapshot()).unwrap(),
+        content: output::content(&reopened.snapshot()).unwrap(),
         frame: 24,
         dimensions: [16, 16],
         view: 1,
         channels: Default::default(),
     };
     assert_eq!(
-        media_workflow::evaluate(
+        output::evaluate(
             &reopened.snapshot(),
             &key,
             &mut Default::default(),
@@ -279,12 +279,12 @@ fn nested_timing_alpha_cache_persistence_and_atomic_cross_document_undo() {
         pixels(&project, sequence_id, t(1))
     );
     // Unrelated documents do not invalidate nested preview content.
-    let hash = media_workflow::content(&project.snapshot()).unwrap();
+    let hash = output::content(&project.snapshot()).unwrap();
     commit(
         &mut project,
         vec![solid([1.0; 4]).document(DocumentId::new()).unwrap()],
     );
-    assert_eq!(media_workflow::content(&project.snapshot()).unwrap(), hash);
+    assert_eq!(output::content(&project.snapshot()).unwrap(), hash);
 }
 #[test]
 fn unavailable_nested_provider_fails_even_in_an_inactive_read() {

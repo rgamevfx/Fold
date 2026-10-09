@@ -1,4 +1,4 @@
-use fold_app::{media_workflow, packages};
+use fold_app::{output, packages};
 use fold_compositor::{Composite, Node, OperationConfig as P, Source};
 use fold_foundation::{DocumentId, Time};
 use fold_project::{DocumentRef, EditBatch, Mutation, Project};
@@ -83,8 +83,8 @@ fn project(path: &std::path::Path) -> (Project, DocumentRef) {
         },
     )
 }
-fn request(source: DocumentRef, view: View) -> media_workflow::SceneRequest {
-    media_workflow::SceneRequest {
+fn request(source: DocumentRef, view: View) -> output::SceneRequest {
+    output::SceneRequest {
         region: None,
         preview: Some(view),
         source,
@@ -104,7 +104,7 @@ fn read_picker_transaction_preserves_named_channels_and_undoes_import_atomically
         .unwrap();
     assert_eq!(channels.len(), 24);
     let range = Range::new(1000., 1020.).unwrap();
-    let scene = media_workflow::evaluate_scene(
+    let scene = output::evaluate_scene(
         &project.snapshot(),
         &request(
             source.clone(),
@@ -122,7 +122,7 @@ fn read_picker_transaction_preserves_named_channels_and_undoes_import_atomically
         &scene.to_data_display(range).unwrap().rgba()[..4],
         &[242, 242, 242, 255]
     );
-    let beauty = media_workflow::evaluate_scene(
+    let beauty = output::evaluate_scene(
         &project.snapshot(),
         &request(source.clone(), View::default()),
         &mut Default::default(),
@@ -162,7 +162,7 @@ fn twenty_aovs_decode_only_the_selected_source_tuple_and_cache_one_display_image
             range: Range::new(1000., 1020.).unwrap(),
         },
     ] {
-        let scene = media_workflow::evaluate_scene_gpu(
+        let scene = output::evaluate_scene_gpu(
             &project.snapshot(),
             &request(source.clone(), view.clone()),
             &mut renderer,
@@ -240,7 +240,7 @@ fn nested_composites_preserve_channel_catalogs_values_and_inactive_frames() {
     for (time, value) in [(Time::ZERO, 0.), (Time::new(1, 24).unwrap(), 1019.)] {
         let mut request = request(parent.clone(), view.clone());
         request.time = time;
-        let scene = media_workflow::evaluate_scene(
+        let scene = output::evaluate_scene(
             &project.snapshot(),
             &request,
             &mut Default::default(),
@@ -263,7 +263,7 @@ fn nested_composites_preserve_channel_catalogs_values_and_inactive_frames() {
             )],
         })
         .unwrap();
-    let scene = media_workflow::evaluate_scene(
+    let scene = output::evaluate_scene(
         &project.snapshot(),
         &request(parent.clone(), View::default()),
         &mut Default::default(),
@@ -274,7 +274,7 @@ fn nested_composites_preserve_channel_catalogs_values_and_inactive_frames() {
     let mut active = request(parent, View::default());
     active.time = Time::new(1, 24).unwrap();
     assert!(
-        media_workflow::evaluate_scene(
+        output::evaluate_scene(
             &project.snapshot(),
             &active,
             &mut Default::default(),
@@ -299,7 +299,7 @@ fn unchanged_exr_reuses_gpu_input_across_time_and_effect_edits() {
     let cancel = fold_media::Cancel::default();
     let mut decoder = fold_media::Decoder::default();
     let mut demand = request(source.clone(), View::default());
-    let mut first = media_workflow::evaluate_scene_gpu(
+    let mut first = output::evaluate_scene_gpu(
         &project.snapshot(),
         &demand,
         &mut renderer,
@@ -336,7 +336,7 @@ fn unchanged_exr_reuses_gpu_input_across_time_and_effect_edits() {
         })
         .unwrap();
     demand.time = Time::new(1, 24).unwrap();
-    let mut second = media_workflow::evaluate_scene_gpu(
+    let mut second = output::evaluate_scene_gpu(
         &project.snapshot(),
         &demand,
         &mut renderer,
@@ -359,7 +359,7 @@ fn unchanged_exr_reuses_gpu_input_across_time_and_effect_edits() {
         "cached source cannot become writable scratch"
     );
     demand.dimensions = [2, 1];
-    let mut resized = media_workflow::evaluate_scene_gpu(
+    let mut resized = output::evaluate_scene_gpu(
         &project.snapshot(),
         &demand,
         &mut renderer,
@@ -373,7 +373,7 @@ fn unchanged_exr_reuses_gpu_input_across_time_and_effect_edits() {
     // must reuse the same source samples and apply resizing afterward.
     for dimensions in [[128, 128], [127, 128], [128, 128]] {
         demand.dimensions = dimensions;
-        let mut frame = media_workflow::evaluate_scene_gpu(
+        let mut frame = output::evaluate_scene_gpu(
             &project.snapshot(),
             &demand,
             &mut renderer,
@@ -392,7 +392,7 @@ fn unchanged_exr_reuses_gpu_input_across_time_and_effect_edits() {
             name: format!("aov{layer}.Z").try_into().unwrap(),
             range: Range::new(1000., 1020.).unwrap(),
         };
-        let mut frame = media_workflow::evaluate_scene_gpu(
+        let mut frame = output::evaluate_scene_gpu(
             &project.snapshot(),
             &request(source.clone(), view),
             &mut renderer,
@@ -404,7 +404,7 @@ fn unchanged_exr_reuses_gpu_input_across_time_and_effect_edits() {
         assert!(host.memory().allocated <= host.memory().budget);
     }
     demand.dimensions = [3, 2];
-    let mut retained = media_workflow::evaluate_scene_gpu(
+    let mut retained = output::evaluate_scene_gpu(
         &project.snapshot(),
         &demand,
         &mut renderer,
@@ -414,7 +414,7 @@ fn unchanged_exr_reuses_gpu_input_across_time_and_effect_edits() {
     .unwrap();
     assert_eq!(retained.statistics.cpu_adapter_nodes, 0);
     retained.readback(&cancel).unwrap();
-    let mut warm = media_workflow::evaluate_scene_gpu(
+    let mut warm = output::evaluate_scene_gpu(
         &project.snapshot(),
         &demand,
         &mut renderer,
@@ -437,7 +437,7 @@ fn unchanged_exr_reuses_gpu_input_across_time_and_effect_edits() {
         .set_times(std::fs::FileTimes::new().set_modified(modified))
         .unwrap();
     demand.dimensions = [3, 2];
-    let error = media_workflow::evaluate_scene_gpu(
+    let error = output::evaluate_scene_gpu(
         &project.snapshot(),
         &demand,
         &mut renderer,

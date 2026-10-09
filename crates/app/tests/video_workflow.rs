@@ -1,6 +1,6 @@
 //! Real codec contract tests. FFmpeg/ffprobe + libx264 + zscale are prerequisites;
 //! absence is a failure, not a silently skipped media gate.
-use fold_app::media_workflow as workflow;
+use fold_app::output as workflow;
 use fold_foundation::Time;
 use fold_media::{Cancel, Decoder, Encoder, VideoInfo};
 use fold_platform::desktop::{DesktopClient, DesktopCommand, PreviewKey};

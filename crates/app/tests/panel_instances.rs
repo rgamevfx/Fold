@@ -1,5 +1,5 @@
 mod support;
-use fold_app::{media_workflow, session::Session};
+use fold_app::{output, session::Session};
 use fold_foundation::{DocumentId, Time};
 use fold_platform::{
     desktop::{DesktopClient, DesktopCommand, Selection, ViewLocation},
@@ -24,7 +24,7 @@ fn fixture() -> (Session, [DocumentId; 2]) {
         })
         .unwrap();
     project
-        .commit(media_workflow::select_output(&project.snapshot(), ids[0]).unwrap())
+        .commit(output::select_output(&project.snapshot(), ids[0]).unwrap())
         .unwrap();
     (Session::new(project), ids)
 }
@@ -112,7 +112,7 @@ fn two_editors_and_viewers_preserve_exact_targets_delivery_and_undo() {
         let state = session.preview_state(&output, time);
         let key = state.preview_key(state.frame, 1).unwrap();
         assert_eq!(key.target, Some((output.document, time)));
-        let frame = media_workflow::evaluate(
+        let frame = output::evaluate(
             &before,
             &key,
             &mut fold_media::Decoder::default(),
@@ -185,7 +185,7 @@ fn group_selections_do_not_change_delivery_project_history_or_other_viewer_time(
         let key = state.preview_key(state.frame, 1).unwrap();
         assert_eq!(key.target, Some((output.document, w.viewers[&viewer].time)));
         assert_eq!(
-            media_workflow::evaluate(
+            output::evaluate(
                 &before,
                 &key,
                 &mut fold_media::Decoder::default(),
@@ -305,7 +305,7 @@ fn duplicate_labels_and_rename_do_not_change_bound_ids_or_render_content() {
                 .collect(),
         })
         .unwrap();
-    let content = media_workflow::content_for(&project.snapshot(), ids[0]).unwrap();
+    let content = output::content_for(&project.snapshot(), ids[0]).unwrap();
     let mut items = project.snapshot().state().organization.items.clone();
     for item in &mut items {
         item.name = "Same".into();
@@ -334,7 +334,7 @@ fn duplicate_labels_and_rename_do_not_change_bound_ids_or_render_content() {
             .starts_with("Renamed")
     );
     assert_eq!(
-        media_workflow::content_for(&project.snapshot(), ids[0]).unwrap(),
+        output::content_for(&project.snapshot(), ids[0]).unwrap(),
         content
     );
 }

@@ -86,6 +86,16 @@ pub fn save(snapshot: &CommittedSnapshot, path: impl AsRef<Path>) -> Result<(), 
     save_with(snapshot, path.as_ref(), Publication::Replace, &|| Ok(()))
 }
 
+/// Replace an archive with cancellation during serialization and before atomic
+/// publication. A finalized file is not rolled back by later cancellation.
+pub fn save_cancellable(
+    snapshot: &CommittedSnapshot,
+    path: impl AsRef<Path>,
+    check: &dyn Fn() -> Result<(), String>,
+) -> Result<(), SaveError> {
+    save_with(snapshot, path.as_ref(), Publication::Replace, check)
+}
+
 /// Create a new archive without replacing any existing directory entry. Run on a
 /// worker. Cancellation is checked during serialization and immediately before
 /// publication; after publication success/DirectorySync wins a cancellation race.

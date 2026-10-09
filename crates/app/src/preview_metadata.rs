@@ -39,7 +39,7 @@ impl Metadata {
         }
         root.content
             .entry(document)
-            .or_insert_with(|| crate::media_workflow::content_for(snapshot, document))
+            .or_insert_with(|| crate::output::content_for(snapshot, document))
             .clone()
     }
     pub fn output(

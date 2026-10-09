@@ -1,0 +1,7 @@
+    Finished `test` profile [unoptimized] target(s) in 0.32s
+   Doc-tests fold_app
+
+running 1 test
+test crates/app/src/output_export.rs - output::export::export (line 6) - compile fail ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s

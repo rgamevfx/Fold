@@ -232,9 +232,11 @@ impl super::Session {
             .clocks
             .iter()
             .filter_map(|(&id, clock)| {
-                let content =
-                    crate::media_workflow::content_for(&snapshot, clock.transport.output.document)
-                        .ok();
+                let content = self
+                    .metadata
+                    .borrow_mut()
+                    .content(&snapshot, clock.transport.output.document)
+                    .ok();
                 (content != clock.content).then(|| {
                     let mut transport = clock.transport.clone();
                     transport.playing = false;

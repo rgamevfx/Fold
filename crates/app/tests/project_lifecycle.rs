@@ -93,3 +93,50 @@ fn opening_does_not_discard_edits_published_while_io_runs() {
     );
     assert!(session.state().status.contains("changed while opening"));
 }
+
+#[test]
+fn replacement_while_file_io_runs_never_publishes_its_path_or_saved_root() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("old.fold");
+    let mut session = Session::default();
+    edit(&mut session, "Old project");
+    fold_project::save(&session.snapshot().unwrap(), &path).unwrap();
+    for command in [
+        DesktopCommand::Open(path.clone()),
+        DesktopCommand::Save(path),
+    ] {
+        session.command(command);
+        assert!(session.state().busy);
+        session.command(DesktopCommand::NewProject);
+        finish(&mut session);
+        assert!(!session.state().busy);
+        assert!(!session.state().dirty);
+        assert_eq!(session.state().save_serial, 0);
+        assert!(session.state().project_path.is_none());
+        assert!(
+            session
+                .snapshot()
+                .unwrap()
+                .state()
+                .organization
+                .bins
+                .is_empty()
+        );
+    }
+}
+
+#[test]
+fn cancelled_open_keeps_the_current_project() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("empty.fold");
+    let mut session = Session::default();
+    fold_project::save(&session.snapshot().unwrap(), &path).unwrap();
+    edit(&mut session, "Keep me");
+    let before = session.snapshot().unwrap();
+    session.command(DesktopCommand::Open(path));
+    session.command(DesktopCommand::Cancel);
+    finish(&mut session);
+    assert!(session.snapshot().unwrap().same_content(&before));
+    assert!(session.state().dirty);
+    assert!(session.state().project_path.is_none());
+}

@@ -1,6 +1,6 @@
 //! End-to-end audio preservation and MP4 export. Set FOLD_COMPOSITOR_ARTIFACT_DIR
 //! to retain the editable project and exported movie outside the repository.
-use fold_app::{composition, media_workflow, packages};
+use fold_app::{composition, output, packages};
 use fold_compositor::{Composite, Node, OperationConfig};
 use fold_media::{Cancel, audio::AudioDecoder};
 use fold_project::Project;
@@ -247,15 +247,15 @@ fn create_composition_keeps_linked_audio_and_exports_the_same_video() {
     fold_project::save(&project.snapshot(), &path).unwrap();
     let reopened = fold_project::load(&path, 32).unwrap();
     let output = directory.join("phase-8-export.mp4");
-    media_workflow::export(&reopened.snapshot(), &output, 0, 48, &Cancel::default()).unwrap();
+    output::export(&reopened.snapshot(), &output, 0, 48, &Cancel::default()).unwrap();
     let encoded = fold_media::inspect(&output, &Cancel::default()).unwrap();
     assert_eq!(encoded.info.frames, 48);
     assert!(fold_media::audio::has_audio(&output, &Cancel::default()).unwrap());
     // Each graph edit, processing insertion and sequence replacement is one undo entry.
     project.undo().unwrap();
     assert_eq!(
-        media_workflow::content(&project.snapshot()).unwrap(),
-        media_workflow::content(&after).unwrap()
+        output::content(&project.snapshot()).unwrap(),
+        output::content(&after).unwrap()
     );
     project.undo().unwrap();
     assert_eq!(
@@ -264,8 +264,8 @@ fn create_composition_keeps_linked_audio_and_exports_the_same_video() {
     );
     project.undo().unwrap();
     assert_eq!(
-        media_workflow::content(&project.snapshot()).unwrap(),
-        media_workflow::content(&before).unwrap()
+        output::content(&project.snapshot()).unwrap(),
+        output::content(&before).unwrap()
     );
     assert_eq!(
         project.snapshot().state().documents,

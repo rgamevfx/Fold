@@ -1,5 +1,5 @@
 mod support;
-use fold_app::{media_workflow, session::Session};
+use fold_app::{output, session::Session};
 use fold_foundation::DocumentId;
 use fold_platform::desktop::{DesktopClient, DesktopCommand};
 use fold_project::{DocumentRef, EditBatch, Mutation, Project};
@@ -17,7 +17,7 @@ fn scene_request_is_independent_of_viewer_keys_and_retains_alpha() {
         })
         .unwrap();
     let snapshot = project.snapshot();
-    let mut request = media_workflow::SceneRequest {
+    let mut request = output::SceneRequest {
         region: None,
         preview: None,
         source: DocumentRef {
@@ -30,7 +30,7 @@ fn scene_request_is_independent_of_viewer_keys_and_retains_alpha() {
     };
     let mut decoder = fold_media::Decoder::default();
     let cancel = fold_media::Cancel::default();
-    let frame = media_workflow::evaluate_scene(&snapshot, &request, &mut decoder, &cancel).unwrap();
+    let frame = output::evaluate_scene(&snapshot, &request, &mut decoder, &cancel).unwrap();
     assert_eq!(frame.dimensions(), [4, 4]);
     assert!(frame.pixels().iter().all(|p| *p == [0.; 4]));
     assert!(
@@ -46,22 +46,22 @@ fn scene_request_is_independent_of_viewer_keys_and_retains_alpha() {
         width: 2,
         height: 2,
     });
-    let tile = media_workflow::evaluate_scene(&snapshot, &request, &mut decoder, &cancel).unwrap();
+    let tile = output::evaluate_scene(&snapshot, &request, &mut decoder, &cancel).unwrap();
     assert_eq!(tile.dimensions(), [2, 2]);
     assert_eq!(tile.pixels(), &[[0.; 4]; 4]);
     assert_eq!(tile.descriptor().timing, frame.descriptor().timing);
     assert_eq!(
-        media_workflow::evaluate_scene(&snapshot, &full_request, &mut decoder, &cancel)
+        output::evaluate_scene(&snapshot, &full_request, &mut decoder, &cancel)
             .unwrap()
             .dimensions(),
         [4, 4]
     );
     request.region = None;
     request.source.output = "missing".into();
-    assert!(media_workflow::evaluate_scene(&snapshot, &request, &mut decoder, &cancel).is_err());
+    assert!(output::evaluate_scene(&snapshot, &request, &mut decoder, &cancel).is_err());
     request.source.output = "video".into();
     request.time = fold_foundation::Time::new(-1, 1).unwrap();
-    assert!(media_workflow::evaluate_scene(&snapshot, &request, &mut decoder, &cancel).is_err());
+    assert!(output::evaluate_scene(&snapshot, &request, &mut decoder, &cancel).is_err());
 }
 
 #[test]
@@ -80,7 +80,7 @@ fn delivery_selection_is_transactional_and_missing_selection_does_not_fall_back(
         })
         .unwrap();
     project
-        .commit(media_workflow::select_output(&project.snapshot(), id).unwrap())
+        .commit(output::select_output(&project.snapshot(), id).unwrap())
         .unwrap();
     let mut session = Session::new(project);
     session.command(DesktopCommand::SetOutput(other));
@@ -100,13 +100,7 @@ fn delivery_selection_is_transactional_and_missing_selection_does_not_fall_back(
             mutations: vec![Mutation::RemoveDocument(id)],
         })
         .unwrap();
-    assert!(media_workflow::output(&project.snapshot()).is_err());
+    assert!(output::output(&project.snapshot()).is_err());
     project.undo().unwrap();
-    assert_eq!(
-        media_workflow::output(&project.snapshot())
-            .unwrap()
-            .0
-            .document,
-        id
-    );
+    assert_eq!(output::output(&project.snapshot()).unwrap().0.document, id);
 }
