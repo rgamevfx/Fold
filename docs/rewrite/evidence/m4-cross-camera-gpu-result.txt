@@ -1,0 +1,43 @@
+Native cross-camera GPU coverage and occlusion — 8 October 2026
+
+Expanded native_camera_planes_and_world_box_match_analytic_pixels_and_depth in
+crates/app/tests/motion_spatial.rs. No production code changed in this iteration.
+
+16 cases: perspective 90 degrees / orthographic 4m vertical extent, viewport /
+0.0123m-per-unit physical sizing, rear plane distance 4m / 6m, attached camera /
+second translated view camera. Attachment camera stays at [0,0,4] targeting zero.
+The second camera is at [0.173,0,5.137], targeting [0.173,0,0], so it has the same
+orientation but a different position and native identity. Plane positions are
+still authored against the original camera. View and attachment projections
+match within each case; switching projection kinds between cameras is not tested.
+
+Native project transactions create red rear and green front rectangles plus a
+blue World Box at [0,0,3]. Canvas 200x100, output 160x120. Independent analytic
+projection includes the view translation; box occlusion and view-space depth
+are checked at every pixel. The lateral camera lies within the box's front-face
+extent, so the independent box silhouette oracle remains a front rectangle.
+
+Command environment: CARGO_BUILD_JOBS=2 CARGO_INCREMENTAL=0
+CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0.
+cargo test -p fold-app --features spatial --test motion_spatial
+native_camera_planes_and_world --locked -- --ignored --nocapture
+Log /tmp/fold-cross-camera-gpu.log; exit 0; 1 passed, 9 filtered, 5.96 seconds.
+NVIDIA GTX 1070, driver 580.173.02, Vulkan, RGBA16F, MSAA off.
+
+All 307200 pixels exactly match analytic clear/red/green/blue colors. Covered
+depth differs by less than 2e-5m; clear depth is absent. Application registered
+evaluate_scene_gpu pixels exactly match direct Adapter pixels in all 16 cases.
+Existing tolerances unchanged. Original eight attached-camera cases retained.
+
+First attempted run failed document validation because the cloned test camera
+duplicated its name and parameter IDs. Both were corrected before the passing
+run; this was test authoring, not a renderer failure.
+
+Formatting and whitespace checks pass. This qualifies translated parallel
+cross-camera viewing, not rotated or rear views, near-plane intersections,
+physical artist acceptance or complete M3/M4/M5 gates. Boolean intermediate
+memory and cancellation latency remain open from the previous implementation.
+
+Focused cargo clippy -p fold-app --features spatial --test motion_spatial
+--locked passes. Log /tmp/fold-cross-camera-gpu-clippy.log. Existing dependency
+and application warnings remain; no warning originates in the changed test.

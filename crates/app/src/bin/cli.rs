@@ -1,13 +1,35 @@
 //! Minimal headless foundation checkpoint and saved-project rendering.
 use fold_foundation::{DocumentId, Time};
-use fold_motion::Solid;
 use fold_project::{DocumentRef, EditBatch, Mutation, load, save};
 use std::{error::Error, io::Write, path::Path};
 
 fn run() -> Result<(), Box<dyn Error>> {
     let args: Vec<_> = std::env::args_os().skip(1).collect();
-    if args.first().is_some_and(|arg| arg == "agent") {
-        return fold_app::automation::cli::run(&args[1..]).map_err(Into::into);
+    #[cfg(target_os = "linux")]
+    if args.first().is_some_and(|arg| arg == "mcp") {
+        if args.len() != 2 {
+            return Err("usage: fold-cli mcp <socket>".into());
+        }
+        fold_app::agent::mcp::serve(
+            Path::new(&args[1]),
+            std::io::stdin().lock(),
+            std::io::stdout().lock(),
+        )?;
+        return Ok(());
+    }
+    #[cfg(target_os = "linux")]
+    if args.first().is_some_and(|arg| arg == "protocol") {
+        use std::io::Read;
+        if args.len() != 2 {
+            return Err("usage: fold-cli protocol <socket> (request JSON on stdin)".into());
+        }
+        let mut bytes = Vec::new();
+        std::io::stdin()
+            .take(fold_app::agent::retry::MAX_REQUEST_BYTES as u64 + 1)
+            .read_to_end(&mut bytes)?;
+        let response = fold_app::agent::local::request(Path::new(&args[1]), &bytes)?;
+        std::io::stdout().write_all(&response)?;
+        return Ok(());
     }
     if args.first().is_some_and(|arg| arg == "color-config") {
         if args.len() != 3 {
@@ -278,7 +300,9 @@ fn run() -> Result<(), Box<dyn Error>> {
         for rgb in [[0.0, 0.5, 1.0], [1.0, 0.0, 0.0]] {
             project.commit(EditBatch {
                 base: project.snapshot().revision(),
-                mutations: vec![Mutation::PutDocument(Solid { rgb }.document(id)?)],
+                mutations: vec![Mutation::PutDocument(
+                    checkpoint_composite(rgb).document(id)?,
+                )],
             })?;
         }
         project.undo()?;
@@ -329,5 +353,27 @@ fn main() {
     if let Err(error) = run() {
         eprintln!("fold-cli: {error}");
         std::process::exit(1);
+    }
+}
+
+fn checkpoint_composite(rgb: [f32; 3]) -> fold_compositor::Composite {
+    use fold_compositor::{Composite, Node, Parameters};
+    let solid = Node::new(
+        Parameters::Solid {
+            rgba: [rgb[0], rgb[1], rgb[2], 1.],
+        },
+        vec![],
+    );
+    let output = Node::new(Parameters::Output, vec![solid.id]);
+    Composite {
+        info: fold_media::VideoInfo {
+            width: 64,
+            height: 64,
+            rate: [24, 1],
+            frames: 24,
+        },
+        output: output.id,
+        nodes: vec![solid, output],
+        extensions: Default::default(),
     }
 }

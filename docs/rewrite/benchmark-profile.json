@@ -1,0 +1,73 @@
+{
+  "date": "2026-10-08",
+  "baseline_commit": "66ebb2ece465189a2f8dd3e415b38f63a62bdd6a",
+  "cpu": "Intel Core i7-8750H; 6 cores / 12 threads",
+  "platform": "Linux-7.1.5-76070105-generic-x86_64-with-glibc2.39",
+  "rustc": "rustc 1.95.0 (59807616e 2026-04-14)",
+  "gpu_scope": "software Vulkan only; physical GPU and desktop acceptance unverified",
+  "vulkan": {
+    "device": "llvmpipe (LLVM 20.1.2, 256 bits)",
+    "driver": "Mesa 26.1.6",
+    "api": "1.4.354"
+  },
+  "font": {
+    "path": "resources/fonts/NotoSans-Regular.ttf",
+    "sha256": "b85c38ecea8a7cfb39c24e395a4007474fa5a4fc864f6ee33309eb4948d232d5"
+  },
+  "scene": {
+    "dimensions": [
+      1920,
+      1080
+    ],
+    "fps": [
+      24,
+      1
+    ],
+    "duration": [
+      4,
+      1
+    ],
+    "seed": 20261008,
+    "times": [
+      [
+        0,
+        1
+      ],
+      [
+        1,
+        4
+      ],
+      [
+        1,
+        2
+      ],
+      [
+        3,
+        4
+      ],
+      [
+        1,
+        1
+      ],
+      [
+        2,
+        1
+      ],
+      [
+        4,
+        1
+      ]
+    ],
+    "clone_counts": [
+      1000,
+      10000,
+      100000
+    ],
+    "working_color": "linear Rec.709",
+    "alpha": "premultiplied",
+    "intermediate": "RGBA16F",
+    "display": "sRGB once",
+    "history_effects": false
+  },
+  "status": "frozen correctness profile; performance results absent"
+}

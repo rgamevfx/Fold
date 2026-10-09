@@ -106,13 +106,9 @@ fn invalid_imports_and_payloads_fail_explicitly() {
     let original = import_sequence(id, [24, 1], &[ppm([0; 3])]).unwrap();
     let compile = |document: &fold_project::Document| {
         ImageSequenceProvider.compile(fold_platform::VideoCompile {
-            graph_context: None,
             invocation: None,
             context: None,
             resolve_effect: &|_, _, _| Err("Effect invocation unavailable in this context".into()),
-            resolve_graph: &|_, _, _| {
-                Err("Layer graph evaluation is unavailable in this context".into())
-            },
             snapshot: &fold_project::Project::new(0).snapshot(),
             document,
             reference: &fold_project::DocumentRef {

@@ -757,7 +757,7 @@ impl Shell {
         Some(key)
     }
     pub fn keys(&self, client: &dyn DesktopClient) -> Vec<(PanelInstanceId, Option<PreviewKey>)> {
-        let mut keys: Vec<_> = self
+        let keys: Vec<_> = self
             .workspace
             .viewers
             .iter()
@@ -770,16 +770,12 @@ impl Shell {
                     self.viewport_pixels.get(&id)?;
                     let mut key =
                         self.spatial_key(id, state.preview_key(state.frame, 1)?, viewer.divisor)?;
-                    key.output = output.output;
                     key.channels = viewer.channels.clone();
                     Some(key)
                 });
                 (id, key)
             })
             .collect();
-        if let Some(p) = client.agent_preview() {
-            keys.push((fold_platform::desktop::AGENT_PREVIEW_VIEWER, Some(p.key)));
-        }
         keys
     }
     fn open_host_target(&mut self, client: &dyn DesktopClient) {
@@ -1662,6 +1658,9 @@ impl Shell {
         for graph in layer_graphs {
             self.open_layer_graph(graph);
         }
+        // Navigation may have introduced a document not present in the previous
+        // provider snapshot. Resolve it before matching queued editor seeks.
+        self.refresh_viewer_targets(client);
         for (editor, time, locked_context) in seeks {
             if locked_context
                 && let Some((owner, locked)) = &mut self.workspace.inspector_lock
@@ -1803,6 +1802,13 @@ impl Shell {
         Ok(())
     }
     fn refresh_viewer_targets(&mut self, client: &mut dyn DesktopClient) {
+        self.workspace.refresh_outputs(|document| {
+            client
+                .outputs(document)
+                .into_iter()
+                .next()
+                .map(|output| output.reference)
+        });
         let targets: Vec<_> = self
             .workspace
             .viewers
@@ -2140,10 +2146,6 @@ impl Shell {
         statistics: &str,
         client: &mut dyn DesktopClient,
     ) {
-        if id == fold_platform::desktop::AGENT_PREVIEW_VIEWER {
-            crate::candidate_preview::draw(ui, preview, client);
-            return;
-        }
         let Some(key) = self.viewers.get(&id).cloned() else {
             return;
         };
@@ -2263,7 +2265,7 @@ impl Shell {
                         let canvas_origin = ui.cursor_screen_pos();
                         let canvas_size = ui.content_region_avail();
                         let insets = self.workspace.editor_for_viewer(id)
-                            .filter(|editor| self.workspace.editors.get(editor).and_then(|b| b.output()).as_ref() == output.as_ref())
+                            .filter(|editor| self.workspace.editors.get(editor).and_then(|b| self.workspace.output(b)).as_ref() == output.as_ref())
                             .and_then(|editor| self.editors.get(&editor))
                             .map(|e| e.panels.editor.viewer_tool_insets(ui)).unwrap_or([0.; 2]);
                         let canvas = [canvas_origin[0] + insets[0], canvas_origin[1] + insets[1]];
@@ -2416,7 +2418,6 @@ impl Shell {
                 .preview_key(state.frame, 1)
                 .and_then(|key| self.spatial_key(id, key, viewer.divisor))
                 .map(|mut key| {
-                    key.output = output.output.clone();
                     key.channels = viewer.channels.clone();
                     key
                 });
@@ -2427,7 +2428,7 @@ impl Shell {
         let Some(binding) = self.workspace.editors.get(&editor_id) else {
             return;
         };
-        if binding.output().as_ref() != Some(&output) {
+        if self.workspace.output(binding).as_ref() != Some(&output) {
             return;
         }
         let Some(editor) = self.editors.get_mut(&editor_id) else {

@@ -1,0 +1,50 @@
+Integrated public authoring with frame feedback — 8 October 2026
+
+demos/m5-integrated.py now discovers frame availability and uses observe_frame
+through the same CLI/MCP transport as authoring. Artwork code still reads no Rust
+or native project payload. Frame data is retained in report.frames with provenance.
+GPU-enabled host fixtures reuse the normal Session rendering host and public socket.
+
+Per transport, the complete workflow now:
+- Authors the laid-out 35-node scene through guarded Source proposal/inspection/Apply.
+- Observes CPU samples at seven required times including exact four seconds.
+- Requests 480x270 baseline frames at 0,1/4,1/2,3/4,1,2,95/24.
+- Validates revision/time, image extent and full opaque RGBA8 byte length.
+- Changes wording/grid/palette and requests a different rendered frame at one second.
+- Restores canonical Source and requires the one-second pixels to match exactly.
+- Publicly saves revision 4; native host reopens and verifies complete state.
+- Retains existing exact Apply retry, control semantics and native Undo/Redo checks.
+
+The last frame time is explicitly labelled 95/24. This is not evidence for a
+public frame at four seconds: the registered output interval remains half-open.
+CPU-only workflows record frames.available=false and retain all CPU/save checks.
+
+GPU command:
+FOLD_M5_EVIDENCE_DIR=/tmp/fold-m5-public-frames cargo test -p fold-app --features
+spatial --test agent_integrated gpu_authoring --locked -- --ignored --nocapture
+Log /tmp/fold-m5-public-frames.log; 2 pass, 2 filtered, 28.65 seconds.
+NVIDIA GTX 1070, driver 580.173.02, Vulkan.
+CLI report/archive: /tmp/fold-m5-public-frames/dfde9c17-ae3c-4540-97ee-6ac7295e33d7
+MCP report/archive: /tmp/fold-m5-public-frames/b3c16d19-1611-4fa2-acb6-d15769d62302
+Each report contains nine full image responses and the public save result.
+
+CPU-only command:
+FOLD_M5_EVIDENCE_DIR=/tmp/fold-m5-public-frames-cpu cargo test -p fold-app
+--test agent_integrated --locked -- --nocapture
+Log /tmp/fold-m5-public-frames-cpu.log; both CLI/MCP pass.
+
+Commands use CARGO_BUILD_JOBS=2 CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0
+CARGO_PROFILE_TEST_DEBUG=0.
+Focused application Clippy for agent_integrated with spatial passes with existing
+library warnings; /tmp/fold-m5-public-frames-clippy.log. Workspace formatting,
+package boundaries, Python syntax and whitespace checks pass. No full workspace
+test rerun was performed in this iteration.
+
+Reviewed CLI frames at one second decoded without another display conversion:
+m5-public-baseline.png and m5-public-variation.png in this evidence directory.
+Baseline shows MAKE IT MOVE in Screen and extruded branches, O/B/8 holes and the
+clone field. Variation visibly reads MAKE IT FLOW with a greener clone response.
+The automated restored-frame assertion compares every RGBA byte exactly.
+The images are public headless output, not physical desktop screenshots or a
+normal/narrow graph review. Remaining physical acceptance and M3–M5 requirements
+are not closed by this workflow extension.

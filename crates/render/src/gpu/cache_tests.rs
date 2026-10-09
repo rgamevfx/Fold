@@ -5,13 +5,14 @@ use crate::{ImageOp, RenderGraph, gpu::Renderer};
 #[test]
 #[ignore = "requires native Vulkan"]
 fn native_bc7_unavailable_features_and_allocation_pressure_leave_host_usable() {
-    let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
+    let instance = Host::create_instance(&wgpu::InstanceDescriptor {
         backends: wgpu::Backends::VULKAN,
         ..Default::default()
-    });
+    })
+    .unwrap();
     let adapter = pollster::block_on(instance.request_adapter(&Default::default())).unwrap();
     let (device, queue) = pollster::block_on(adapter.request_device(&Default::default())).unwrap();
-    let unsupported = Host::from_device(device, queue, 1024 * 1024).unwrap();
+    let unsupported = Host::from_device(instance, adapter, device, queue, 1024 * 1024).unwrap();
     assert!(
         PresentationCompressor::new(unsupported.clone())
             .err()

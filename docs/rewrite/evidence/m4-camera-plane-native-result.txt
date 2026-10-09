@@ -1,0 +1,50 @@
+Native Camera Plane evaluation and CPU observation — 8 October 2026
+Rendering integration remains unfinished; this is not Camera Plane acceptance.
+
+Added fold.motion.place v1 modes camera_plane_viewport and camera_plane_physical.
+Both take explicit Geometry and Camera dependencies, positive camera-axis distance
+in meters, canvas position and opacity. Physical sizing also takes meters_per_unit.
+Evaluated placement retains the exact immutable camera Arc, sizing discriminator
+and explicit Scene depth policy. Only planar screen/canvas contours, text and
+outlines are admitted. Distance/position/opacity/physical-scale ranges are checked.
+No implicit conversion of World solids or dependence on the selected scene camera.
+
+Fold UI skill applied. Existing graph catalog and parameter controls provide the
+two modes; graph creation supplies rectangle and camera dependencies. There are
+no new toolbar widgets. Physical normal/narrow interaction is not verified.
+
+CPU observations expose the attachment camera and policies. Bounds are explicitly
+labeled canvas_before_projection; they are not advertised as world or pixel bounds.
+
+Verification:
+- cargo check -j 2 -p fold-motion --features ui -p fold-app --locked: passed.
+  /tmp/fold-plane-native-check.log
+- Motion UI/library: 46 passed, six existing ignored. Spatial controls: four passed.
+  Source round trip, shared camera Arc, stable placement identity, reordered exact
+  time samples, viewport/physical sizing, scene depth and invalid ranges verified.
+  Generic graph/catalog tests pass for the newly registered operations.
+  /tmp/fold-plane-native-tests.log
+- Application CPU observation: all 18 passed. New attachment and bounds provenance
+  test leaves the project revision unchanged. Initial test fixture omitted the
+  required authored distance default and failed strict contract validation; fixed
+  the fixture, then reran the full suite successfully.
+  /tmp/fold-plane-native-observe.log
+- Affected Motion/application library and spatial-control Clippy passed with
+  existing shared warnings. Initial command repeated --lib and did not run;
+  corrected command passed. /tmp/fold-plane-native-clippy.log
+- Formatting, package boundaries and whitespace checks passed.
+
+Test commands use CARGO_BUILD_JOBS=2 CARGO_INCREMENTAL=0
+CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0:
+cargo test -p fold-motion --features ui --lib --test spatial_controls --locked
+cargo test -p fold-app --test agent_observe --locked
+cargo clippy -j 2 -p fold-motion --features ui --lib --test spatial_controls -p fold-app --no-deps --locked
+cargo fmt --all -- --check
+python3 scripts/check_boundaries.py
+git diff --check
+
+No rendered native Camera Plane output is claimed. The renderer still rejects
+this placement instead of dropping it. Next work must connect retained planar
+paths and the qualified shared camera mapping to mixed spatial passes, implement
+projected bounds, qualify fill/stroke layering and text/depth/transparency, and
+exercise revision-bound public frames. Full M3–M5 gates remain open.

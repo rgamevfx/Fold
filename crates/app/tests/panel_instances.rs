@@ -1,3 +1,4 @@
+mod support;
 use fold_app::{media_workflow, session::Session};
 use fold_foundation::{DocumentId, Time};
 use fold_platform::{
@@ -10,16 +11,15 @@ use fold_project::{DocumentRef, EditBatch, Mutation, Project};
 fn fixture() -> (Session, [DocumentId; 2]) {
     let ids = [DocumentId::new(), DocumentId::new()];
     let mut project = Project::new(8);
-    let mut motion = fold_motion::Motion::empty();
-    motion.info.width = 32;
-    motion.info.height = 32;
-    fold_motion::authoring::add_content(&mut motion, "fold.motion.rectangle").unwrap();
+    let mut image = support::image([1.; 4]);
+    image.info.width = 32;
+    image.info.height = 32;
     project
         .commit(EditBatch {
             base: project.snapshot().revision(),
             mutations: ids
                 .iter()
-                .map(|&id| Mutation::PutDocument(motion.document(id).unwrap()))
+                .map(|&id| Mutation::PutDocument(image.document(id).unwrap()))
                 .collect(),
         })
         .unwrap();
@@ -41,8 +41,8 @@ fn two_editors_and_viewers_preserve_exact_targets_delivery_and_undo() {
     let (mut session, ids) = fixture();
     let before = session.snapshot().unwrap();
     let mut workspace = Workspace::default();
-    let a = workspace.add_editor("fold.motion.canvas", fold_motion::MOTION);
-    let b = workspace.add_editor("fold.motion.canvas", fold_motion::MOTION);
+    let a = workspace.add_editor(fold_compositor::package::PANEL, fold_compositor::COMPOSITE);
+    let b = workspace.add_editor(fold_compositor::package::PANEL, fold_compositor::COMPOSITE);
     workspace
         .editors
         .get_mut(&a)
@@ -53,6 +53,13 @@ fn two_editors_and_viewers_preserve_exact_targets_delivery_and_undo() {
         .get_mut(&b)
         .unwrap()
         .bind(location(ids[1], Time::new(1, 24).unwrap()));
+    workspace.refresh_outputs(|document| {
+        session
+            .outputs(document)
+            .into_iter()
+            .next()
+            .map(|output| output.reference)
+    });
     workspace.record_selection(a);
     let x = workspace.add_viewer(ViewerInstance {
         binding: ViewerBinding::Linked,
@@ -116,7 +123,7 @@ fn two_editors_and_viewers_preserve_exact_targets_delivery_and_undo() {
     }
     // Two views of one document retain distinct exact (including subframe) time.
     workspace.viewers.get_mut(&y).unwrap().binding =
-        ViewerBinding::Pinned(workspace.editors[&a].output().unwrap());
+        ViewerBinding::Pinned(workspace.output(&workspace.editors[&a]).unwrap());
     let output = workspace.resolve(y).unwrap();
     let one = session.preview_state(&output, Time::new(7, 48).unwrap());
     let two = session.preview_state(&output, Time::new(1, 8).unwrap());
@@ -141,8 +148,8 @@ fn group_selections_do_not_change_delivery_project_history_or_other_viewer_time(
     let (mut session, ids) = fixture();
     let before = session.snapshot().unwrap();
     let mut w = Workspace::default();
-    let a = w.add_editor("fold.motion.canvas", fold_motion::MOTION);
-    let b = w.add_editor("fold.motion.canvas", fold_motion::MOTION);
+    let a = w.add_editor(fold_compositor::package::PANEL, fold_compositor::COMPOSITE);
+    let b = w.add_editor(fold_compositor::package::PANEL, fold_compositor::COMPOSITE);
     w.editors
         .get_mut(&a)
         .unwrap()
@@ -151,6 +158,13 @@ fn group_selections_do_not_change_delivery_project_history_or_other_viewer_time(
         .get_mut(&b)
         .unwrap()
         .bind(location(ids[1], Time::ZERO));
+    w.refresh_outputs(|document| {
+        session
+            .outputs(document)
+            .into_iter()
+            .next()
+            .map(|output| output.reference)
+    });
     w.record_selection(a);
     w.set_editor_group(b, LinkGroup::B);
     let x = w.add_viewer(ViewerInstance {
@@ -211,11 +225,18 @@ fn missing_targets_and_restore_never_choose_another_document() {
     let (mut session, ids) = fixture();
     let mut w = Workspace::default();
     w.project = "/fixture/project.fold".into();
-    let editor = w.add_editor("fold.motion.canvas", fold_motion::MOTION);
+    let editor = w.add_editor(fold_compositor::package::PANEL, fold_compositor::COMPOSITE);
     w.editors
         .get_mut(&editor)
         .unwrap()
         .bind(location(ids[1], Time::ZERO));
+    w.refresh_outputs(|document| {
+        session
+            .outputs(document)
+            .into_iter()
+            .next()
+            .map(|output| output.reference)
+    });
     w.record_selection(editor);
     let viewer = w.add_viewer(ViewerInstance {
         binding: ViewerBinding::Linked,
@@ -223,6 +244,7 @@ fn missing_targets_and_restore_never_choose_another_document() {
         ..Default::default()
     });
     w.reconcile();
+    let output = w.resolve(viewer).unwrap();
     let snapshot = session.snapshot().unwrap();
     let directory = tempfile::tempdir().unwrap();
     let path = directory.path().join("project.fold");
@@ -235,12 +257,27 @@ fn missing_targets_and_restore_never_choose_another_document() {
         })
         .unwrap();
     session = Session::new(project);
-    let output = w.resolve(viewer).unwrap();
+    w.refresh_outputs(|document| {
+        session
+            .outputs(document)
+            .into_iter()
+            .next()
+            .map(|output| output.reference)
+    });
+    assert_eq!(
+        w.resolve(viewer),
+        None,
+        "a removed provider has no linked default"
+    );
     assert!(session.preview_state(&output, Time::ZERO).content.is_none());
     let state = PanelContext::new(&mut session, w.editors.get_mut(&editor).unwrap());
     assert_eq!(state.state().selection.document, Some(ids[1]));
     assert!(state.explicit_target());
     drop(state);
+    let restored = Workspace::decode(&serde_json::to_vec(&w).unwrap(), &w.project).unwrap();
+    assert_eq!(restored.resolve(viewer), None);
+    // An explicitly pinned reference survives even when its provider is missing.
+    w.viewers.get_mut(&viewer).unwrap().binding = ViewerBinding::Pinned(output.clone());
     let restored = Workspace::decode(&serde_json::to_vec(&w).unwrap(), &w.project).unwrap();
     assert_eq!(restored.resolve(viewer), Some(output));
     assert_eq!(session.output_info().unwrap().0, ids[0]);
@@ -306,7 +343,7 @@ fn duplicate_labels_and_rename_do_not_change_bound_ids_or_render_content() {
 fn scoped_seeks_and_marks_do_not_use_global_selection_or_time() {
     let (mut session, ids) = fixture();
     let mut w = Workspace::default();
-    let id = w.add_editor("fold.motion.canvas", fold_motion::MOTION);
+    let id = w.add_editor(fold_compositor::package::PANEL, fold_compositor::COMPOSITE);
     w.editors
         .get_mut(&id)
         .unwrap()
@@ -347,62 +384,4 @@ fn scoped_seeks_and_marks_do_not_use_global_selection_or_time() {
     assert_eq!(session.state().frame, global.frame);
     assert_eq!(session.state().navigation, global.navigation);
     assert!(!session.state().playing);
-}
-
-#[test]
-fn edit_effect_graph_opens_at_composition_time_beyond_definition_duration() {
-    let project = fold_project::load(
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../demos/welcome-to-fold.fold"),
-        8,
-    )
-    .unwrap();
-    let snapshot = project.snapshot();
-    let (parent, effect) = snapshot
-        .state()
-        .documents
-        .values()
-        .find_map(|document| {
-            if document.type_id != fold_composition::COMPOSITION {
-                return None;
-            }
-            let composition = fold_composition::Composition::from_document(document).ok()?;
-            composition.layers.iter().find_map(|layer| {
-                layer
-                    .effects
-                    .first()
-                    .map(|effect| (document.id, effect.definition.document))
-            })
-        })
-        .expect("Welcome contains composition layer effects");
-    let mut session = Session::new(project);
-    let time = Time::new(5, 2).unwrap();
-    assert!(
-        session
-            .video_info(effect)
-            .unwrap()
-            .time(session.video_info(effect).unwrap().frames)
-            .unwrap()
-            < time
-    );
-    assert!(session.effect_interface(effect).is_ok());
-    let mut workspace = Workspace::default();
-    let id = workspace.add_editor("composition", fold_composition::COMPOSITION);
-    let binding = workspace.editors.get_mut(&id).unwrap();
-    binding.bind(location(parent, time));
-    let mut context = PanelContext::new(&mut session, binding);
-    // The composition inspector's Edit Graph button emits this command.
-    context.command(DesktopCommand::Navigate(ViewLocation {
-        document: effect,
-        time,
-        label: "Effect".into(),
-    }));
-    assert_eq!(
-        context.state().navigation.last().unwrap().document,
-        effect,
-        "Edit Graph must open the effect even beyond its standalone preview duration"
-    );
-    assert_eq!(context.state().navigation.last().unwrap().time, time);
-    context.command(DesktopCommand::NavigateBack);
-    assert_eq!(context.state().navigation.last().unwrap().document, parent);
-    assert_eq!(context.state().navigation.last().unwrap().time, time);
 }

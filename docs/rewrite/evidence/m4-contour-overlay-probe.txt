@@ -1,0 +1,58 @@
+Contour Boolean replacement investigation — 8 October 2026
+
+Status: isolated experiment, not production adoption or GPU acceptance.
+
+Motivation: the current triangle-by-triangle Fill/Stroke subtraction creates
+near-collinear fragments. Boundary union does not remove all unstable triangles;
+the unchanged native GPU typography test still fails at (480,123).
+
+An isolated Rust prototype at /tmp/fold-overlay-probe uses pinned i_overlay
+4.4.1 plus the actual local fold-render and fold-media crates. Fold's workspace
+manifest and lockfile are unchanged by this experiment. The version was fetched
+with cargo fetch after sandbox DNS failed; the successful build/run is offline.
+
+Primary library source:
+https://docs.rs/crate/i_overlay/4.4.1
+https://github.com/iShape-Rust/iOverlay
+Locally inspected float/overlay.rs, float/graph.rs, core/overlay.rs and
+core/overlay_rule.rs from the downloaded 4.4.1 crate, rather than assuming the
+newest online API matches this version.
+
+Fixture: actual packaged Noto Sans Regular, text "O B 8 O", size 140, half-alpha
+red Fill, half-alpha green Stroke, width 4, butt caps/miter joins. The prototype
+uses the existing retained text outline service and shared planar preparation.
+Input meshes become consistently wound triangle contours. One NonZero overlay
+graph produces Difference, InverseDifference and Intersect boundary contours.
+Those contours pass through Fold's existing planar tessellator.
+
+Command:
+CARGO_TARGET_DIR=/home/rgame/.codex/worktrees/efc8/Fold/target
+CARGO_BUILD_JOBS=2 CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0
+cargo run --offline --manifest-path /tmp/fold-overlay-probe/Cargo.toml
+Log: /tmp/fold-contour-overlay-probe.log; exit 0.
+
+glyph | input fill/stroke triangles | output fill/stroke/overlap triangles | elapsed
+O (0) | 488 / 977 | 489 / 976 / 977 | 12.696813 ms
+B (2) | 378 / 821 | 381 / 739 / 755 | 10.514473 ms
+8 (4) | 645 / 1321 | 655 / 1271 / 1296 | 18.288053 ms
+O (6) | 488 / 977 | 489 / 976 / 977 | 4.170396 ms
+
+Times cover triangle extraction, graph building, three region extractions and
+shared re-tessellation. Single debug run, no statistical performance claim.
+The repeated O uses shared planar cache state; it is not an independent cold run.
+
+This establishes that contour Boolean extraction avoids the large fragment
+count of the current subtraction, but does NOT establish coverage, precision,
+hole preservation, held-frame lifetime, GPU pixels or general correctness.
+
+Production decisions still required:
+- Evaluate the unchanged native GPU oracle using these regions.
+- Bound input/intersection/output growth and memory. The inspected API has no
+  cooperative cancellation hook; before/after checks alone do not establish
+  bounded cancellation latency for worst-case inputs.
+- Qualify integer-adapter precision, degenerate geometry, cache ownership and
+  typed stops/retry. Do not relax current pixel tolerances to adopt the library.
+- If adopted, delete the superseded triangle subtraction implementation and
+  qualify the dependency at the shared renderer boundary.
+
+No M3/M4/M5 gate is closed by this experiment.

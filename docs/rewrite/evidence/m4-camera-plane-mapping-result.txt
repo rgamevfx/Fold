@@ -1,0 +1,45 @@
+Shared Camera Plane mapping preparation — 8 October 2026
+M4 preparation only; native placement and complete M3–M5 gates remain open.
+
+fold-render::spatial::Camera::plane resolves logical top-left/Y-down canvas points
+to a plane attached to an immutable camera snapshot. Distance is positive camera-
+axis meters. Viewport sizing spans the full raster, with explicit per-axis scale
+when canvas/raster aspect ratios differ. MetersPerUnit preserves physical size.
+Perspective and orthographic projections share the same basis and validation.
+Mapping uses f64 arithmetic until the renderer-owned f32 position boundary;
+nonfinite/out-of-range points fail. Normal faces the camera; Y-down triangles
+reverse winding. Existing spatial clipping and depth apply without a new renderer.
+Scene and mapping now reuse one camera validator, preserving existing validation.
+
+Verification:
+- Four CPU spatial tests pass. Mapping covers independently specified axis-aligned,
+  off-axis and rolled bases, both projections, two distances and both size policies;
+  top-left/center/bottom-right positions and facing normals match analytic values.
+  Invalid distance, extent, scale, point and camera inputs fail explicitly.
+  /tmp/fold-plane-mapping-cpu.log
+- Native Vulkan test passes on NVIDIA GeForce GTX 1070, driver 580.173.02,
+  RGBA16F, MSAA off (3.03 s). Sixteen cases combine two projections, axis-aligned
+  and rolled/off-axis cameras, two size policies and two rear-plane distances.
+  All 307,200 pixels exactly match analytic rectangle occupancy and front-plane
+  occlusion; depth agrees with declared axial distance within 2e-5 meters.
+  Expected bounds derive from logical rectangles, never generated mesh positions.
+  /tmp/fold-plane-mapping-gpu.log
+- Focused render library/CPU/GPU-test Clippy passes with five existing warnings.
+  /tmp/fold-plane-mapping-clippy.log
+- Final formatting, package boundaries and whitespace checks pass. The first
+  format check requested wrapping the new camera tuple; corrected before final check.
+
+Test commands (two-job/no-debug-info profile):
+CARGO_BUILD_JOBS=2 CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0
+cargo test -p fold-render --test spatial --locked
+cargo test -p fold-render --features spatial --test camera_plane_gpu --locked -- --ignored --nocapture
+cargo clippy -j 2 -p fold-render --features spatial --test spatial --test camera_plane_gpu --lib --no-deps --locked
+cargo fmt --all -- --check
+python3 scripts/check_boundaries.py
+git diff --check
+
+GPU execution used authorized native access. No physical UI, Motion Camera Plane
+node, source/registry capability, native planar publication, public frame transport,
+or picking acceptance is claimed. Geometry in the GPU test is prepared explicitly
+through this shared mapping. Native named-camera placement, authored size/depth
+policy, shared fill/stroke/text preparation and observation integration remain next.

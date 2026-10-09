@@ -59,12 +59,12 @@ impl Panel for Canvas {
     fn layer_for_graph(
         &self,
         document: fold_foundation::DocumentId,
-        object: Option<fold_foundation::ObjectId>,
+        _object: Option<fold_foundation::ObjectId>,
     ) -> Option<(fold_foundation::ObjectId, bool)> {
         let state = self.state.borrow();
         let composition = state.composition.as_ref()?;
         let layer = composition.layers.iter().find(|l| {
-            matches!(&l.source, Some(fold_platform::image_source::Source::Output(source)) if source.document == document) && l.graph_object() == object
+            matches!(&l.source, Some(fold_platform::image_source::Source::Output(source)) if source.document == document)
         })?;
         Some((layer.id, composition.locked(layer.id)))
     }
@@ -104,13 +104,9 @@ impl Panel for Canvas {
                 locked: composition.locked(l.id),
                 range: Some((l.start, l.end)),
                 layer: Some(LayerControls {
-                    accepts_children: l.source.is_none() || l.graph_children,
+                    accepts_children: l.source.is_none(),
                     visible: l.visible,
-                    icon: if l.source.is_none() || l.graph_children {
-                        "G"
-                    } else {
-                        "L"
-                    },
+                    icon: if l.source.is_none() { "G" } else { "L" },
                 }),
             })
             .collect();

@@ -239,6 +239,7 @@ mod tests {
                 rate: [30, 1],
                 frames: 30,
                 content: Some("fixture".into()),
+                viewer_output: Some("video".into()),
                 ..Default::default()
             },
             seeks: Vec::new(),

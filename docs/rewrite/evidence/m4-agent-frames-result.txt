@@ -1,0 +1,73 @@
+Exact-time public display frames — 8 October 2026
+M3–M5 gates remain open.
+
+New version-2 observe_frame command accepts a committed revision or candidate
+generation, root Scene output UUID, exact output-relative time and dimensions.
+Session supplies its shared GPU Host; no second device/queue is created. Discovery
+reports availability only with an attached host and advertises encoding/limits.
+CPU-only/no-host sessions reject frame requests explicitly.
+
+One retained render worker admits at most two jobs and uses the shared Prepare
+scheduler lane. Committed/candidate immutable snapshots carry project context;
+jobs cannot mutate project or artist state. Existing job polling, cancellation,
+lifetime, retained-result and byte limits apply. Renderer/decoder remain worker-local.
+Owner teardown cancels jobs, closes result delivery and joins the GPU worker.
+
+Rendering uses registered scene evaluation followed by the same project display
+transform as preview. Replies contain opaque viewer-display RGBA8 hex pixels,
+top-to-bottom rows, and provenance: epoch/document/base revision/candidate, exact
+requested time, absolute scene and asset times, camera, font fingerprints, seed,
+configuration/build/adapter and actual display-transform identity. Evaluation
+CPU-image transfer counts are separate from the explicit display readback.
+
+Positive dimensions are limited to 4096 per axis and 2,073,600 pixels. A full
+1920x1080 reply fits the existing 16 MiB response bound. Encoding is lossless;
+decode bytes once without an extra color transform. Fold skill includes public
+CLI/MCP request and decoding examples. Public project save, clips/contact sheets,
+crops, transparent linear delivery, exact duration endpoint and physical desktop
+acceptance are still open.
+
+Qualification commands and logs:
+cargo test -p fold-app --features spatial --test agent_frames -- --ignored --nocapture
+/tmp/fold-agent-frame-qualified.log
+cargo test -p fold-app --features spatial --test agent_handoff cli_and_mcp_return_identical_revision_bound_frames -- --ignored --nocapture
+/tmp/fold-agent-frame-transports-qualified.log
+cargo clippy -p fold-app --features spatial --test agent_frames --test agent_handoff --no-deps
+/tmp/fold-agent-frame-qualified-clippy.log
+
+Final results:
+- Dispatcher GPU test passed, 16.70 s, Vulkan llvmpipe Mesa 26.1.6 / LLVM 20.1.2.
+  All 480x270 returned bytes equal registered headless output; exact output time
+  1 s maps to scene/asset time 3 s for canvas start 2 s. Full 1920x1080 delivery
+  stays within the wire bound. Missing host/oversized dimensions/stale revision
+  fail; cancellation completes as cancelled; a candidate retains its old pixels
+  after the live seed changes. No evaluation-time CPU image transfer is reported.
+- Actual CLI/MCP frame test passed with clean process exit, 3.43 s, NVIDIA GeForce
+  GTX 1070, NVIDIA 580.173.02, Vulkan. Both transports return identical complete
+  frame responses at 1/4 s; artist frame/selection and project content stay intact.
+  This is hardware headless rendering, not physical desktop presentation.
+- Focused Clippy passes with existing YUV dead-code and source_preparation warnings.
+- Final cargo fmt --all --check, package boundaries and git diff --check pass.
+Review kept rendering ownership in the new bounded frame worker, reused registered
+scene/color paths, and retained the independent CPU-observation contract.
+
+Prior regression run:
+cargo test -p fold-app --test agent_dispatch --test agent_observe --test agent_mcp
+12 dispatcher, 17 CPU-observation and one actual MCP test passed.
+/tmp/fold-agent-frame-regressions.log
+
+Failures investigated:
+- Initial compilation required a mutable display lease for readback; corrected.
+- Discovery's computed method list needed parenthesized Rust expression syntax
+  inside json!; corrected without altering the command contract.
+- The NVIDIA transport test's assertions passed but process exit SIGSEGV occurred
+  twice (including /tmp/fold-agent-frame-shutdown-repro.log). The new frame worker
+  was detached while renderer destruction raced process/driver shutdown. Cancelling
+  and joining it, consistent with the preview owner, made the unchanged test exit
+  successfully (/tmp/fold-agent-frame-shutdown-fixed.log, 3.49 s). Final qualification
+  repeats this original test after the time-provenance correction.
+- Review identified nonzero canvas starts: CPU camera/font measurement must sample
+  canvas.start + requested output-relative time. Provenance now distinguishes both
+  clocks; the final dispatcher fixture uses canvas start 2 s and request time 1 s.
+
+This is registered headless/transport evidence, not physical viewer/artist acceptance.

@@ -1,0 +1,61 @@
+M5 native-consumable planar preparation checkpoints
+Caller errors and internal work limits remain distinct.
+No native Extrude operation or phase acceptance is claimed.
+
+/tmp/fold-m5-tessellation-budget-verified-tests.log
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.07s
+     Running unittests src/lib.rs (target/debug/deps/fold_render-96bae99242f58ec5)
+running 36 tests
+test audio::tests::shortened_review_clips_regions_and_preserves_source_mapping ... ok
+test scheduling::tests::audio_and_background_capacity_do_not_wait_for_graphics ... ok
+test scheduling::tests::sustained_viewer_pressure_reserves_export_and_range_service ... ok
+test scheduling::tests::opportunistic_retention_never_queues_ahead_of_demand ... ok
+test tests::cpu_frame_and_display_leases_follow_caller_ownership ... ok
+test tests::display_matches_headless_output_without_mutating_scene_pixels ... ok
+test tests::output_transform_and_limits ... ok
+test scheduling::tests::cancellation_releases_a_waiting_ticket ... ok
+test tests::fast_transfer_matches_reference_including_quantization_boundaries ... ok
+test text::font::tests::stream_growth_truncation_and_mid_read_cancellation_never_publish ... ok
+test text::outlines::tests::caller_budget_and_cancellation_interrupt_curve_extraction ... ok
+test text::mesh::tests::subdivision_limits_remain_typed_budget_failures ... ok
+test text::mesh::tests::invalid_scale_mapping_and_cancel_do_not_publish_geometry ... ok
+test text::mesh::tests::retained_layout_placement_and_repeated_meshes_survive_cache_reuse ... ok
+test vector::color_tests::float_color_is_not_quantized_with_coverage_or_clamped ... ok
+test vector_geometry::tests::analytic_area_has_no_sample_grid_quantization ... ok
+test vector_geometry::tests::excessive_subdivision_is_rejected_before_tessellation ... ok
+test vector_geometry::tests::immutable_geometry_reused_across_color_and_translation ... ok
+test text::outlines::tests::glyph_contours_and_vector_paths_share_one_layout ... ok
+test text::outlines::tests::caller_checkpoint_covers_empty_layout_and_cached_glyphs ... ok
+test vector_geometry::tests::preparation_stops_at_each_checkpoint_without_caching_partial_triangles ... ok
+test text::extrude::tests::physical_mapping_retains_layout_holes_regions_and_shared_solids ... ok
+test vector_geometry::tests::tessellation_triangle_callback_retains_first_caller_failure ... ok
+test vector_geometry::tests::viewport_fast_path_preserves_clipped_geometry ... ok
+test vector_geometry::tests::winding_holes_self_intersections_and_fractional_area ... ok
+test text::extrude::tests::invalid_mapping_and_interrupted_preparation_publish_no_solids ... ok
+test text::tests::normalized_glyphs_match_shaper_and_retain_logical_mapping ... ok
+test text::outlines::tests::unsupported_missing_glyphs_and_cancellation_do_not_publish_partial_paths ... ok
+test text::mesh::tests::caller_stops_preserve_error_kind_and_allow_clean_retry ... ok
+test text::tests::missing_fonts_glyphs_and_invalid_requests_are_explicit ... ok
+test text::tests::content_identity_and_font_ownership_survive_context_reuse ... ok
+test vector_geometry::tests::ordinary_circular_cells_fit_the_geometry_budget ... ok
+test text::outlines::tests::ob8_holes_remain_transparent_in_cpu_vector_output ... ok
+test vector_geometry::tests::pixel_classification_matches_unconditional_polygon_clipping ... ok
+test text::mesh::tests::planar_mesh_coverage_matches_vector_interiors_and_faces_positive_z ... ok
+test vector_geometry::tests::repeated_curves_render_beyond_expanded_triangle_limit ... ok
+test result: ok. 36 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 18.03s
+
+/tmp/fold-m5-tessellation-budget-final-clippy.log
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.37s
+
+/tmp/fold-m5-tessellation-budget-gpu.log
+warning: field `format` is never read
+warning: method `parameters` is never used
+warning: `fold-render` (lib) generated 2 warnings
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 34.12s
+     Running tests/spatial_gpu.rs (target/debug/deps/spatial_gpu-f31aa466360e770f)
+running 1 test
+matched 6189 opaque and 121509 clear interior pixels; axial depth=4; retained three meshes/four glyph instances
+extrusion ray reference, camera_z=4: 1393 cap, 338 side and 13385 clear rays match color/depth (2e-4 view-unit tolerance); 148 samples excluded within 1/128 pixel of projected triangle edges
+extrusion ray reference, camera_z=-4.15: 1408 cap, 335 side and 13391 clear rays match color/depth (2e-4 view-unit tolerance); 130 samples excluded within 1/128 pixel of projected triangle edges
+test retained_text_mesh_and_extrusion_match_vector_interiors_and_depth ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 8.51s

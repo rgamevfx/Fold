@@ -1,0 +1,77 @@
+Native orthographic camera and shared projection/depth — 8 October 2026
+M5 implementation evidence; complete M3–M5 gates remain open.
+
+Added fold.motion.camera v1 mode orthographic with typed, animatable vertical_size
+in world meters (default 4; supported range 1e-6 through 1e6). It shares position,
+look-at, up, clipping and exposure controls with perspective mode. Existing graph
+catalog/inspector/transaction controls supply its artist surface; no toolbar or
+alternate editing implementation was added. Fold UI skill applied. Physical normal/
+narrow review of this specific camera remains unverified.
+
+Native evaluated cameras and feature-neutral renderer cameras now carry an explicit
+Perspective/Orthographic projection enum. Authoring retains perspective's existing
+vertical_fov parameter; observation camera snapshots expose projection.kind plus
+vertical_fov or vertical_size. No unused perspective FOV or compatibility alias is
+stored on an orthographic camera. Camera binding hashes include kind and size using
+a revised hash domain, so changing either rejects a stale frame binding.
+
+The shared Bevy adapter maps vertical_size to FixedVertical viewport height. Aspect
+ratio changes horizontal extent; camera distance does not change orthographic size.
+Both modes use the same retained scene, GPU device, publication and color services.
+Immutable frame depth retains projection, near and far. Perspective reverse-Z uses
+near/z; orthographic uses far-z*(far-near). Zero remains background. This fixes the
+otherwise incorrect use of the perspective decoder for orthographic frames.
+
+Verification:
+1. Native spatial controls and shared spatial contracts: 6 tests passed.
+   Typed size tween sampled in reordered exact times; Source parse/print/parse;
+   stable camera identity; invalid sizes retain native operation context; camera
+   conversion at half a second yields 3 m; mode/size binding changes reject stale
+   frames; invalid/nonfinite shared inputs reject before publication.
+   /tmp/fold-ortho-cpu.log
+2. Application library: 39 passed. Public observation: 17 passed. Motion UI/library:
+   46 passed, six existing ignored. A public Source proposal changes perspective
+   to orthographic, observes projection {kind:orthographic,vertical_size:3}, retains
+   camera identity and leaves committed revision unchanged. Graph/catalog and
+   existing generic normal/narrow controls tests pass; these are not physical UI
+   input acceptance for the new camera.
+   /tmp/fold-ortho-regressions-qualified.log
+3. Native Vulkan oracle: passed on NVIDIA GeForce GTX 1070, driver 580.173.02,
+   Vulkan, RGBA16F, MSAA off. Nine cases cover perspective -> orthographic ->
+   perspective, two orthographic sizes, two camera distances, two raster aspect
+   ratios, near and far rejection, and returning to the baseline. All 77,824
+   sampled pixels match analytic rectangle occupancy; opaque depth differs from
+   known camera-space distance by less than 2e-5 m. Pixels are finite. One retained
+   mesh/instance survives changes; old frame colors and depth remain unchanged and
+   reject newer bindings. No visual tolerance was relaxed.
+   /tmp/fold-ortho-gpu-final.log (2.70 s)
+4. Existing perspective camera-update and immutable reverse-Z tests: 2 passed.
+   /tmp/fold-ortho-perspective-regressions.log
+5. Desktop-enabled application/all-target check passed. Affected Motion/render/app
+   all-target Clippy and final GPU-test Clippy passed with existing shared warnings.
+   /tmp/fold-ortho-check.log, /tmp/fold-ortho-clippy.log,
+   /tmp/fold-ortho-final-clippy.log
+   Formatting, package boundaries and whitespace checks pass.
+
+Commands use the checkpoint's two-job/no-debug-info test profile:
+CARGO_BUILD_JOBS=2 CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0
+cargo test -p fold-motion --test spatial_controls -p fold-render --test spatial --locked
+cargo test -p fold-motion --features ui --lib -p fold-app --features desktop --test agent_observe --locked -- --test-threads=1
+cargo test -p fold-render --features spatial --test spatial_gpu orthographic_projected_bounds_depth_clipping_and_retained_frames --locked -- --ignored --nocapture
+cargo test -p fold-render --features spatial --test spatial_gpu spatial_depth --locked -- --ignored --test-threads=1
+cargo check -j 2 -p fold-app --features desktop --all-targets --locked
+cargo clippy -j 2 -p fold-motion --features ui -p fold-render --features spatial -p fold-app --features desktop --all-targets --no-deps --locked
+cargo clippy -j 2 -p fold-render --features spatial --test spatial_gpu --no-deps --locked
+
+The first GPU-test compile required an explicit retained-frame tuple annotation;
+corrected before the passing GPU run. An initial regression invocation hit EPERM
+in an existing private-socket application unit test; the unchanged authorized run
+outside the sandbox passed all suites. GPU tests likewise used authorized native
+execution. Neither failed attempt supplies a pass claim.
+
+This qualifies native camera evaluation/conversion, public CPU observations and
+shared GPU projection/depth. It does not qualify Camera Plane placement, picking,
+full memory accounting, physical artist interaction or complete M3–M5 acceptance.
+The integrated M5 scene still uses its specified perspective camera. No prior
+screenshots are relabeled as orthographic evidence, and no public orthographic
+frame transport run is claimed separately from the shared rendering route.

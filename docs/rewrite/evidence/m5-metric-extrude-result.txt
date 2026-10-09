@@ -1,0 +1,67 @@
+M5 explicit metric text extrusion preparation
+Native Vulkan llvmpipe; RGBA16F; MSAA off
+No native Extrude node, physical UI or full M5 gate is claimed.
+
+/tmp/fold-m5-metric-extrude-tests.log
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.84s
+     Running unittests src/lib.rs (target/debug/deps/fold_render-96bae99242f58ec5)
+running 2 tests
+test text::extrude::tests::physical_mapping_retains_layout_holes_regions_and_shared_solids ... ok
+test text::extrude::tests::invalid_mapping_and_interrupted_preparation_publish_no_solids ... ok
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 30 filtered out; finished in 0.08s
+
+/tmp/fold-m5-metric-extrude-regressions.log
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 8.71s
+     Running unittests src/lib.rs (target/debug/deps/fold_render-96bae99242f58ec5)
+running 14 tests
+test text::font::tests::stream_growth_truncation_and_mid_read_cancellation_never_publish ... ok
+test text::outlines::tests::caller_budget_and_cancellation_interrupt_curve_extraction ... ok
+test text::mesh::tests::retained_layout_placement_and_repeated_meshes_survive_cache_reuse ... ok
+test text::outlines::tests::glyph_contours_and_vector_paths_share_one_layout ... ok
+test text::extrude::tests::physical_mapping_retains_layout_holes_regions_and_shared_solids ... ok
+test text::mesh::tests::invalid_scale_mapping_and_cancel_do_not_publish_geometry ... ok
+test text::outlines::tests::caller_checkpoint_covers_empty_layout_and_cached_glyphs ... ok
+test text::outlines::tests::unsupported_missing_glyphs_and_cancellation_do_not_publish_partial_paths ... ok
+test text::tests::normalized_glyphs_match_shaper_and_retain_logical_mapping ... ok
+test text::tests::content_identity_and_font_ownership_survive_context_reuse ... ok
+test text::extrude::tests::invalid_mapping_and_interrupted_preparation_publish_no_solids ... ok
+test text::tests::missing_fonts_glyphs_and_invalid_requests_are_explicit ... ok
+test text::outlines::tests::ob8_holes_remain_transparent_in_cpu_vector_output ... ok
+test text::mesh::tests::planar_mesh_coverage_matches_vector_interiors_and_faces_positive_z ... ok
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 18 filtered out; finished in 11.85s
+     Running tests/extrude.rs (target/debug/deps/extrude-a6c3ede8e43b6c04)
+running 0 tests
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+/tmp/fold-m5-metric-extrude-solid-tests.log
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.16s
+     Running tests/extrude.rs (target/debug/deps/extrude-a6c3ede8e43b6c04)
+running 2 tests
+test extrusion_rejects_invalid_topology_depth_budget_and_cancel ... ok
+test ob8_extrusions_are_closed_oriented_solids_with_expected_holes_and_volume ... ok
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.24s
+
+/tmp/fold-m5-metric-extrude-gpu.log
+warning: field `format` is never read
+warning: method `parameters` is never used
+warning: `fold-render` (lib) generated 2 warnings
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 36.78s
+     Running tests/spatial_gpu.rs (target/debug/deps/spatial_gpu-f31aa466360e770f)
+running 1 test
+matched 6189 opaque and 121509 clear interior pixels; axial depth=4; retained three meshes/four glyph instances
+extrusion ray reference, camera_z=4: 1393 cap, 338 side and 13385 clear rays match color/depth (2e-4 view-unit tolerance); 148 samples excluded within 1/128 pixel of projected triangle edges
+extrusion ray reference, camera_z=-4.15: 1408 cap, 335 side and 13391 clear rays match color/depth (2e-4 view-unit tolerance); 130 samples excluded within 1/128 pixel of projected triangle edges
+test retained_text_mesh_and_extrusion_match_vector_interiors_and_depth ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 8.47s
+
+/tmp/fold-m5-metric-extrude-clippy.log
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 8.29s
+
+/tmp/fold-m5-metric-extrude-spatial-clippy.log
+warning: field `format` is never read
+warning: method `parameters` is never used
+warning: very complex type used. Consider factoring parts into `type` definitions
+warning: this `if` statement can be collapsed
+warning: this `if` statement can be collapsed
+warning: `fold-render` (lib) generated 5 warnings (run `cargo clippy --fix --lib -p fold-render -- --no-deps` to apply 2 suggestions)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.35s

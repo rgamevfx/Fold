@@ -193,37 +193,15 @@ impl VideoProvider for Provider {
                         Source::Asset(_) => layer.info.clone(),
                     };
                     let local_time = layer.local_time(request.time)?;
-                    if let Source::Output(reference) = source
-                        && let Some(object) = layer.graph_object()
-                    {
-                        if request.context.is_none()
-                            && (local_time < Time::ZERO || local_time >= info.time(info.frames)?)
-                        {
-                            transparent
-                        } else {
-                            let context = fold_platform::layer_graph::EvaluationContext {
-                                kind: crate::graph::CONTEXT,
-                                data: serde_json::to_value(crate::graph::Context::new(
-                                    composition,
-                                    reference.document,
-                                    object,
-                                ))
-                                .map_err(|e| e.to_string())?,
-                            };
-                            graph
-                                .append((request.resolve_graph)(reference, local_time, &context)?)?
-                        }
-                    } else {
-                        let source_request = Request {
-                            bake: None,
-                            source: source.clone(),
-                            info,
-                            time: local_time,
-                            outside: Outside::Black,
-                            color_space: None,
-                        };
-                        graph.append(image_source::compile(&source_request, request)?)?
-                    }
+                    let source_request = Request {
+                        bake: None,
+                        source: source.clone(),
+                        info,
+                        time: local_time,
+                        outside: Outside::Black,
+                        color_space: None,
+                    };
+                    graph.append(image_source::compile(&source_request, request)?)?
                 } else {
                     stack(
                         composition,

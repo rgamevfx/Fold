@@ -40,6 +40,8 @@ pub struct Editor {
     document: Option<DocumentId>,
     generation: u64,
     pub(crate) curves: bool,
+    pub(crate) linear_only: bool,
+    hide_auto_key: bool,
     pub(crate) hide_timing: bool,
     pub(crate) header_pixels: Option<f32>,
     pub(crate) view: View,
@@ -87,6 +89,14 @@ pub struct Response {
     pub lock: Option<(ObjectId, bool)>,
 }
 impl Editor {
+    /// Restrict menus to the interpolation modes qualified by the provider.
+    pub fn set_linear_only(&mut self, linear_only: bool) {
+        self.linear_only = linear_only;
+    }
+    pub fn show_auto_key(&mut self, show: bool) {
+        self.hide_auto_key = !show;
+    }
+
     pub fn layer_drop_rows(&self) -> &[(ObjectId, [f32; 2], [f32; 2])] {
         &self.layer_drop_rows
     }
@@ -101,6 +111,8 @@ impl Editor {
         if self.document != Some(context.document) {
             *self = Self {
                 document: Some(context.document),
+                linear_only: self.linear_only,
+                hide_auto_key: self.hide_auto_key,
                 snapping: true,
                 time_scale: [1, 1],
                 ..Default::default()
@@ -175,7 +187,9 @@ impl Editor {
             if ui.menu_item("Frame all (F)") {
                 self.fitted = false;
             }
-            ui.checkbox("Auto Key", context.auto_key);
+            if !self.hide_auto_key {
+                ui.checkbox("Auto Key", context.auto_key);
+            }
             ui.checkbox("Snap to frames", &mut self.snapping);
             ui.checkbox("Hide timing area", &mut self.hide_timing);
             ui.checkbox("Selected objects only", &mut self.selected_only);
@@ -409,7 +423,23 @@ impl Editor {
                     || self.visible_channels.contains(&(c.object, c.path.clone())))
                 && let Some(value) = c.curve.sample(context.time)
             {
-                self.selected.insert(c.curve.insert(context.time, value));
+                let inherited = if self.linear_only && c.curve.at(context.time).is_none() {
+                    c.curve
+                        .keys
+                        .iter()
+                        .rev()
+                        .find(|key| key.time < context.time)
+                        .map(|key| key.interpolation)
+                } else {
+                    None
+                };
+                let id = c.curve.insert(context.time, value);
+                if let Some(interpolation) = inherited
+                    && let Some(key) = c.curve.keys.iter_mut().find(|key| key.id == id)
+                {
+                    key.interpolation = interpolation;
+                }
+                self.selected.insert(id);
                 response.edit.changed = true;
             }
         }

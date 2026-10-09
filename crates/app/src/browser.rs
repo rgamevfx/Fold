@@ -111,11 +111,6 @@ fn place(
         let composition = fold_composition::Composition::from_document(doc)?;
         for layer in &composition.layers {
             if matches!(&layer.source, Some(fold_platform::image_source::Source::Output(r)) if r.document == request.target)
-                && request
-                    .graph
-                    .as_ref()
-                    .and_then(|g| g.object)
-                    .is_none_or(|object| layer.graph_object() == Some(object))
                 && composition.locked(layer.id)
             {
                 return Err("Destination layer is locked".into());

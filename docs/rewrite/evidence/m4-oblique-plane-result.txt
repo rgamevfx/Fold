@@ -1,0 +1,50 @@
+Oblique Camera Plane bounds, clipping and ray depth — 8 October 2026
+
+No production changes in this iteration. New independent numerical and GPU
+tests extend the cross-camera implementation's evidence.
+
+CPU: camera_plane_scale_bounds_oblique_and_near_clipped_projection.
+18 cases: perspective/orthographic, yaw 0.35/1.1/2.7 radians, view z=4/2.05/1.95.
+Attachment produces a 2x1m rectangle at world z=2. Numerical screen displacements
+at a regular canvas grid, in four delta directions, must not exceed the shared
+projected_scale bound. The independent yaw projection uses the actual f32 camera
+direction. Near views must exercise both clipped and visible samples, preventing
+vacuous acceptance. All six shared spatial tests pass.
+Command: cargo test -p fold-render --test spatial --locked
+Log: /tmp/fold-plane-oblique-scale.log; exit 0.
+
+GPU: camera_plane_oblique_views_match_ray_plane_coverage_and_clipping.
+12 cases: perspective 90deg / orthographic 2m vertical extent, yaw 0.37/1.13,
+view z=4/2.073/1.927, near=0.1, far=50. Attachment remains [0,0,4] looking toward
+zero, at distance 2m, 0.01m/canvas-unit, 200x100 canvas. The shared mapping creates
+the world rectangle; actual shared Adapter rendering is compared with independent
+ray/plane intersections and analytic rectangle membership. No prepared mesh is
+used to derive oracle intersections. Output 160x120, opaque unlit red.
+
+Command: cargo test -p fold-render --features spatial --test camera_plane_gpu
+camera_plane_oblique --locked -- --ignored --nocapture
+Log: /tmp/fold-plane-oblique-gpu.log; exit 0, 1 passed, 1 filtered, 2.80 seconds.
+NVIDIA GTX 1070, NVIDIA 580.173.02, Vulkan, RGBA16F, MSAA off.
+230400 exact coverage pixels, 27534 painted; no edge-band exclusions.
+Clear pixels have no depth. Painted depth falls within the independent ray
+depth interval at x +/- 1/256 pixel, plus 2e-5m numeric tolerance.
+
+Oracle development: a fixed 2e-5m tolerance, copied from constant-depth cases,
+first failed at perspective yaw .37, z=4, pixel (85,47): analytic 2.224250600384538,
+GPU 2.2242303. Sloped depth varies with subpixel raster position. The final test
+explicitly computes the local interval using displaced independent rays instead
+of silently increasing a fixed epsilon. Existing constant-depth tests and their
+tolerances are unchanged. This is an explicit raster precision assumption for
+this fixture/hardware, not proof of identical precision on every GPU.
+
+All commands use CARGO_BUILD_JOBS=2 CARGO_INCREMENTAL=0
+CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0.
+Focused render Clippy for the two changed tests with features spatial passes
+with existing library warnings and no new test warnings; log
+/tmp/fold-plane-oblique-clippy.log. Workspace formatting, package boundaries and
+whitespace checks pass. No full workspace suite rerun in this iteration.
+
+Limits: shared renderer/rectangle evidence, not native rotated typography,
+physical artist acceptance or complete M3-M5 gates. Non-Y-axis rotations,
+general overlapping paints and Boolean intermediate-memory/cancellation bounds
+still need their own evidence.

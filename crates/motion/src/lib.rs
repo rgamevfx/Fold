@@ -1,146 +1,36 @@
-//! Motion-owned authoring payloads and immutable plan compilation.
-pub mod animation;
-pub mod authoring;
-pub mod canvas;
-pub mod document;
+//! Native typed Motion construction. No legacy payload, compiler or runtime support.
+//!
+//! The native document, CPU evaluation and editing services back the application
+//! provider. Ordered Screen/World outputs compile through the shared video
+//! service; World passes require the spatial GPU build. Camera Plane and full
+//! rendering acceptance remain under qualification.
+pub mod binding;
+pub mod candidates;
+pub mod connections;
+pub mod diff;
+pub mod editing;
 pub mod evaluation;
-pub mod fields;
-pub mod geometry;
-pub mod graph;
-mod layer_edits;
-pub mod nodes;
+pub mod execution;
+pub mod expression;
+pub mod expression_source;
+pub mod keyed;
+pub mod merge;
+pub mod model;
 pub mod package;
-pub mod program;
-pub mod scene;
-pub mod simulation;
+pub mod patch;
+pub mod protection;
+pub mod ramp;
+pub mod reconcile;
+pub mod registry;
+pub mod rendering;
+pub mod source;
+mod source_parser;
+pub mod types;
 #[cfg(feature = "ui")]
 pub mod ui;
-pub mod wrangle;
-pub use document::{MOTION, Motion};
-use fold_foundation::DocumentId;
-use fold_platform::VideoProvider;
-use fold_project::{Document, Revision};
-use fold_render::{RenderGraph, SolidPlan};
-use serde::{Deserialize, Serialize};
+pub mod validation;
+mod video;
 
-pub const PACKAGE: &str = "fold.motion";
-pub const SOLID: &str = "fold.motion.solid";
-
-/// Initial generated source: opaque scene-linear SDR sRGB.
-#[derive(Clone, Copy, Serialize, Deserialize)]
-pub struct Solid {
-    pub rgb: [f32; 3],
-}
-impl Solid {
-    fn validate(self) -> Result<(), String> {
-        if self.rgb.iter().all(|v| v.is_finite()) {
-            Ok(())
-        } else {
-            Err("solid RGB must be finite".into())
-        }
-    }
-    pub fn document(self, id: DocumentId) -> Result<Document, String> {
-        self.validate()?;
-        Ok(Document {
-            id,
-            type_id: SOLID.into(),
-            package_id: PACKAGE.into(),
-            schema_version: 1,
-            revision: Revision::default(),
-            dependencies: vec![],
-            assets: vec![],
-            payload: serde_json::to_vec(&self).map_err(|e| e.to_string())?,
-            extensions: Default::default(),
-        })
-    }
-}
-
-pub struct SolidProvider;
-impl fold_platform::packages::DocumentProvider for SolidProvider {
-    fn package_id(&self) -> &'static str {
-        PACKAGE
-    }
-    fn type_id(&self) -> &'static str {
-        SOLID
-    }
-    fn schema(&self) -> u32 {
-        1
-    }
-    fn validate(&self, document: &Document) -> Result<(), String> {
-        if document.schema_version != 1
-            || !document.dependencies.is_empty()
-            || !document.assets.is_empty()
-        {
-            return Err("Invalid solid document".into());
-        }
-        let solid: Solid = serde_json::from_slice(&document.payload).map_err(|e| e.to_string())?;
-        solid.validate()
-    }
-}
-impl VideoProvider for SolidProvider {
-    fn playback_mode(&self) -> fold_platform::desktop::PlaybackMode {
-        fold_platform::desktop::PlaybackMode::EveryFrame
-    }
-    fn package_id(&self) -> &'static str {
-        PACKAGE
-    }
-    fn type_id(&self) -> &'static str {
-        SOLID
-    }
-    fn video_info(&self, document: &Document) -> Result<fold_media::VideoInfo, String> {
-        <Self as fold_platform::packages::DocumentProvider>::validate(self, document)?;
-        Ok(fold_media::VideoInfo {
-            width: 64,
-            height: 64,
-            rate: [24, 1],
-            frames: 240,
-        })
-    }
-    fn compile(&self, request: fold_platform::VideoCompile<'_>) -> Result<RenderGraph, String> {
-        let fold_platform::VideoCompile {
-            snapshot,
-            document,
-            reference,
-            dimensions: [width, height],
-            cancel,
-            ..
-        } = request;
-        let output = reference.output.as_str();
-        cancel.check()?;
-        if document.package_id != PACKAGE
-            || document.type_id != SOLID
-            || document.schema_version != 1
-        {
-            return Err("unsupported solid document identity or schema".into());
-        }
-        if output != "video" {
-            return Err(format!("unsupported solid output: {output}"));
-        }
-        if !document.dependencies.is_empty() || !document.assets.is_empty() {
-            return Err("solid source cannot consume dependencies or assets".into());
-        }
-        let solid: Solid = serde_json::from_slice(&document.payload)
-            .map_err(|e| format!("invalid solid payload: {e}"))?;
-        solid.validate()?;
-        if fold_platform::color::project(snapshot)?.is_none()
-            && solid.rgb.iter().any(|v| !(0.0..=1.0).contains(v))
-        {
-            return Err("Legacy solid requires SDR RGB".into());
-        }
-        let [r, g, b] = solid.rgb;
-        Ok(SolidPlan {
-            width,
-            height,
-            rgba: [r, g, b, 1.0],
-        }
-        .into())
-    }
-}
-
-pub mod edits;
-
-mod automation;
-
-mod inputs;
-
-mod keyed_parameters;
+pub const PACKAGE: &str = "fold.motion.native";
+pub const CONSTRUCTION: &str = "fold.motion.construction";
+pub const SCHEMA_VERSION: u32 = 1;

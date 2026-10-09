@@ -1,0 +1,431 @@
+M5 native word-position Text Animator — 8 October 2026
+Uncommitted active rewrite implementation.
+
+Registered fold.motion.text_animator v1 word_position consumes retained Text,
+a Screen Canvas Vector2 position signal and a nonnegative exact Duration stagger.
+Each logical word samples its position at asset-local time minus index * stagger.
+Explicit Scene Time stays global. Local sampling isolates evaluator value/scope
+caches, shares the existing budget/cancellation context and retains the original
+shaped Layout Arc. Glyph/word correspondence IDs survive animation. Translation
+is stored separately from immutable layout data; Outline Text, Screen rendering
+and metric extrusion consume the same offsets without reshaping.
+
+CPU observations expose layout_position/layout_pivot separately from evaluated
+position/pivot and offset. Moved layout bounds are conservative layout_envelope,
+not ink bounds. The graph starter inserts explicit Text and cubic-out Tween
+nodes through the existing catalog transaction path. No new dependency or
+alternate shaping/rendering engine was introduced.
+
+Verified behavior:
+- Frozen 80-to-zero cubic-out entrance, duration 3/5, word delay 7/100,
+  reordered positive/negative exact times and stable identities.
+- Root offset 1/10 and rate 2 map Scene 3/10 to local 2/5 before word delay;
+  explicit Scene Time remains 3/10 for every word regardless of that mapping.
+- Branch cache isolation, retained layout sharing, Source round trip, bounded
+  evaluation/conversion, cancellation and negative-delay rejection.
+- Animated Text and Outline Text produce identical CPU drawing/pixel output.
+- O/B/8 extrusion inherits metric translation with unchanged topology IDs.
+- Candidate observation reports evaluated offsets/pivots and bounds without
+  changing project revision.
+- Registered application GPU evaluation at 1/4, 0, 1/2, 3/4, 1/4 uses RGBA16F,
+  exact timestamps and retained old frames with no CPU image adapter/readback
+  during evaluation. Explicit test readback agrees with CPU to max 0.0002516806
+  against tolerance 0.002 on llvmpipe Mesa 26.1.6 Vulkan.
+
+Validation:
+- Motion UI library: 45 passed, six existing ignored; reference: 27 passed;
+  text/conversion suite: 23 passed before two additional focused cases below.
+- Global clock/budget and extrusion tests passed separately after addition.
+- Final root-remapping/global-clock focused test passed.
+- Application observations: 13 passed. Focused final observation case passed.
+- Motion UI check, strict Motion Clippy and application GPU integration-test
+  Clippy passed. Existing render YUV and app source_preparation warnings remain.
+- Ordinary desktop binaries checked successfully (14.93 seconds).
+
+This qualifies word translation only, not rotation/scale/other text selection
+modes, physical normal/narrow artist interaction, complete public frame tooling,
+or the integrated cloner scene. M3/M4/M5 gates remain open.
+
+
+/tmp/fold-m5-word-animator-all.log
+   Compiling fold-foundation v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/foundation)
+   Compiling fold-color v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/color)
+   Compiling fold-media v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/media)
+   Compiling fold-animation v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/animation)
+   Compiling fold-project v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/project)
+   Compiling fold-render v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/render)
+warning: field `format` is never read
+  --> crates/render/src/gpu/yuv.rs:22:9
+   |
+16 | pub(super) struct Layout {
+   |                   ------ field in this struct
+...
+22 |     pub format: fold_media::VideoFormat,
+   |         ^^^^^^
+   |
+   = note: `Layout` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `parameters` is never used
+  --> crates/render/src/gpu/yuv.rs:26:8
+   |
+25 | impl Layout {
+   | ----------- method in this implementation
+26 |     fn parameters(self, size: u64) -> Result<[u32; 20], String> {
+   |        ^^^^^^^^^^
+
+   Compiling fold-platform v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/platform)
+   Compiling fold-ui v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/ui)
+warning: `fold-render` (lib) generated 2 warnings
+   Compiling fold-motion v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/motion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 59s
+     Running unittests src/lib.rs (target/debug/deps/fold_motion-20d51988a58b02dd)
+
+running 51 tests
+test execution::tests::exact_duration_arithmetic_and_failures ... ok
+test execution::tests::random_uses_full_integer_identity_and_named_streams ... ok
+test execution::tests::common_ir_evaluates_element_fields_with_explicit_space_and_stable_random ... ok
+test execution::tests::typed_width_expression_executes_and_checks_reference_values ... ok
+test expression::tests::expressions_have_bounded_structure_and_versioned_random ... ok
+test binding::tests::random_seek_endpoint_hold_and_explicit_channel_composition ... ok
+test expression::tests::inferred_arithmetic_preserves_units_and_rejects_implicit_space_conversion ... ok
+test expression_source::tests::edge_extensions_survive_and_invalid_annotations_do_not_alias_objects ... ok
+test model::tests::duplicate_identity_and_recursive_assets_are_rejected ... ok
+test expression_source::tests::precedence_units_and_integer_identity_round_trip ... ok
+test types::tests::asset_clocks_are_exact_for_negative_freeze_and_reverse_time ... ok
+test types::tests::units_spaces_and_color_contracts_cannot_be_interpolated_implicitly ... ok
+test types::tests::quaternion_interpolation_takes_the_short_arc_and_requires_explicit_euler_order ... ok
+test ui::keyframes::tests::combinations_preserve_keys_and_use_neutral_bases ... ok
+test model::tests::unknown_operator_parameters_and_extensions_round_trip_without_resolution ... ok
+test registry::tests::defaults_have_stable_identity_and_mismatched_units_are_rejected ... ok
+test ui::instance::tests::animate_retains_override_metadata_and_exact_parent_time ... ok
+test expression_source::tests::source_limits_syntax_and_nonfinite_literals_fail_with_byte_ranges ... ok
+test expression_source::tests::every_expression_form_and_literal_escape_has_a_canonical_projection ... ok
+test ui::literal::tests::axis_angle_preserves_orientation_and_handles_degenerate_inputs ... ok
+test ui::presentation_render::instance_inspector_capture ... ignored, requires GPU; writes /tmp/fold-motion-instances.ppm
+test ui::keyframes::tests::root_insertion_uses_exact_time_and_rejects_overflow ... ok
+test ui::presentation_render::instance_menu_capture ... ignored, requires GPU; writes /tmp/fold-motion-instance-menu.ppm
+test ui::keyframes::tests::insertion_samples_contribution_and_retains_typed_identity ... ok
+test ui::presentation_render::literal_inspector_capture ... ignored, requires GPU; writes /tmp/fold-motion-literals.ppm
+test ui::presentation_render::override_key_inspector_capture ... ignored, requires GPU; writes /tmp/fold-motion-override-keys.ppm
+test ui::presentation_render::presentation_inspector_capture ... ignored, requires GPU; writes /tmp/fold-motion-presentation.ppm
+test ui::presentation_render::typed_key_inspector_capture ... ignored, requires GPU; writes /tmp/fold-motion-typed-keys.ppm
+test ui::keyframes::tests::insertion_preserves_hold_and_linear_samples_with_combination ... ok
+test ui::keyframes::tests::duplicate_key_time_blocks_finish_until_the_draft_is_corrected ... ok
+test ui::tests::graph_rewires_preserve_expression_identity_and_reject_invalid_topology ... ok
+test ui::tests::graph_scene_connections_keep_order_and_missing_sources_are_visible ... ok
+test package::tests::registered_document_creates_evaluates_edits_and_rejects_legacy_or_stale_requests ... ok
+test registry::tests::registry_keys_modes_defaults_and_schema_references_are_consistent ... ok
+test ui::tests::artist_unlock_is_selective_revision_bound_and_not_an_authoring_command ... ok
+test ui::tests::instance_clock_gestures_preserve_exact_time_and_respect_group_locks ... ok
+test ui::tests::gestures_commit_once_cancel_and_keep_source_drafts_across_revision_changes ... ok
+test validation::tests::asset_override_dependency_cycles_are_rejected ... ok
+test validation::tests::node_cycles_and_root_reference_overrides_fail ... ok
+test validation::tests::outputs_require_correct_scope_and_exact_declared_type ... ok
+test ui::tests::presentation_groups_notes_locks_and_undo_use_native_transactions ... ok
+test ui::tests::override_key_edits_preview_cancel_undo_and_respect_input_locks ... ok
+test ui::tests::graph_catalog_creates_valid_nodes_and_layout_gestures_commit_once ... ok
+test ui::tests::stale_source_rebase_preserves_disjoint_edits_and_requires_explicit_apply ... ok
+test ui::tests::instance_menu_input_creates_resets_and_undoes_one_override ... ok
+test ui::literal::tests::invalid_axis_keeps_the_last_valid_value_and_prevents_finish ... ok
+test ui::keyframes::tests::root_insert_button_finishes_once_and_respects_disabled_state ... ok
+test model::tests::native_edits_save_reopen_and_undo_preserve_identity_and_wrapper_extensions ... ok
+test ui::tests::native_panels_draw_at_normal_and_narrow_sizes_without_mutation ... ok
+test ui::tests::primitive_controls_preserve_exact_values_while_drawing ... ok
+test ui::tests::presentation_inspector_draws_expanded_at_normal_and_narrow_widths ... ok
+
+test result: ok. 45 passed; 0 failed; 6 ignored; 0 measured; 0 filtered out; finished in 0.98s
+
+     Running tests/reference.rs (target/debug/deps/reference-b82a26fad50da880)
+
+running 27 tests
+test evaluation_budgets_cancellation_and_invalid_dimensions_are_errors ... ok
+test id_free_source_allocates_native_defaults_and_resolves_forward_references ... ok
+test execution_failures_report_causes_without_matching_message_text ... ok
+test native_curve_edits_reject_retargeting_locks_and_unsupported_interpolation ... ok
+test explicit_fragment_mapping_preserves_protected_inputs_and_artist_layout ... ok
+test override_tracks_sample_parent_time_before_child_clock ... ok
+test animate_creates_native_vector_color_and_rotation_tracks_without_losing_parameter_identity ... ok
+test animated_shape_matches_frozen_values_and_identities_in_every_seek_order ... ok
+test protection_blocks_parent_override_context_and_group_bypasses ... ok
+test scene_and_asset_time_and_cubic_tween_remain_explicit ... ok
+test artist_unlock_only_clears_selected_flags_and_is_revision_bound_and_undoable ... ok
+test semantic_diff_keeps_unknown_parameters_and_extensions_atomic ... ok
+test semantic_diff_preserves_native_boundaries_and_connection_intent ... ok
+test native_merge_orders_independent_insertions_and_keeps_unknown_payloads_atomic ... ok
+test native_merge_distinguishes_key_identity_parent_deletion_and_contract_changes ... ok
+test structured_collection_insertion_and_explicit_order_use_one_base ... ok
+test native_curve_projection_preserves_fractional_times_ids_units_and_extensions ... ok
+test fragment_removal_cleans_only_deleted_layout_and_respects_locked_groups ... ok
+test structured_patches_reject_opaque_descent_overlap_and_identity_substitution ... ok
+test rebase_checks_current_locks_and_merged_dependencies ... ok
+test rebase_preserves_artist_keys_layout_and_disjoint_controls ... ok
+test source_transactions_retain_invalid_buffers_and_commit_one_undo_group ... ok
+test structured_control_and_key_edits_share_candidate_undo_and_rebase ... ok
+test structured_patches_cannot_bypass_locks_scope_or_admission_limits ... ok
+test construction_projection_preserves_expression_edges_and_unresolved_records ... ok
+test asset_clocks_overrides_and_caches_are_isolated_by_instance ... ok
+test capture_frozen_slice_native_evidence ... ok
+
+test result: ok. 27 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.45s
+
+     Running tests/text.rs (target/debug/deps/text-662b48a68317027a)
+
+running 23 tests
+test native_outlines_retain_shared_curves_source_associations_and_stable_topology ... ok
+test native_word_ids_survive_metric_changes_and_reflow ... ok
+test native_outline_failures_have_operation_context_and_never_publish_partial_geometry ... ok
+test native_text_metrics_animate_at_exact_times_and_keep_glyph_slots ... ok
+test native_text_round_trips_and_shares_one_layout_with_style_outline_and_mesh_consumers ... ok
+test screen_contours_preserve_order_translation_and_straight_paint ... ok
+test native_extrude_requires_outlined_input_and_explicit_world_placement ... ok
+test screen_preparation_rejects_world_and_stops_without_partial_publication ... ok
+test image_preparation_preserves_screen_order_world_depth_runs_and_exact_bindings ... ok
+test native_extrude_rejects_invalid_controls_and_maps_preparation_stops ... ok
+test text_reports_unsupported_fonts_missing_glyphs_invalid_metrics_and_budgets ... ok
+test native_extrude_depth_signal_samples_exact_time_without_changing_topology ... ok
+test word_animator_samples_tween_per_word_without_reshaping_or_cache_contamination ... ok
+test native_extrude_round_trips_retains_metric_solids_and_topology_correspondence ... ok
+test native_world_controls_reject_invalid_ranges_and_planar_input ... ok
+test native_material_round_trips_animates_and_preserves_solid_topology ... ok
+test native_world_scene_retains_order_shared_solids_materials_and_exact_transforms ... ok
+test spatial_conversion_binds_snapshot_and_shares_metric_meshes_with_stable_renderer_ids ... ok
+test native_material_rejects_unsupported_geometry_and_invalid_surface_controls ... ok
+test spatial_conversion_rejects_screen_passes_missing_material_and_budget_or_cancellation ... ok
+test spatial_conversion_rejects_f32_underflow_and_observes_conversion_cancellation ... ok
+test animated_text_and_outline_screen_pixels_agree_with_retained_layout ... ok
+test screen_preparation_shares_native_curves_and_matches_text_and_outline_pixels ... ok
+
+test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.44s
+
+
+
+/tmp/fold-m5-word-animator-clock-tests.log
+    Blocking waiting for file lock on artifact directory
+   Compiling fold-motion v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/motion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 22s
+     Running tests/text.rs (target/debug/deps/text-b638219e597be861)
+
+running 1 test
+test word_animator_keeps_scene_time_global_and_rejects_invalid_delay_or_limits ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 23 filtered out; finished in 0.06s
+
+
+
+/tmp/fold-m5-word-animator-extrude-final.log
+   Compiling fold-motion v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/motion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.65s
+     Running tests/text.rs (target/debug/deps/text-b638219e597be861)
+
+running 1 test
+test word_animation_reaches_metric_extrusion_without_changing_layout_or_topology_ids ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 24 filtered out; finished in 0.16s
+
+
+
+/tmp/fold-m5-word-animator-remap.log
+   Compiling fold-motion v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/motion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.28s
+     Running tests/text.rs (target/debug/deps/text-b638219e597be861)
+
+running 1 test
+test word_animator_keeps_scene_time_global_and_rejects_invalid_delay_or_limits ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 24 filtered out; finished in 0.05s
+
+
+
+/tmp/fold-m5-word-animator-observe.log
+    Blocking waiting for file lock on artifact directory
+   Compiling fold-app v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/app)
+   Compiling fold-render v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/render)
+   Compiling fold-platform v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/platform)
+   Compiling fold-timeline v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/timeline)
+   Compiling fold-motion v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/motion)
+   Compiling fold-compositor v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/compositor)
+   Compiling fold-composition v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/composition)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2m 04s
+     Running tests/agent_observe.rs (target/debug/deps/agent_observe-8a21740d9825198c)
+
+running 13 tests
+test job_cancellation_checks_scope_and_replays_its_original_outcome ... ok
+test runtime_failure_identifies_innermost_operation_and_exact_local_time ... ok
+test spatial_observations_publish_active_camera_and_directional_light_controls ... ok
+test asynchronous_observation_retains_its_snapshot_across_artist_edits ... ok
+test observations_keep_styling_per_placement_and_share_geometry_measurements ... ok
+test committed_observations_keep_exact_time_ids_bounds_and_snapshot_provenance ... ok
+test candidate_observation_does_not_inspect_or_commit_the_proposal ... ok
+test nonfinite_transformed_bounds_fail_instead_of_serializing_null_measurements ... ok
+test observation_preparation_retains_native_failure_codes_and_ids ... ok
+test word_animation_observation_reports_evaluated_positions_and_conservative_bounds ... ok
+test native_text_observations_report_font_identity_logical_mappings_and_layout_bounds ... ok
+test native_outline_candidate_observations_retain_curves_and_source_font_provenance ... ok
+test native_extrude_candidate_reports_metric_meshes_regions_and_shared_glyph_provenance ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.02s
+
+
+
+/tmp/fold-m5-word-animator-observe-final.log
+    Blocking waiting for file lock on artifact directory
+   Compiling fold-app v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/app)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 05s
+     Running tests/agent_observe.rs (target/debug/deps/agent_observe-8a21740d9825198c)
+
+running 1 test
+test word_animation_observation_reports_evaluated_positions_and_conservative_bounds ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.05s
+
+
+
+/tmp/fold-m5-word-animator-gpu.log
+   Compiling fold-app v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/app)
+   Compiling fold-render v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/render)
+warning: field `format` is never read
+  --> crates/render/src/gpu/yuv.rs:22:9
+   |
+16 | pub(super) struct Layout {
+   |                   ------ field in this struct
+...
+22 |     pub format: fold_media::VideoFormat,
+   |         ^^^^^^
+   |
+   = note: `Layout` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `parameters` is never used
+  --> crates/render/src/gpu/yuv.rs:26:8
+   |
+25 | impl Layout {
+   | ----------- method in this implementation
+26 |     fn parameters(self, size: u64) -> Result<[u32; 20], String> {
+   |        ^^^^^^^^^^
+
+   Compiling fold-platform v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/platform)
+   Compiling fold-motion v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/motion)
+   Compiling fold-timeline v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/timeline)
+   Compiling fold-compositor v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/compositor)
+   Compiling fold-composition v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/composition)
+warning: `fold-render` (lib) generated 2 warnings
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 01s
+     Running tests/motion_video.rs (target/debug/deps/motion_video-d63d87413ed41589)
+
+running 1 test
+Word animation GPU: AdapterInfo { name: "llvmpipe (LLVM 20.1.2, 256 bits)", vendor: 65541, device: 0, device_type: Cpu, driver: "llvmpipe", driver_info: "Mesa 26.1.6-1pop0~1787580452~24.04~a5619ea (LLVM 20.1.2)", backend: Vulkan }
+Word animation Time { numerator: 1, denominator: 4 }: CPU/GPU max error 0.00024586916
+Word animation Time { numerator: 0, denominator: 1 }: CPU/GPU max error 0.0002502799
+Word animation Time { numerator: 1, denominator: 2 }: CPU/GPU max error 0.0002516806
+Word animation Time { numerator: 3, denominator: 4 }: CPU/GPU max error 0.00024569035
+Word animation Time { numerator: 1, denominator: 4 }: CPU/GPU max error 0.00024586916
+Word animation: reordered samples, RGBA16F, exact timing, native paths and held frames passed
+test word_animated_motion_matches_gpu_for_reordered_samples_and_retained_frames ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 5.53s
+
+
+
+/tmp/fold-m5-word-animator-desktop.log
+    Checking fold-render v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/render)
+   Compiling fold-app v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/app)
+    Checking fold-platform v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/platform)
+    Checking fold-ui v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/ui)
+    Checking fold-compositor v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/compositor)
+    Checking fold-composition v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/composition)
+    Checking fold-motion v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/motion)
+    Checking fold-timeline v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/timeline)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 14.93s
+
+
+/tmp/fold-m5-word-animator-clippy.log
+    Blocking waiting for file lock on build directory
+    Checking fold-foundation v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/foundation)
+    Checking fold-color v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/color)
+    Checking fold-media v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/media)
+    Checking fold-animation v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/animation)
+    Checking fold-project v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/project)
+    Checking fold-render v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/render)
+warning: field `format` is never read
+  --> crates/render/src/gpu/yuv.rs:22:9
+   |
+16 | pub(super) struct Layout {
+   |                   ------ field in this struct
+...
+22 |     pub format: fold_media::VideoFormat,
+   |         ^^^^^^
+   |
+   = note: `Layout` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `parameters` is never used
+  --> crates/render/src/gpu/yuv.rs:26:8
+   |
+25 | impl Layout {
+   | ----------- method in this implementation
+26 |     fn parameters(self, size: u64) -> Result<[u32; 20], String> {
+   |        ^^^^^^^^^^
+
+warning: `fold-render` (lib) generated 2 warnings
+    Checking fold-platform v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/platform)
+    Checking fold-ui v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/ui)
+    Checking fold-motion v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/motion)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2m 12s
+
+
+/tmp/fold-m5-word-animator-app-clippy.log
+    Blocking waiting for file lock on build directory
+    Checking fold-render v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/render)
+   Compiling fold-app v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/app)
+warning: field `format` is never read
+  --> crates/render/src/gpu/yuv.rs:22:9
+   |
+16 | pub(super) struct Layout {
+   |                   ------ field in this struct
+...
+22 |     pub format: fold_media::VideoFormat,
+   |         ^^^^^^
+   |
+   = note: `Layout` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `parameters` is never used
+  --> crates/render/src/gpu/yuv.rs:26:8
+   |
+25 | impl Layout {
+   | ----------- method in this implementation
+26 |     fn parameters(self, size: u64) -> Result<[u32; 20], String> {
+   |        ^^^^^^^^^^
+
+warning: `fold-render` (lib) generated 2 warnings
+    Checking fold-platform v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/platform)
+    Checking fold-composition v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/composition)
+    Checking fold-timeline v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/timeline)
+    Checking fold-compositor v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/compositor)
+    Checking fold-motion v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/motion)
+warning: this `if` statement can be collapsed
+   --> crates/app/src/source_preparation.rs:120:9
+    |
+120 | /         if let Some((key, cancel)) = &state.active {
+121 | |             if !requests
+122 | |                 .iter()
+123 | |                 .any(|r| r.same_work(key) || key.advances_to(r))
+...   |
+127 | |         }
+    | |_________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#collapsible_if
+    = note: `#[warn(clippy::collapsible_if)]` on by default
+help: collapse nested if block
+    |
+120 ~         if let Some((key, cancel)) = &state.active
+121 ~             && !requests
+122 |                 .iter()
+...
+125 |                 cancel.cancel();
+126 ~             }
+    |
+
+warning: `fold-app` (lib) generated 1 warning (run `cargo clippy --fix --lib -p fold-app -- --no-deps` to apply 1 suggestion)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1m 23s

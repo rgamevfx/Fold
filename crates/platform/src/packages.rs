@@ -49,6 +49,16 @@ pub struct CommandRegistration {
     pub handler: CommandHandler,
 }
 pub trait DocumentProvider: Send + Sync {
+    /// Trusted local artist action. Not part of the agent authoring catalog.
+    /// Implementations may clear only the requested lock flags, never content.
+    fn unlock_for_artist(
+        &self,
+        _document: &Document,
+        _targets: &[fold_foundation::ObjectId],
+    ) -> Result<Document, String> {
+        Err("This provider does not support artist unlocking".into())
+    }
+
     fn animation_channels(
         &self,
         _document: &Document,
@@ -319,7 +329,11 @@ impl PackageRegistry {
         ids.clear();
         for provider in &package.documents {
             if provider.package_id() != manifest.id
-                || !owned(provider.type_id())
+                || provider.type_id().is_empty()
+                || self
+                    .documents
+                    .iter()
+                    .any(|existing| existing.type_id() == provider.type_id())
                 || !ids.insert(provider.type_id())
             {
                 return Err("duplicate or foreign document contribution".into());
@@ -557,6 +571,48 @@ impl PackageRegistry {
             .ok_or("missing provider")?
             .authoring_receipt(before, after)
     }
+    /// Called only by the native desktop unlock action, not ordinary command dispatch.
+    pub fn unlock_for_artist(
+        &self,
+        snapshot: &Snapshot,
+        base: Revision,
+        document: DocumentId,
+        targets: &[fold_foundation::ObjectId],
+    ) -> Result<EditBatch, String> {
+        if snapshot.revision() != base {
+            return Err("stale unlock revision".into());
+        }
+        if targets.is_empty() || targets.len() > 128 {
+            return Err("Select 1..128 controls or groups to unlock".into());
+        }
+        let original = snapshot
+            .state()
+            .documents
+            .get(&document)
+            .ok_or("missing document")?;
+        let provider = self
+            .documents
+            .iter()
+            .find(|p| {
+                p.package_id() == original.package_id
+                    && p.type_id() == original.type_id
+                    && p.supports_schema(original.schema_version)
+            })
+            .ok_or("missing document provider")?;
+        let after = provider.unlock_for_artist(original, targets)?;
+        if after.id != original.id
+            || after.package_id != original.package_id
+            || after.type_id != original.type_id
+            || after.schema_version != original.schema_version
+        {
+            return Err("unlock changed document identity".into());
+        }
+        provider.validate(&after)?;
+        Ok(EditBatch {
+            base,
+            mutations: vec![Mutation::PutDocument(after)],
+        })
+    }
     pub fn commands(&self) -> impl Iterator<Item = &CommandRegistration> {
         self.commands.values()
     }
@@ -667,6 +723,22 @@ impl PackageRegistry {
         }
         outputs
     }
+    /// The provider's first declared output is its default. Preserve its exact
+    /// port identity; never synthesize a conventional name or skip an invalid
+    /// default in favor of another output.
+    pub fn default_output(
+        &self,
+        snapshot: &Snapshot,
+        id: DocumentId,
+    ) -> Result<DocumentRef, String> {
+        let output = self
+            .outputs(snapshot, id)
+            .into_iter()
+            .next()
+            .ok_or("Document has no video outputs")?;
+        output.info?;
+        Ok(output.reference)
+    }
     pub fn output_ref(
         &self,
         snapshot: &Snapshot,
@@ -696,6 +768,13 @@ impl PackageRegistry {
                 )
             })?
             .info
+    }
+    /// Registered rendering capability, independent of document editing support.
+    pub fn has_video(&self, document: &Document) -> bool {
+        self.video
+            .providers
+            .iter()
+            .any(|p| p.package_id() == document.package_id && p.type_id() == document.type_id)
     }
     pub fn output(&self, snapshot: &Snapshot, id: DocumentId) -> Result<VideoInfo, String> {
         let document = snapshot

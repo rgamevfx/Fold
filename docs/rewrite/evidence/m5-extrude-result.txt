@@ -1,0 +1,33 @@
+warning: field `format` is never read
+  --> crates/render/src/gpu/yuv.rs:22:9
+   |
+16 | pub(super) struct Layout {
+   |                   ------ field in this struct
+...
+22 |     pub format: fold_media::VideoFormat,
+   |         ^^^^^^
+   |
+   = note: `Layout` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `parameters` is never used
+  --> crates/render/src/gpu/yuv.rs:26:8
+   |
+25 | impl Layout {
+   | ----------- method in this implementation
+26 |     fn parameters(self, size: u64) -> Result<[u32; 20], String> {
+   |        ^^^^^^^^^^
+
+warning: `fold-render` (lib) generated 2 warnings
+   Compiling fold-render v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/render)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 22.58s
+     Running tests/spatial_gpu.rs (target/debug/deps/spatial_gpu-f31aa466360e770f)
+
+running 1 test
+M4 planar spatial text: AdapterInfo { name: "llvmpipe (LLVM 20.1.2, 256 bits)", vendor: 65541, device: 0, device_type: Cpu, driver: "llvmpipe", driver_info: "Mesa 26.1.6-1pop0~1787580452~24.04~a5619ea (LLVM 20.1.2)", backend: Vulkan }; font=[b8, 5c, 38, ec, ea, 8a, 7c, fb, 39, c2, 4e, 39, 5a, 40, 07, 47, 4f, a5, a4, fc, 86, 4f, 6e, e3, 33, 09, eb, 49, 48, d2, 32, d5]; RGBA16F; MSAA off
+matched 6189 opaque and 121509 clear interior pixels; axial depth=4; retained three meshes/four glyph instances
+extrusion ray reference, camera_z=4: 1393 cap, 338 side and 13385 clear rays match color/depth (2e-4 view-unit tolerance); 148 samples excluded within 1/128 pixel of projected triangle edges
+extrusion ray reference, camera_z=-4.15: 1408 cap, 335 side and 13391 clear rays match color/depth (2e-4 view-unit tolerance); 130 samples excluded within 1/128 pixel of projected triangle edges
+test retained_text_mesh_and_extrusion_match_vector_interiors_and_depth ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 8.43s

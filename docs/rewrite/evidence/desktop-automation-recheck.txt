@@ -1,0 +1,23 @@
+Desktop automation availability recheck — 8 October 2026
+
+The installed computer-use skill resolves this Linux session to /usr/bin/orca-ide.
+Its version-matched guide was read through:
+  orca-ide skills get computer-use --json
+
+Read-only capability query:
+  orca-ide computer capabilities --json
+Exit 1, runtime_unavailable:
+  Could not connect to the running Orca app. Restart Orca and try again.
+
+The guide-prescribed startup attempt:
+  orca-ide open --json
+Exit 1, runtime_open_timeout:
+  Timed out waiting for an Orca desktop window. The runtime may still be running headlessly.
+
+A subsequent capability query again returned runtime_unavailable, exit 1.
+No GUI action, Fold launch, screenshot or physical artist acceptance is claimed.
+Host process inspection showed a compositor process, but that does not prove an
+accessible display or working automation connection for this session. This refines
+the earlier environment limitation rather than claiming no compositor exists on
+the host. Other native-service and headless work remains available; the overall
+M0–M5 objective is not blocked by this one acceptance route.

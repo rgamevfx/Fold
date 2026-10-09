@@ -834,3 +834,41 @@ fn composition_mode_button_reveals_curves_and_curve_drag_preserves_key_identity(
     draw(&mut imgui, &mut editor, &mut channels, &mut auto);
     assert!(!editor.curves, "the same button returns to tracks");
 }
+
+#[test]
+fn linear_only_editor_insert_preserves_hold_segments() {
+    let mut channels = channels();
+    for channel in &mut channels {
+        channel.curve.keys[0].interpolation = fold_animation::Interpolation::Hold;
+    }
+    let mut editor = Editor::default();
+    editor.set_linear_only(true);
+    let mut response = Response::default();
+    let mut auto_key = false;
+    editor.insert(
+        &mut channels,
+        &super::Context {
+            cache: &Default::default(),
+            document: DocumentId::new(),
+            generation: 0,
+            time: Time::new(3, 2).unwrap(),
+            rate: [24, 1],
+            frames: 72,
+            nodes: &[],
+            tracks: &[],
+            auto_key: &mut auto_key,
+        },
+        &mut response,
+    );
+    assert!(response.edit.changed && response.edit.finished);
+    for (index, channel) in channels.iter().enumerate() {
+        assert_eq!(
+            channel.curve.keys[1].interpolation,
+            fold_animation::Interpolation::Hold
+        );
+        assert_eq!(
+            channel.curve.sample(Time::new(7, 4).unwrap()),
+            Some(index as f64)
+        );
+    }
+}

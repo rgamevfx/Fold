@@ -15,17 +15,12 @@ pub(super) fn draw(ui: &Ui, host: &mut dyn DesktopClient, state: &mut State) {
             ));
         }
         if let Some(document) = state.document {
-            for (label, kind) in [
-                ("Add MoGraph layer", "motion"),
-                ("Add Compositing layer", "image"),
-            ] {
-                if ui.menu_item(label) {
-                    state.command(
-                        host,
-                        "fold.app.add-layer-graph",
-                        serde_json::json!({"document":document,"kind":kind}),
-                    );
-                }
+            if ui.menu_item("Add Compositing layer") {
+                state.command(
+                    host,
+                    "fold.app.add-layer-graph",
+                    serde_json::json!({"document":document,"kind":"image"}),
+                );
             }
             if ui.menu_item("New nested composition") {
                 state.command(host,package::NEST,serde_json::json!({"document":document,"child":DocumentId::new(),"name":"Nested composition","layers":[]}));

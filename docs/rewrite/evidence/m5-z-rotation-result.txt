@@ -1,0 +1,279 @@
+M5 native per-instance Z rotation — 8 October 2026
+Uncommitted active rewrite; full M3–M5 gates remain pending.
+
+animator.rotation_z_add samples Angle (rad) in the shared incoming instance
+context, adds it to local Z rotation and normalizes to [0,2π). Each input angle
+must be finite and within ±1e6 radians. Rotation is around the prototype origin;
+scale, color, instance/source-point IDs and retained prototypes survive. Native
+Random with 0..2π range and stream "rotation" supplies static per-cell variation.
+The existing registry controls and graph starter supply native authoring.
+
+Instances expose rotation_z (radians). Instance::point applies local rotation,
+uniform scale and instance translation. Observation uses this transform for
+vertices/bounds. Spatial conversion rotates prototype/glyph offsets and composes
+World quaternion with local Z rotation, retaining one prototype mesh.
+
+Current renderer limitation: its TRS instance representation cannot represent
+World nonuniform X/Y scaling after an arbitrary local Z rotation. Conversion
+explicitly rejects rotated instances with unequal World X/Y scale, rather than
+silently changing transform order. General affine/shear instance composition is
+still required for broader rendering support; this record does not close that gap.
+
+Verification:
+- cargo test -p fold-motion --features ui --lib --test distribution --test text
+  46 library tests passed (six existing ignored), ten distribution and 26 text
+  tests passed. New fixture checks Random-driven radians/quaternions, point
+  transformation, 20->21->20 count edits, reordered times, stable IDs/shared mesh,
+  Source round trip, chained quarter-turn addition and explicit shear rejection.
+- cargo test -p fold-app --test agent_observe
+  All 17 passed. Then extended the existing Cloner case to include 45-degree
+  rotation and verified its new rotation_z observations and independent enlarged
+  X/Y bounds with the focused command below:
+  cargo test -p fold-app --test agent_observe cloner_observation_reports_shared_prototype_instances_and_world_bounds
+  One passed (16 filtered), with scale and color preserved.
+- cargo check -p fold-app --features desktop --bins
+  Passed.
+- cargo clippy -p fold-motion --features ui --lib --test distribution --no-deps -- -D warnings
+- cargo clippy -p fold-app --test agent_observe --no-deps
+  Passed; existing shared YUV/source_preparation warnings remain.
+- cargo fmt --all --check; python3 scripts/check_boundaries.py; git diff --check
+  Passed.
+
+Unverified: GPU rotated-instance pixels, physical normal/narrow controls and
+artist interaction, arbitrary affine composition, full integrated/public-tool
+M3–M5 acceptance. No phase gate is claimed complete.
+
+Captured outputs:
+
+/tmp/fold-m5-rotation-tests.log
+warning: field `format` is never read
+  --> crates/render/src/gpu/yuv.rs:22:9
+   |
+16 | pub(super) struct Layout {
+   |                   ------ field in this struct
+...
+22 |     pub format: fold_media::VideoFormat,
+   |         ^^^^^^
+   |
+   = note: `Layout` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `parameters` is never used
+  --> crates/render/src/gpu/yuv.rs:26:8
+   |
+25 | impl Layout {
+   | ----------- method in this implementation
+26 |     fn parameters(self, size: u64) -> Result<[u32; 20], String> {
+   |        ^^^^^^^^^^
+
+warning: `fold-render` (lib) generated 2 warnings
+   Compiling fold-motion v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/motion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 47.96s
+     Running unittests src/lib.rs (target/debug/deps/fold_motion-9d5a7d7ac2c821f0)
+
+running 52 tests
+test execution::tests::exact_duration_arithmetic_and_failures ... ok
+test execution::tests::typed_width_expression_executes_and_checks_reference_values ... ok
+test execution::tests::random_uses_full_integer_identity_and_named_streams ... ok
+test execution::tests::common_ir_evaluates_element_fields_with_explicit_space_and_stable_random ... ok
+test binding::tests::random_seek_endpoint_hold_and_explicit_channel_composition ... ok
+test expression::tests::expressions_have_bounded_structure_and_versioned_random ... ok
+test expression::tests::inferred_arithmetic_preserves_units_and_rejects_implicit_space_conversion ... ok
+test expression_source::tests::precedence_units_and_integer_identity_round_trip ... ok
+test model::tests::duplicate_identity_and_recursive_assets_are_rejected ... ok
+test expression_source::tests::edge_extensions_survive_and_invalid_annotations_do_not_alias_objects ... ok
+test types::tests::asset_clocks_are_exact_for_negative_freeze_and_reverse_time ... ok
+test types::tests::quaternion_interpolation_takes_the_short_arc_and_requires_explicit_euler_order ... ok
+test types::tests::units_spaces_and_color_contracts_cannot_be_interpolated_implicitly ... ok
+test ui::keyframes::tests::combinations_preserve_keys_and_use_neutral_bases ... ok
+test model::tests::unknown_operator_parameters_and_extensions_round_trip_without_resolution ... ok
+test ui::keyframes::tests::insertion_samples_contribution_and_retains_typed_identity ... ok
+test ui::instance::tests::animate_retains_override_metadata_and_exact_parent_time ... ok
+test expression_source::tests::every_expression_form_and_literal_escape_has_a_canonical_projection ... ok
+test registry::tests::defaults_have_stable_identity_and_mismatched_units_are_rejected ... ok
+test ui::presentation_render::instance_inspector_capture ... ignored, requires GPU; writes /tmp/fold-motion-instances.ppm
+test ui::literal::tests::axis_angle_preserves_orientation_and_handles_degenerate_inputs ... ok
+test ui::keyframes::tests::root_insertion_uses_exact_time_and_rejects_overflow ... ok
+test ui::presentation_render::instance_menu_capture ... ignored, requires GPU; writes /tmp/fold-motion-instance-menu.ppm
+test ui::presentation_render::literal_inspector_capture ... ignored, requires GPU; writes /tmp/fold-motion-literals.ppm
+test ui::presentation_render::override_key_inspector_capture ... ignored, requires GPU; writes /tmp/fold-motion-override-keys.ppm
+test expression_source::tests::source_limits_syntax_and_nonfinite_literals_fail_with_byte_ranges ... ok
+test ui::presentation_render::presentation_inspector_capture ... ignored, requires GPU; writes /tmp/fold-motion-presentation.ppm
+test ui::presentation_render::typed_key_inspector_capture ... ignored, requires GPU; writes /tmp/fold-motion-typed-keys.ppm
+test ui::keyframes::tests::insertion_preserves_hold_and_linear_samples_with_combination ... ok
+test ui::tests::graph_rewires_preserve_expression_identity_and_reject_invalid_topology ... ok
+test ui::tests::graph_scene_connections_keep_order_and_missing_sources_are_visible ... ok
+test ui::keyframes::tests::duplicate_key_time_blocks_finish_until_the_draft_is_corrected ... ok
+test package::tests::registered_document_creates_evaluates_edits_and_rejects_legacy_or_stale_requests ... ok
+test ui::keyframes::tests::root_insert_button_finishes_once_and_respects_disabled_state ... ok
+test ui::tests::artist_unlock_is_selective_revision_bound_and_not_an_authoring_command ... ok
+test ui::tests::gestures_commit_once_cancel_and_keep_source_drafts_across_revision_changes ... ok
+test ui::literal::tests::invalid_axis_keeps_the_last_valid_value_and_prevents_finish ... ok
+test ui::tests::instance_clock_gestures_preserve_exact_time_and_respect_group_locks ... ok
+test validation::tests::asset_override_dependency_cycles_are_rejected ... ok
+test validation::tests::node_cycles_and_root_reference_overrides_fail ... ok
+test validation::tests::outputs_require_correct_scope_and_exact_declared_type ... ok
+test registry::tests::registry_keys_modes_defaults_and_schema_references_are_consistent ... ok
+test ui::tests::presentation_groups_notes_locks_and_undo_use_native_transactions ... ok
+test ui::tests::override_key_edits_preview_cancel_undo_and_respect_input_locks ... ok
+test ui::tests::stale_source_rebase_preserves_disjoint_edits_and_requires_explicit_apply ... ok
+test ui::tests::graph_catalog_creates_valid_nodes_and_layout_gestures_commit_once ... ok
+test ui::tests::instance_menu_input_creates_resets_and_undoes_one_override ... ok
+test ui::tests::native_panels_draw_at_normal_and_narrow_sizes_without_mutation ... ok
+test ui::tests::presentation_inspector_draws_expanded_at_normal_and_narrow_widths ... ok
+test ui::tests::primitive_controls_preserve_exact_values_while_drawing ... ok
+test ui::tests::ramp_controls_draw_at_normal_and_narrow_widths_without_mutation ... ok
+test model::tests::native_edits_save_reopen_and_undo_preserve_identity_and_wrapper_extensions ... ok
+
+test result: ok. 46 passed; 0 failed; 6 ignored; 0 measured; 0 filtered out; finished in 3.98s
+
+     Running tests/distribution.rs (target/debug/deps/distribution-8398f5de7f0bd2ae)
+
+running 10 tests
+test grid_rejects_invalid_counts_extents_and_obeys_shared_budgets ... ok
+test centered_grid_preserves_cell_identity_through_growth_spacing_and_time ... ok
+test cloner_keeps_one_prototype_and_cell_correspondence_through_growth_and_mesh_edits ... ok
+test scale_sampling_uses_stable_instance_random_and_explicit_multiplication ... ok
+test linear_field_projects_animated_endpoints_clamps_and_preserves_instances ... ok
+test native_random_z_rotation_preserves_instances_and_reaches_render_transforms ... ok
+test cloner_rejects_unqualified_prototypes_and_rendering_rejects_instance_overflow ... ok
+test native_random_preserves_named_instance_values_across_time_count_and_source ... ok
+test moving_radial_field_samples_upstream_instances_and_reaches_shared_render_mesh ... ok
+test color_ramp_animates_instances_preserving_scale_prototype_and_material_settings ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+     Running tests/text.rs (target/debug/deps/text-4ee829a942d5982b)
+
+running 26 tests
+test native_box_preserves_topology_and_shares_mesh_through_material_and_world ... ok
+test native_outlines_retain_shared_curves_source_associations_and_stable_topology ... ok
+test native_outline_failures_have_operation_context_and_never_publish_partial_geometry ... ok
+test native_text_metrics_animate_at_exact_times_and_keep_glyph_slots ... ok
+test native_word_ids_survive_metric_changes_and_reflow ... ok
+test native_text_round_trips_and_shares_one_layout_with_style_outline_and_mesh_consumers ... ok
+test native_extrude_requires_outlined_input_and_explicit_world_placement ... ok
+test screen_contours_preserve_order_translation_and_straight_paint ... ok
+test screen_preparation_rejects_world_and_stops_without_partial_publication ... ok
+test image_preparation_preserves_screen_order_world_depth_runs_and_exact_bindings ... ok
+test native_extrude_rejects_invalid_controls_and_maps_preparation_stops ... ok
+test text_reports_unsupported_fonts_missing_glyphs_invalid_metrics_and_budgets ... ok
+test native_material_round_trips_animates_and_preserves_solid_topology ... ok
+test native_extrude_depth_signal_samples_exact_time_without_changing_topology ... ok
+test native_world_scene_retains_order_shared_solids_materials_and_exact_transforms ... ok
+test native_extrude_round_trips_retains_metric_solids_and_topology_correspondence ... ok
+test word_animator_keeps_scene_time_global_and_rejects_invalid_delay_or_limits ... ok
+test native_world_controls_reject_invalid_ranges_and_planar_input ... ok
+test word_animator_samples_tween_per_word_without_reshaping_or_cache_contamination ... ok
+test native_material_rejects_unsupported_geometry_and_invalid_surface_controls ... ok
+test spatial_conversion_binds_snapshot_and_shares_metric_meshes_with_stable_renderer_ids ... ok
+test word_animation_reaches_metric_extrusion_without_changing_layout_or_topology_ids ... ok
+test spatial_conversion_rejects_screen_passes_missing_material_and_budget_or_cancellation ... ok
+test spatial_conversion_rejects_f32_underflow_and_observes_conversion_cancellation ... ok
+test animated_text_and_outline_screen_pixels_agree_with_retained_layout ... ok
+test screen_preparation_shares_native_curves_and_matches_text_and_outline_pixels ... ok
+
+test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.42s
+
+
+/tmp/fold-m5-rotation-observe.log
+    Blocking waiting for file lock on artifact directory
+   Compiling fold-app v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/app)
+   Compiling fold-motion v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/motion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 31s
+     Running tests/agent_observe.rs (target/debug/deps/agent_observe-ef57209886c30a20)
+
+running 17 tests
+test job_cancellation_checks_scope_and_replays_its_original_outcome ... ok
+test nonfinite_transformed_bounds_fail_instead_of_serializing_null_measurements ... ok
+test asynchronous_observation_retains_its_snapshot_across_artist_edits ... ok
+test box_observation_reports_mesh_uvs_and_transformed_bounds_without_text_provenance ... ok
+test committed_observations_keep_exact_time_ids_bounds_and_snapshot_provenance ... ok
+test candidate_observation_does_not_inspect_or_commit_the_proposal ... ok
+test runtime_failure_identifies_innermost_operation_and_exact_local_time ... ok
+test observations_keep_styling_per_placement_and_share_geometry_measurements ... ok
+test spatial_observations_publish_active_camera_and_directional_light_controls ... ok
+test native_ramp_source_candidate_observes_clamped_scalar_without_committing ... ok
+test observation_preparation_retains_native_failure_codes_and_ids ... ok
+test grid_observation_exposes_metric_cells_and_stable_ids_after_count_change ... ok
+test cloner_observation_reports_shared_prototype_instances_and_world_bounds ... ok
+test word_animation_observation_reports_evaluated_positions_and_conservative_bounds ... ok
+test native_text_observations_report_font_identity_logical_mappings_and_layout_bounds ... ok
+test native_outline_candidate_observations_retain_curves_and_source_font_provenance ... ok
+test native_extrude_candidate_reports_metric_meshes_regions_and_shared_glyph_provenance ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.53s
+
+
+/tmp/fold-m5-rotation-bounds.log
+   Compiling fold-app v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/app)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 13.33s
+     Running tests/agent_observe.rs (target/debug/deps/agent_observe-ef57209886c30a20)
+
+running 1 test
+test cloner_observation_reports_shared_prototype_instances_and_world_bounds ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 16 filtered out; finished in 0.05s
+
+
+/tmp/fold-m5-rotation-check.log
+    Blocking waiting for file lock on build directory
+    Checking fold-motion v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/motion)
+   Compiling fold-app v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/app)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1m 06s
+
+/tmp/fold-m5-rotation-clippy.log
+    Blocking waiting for file lock on build directory
+warning: field `format` is never read
+  --> crates/render/src/gpu/yuv.rs:22:9
+   |
+16 | pub(super) struct Layout {
+   |                   ------ field in this struct
+...
+22 |     pub format: fold_media::VideoFormat,
+   |         ^^^^^^
+   |
+   = note: `Layout` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `parameters` is never used
+  --> crates/render/src/gpu/yuv.rs:26:8
+   |
+25 | impl Layout {
+   | ----------- method in this implementation
+26 |     fn parameters(self, size: u64) -> Result<[u32; 20], String> {
+   |        ^^^^^^^^^^
+
+warning: `fold-render` (lib) generated 2 warnings
+    Checking fold-motion v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/motion)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 21.05s
+
+/tmp/fold-m5-rotation-app-clippy.log
+    Blocking waiting for file lock on build directory
+    Checking fold-motion v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/motion)
+   Compiling fold-app v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/app)
+warning: this `if` statement can be collapsed
+   --> crates/app/src/source_preparation.rs:120:9
+    |
+120 | /         if let Some((key, cancel)) = &state.active {
+121 | |             if !requests
+122 | |                 .iter()
+123 | |                 .any(|r| r.same_work(key) || key.advances_to(r))
+...   |
+127 | |         }
+    | |_________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#collapsible_if
+    = note: `#[warn(clippy::collapsible_if)]` on by default
+help: collapse nested if block
+    |
+120 ~         if let Some((key, cancel)) = &state.active
+121 ~             && !requests
+122 |                 .iter()
+...
+125 |                 cancel.cancel();
+126 ~             }
+    |
+
+warning: `fold-app` (lib) generated 1 warning (run `cargo clippy --fix --lib -p fold-app -- --no-deps` to apply 1 suggestion)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 25.47s

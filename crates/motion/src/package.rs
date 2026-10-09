@@ -1,334 +1,238 @@
-//! Static motion contributions shared by desktop and CLI.
-use crate::{MOTION, Motion};
-use fold_foundation::DocumentId;
-use fold_media::{Cancel, VideoInfo};
-use fold_platform::{VideoProvider, packages::*};
+//! Native document/desktop registration. Rendering is qualified separately in M4.
+use crate::{binding::Binding, editing, model::*, types::*};
+use fold_foundation::{DocumentId, ObjectId, Time};
+use fold_platform::packages::*;
 use fold_project::{Document, EditBatch, Mutation, Snapshot};
-use fold_render::RenderGraph;
 use serde::{Deserialize, Serialize};
-#[path = "prepared.rs"]
-mod prepared;
-use std::sync::Arc;
-pub const EDIT: &str = "fold.motion.edit";
-pub const CHANGE: &str = "fold.motion.change.v1";
-const BUILD: &str = "motion-schema8-evaluator11-layer-context1-solver1-noto-b85c38ec";
-pub const PANEL: &str = "fold.motion.editor";
-pub const INSPECTOR: &str = "fold.motion.inspector";
+
+pub const EDIT: &str = "fold.motion.native.edit";
+pub const PANEL: &str = "fold.motion.native.editor";
+pub const INSPECTOR: &str = "fold.motion.native.inspector";
 pub const PANELS: &[PanelDescriptor] = &[
     PanelDescriptor {
         id: PANEL,
-        title: "Composition",
+        title: "Motion",
         placement: PanelPlacement::Editor,
     },
     PanelDescriptor {
         id: INSPECTOR,
-        // Property contribution hosted inside the shared Node Inspector.
-        title: "Motion node properties",
+        title: "Motion Inspector",
         placement: PanelPlacement::Inspector,
     },
 ];
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct EditArgs {
     pub document: DocumentId,
-    pub motion: Motion,
+    pub construction: Construction,
 }
-fn edit(snapshot: &Snapshot, args: &[u8], _: &Cancel) -> Result<EditBatch, String> {
+fn edit(
+    snapshot: &Snapshot,
+    args: &[u8],
+    cancel: &fold_media::Cancel,
+) -> Result<EditBatch, String> {
+    cancel.check()?;
     let args: EditArgs = serde_json::from_slice(args).map_err(|e| e.to_string())?;
-    let mut document = args.motion.document(args.document)?;
-    let mut mutations = vec![];
-    if let Some(previous) = snapshot.state().documents.get(&args.document) {
-        let before = Motion::from_document(previous)?;
-        crate::layer_edits::append(
-            snapshot,
-            args.document,
-            before.scene.as_ref(),
-            &args.motion,
-            &mut mutations,
-        )?;
-        document.extensions = previous.extensions.clone();
-    }
-    mutations.push(Mutation::PutDocument(document));
+    let original = snapshot
+        .state()
+        .documents
+        .get(&args.document)
+        .ok_or("Missing Motion document")?;
+    let after = editing::validate_document(original, editing::Scope::Document, args.construction)
+        .map_err(|e| format!("{e:?}"))?;
+    cancel.check()?;
     Ok(EditBatch {
         base: snapshot.revision(),
-        mutations,
+        mutations: vec![Mutation::PutDocument(after)],
     })
 }
-struct Documents(Arc<prepared::Cache>);
+
+/// A useful editable starting point, built from the qualified native registry.
+pub fn create(id: DocumentId) -> Result<Document, String> {
+    let size = Input {
+        id: ObjectId::new(),
+        name: "Width".into(),
+        ty: Type::Distance { unit: Unit::Canvas },
+        default: Literal::Distance {
+            value: 200.,
+            unit: Unit::Canvas,
+        },
+        protected: false,
+        extensions: Default::default(),
+    };
+    let shape = crate::registry::resolve("fold.motion.shape", 1, "rectangle")?.node(
+        "Rectangle",
+        [
+            (
+                "width".into(),
+                Binding::Link {
+                    reference: Reference::Input { input: size.id }.into(),
+                },
+            ),
+            (
+                "height".into(),
+                Binding::Literal {
+                    value: Literal::Distance {
+                        value: 100.,
+                        unit: Unit::Canvas,
+                    },
+                },
+            ),
+        ]
+        .into(),
+    )?;
+    let place = crate::registry::resolve("fold.motion.place", 1, "screen")?.node(
+        "Placement",
+        [(
+            "geometry".into(),
+            Binding::Link {
+                reference: Reference::Node { node: shape.id }.into(),
+            },
+        )]
+        .into(),
+    )?;
+    let scene = crate::registry::resolve("fold.motion.scene", 1, "ordered")?.node(
+        "Scene",
+        [(
+            "children".into(),
+            Binding::List {
+                values: vec![Binding::Link {
+                    reference: Reference::Node { node: place.id }.into(),
+                }],
+            },
+        )]
+        .into(),
+    )?;
+    let output = Output {
+        id: ObjectId::new(),
+        name: "main".into(),
+        ty: Type::Scene,
+        value: Reference::Node { node: scene.id }.into(),
+        extensions: Default::default(),
+    };
+    let definition = Definition {
+        id: ObjectId::new(),
+        name: "Motion".into(),
+        inputs: vec![size],
+        nodes: vec![shape, place, scene],
+        instances: vec![],
+        outputs: vec![output],
+        extensions: Default::default(),
+    };
+    let value = Construction {
+        seed: 0,
+        canvas: Canvas {
+            width: 1920,
+            height: 1080,
+            rate: [24, 1],
+            start: Time::ZERO,
+            end: Time::new(5, 1).map_err(|e| e.to_string())?,
+            extensions: Default::default(),
+        },
+        root: Instance {
+            id: ObjectId::new(),
+            name: "Main".into(),
+            definition: definition.id,
+            clock: Clock::default(),
+            overrides: Default::default(),
+            extensions: Default::default(),
+        },
+        definitions: vec![definition],
+        presentation: Presentation::default(),
+        extensions: Default::default(),
+    };
+    value.validate_semantics()?;
+    value.document(id)
+}
+
+struct Documents;
 impl DocumentProvider for Documents {
+    fn unlock_for_artist(
+        &self,
+        document: &Document,
+        targets: &[ObjectId],
+    ) -> Result<Document, String> {
+        editing::unlock_document_for_artist(document, targets).map_err(|error| format!("{error:?}"))
+    }
+
     fn animation_channels(
         &self,
         document: &Document,
-        object: Option<fold_foundation::ObjectId>,
+        object: Option<ObjectId>,
     ) -> Result<Vec<fold_platform::animation::Channel>, String> {
-        crate::keyed_parameters::channels(document, object)
+        crate::keyed::channels(&Construction::from_document(document)?, object)
     }
     fn edit_animation(
         &self,
         document: &Document,
         channels: &[fold_platform::animation::Channel],
-        time: fold_foundation::Time,
+        _: Time,
     ) -> Result<Document, String> {
-        crate::keyed_parameters::edit(document, channels, time)
+        let construction =
+            crate::keyed::replace(&Construction::from_document(document)?, channels)?;
+        construction.replace_document(document)
     }
 
-    fn settings(
-        &self,
-        document: &Document,
-    ) -> Result<Option<fold_platform::settings::DocumentSettings>, String> {
-        Ok(Some(fold_platform::settings::DocumentSettings::fixed(
-            crate::Motion::from_document(document)?.info,
-        )))
+    fn package_id(&self) -> &'static str {
+        crate::PACKAGE
     }
-    fn set_settings(
-        &self,
-        document: &Document,
-        settings: &fold_platform::settings::DocumentSettings,
-    ) -> Result<Document, String> {
-        let mut value = crate::Motion::from_document(document)?;
-        value.retain_canvas();
-        value.info = settings.format.clone();
-        value.document(document.id)
+    fn type_id(&self) -> &'static str {
+        crate::CONSTRUCTION
     }
-
-    fn image_inputs(
-        &self,
-        document: &Document,
-    ) -> Result<Vec<fold_platform::layer_graph::ImageInput>, String> {
-        crate::inputs::describe(&self.0.get(document)?.motion)
+    fn schema(&self) -> u32 {
+        crate::SCHEMA_VERSION
     }
-    fn bind_image_input(
-        &self,
-        snapshot: &Snapshot,
-        document: &Document,
-        port: &str,
-        source: Option<fold_platform::image_source::Source>,
-        info: fold_media::VideoInfo,
-    ) -> Result<Document, String> {
-        let _ = snapshot;
-        crate::inputs::bind(document, port, source, info)
+    fn validate(&self, document: &Document) -> Result<(), String> {
+        Construction::from_document(document).map(|_| ())
     }
-
+    fn browser_kind(&self) -> Option<fold_platform::browser::DocumentKind> {
+        Some(fold_platform::browser::DocumentKind {
+            type_id: crate::CONSTRUCTION,
+            title: "Motion",
+        })
+    }
+    fn create(&self, id: DocumentId) -> Result<Document, String> {
+        create(id)
+    }
     fn authoring_catalog(&self) -> serde_json::Value {
-        crate::automation::catalog()
+        crate::registry::catalog()
     }
     fn inspect(&self, document: &Document) -> Result<serde_json::Value, String> {
-        crate::automation::inspect(document)
-    }
-    fn query(
-        &self,
-        document: &Document,
-        query: &serde_json::Value,
-    ) -> Result<serde_json::Value, String> {
-        crate::automation::discovery::query(document, query)
-    }
-    fn query_cancellable(
-        &self,
-        document: &fold_project::Document,
-        query: &serde_json::Value,
-        cancel: &fold_media::Cancel,
-    ) -> Result<serde_json::Value, String> {
-        crate::automation::discovery::query_cancellable(document, query, cancel)
+        let construction = Construction::from_document(document)?;
+        Ok(
+            serde_json::json!({"construction": construction, "source": crate::source::canonical(&construction)?, "rendering": {
+                "screen": true,
+                "spatial": fold_render::spatial::GPU_ENABLED,
+                "mixed": fold_render::spatial::GPU_ENABLED,
+                "camera_plane": false,
+                "spatial_aces": fold_render::spatial::GPU_ENABLED,
+                "spatial_depth": "contiguous_world_pass"
+            }}),
+        )
     }
     fn author(&self, document: &Document, edits: &[serde_json::Value]) -> Result<Document, String> {
-        crate::automation::author(document, edits)
-    }
-
-    fn author_cancellable(
-        &self,
-        document: &Document,
-        edits: &[serde_json::Value],
-        cancel: &Cancel,
-    ) -> Result<Document, String> {
-        crate::automation::author_cancellable(document, edits, cancel)
+        let patches: Vec<crate::patch::Patch> = edits
+            .iter()
+            .map(|v| serde_json::from_value(v.clone()).map_err(|e| e.to_string()))
+            .collect::<Result<_, _>>()?;
+        let before = Construction::from_document(document)?;
+        let after = crate::patch::construction(&before, &patches).map_err(|e| format!("{e:?}"))?;
+        editing::validate_document(document, editing::Scope::Document, after)
+            .map_err(|e| format!("{e:?}"))
     }
     fn authoring_receipt(
         &self,
         before: &Document,
         after: &Document,
     ) -> Result<serde_json::Value, String> {
-        crate::automation::discovery::receipt(before, after)
-    }
-    fn create(&self, id: fold_foundation::DocumentId) -> Result<Document, String> {
-        crate::document::Motion::new_scene().document(id)
-    }
-    fn place(
-        &self,
-        snapshot: &fold_project::Snapshot,
-        placement: &fold_platform::browser::Placement,
-        info: Option<fold_media::VideoInfo>,
-    ) -> Result<EditBatch, String> {
-        let document = crate::nodes::image::place(snapshot, placement, info)?;
-        let before = Motion::from_document(&snapshot.state().documents[&placement.target])?;
-        let after = Motion::from_document(&document)?;
-        let mut mutations = vec![Mutation::PutDocument(document)];
-        crate::layer_edits::append(
-            snapshot,
-            placement.target,
-            before.scene.as_ref(),
-            &after,
-            &mut mutations,
-        )?;
-        Ok(EditBatch {
-            base: snapshot.revision(),
-            mutations,
-        })
-    }
-    fn package_id(&self) -> &'static str {
-        crate::PACKAGE
-    }
-    fn type_id(&self) -> &'static str {
-        MOTION
-    }
-    fn schema(&self) -> u32 {
-        8
-    }
-    fn supports_schema(&self, schema: u32) -> bool {
-        [1, 2, 3, 4, 5, 6, 7, 8].contains(&schema)
-    }
-    fn validate(&self, d: &Document) -> Result<(), String> {
-        self.0.get(d).map(|_| ())
-    }
-    fn evaluation_identity(&self, d: &Document) -> Result<Vec<u8>, String> {
-        Ok(self.0.get(d)?.identity.as_ref().clone())
-    }
-}
-#[derive(Default)]
-pub struct Provider(Arc<prepared::Cache>, Arc<crate::simulation::Runtime>);
-impl VideoProvider for Provider {
-    fn playback_mode(&self) -> fold_platform::desktop::PlaybackMode {
-        fold_platform::desktop::PlaybackMode::EveryFrame
-    }
-    fn package_id(&self) -> &'static str {
-        crate::PACKAGE
-    }
-    fn type_id(&self) -> &'static str {
-        MOTION
-    }
-    fn video_info(&self, d: &Document) -> Result<VideoInfo, String> {
-        Ok(self.0.get(d)?.motion.info.clone())
-    }
-    fn supports_graph_context(&self, kind: &str) -> bool {
-        kind == fold_composition::graph::CONTEXT
-    }
-    fn supports_controls(&self) -> bool {
-        true
-    }
-    fn compile(&self, request: fold_platform::VideoCompile<'_>) -> Result<RenderGraph, String> {
-        let image_request = |source: &fold_platform::image_source::Request| {
-            fold_platform::image_source::compile(source, &request)
-        };
-        let fold_platform::VideoCompile {
-            document: d,
-            reference,
-            time,
-            dimensions,
-            cancel,
-            ..
-        } = request;
-        cancel.check()?;
-        if reference.output != "video" {
-            return Err("unsupported motion output".into());
-        }
-        let prepared = self.0.get(d)?;
-        let mut motion = std::borrow::Cow::Borrowed(&prepared.motion);
-        crate::nodes::composition::refresh_metadata(&mut motion, request.describe_video)?;
-        if let Some(overrides) = reference.extensions.get("fold.controls") {
-            let overrides: std::collections::BTreeMap<
-                fold_foundation::ObjectId,
-                crate::fields::Datum,
-            > = serde_json::from_value(overrides.clone())
-                .map_err(|e| format!("invalid motion control overrides: {e}"))?;
-            for (id, value) in overrides {
-                cancel.check()?;
-                let settings = motion
-                    .graph
-                    .nodes
-                    .iter()
-                    .filter(|n| n.kind == "fold.motion.published_control")
-                    .map(|n| n.settings::<crate::nodes::interface::ControlSettings>())
-                    .collect::<Result<Vec<_>, _>>()?
-                    .into_iter()
-                    .find(|s| s.id == id)
-                    .ok_or("override references an unavailable published control")?;
-                value.validate()?;
-                if value.kind() != settings.value_type {
-                    return Err("published control override type mismatch".into());
-                }
-                motion.to_mut().controls.insert(id, value);
-            }
-        }
-        let scene_output = reference
-            .extensions
-            .get(fold_composition::graph::OBJECT)
-            .map(|value| {
-                serde_json::from_value(value.clone())
-                    .map_err(|e| format!("Invalid object output: {e}"))
-            })
-            .transpose()?;
-        if let Some(id) = scene_output {
-            if !motion
-                .scene
-                .as_ref()
-                .is_some_and(|scene| scene.objects.iter().any(|object| object.id == id))
-            {
-                return Err("Missing object output".into());
-            }
-        }
-        let layer_times = if let Some(value) = request.graph_context {
-            let context: fold_composition::graph::Context =
-                serde_json::from_value(value.data.clone()).map_err(|e| e.to_string())?;
-            if scene_output != Some(context.selected) {
-                return Err("Mismatched layer graph context".into());
-            }
-            crate::evaluation::layers::bind(motion.to_mut(), &context)?
-        } else {
-            Default::default()
-        };
-        if request.graph_context.is_none()
-            && let Some(context) = request.context
-        {
-            let authored_end = motion.info.time(motion.info.frames)?;
-            if motion.scene.as_ref().is_some_and(|scene| {
-                scene
-                    .objects
-                    .iter()
-                    .any(|o| o.start == fold_foundation::Time::ZERO && o.end == authored_end)
-            }) {
-                let end = context
-                    .timing
-                    .start
-                    .checked_add(context.timing.duration)
-                    .map_err(|e| e.to_string())?;
-                for object in &mut motion.to_mut().scene.as_mut().unwrap().objects {
-                    if object.start == fold_foundation::Time::ZERO && object.end == authored_end {
-                        object.start = context.timing.start;
-                        object.end = end;
-                    }
-                }
-            }
-        }
-        let mut evaluator = crate::evaluation::Evaluator::for_graph(&motion, &motion.graph, time)?;
-        evaluator.instance_timing = request.context.map(|c| c.timing);
-        evaluator.output_format = request.context.map(|c| c.format);
-        evaluator.layer_times = Arc::new(layer_times);
-        evaluator.scene_output = scene_output;
-        evaluator.runtime = self.1.clone();
-        if !reference.extensions.contains_key("fold.controls")
-            && matches!(motion, std::borrow::Cow::Borrowed(_))
-        {
-            evaluator.identity = Some(prepared.identity.clone());
-        }
-        crate::evaluation::compile_evaluator_images(
-            evaluator,
-            dimensions[0],
-            dimensions[1],
-            cancel,
-            &image_request,
-        )
+        serde_json::to_value(crate::diff::construction(
+            &Construction::from_document(before)?,
+            &Construction::from_document(after)?,
+        )?)
+        .map_err(|e| e.to_string())
     }
 }
 pub fn register(registry: &mut PackageRegistry) -> Result<(), String> {
-    let prepared = Arc::new(prepared::Cache::default());
     registry.register(Contributions {
         manifest: Manifest {
             id: crate::PACKAGE,
@@ -336,39 +240,109 @@ pub fn register(registry: &mut PackageRegistry) -> Result<(), String> {
             host_api: HOST_API,
             dependencies: &[],
             panels: PANELS,
-            build: BUILD,
+            build: "native-motion-schema1-cpu1",
         },
-        documents: vec![
-            Box::new(Documents(prepared.clone())),
-            Box::new(crate::SolidProvider),
-        ],
-        commands: vec![
-            CommandRegistration {
-                id: crate::authoring::composition::NEST,
-                title: "Precompose layers",
-                execution: Execution::Immediate,
-                handler: crate::authoring::composition::stage,
-            },
-            CommandRegistration {
-                id: EDIT,
-                title: "Edit motion",
-                execution: Execution::Immediate,
-                handler: edit,
-            },
-            CommandRegistration {
-                id: CHANGE,
-                title: "Edit motion",
-                execution: Execution::Immediate,
-                handler: crate::edits::stage,
-            },
-        ],
-        video: vec![
-            Box::new(Provider(
-                prepared,
-                Arc::new(crate::simulation::Runtime::default()),
-            )),
-            Box::new(crate::SolidProvider),
-        ],
+        documents: vec![Box::new(Documents)],
+        commands: vec![CommandRegistration {
+            id: EDIT,
+            title: "Edit Motion construction",
+            execution: Execution::Immediate,
+            handler: edit,
+        }],
+        video: vec![Box::new(crate::video::Provider)],
         audio: vec![],
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn registered_document_creates_evaluates_edits_and_rejects_legacy_or_stale_requests() {
+        let mut registry = PackageRegistry::default();
+        register(&mut registry).unwrap();
+        let id = DocumentId::new();
+        let mut document = registry.create(crate::CONSTRUCTION, id).unwrap();
+        document
+            .extensions
+            .insert("vendor".into(), serde_json::json!([1, null, 3]));
+        let construction = Construction::from_document(&document).unwrap();
+        let prepared = crate::evaluation::Prepared::new(construction.clone()).unwrap();
+        assert!(matches!(
+            prepared
+                .evaluate(
+                    construction.definitions[0].outputs[0].id,
+                    Time::ZERO,
+                    Default::default(),
+                    &|| Ok(())
+                )
+                .unwrap(),
+            crate::evaluation::Value::Scene(_)
+        ));
+        assert!(registry.supports(&document));
+        let mut legacy = document.clone();
+        legacy.package_id = "fold.motion".into();
+        assert!(!registry.supports(&legacy));
+        let mut project = fold_project::Project::new(8);
+        project
+            .commit(EditBatch {
+                base: project.snapshot().revision(),
+                mutations: vec![Mutation::PutDocument(document.clone())],
+            })
+            .unwrap();
+        assert_eq!(
+            registry.output(&project.snapshot(), id).unwrap().frames,
+            120
+        );
+        let mut changed = construction.clone();
+        changed.definitions[0].inputs[0].default = Literal::Distance {
+            value: 350.,
+            unit: Unit::Canvas,
+        };
+        let request = CommandRequest {
+            id: EDIT.into(),
+            base: project.snapshot().revision(),
+            arguments: serde_json::to_vec(&EditArgs {
+                document: id,
+                construction: changed.clone(),
+            })
+            .unwrap(),
+        };
+        let batch = registry
+            .stage(&project.snapshot(), &request, &Default::default())
+            .unwrap();
+        project.commit(batch).unwrap();
+        assert_eq!(
+            Construction::from_document(&project.snapshot().state().documents[&id]).unwrap(),
+            changed
+        );
+        assert_eq!(
+            project.snapshot().state().documents[&id].extensions,
+            document.extensions
+        );
+        assert!(
+            registry
+                .stage(&project.snapshot(), &request, &Default::default())
+                .is_err()
+        );
+        project.undo().unwrap();
+        assert_eq!(
+            Construction::from_document(&project.snapshot().state().documents[&id]).unwrap(),
+            construction
+        );
+        let cancelled = fold_media::Cancel::default();
+        cancelled.cancel();
+        assert!(
+            registry
+                .stage(
+                    &project.snapshot(),
+                    &CommandRequest {
+                        base: project.snapshot().revision(),
+                        ..request
+                    },
+                    &cancelled
+                )
+                .is_err()
+        );
+    }
 }

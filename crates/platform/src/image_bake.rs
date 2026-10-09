@@ -6,7 +6,6 @@ use std::{
     path::PathBuf,
     sync::{Mutex, OnceLock},
 };
-pub const COMMAND: &str = "fold.app.image-bake";
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Reference {
     pub directory: PathBuf,
@@ -183,61 +182,4 @@ fn manifest(
     }
     entries.push_back((path, reference.manifest.clone(), stamp, result.clone()));
     Ok(result)
-}
-#[derive(Clone, Debug, Default, Serialize)]
-pub struct Progress {
-    pub completed: u32,
-    pub total: u32,
-    pub running: bool,
-    pub error: Option<String>,
-}
-static PROGRESS: OnceLock<Mutex<BTreeMap<String, Progress>>> = OnceLock::new();
-pub fn progress(key: &str) -> Option<Progress> {
-    PROGRESS
-        .get_or_init(Default::default)
-        .lock()
-        .ok()?
-        .get(key)
-        .cloned()
-}
-pub fn report(key: &str, value: Progress) {
-    if let Ok(mut map) = PROGRESS.get_or_init(Default::default).lock() {
-        if map.len() >= 64 && !map.contains_key(key) {
-            map.retain(|_, v| v.running);
-        }
-        map.insert(key.into(), value);
-    }
-}
-
-static CANCELLATIONS: OnceLock<Mutex<BTreeMap<String, fold_media::Cancel>>> = OnceLock::new();
-pub fn start(key: &str, cancel: fold_media::Cancel) {
-    CANCELLATIONS
-        .get_or_init(Default::default)
-        .lock()
-        .unwrap()
-        .insert(key.into(), cancel);
-    report(
-        key,
-        Progress {
-            running: true,
-            ..Default::default()
-        },
-    );
-}
-pub fn cancel(key: &str) {
-    if let Some(token) = CANCELLATIONS
-        .get_or_init(Default::default)
-        .lock()
-        .unwrap()
-        .get(key)
-    {
-        token.cancel();
-    }
-}
-pub fn finish(key: &str) {
-    CANCELLATIONS
-        .get_or_init(Default::default)
-        .lock()
-        .unwrap()
-        .remove(key);
 }

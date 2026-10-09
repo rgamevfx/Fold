@@ -89,6 +89,8 @@ pub struct DesktopState {
     pub transient: bool,
     pub frame: u32,
     pub viewer_document: Option<fold_foundation::DocumentId>,
+    /// Provider-declared port for preview keys; absent means no resolved output.
+    pub viewer_output: Option<String>,
     pub playback_range: PlaybackRange,
     pub playing: bool,
     /// Session authoring preference shared by Composition and graph inspectors.
@@ -122,6 +124,7 @@ impl Default for DesktopState {
             transient: false,
             frame: 0,
             viewer_document: None,
+            viewer_output: None,
             playback_range: PlaybackRange::default(),
             playing: false,
             auto_key: false,
@@ -159,7 +162,7 @@ impl DesktopState {
                     },
                 )
             }),
-            output: "video".into(),
+            output: self.viewer_output.clone()?,
             content: self.content.clone()?,
             frame,
             dimensions: self.dimensions.map(|n| (n / divisor).max(1)),
@@ -188,6 +191,12 @@ pub struct ViewerTransport {
 
 #[derive(Clone, Debug)]
 pub enum DesktopCommand {
+    /// Trusted local UI action. Must never be accepted by an agent transport.
+    UnlockControls {
+        document: fold_foundation::DocumentId,
+        targets: Vec<fold_foundation::ObjectId>,
+        base: fold_project::Revision,
+    },
     AutoKey(bool),
     ViewerTransport {
         viewer: crate::workspace::PanelInstanceId,
@@ -258,25 +267,6 @@ pub struct GpuPreviewResult {
     pub frame: Result<crate::gpu::Display, String>,
     pub consumers: Vec<(crate::workspace::PanelInstanceId, u64)>,
 }
-/// A bounded on-demand capture of a viewer's retained presentation image.
-pub struct AgentCapture {
-    pub viewer: crate::workspace::PanelInstanceId,
-    pub cancel: fold_media::Cancel,
-    pub reply: std::sync::mpsc::SyncSender<Result<(DisplayFrame, serde_json::Value), String>>,
-}
-/// Dedicated preview consumer; independent of artist viewer transports.
-pub const AGENT_PREVIEW_VIEWER: crate::workspace::PanelInstanceId =
-    crate::workspace::PanelInstanceId(u64::MAX);
-#[derive(Clone)]
-pub struct AgentPreview {
-    pub candidate: u64,
-    pub generation: u64,
-    pub key: PreviewKey,
-    pub frames: u32,
-    pub conflict: bool,
-    pub original: bool,
-    pub can_compare: bool,
-}
 pub trait DesktopClient {
     /// Retained presentation keys only; no render work or resource ownership.
     fn cached_previews(&self) -> &[PreviewKey] {
@@ -298,22 +288,6 @@ pub trait DesktopClient {
         _document: fold_foundation::DocumentId,
     ) -> Result<Vec<crate::layer_graph::ImageInput>, String> {
         Ok(vec![])
-    }
-
-    fn agent_preview(&self) -> Option<AgentPreview> {
-        None
-    }
-    fn agent_preview_action(&mut self, _action: &str, _frame: Option<u32>) -> Result<(), String> {
-        Err("candidate preview unavailable".into())
-    }
-
-    fn agent_access(&self) -> serde_json::Value {
-        serde_json::Value::Null
-    }
-    fn set_agent_access(&mut self, _enabled: bool) {}
-    fn agent_viewers(&mut self, _viewers: serde_json::Value) {}
-    fn take_agent_captures(&mut self) -> Vec<AgentCapture> {
-        vec![]
     }
 
     /// Nonblocking notification after a result is published; no frame ownership crosses this callback.
@@ -403,6 +377,7 @@ pub trait DesktopClient {
             objects: vec![],
         };
         state.viewer_document = Some(output.document);
+        state.viewer_output = Some(output.output.clone());
         state.content = None;
         state.playing = false;
         if let Ok(info) = self.video_info(output.document) {
@@ -439,6 +414,19 @@ pub trait DesktopClient {
             info: self.video_info(document),
             playback_mode: PlaybackMode::RealTime,
         }]
+    }
+    /// Resolve the provider's declared default without inventing a port name.
+    fn default_output(
+        &self,
+        document: fold_foundation::DocumentId,
+    ) -> Result<fold_project::DocumentRef, String> {
+        let output = self
+            .outputs(document)
+            .into_iter()
+            .next()
+            .ok_or("Document has no video outputs")?;
+        output.info?;
+        Ok(output.reference)
     }
     /// Set only after a successful open/save; Save As gets a distinct association.
     fn workspace_project(&self) -> Option<String> {

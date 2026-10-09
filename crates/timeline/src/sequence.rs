@@ -229,7 +229,7 @@ impl Sequence {
                 return Err("Image effects require a video clip".into());
             }
             if let SourceMedia::Document { source, .. } = &clip.info
-                && (source.output != "video"
+                && (source.output.is_empty()
                     || track.kind != TrackKind::Video
                     || clip.link.is_some())
             {

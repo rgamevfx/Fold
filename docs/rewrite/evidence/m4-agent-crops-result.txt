@@ -1,0 +1,48 @@
+Public exact-time frame regions — 8 October 2026
+M3–M5 gates remain open.
+
+observe_frame now accepts an optional strict region rectangle {x,y,width,height}.
+Dimensions remain the full raster size; region coordinates are top-left pixels.
+Nonempty/in-bounds validation runs before job admission and uses the shared Region
+validator with widened arithmetic. Full-raster dimensions retain the existing
+4096-per-axis / 2,073,600-pixel budget. Omitting region requests the whole frame.
+
+The frame worker passes the region into registered scene evaluation, which uses
+the existing GPU region path. No new raster/camera/crop engine is introduced.
+Mixed spatial passes retain full camera projection before GPU extraction.
+Display conversion runs once on the resulting pixels. Image dimensions and
+provenance output_size describe the crop; canvas_size and region retain its full
+raster location. Configuration fingerprint includes the region.
+
+GPU regression checks three regions of the 480x270 mixed integrated scene:
+(37,43,361,192), (135,62,180,170), and the bottom-right single pixel (479,269,1,1).
+Every decoded crop byte equals the corresponding row range of the independently
+rendered full frame. Camera provenance remains identical. Zero width, out-of-bounds
+extent and u32::MAX origin reject without changing project content. Existing
+nonzero-start timing, candidate retention, cancellation, full 1080p response budget
+and no-host/stale-revision checks also run.
+
+Commands/logs:
+cargo test -p fold-app --features spatial --test agent_frames -- --ignored --nocapture
+/tmp/fold-agent-crop-gpu.log
+Passed: 1 test, 12.72 s, Vulkan llvmpipe Mesa 26.1.6 / LLVM 20.1.2.
+cargo test -p fold-app --features spatial --test agent_handoff cli_and_mcp_return_identical_revision_bound_frames -- --ignored --nocapture
+/tmp/fold-agent-crop-transports.log
+Passed with clean exit: 1 test, 7.22 s, NVIDIA GeForce GTX 1070,
+NVIDIA 580.173.02, Vulkan. Local socket access uses approved sandbox escalation.
+cargo clippy -p fold-app --features spatial --test agent_frames --test agent_handoff --no-deps
+/tmp/fold-agent-crop-clippy.log
+Passed with existing shared YUV and source_preparation warnings.
+Formatting, package boundaries and git diff --check passed. Reviewed the changed
+wire/dispatch/worker paths; region validation and extraction reuse shared services.
+
+cargo test -p fold-app --test agent_dispatch --test agent_mcp
+Passed: 12 dispatcher tests and one MCP test in the CPU-only build, preserving
+explicit frame unavailability without an attached GPU host and schema parity.
+Log: /tmp/fold-agent-crop-protocol.log.
+
+The CLI/MCP test requests full and cropped frames at 1/4 second and compares both
+complete responses while preserving native clock/selection and project content.
+Fold skill documents region requests and output provenance. This does not qualify
+contact sheets/clips, transparent linear delivery, the duration endpoint, public
+save or physical desktop/artist acceptance.

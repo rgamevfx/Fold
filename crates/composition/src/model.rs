@@ -15,9 +15,6 @@ pub struct Layer {
     pub state: LayerState,
     /// None denotes a group. An output reference retains its editable graph.
     pub source: Option<Source>,
-    /// This graph consumes its child layers (for example a MoGraph group).
-    #[serde(default)]
-    pub graph_children: bool,
     #[serde(default)]
     pub effects: Vec<fold_platform::effects::Instance>,
     #[serde(default)]
@@ -49,7 +46,6 @@ impl Layer {
         Ok(Self {
             state: LayerState::new(name, info.time(info.frames)?),
             source,
-            graph_children: false,
             effects: vec![],
             adjustment: false,
             info,
@@ -78,6 +74,31 @@ impl Layer {
         self.end = end;
         self.origin = origin;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod cutover_tests {
+    use super::*;
+
+    #[test]
+    fn retired_graph_child_metadata_round_trips_as_an_unknown_extension() {
+        let layer = Layer::new(
+            "Group",
+            None,
+            VideoInfo {
+                width: 16,
+                height: 16,
+                rate: [24, 1],
+                frames: 24,
+            },
+        )
+        .unwrap();
+        let mut value = serde_json::to_value(&layer).unwrap();
+        value["graph_children"] = true.into();
+        let decoded: Layer = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(decoded.extensions["graph_children"], true);
+        assert_eq!(serde_json::to_value(decoded).unwrap(), value);
     }
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -138,13 +159,11 @@ impl Composition {
             return Err("Composition layer budget exceeded".into());
         }
         let mut ids = BTreeSet::new();
-        let mut graph_objects = BTreeSet::new();
         for layer in &self.layers {
             layer.state.validate()?;
             fold_platform::effects::validate_stack(&layer.effects)?;
             if layer.adjustment
                 && (layer.source.is_some()
-                    || layer.graph_children
                     || self.layers.iter().any(|l| l.parent == Some(layer.id)))
             {
                 return Err("Adjustment layers cannot own sources or children".into());
@@ -159,16 +178,6 @@ impl Composition {
                 return Err("Adjustment layers use containing coordinates; apply transforms inside their effect graph".into());
             }
             layer.info.validate()?;
-            if layer.graph_children && layer.graph_object().is_none() {
-                return Err("Graph groups require an object graph".into());
-            }
-            if let Some(Source::Output(source)) = &layer.source
-                && let Some(object) = layer.graph_object()
-                && !graph_objects.insert((source.document, object))
-            {
-                return Err("Each object graph must have one owning layer in a Composition".into());
-            }
-
             if !ids.insert(layer.id) || layer.source_start < Time::ZERO {
                 return Err("Duplicate layer or negative source in".into());
             }
@@ -179,19 +188,8 @@ impl Composition {
                     return Err("Cyclic or excessively deep layer hierarchy".into());
                 }
                 let ancestor = self.layer(id)?;
-                if ancestor.source.is_some() && !ancestor.graph_children {
+                if ancestor.source.is_some() {
                     return Err("Only groups can contain layers".into());
-                }
-                if ancestor.graph_children {
-                    let same_graph = match (&ancestor.source, &layer.source) {
-                        (Some(Source::Output(a)), Some(Source::Output(b))) => {
-                            a.document == b.document
-                        }
-                        _ => false,
-                    };
-                    if !same_graph || layer.graph_object().is_none() {
-                        return Err("A graph group requires child layers in the same graph; use a layer group for mixed graph types".into());
-                    }
                 }
                 parent = ancestor.parent;
             }

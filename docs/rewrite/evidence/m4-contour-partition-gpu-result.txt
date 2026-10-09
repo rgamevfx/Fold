@@ -1,0 +1,73 @@
+Camera Plane contour partition replacement — 8 October 2026
+
+Status: native typography GPU defect fixed for the declared fixture; full M4
+acceptance remains open, including worst-case Boolean execution/memory bounds.
+
+Source: uncommitted rewrite on 66ebb2ece465189a2f8dd3e415b38f63a62bdd6a.
+Rust 1.95.0 (59807616e 2026-04-14).
+Pinned i_overlay 4.4.1 (MIT OR Apache-2.0); lockfile also pins i_float 1.16.0,
+i_shape 1.16.0, i_tree 0.18.0 and i_key_sort 0.10.3. Existing Lyon 1.0.20 remains
+the shared final tessellator. No second rasterizer or bitmap replacement added.
+
+Change:
+Deleted the previous per-triangle subtraction/BVH/boundary-union algorithm.
+Consistently wound fill/stroke triangle contours feed one NonZero integer overlay
+graph; Difference, InverseDifference and Intersect produce paint-region boundary
+contours. Shared tessellation converts these to the retained planar meshes.
+This avoids internal fragment edges that previously overlapped after subpixel
+snapping. Existing partition Arc/LRU ownership and paint compositing are retained.
+Source font/layout/path data stays native. No depth displacement or oracle
+tolerance changes. Overlay implementation shrinks from 486 to 178 lines.
+
+All cargo commands use CARGO_BUILD_JOBS=2 CARGO_INCREMENTAL=0
+CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0.
+
+CPU:
+cargo test -p fold-render --test planar_mesh -p fold-motion --test text
+  --test spatial_controls --offline
+Log /tmp/fold-contour-partition-cpu.log; exit 0.
+5 planar mesh + 27 text/spatial + 5 spatial control tests pass.
+Coverage includes independent rectangle/hole region membership, cancellation at
+exposed checkpoints, retry/cache reuse, held snapshots and metric placement.
+
+Native GPU:
+cargo test -p fold-app --features spatial --test motion_spatial camera_plane
+  --locked -- --ignored --nocapture
+Log /tmp/fold-contour-partition-gpu.log; exit 0, 3 passed, 7 filtered, 8.23 seconds.
+NVIDIA GeForce GTX 1070, NVIDIA 580.173.02, Vulkan, RGBA16F, MSAA off.
+
+Typography fixture: packaged Noto Sans Regular, "O B 8 O", size 140, 4-unit green
+Stroke over red Fill, both half alpha, 640x220. Retained native Text/Outline/Text
+revisions render through the actual Motion snapshot-to-spatial adapter.
+Each revision checks 117080 clear and 4668 painted uniform Screen neighborhoods;
+17336 nonuniform neighborhoods excluded as declared before this fix. Maximum
+linear channel error 0.000000059604645, unchanged tolerance 0.002.
+All-pixel Text/Outline/Text equality passes. Held original GPU frame pixels
+remain exact after revisions, and reading that frame with a newer binding fails.
+These assertions were previously unreached and now execute successfully.
+
+Rectangle Fill/Stroke: four alpha pairs, 76800 pixels, zero incorrect pixels.
+Native Camera Plane/World: eight cases, 153600 analytic pixel/depth checks plus
+direct/registered output equality pass unchanged.
+
+Focused preparation counter:
+cargo test -p fold-render --test planar_mesh typography_partitions --locked
+  -- --nocapture
+Log /tmp/fold-contour-partition-work.log; exit 0, 0.09 seconds.
+Instrumented checkpoints total 61187; repeated O uses 6 and retains Arc reuse.
+This is NOT a directly comparable count of total algorithmic work: operations
+inside i_overlay have no Fold checkpoints. The default frame budget remains 2M.
+
+cargo clippy -p fold-render -p fold-motion --all-targets --locked passes.
+Log /tmp/fold-contour-partition-clippy.log; existing fold-media (5) and
+fold-platform (1) warnings; no affected render/Motion warning.
+cargo fmt --all -- --check, scripts/check_boundaries.py, git diff --check pass.
+No full workspace rerun or physical artist acceptance in this iteration.
+
+Remaining qualification:
+Input triangle counts and output paths remain capped; cache bytes remain bounded.
+However the synchronous overlay graph build/extraction has no cooperative
+cancellation hook or proven intermediate-memory bound. Before/after checkpoints
+prevent publication after cancellation, but do not prove bounded stop latency.
+Worst-case geometry growth, numeric range/adapter precision, general overlapping
+glyph/path paint, cross-camera viewing and broader M3-M5 gates remain open.

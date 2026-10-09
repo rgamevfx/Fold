@@ -1,0 +1,32 @@
+M4 vector fixtures: AdapterInfo { name: "llvmpipe (LLVM 20.1.2, 256 bits)", vendor: 65541, device: 0, device_type: Cpu, driver: "llvmpipe", driver_info: "Mesa 26.1.6-1pop0~1787580452~24.04~a5619ea (LLVM 20.1.2)", backend: Vulkan }; intermediate=RGBA32F
+fixture=nonzero_same; scale=0.25; max_linear_error=0
+fixture=nonzero_same; scale=1; max_linear_error=0
+fixture=nonzero_same; scale=4; max_linear_error=0.00000011920929
+fixture=even_odd; scale=0.25; max_linear_error=0
+fixture=even_odd; scale=1; max_linear_error=0
+fixture=even_odd; scale=4; max_linear_error=0.00000011920929
+fixture=nonzero_opposite; scale=0.25; max_linear_error=0
+fixture=nonzero_opposite; scale=1; max_linear_error=0
+fixture=nonzero_opposite; scale=4; max_linear_error=0.00000011920929
+fixture=self_overlap; scale=0.25; max_linear_error=0
+fixture=self_overlap; scale=1; max_linear_error=0
+fixture=self_overlap; scale=4; max_linear_error=0.000000059604645
+fixture=butt; scale=0.25; max_linear_error=0
+fixture=butt; scale=1; max_linear_error=0
+fixture=butt; scale=4; max_linear_error=0
+fixture=round; scale=0.25; max_linear_error=0.00000011920929
+fixture=round; scale=1; max_linear_error=0.000000834465
+fixture=round; scale=4; max_linear_error=0.0000037550926
+fixture=miter; scale=0.25; max_linear_error=0.000000059604645
+fixture=miter; scale=1; max_linear_error=0.00000035762787
+fixture=miter; scale=4; max_linear_error=0.0000022649765
+fixture=round_join; scale=0.25; max_linear_error=0.000000059604645
+fixture=round_join; scale=1; max_linear_error=0.0000008940697
+fixture=round_join; scale=4; max_linear_error=0.0000037550926
+fixture=clip; scale=0.25; max_linear_error=0
+fixture=clip; scale=1; max_linear_error=0
+fixture=clip; scale=4; max_linear_error=0
+fixture=thin; scale=0.25; max_linear_error=0.0000000037252903
+fixture=thin; scale=1; max_linear_error=0
+fixture=thin; scale=4; max_linear_error=0.000000029802322
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 1.84s

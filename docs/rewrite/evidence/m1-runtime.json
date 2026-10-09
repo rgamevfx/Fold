@@ -1,0 +1,82 @@
+{
+  "phase": "M1",
+  "date": "2026-10-08",
+  "scope": "Non-motion compositor cutover smoke; not artist interaction acceptance",
+  "build": "cargo build -p fold-app --bins --features desktop --locked --offline",
+  "scene": {
+    "size": [
+      320,
+      180
+    ],
+    "rate": [
+      24,
+      1
+    ],
+    "frames": 48,
+    "operations": [
+      "Solid",
+      "Output"
+    ],
+    "linear_rgba": [
+      0.1,
+      0.4,
+      0.8,
+      1
+    ]
+  },
+  "headless": {
+    "pixel_count": 57600,
+    "expected_srgb": [
+      89,
+      170,
+      231
+    ],
+    "all_pixels_match": true,
+    "final_binary_matches_prior_render": true
+  },
+  "desktop": {
+    "display": "Xvfb 1280x800x24",
+    "duration_seconds": 30,
+    "backends": [
+      "cpu",
+      "gpu"
+    ],
+    "adapter": "NVIDIA GeForce GTX 1070",
+    "driver": "580.173.02",
+    "api": "Vulkan",
+    "capture_interior_pixel": [
+      89,
+      170,
+      231
+    ],
+    "review": "Viewer shows expected blue output and connected Constant/Output graph; no error displayed."
+  },
+  "limits": [
+    "Virtual display; no physical presentation or artist interaction claimed.",
+    "Sandboxed X connection failed; isolated desktop runs required unsandboxed local X sockets.",
+    "Earlier llvmpipe tests describe the sandbox environment; NVIDIA GPU is accessible outside it."
+  ],
+  "artifacts": {
+    "native.png": "8f3dc139ea6715d0d5e0ff45caeaf0181e4a832aeb27f9669117d4b609edfae8",
+    "native-gpu.png": "61c57f6f37ed54db7d1672cc1ab45342dc331851d9b05831a0ae56b1edd48cc6",
+    "compositor.fold": "9b24038eebb7178b3578868638d9b7af08c9d68731b04c520cbb513670ce37f8",
+    "compositor-final.ppm": "c631a14f56f065846dc73f59305d9730f0364628293fadbf439db2280400128a",
+    "fold-cli": "5d9e4f98b788b2ed9c3aa575fb6b2d1ab63224bb48ffb49e54d5f94d090361dc",
+    "fold-desktop": "c586e31b0c738ef9d29dd65b25c7c0baa7ee618a714a30b4e50b927ed95b97bd",
+    "unsupported-native.png": "96f183b5ca5167983bf46c9116a44334938b56c33fc4766aabaca7db5e426b78"
+  },
+  "removed_cli": {
+    "commands": [
+      "agent mcp",
+      "agent catalog"
+    ],
+    "exit_code": 1,
+    "stdout": "empty",
+    "stderr": "usage: fold-cli ..."
+  },
+  "unsupported_native": {
+    "artifact": "m1-unsupported-native.png",
+    "observation": "Old document remains listed with a warning badge. Viewer has no selected source; Network offers no editable graph. No successful blank render is presented.",
+    "diagnostic": "Project card warning is Provider unavailable; automated cutover test checks provider rejection and payload preservation."
+  }
+}

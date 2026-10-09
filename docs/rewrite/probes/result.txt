@@ -1,0 +1,7 @@
+   Compiling fold-rewrite-dependency-probe v0.0.0 (/home/rgame/.codex/worktrees/efc8/Fold/docs/rewrite/probes)
+    Finished `dev` profile [unoptimized] target(s) in 2.03s
+     Running `docs/rewrite/probes/target/debug/fold-rewrite-dependency-probe`
+retained ECS identity and explicit rational sample input: pass
+packaged font layout: 18 glyphs, width 312.096
+adapter: AdapterInfo { name: "llvmpipe (LLVM 20.1.2, 256 bits)", vendor: 65541, device: 0, device_type: Cpu, driver: "llvmpipe", driver_info: "Mesa 26.1.6-1pop0~1787580452~24.04~a5619ea (LLVM 20.1.2)", backend: Vulkan }
+shared wgpu/Bevy device + Vello submission/completion/readback: pass

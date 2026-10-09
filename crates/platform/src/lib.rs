@@ -34,7 +34,7 @@ pub type VideoResolver<'a> = dyn Fn(&DocumentRef, Time) -> Result<RenderGraph, S
 pub type ChannelResolver<'a> = dyn Fn(&DocumentRef) -> Result<Vec<ChannelName>, String> + 'a;
 pub type ImageResolver<'a> = dyn Fn(&DocumentRef, Time) -> Result<ChannelGraph, String> + 'a;
 
-/// One compilation interface for every source, including legacy adapters.
+/// One compilation interface for every registered source.
 /// Nested resolution inherits the snapshot, dimensions and cancellation token.
 pub struct VideoCompile<'a> {
     pub snapshot: &'a Snapshot,
@@ -44,11 +44,9 @@ pub struct VideoCompile<'a> {
     pub dimensions: [u32; 2],
     pub cancel: &'a Cancel,
     pub resolve: &'a VideoResolver<'a>,
-    pub graph_context: Option<&'a layer_graph::EvaluationContext>,
     pub invocation: Option<&'a effects::Invocation<'a>>,
     pub context: Option<effects::Context>,
     pub resolve_effect: &'a effects::Resolver<'a>,
-    pub resolve_graph: &'a layer_graph::Resolver<'a>,
     pub resolve_image: &'a ImageResolver<'a>,
     /// Structural discovery for inactive sources; must not evaluate media.
     pub describe_channels: &'a ChannelResolver<'a>,
@@ -79,10 +77,6 @@ pub trait VideoProvider: Send + Sync {
             info: self.video_info(document),
             playback_mode: self.playback_mode(),
         }]
-    }
-    /// Reference-local controls must be explicitly supported, never silently ignored.
-    fn supports_graph_context(&self, _kind: &str) -> bool {
-        false
     }
     fn effect_interface(&self, _document: &Document) -> Result<effects::Interface, String> {
         Err("Provider does not expose a reusable image interface".into())
@@ -167,18 +161,8 @@ impl VideoRegistry {
         dimensions: [u32; 2],
         cancel: &Cancel,
     ) -> Result<RenderGraph, String> {
-        self.compile_nested(
-            snapshot,
-            source,
-            time,
-            dimensions,
-            cancel,
-            &[],
-            None,
-            None,
-            None,
-        )?
-        .select(None)
+        self.compile_nested(snapshot, source, time, dimensions, cancel, &[], None, None)?
+            .select(None)
     }
 
     pub fn channels(
@@ -242,18 +226,8 @@ impl VideoRegistry {
         cancel: &Cancel,
         selection: &fold_render::view::Selection,
     ) -> Result<RenderGraph, String> {
-        self.compile_nested(
-            snapshot,
-            source,
-            time,
-            dimensions,
-            cancel,
-            &[],
-            None,
-            None,
-            None,
-        )?
-        .select(Some(selection))
+        self.compile_nested(snapshot, source, time, dimensions, cancel, &[], None, None)?
+            .select(Some(selection))
     }
     pub fn effect_interface(&self, document: &Document) -> Result<effects::Interface, String> {
         self.providers
@@ -270,7 +244,6 @@ impl VideoRegistry {
         dimensions: [u32; 2],
         cancel: &Cancel,
         ancestors: &[fold_foundation::DocumentId],
-        graph_context: Option<&layer_graph::EvaluationContext>,
         invocation: Option<&effects::Invocation<'_>>,
         inherited: Option<effects::Context>,
     ) -> Result<ChannelGraph, String> {
@@ -330,29 +303,9 @@ impl VideoRegistry {
                 cancel,
                 &path,
                 None,
-                None,
                 child_context(local_time)?,
             )
         };
-        let resolve_graph =
-            |nested: &DocumentRef, local_time: Time, context: &layer_graph::EvaluationContext| {
-                cancel.check()?;
-                if !document.dependencies.contains(nested) {
-                    return Err("Undeclared layer graph dependency".into());
-                }
-                self.compile_nested(
-                    snapshot,
-                    nested,
-                    local_time,
-                    dimensions,
-                    cancel,
-                    &path,
-                    Some(context),
-                    None,
-                    child_context(local_time)?,
-                )?
-                .select(None)
-            };
         let resolve_effect =
             |nested: &DocumentRef, local_time: Time, invocation: &effects::Invocation<'_>| {
                 cancel.check()?;
@@ -366,7 +319,6 @@ impl VideoRegistry {
                     dimensions,
                     cancel,
                     &path,
-                    None,
                     Some(invocation),
                     None,
                 )?
@@ -399,9 +351,6 @@ impl VideoRegistry {
                 .ok_or("Unavailable nested video output")?
                 .info
         };
-        if graph_context.is_some_and(|c| !provider.supports_graph_context(c.kind)) {
-            return Err("Graph provider does not support the supplied layer context".into());
-        }
         if let Some(invocation) = invocation {
             invocation.validate(&provider.effect_interface(document)?)?;
         }
@@ -413,11 +362,9 @@ impl VideoRegistry {
             dimensions,
             cancel,
             resolve: &resolve,
-            graph_context,
             invocation,
             context,
             resolve_effect: &resolve_effect,
-            resolve_graph: &resolve_graph,
             resolve_image: &resolve_image,
             describe_channels: &describe_channels,
             describe_video: &describe_video,

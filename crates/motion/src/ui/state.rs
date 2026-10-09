@@ -1,378 +1,261 @@
-use crate::{MOTION, Motion, package};
-#[cfg(test)]
-use fold_foundation::Time;
-use fold_foundation::{DocumentId, ObjectId};
-#[cfg(test)]
-use fold_platform::desktop::ViewLocation;
+use crate::{model::Construction, package};
+use fold_foundation::DocumentId;
 use fold_platform::{
     desktop::{DesktopClient, DesktopCommand},
     packages::CommandRequest,
 };
-use fold_project::Revision;
-use std::{cell::RefCell, rc::Rc};
-pub type Shared = Rc<RefCell<State>>;
+use fold_project::{CommittedSnapshot, Revision};
+use std::{cell::RefCell, collections::BTreeMap, rc::Rc};
+
+pub(super) type Shared = Rc<RefCell<State>>;
+pub(super) struct Draft {
+    pub text: String,
+    pub base: Revision,
+    pub dirty: bool,
+    snapshot: CommittedSnapshot,
+}
 #[derive(Default)]
-pub struct State {
-    pub wrangle_drafts: super::wrangle::Drafts,
-    pub asset_transfer: Option<super::asset_transfer::Transfer>,
-    pub program_draft: Option<super::program::Draft>,
+pub(super) struct State {
     pub document: Option<DocumentId>,
-    pub motion: Option<Motion>,
-    pub selected: Vec<ObjectId>,
-    observed_selection: (Option<DocumentId>, Vec<ObjectId>),
-    pub group: Option<ObjectId>,
-    pub network_object: Option<ObjectId>,
-    pub document_network: bool,
-    pub parameter_sockets: bool,
-    pub parents: Vec<Option<ObjectId>>,
-    pub error: String,
+    pub graph_definition: Option<fold_foundation::ObjectId>,
+    pub graph_history: Vec<fold_foundation::ObjectId>,
+    pub base: Revision,
+    pub construction: Option<Construction>,
+    pub drafts: BTreeMap<DocumentId, Draft>,
     pub editing: bool,
-    pub network_requested: bool,
-    pub path_attribute_names: std::collections::BTreeMap<(ObjectId, String), String>,
-    /// Only the inspector may finish/cancel a property gesture.
-    pub property_editing: bool,
-    pub interface_editing: bool,
-    pub interface_target: Option<ObjectId>,
-    pub generation: u64,
-    pub visual_revision: u64,
-    pub scene_scope: Option<ObjectId>,
-    pub source_history: Vec<ObjectId>,
-    pub point_edit_requested: bool,
-    pub inspector_return: Option<(ObjectId, ObjectId)>,
-    pub reference_pick: Option<(ObjectId, String)>,
-    base: Revision,
-    original: Option<Motion>,
+    pub literal_controls: super::literal::Controls,
+    pub key_time: Option<(fold_foundation::ObjectId, fold_foundation::Time)>,
+    pub error: String,
 }
 impl State {
     pub fn sync(&mut self, host: &mut dyn DesktopClient) {
         let Some(snapshot) = host.snapshot() else {
             return;
         };
-        let chosen = host
-            .state()
-            .selection
-            .document
-            .filter(|id| {
-                snapshot
-                    .state()
-                    .documents
-                    .get(id)
-                    .is_some_and(|d| d.type_id == MOTION)
-            })
-            .or(self.document.filter(|id| {
-                !host.explicit_target() && snapshot.state().documents.contains_key(id)
-            }))
-            .or_else(|| {
-                if host.explicit_target() {
-                    return None;
-                }
-                snapshot
-                    .state()
-                    .documents
-                    .values()
-                    .find(|d| d.type_id == MOTION)
-                    .map(|d| d.id)
-            });
-        if chosen != self.document || self.base != snapshot.revision() {
-            if self.editing {
-                host.command(DesktopCommand::CancelPreviewEdit);
-            }
-            if chosen != self.document {
-                self.wrangle_drafts.clear();
-                self.program_draft = None;
-                self.asset_transfer = None;
-                self.group = None;
-                self.network_object = None;
-                self.scene_scope = None;
-                self.source_history.clear();
-                self.reference_pick = None;
-                self.inspector_return = None;
-                self.interface_target = None;
-                self.document_network = false;
-                self.parents.clear();
-                self.selected.clear();
-            }
-            self.document = chosen;
-            self.base = snapshot.revision();
-            self.motion =
-                chosen.and_then(|id| Motion::from_document(&snapshot.state().documents[&id]).ok());
-            self.wrangle_drafts.retain(|(group, node), _| {
-                self.motion.as_ref().is_some_and(|m| {
-                    let graph = match group {
-                        Some(id) => m.groups.get(id).map(|g| &g.graph),
-                        None => Some(&m.graph),
-                    };
-                    graph.is_some_and(|g| {
-                        g.nodes
-                            .iter()
-                            .any(|n| n.id == *node && n.kind == "fold.motion.wrangle")
-                    })
+        let desired =
+            host.state().selection.document.filter(|id| {
+                snapshot.state().documents.get(id).is_some_and(|d| {
+                    d.package_id == crate::PACKAGE && d.type_id == crate::CONSTRUCTION
                 })
             });
-            self.original = self.motion.clone();
-            self.editing = false;
-            self.property_editing = false;
-            self.interface_editing = false;
-            self.path_attribute_names.clear();
-            self.generation += 1;
-            self.visual_revision += 1;
-            if self.group.is_some_and(|id| {
-                !self
-                    .motion
-                    .as_ref()
-                    .is_some_and(|m| m.groups.contains_key(&id))
-            }) {
-                self.group = None;
-                self.network_object = None;
-                self.scene_scope = None;
-                self.source_history.clear();
-                self.reference_pick = None;
-                self.inspector_return = None;
-                self.interface_target = None;
-                self.document_network = false;
-                self.parents.clear();
-            }
-            let view = self.view_motion();
-            self.selected.retain(|id| {
-                view.as_ref()
-                    .is_some_and(|m| m.graph.nodes.iter().any(|n| n.id == *id))
-            });
-        }
-        let selection = &host.state().selection;
-        let observed = (selection.document, selection.objects.clone());
-        if observed != self.observed_selection {
-            self.observed_selection = observed;
-            if selection.document == self.document {
-                let object = self
-                    .motion
-                    .as_ref()
-                    .and_then(|m| m.scene.as_ref())
-                    .and_then(|scene| {
-                        scene
-                            .objects
-                            .iter()
-                            .find(|o| selection.objects.first() == Some(&o.id))
-                            .map(|o| o.id)
-                    });
-                if let Some(object) = object {
-                    if self.network_object != Some(object) || self.group.is_some() {
-                        self.group = None;
-                        self.parents.clear();
-                        self.document_network = false;
-                    }
-                    self.network_object = Some(object);
-                }
-                let view = self.view_motion();
-                self.selected = selection
-                    .objects
-                    .iter()
-                    .copied()
-                    .filter(|id| {
-                        view.as_ref()
-                            .is_some_and(|m| m.graph.nodes.iter().any(|n| n.id == *id))
-                    })
-                    .collect();
-            }
-        }
-    }
-    pub fn layer_owned(&self, host: &dyn DesktopClient) -> bool {
-        host.snapshot().is_some_and(|s| {
-            self.document
-                .and_then(|id| s.state().documents.get(&id))
-                .is_some_and(|d| {
-                    d.extensions
-                        .get(fold_composition::LAYER_GRAPH)
-                        .and_then(|v| v.as_bool())
-                        == Some(true)
-                })
-        })
-    }
-    pub fn view_motion(&self) -> Option<Motion> {
-        let mut motion = self.motion.clone()?;
-        if let Some(id) = self.group {
-            motion.graph = motion.groups.get(&id)?.graph.clone();
-            motion.scene = None;
-        }
-        Some(motion)
-    }
-    pub fn replace_view(&mut self, mut view: Motion) {
-        if let Some(id) = self.group {
-            view.scene = self.motion.as_ref().and_then(|m| m.scene.clone());
-            let graph = view.graph;
-            view.graph = self
-                .motion
-                .as_ref()
-                .expect("editing document")
-                .graph
-                .clone();
-            if let Some(group) = view.groups.get_mut(&id) {
-                group.graph = graph;
-            }
-        }
-        self.motion = Some(view);
-    }
-    fn request(&self) -> Result<CommandRequest, String> {
-        let document = self.document.ok_or("no motion document")?;
-        let motion = self.motion.as_ref().ok_or("no motion graph")?;
-        let (id, arguments) = if let Some(before) = &self.original {
-            (
-                package::CHANGE,
-                serde_json::to_vec(&crate::edits::Changes::between(document, before, motion)?),
-            )
-        } else {
-            (
-                package::EDIT,
-                serde_json::to_vec(&package::EditArgs {
-                    document,
-                    motion: motion.clone(),
-                }),
-            )
-        };
-        Ok(CommandRequest {
-            id: id.into(),
-            base: self.base,
-            arguments: arguments.map_err(|e| e.to_string())?,
-        })
-    }
-
-    pub fn preview(&mut self, host: &mut dyn DesktopClient) {
-        self.visual_revision += 1;
-        self.editing = true;
-        match self
-            .motion
-            .as_ref()
-            .ok_or("no motion graph".into())
-            .and_then(|m| m.validate())
-            .and_then(|_| self.request())
-        {
-            Ok(request) => {
-                host.command(DesktopCommand::PreviewExtension(request));
-                self.error.clear();
-            }
-            Err(e) => {
-                host.command(DesktopCommand::CancelPreviewEdit);
-                self.error = e;
-            }
-        }
-    }
-    pub fn commit(&mut self, host: &mut dyn DesktopClient) {
-        if self.motion == self.original {
-            self.cancel(host);
+        if self.document == desired && self.base == snapshot.revision() {
             return;
         }
-        if let (Some(before), Some(after)) = (&self.original, &mut self.motion) {
-            crate::authoring::network_scope::retain(before, after);
+        self.literal_controls = Default::default();
+        if self.editing {
+            host.command(DesktopCommand::CancelPreviewEdit);
         }
-        match self
-            .motion
-            .as_ref()
-            .ok_or("no motion graph".into())
-            .and_then(|m| m.validate())
-            .and_then(|_| self.request())
+        self.editing = false;
+        if self.document.is_some() && self.document != desired {
+            self.error.clear();
+            self.graph_definition = None;
+            self.graph_history.clear();
+        }
+        self.document = desired;
+        self.base = snapshot.revision();
+        self.construction = desired
+            .and_then(|id| snapshot.state().documents.get(&id))
+            .and_then(|d| {
+                Construction::from_document(d)
+                    .map_err(|e| self.error = e)
+                    .ok()
+            });
+        if let Some(construction) = &self.construction {
+            self.literal_controls.set_assets(construction);
+        }
+        if let (Some(id), Some(construction)) = (desired, &self.construction)
+            && self.drafts.get(&id).is_none_or(|draft| !draft.dirty)
         {
-            Ok(request) => {
-                host.command(DesktopCommand::Extension(request));
-                if host.snapshot().is_some_and(|s| s.revision() != self.base) {
-                    self.editing = false;
-                    self.property_editing = false;
-                    self.interface_editing = false;
-                    self.observed_selection = (
-                        host.state().selection.document,
-                        host.state().selection.objects.clone(),
+            match crate::source::canonical(construction) {
+                Ok(text) => {
+                    self.drafts.insert(
+                        id,
+                        Draft {
+                            text,
+                            base: self.base,
+                            snapshot: snapshot.clone(),
+                            dirty: false,
+                        },
                     );
-                    self.sync(host);
-                    self.error.clear();
-                } else {
-                    let error = host.state().status.clone();
-                    self.cancel(host);
-                    self.error = error;
                 }
+                Err(error) => self.error = error,
             }
-            Err(error) => {
-                self.cancel(host);
-                self.error = error;
+        }
+    }
+
+    pub fn reload_source(&mut self, host: &mut dyn DesktopClient) {
+        self.sync(host);
+        let Some(snapshot) = host.snapshot() else {
+            return;
+        };
+        if let Some(id) = self.document {
+            let result = snapshot
+                .state()
+                .documents
+                .get(&id)
+                .ok_or_else(|| "Missing Motion document".to_string())
+                .and_then(|document| Construction::from_document(document))
+                .and_then(|construction| crate::source::canonical(&construction));
+            match result {
+                Ok(text) => {
+                    self.drafts.insert(
+                        id,
+                        Draft {
+                            text,
+                            base: self.base,
+                            snapshot: snapshot.clone(),
+                            dirty: false,
+                        },
+                    );
+                    self.error.clear();
+                }
+                Err(error) => self.error = error,
+            }
+        }
+    }
+    /// Refresh the draft only; Apply remains an explicit, revision-checked action.
+    pub fn rebase_source(&mut self, host: &mut dyn DesktopClient) {
+        self.sync(host);
+        let result = (|| -> Result<Draft, String> {
+            let id = self.document.ok_or("No Motion document")?;
+            let draft = self.drafts.get(&id).ok_or("No source draft")?;
+            let snapshot = host.snapshot().ok_or("No project snapshot")?;
+            let parsed = crate::source::parse(&draft.text).map_err(|error| {
+                format!(
+                    "{} (bytes {}–{})",
+                    error.message, error.span.start, error.span.end
+                )
+            })?;
+            let candidate = crate::editing::prepare(
+                &draft.snapshot,
+                id,
+                crate::editing::Scope::Document,
+                parsed.construction,
+            )
+            .map_err(source_error)?;
+            let candidate = candidate.rebase(&snapshot).map_err(source_error)?;
+            let merged = Construction::from_document(candidate.document())?;
+            Ok(Draft {
+                text: crate::source::canonical(&merged)?,
+                base: snapshot.revision(),
+                snapshot,
+                dirty: true,
+            })
+        })();
+        match result {
+            Ok(draft) => {
+                self.drafts
+                    .insert(self.document.expect("active document"), draft);
+                self.error.clear();
+            }
+            Err(error) => self.error = error,
+        }
+    }
+    fn request(&self, construction: Construction) -> Result<CommandRequest, String> {
+        Ok(CommandRequest {
+            id: package::EDIT.into(),
+            base: self.base,
+            arguments: serde_json::to_vec(&package::EditArgs {
+                document: self.document.ok_or("No Motion document")?,
+                construction,
+            })
+            .map_err(|e| e.to_string())?,
+        })
+    }
+    pub fn preview(&mut self, host: &mut dyn DesktopClient) {
+        self.editing = true;
+        if let Some(construction) = self.construction.clone() {
+            match self.request(construction) {
+                Ok(request) => host.command(DesktopCommand::PreviewExtension(request)),
+                Err(error) => self.error = error,
             }
         }
     }
     pub fn cancel(&mut self, host: &mut dyn DesktopClient) {
         host.command(DesktopCommand::CancelPreviewEdit);
-        self.motion = self.original.clone();
         self.editing = false;
-        self.property_editing = false;
-        self.interface_editing = false;
-        self.generation += 1;
-        self.visual_revision += 1;
+        self.document = None;
+        self.sync(host);
     }
-    pub fn change_scene(
-        &mut self,
-        host: &mut dyn DesktopClient,
-        f: impl FnOnce(&mut Motion) -> Result<Option<ObjectId>, String>,
-    ) {
-        self.group = None;
-        self.parents.clear();
-        self.change(host, f);
-        host.command(DesktopCommand::Select(fold_platform::desktop::Selection {
-            document: self.document,
-            objects: self.selected.clone(),
-        }));
-    }
-    pub fn change(
-        &mut self,
-        host: &mut dyn DesktopClient,
-        f: impl FnOnce(&mut Motion) -> Result<Option<ObjectId>, String>,
-    ) {
-        self.cancel(host);
-        if let Some(mut motion) = self.view_motion() {
-            match f(&mut motion) {
-                Ok(selected) => {
-                    self.replace_view(motion);
-                    if selected.is_some() {
-                        self.selected = selected.into_iter().collect();
-                    }
-                    self.commit(host);
+    pub fn commit(&mut self, host: &mut dyn DesktopClient, construction: Construction) -> bool {
+        let Some(snapshot) = host.snapshot() else {
+            return false;
+        };
+        let Some(document) = self.document else {
+            return false;
+        };
+        if snapshot.revision() != self.base {
+            self.error = "Document changed. Reload before applying.".into();
+            return false;
+        }
+        let Some(original) = snapshot.state().documents.get(&document) else {
+            return false;
+        };
+        if Construction::from_document(original).as_ref() == Ok(&construction) {
+            self.error.clear();
+            // A zero-angle rotation can change its chosen axis without changing
+            // the document. Keep that UI draft across a completed no-op gesture.
+            let controls = std::mem::take(&mut self.literal_controls);
+            self.cancel(host);
+            self.literal_controls = controls;
+            return true;
+        }
+        if let Err(error) = crate::editing::validate_document(
+            original,
+            crate::editing::Scope::Document,
+            construction.clone(),
+        ) {
+            self.error = match error {
+                crate::editing::Error::Locked(_) => {
+                    "This control or its containing group is locked.".into()
                 }
-                Err(e) => {
-                    self.motion = self.original.clone();
-                    self.error = e;
-                }
+                crate::editing::Error::Invalid(message) => message,
+                _ => "This edit could not be applied. Reload the current construction.".into(),
+            };
+            self.cancel(host);
+            return false;
+        }
+        let request = match self.request(construction.clone()) {
+            Ok(request) => request,
+            Err(error) => {
+                self.error = error;
+                return false;
             }
+        };
+        host.command(DesktopCommand::Extension(request));
+        let applied = host
+            .snapshot()
+            .and_then(|s| s.state().documents.get(&document).cloned())
+            .and_then(|d| Construction::from_document(&d).ok())
+            .as_ref()
+            == Some(&construction);
+        if applied {
+            self.error.clear();
+        } else {
+            self.error = format!("Motion edit was not applied. {}", host.state().status);
         }
+        self.editing = false;
+        self.document = None;
+        self.sync(host);
+        applied
     }
-    #[cfg(test)]
-    pub fn create(&mut self, host: &mut dyn DesktopClient) {
-        self.cancel(host);
-        self.group = None;
-        self.parents.clear();
-        self.selected.clear();
-        self.document = Some(DocumentId::new());
-        self.motion = Some(Motion::new_scene());
-        self.original = None;
-        if let Some(snapshot) = host.snapshot() {
-            self.base = snapshot.revision();
-            if let Ok(request) = self.request() {
-                host.command(DesktopCommand::Extension(request));
-                if host.snapshot().is_some_and(|s| {
-                    self.document
-                        .is_some_and(|id| s.state().documents.contains_key(&id))
-                }) {
-                    self.view(host);
-                    self.sync(host);
-                } else {
-                    self.error = host.state().status.clone();
-                    self.motion = None;
-                    self.document = None;
-                }
-            }
-        }
-    }
-    #[cfg(test)]
-    pub fn view(&self, host: &mut dyn DesktopClient) {
-        if let Some(document) = self.document {
-            host.command(DesktopCommand::Navigate(ViewLocation {
-                document,
-                time: Time::ZERO,
-                label: "Motion".into(),
-            }));
-        }
+}
+
+fn source_error(error: crate::editing::Error) -> String {
+    use crate::editing::Error;
+    match error {
+        Error::Invalid(message) => message,
+        Error::Validation(diagnostic) => diagnostic.message,
+        Error::Locked(_) => "This control or its containing group is locked.".into(),
+        Error::RebaseConflict(conflicts) => format!(
+            "Source rebase conflicts: {}",
+            conflicts
+                .iter()
+                .map(|conflict| format!("{} at {:?}", conflict.reason, conflict.path))
+                .collect::<Vec<_>>()
+                .join("; ")
+        ),
+        Error::NoChange => "The draft has no changes to rebase. Reload the current source.".into(),
+        _ => "Source could not be rebased against this document.".into(),
     }
 }

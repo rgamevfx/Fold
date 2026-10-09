@@ -1,4 +1,5 @@
 //! End-to-end worker routing and concurrent export/ingest on the CPU reference.
+mod support;
 use fold_app::{media_workflow, session::Session};
 use fold_foundation::{DocumentId, Time};
 use fold_platform::{
@@ -11,15 +12,15 @@ use std::time::{Duration, Instant};
 fn fixture() -> (Session, DocumentId) {
     let id = DocumentId::new();
     let mut project = Project::new(8);
-    let mut motion = fold_motion::Motion::empty();
-    motion.info.width = 32;
-    motion.info.height = 32;
-    motion.info.frames = 8;
-    fold_motion::authoring::add_content(&mut motion, "fold.motion.rectangle").unwrap();
+    let mut image = support::image([1.; 4]);
+    image.info.width = 32;
+    image.info.height = 32;
+    image.info.frames = 8;
+
     project
         .commit(EditBatch {
             base: project.snapshot().revision(),
-            mutations: vec![Mutation::PutDocument(motion.document(id).unwrap())],
+            mutations: vec![Mutation::PutDocument(image.document(id).unwrap())],
         })
         .unwrap();
     project

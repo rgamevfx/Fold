@@ -99,13 +99,22 @@ impl Session {
     }
     pub(super) fn navigate(&mut self, location: ViewLocation) {
         let snapshot = self.project.snapshot();
-        let result = crate::packages::builtins()
-            .output(&snapshot, location.document)
-            .and_then(|info| {
+        let registry = crate::packages::builtins();
+        let result = snapshot
+            .state()
+            .documents
+            .get(&location.document)
+            .ok_or_else(|| "Missing document".to_owned())
+            .and_then(|document| {
+                registry.validate_document(document)?;
+                if !registry.has_video(document) {
+                    return Ok(None);
+                }
+                let info = registry.output(&snapshot, location.document)?;
                 if location.time < Time::ZERO || location.time >= info.time(info.frames)? {
                     return Err("source time is outside the document range".into());
                 }
-                Ok(info)
+                Ok(Some(info))
             });
         let info = match result {
             Ok(info) => info,
@@ -137,11 +146,16 @@ impl Session {
             document: Some(location.document),
             objects: vec![],
         };
-        self.state.frame = location
-            .time
-            .to_ticks(info.rate[0], info.rate[1], Rounding::Floor)
-            .unwrap_or(0)
-            .max(0) as u32;
+        self.state.frame = info
+            .as_ref()
+            .map(|info| {
+                location
+                    .time
+                    .to_ticks(info.rate[0], info.rate[1], Rounding::Floor)
+                    .unwrap_or(0)
+                    .max(0) as u32
+            })
+            .unwrap_or(0);
         self.state.navigation.push(location);
         self.state.navigation_event += 1;
         self.refresh();

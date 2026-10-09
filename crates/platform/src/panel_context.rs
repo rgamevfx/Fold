@@ -20,7 +20,13 @@ pub struct PanelContext<'a> {
 impl<'a> PanelContext<'a> {
     pub fn new(host: &'a mut dyn DesktopClient, editor: &'a mut EditorInstance) -> Self {
         let mut state = editor
-            .output()
+            .document()
+            .and_then(|id| {
+                host.outputs(id)
+                    .into_iter()
+                    .next()
+                    .map(|output| output.reference)
+            })
             .map(|output| host.preview_state(&output, editor.navigation.last().unwrap().time))
             .unwrap_or_else(|| {
                 let mut state = host.state().clone();
@@ -159,7 +165,13 @@ impl<'a> PanelContext<'a> {
             return;
         };
         if self.state.viewer_document != editor.document()
-            && let Some(output) = editor.output()
+            && let Some(output) = editor.document().and_then(|id| {
+                self.host
+                    .outputs(id)
+                    .into_iter()
+                    .next()
+                    .map(|output| output.reference)
+            })
         {
             self.state = self
                 .host

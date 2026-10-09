@@ -16,7 +16,7 @@ pub fn builtins() -> Arc<PackageRegistry> {
             fold_compositor::package::register(&mut registry)
                 .expect("valid compositor package registration");
             fold_motion::package::register(&mut registry)
-                .expect("valid motion package registration");
+                .expect("valid native Motion package registration");
             use fold_platform::packages::*;
             registry
                 .register(Contributions {
@@ -55,12 +55,6 @@ pub fn builtins() -> Arc<PackageRegistry> {
                             handler: crate::settings::document,
                         },
                         CommandRegistration {
-                            id: crate::rust_asset::CREATE,
-                            title: "Create Rust asset",
-                            execution: Execution::Worker,
-                            handler: crate::rust_asset::create,
-                        },
-                        CommandRegistration {
                             id: crate::composition_layers::ADD,
                             title: "Add graph",
                             execution: Execution::Immediate,
@@ -71,12 +65,6 @@ pub fn builtins() -> Arc<PackageRegistry> {
                             title: "Connect graphs",
                             execution: Execution::Immediate,
                             handler: crate::composition_layers::connect,
-                        },
-                        CommandRegistration {
-                            id: fold_platform::image_bake::COMMAND,
-                            title: "Bake image textures",
-                            execution: Execution::Worker,
-                            handler: crate::image_bake::run,
                         },
                         CommandRegistration {
                             id: crate::read_source::REPLACE,

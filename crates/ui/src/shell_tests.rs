@@ -382,6 +382,7 @@ fn editor_seeks_choose_one_explicit_viewer_and_leave_others_and_delivery_untouch
             time: Time::ZERO,
             label: String::new(),
         });
+    declare_test_outputs(&mut shell.workspace);
     shell.workspace.viewers.clear();
     shell.workspace.record_selection(editor);
     let a = shell.workspace.add_viewer(ViewerInstance {
@@ -451,6 +452,7 @@ fn following_preserves_viewer_time_on_root_switch_and_maps_nested_navigation_and
         .get_mut(&editor)
         .unwrap()
         .bind(location(docs[0], Time::ZERO));
+    declare_test_outputs(&mut shell.workspace);
     shell.workspace.record_selection(editor);
     let viewer = shell.workspace.add_viewer(ViewerInstance {
         binding: ViewerBinding::Linked,
@@ -465,6 +467,7 @@ fn following_preserves_viewer_time_on_root_switch_and_maps_nested_navigation_and
         .get_mut(&editor)
         .unwrap()
         .bind(location(docs[1], Time::ZERO));
+    declare_test_outputs(&mut shell.workspace);
     shell.refresh_viewer_targets(&mut host);
     assert_eq!(
         shell.workspace.viewers[&viewer].time,
@@ -475,6 +478,7 @@ fn following_preserves_viewer_time_on_root_switch_and_maps_nested_navigation_and
     let binding = shell.workspace.editors.get_mut(&editor).unwrap();
     binding.navigation.last_mut().unwrap().time = Time::new(7, 48).unwrap();
     binding.navigate(location(docs[0], Time::new(1, 48).unwrap()));
+    declare_test_outputs(&mut shell.workspace);
     shell.refresh_viewer_targets(&mut host);
     assert_eq!(
         shell.workspace.viewers[&viewer].time,
@@ -513,18 +517,21 @@ fn joining_another_group_preserves_time_even_when_its_source_has_nested_navigati
         .get_mut(&a)
         .unwrap()
         .bind(location(docs[0], Time::ZERO));
+    declare_test_outputs(&mut shell.workspace);
     shell
         .workspace
         .editors
         .get_mut(&b)
         .unwrap()
         .bind(location(docs[0], Time::ZERO));
+    declare_test_outputs(&mut shell.workspace);
     shell
         .workspace
         .editors
         .get_mut(&b)
         .unwrap()
         .navigate(location(docs[1], Time::new(1, 48).unwrap()));
+    declare_test_outputs(&mut shell.workspace);
     shell.workspace.record_selection(a);
     shell.workspace.set_editor_group(b, LinkGroup::B);
     let viewer = *shell.workspace.viewers.keys().next().unwrap();
@@ -601,6 +608,7 @@ fn runtime_editors_and_inspectors_are_isolated_at_normal_and_narrow_widths() {
                 time: Time::ZERO,
                 label: String::new(),
             });
+        declare_test_outputs(&mut shell.workspace);
     }
     shell.workspace.record_selection(a);
     shell.workspace.set_editor_group(b, workspace::LinkGroup::B);
@@ -657,6 +665,7 @@ fn runtime_editors_and_inspectors_are_isolated_at_normal_and_narrow_widths() {
             time: Time::new(5, 24).unwrap(),
             label: String::new(),
         });
+    declare_test_outputs(&mut shell.workspace);
     seen.borrow_mut().clear();
     for _ in 0..3 {
         shell.prepare_frame(&mut context);
@@ -871,6 +880,7 @@ fn composition_surface_uses_the_explicit_viewer_time_and_rejects_ambiguity() {
             time: Time::ZERO,
             label: String::new(),
         });
+    declare_test_outputs(&mut shell.workspace);
     shell.workspace.record_selection(editor);
     let first = *shell.workspace.viewers.keys().next().unwrap();
     shell.workspace.viewers.get_mut(&first).unwrap().time = Time::new(7, 48).unwrap();
@@ -1102,6 +1112,7 @@ fn editor_without_a_viewer_seeks_its_own_exact_local_time() {
             time: Time::ZERO,
             label: String::new(),
         });
+    declare_test_outputs(&mut shell.workspace);
     shell.workspace.record_selection(editor);
     // This viewer is explicitly watching a different output.
     let viewer = *shell.workspace.viewers.keys().next().unwrap();
@@ -1225,6 +1236,7 @@ fn ready_viewer_releases_image_draw_list_before_editor_overlay() {
             time: Time::ZERO,
             label: String::new(),
         });
+    declare_test_outputs(&mut shell.workspace);
     shell.workspace.record_selection(editor);
     shell.sync_instances();
     let id = *shell.workspace.viewers.keys().next().unwrap();
@@ -1297,6 +1309,7 @@ fn opening_a_layer_graph_retains_the_parent_stack_selection_and_clock() {
         time: Time::new(1, 48).unwrap(),
         label: "Foreground".into(),
     });
+    declare_test_outputs(&mut shell.workspace);
     child.document_type = "test.graph.kind".into();
     shell.workspace.composition_editor = Some(parent);
     shell.workspace.record_selection(parent);
@@ -1572,10 +1585,16 @@ fn nested_navigation_preserves_timeline_and_follows_group_a() {
             time: Time::new(7, 24).unwrap(),
             label: "Sequence".into(),
         });
+    declare_test_outputs(&mut shell.workspace);
     let viewer = *shell.workspace.viewers.keys().next().unwrap();
     shell.workspace.follow_source(viewer, timeline);
     let pinned = shell.workspace.add_viewer(ViewerInstance {
-        binding: ViewerBinding::Pinned(shell.workspace.editors[&timeline].output().unwrap()),
+        binding: ViewerBinding::Pinned(
+            shell
+                .workspace
+                .output(&shell.workspace.editors[&timeline])
+                .unwrap(),
+        ),
         ..Default::default()
     });
     let b = shell.workspace.add_editor("test.comp", "test.comp");
@@ -1589,6 +1608,7 @@ fn nested_navigation_preserves_timeline_and_follows_group_a() {
             time: Time::ZERO,
             label: "Other group".into(),
         });
+    declare_test_outputs(&mut shell.workspace);
     let other = shell.workspace.add_viewer(ViewerInstance {
         group: workspace::LinkGroup::B,
         source: Some("test.comp".into()),
@@ -1610,8 +1630,10 @@ fn nested_navigation_preserves_timeline_and_follows_group_a() {
         time: Time::new(1, 48).unwrap(),
         label: "Shot".into(),
     });
+    declare_test_outputs(&mut shell.workspace);
     target.document_type = "test.comp".into();
     shell.navigate_editor(timeline, target);
+    declare_test_outputs(&mut shell.workspace);
     shell.sync_instances();
     assert_eq!(
         shell.workspace.editors[&timeline].document(),
@@ -1668,5 +1690,101 @@ fn nested_navigation_preserves_timeline_and_follows_group_a() {
     assert_eq!(
         shell.workspace.viewers[&viewer].time,
         Time::new(7, 24).unwrap()
+    );
+}
+
+fn declare_test_outputs(workspace: &mut fold_platform::workspace::Workspace) {
+    workspace.refresh_outputs(|document| {
+        Some(fold_project::DocumentRef {
+            document,
+            output: "video".into(),
+            extensions: Default::default(),
+        })
+    });
+}
+
+#[test]
+fn named_scene_outputs_drive_linked_transport_and_editor_preview_context() {
+    struct Named {
+        host: Host,
+        port: String,
+        inspected: RefCell<Vec<workspace::DocumentRef>>,
+    }
+    impl DesktopClient for Named {
+        fn state(&self) -> &DesktopState {
+            self.host.state()
+        }
+        fn poll(&mut self) {}
+        fn command(&mut self, command: DesktopCommand) {
+            self.host.command(command);
+        }
+        fn request_preview(&mut self, _: PreviewKey) {}
+        fn cancel_preview(&mut self) {}
+        fn take_preview(&mut self) -> Option<PreviewResult> {
+            None
+        }
+        fn outputs(&self, document: DocumentId) -> Vec<workspace::OutputDescriptor> {
+            vec![workspace::OutputDescriptor {
+                reference: workspace::DocumentRef {
+                    document,
+                    output: self.port.clone(),
+                    extensions: Default::default(),
+                },
+                label: "Artwork".into(),
+                info: self.host.video_info(document),
+                playback_mode: fold_platform::desktop::PlaybackMode::EveryFrame,
+            }]
+        }
+        fn preview_state(&self, output: &workspace::DocumentRef, _: Time) -> DesktopState {
+            self.inspected.borrow_mut().push(output.clone());
+            DesktopState::default()
+        }
+    }
+    let document = DocumentId::new();
+    let mut host = Named {
+        host: Host {
+            documents: [document; 2],
+            state: Default::default(),
+            delivery: document,
+            commands: vec![],
+        },
+        port: "scene-uuid".into(),
+        inspected: Default::default(),
+    };
+    let mut shell = Shell::new(vec![]);
+    let editor = shell.workspace.add_editor("motion", "construction");
+    shell
+        .workspace
+        .editors
+        .get_mut(&editor)
+        .unwrap()
+        .bind(ViewLocation {
+            document,
+            time: Time::ZERO,
+            label: "Artwork".into(),
+        });
+    shell.workspace.record_selection(editor);
+    let viewer = *shell.workspace.viewers.keys().next().unwrap();
+    shell.workspace.follow_source(viewer, editor);
+    shell.refresh_viewer_targets(&mut host);
+    let expected = host.outputs(document)[0].reference.clone();
+    assert_eq!(shell.workspace.resolve(viewer), Some(expected.clone()));
+    assert!(host.host.commands.iter().any(|command| matches!(command,
+        DesktopCommand::ViewerTransport { viewer: id, transport } if *id == viewer && transport.output == expected)));
+    {
+        let _context =
+            PanelContext::new(&mut host, shell.workspace.editors.get_mut(&editor).unwrap());
+    }
+    assert_eq!(host.inspected.borrow().last(), Some(&expected));
+    let time = Time::new(7, 48).unwrap();
+    shell.seek_from_editor(editor, time, &mut host);
+    assert!(
+        matches!(host.host.commands.last(), Some(DesktopCommand::ViewerTransport { transport, .. }) if transport.output == expected && transport.time == time)
+    );
+    host.port = "new-scene-uuid".into();
+    shell.refresh_viewer_targets(&mut host);
+    assert_eq!(shell.workspace.resolve(viewer).unwrap().output, host.port);
+    assert!(
+        matches!(host.host.commands.last(), Some(DesktopCommand::ViewerTransport { transport, .. }) if transport.output.output == host.port)
     );
 }

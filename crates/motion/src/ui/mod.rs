@@ -1,52 +1,445 @@
-//! UI-only presentation over transactional graph edits.
-mod asset_transfer;
-mod canvas;
-mod composition;
-mod gradient;
+//! Native controls and source share one provider-owned construction and edit gate.
 mod graph;
-mod group_interface;
-mod inspector;
-mod overlay;
-mod path_attributes;
-mod picking;
-mod program;
-mod relationships;
+mod graph_templates;
+mod instance;
+mod keyframes;
+mod literal;
+mod ramp;
+use literal::draw as literal;
+mod presentation;
 #[cfg(test)]
-mod render_tests;
-mod scene_inspector;
+mod presentation_render;
+mod protection;
 mod state;
 #[cfg(test)]
 mod tests;
-mod tool_actions;
-mod tools;
+mod timeline;
 #[cfg(test)]
-static IMGUI_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
-use fold_ui::sdk::PanelRegistry;
+static UI_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+#[cfg(test)]
+use crate::types::Literal;
+use crate::{binding::Binding, package};
+use fold_platform::desktop::{DesktopCommand, Selection};
+use fold_ui::sdk::{self, EditResponse, ExtensionUi, Panel, PanelRegistry, UiId};
+use state::Shared;
+
 pub fn register(registry: &mut PanelRegistry) -> Result<(), String> {
-    let state = std::rc::Rc::new(std::cell::RefCell::new(state::State::default()));
+    let state = Shared::default();
     registry.register(
         crate::PACKAGE,
-        canvas::Canvas {
-            state: state.clone(),
-            files: Default::default(),
-            canvas: Default::default(),
-            overlay: Default::default(),
-        },
+        Editor(state.clone(), Default::default(), Default::default()),
     )?;
-    registry.register_inspector(crate::PACKAGE, inspector::Inspector { state })
+    registry.register_inspector(crate::PACKAGE, Inspector(state))
 }
-
-use crate::keyed_parameters::input_label;
-
-mod oscillator;
-mod timing;
-
-mod color_ramp;
-
-mod simulation;
-
-mod wrangle;
-
-mod images;
-
-mod image_bake;
+struct Editor(Shared, timeline::Timeline, sdk::graph_canvas::GraphCanvas);
+struct Inspector(Shared);
+impl Panel for Editor {
+    fn initialize(
+        &mut self,
+        context: &sdk::imgui::Context,
+        typography: Option<&sdk::typography::Typography>,
+    ) {
+        self.2.initialize(context, typography);
+    }
+    fn accepts_background_pan(&self, position: [f32; 2]) -> bool {
+        self.2.accepts_background_pan(position)
+    }
+    fn id(&self) -> &'static str {
+        package::PANEL
+    }
+    fn document_type(&self) -> Option<&'static str> {
+        Some(crate::CONSTRUCTION)
+    }
+    fn new_instance(&self) -> Option<sdk::EditorPanels> {
+        let state = Shared::default();
+        Some(sdk::EditorPanels {
+            editor: Box::new(Editor(
+                state.clone(),
+                Default::default(),
+                Default::default(),
+            )),
+            inspector: Box::new(Inspector(state)),
+        })
+    }
+    fn cancel_interaction(&mut self, host: &mut dyn fold_platform::desktop::DesktopClient) {
+        let editing = self.0.borrow().editing;
+        if editing {
+            self.0.borrow_mut().cancel(host);
+        }
+    }
+    fn draw(&mut self, context: ExtensionUi<'_>) {
+        let ExtensionUi { ui, host } = context;
+        let mut state = self.0.borrow_mut();
+        state.sync(host);
+        let Some(document) = state.document else {
+            ui.text_wrapped("Create Motion in Project, or open a Motion document.");
+            return;
+        };
+        // Honest, persistent capability status until M4 supplies a frame provider.
+        ui.text_disabled("Rendering unavailable");
+        if let Some(_tabs) = ui.tab_bar("motion-views") {
+            if let Some(_tab) = ui.tab_item("Graph")
+                && let Some(construction) = state.construction.as_ref()
+            {
+                let definitions: Vec<_> = construction
+                    .definitions
+                    .iter()
+                    .map(|d| (d.id, d.name.clone()))
+                    .collect();
+                let definition = state
+                    .graph_definition
+                    .filter(|id| definitions.iter().any(|(key, _)| key == id))
+                    .unwrap_or(construction.root.definition);
+                let label = definitions
+                    .iter()
+                    .find(|(id, _)| *id == definition)
+                    .map(|(_, name)| name.as_str())
+                    .unwrap_or("Asset");
+                if let Some(_menu) = ui.begin_combo("Asset", label) {
+                    for (id, name) in &definitions {
+                        if ui
+                            .selectable_config(name)
+                            .selected(*id == definition)
+                            .build()
+                        {
+                            state.graph_definition = Some(*id);
+                            state.graph_history.clear();
+                            host.command(DesktopCommand::Select(Selection {
+                                document: Some(document),
+                                objects: vec![],
+                            }));
+                        }
+                    }
+                }
+                self.2.draw_inline(
+                    ui,
+                    &mut graph::Context {
+                        state: &mut state,
+                        host,
+                        definition,
+                    },
+                );
+            }
+            if let Some(_tab) = ui.tab_item("Keys") {
+                self.1.draw(ui, host, &mut state);
+            }
+            if let Some(_tab) = ui.tab_item("Source") {
+                let stale = state
+                    .drafts
+                    .get(&document)
+                    .is_some_and(|d| d.dirty && d.base != state.base);
+                let enabled = state.drafts.get(&document).is_some_and(|d| d.dirty) && !stale;
+                let apply = {
+                    let _disabled = ui.begin_disabled_with_cond(!enabled);
+                    ui.button("Apply")
+                };
+                ui.same_line();
+                if ui.button("Reload") {
+                    state.reload_source(host);
+                }
+                if ui.is_item_hovered() {
+                    ui.tooltip_text("Discard this source draft and load the current construction.");
+                }
+                if stale {
+                    ui.same_line();
+                    if ui.button("Rebase") {
+                        state.rebase_source(host);
+                    }
+                    if ui.is_item_hovered() {
+                        ui.tooltip_text("Merge disjoint document edits into this draft for review. Does not apply it.");
+                    }
+                    ui.text_wrapped(
+                        "Document changed. Rebase this draft or reload the current source.",
+                    );
+                }
+                if apply {
+                    let text = state
+                        .drafts
+                        .get(&document)
+                        .map(|d| d.text.clone())
+                        .unwrap_or_default();
+                    match crate::source::parse(&text) {
+                        Ok(parsed) => {
+                            if state.commit(host, parsed.construction) {
+                                state.reload_source(host);
+                            }
+                        }
+                        Err(error) => {
+                            state.error = format!(
+                                "{} (bytes {}–{})",
+                                error.message, error.span.start, error.span.end
+                            )
+                        }
+                    }
+                }
+                if let Some(draft) = state.drafts.get_mut(&document) {
+                    let size = [
+                        ui.content_region_avail()[0].max(1.),
+                        (ui.content_region_avail()[1] - 48.).max(80.),
+                    ];
+                    if ui
+                        .input_text_multiline("##motion-source", &mut draft.text, size)
+                        .build()
+                    {
+                        draft.dirty = true;
+                    }
+                }
+            }
+        }
+        if !state.error.is_empty() {
+            ui.text_wrapped(&state.error);
+        }
+    }
+}
+impl Panel for Inspector {
+    fn id(&self) -> &'static str {
+        package::INSPECTOR
+    }
+    fn document_type(&self) -> Option<&'static str> {
+        Some(crate::CONSTRUCTION)
+    }
+    fn draw(&mut self, context: ExtensionUi<'_>) {
+        let ExtensionUi { ui, host } = context;
+        let mut state = self.0.borrow_mut();
+        state.sync(host);
+        state.literal_controls.invalid = false;
+        let Some(document) = state.document else {
+            ui.text_disabled("Select a Motion document.");
+            return;
+        };
+        if protection::menu(ui, host, &mut state) {
+            return;
+        }
+        let selected = host.state().selection.objects.clone();
+        let Some(mut construction) = state.construction.clone() else {
+            return;
+        };
+        let locked = crate::protection::locked_ids(&construction).unwrap_or_default();
+        let mut response = EditResponse::default();
+        let mut animate = None;
+        let _width = ui.push_item_width((ui.content_region_avail()[0] * 0.43).max(60.));
+        if let Some(definition) = construction.definitions.iter_mut().find(|d| {
+            if selected.is_empty() {
+                d.id == state
+                    .graph_definition
+                    .unwrap_or(construction.root.definition)
+            } else {
+                d.inputs.iter().any(|i| selected.contains(&i.id))
+            }
+        }) {
+            ui.text(&definition.name);
+            for input in &mut definition.inputs {
+                if !selected.is_empty() && !selected.contains(&input.id) {
+                    continue;
+                }
+                let _id = UiId {
+                    package: crate::PACKAGE,
+                    panel: package::INSPECTOR,
+                    document,
+                    object: input.id,
+                }
+                .scope(ui);
+                let _disabled = ui.begin_disabled_with_cond(locked.contains(&input.id));
+                literal(
+                    ui,
+                    &input.name,
+                    &mut input.default,
+                    &mut response,
+                    &mut state.literal_controls,
+                );
+                if locked.contains(&input.id) {
+                    ui.text_disabled("Locked");
+                }
+            }
+        }
+        let show_root = selected.contains(&construction.root.id)
+            || (selected.is_empty()
+                && state
+                    .graph_definition
+                    .unwrap_or(construction.root.definition)
+                    == construction.root.definition
+                && ui.collapsing_header("Main instance", sdk::imgui::TreeNodeFlags::empty()));
+        if show_root && let Ok(definition) = construction.definition(construction.root.definition) {
+            let inputs = definition.inputs.clone();
+            instance::draw(
+                ui,
+                &mut construction.root,
+                &inputs,
+                &locked,
+                None,
+                &mut response,
+                &mut state.literal_controls,
+            );
+        }
+        let instance_inputs: std::collections::BTreeMap<_, _> = construction
+            .definitions
+            .iter()
+            .flat_map(|definition| &definition.instances)
+            .filter(|instance| selected.contains(&instance.id))
+            .filter_map(|instance| {
+                construction
+                    .definition(instance.definition)
+                    .ok()
+                    .map(|definition| (instance.id, definition.inputs.clone()))
+            })
+            .collect();
+        if !selected.is_empty() {
+            for definition in &mut construction.definitions {
+                for instance in &mut definition.instances {
+                    if let Some(inputs) = instance_inputs.get(&instance.id) {
+                        instance::draw(
+                            ui,
+                            instance,
+                            inputs,
+                            &locked,
+                            Some(
+                                state
+                                    .key_time
+                                    .filter(|(id, _)| *id == definition.id)
+                                    .map_or(fold_foundation::Time::ZERO, |(_, time)| time),
+                            ),
+                            &mut response,
+                            &mut state.literal_controls,
+                        );
+                    }
+                }
+                for output in &definition.outputs {
+                    if selected.contains(&output.id) {
+                        ui.text(&output.name);
+                        ui.text_wrapped(
+                            "Output · Reconnect in Graph; edit its declaration in Source.",
+                        );
+                    }
+                }
+                for node in &mut definition.nodes {
+                    if !selected.contains(&node.id) {
+                        continue;
+                    }
+                    ui.text(&node.name);
+                    let Ok(operation) =
+                        crate::registry::resolve(&node.operation, node.version, &node.mode)
+                    else {
+                        ui.text_disabled("Unresolved operation · Edit in Source");
+                        continue;
+                    };
+                    for (name, parameter) in &mut node.parameters {
+                        let _id = UiId {
+                            package: crate::PACKAGE,
+                            panel: package::INSPECTOR,
+                            document,
+                            object: parameter.id,
+                        }
+                        .scope(ui);
+                        let _disabled = ui.begin_disabled_with_cond(locked.contains(&parameter.id));
+                        let label = operation
+                            .parameters
+                            .get(name)
+                            .map(|port| port.title.as_str())
+                            .unwrap_or(name);
+                        match parameter.binding() {
+                            Ok(Binding::Literal { mut value }) => {
+                                literal(
+                                    ui,
+                                    label,
+                                    &mut value,
+                                    &mut response,
+                                    &mut state.literal_controls,
+                                );
+                                if value.ty().is_interpolatable() {
+                                    ui.same_line();
+                                    if let Some(_menu) = sdk::toolbar::icon_menu(
+                                        ui,
+                                        "animation",
+                                        "Animation options",
+                                    ) && ui.menu_item("Animate")
+                                    {
+                                        let time = state
+                                            .key_time
+                                            .filter(|(id, _)| *id == definition.id)
+                                            .map_or(fold_foundation::Time::ZERO, |(_, time)| time);
+                                        animate = Some((parameter.id, time));
+                                    }
+                                }
+                                if let Ok(value) = serde_json::to_value(Binding::Literal { value })
+                                {
+                                    parameter.value = value;
+                                }
+                            }
+                            Ok(Binding::Ramp { mut ramp }) => {
+                                ramp::draw(
+                                    ui,
+                                    label,
+                                    &mut ramp,
+                                    &mut response,
+                                    &mut state.literal_controls,
+                                );
+                                parameter.value = serde_json::to_value(Binding::Ramp { ramp })
+                                    .expect("native ramp");
+                            }
+                            Ok(Binding::Track { mut track }) => {
+                                let time = state
+                                    .key_time
+                                    .filter(|(id, _)| *id == definition.id)
+                                    .map_or(fold_foundation::Time::ZERO, |(_, time)| time);
+                                keyframes::draw(
+                                    ui,
+                                    label,
+                                    &mut track,
+                                    Some(time),
+                                    &mut response,
+                                    &mut state.literal_controls,
+                                );
+                                parameter.value = serde_json::to_value(Binding::Track { track })
+                                    .expect("native track");
+                            }
+                            Ok(_) => ui.text(format!("{label} · Driven")),
+                            Err(_) => ui.text(format!("{label} · Unresolved")),
+                        }
+                        if locked.contains(&parameter.id) {
+                            ui.text_disabled("Locked");
+                        }
+                    }
+                }
+            }
+        }
+        let definition = state
+            .graph_definition
+            .unwrap_or(construction.root.definition);
+        if let Some(group) =
+            presentation::draw(ui, &mut construction, definition, &selected, &mut response)
+        {
+            match presentation::ungroup(&construction, group) {
+                Ok(after) => {
+                    state.commit(host, after);
+                }
+                Err(error) => state.error = error,
+            }
+            return;
+        }
+        if let Some((parameter, time)) = animate {
+            match crate::keyed::animate(&construction, parameter, time) {
+                Ok(after) => {
+                    state.commit(host, after);
+                }
+                Err(error) => state.error = error,
+            }
+            return;
+        }
+        response.finished &= !state.literal_controls.invalid;
+        response.cancel_on_escape(ui, state.editing);
+        if response.cancelled {
+            state.cancel(host);
+        } else {
+            if response.changed {
+                state.construction = Some(construction.clone());
+                state.preview(host);
+            }
+            if response.finished && state.editing {
+                state.commit(host, construction);
+            }
+        }
+        if !state.error.is_empty() {
+            ui.text_wrapped(&state.error);
+        }
+    }
+}

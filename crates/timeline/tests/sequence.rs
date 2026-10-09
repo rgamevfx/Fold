@@ -217,13 +217,9 @@ fn source_handles_and_video_lowering_use_exact_half_open_ranges() {
     let doc = &snapshot.state().documents[&id];
     let compile = |output: &str, time| {
         SequenceProvider.compile(fold_platform::VideoCompile {
-            graph_context: None,
             invocation: None,
             context: None,
             resolve_effect: &|_, _, _| Err("Effect invocation unavailable in this context".into()),
-            resolve_graph: &|_, _, _| {
-                Err("Layer graph evaluation is unavailable in this context".into())
-            },
             snapshot: &snapshot,
             document: doc,
             reference: &fold_project::DocumentRef {

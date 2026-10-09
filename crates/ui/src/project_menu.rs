@@ -121,19 +121,6 @@ impl ProjectMenu {
                 client.command(DesktopCommand::Redo);
             }
         }
-        if let Some(_menu) = ui.begin_menu("Agent") {
-            let access = client.agent_access();
-            let enabled = access["enabled"].as_bool().unwrap_or(false);
-            if ui.menu_item_enabled_selected_no_shortcut("Allow local connections", enabled, true) {
-                client.set_agent_access(!enabled);
-            }
-            if enabled {
-                ui.text_disabled("Local agent access enabled");
-            }
-            if let Some(error) = access["error"].as_str() {
-                ui.text_wrapped(error);
-            }
-        }
         if available
             && !ui.io().want_text_input()
             && ui.io().key_ctrl()

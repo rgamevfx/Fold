@@ -249,10 +249,11 @@ fn layer_graph_content_is_not_a_second_project_composition() {
         .unwrap()
         .id;
     let before = ProjectPanel::default().rows(&host.project.snapshot()).len();
-    for kind in ["motion", "image"] {
+    for _ in 0..2 {
         let batch = crate::composition_layers::add(
             &host.project.snapshot(),
-            &serde_json::to_vec(&serde_json::json!({"document":composition,"kind":kind})).unwrap(),
+            &serde_json::to_vec(&serde_json::json!({"document":composition,"kind":"image"}))
+                .unwrap(),
             &Default::default(),
         )
         .unwrap();

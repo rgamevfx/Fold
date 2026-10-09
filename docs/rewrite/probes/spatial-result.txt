@@ -1,0 +1,25 @@
+Command: CARGO_BUILD_JOBS=2 CARGO_PROFILE_DEV_DEBUG=0 cargo run --manifest-path docs/rewrite/probes/Cargo.toml --bin spatial --locked --offline
+
+M4 Bevy spatial probe: AdapterInfo { name: "llvmpipe (LLVM 20.1.2, 256 bits)", vendor: 65541, device: 0, device_type: Cpu, driver: "llvmpipe", driver_info: "Mesa 26.1.6-1pop0~1787580452~24.04~a5619ea (LLVM 20.1.2)", backend: Vulkan }
+2026-10-08T15:40:20.554654Z  INFO bevy_render::batching::gpu_preprocessing: Some GPU preprocessing are limited on this device.
+2026-10-08T15:40:20.564107Z  WARN bevy_pbr::ssao: ScreenSpaceAmbientOcclusionPlugin not loaded. GPU lacks support: Limits::max_storage_textures_per_shader_stage is less than 5.
+2026-10-08T15:40:20.564161Z  INFO bevy_pbr::light_probe::generate: Disabling EnvironmentMapGenerationPlugin because compute is not supported on this platform. This is safe to ignore if you are not using EnvironmentMapGenerationPlugin.
+2026-10-08T15:40:21.606668Z  WARN bevy_pbr::render::gpu_preprocess: The build mesh uniforms pipeline wasn't ready
+initial asset/pipeline readiness updates: Some(2)
+sample=0: accessible depth=0.02857143
+sample=0: depth, linear HDR, alpha, retained handles, frozen clock pass; center=[2.0, 0.25, 0.125, 1.0]
+sample=1: accessible depth=0.022222223
+sample=1: depth, linear HDR, alpha, retained handles, frozen clock pass; center=[0.125, 0.25, 2.0, 1.0]
+sample=0: accessible depth=0.02857143
+sample=0: depth, linear HDR, alpha, retained handles, frozen clock pass; center=[2.0, 0.25, 0.125, 1.0]
+sample=-1: accessible depth=0.022222223
+sample=-1: depth, linear HDR, alpha, retained handles, frozen clock pass; center=[0.125, 0.25, 2.0, 1.0]
+sample=1: accessible depth=0.022222223
+sample=1: depth, linear HDR, alpha, retained handles, frozen clock pass; center=[0.125, 0.25, 2.0, 1.0]
+premultiplied over opaque: pass after 1 update(s); center=[1.0625, 0.25, 1.0625, 1.0]
+premultiplied over clear: pass after 1 update(s); center=[1.0, 0.125, 0.0625, 0.5]
+zero light at EV100=8: pass after 1 update(s); center=[0.0, 0.0, 0.0, 1.0]
+illuminance=1000 lux; exposure=EV100 8; linear center=[0.5180664, 0.5180664, 0.5180664, 1.0]
+illuminance=2000 lux; exposure=EV100 8; linear center=[1.0361328, 1.0361328, 1.0361328, 1.0]
+illuminance=1000 lux; exposure=EV100 8; linear center=[0.5180664, 0.5180664, 0.5180664, 1.0]
+Bevy 0.18.1 offscreen spatial graph, external device/queue/RGBA16F target: pass

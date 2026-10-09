@@ -451,107 +451,54 @@ fn decode_transfer(v: f32) -> f32 {
     }
 }
 
-/// A shared ordered material batch. Each instance's offset.w is its texture layer.
-#[derive(Clone, Debug)]
-pub struct Batch {
-    pub textures: Vec<Arc<Texture>>,
-    pub draw: crate::textured::Draw,
-}
-impl Batch {
-    pub fn validate(&self) -> Result<(), String> {
-        self.draw.validate()?;
-        if self.textures.is_empty() || self.textures.len() > 64 {
-            return Err("baked texture batch requires 1..64 images".into());
-        }
-        let first = &self.textures[0];
-        first.validate()?;
-        for t in &self.textures {
-            t.validate()?;
-            if t.dimensions() != first.dimensions()
-                || t.format != first.format
-                || t.aces != first.aces
-                || t.config != first.config
-            {
-                return Err("texture array members must share size, format and color".into());
-            }
-        }
-        if self.draw.instances.iter().any(|i| {
-            i.offset[3] < 0.
-                || i.offset[3] >= self.textures.len() as f32
-                || i.offset[3].fract() != 0.
-        }) {
-            return Err("invalid texture layer".into());
-        }
-        Ok(())
-    }
-    pub fn rasterize(
+// Full-frame image sampling is independent of geometry and instance rendering.
+impl Texture {
+    pub(crate) fn sample(
         &self,
-        driver: Option<&crate::Frame>,
-        width: u32,
-        height: u32,
+        dimensions: [u32; 2],
         cancel: &Cancel,
-        aces: bool,
     ) -> Result<Vec<[f32; 4]>, String> {
-        self.validate()?;
-        if u64::from(width) * u64::from(height) * self.draw.instances.len() as u64
-            > 256 * 1024 * 1024
-        {
-            return Err("baked CPU compositing work budget exceeded".into());
-        }
-        let mut out = vec![[0.; 4]; (width * height) as usize];
-        // Keep only the current layer expanded on CPU. A compressed array can
-        // fit comfortably in GPU memory while its full float expansion cannot.
-        let mut decoded: Option<(usize, Vec<crate::Frame>)> = None;
-        let _scratch =
-            fold_media::budget::reserve_working(u64::from(width) * u64::from(height) * 16)?;
-        for instance in &self.draw.instances {
+        let [width, height] = dimensions;
+        let [sw, sh] = self.dimensions();
+        let lod = (sw as f32 / width as f32)
+            .max(sh as f32 / height as f32)
+            .max(1.)
+            .log2()
+            .min((self.levels.len() - 1) as f32);
+        let low = self.decode(lod.floor() as usize, cancel)?;
+        let high = self.decode(lod.ceil() as usize, cancel)?;
+        let mut pixels = Vec::with_capacity(width as usize * height as usize);
+        for y in 0..height {
             cancel.check()?;
-            let layer = instance.offset[3] as usize;
-            if decoded.as_ref().is_none_or(|(index, _)| *index != layer) {
-                drop(decoded.take());
-                let source = &self.textures[layer];
-                let levels = (0..source.levels.len())
-                    .map(|i| source.decode(i, cancel))
-                    .collect::<Result<Vec<_>, _>>()?;
-                decoded = Some((layer, levels));
-            }
-            let texture = &decoded.as_ref().unwrap().1;
-            let mut draw = self.draw.clone();
-            draw.instances = vec![*instance];
-            let pixels = crate::textured::rasterize_mips(
-                &draw,
-                texture,
-                driver.unwrap_or(&texture[0]),
-                width,
-                height,
-                cancel,
-                aces,
-            )?;
-            for (dst, src) in out.iter_mut().zip(pixels) {
-                for c in 0..4 {
-                    dst[c] = src[c] + dst[c] * (1. - src[3]);
-                }
+            for x in 0..width {
+                let uv = [
+                    (x as f32 + 0.5) / width as f32,
+                    (y as f32 + 0.5) / height as f32,
+                ];
+                let a = sample_level(&low, uv);
+                let b = sample_level(&high, uv);
+                pixels.push(std::array::from_fn(|i| a[i] + (b[i] - a[i]) * lod.fract()));
             }
         }
-        Ok(out)
+        Ok(pixels)
     }
 }
-pub fn fullscreen(texture: Arc<Texture>, dimensions: [u32; 2]) -> Batch {
-    use crate::textured::*;
-    let [w, h] = dimensions.map(|v| v as f32);
-    let mesh = Arc::new(Mesh {
-        vertices: [[0., 0.], [1., 0.], [1., 1.], [0., 1.]]
-            .map(|uv| Vertex {
-                position: [uv[0] * w, uv[1] * h],
-                uv,
-                sample: uv,
-                center: [w / 2., h / 2.],
-            })
-            .to_vec(),
-        indices: vec![0, 1, 2, 0, 2, 3],
-    });
-    Batch {
-        textures: vec![texture],
-        draw: Draw::new(mesh),
-    }
+fn sample_level(frame: &crate::Frame, uv: [f32; 2]) -> [f32; 4] {
+    let [width, height] = frame.dimensions();
+    let q = [uv[0] * width as f32 - 0.5, uv[1] * height as f32 - 0.5];
+    let lo = q.map(|v| v.floor() as i32);
+    let f = q.map(|v| v - v.floor());
+    let pixel = |x: i32, y: i32| {
+        frame.pixels()[(y.clamp(0, height as i32 - 1) as u32 * width
+            + x.clamp(0, width as i32 - 1) as u32) as usize]
+    };
+    let a = pixel(lo[0], lo[1]);
+    let b = pixel(lo[0] + 1, lo[1]);
+    let c = pixel(lo[0], lo[1] + 1);
+    let d = pixel(lo[0] + 1, lo[1] + 1);
+    std::array::from_fn(|i| {
+        let top = a[i] + (b[i] - a[i]) * f[0];
+        let bottom = c[i] + (d[i] - c[i]) * f[0];
+        top + (bottom - top) * f[1]
+    })
 }

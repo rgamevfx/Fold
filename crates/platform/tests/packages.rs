@@ -148,3 +148,41 @@ fn invalid_contribution_sets_fail_atomically() {
             .is_err()
     );
 }
+
+#[test]
+fn document_type_identity_is_independent_and_has_one_explicit_owner() {
+    struct Notes {
+        owner: &'static str,
+    }
+    impl DocumentProvider for Notes {
+        fn package_id(&self) -> &'static str {
+            self.owner
+        }
+        fn type_id(&self) -> &'static str {
+            "documents.notes"
+        }
+        fn schema(&self) -> u32 {
+            1
+        }
+        fn validate(&self, _: &fold_project::Document) -> Result<(), String> {
+            Ok(())
+        }
+    }
+    let mut registry = PackageRegistry::default();
+    let mut first = package();
+    first.documents.push(Box::new(Notes {
+        owner: "test.tools",
+    }));
+    registry.register(first).unwrap();
+    let mut second = package();
+    second.manifest.id = "test.other";
+    second.commands.clear();
+    second.documents.push(Box::new(Notes {
+        owner: "test.other",
+    }));
+    assert!(
+        registry.register(second).is_err(),
+        "A second package cannot take the same document identity"
+    );
+    assert_eq!(registry.manifests().count(), 1);
+}

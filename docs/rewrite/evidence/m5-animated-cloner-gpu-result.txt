@@ -1,0 +1,141 @@
+M5 animated Field/Ramp/Scale/Color GPU qualification — 8 October 2026
+Uncommitted active rewrite; complete M3–M5 gates remain pending.
+
+Commands:
+cargo test -p fold-app --features spatial --test motion_spatial cloner_gpu_ -- --ignored --nocapture
+cargo clippy -p fold-app --features spatial --test motion_spatial --no-deps
+cargo fmt --all --check
+python3 scripts/check_boundaries.py
+git diff --check
+
+Both static and animated Cloner GPU tests pass (14.57 seconds together).
+Adapter: Vulkan llvmpipe, LLVM 20.1.2, Mesa 26.1.6; software rendering, not physical
+GPU or desktop artist acceptance. Clippy passes with existing YUV/source_preparation
+warnings. Format, package boundaries and whitespace checks pass.
+
+Animated construction:
+- One 0.06 m Box prototype, Grid 20x12 with 0.12 m spacing, native Cloner.
+- Tween moves Radial Field center (-1,-0.5,0) -> (1,0.5,0) over two seconds,
+  radius 1 m. Scalar Ramp 0.2 -> 1 feeds Scale Animator. Color Ramp feeds Color
+  Animator; orange #FF5A36 is decoded to linear, blue is linear (0.02,0.1,1).
+- Explicit downstream unlit Material and World placement; camera (0,0,4), 45-degree
+  vertical FOV. Opaque palette over transparent background, 1280x440 RGBA16F.
+- (columns,time) samples: (20,2), (20,0), (21,1), (20,2), (0,3).
+
+Independent authored grid/distance/interpolation formulas check every instance's
+front-center pixel, color and axial depth. Maximum absolute color error is
+0.000484780267 (tolerance 0.002); depth error 4.08283301e-7 m (tolerance 2e-4 m).
+Horizontal inter-cell gaps have transparent pixels and zero depth. Empty output
+checks all pixels. Direct adapter and registered application publication compare
+all 563200 pixels exactly at every sample, with exact rational timestamps and zero
+registered CPU image-adapter/readback counters before explicit test readback.
+
+Geometry uploads once and is retained through time/count changes. Surviving cell
+native/renderer identities remain stable. Time-only changes spawn no instances;
+growth adds twelve and shrinkage removes twelve. Held old frame pixels survive all
+later requests and reject a newer binding. Static 640x220 count-edit regression
+continues to pass through the same fixture helper.
+
+Scope: center/gap/depth assertions are independent, full direct/registered pixel
+comparison shares the rendering implementation. This is not an independent
+all-pixel silhouette oracle, translucent/HDR palette GPU qualification, lighting
+or the frozen full-scene camera. Native Random/rotation, linear Field, packed
+instance/material storage, aggregate GPU admission, physical UI and complete
+public-tool/native integrated acceptance remain open.
+
+Captured outputs:
+
+/tmp/fold-m5-animated-cloner-gpu.log
+   Compiling fold-app v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/app)
+warning: field `format` is never read
+  --> crates/render/src/gpu/yuv.rs:22:9
+   |
+16 | pub(super) struct Layout {
+   |                   ------ field in this struct
+...
+22 |     pub format: fold_media::VideoFormat,
+   |         ^^^^^^
+   |
+   = note: `Layout` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `parameters` is never used
+  --> crates/render/src/gpu/yuv.rs:26:8
+   |
+25 | impl Layout {
+   | ----------- method in this implementation
+26 |     fn parameters(self, size: u64) -> Result<[u32; 20], String> {
+   |        ^^^^^^^^^^
+
+warning: `fold-render` (lib) generated 2 warnings
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 25s
+     Running tests/motion_spatial.rs (target/debug/deps/motion_spatial-cb23960a9429f5bc)
+
+running 2 tests
+Cloner GPU qualification: AdapterInfo { name: "llvmpipe (LLVM 20.1.2, 256 bits)", vendor: 65541, device: 0, device_type: Cpu, driver: "llvmpipe", driver_info: "Mesa 26.1.6-1pop0~1787580452~24.04~a5619ea (LLVM 20.1.2)", backend: Vulkan }
+Cloner GPU qualification: AdapterInfo { name: "llvmpipe (LLVM 20.1.2, 256 bits)", vendor: 65541, device: 0, device_type: Cpu, driver: "llvmpipe", driver_info: "Mesa 26.1.6-1pop0~1787580452~24.04~a5619ea (LLVM 20.1.2)", backend: Vulkan }
+Cloner animated=false time=Time { numerator: 0, denominator: 1 } columns=20: 240 centers and adjacent gaps checked; max color error=0, max depth error=0.000000028610229296788248; direct/registered pixels match; mesh and instance reuse verified
+Cloner animated=true time=Time { numerator: 2, denominator: 1 } columns=20: 240 centers and adjacent gaps checked; max color error=0.0004847802664805778, max depth error=0.0000004082833000573771; direct/registered pixels match; mesh and instance reuse verified
+Cloner animated=false time=Time { numerator: 1, denominator: 24 } columns=21: 252 centers and adjacent gaps checked; max color error=0, max depth error=0.000000028610229296788248; direct/registered pixels match; mesh and instance reuse verified
+Cloner animated=false time=Time { numerator: 1, denominator: 12 } columns=20: 240 centers and adjacent gaps checked; max color error=0, max depth error=0.000000028610229296788248; direct/registered pixels match; mesh and instance reuse verified
+Cloner animated=false time=Time { numerator: 1, denominator: 8 } columns=0: 0 centers and adjacent gaps checked; max color error=0, max depth error=0; direct/registered pixels match; mesh and instance reuse verified
+test cloner_gpu_shares_mesh_preserves_cells_and_matches_registered_output ... ok
+Cloner animated=true time=Time { numerator: 0, denominator: 1 } columns=20: 240 centers and adjacent gaps checked; max color error=0.0004847802664805778, max depth error=0.0000004082833000573771; direct/registered pixels match; mesh and instance reuse verified
+Cloner animated=true time=Time { numerator: 1, denominator: 1 } columns=21: 252 centers and adjacent gaps checked; max color error=0.0004800262456110538, max depth error=0.00000039676946750333286; direct/registered pixels match; mesh and instance reuse verified
+Cloner animated=true time=Time { numerator: 2, denominator: 1 } columns=20: 240 centers and adjacent gaps checked; max color error=0.0004847802664805778, max depth error=0.0000004082833000573771; direct/registered pixels match; mesh and instance reuse verified
+Cloner animated=true time=Time { numerator: 3, denominator: 1 } columns=0: 0 centers and adjacent gaps checked; max color error=0, max depth error=0; direct/registered pixels match; mesh and instance reuse verified
+test animated_cloner_gpu_matches_field_scale_palette_and_registered_output ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 14.57s
+
+
+/tmp/fold-m5-animated-cloner-clippy.log
+    Blocking waiting for file lock on build directory
+warning: field `format` is never read
+  --> crates/render/src/gpu/yuv.rs:22:9
+   |
+16 | pub(super) struct Layout {
+   |                   ------ field in this struct
+...
+22 |     pub format: fold_media::VideoFormat,
+   |         ^^^^^^
+   |
+   = note: `Layout` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `parameters` is never used
+  --> crates/render/src/gpu/yuv.rs:26:8
+   |
+25 | impl Layout {
+   | ----------- method in this implementation
+26 |     fn parameters(self, size: u64) -> Result<[u32; 20], String> {
+   |        ^^^^^^^^^^
+
+warning: `fold-render` (lib) generated 2 warnings
+    Checking fold-motion v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/motion)
+   Compiling fold-app v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/app)
+warning: this `if` statement can be collapsed
+   --> crates/app/src/source_preparation.rs:120:9
+    |
+120 | /         if let Some((key, cancel)) = &state.active {
+121 | |             if !requests
+122 | |                 .iter()
+123 | |                 .any(|r| r.same_work(key) || key.advances_to(r))
+...   |
+127 | |         }
+    | |_________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#collapsible_if
+    = note: `#[warn(clippy::collapsible_if)]` on by default
+help: collapse nested if block
+    |
+120 ~         if let Some((key, cancel)) = &state.active
+121 ~             && !requests
+122 |                 .iter()
+...
+125 |                 cancel.cancel();
+126 ~             }
+    |
+
+warning: `fold-app` (lib) generated 1 warning (run `cargo clippy --fix --lib -p fold-app -- --no-deps` to apply 1 suggestion)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 50.48s

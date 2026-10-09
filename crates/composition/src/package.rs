@@ -133,22 +133,6 @@ pub fn nest(snapshot: &Snapshot, bytes: &[u8], cancel: &Cancel) -> Result<EditBa
             break;
         }
     }
-    for layer in parent
-        .layers
-        .iter()
-        .filter(|l| selected.contains(&l.id) && l.graph_object().is_some())
-    {
-        let Some(Source::Output(source)) = &layer.source else {
-            continue;
-        };
-        if parent.layers.iter().any(|other| {
-            !selected.contains(&other.id)
-                && other.graph_object().is_some()
-                && matches!(&other.source, Some(Source::Output(s)) if s.document == source.document)
-        }) {
-            return Err("Include the other layers sharing this graph before precomposing".into());
-        }
-    }
     if selected.iter().any(|id| parent.locked(*id)) {
         return Err("Unlock descendant layers before precomposing".into());
     }

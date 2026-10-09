@@ -474,9 +474,9 @@ impl Parameters {
                 }
                 start.checked_add(*duration).map_err(|e| e.to_string())?;
                 if let Source::Document { source, .. } = source
-                    && source.output != "video"
+                    && source.output.is_empty()
                 {
-                    return Err("Read requires a video output port".into());
+                    return Err("Read requires a named video output port".into());
                 }
             }
             Self::Solid { rgba }

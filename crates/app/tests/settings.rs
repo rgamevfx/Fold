@@ -79,7 +79,6 @@ fn defaults_initialize_all_providers_and_do_not_retroactively_change_items() {
     let ids: Vec<_> = [
         fold_composition::COMPOSITION,
         fold_compositor::COMPOSITE,
-        fold_motion::MOTION,
         fold_timeline::SEQUENCE,
     ]
     .into_iter()
@@ -141,7 +140,6 @@ fn format_edits_preserve_payload_extensions_envelopes_and_undo() {
     for kind in [
         fold_composition::COMPOSITION,
         fold_compositor::COMPOSITE,
-        fold_motion::MOTION,
         fold_timeline::SEQUENCE,
     ] {
         let registry = packages::builtins();

@@ -1,0 +1,111 @@
+M5 native World placement — explicit spaces, transforms and shared scene geometry
+No native mixed rendered publication, Camera Plane or physical acceptance is claimed.
+
+/tmp/fold-m5-world-tests.log
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 31.29s
+     Running tests/reference.rs (target/debug/deps/reference-1480a2fc2307fb82)
+running 27 tests
+test evaluation_budgets_cancellation_and_invalid_dimensions_are_errors ... ok
+test explicit_fragment_mapping_preserves_protected_inputs_and_artist_layout ... ok
+test execution_failures_report_causes_without_matching_message_text ... ok
+test id_free_source_allocates_native_defaults_and_resolves_forward_references ... ok
+test native_curve_edits_reject_retargeting_locks_and_unsupported_interpolation ... ok
+test override_tracks_sample_parent_time_before_child_clock ... ok
+test artist_unlock_only_clears_selected_flags_and_is_revision_bound_and_undoable ... ok
+test protection_blocks_parent_override_context_and_group_bypasses ... ok
+test animate_creates_native_vector_color_and_rotation_tracks_without_losing_parameter_identity ... ok
+test animated_shape_matches_frozen_values_and_identities_in_every_seek_order ... ok
+test semantic_diff_keeps_unknown_parameters_and_extensions_atomic ... ok
+test scene_and_asset_time_and_cubic_tween_remain_explicit ... ok
+test native_merge_distinguishes_key_identity_parent_deletion_and_contract_changes ... ok
+test semantic_diff_preserves_native_boundaries_and_connection_intent ... ok
+test native_curve_projection_preserves_fractional_times_ids_units_and_extensions ... ok
+test structured_collection_insertion_and_explicit_order_use_one_base ... ok
+test native_merge_orders_independent_insertions_and_keeps_unknown_payloads_atomic ... ok
+test structured_patches_reject_opaque_descent_overlap_and_identity_substitution ... ok
+test fragment_removal_cleans_only_deleted_layout_and_respects_locked_groups ... ok
+test rebase_checks_current_locks_and_merged_dependencies ... ok
+test source_transactions_retain_invalid_buffers_and_commit_one_undo_group ... ok
+test rebase_preserves_artist_keys_layout_and_disjoint_controls ... ok
+test structured_control_and_key_edits_share_candidate_undo_and_rebase ... ok
+test structured_patches_cannot_bypass_locks_scope_or_admission_limits ... ok
+test construction_projection_preserves_expression_edges_and_unresolved_records ... ok
+test asset_clocks_overrides_and_caches_are_isolated_by_instance ... ok
+test capture_frozen_slice_native_evidence ... ok
+test result: ok. 27 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.02s
+     Running tests/spatial_controls.rs (target/debug/deps/spatial_controls-014d91262a17e96c)
+running 2 tests
+test spatial_controls_round_trip_sample_signals_and_preserve_occurrence_identity ... ok
+test invalid_spatial_controls_fail_with_native_operation_context ... ok
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+     Running tests/style.rs (target/debug/deps/style-dec69307b2f3fc13)
+running 2 tests
+test invalid_stroke_width_reports_native_operation_and_wrong_units_fail_types ... ok
+test native_styles_round_trip_share_contours_and_preserve_independent_appearance ... ok
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+     Running tests/text.rs (target/debug/deps/text-b638219e597be861)
+running 13 tests
+test native_outlines_retain_shared_curves_source_associations_and_stable_topology ... ok
+test native_outline_failures_have_operation_context_and_never_publish_partial_geometry ... ok
+test native_text_metrics_animate_at_exact_times_and_keep_glyph_slots ... ok
+test text_reports_unsupported_fonts_missing_glyphs_invalid_metrics_and_budgets ... ok
+test native_text_round_trips_and_shares_one_layout_with_style_outline_and_mesh_consumers ... ok
+test native_extrude_requires_outlined_input_and_explicit_world_placement ... ok
+test native_extrude_rejects_invalid_controls_and_maps_preparation_stops ... ok
+test native_extrude_depth_signal_samples_exact_time_without_changing_topology ... ok
+test native_material_round_trips_animates_and_preserves_solid_topology ... ok
+test native_world_scene_retains_order_shared_solids_materials_and_exact_transforms ... ok
+test native_world_controls_reject_invalid_ranges_and_planar_input ... ok
+test native_extrude_round_trips_retains_metric_solids_and_topology_correspondence ... ok
+test native_material_rejects_unsupported_geometry_and_invalid_surface_controls ... ok
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s
+
+/tmp/fold-m5-world-observe.log
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 55.31s
+     Running tests/agent_observe.rs (target/debug/deps/agent_observe-8a21740d9825198c)
+running 12 tests
+test nonfinite_transformed_bounds_fail_instead_of_serializing_null_measurements ... ok
+test job_cancellation_checks_scope_and_replays_its_original_outcome ... ok
+test runtime_failure_identifies_innermost_operation_and_exact_local_time ... ok
+test observations_keep_styling_per_placement_and_share_geometry_measurements ... ok
+test spatial_observations_publish_active_camera_and_directional_light_controls ... ok
+test asynchronous_observation_retains_its_snapshot_across_artist_edits ... ok
+test candidate_observation_does_not_inspect_or_commit_the_proposal ... ok
+test committed_observations_keep_exact_time_ids_bounds_and_snapshot_provenance ... ok
+test observation_preparation_retains_native_failure_codes_and_ids ... ok
+test native_text_observations_report_font_identity_logical_mappings_and_layout_bounds ... ok
+test native_outline_candidate_observations_retain_curves_and_source_font_provenance ... ok
+test native_extrude_candidate_reports_metric_meshes_regions_and_shared_glyph_provenance ... ok
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.54s
+
+/tmp/fold-m5-world-ui.log
+warning: field `format` is never read
+warning: method `parameters` is never used
+warning: `fold-render` (lib) generated 2 warnings
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 52.24s
+     Running unittests src/lib.rs (target/debug/deps/fold_motion-20d51988a58b02dd)
+running 1 test
+test ui::tests::graph_catalog_creates_valid_nodes_and_layout_gestures_commit_once ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 50 filtered out; finished in 0.02s
+
+/tmp/fold-m5-world-registry.log
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 39.21s
+     Running unittests src/lib.rs (target/debug/deps/fold_motion-b9458616ad65fae2)
+running 2 tests
+test registry::tests::defaults_have_stable_identity_and_mismatched_units_are_rejected ... ok
+test registry::tests::registry_keys_modes_defaults_and_schema_references_are_consistent ... ok
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 21 filtered out; finished in 0.01s
+
+/tmp/fold-m5-world-desktop.log
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 29.86s
+
+/tmp/fold-m5-world-clippy.log
+warning: field `format` is never read
+warning: method `parameters` is never used
+warning: `fold-render` (lib) generated 2 warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 26.06s
+
+/tmp/fold-m5-world-app-clippy.log
+warning: this `if` statement can be collapsed
+warning: `fold-app` (lib) generated 1 warning (run `cargo clippy --fix --lib -p fold-app -- --no-deps` to apply 1 suggestion)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 43.32s

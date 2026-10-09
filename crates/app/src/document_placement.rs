@@ -1,7 +1,7 @@
 //! Cross-feature placement lives in app assembly, never in either peer package.
 use fold_foundation::{DocumentId, ObjectId, Time};
 use fold_media::Cancel;
-use fold_project::{DocumentRef, EditBatch, Mutation, Snapshot};
+use fold_project::{EditBatch, Mutation, Snapshot};
 use fold_timeline::{Clip, Sequence, SourceMedia, Track, TrackKind};
 use serde::{Deserialize, Serialize};
 pub const INSERT: &str = "fold.app.insert-document";
@@ -17,7 +17,9 @@ pub fn insert(snapshot: &Snapshot, args: &[u8], cancel: &Cancel) -> Result<EditB
     if args.at < Time::ZERO {
         return Err("placement time must be nonnegative".into());
     }
-    let info = crate::packages::builtins().output(snapshot, args.source)?;
+    let registry = crate::packages::builtins();
+    let source = registry.default_output(snapshot, args.source)?;
+    let info = registry.output_ref(snapshot, &source)?;
     let target = args.sequence.or_else(|| {
         crate::timeline_workflow::active(snapshot)
             .ok()
@@ -44,7 +46,7 @@ pub fn insert(snapshot: &Snapshot, args: &[u8], cancel: &Cancel) -> Result<EditB
             extensions: Default::default(),
         }
     };
-    let track = Track::new(TrackKind::Video, "Motion / document");
+    let track = Track::new(TrackKind::Video, "Document");
     sequence.clips.push(Clip {
         effects: vec![],
         id: ObjectId::new(),
@@ -52,11 +54,7 @@ pub fn insert(snapshot: &Snapshot, args: &[u8], cancel: &Cancel) -> Result<EditB
         link: None,
         asset: Default::default(),
         info: SourceMedia::Document {
-            source: DocumentRef {
-                document: args.source,
-                output: "video".into(),
-                extensions: Default::default(),
-            },
+            source,
             info: info.clone(),
         },
         start: args.at,

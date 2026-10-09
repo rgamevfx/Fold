@@ -9,19 +9,18 @@ default-run = "fold-cli"
 default = []
 native-probe = ["desktop", "fold-ui/native-probe"]
 gpu = ["fold-render/gpu", "fold-platform/gpu"]
+spatial = ["gpu", "fold-render/spatial"]
 native-video = ["gpu", "fold-render/native-video"]
-desktop = ["native-video", "dep:rfd", "dep:fold-ui", "dep:cpal", "dep:rtrb", "fold-timeline/ui", "fold-compositor/ui", "fold-motion/ui", "fold-composition/ui"]
+desktop = ["native-video", "spatial", "dep:rfd", "dep:fold-ui", "dep:cpal", "dep:rtrb", "fold-timeline/ui", "fold-compositor/ui", "fold-composition/ui", "fold-motion/ui"]
 
 [dependencies]
-fold-composition.workspace = true
 schemars.workspace = true
 sha2 = "0.10"
-png = "0.17.16"
-base64 = "0.22"
-ashpd = { version = "0.11.1", default-features = false, features = ["async-std"] }
+fold-motion.workspace = true
+fold-composition.workspace = true
 pollster = "0.4"
 serde.workspace = true
-serde_json.workspace = true
+serde_json = { workspace = true, features = ["raw_value"] }
 fold-foundation.workspace = true
 fold-color.workspace = true
 tempfile.workspace = true
@@ -31,12 +30,10 @@ fold-render.workspace = true
 fold-platform.workspace = true
 fold-timeline.workspace = true
 fold-compositor.workspace = true
-fold-motion.workspace = true
 fold-ui = { workspace = true, optional = true }
 cpal = { version = "0.15.3", optional = true }
 rtrb = { version = "0.3", optional = true }
 rfd = { version = "0.15", optional = true, default-features = false, features = ["xdg-portal", "async-std"] }
-rquickjs = { version = "0.14.0", default-features = false, features = ["std"] }
 
 [[bin]]
 name = "fold-cli"
@@ -48,10 +45,6 @@ required-features = ["gpu"]
 
 [[example]]
 name = "render_profile"
-required-features = ["gpu"]
-
-[[example]]
-name = "motion_profile"
 required-features = ["gpu"]
 
 [[bin]]
@@ -69,6 +62,5 @@ exr = { version = "=1.74.2", default-features = false }
 [build-dependencies]
 sha2 = "0.10"
 
-[[example]]
-name = "effects_profile"
-required-features = ["gpu"]
+[target.'cfg(target_os = "linux")'.dependencies]
+rustix = { version = "=1.1.5", features = ["net", "process"] }

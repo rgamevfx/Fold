@@ -63,8 +63,7 @@ impl Composition {
             if !matches!(
                 layer.source,
                 Some(fold_platform::image_source::Source::Output(_))
-            ) || layer.graph_children
-                || graph.version == 0
+            ) || graph.version == 0
                 || graph
                     .images
                     .values()

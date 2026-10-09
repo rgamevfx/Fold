@@ -2,7 +2,6 @@
 //! registered output capabilities; this package never imports a creative engine.
 mod automation;
 mod compile;
-pub mod graph;
 pub mod layer;
 mod model;
 pub mod package;

@@ -1,3 +1,4 @@
+mod support;
 use fold_app::{browser, ingest, packages};
 use fold_foundation::{DocumentId, Time};
 use fold_media::Cancel;
@@ -10,7 +11,7 @@ fn edit(project: &mut Project, command: Command) {
 }
 fn create(project: &mut Project, kind: &str) -> DocumentId {
     // Graph providers are layer content, no longer standalone Project creation kinds.
-    if kind == fold_motion::MOTION || kind == fold_compositor::COMPOSITE {
+    if kind == fold_compositor::COMPOSITE {
         let id = DocumentId::new();
         project
             .commit(fold_project::EditBatch {
@@ -148,15 +149,17 @@ fn project_workflow_reuses_assets_and_outputs_and_preserves_history_and_content(
     let mut project = Project::new(32);
     let sequence = create(&mut project, fold_timeline::SEQUENCE);
     let composite = create(&mut project, fold_compositor::COMPOSITE);
-    let motion = create(&mut project, fold_motion::MOTION);
-    let mut authored_motion =
-        fold_motion::Motion::from_document(&project.snapshot().state().documents[&motion]).unwrap();
-    fold_motion::authoring::add_content(&mut authored_motion, "fold.motion.rectangle").unwrap();
+    let image = create(&mut project, fold_compositor::COMPOSITE);
+    let mut authored_image = support::image([1.; 4]);
+    authored_image.nodes[0].parameters = fold_compositor::Parameters::Shape {
+        shape: fold_compositor::Shape::Rectangle,
+        bounds: [0., 0., 64., 36.],
+    };
     project
         .commit(fold_project::EditBatch {
             base: project.snapshot().revision(),
             mutations: vec![fold_project::Mutation::PutDocument(
-                authored_motion.document(motion).unwrap(),
+                authored_image.document(image).unwrap(),
             )],
         })
         .unwrap();
@@ -213,12 +216,12 @@ fn project_workflow_reuses_assets_and_outputs_and_preserves_history_and_content(
     )
     .unwrap();
     assert!(graph.nodes.iter().any(|n| matches!(n.parameters, fold_compositor::Parameters::Read { source: fold_compositor::Source::Asset { asset: id, .. }, .. } if id == asset)));
-    let mut nested = placement(output(motion), sequence);
+    let mut nested = placement(output(image), sequence);
     nested.at = Time::new(1, 1).unwrap();
     edit(&mut project, Command::Place(nested));
     edit(
         &mut project,
-        Command::Place(placement(output(motion), composite)),
+        Command::Place(placement(output(image), composite)),
     );
     let snapshot = project.snapshot();
     let graph = packages::builtins()
@@ -238,20 +241,20 @@ fn project_workflow_reuses_assets_and_outputs_and_preserves_history_and_content(
         graph.nodes.iter().any(
             |node| matches!(node, fold_render::ImageOp::Vector(drawings) if !drawings.is_empty())
         ),
-        "nested motion remains native vector work, not a flattened file"
+        "nested image remains native vector work, not a flattened file"
     );
     assert_eq!(snapshot.state().assets.len(), 1);
     assert!(
         snapshot.state().documents[&sequence]
             .dependencies
             .iter()
-            .any(|r| r.document == motion)
+            .any(|r| r.document == image)
     );
     assert!(
         snapshot.state().documents[&composite]
             .dependencies
             .iter()
-            .any(|r| r.document == motion)
+            .any(|r| r.document == image)
     );
     assert!(
         browser::edit(
@@ -263,7 +266,7 @@ fn project_workflow_reuses_assets_and_outputs_and_preserves_history_and_content(
     assert!(
         browser::edit(
             &snapshot,
-            Command::Delete(Entry::Item(ItemId::Document(motion)))
+            Command::Delete(Entry::Item(ItemId::Document(image)))
         )
         .is_err()
     );
@@ -328,17 +331,17 @@ fn invalid_targets_ranges_locked_tracks_cycles_and_unavailable_providers_are_ato
     let mut project = Project::new(32);
     let sequence = create(&mut project, fold_timeline::SEQUENCE);
     let composite = create(&mut project, fold_compositor::COMPOSITE);
-    let motion = create(&mut project, fold_motion::MOTION);
+    let image = create(&mut project, fold_compositor::COMPOSITE);
     let before = project.snapshot();
     for request in [
         placement(output(sequence), sequence),
         placement(output(DocumentId::new()), sequence),
-        placement(output(motion), motion),
+        placement(output(image), image),
     ] {
         assert!(browser::edit(&before, Command::Place(request)).is_err());
         assert_eq!(project.snapshot().state(), before.state());
     }
-    let mut request = placement(output(motion), sequence);
+    let mut request = placement(output(image), sequence);
     request.at = Time::new(-1, 1).unwrap();
     assert!(browser::edit(&before, Command::Place(request.clone())).is_err());
     request.at = Time::ZERO;
@@ -356,7 +359,7 @@ fn invalid_targets_ranges_locked_tracks_cycles_and_unavailable_providers_are_ato
             )],
         })
         .unwrap();
-    let mut request = placement(output(motion), sequence);
+    let mut request = placement(output(image), sequence);
     request.track = Some(track);
     assert!(
         browser::edit(&project.snapshot(), Command::Place(request))
@@ -454,7 +457,7 @@ fn common_composition_accepts_still_assets_as_full_duration_layers() {
 fn timeline_new_track_placement_and_collision_modes_share_atomic_history() {
     let mut project = Project::new(16);
     let sequence = create(&mut project, fold_timeline::SEQUENCE);
-    let source = create(&mut project, fold_motion::MOTION);
+    let source = create(&mut project, fold_compositor::COMPOSITE);
     let mut request = placement(output(source), sequence);
     request.new_track = true;
     request.duration = Some(Time::new(2, 1).unwrap());
@@ -586,8 +589,6 @@ fn native_drop_imports_and_places_all_targets_in_one_undo() {
         (fold_timeline::SEQUENCE, false),
         (fold_composition::COMPOSITION, false),
         (fold_compositor::COMPOSITE, true),
-        (fold_motion::MOTION, true),
-        (fold_motion::MOTION, false),
     ] {
         let mut project = Project::new(16);
         let target = create(&mut project, kind);
@@ -639,34 +640,6 @@ fn native_drop_imports_and_places_all_targets_in_one_undo() {
                     .iter()
                     .all(|p| p[0] > 0.9 && p[1] < 0.01)
             );
-        }
-        if kind == fold_motion::MOTION {
-            let motion =
-                fold_motion::Motion::from_document(&after.state().documents[&target]).unwrap();
-            let source = motion
-                .graph
-                .nodes
-                .iter()
-                .find(|n| n.kind == "fold.motion.image")
-                .unwrap();
-            if graph {
-                assert_eq!(source.position, [123., 456.]);
-                assert!(
-                    !motion
-                        .graph
-                        .nodes
-                        .iter()
-                        .any(|n| n.kind == "fold.motion.image_card")
-                );
-            } else {
-                assert!(
-                    motion
-                        .graph
-                        .nodes
-                        .iter()
-                        .any(|n| n.kind == "fold.motion.image_card")
-                );
-            }
         }
         if kind == fold_compositor::COMPOSITE {
             let comp = fold_compositor::Composite::from_document(&after.state().documents[&target])
@@ -771,83 +744,4 @@ fn multiple_native_images_are_sequential_on_one_new_timeline_track() {
     assert_eq!(sequence.clips.len(), 2);
     assert_eq!(sequence.clips[0].track, sequence.clips[1].track);
     assert_eq!(sequence.clips[1].start, sequence.clips[0].end().unwrap());
-}
-
-#[test]
-fn motion_card_drop_updates_owning_composition_and_graph_drop_respects_its_lock() {
-    use fold_platform::desktop::{DesktopClient, DesktopCommand};
-    let dir = tempfile::tempdir().unwrap();
-    let path = still(dir.path(), "card.ppm");
-    let mut project = Project::new(16);
-    let root = create(&mut project, fold_composition::COMPOSITION);
-    let add = fold_app::composition_layers::add(
-        &project.snapshot(),
-        &serde_json::to_vec(&serde_json::json!({"document":root,"kind":"motion"})).unwrap(),
-        &Cancel::default(),
-    )
-    .unwrap();
-    project.commit(add).unwrap();
-    let target = project
-        .snapshot()
-        .state()
-        .documents
-        .values()
-        .find(|d| d.type_id == fold_motion::MOTION)
-        .unwrap()
-        .id;
-    let before = project.snapshot();
-    let mut session = fold_app::session::Session::new(project);
-    session.command(DesktopCommand::Browser(Command::ImportAndPlace {
-        paths: vec![path.clone()],
-        placement: placement(PlacementSource::Asset(Default::default()), target),
-    }));
-    wait_for_ingest(&mut session);
-    assert!(
-        session.state().status.is_empty(),
-        "{}",
-        session.state().status
-    );
-    let composition = fold_composition::Composition::from_document(
-        &session.snapshot().unwrap().state().documents[&root],
-    )
-    .unwrap();
-    assert_eq!(composition.layers.len(), 2);
-    assert!(composition.layers.iter().any(|l| l.name == "card.ppm"));
-    session.command(DesktopCommand::Undo);
-    assert_eq!(
-        session.snapshot().unwrap().state().documents,
-        before.state().documents
-    );
-    // Build a locked owning layer and attempt an unconnected graph source drop.
-    let mut project = Project::fork(&before);
-    let mut composition =
-        fold_composition::Composition::from_document(&before.state().documents[&root]).unwrap();
-    composition.layers[0].locked = true;
-    project
-        .commit(fold_project::EditBatch {
-            base: project.snapshot().revision(),
-            mutations: vec![fold_project::Mutation::PutDocument(
-                composition.document(root).unwrap(),
-            )],
-        })
-        .unwrap();
-    let locked = project.snapshot();
-    let mut session = fold_app::session::Session::new(project);
-    let mut request = placement(PlacementSource::Asset(Default::default()), target);
-    request.graph = Some(fold_platform::browser::GraphPlacement {
-        position: [12., 30.],
-        group: None,
-        object: composition.layers[0].graph_object(),
-    });
-    session.command(DesktopCommand::Browser(Command::ImportAndPlace {
-        paths: vec![path],
-        placement: request,
-    }));
-    wait_for_ingest(&mut session);
-    assert!(
-        session.state().status.to_lowercase().contains("lock"),
-        "{}",
-        session.state().status
-    );
-    assert_eq!(session.snapshot().unwrap().state(), locked.state());
 }

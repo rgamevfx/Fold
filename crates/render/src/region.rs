@@ -82,11 +82,14 @@ impl Plan {
                 continue;
             };
             working = working.union(output);
-            if matches!(graph.nodes[id], ImageOp::Shader { .. }) {
+            if matches!(
+                graph.nodes[id],
+                ImageOp::Shader { .. } | ImageOp::Spatial { .. }
+            ) {
                 working = Region::full(dimensions);
             }
             let input = match &graph.nodes[id] {
-                ImageOp::Shader { .. } => Region {
+                ImageOp::Shader { .. } | ImageOp::Spatial { .. } => Region {
                     x: 0,
                     y: 0,
                     width: dimensions[0],
@@ -128,9 +131,7 @@ impl Plan {
                         height: high[1] - low[1],
                     }
                 }
-                ImageOp::Textured { .. } | ImageOp::Baked(_) | ImageOp::BakedTextured { .. } => {
-                    Region::full(dimensions)
-                }
+                ImageOp::Baked(_) => Region::full(dimensions),
                 _ => output,
             };
             for source in graph.nodes[id].inputs() {

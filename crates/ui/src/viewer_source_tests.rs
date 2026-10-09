@@ -38,6 +38,13 @@ fn combined_picker_keyboard_routing_is_independent_and_one_row() {
                         label: String::new(),
                     });
             }
+            workspace.refresh_outputs(|document| {
+                Some(DocumentRef {
+                    document,
+                    output: "video".into(),
+                    extensions: Default::default(),
+                })
+            });
             workspace.record_selection(comp);
             let viewer = workspace.add_viewer(Default::default());
             let other = workspace.add_viewer(Default::default());

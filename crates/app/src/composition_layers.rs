@@ -89,17 +89,7 @@ pub fn add(snapshot: &Snapshot, bytes: &[u8], cancel: &Cancel) -> Result<EditBat
         .ok_or("Missing composition")?;
     let mut composition = Composition::from_document(original)?;
     let id = DocumentId::new();
-    let mut object = None;
     let (mut document, name, info) = match args.kind.as_str() {
-        "motion" => {
-            let mut motion = fold_motion::Motion::new_scene();
-            motion.info = composition.info.clone();
-            object = Some(fold_motion::authoring::scene::create_object(
-                &mut motion,
-                "fold.motion.text",
-            )?);
-            (motion.document(id)?, "MoGraph layer", motion.info)
-        }
         "image" => {
             let solid = Node::new(
                 P::Solid {
@@ -162,13 +152,7 @@ pub fn add(snapshot: &Snapshot, bytes: &[u8], cancel: &Cancel) -> Result<EditBat
         layer.source = Some(Source::Output(reference(id)));
         layer.info = info;
     } else {
-        let mut graph = reference(id);
-        if let Some(object) = object {
-            graph.extensions.insert(
-                fold_composition::graph::OBJECT.into(),
-                serde_json::json!(object),
-            );
-        }
+        let graph = reference(id);
         let layer = Layer::new(name, Some(Source::Output(graph)), info)?;
         composition.layers.insert(0, layer);
     }
@@ -236,82 +220,11 @@ pub fn connect(snapshot: &Snapshot, bytes: &[u8], cancel: &Cancel) -> Result<Edi
     })
 }
 
-/// Edit the shared hierarchy and each graph's object metadata atomically. The
-/// common hierarchy owns these properties; node graphs retain their geometry,
-/// relationships and editable node identities.
+/// Edit the shared hierarchy and provider-owned animation channels atomically.
 pub fn edit(snapshot: &Snapshot, bytes: &[u8], cancel: &Cancel) -> Result<EditBatch, String> {
     let args: fold_composition::package::EditArgs =
         serde_json::from_slice(bytes).map_err(|e| e.to_string())?;
     let mut batch = fold_composition::package::edit(snapshot, bytes, cancel)?;
-    let before = snapshot
-        .state()
-        .documents
-        .get(&args.document)
-        .map(|d| Composition::from_document(d))
-        .transpose()?;
-    let graph_ids: std::collections::BTreeSet<_> = before
-        .iter()
-        .flat_map(|c| &c.layers)
-        .chain(&args.composition.layers)
-        .filter_map(|l| {
-            let Some(Source::Output(source)) = &l.source else {
-                return None;
-            };
-            l.graph_object().map(|_| source.document)
-        })
-        .collect();
-    for graph_id in graph_ids {
-        cancel.check()?;
-        let original = snapshot
-            .state()
-            .documents
-            .get(&graph_id)
-            .ok_or("Missing layer graph")?;
-        if original.type_id != fold_motion::MOTION {
-            return Err("Unsupported object graph provider".into());
-        }
-        let mut motion = fold_motion::Motion::from_document(original)?;
-        let old = motion.clone();
-        let belongs = |l: &&Layer| matches!(&l.source, Some(Source::Output(source)) if source.document == graph_id);
-        let layers: Vec<_> = args.composition.layers.iter().filter(belongs).collect();
-        let removed: std::collections::BTreeSet<_> = before
-            .iter()
-            .flat_map(|c| &c.layers)
-            .filter(belongs)
-            .filter_map(|l| l.graph_object())
-            .filter(|id| !layers.iter().any(|l| l.graph_object() == Some(*id)))
-            .collect();
-        let scene = motion.scene.as_mut().ok_or("Layer graph has no objects")?;
-        scene.objects.retain(|o| !removed.contains(&o.id));
-        for layer in &layers {
-            let Some(object_id) = layer.graph_object() else {
-                continue;
-            };
-            let object = scene
-                .objects
-                .iter_mut()
-                .find(|o| o.id == object_id)
-                .ok_or("Layer graph object is missing")?;
-            object.state = layer.graph_state(&args.composition.layers)?;
-        }
-        scene.objects.sort_by_key(|object| {
-            layers
-                .iter()
-                .position(|l| l.graph_object() == Some(object.id))
-                .unwrap_or(usize::MAX)
-        });
-        if motion != old
-            || original.extensions.get(fold_composition::LAYER_GRAPH)
-                != Some(&serde_json::Value::Bool(true))
-        {
-            let mut document = motion.document(graph_id)?;
-            document.extensions = original.extensions.clone();
-            document
-                .extensions
-                .insert(fold_composition::LAYER_GRAPH.into(), true.into());
-            batch.mutations.push(Mutation::PutDocument(document));
-        }
-    }
     let registry = crate::packages::builtins();
     let mut edited_targets = std::collections::BTreeMap::new();
     for edit in &args.graph_animation {
@@ -330,7 +243,7 @@ pub fn edit(snapshot: &Snapshot, bytes: &[u8], cancel: &Cancel) -> Result<EditBa
         if original.type_id == fold_composition::COMPOSITION {
             return Err("Open the nested composition to edit its keys".into());
         }
-        let allowed = registry.animation_channels(original, layer.graph_object())?;
+        let allowed = registry.animation_channels(original, None)?;
         for channel in &edit.channels {
             if !allowed.iter().any(|c| c.target == channel.target) {
                 return Err("Animation channel does not belong to this layer".into());

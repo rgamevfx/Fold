@@ -67,17 +67,9 @@ impl Channel {
 }
 pub fn catalog() -> Value {
     json!({
-        "operation_schemas":[fold_platform::authoring::reference_schema(serde_json::to_value(schemars::schema_for!(Edit)).expect("Composition edit schema"))],
-        "operations":[
-            {"op":"format","width":500,"height":888,"rate":[25,1],"frames":150},
-            {"op":"layer","layer":"UUID","position":[100,200],"opacity":0.8},
-            {"op":"range","layer":"UUID","start":{"numerator":0,"denominator":1},"end":{"numerator":6,"denominator":1}},
-            {"op":"keyframe","layer":"UUID","channel":"position_y","time":{"numerator":1,"denominator":1},"value":100}
-        ],
-        "create":{"op":"create","id":"NEW_UUID","kind":crate::COMPOSITION,"name":"Composition"},
-        "outputs":["video"],
-        "notes":"Use ordinary batch edit operations. Layer positions are design pixels; time is exact Composition time. Moving both range edges equally moves the source clock; trimming retains it. Keyframe updates preserve key identity/tangents; new keys are Linear. Locks include locked ancestors. Format changes do not retime or resize existing source documents. Graph-owner metadata is synchronized by the application in the same transaction.",
-        "layer_creation":"Use batch place/place_asset for existing sources, or app commands for native graph layers. catalog guide=rust-assets describes fold.app.create-rust-asset. fold.app.add-layer-graph arguments are {document: Composition UUID, kind: motion|composite, layer: optional selected layer UUID}."
+        "operation_schemas": [schemars::schema_for!(Edit)],
+        "outputs": ["video"],
+        "notes": "Layer positions are design pixels; time is exact Composition time. Identities are literal UUIDs. Moving both range edges equally moves the source clock; trimming retains it. Keyframe updates preserve key identity/tangents; new keys are Linear. Locks include locked ancestors. Format changes do not retime or resize existing source documents."
     })
 }
 pub fn author(document: &Document, edits: &[Value]) -> Result<Document, String> {

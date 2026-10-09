@@ -997,6 +997,3 @@ impl PreviewHost {
         Ok(())
     }
 }
-
-#[path = "preview_capture.rs"]
-mod capture;

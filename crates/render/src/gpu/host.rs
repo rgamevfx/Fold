@@ -6,6 +6,11 @@ use std::sync::{
     atomic::{AtomicU64, Ordering},
 };
 
+// Native Vulkan instance startup can crash when entered concurrently on the
+// qualified Mesa host. Keep this short bootstrap critical section shared by
+// headless and desktop creation; no await or rendering occurs under the lock.
+static INSTANCE_CREATION: Mutex<()> = Mutex::new(());
+
 pub(crate) static NEXT_ID: AtomicU64 = AtomicU64::new(1);
 
 pub(crate) struct Image {
@@ -25,7 +30,9 @@ pub(crate) enum AllocationKind {
 fn image_kind(image: &Image) -> AllocationKind {
     if matches!(
         image.texture.format(),
-        wgpu::TextureFormat::Rgba32Float | wgpu::TextureFormat::Rgba16Float
+        wgpu::TextureFormat::Rgba32Float
+            | wgpu::TextureFormat::Rgba16Float
+            | wgpu::TextureFormat::Depth32Float
     ) {
         AllocationKind::Working
     } else {
@@ -40,10 +47,11 @@ struct Pool {
 }
 struct Shared {
     id: u64,
+    instance: wgpu::Instance,
+    adapter: wgpu::Adapter,
     device: wgpu::Device,
     queue: wgpu::Queue,
     budget: u64,
-    textured_format: wgpu::TextureFormat,
     pool: Mutex<Pool>,
     sources: Mutex<super::still::Cache>,
     stopped: Arc<Mutex<Option<String>>>,
@@ -117,12 +125,23 @@ impl Host {
     /// allocations are measured separately; this is not a physical VRAM cap.
     pub const DEFAULT_BUDGET: u64 = 1024 * 1024 * 1024;
 
+    /// Create the native GPU instance through Fold's shared bootstrap boundary.
+    /// Keep adapter/device selection outside this short critical section.
+    pub fn create_instance(
+        descriptor: &wgpu::InstanceDescriptor,
+    ) -> Result<wgpu::Instance, String> {
+        let _creation = INSTANCE_CREATION
+            .lock()
+            .map_err(|_| "GPU instance initialization lock poisoned")?;
+        Ok(wgpu::Instance::new(descriptor))
+    }
+
     /// Construct off the UI thread. No surface or Dear ImGui dependency.
     pub async fn headless(budget: u64) -> Result<(Self, wgpu::AdapterInfo), String> {
-        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
+        let instance = Self::create_instance(&wgpu::InstanceDescriptor {
             backends: wgpu::Backends::VULKAN,
             ..Default::default()
-        });
+        })?;
         let adapter = instance
             .request_adapter(&Default::default())
             .await
@@ -134,46 +153,24 @@ impl Host {
                     & (wgpu::Features::FLOAT32_FILTERABLE
                         | wgpu::Features::TIMESTAMP_QUERY
                         | wgpu::Features::TIMESTAMP_QUERY_INSIDE_ENCODERS
-                        | wgpu::Features::TEXTURE_COMPRESSION_BC
-                        | wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES),
+                        | wgpu::Features::TEXTURE_COMPRESSION_BC),
                 ..Default::default()
             })
             .await
             .map_err(|e| e.to_string())?;
         Ok((
-            Self::from_adapter_device(&adapter, device, queue, budget)?,
+            Self::from_device(instance, adapter, device, queue, budget)?,
             info,
         ))
     }
 
-    /// Preserve full working precision when the native adapter supports blending
-    /// RGBA32F. Other adapters use the portable RGBA16F surface.
-    pub fn from_adapter_device(
-        adapter: &wgpu::Adapter,
-        device: wgpu::Device,
-        queue: wgpu::Queue,
-        budget: u64,
-    ) -> Result<Self, String> {
-        let full_precision = device
-            .features()
-            .contains(wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES)
-            && adapter
-                .get_texture_format_features(wgpu::TextureFormat::Rgba32Float)
-                .flags
-                .contains(wgpu::TextureFormatFeatureFlags::BLENDABLE);
-        let mut host = Self::from_device(device, queue, budget)?;
-        if full_precision {
-            Arc::get_mut(&mut host.0).unwrap().textured_format = wgpu::TextureFormat::Rgba32Float;
-        }
-        Ok(host)
-    }
-    pub(super) fn textured_format(&self) -> wgpu::TextureFormat {
-        self.0.textured_format
-    }
-
     /// The application host transfers error/device-loss handling to this service.
     /// Call once for a device; clones, rather than independent hosts, share it.
+    /// The caller supplies the instance/adapter that created this device and queue.
+    /// Retaining that context lets offscreen adapters use the same GPU ownership.
     pub fn from_device(
+        instance: wgpu::Instance,
+        adapter: wgpu::Adapter,
         device: wgpu::Device,
         queue: wgpu::Queue,
         budget: u64,
@@ -195,10 +192,11 @@ impl Host {
         });
         Ok(Self(Arc::new(Shared {
             id: NEXT_ID.fetch_add(1, Ordering::Relaxed),
+            instance,
+            adapter,
             device,
             queue,
             budget,
-            textured_format: wgpu::TextureFormat::Rgba16Float,
             pool: Mutex::new(Pool {
                 images: vec![],
                 by_kind: [0; 5],
@@ -214,6 +212,14 @@ impl Host {
     }
     pub fn id(&self) -> u64 {
         self.0.id
+    }
+    /// Render adapters borrow this context from the same host as their device.
+    /// No second instance, adapter selection, device or queue is created.
+    pub fn instance(&self) -> &wgpu::Instance {
+        &self.0.instance
+    }
+    pub fn adapter(&self) -> &wgpu::Adapter {
+        &self.0.adapter
     }
     pub fn device(&self) -> &wgpu::Device {
         &self.0.device
@@ -317,7 +323,9 @@ impl Host {
         pool.make_room(bytes, self.0.budget)?;
         let kind = if matches!(
             format,
-            wgpu::TextureFormat::Rgba32Float | wgpu::TextureFormat::Rgba16Float
+            wgpu::TextureFormat::Rgba32Float
+                | wgpu::TextureFormat::Rgba16Float
+                | wgpu::TextureFormat::Depth32Float
         ) {
             AllocationKind::Working
         } else {
@@ -343,13 +351,15 @@ impl Host {
                 | wgpu::TextureUsages::COPY_DST
                 | if matches!(
                     format,
-                    wgpu::TextureFormat::Rgba16Float | wgpu::TextureFormat::Rgba32Float
+                    wgpu::TextureFormat::Rgba16Float
+                        | wgpu::TextureFormat::Rgba32Float
+                        | wgpu::TextureFormat::Depth32Float
                 ) {
                     wgpu::TextureUsages::RENDER_ATTACHMENT
                 } else {
                     wgpu::TextureUsages::empty()
                 }
-                | if compressed {
+                | if compressed || format == wgpu::TextureFormat::Depth32Float {
                     wgpu::TextureUsages::empty()
                 } else {
                     wgpu::TextureUsages::STORAGE_BINDING

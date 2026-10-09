@@ -259,10 +259,6 @@ fn selecting_a_layer_requests_its_graph_without_navigating_the_composition() {
         unreachable!()
     };
     let graph_id = source.document;
-    let object = fold_foundation::ObjectId::new();
-    source
-        .extensions
-        .insert(crate::graph::OBJECT.into(), serde_json::json!(object));
     let mut graph = (*host.project.snapshot().state().documents[&graph_id]).clone();
     graph
         .extensions
@@ -293,7 +289,7 @@ fn selecting_a_layer_requests_its_graph_without_navigating_the_composition() {
         .take_layer_graph()
         .expect("Selecting a layer opens its real graph directly");
     assert_eq!(graph.document(), Some(graph_id));
-    assert_eq!(graph.selection.objects, vec![object]);
+    assert!(graph.selection.objects.is_empty());
     assert_eq!(graph.navigation.last().unwrap().time, navigation[0].time);
     assert_eq!(scoped.state().selection.document, Some(parent));
     assert_eq!(scoped.state().selection.objects, vec![layer]);

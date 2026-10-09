@@ -52,14 +52,6 @@ impl Mailbox {
         self.pending.len()
     }
     fn replace(&mut self, snapshot: Snapshot, demands: Vec<PreviewDemand>) {
-        self.replace_forks(snapshot, demands, &BTreeMap::new());
-    }
-    fn replace_forks(
-        &mut self,
-        snapshot: Snapshot,
-        demands: Vec<PreviewDemand>,
-        forks: &BTreeMap<PanelInstanceId, Snapshot>,
-    ) {
         // Limit ingress before retaining snapshots or allocating a work queue.
         let demands: Vec<_> = demands.into_iter().take(128).collect();
         self.served.retain(|done| demands.contains(done));
@@ -102,10 +94,7 @@ impl Mailbox {
             if !active && !self.served.contains(&demand) {
                 self.pending.insert(
                     (demand.consumer, demand.background),
-                    (
-                        forks.get(&demand.consumer).unwrap_or(&snapshot).clone(),
-                        demand,
-                    ),
+                    (snapshot.clone(), demand),
                 );
             }
         }
@@ -436,19 +425,6 @@ impl PreviewWorker {
         drop(queue);
         self.shared.1.notify_one();
     }
-    pub fn demands_forks(
-        &mut self,
-        snapshot: Snapshot,
-        demands: Vec<PreviewDemand>,
-        forks: BTreeMap<PanelInstanceId, Snapshot>,
-    ) {
-        self.shared
-            .0
-            .lock()
-            .unwrap()
-            .replace_forks(snapshot, demands, &forks);
-        self.shared.1.notify_one();
-    }
     pub fn realtime_consumers(&mut self, consumers: BTreeSet<PanelInstanceId>) {
         self.shared.0.lock().unwrap().realtime = consumers;
     }
@@ -509,33 +485,6 @@ mod tests {
                 channels: Default::default(),
             },
         }
-    }
-    #[test]
-    fn candidate_and_live_demands_keep_their_own_immutable_roots() {
-        let live = fold_project::Project::with_settings(
-            0,
-            [("fixture".into(), serde_json::json!("live"))].into(),
-        )
-        .snapshot()
-        .evaluation();
-        let candidate = fold_project::Project::with_settings(
-            0,
-            [("fixture".into(), serde_json::json!("candidate"))].into(),
-        )
-        .snapshot()
-        .evaluation();
-        let mut queue = Mailbox::default();
-        let a = demand(1, 1, 0, false);
-        let mut b = demand(2, 1, 0, false);
-        b.key.content = "candidate".into();
-        queue.replace_forks(live, vec![a, b], &[(PanelInstanceId(2), candidate)].into());
-        let (root, key, _, _) = queue.next().unwrap();
-        assert_eq!(key.content, "scene");
-        assert_eq!(root.state().settings["fixture"], "live");
-        queue.finish();
-        let (root, key, _, _) = queue.next().unwrap();
-        assert_eq!(key.content, "candidate");
-        assert_eq!(root.state().settings["fixture"], "candidate");
     }
     #[test]
     fn spatial_changes_cancel_only_the_viewer_that_moved() {

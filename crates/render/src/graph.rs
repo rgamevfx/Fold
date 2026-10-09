@@ -66,15 +66,6 @@ pub enum ImageOp {
         program: std::sync::Arc<crate::shader::Program>,
     },
     Baked(std::sync::Arc<crate::baked::Texture>),
-    BakedTextured {
-        batch: std::sync::Arc<crate::baked::Batch>,
-        driver: Option<ImageId>,
-    },
-    Textured {
-        input: ImageId,
-        driver: ImageId,
-        draw: std::sync::Arc<crate::textured::Draw>,
-    },
     /// Spatial source adapter. Decoders may still require a full native frame;
     /// downstream operators receive only this region at the requested scale.
     WindowedSource {
@@ -93,6 +84,12 @@ pub enum ImageOp {
     },
     /// Immutable native paths in output-pixel coordinates, ordered back to front.
     Vector(std::sync::Arc<Vec<crate::vector::Drawing>>),
+    /// Immutable world scene rendered on the shared GPU. The binding retains
+    /// camera, revision and exact scene time; no feature document or ECS escapes.
+    Spatial {
+        scene: std::sync::Arc<crate::spatial::Scene>,
+        binding: crate::spatial::Binding,
+    },
     Video {
         source: fold_media::VideoSource,
         time: fold_foundation::Time,
@@ -216,6 +213,7 @@ impl ImageOp {
             | Self::Video { .. }
             | Self::VideoInput { .. }
             | Self::Vector(_) => [None, None, None],
+            Self::Spatial { .. } => [None, None, None],
             Self::Unary { input, .. }
             | Self::Resample { input, .. }
             | Self::ColorGrade { input, .. }
@@ -225,9 +223,7 @@ impl ImageOp {
             | Self::Gaussian { input, .. }
             | Self::Blur { input, .. }
             | Self::Grade { input, .. } => [Some(input), None, None],
-            Self::Textured { input, driver, .. } => [Some(input), Some(driver), None],
             Self::Baked(_) => [None, None, None],
-            Self::BakedTextured { driver, .. } => [driver, None, None],
             Self::Merge { first, second, .. } => [Some(first), Some(second), None],
             Self::Mask { input, mask } => [Some(input), Some(mask), None],
             Self::Over {
@@ -276,15 +272,6 @@ impl RenderGraph {
                     for input in inputs {
                         *input += offset;
                     }
-                }
-                ImageOp::BakedTextured { driver, .. } => {
-                    if let Some(id) = driver {
-                        *id += offset;
-                    }
-                }
-                ImageOp::Textured { input, driver, .. } => {
-                    *input += offset;
-                    *driver += offset;
                 }
                 ImageOp::Shuffle { first, second, .. } => {
                     *first += offset;
@@ -509,10 +496,17 @@ pub(crate) fn validate(graph: &RenderGraph, aces: bool) -> Result<usize, String>
                 }
                 source.info.frame_at(time)?;
             }
-            ImageOp::Textured { ref draw, .. } => draw.validate()?,
             ImageOp::Baked(ref texture) => texture.validate()?,
-            ImageOp::BakedTextured { ref batch, .. } => batch.validate()?,
             ImageOp::Vector(ref drawings) => crate::vector::validate_working(drawings, aces)?,
+            ImageOp::Spatial {
+                ref scene,
+                ref binding,
+            } => {
+                if binding.dimensions != [graph.width, graph.height] {
+                    return Err("Spatial source dimensions differ from graph".into());
+                }
+                scene.validate(binding)?;
+            }
             ImageOp::Over { .. } | ImageOp::Media(_) => {}
         }
     }
@@ -555,7 +549,9 @@ pub(crate) fn input_processors(
             } else {
                 op
             };
-            if let ImageOp::VideoInput { space, .. }
+            if matches!(op, ImageOp::Spatial { .. }) {
+                Some(fold_color::LINEAR_SRGB)
+            } else if let ImageOp::VideoInput { space, .. }
             | ImageOp::Exr {
                 space: Some(space), ..
             } = op
@@ -739,35 +735,8 @@ pub(crate) fn evaluate(
                 {
                     return Err("Baked texture color configuration changed; rebuild".into());
                 }
-                pixels = crate::baked::fullscreen(texture.clone(), [graph.width, graph.height])
-                    .rasterize(None, graph.width, graph.height, cancel, aces)?;
-            }
-            ImageOp::BakedTextured { ref batch, driver } => {
-                if batch.textures.iter().any(|t| {
-                    t.aces != aces
-                        || t.config.as_deref()
-                            != config.map(|c| c.identity().content_sha256.as_str())
-                }) {
-                    return Err("Baked texture color configuration changed; rebuild".into());
-                }
-                pixels =
-                    batch.rasterize(driver.map(input), graph.width, graph.height, cancel, aces)?;
-            }
-            ImageOp::Textured {
-                input: source,
-                driver,
-                ref draw,
-            } => {
                 drop(pixels);
-                pixels = crate::textured::rasterize(
-                    draw,
-                    input(source),
-                    input(driver),
-                    graph.width,
-                    graph.height,
-                    cancel,
-                    aces,
-                )?;
+                pixels = texture.sample([graph.width, graph.height], cancel)?;
             }
             ImageOp::Vector(ref drawings) => {
                 // Raster surface + resulting float pixels coexist; do not reserve
@@ -778,6 +747,9 @@ pub(crate) fn evaluate(
                 drop(pixels);
                 pixels =
                     crate::vector::rasterize(drawings, graph.width, graph.height, cancel, aces)?;
+            }
+            ImageOp::Spatial { .. } => {
+                return Err("Spatial image sources require the qualified GPU renderer".into());
             }
             ImageOp::Media(ref source) => {
                 if aces {

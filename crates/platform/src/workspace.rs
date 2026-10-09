@@ -136,13 +136,6 @@ impl EditorInstance {
             };
         }
     }
-    pub fn output(&self) -> Option<DocumentRef> {
-        Some(DocumentRef {
-            document: self.document()?,
-            output: "video".into(),
-            extensions: Default::default(),
-        })
-    }
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ViewerBinding {
@@ -205,6 +198,9 @@ impl Default for ViewerInstance {
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Workspace {
+    /// Derived provider metadata, refreshed by the host and never persisted.
+    #[serde(skip)]
+    outputs: BTreeMap<DocumentId, DocumentRef>,
     pub version: u32,
     /// Canonical project path supplied by the host, not a document name.
     pub project: String,
@@ -238,6 +234,7 @@ pub struct Workspace {
 impl Default for Workspace {
     fn default() -> Self {
         Self {
+            outputs: BTreeMap::new(),
             version: 4,
             project: String::new(),
             panels: Default::default(),
@@ -259,6 +256,28 @@ impl Default for Workspace {
     }
 }
 impl Workspace {
+    /// Refresh default output identities for all navigable editor locations.
+    /// Keep references even when their metadata is invalid so consumers report
+    /// the provider error. Absence means there is no declared image output.
+    pub fn refresh_outputs(&mut self, resolve: impl Fn(DocumentId) -> Option<DocumentRef>) {
+        self.outputs = self
+            .editors
+            .values()
+            .chain(self.inspector_lock.iter().map(|(_, editor)| editor))
+            .flat_map(|editor| editor.navigation.iter().map(|location| location.document))
+            .collect::<std::collections::BTreeSet<_>>()
+            .into_iter()
+            .filter_map(|document| {
+                resolve(document)
+                    .filter(|output| output.document == document)
+                    .map(|output| (document, output))
+            })
+            .collect();
+    }
+    pub fn output(&self, editor: &EditorInstance) -> Option<DocumentRef> {
+        self.outputs.get(&editor.document()?).cloned()
+    }
+
     /// Rebind converted documents without changing selection, local clocks or layout.
     pub fn refresh_document_types(&mut self, snapshot: &fold_project::Snapshot) {
         for editor in self
@@ -342,7 +361,7 @@ impl Workspace {
         let viewer = self.viewers.get(&id)?;
         match &viewer.binding {
             ViewerBinding::Pinned(output) => Some(output.clone()),
-            ViewerBinding::Linked => self.editors.get(&self.linked_editor(id)?)?.output(),
+            ViewerBinding::Linked => self.output(self.editors.get(&self.linked_editor(id)?)?),
             ViewerBinding::Unbound => None,
         }
     }
@@ -424,7 +443,7 @@ impl Workspace {
         let mut candidates = self
             .editors
             .iter()
-            .filter(|(_, e)| e.output().as_ref() == Some(&output));
+            .filter(|(_, e)| self.output(e).as_ref() == Some(&output));
         let editor = candidates
             .next()
             .filter(|_| candidates.next().is_none())
@@ -465,7 +484,8 @@ impl Workspace {
         } else {
             v.editor
         }?;
-        (self.editors.get(&editor)?.output() == self.resolve(viewer)).then_some(editor)
+        let output = self.output(self.editors.get(&editor)?)?;
+        (Some(output) == self.resolve(viewer)).then_some(editor)
     }
     pub fn inspector_editor(&self) -> Option<PanelInstanceId> {
         if let Some((id, _)) = &self.inspector_lock {
@@ -502,7 +522,7 @@ impl Workspace {
         let output = self
             .editors
             .get(&editor)
-            .and_then(EditorInstance::output)
+            .and_then(|editor| self.output(editor))
             .ok_or("This editor has no document output")?;
         let candidates: Vec<_> = self
             .viewers
@@ -547,7 +567,7 @@ impl Workspace {
             .iter()
             .filter(|(id, _)| {
                 self.editor_for_viewer(**id) == Some(editor)
-                    && self.resolve(**id) == binding.output()
+                    && self.resolve(**id) == self.output(binding)
             })
             .collect();
         let time = if let Some((_, viewer)) = candidates
@@ -623,6 +643,7 @@ impl Workspace {
     /// Portable panel arrangement: no project targets, selections, clocks or locks.
     pub fn preset(&self) -> Self {
         let mut preset = self.clone();
+        preset.outputs.clear();
         preset.project.clear();
         preset.preset_name = None;
         preset.inspector_lock = None;
@@ -701,6 +722,15 @@ impl Workspace {
 }
 
 #[cfg(test)]
+fn test_output(document: DocumentId) -> Option<DocumentRef> {
+    Some(DocumentRef {
+        document,
+        output: "video".into(),
+        extensions: Default::default(),
+    })
+}
+
+#[cfg(test)]
 #[path = "workspace_group_tests.rs"]
 mod group_tests;
 #[path = "workspace_migration.rs"]
@@ -731,7 +761,8 @@ mod tests {
         });
         let b = w.add_viewer(Default::default());
         assert_eq!(w.monitored_viewer, Some(a));
-        let restored = Workspace::decode(&serde_json::to_vec(&w).unwrap(), "").unwrap();
+        let mut restored = Workspace::decode(&serde_json::to_vec(&w).unwrap(), "").unwrap();
+        restored.refresh_outputs(test_output);
         assert!(!restored.viewers[&a].playing);
         assert!(restored.viewers[&a].looping);
         assert_eq!(
@@ -776,6 +807,7 @@ mod tests {
         assert_ne!(panel, editor);
         assert_ne!(panel, viewer);
         let mut restored = Workspace::decode(&serde_json::to_vec(&w).unwrap(), &w.project).unwrap();
+        restored.refresh_outputs(test_output);
         assert_eq!(restored.panel("foreign.project-panel"), panel);
         let next = restored.panel("another-panel");
         assert!(next.0 > viewer.0);
@@ -794,10 +826,12 @@ mod tests {
             .get_mut(&a)
             .unwrap()
             .bind(location(root, Time::new(7, 24).unwrap()));
+        w.refresh_outputs(test_output);
         w.editors
             .get_mut(&b)
             .unwrap()
             .bind(location(root, Time::ZERO));
+        w.refresh_outputs(test_output);
         w.record_selection(a);
         let x = w.add_viewer(ViewerInstance {
             binding: ViewerBinding::Linked,
@@ -805,13 +839,14 @@ mod tests {
             ..Default::default()
         });
         let y = w.add_viewer(ViewerInstance {
-            binding: ViewerBinding::Pinned(w.editors[&b].output().unwrap()),
+            binding: ViewerBinding::Pinned(w.output(&w.editors[&b]).unwrap()),
             ..Default::default()
         });
         w.editors
             .get_mut(&a)
             .unwrap()
             .navigate(location(nested, Time::new(1, 48).unwrap()));
+        w.refresh_outputs(test_output);
         w.focused_editor = Some(a);
         w.inspector_viewer = Some(x);
         w.viewers.get_mut(&x).unwrap().time = Time::new(7, 48).unwrap();
@@ -833,7 +868,8 @@ mod tests {
         assert!(matches!(w.viewers[&x].binding, ViewerBinding::Pinned(_)));
         assert_eq!(w.resolve(x).unwrap().document, root);
         let bytes = serde_json::to_vec(&w).unwrap();
-        let restored = Workspace::decode(&bytes, &w.project).unwrap();
+        let mut restored = Workspace::decode(&bytes, &w.project).unwrap();
+        restored.refresh_outputs(test_output);
         assert_eq!(restored.resolve(x), w.resolve(x));
         assert!(Workspace::decode(&bytes, "/different.fold").is_err());
     }

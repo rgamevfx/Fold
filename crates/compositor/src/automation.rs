@@ -76,20 +76,20 @@ enum Edit {
     Layout,
 }
 pub fn catalog() -> Value {
-    fold_platform::authoring::examples(json!({"operations":[
-        {"op":"create_node","id":"$node","parameters":{"GaussianBlur":{"size":[5,5],"edges":"Clamp"}},"inputs":{"image":"$source"}},
-        {"op":"insert","node":"$target","input":"image","modifier":"$modifier","modifier_input":"image"},
-        {"op":"duplicate","node":"$node","id":"$copy"},
-        {"op":"replace","node":"$node","parameters":{"Grade":{"gain":[1,1,1]}}},
-        {"op":"layout_nodes","nodes":["$a","$b"],"origin":[0,0]},
-        {"op":"add","id":"$node","parameters":{"Solid":{"rgba":[0.2,0.3,0.4,1]}}},
-        {"op":"node","node":"$node","value":{"parameters":{"Solid":{"rgba":[1,0,0,1]}}}},
-        {"op":"input_color","node":"$read","space":"Linear Rec.709 (sRGB)"},
-        {"op":"connect","source":"$source","node":"$node","input":"image"},
-        {"op":"disconnect","node":"$node","input":"image"},
-        {"op":"remove","nodes":["$node"]},{"op":"output","node":"$node"},
+    json!({"operations":[
+        {"op":"create_node","id":"97f4a7c0-804d-5452-a10a-38f9af9e35c8","parameters":{"GaussianBlur":{"size":[5,5],"edges":"Clamp"}},"inputs":{"image":"45fec05e-da75-57de-bb23-335187db0a78"}},
+        {"op":"insert","node":"eae6c19d-d2ed-520a-8790-d672c729eebc","input":"image","modifier":"cb386cc1-79f7-5e4a-ad9f-684f6b697e89","modifier_input":"image"},
+        {"op":"duplicate","node":"97f4a7c0-804d-5452-a10a-38f9af9e35c8","id":"62b06dd9-6e65-5266-a403-e3448b90de6d"},
+        {"op":"replace","node":"97f4a7c0-804d-5452-a10a-38f9af9e35c8","parameters":{"Grade":{"gain":[1,1,1]}}},
+        {"op":"layout_nodes","nodes":["93da3047-4efc-5d39-ae9d-84026511cbac","4e297ef5-0a71-54df-b42d-aee60642b1e8"],"origin":[0,0]},
+        {"op":"add","id":"97f4a7c0-804d-5452-a10a-38f9af9e35c8","parameters":{"Solid":{"rgba":[0.2,0.3,0.4,1]}}},
+        {"op":"node","node":"97f4a7c0-804d-5452-a10a-38f9af9e35c8","value":{"parameters":{"Solid":{"rgba":[1,0,0,1]}}}},
+        {"op":"input_color","node":"1b2d072f-52b3-5124-93d3-569a8da76eaa","space":"Linear Rec.709 (sRGB)"},
+        {"op":"connect","source":"45fec05e-da75-57de-bb23-335187db0a78","node":"97f4a7c0-804d-5452-a10a-38f9af9e35c8","input":"image"},
+        {"op":"disconnect","node":"97f4a7c0-804d-5452-a10a-38f9af9e35c8","input":"image"},
+        {"op":"remove","nodes":["97f4a7c0-804d-5452-a10a-38f9af9e35c8"]},{"op":"output","node":"97f4a7c0-804d-5452-a10a-38f9af9e35c8"},
         {"op":"info","value":{"width":960,"height":540,"rate":[24,1],"frames":120}},{"op":"layout"}
-    ],"effect_commands":[{"command":"fold.compositor.create-effect","arguments":{"id":"$definition","preset":"Glow"}}],
+    ],"effect_commands":[{"command":"fold.compositor.create-effect","arguments":{"id":"fb2f30e8-eb14-5186-9c28-8bd23ab2d50e","preset":"Glow"}}],
     "effect_presets":["CustomEffect","Glow","Dissolve","CircularWipe","FilmLook","Grain"],
     "effect_contract":{"image_stack_inputs":["source"],"transition_inputs":["outgoing","incoming"],"instance_values":"Stable promoted control IDs map to scalar/vector/color component arrays; per-instance animation uses the host clock.","gpu":"Shader definitions require GPU execution; loop-free WGSL only. Native graph operators implement convolution kernels."},
     "parameter_examples":[
@@ -100,10 +100,10 @@ pub fn catalog() -> Value {
         {"Solid":{"rgba":[0,0,0,1]}},{"GaussianBlur":{"size":[5,5],"edges":"Clamp"}},
         {"Composite":{"mode":"Over"}},"Output",{"Grade":{"gain":[1,1,1]}},
         {"Transform":{"translate":[0,0],"scale":[1,1],"opacity":1}},
-        {"Read":{"source":{"Document":{"source":{"document":"$motion","output":"video"},"info":{"width":960,"height":540,"rate":[24,1],"frames":120}}},"start":{"numerator":0,"denominator":1},"source_start":{"numerator":0,"denominator":1},"duration":{"numerator":5,"denominator":1}}},
+        {"Read":{"source":{"Document":{"source":{"document":"c09727f2-5ea1-5380-9457-49c8f088923a","output":"video"},"info":{"width":960,"height":540,"rate":[24,1],"frames":120}}},"start":{"numerator":0,"denominator":1},"source_start":{"numerator":0,"denominator":1},"duration":{"numerator":5,"denominator":1}}},
         {"Shuffle":{"mappings":[{"destination":"rgba.red","source":{"A":"diffuse.red"}},{"destination":"rgba.green","source":{"A":"diffuse.green"}},{"destination":"rgba.blue","source":{"A":"diffuse.blue"}},{"destination":"rgba.alpha","source":{"A":"diffuse.alpha"}}]}}
-    ],"notes":"node merges parameters/animation/effect/position while retaining extensions. input_color sets a Read's per-use OCIO input space; null restores the asset/default interpretation. EXR Read color_layers selects which named RGB layers receive that transform. Reusable effects use publish with {interface:{version,images,controls},bindings:[{control,node,property}]}. Instantiate with Instance {instance:{id,definition,version,values,animation,enabled},images:[stable input IDs]}. shader_interface {node,settings,renames,remove} performs explicit port migration; node patches cannot change Shader ports. Dynamic sockets are returned by query.node.",
-    "operators":crate::OPERATORS.iter().map(|o|json!({"id":o.id,"version":o.version,"inputs":(0..o.inputs.len()).map(|i|json!({"id":o.input_key(i),"type":format!("{:?}",o.inputs[i])})).collect::<Vec<_>>(),"output":o.output_key()})).collect::<Vec<_>>()}))
+    ],"notes":"node merges parameters/animation/effect/position while retaining extensions. input_color sets a Read's per-use OCIO input space; null restores the asset/default interpretation. EXR Read color_layers selects which named RGB layers receive that transform. Reusable effects use publish with {interface:{version,images,controls},bindings:[{control,node,property}]}. Instantiate with Instance {instance:{id,definition,version,values,animation,enabled},images:[stable input IDs]}. shader_interface {node,settings,renames,remove} performs explicit port migration; node patches cannot change Shader ports. Provider node queries return dynamic sockets.",
+    "operators":crate::OPERATORS.iter().map(|o|json!({"id":o.id,"version":o.version,"inputs":(0..o.inputs.len()).map(|i|json!({"id":o.input_key(i),"type":format!("{:?}",o.inputs[i])})).collect::<Vec<_>>(),"output":o.output_key()})).collect::<Vec<_>>()})
 }
 pub fn inspect(d: &Document) -> Result<Value, String> {
     encode(Composite::from_document(d)?)

@@ -1,0 +1,71 @@
+Camera Plane conversion budget and boundary union — 8 October 2026
+
+Status: incomplete; this is failure evidence, not Camera Plane acceptance.
+
+User authorized raising the conversion work limit. Default Motion rendering
+conversion_steps changed from 1,000,000 to 2,000,000. Evaluation budgets,
+geometry limits, cancellation and pixel tolerances are unchanged.
+
+The current partition implementation cancels exactly matching reversed triangle
+edges, extracts directed boundary cycles, and uses the shared nonzero-fill
+tessellator to rebuild each paint region. This removes the previously observed
+first failing sample but is insufficient to qualify typography.
+
+Commands use CARGO_BUILD_JOBS=2 CARGO_INCREMENTAL=0
+CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0.
+
+cargo test -p fold-render --test planar_mesh -p fold-motion --test text
+  --test spatial_controls --locked
+Log: /tmp/fold-plane-budget-cpu.log
+Exit 101. Spatial controls: 5 passed. Text: 26 passed, 1 failed.
+camera_plane_preparation_preserves_text_paths_paint_snapshot_and_pass_order
+now completes preparation but fails the f32 cross-product facing assertion at
+crates/motion/tests/text.rs:2366. Production chooses winding with f64 arithmetic
+on published f32 positions; the precise mismatch still needs investigation.
+The combined command stops before executing planar_mesh.
+
+cargo test -p fold-app --features spatial --test motion_spatial camera_plane
+  --locked -- --ignored --nocapture
+Log: /tmp/fold-plane-budget-gpu.log
+Exit 101. 2 passed, 1 failed, 7 filtered out; runtime 7.83 seconds.
+NVIDIA GeForce GTX 1070, driver 580.173.02, Vulkan, RGBA16F, MSAA off.
+Rectangle Fill/Stroke: all four alpha pairs report zero incorrect pixels.
+Native Camera Plane / World analytic depth and registered-output test passes.
+Typography: (480,123) is [0.75,0,0,0.75], expected [0.5,0,0,0.5].
+Oracle uses uniform 3x3 Screen neighborhoods and unchanged tolerance 0.002.
+Text/Outline equality and held-frame assertions are not reached.
+
+No physical artist acceptance or complete M3/M4/M5 gate is claimed.
+
+Separate cargo test -p fold-render --test planar_mesh --locked passes all five
+tests (1.28 seconds), including independent region coverage, typed stops/retry
+and repeated-glyph bounded work. Log: /tmp/fold-plane-budget-planar.log.
+rustfmt --check --edition 2024 crates/motion/src/rendering.rs and
+git diff --check pass. No full workspace or Clippy rerun in this iteration.
+
+Follow-up: triangle-facing oracle precision
+The failing published f32 coordinates are:
+[-0.16836247, 1.1969485, 2.9210024]
+[-0.16659611, 1.2007995, 2.9202323]
+[-0.16174327, 1.2113794, 2.9181163]
+with camera-facing normal [0, 0.19611613, 0.9805807].
+Computing the cross product from these exact f32 values in f64 gives positive
+facing 3.727570933737272e-13; f32 product cancellation reverses the sign.
+The CPU test now uses f64 arithmetic on published positions, retaining the
+strict zero threshold. No production geometry or GPU pixel tolerance changed.
+Original failing run: /tmp/fold-plane-facing-probe.log.
+The full focused command above now passes 5 spatial controls, 27 text tests,
+and 5 planar mesh tests. Log: /tmp/fold-plane-facing-fixed.log.
+
+Remaining GPU diagnosis: /tmp/fold-plane-union-probe.log.
+The actual native GPU test still fails at (480,123). Projected fill triangle 957
+covers the sample before and after 1/256-pixel snapping. Adjacent skinny triangle
+958 reverses projected orientation after snapping; triangle 960 additionally
+covers the sample after snapping. This establishes numerical raster instability
+in the current partition mesh even after boundary union. Snapping is a diagnostic
+simulation, not a production quantization change or a complete GPU model.
+Temporary DEBUG-union test logging removed after capturing the trace.
+The partition requires further repair; retained-frame assertions remain unreached.
+Focused cargo clippy -p fold-motion --test text --locked passes with an existing
+fold-platform too_many_arguments warning; /tmp/fold-plane-facing-clippy.log.
+Formatting and whitespace checks pass; both temporary diagnostic tags are absent.

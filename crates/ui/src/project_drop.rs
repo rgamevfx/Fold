@@ -43,7 +43,7 @@ pub fn place(
     track: Option<ObjectId>,
     at: Time,
 ) {
-    let source = match entry.source() {
+    let source = match entry.source(|id| host.default_output(id)) {
         Ok(source) => source,
         Err(error) => {
             host.command(DesktopCommand::Notify(error));
@@ -153,7 +153,7 @@ pub fn import_and_place(
     }));
 }
 pub fn place_request(host: &mut dyn DesktopClient, entry: Entry, mut request: Placement) {
-    match entry.source() {
+    match entry.source(|id| host.default_output(id)) {
         Ok(source) => {
             request.source = source;
             host.command(DesktopCommand::Browser(BrowserCommand::Place(request)));

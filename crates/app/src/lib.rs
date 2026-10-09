@@ -1,10 +1,10 @@
 //! Application assembly shared by desktop, headless delivery, and tests.
+pub mod agent;
 pub mod browser;
 mod browser_ingest;
 pub mod color;
 pub mod composition;
 pub mod composition_layers;
-mod timeline_transition;
 pub mod document_placement;
 pub mod ingest;
 pub mod media_workflow;
@@ -16,12 +16,7 @@ pub mod playback;
 pub mod project_panel;
 pub mod session;
 pub mod settings;
+mod timeline_transition;
 pub mod timeline_workflow;
 
 mod read_source;
-
-pub mod automation;
-
-mod image_bake;
-
-mod rust_asset;

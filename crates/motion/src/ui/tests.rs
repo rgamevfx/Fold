@@ -1,24 +1,13 @@
 use super::*;
-use crate::{Motion, authoring as a, fields::Datum};
-use fold_foundation::{DocumentId, Time};
+use fold_foundation::DocumentId;
 use fold_platform::{desktop::*, packages::PackageRegistry};
-use fold_project::{CommittedSnapshot, Project};
-use fold_ui::sdk::{ExtensionUi, Panel, imgui};
-pub(super) struct Host {
-    pub(super) project: Project,
+use fold_project::{CommittedSnapshot, EditBatch, Mutation, Project};
+struct Host {
+    project: Project,
     state: DesktopState,
     registry: PackageRegistry,
-}
-impl Host {
-    pub(super) fn new() -> Self {
-        let mut registry = PackageRegistry::default();
-        crate::package::register(&mut registry).unwrap();
-        Self {
-            project: Project::new(32),
-            state: DesktopState::default(),
-            registry,
-        }
-    }
+    previews: usize,
+    cancels: usize,
 }
 impl DesktopClient for Host {
     fn state(&self) -> &DesktopState {
@@ -27,38 +16,51 @@ impl DesktopClient for Host {
     fn snapshot(&self) -> Option<CommittedSnapshot> {
         Some(self.project.snapshot())
     }
-    fn video_info(&self, document: DocumentId) -> Result<fold_media::VideoInfo, String> {
-        self.registry.output(&self.project.snapshot(), document)
-    }
     fn poll(&mut self) {}
     fn command(&mut self, command: DesktopCommand) {
         match command {
-            DesktopCommand::Extension(request) => {
-                let batch = self
-                    .registry
-                    .stage(&self.project.snapshot(), &request, &Default::default())
-                    .unwrap();
-                self.project.commit(batch).unwrap();
-                self.state.transient = false;
-            }
-            DesktopCommand::PreviewExtension(request) => {
-                let batch = self
-                    .registry
-                    .stage(&self.project.snapshot(), &request, &Default::default())
-                    .unwrap();
-                let mut session = self.project.begin_edit();
-                self.project
-                    .update_edit(&mut session, batch.mutations)
-                    .unwrap();
-                self.state.transient = true;
-            }
-            DesktopCommand::CancelPreviewEdit => self.state.transient = false,
-            DesktopCommand::Navigate(location) => {
-                self.state.selection.document = Some(location.document);
-                self.state.navigation = vec![location];
-            }
             DesktopCommand::Select(selection) => self.state.selection = selection,
-            other => panic!("unexpected test command {other:?}"),
+            DesktopCommand::UnlockControls {
+                document,
+                targets,
+                base,
+            } => {
+                match self.registry.unlock_for_artist(
+                    &self.project.snapshot(),
+                    base,
+                    document,
+                    &targets,
+                ) {
+                    Ok(batch) => {
+                        self.project
+                            .commit_named(batch, "Unlock controls".into())
+                            .unwrap();
+                    }
+                    Err(error) => self.state.status = error,
+                }
+            }
+            DesktopCommand::CancelPreviewEdit => self.cancels += 1,
+            DesktopCommand::PreviewExtension(request) => {
+                if self
+                    .registry
+                    .stage(&self.project.snapshot(), &request, &Default::default())
+                    .is_ok()
+                {
+                    self.previews += 1;
+                }
+            }
+            DesktopCommand::Extension(request) => {
+                match self
+                    .registry
+                    .stage(&self.project.snapshot(), &request, &Default::default())
+                {
+                    Ok(batch) => {
+                        self.project.commit(batch).unwrap();
+                    }
+                    Err(error) => self.state.status = error,
+                }
+            }
+            _ => panic!("unexpected desktop command"),
         }
     }
     fn request_preview(&mut self, _: PreviewKey) {}
@@ -67,1167 +69,1069 @@ impl DesktopClient for Host {
         None
     }
 }
-#[test]
-fn direct_ui_edits_are_one_transaction_and_group_edits_preserve_root_output() {
-    let mut host = Host::new();
-    let mut state = state::State::default();
-    state.create(&mut host);
-    let id = state.document.unwrap();
-    state.change(&mut host, |m| {
-        a::add_content(m, "fold.motion.rectangle").map(Some)
-    });
-    let rectangle = state.selected[0];
-    let root_output = state.motion.as_ref().unwrap().graph.output.clone();
-    let before = host.project.snapshot();
-    for width in [120., 130., 140.] {
-        a::node(state.motion.as_mut().unwrap(), rectangle)
-            .unwrap()
-            .set("width", Datum::Scalar(width));
-        state.preview(&mut host);
-        assert_eq!(host.project.snapshot().revision(), before.revision());
+fn setup() -> Host {
+    let mut registry = PackageRegistry::default();
+    package::register(&mut registry).unwrap();
+    let document = DocumentId::new();
+    let mut project = Project::new(8);
+    project
+        .commit(EditBatch {
+            base: project.snapshot().revision(),
+            mutations: vec![Mutation::PutDocument(
+                registry.create(crate::CONSTRUCTION, document).unwrap(),
+            )],
+        })
+        .unwrap();
+    Host {
+        project,
+        state: DesktopState {
+            selection: Selection {
+                document: Some(document),
+                objects: vec![],
+            },
+            ..Default::default()
+        },
+        registry,
+        previews: 0,
+        cancels: 0,
     }
-    state.commit(&mut host);
-    assert_eq!(
-        host.project.snapshot().revision().0,
-        before.revision().0 + 1
-    );
-    host.project.undo().unwrap();
-    assert_eq!(
-        host.project.snapshot().state().documents,
-        before.state().documents
-    );
-    host.project.redo().unwrap();
+}
+#[test]
+fn gestures_commit_once_cancel_and_keep_source_drafts_across_revision_changes() {
+    let mut host = setup();
+    let mut state = state::State::default();
     state.sync(&mut host);
-    state.change(&mut host, |m| a::group_node(m, rectangle).map(Some));
-    let instance = state.selected[0];
-    let group = state
-        .motion
-        .as_ref()
-        .unwrap()
-        .graph
-        .node(instance)
-        .unwrap()
-        .settings::<crate::nodes::interface::GroupSettings>()
-        .unwrap()
-        .group
-        .unwrap();
-    state.group = Some(group);
-    let mut view = state.view_motion().unwrap();
-    assert!(view.graph.node(rectangle).is_ok());
-    a::node(&mut view, rectangle).unwrap().settings["future-note"] = serde_json::json!("keep");
-    state.replace_view(view);
-    state.commit(&mut host);
-    let saved = Motion::from_document(&host.project.snapshot().state().documents[&id]).unwrap();
-    assert_eq!(saved.graph.output, root_output);
-    assert_eq!(
-        saved.groups[&group].graph.node(rectangle).unwrap().settings["future-note"],
-        "keep"
-    );
-    assert!(crate::evaluation::compile(&saved, Time::ZERO, 64, 64).is_ok());
-}
-
-#[test]
-fn network_keeps_modifier_graph_and_does_not_handle_keyframe_shortcut() {
-    use fold_ui::sdk::graph_canvas::{GraphContext, GraphEvent};
-    let _guard = super::IMGUI_TEST_LOCK.lock().unwrap();
-    let mut host = Host::new();
-    let shared = state::Shared::default();
-    let (group, rectangle) = {
-        let mut state = shared.borrow_mut();
-        state.create(&mut host);
-        state.change(&mut host, |m| {
-            a::add_content(m, "fold.motion.rectangle").map(Some)
-        });
-        let rectangle = state.selected[0];
-        state.change(&mut host, |m| a::group_node(m, rectangle).map(Some));
-        let instance = state.selected[0];
-        graph::Context {
-            state: &mut state,
-            host: &mut host,
-        }
-        .event(GraphEvent::Navigate(Some(instance)))
-        .unwrap();
-        state.change(&mut host, |m| {
-            let node = crate::authoring::node(m, rectangle)?;
-            node.set("width", Datum::Scalar(120.));
-            let mut curve = fold_animation::Curve::default();
-            curve.insert(Time::ZERO, 120.);
-            node.animation.insert("width.0".into(), curve);
-            Ok(Some(rectangle))
-        });
-        (state.group.unwrap(), rectangle)
-    };
-    let before = host.project.snapshot();
-    let document = shared.borrow().document.unwrap();
-    let root = Motion::from_document(&before.state().documents[&document]).unwrap();
-    host.state.navigation.last_mut().unwrap().time = Time::new(1, 2).unwrap();
-    let mut context = imgui::Context::create();
-    context.set_ini_filename(None::<String>).unwrap();
-    context
-        .font_atlas()
-        .try_claim_legacy_renderer()
-        .unwrap()
-        .build();
-    context.io_mut().set_display_size([900., 600.]);
-    context.io_mut().set_delta_time(1. / 60.);
-    let mut canvas = canvas::Canvas {
-        state: shared.clone(),
-        files: Default::default(),
-        canvas: Default::default(),
-        overlay: Default::default(),
-    };
-    for frame in 0..6 {
-        context.io_mut().add_key_event(imgui::Key::I, frame == 3);
-        let ui = context.frame();
-        ui.window("Composition")
-            .focused(true)
-            .size([850., 500.], imgui::Condition::Always)
-            .build(|| {
-                canvas.draw(ExtensionUi {
-                    ui,
-                    host: &mut host,
-                });
-            });
-        context.end_frame();
+    let document = state.document.unwrap();
+    let before = state.construction.clone().unwrap();
+    let draft = state.drafts.get_mut(&document).unwrap();
+    draft.text = "unfinished source".into();
+    draft.dirty = true;
+    let draft_base = draft.base;
+    for value in [220., 240., 260.] {
+        state.construction.as_mut().unwrap().definitions[0].inputs[0].default = Literal::Distance {
+            value,
+            unit: crate::types::Unit::Canvas,
+        };
+        state.preview(&mut host);
     }
-    let after = host.project.snapshot();
-    assert_eq!(after.revision(), before.revision());
-    let edited = Motion::from_document(&after.state().documents[&document]).unwrap();
-    assert_eq!(edited.graph, root.graph);
+    assert_eq!(host.previews, 3);
+    assert_eq!(host.project.snapshot().revision(), draft_base);
+    let changed = state.construction.clone().unwrap();
+    assert!(state.commit(&mut host, changed.clone()));
+    assert_eq!(state.construction.as_ref(), Some(&changed));
+    assert_eq!(state.drafts[&document].text, "unfinished source");
+    assert_eq!(state.drafts[&document].base, draft_base);
+    host.project.undo().unwrap();
+    state.sync(&mut host);
+    assert_eq!(state.construction.as_ref(), Some(&before));
+    state.construction.as_mut().unwrap().definitions[0].inputs[0].default = Literal::Distance {
+        value: 999.,
+        unit: crate::types::Unit::Canvas,
+    };
+    state.preview(&mut host);
+    state.cancel(&mut host);
+    assert_eq!(state.construction.as_ref(), Some(&before));
+    assert!(host.cancels > 0);
+    state.reload_source(&mut host);
+    assert!(!state.drafts[&document].dirty);
     assert_eq!(
-        edited.groups[&group]
-            .graph
-            .node(rectangle)
+        crate::source::parse(&state.drafts[&document].text)
             .unwrap()
-            .animation["width.0"]
-            .keys
-            .len(),
-        1
+            .construction,
+        before
     );
 }
-
 #[test]
-fn nested_composition_opens_at_source_time_and_back_restores_parent_time() {
-    use fold_platform::{panel_context::PanelContext, workspace::Workspace};
-    let mut host = Host::new();
-    let mut state = state::State::default();
-    state.create(&mut host);
-    state.change_scene(&mut host, |m| {
-        a::scene::create_object(m, "fold.motion.rectangle").map(Some)
-    });
-    let parent = state.document.unwrap();
-    super::composition::nest(&mut state, &mut host, false);
-    let layer = state.selected[0];
-    let child = state
-        .motion
-        .as_ref()
-        .unwrap()
-        .graph
-        .node(layer)
-        .unwrap()
-        .settings::<crate::nodes::composition::Settings>()
-        .unwrap()
-        .source
-        .unwrap()
-        .document;
-    state.change_scene(&mut host, |m| {
-        a::composition::set_range(m, layer, Time::new(1, 1).unwrap(), Time::new(6, 1).unwrap())?;
-        Ok(Some(layer))
-    });
-    let parent_time = Time::new(7, 6).unwrap();
-    let mut workspace = Workspace::default();
-    let id = workspace.add_editor(crate::package::PANEL, crate::MOTION);
-    let mut editor = workspace.editors.remove(&id).unwrap();
-    editor.bind(ViewLocation {
-        document: parent,
-        time: parent_time,
-        label: "Parent".into(),
-    });
-    {
-        let mut context = PanelContext::new(&mut host, &mut editor);
-        super::composition::open(&mut state, &mut context, layer).unwrap();
-    }
-    assert_eq!(editor.document(), Some(child));
-    assert_eq!(editor.navigation.len(), 2);
-    assert_eq!(
-        editor.navigation.last().unwrap().time,
-        Time::new(1, 6).unwrap()
-    );
-    assert_eq!(state.document, Some(child));
-    {
-        let mut context = PanelContext::new(&mut host, &mut editor);
-        context.command(DesktopCommand::NavigateBack);
-        state.sync(&mut context);
-    }
-    assert_eq!(editor.document(), Some(parent));
-    assert_eq!(editor.navigation.last().unwrap().time, parent_time);
-    assert_eq!(state.document, Some(parent));
-}
-#[test]
-fn drawing_motion_graph_inspector_and_handles_does_not_mutate_project() {
-    let _guard = super::IMGUI_TEST_LOCK.lock().unwrap();
-    let mut host = Host::new();
-    let state = std::rc::Rc::new(std::cell::RefCell::new(state::State::default()));
-    state.borrow_mut().create(&mut host);
-    state.borrow_mut().change(&mut host, |m| {
-        a::scene::create_object(m, "fold.motion.text").map(Some)
-    });
-    let revision = host.project.snapshot().revision();
-    let mut context = imgui::Context::create();
-    let typography = fold_ui::sdk::typography::Typography::install(&mut context);
+fn native_panels_draw_at_normal_and_narrow_sizes_without_mutation() {
+    let mut host = setup();
+    let document = host.state.selection.document.unwrap();
+    let current = host.project.snapshot();
+    let construction =
+        crate::model::Construction::from_document(&current.state().documents[&document]).unwrap();
+    let height = construction.definitions[0].nodes[0].parameters["height"].id;
+    let animated =
+        crate::keyed::animate(&construction, height, fold_foundation::Time::ZERO).unwrap();
+    host.project
+        .commit(EditBatch {
+            base: current.revision(),
+            mutations: vec![Mutation::PutDocument(animated.document(document).unwrap())],
+        })
+        .unwrap();
+    let before = host.project.snapshot();
+    let shared = Shared::default();
+    let mut editor = Editor(shared.clone(), Default::default(), Default::default());
+    let mut inspector = Inspector(shared);
+    let _guard = UI_TEST_LOCK.lock().unwrap();
+    let mut context = sdk::imgui::Context::create();
     context.set_ini_filename(None::<String>).unwrap();
+    let typography = sdk::typography::Typography::install(&mut context);
+    editor.initialize(&context, Some(&typography));
     context
         .font_atlas()
         .try_claim_legacy_renderer()
         .unwrap()
         .build();
-    context.io_mut().set_display_size([1200., 900.]);
+    context.io_mut().set_display_size([1100., 700.]);
     context.io_mut().set_delta_time(1. / 60.);
-    let mut canvas = canvas::Canvas {
-        state: state.clone(),
-        files: Default::default(),
-        canvas: Default::default(),
-        overlay: Default::default(),
-    };
-    canvas.initialize(&context, Some(&typography));
-    let mut inspector = inspector::Inspector {
-        state: state.clone(),
-    };
-    for frame in 0..24 {
-        let maximized = frame >= 8;
-        let narrow = frame >= 16;
-        let graph_width = if narrow { 170. } else { 850. };
-        context
-            .io_mut()
-            .add_mouse_pos_event([graph_width - 20., 800.]);
-        context.io_mut().set_display_size(if maximized {
-            [1920., 1080.]
+    for (index, width) in [700., 280., 700., 280.].into_iter().enumerate() {
+        host.state.selection.objects = if index < 2 {
+            vec![]
         } else {
-            [1200., 900.]
-        });
+            vec![animated.root.id]
+        };
         let ui = context.frame();
-        ui.window("Motion graph")
-            .position([0., 300.], imgui::Condition::Always)
-            .size([graph_width, 600.], imgui::Condition::Always)
+        ui.window("Motion")
+            .position([0., 0.], sdk::imgui::Condition::Always)
+            .size([width, 700.], sdk::imgui::Condition::Always)
             .build(|| {
-                canvas.draw(ExtensionUi {
+                editor.draw(ExtensionUi {
                     ui,
                     host: &mut host,
-                });
-                if frame % 8 >= 3 {
-                    assert_eq!(ui.scroll_max_x(), 0., "toolbar must fit the panel");
-                }
+                })
             });
-        ui.window("Motion properties")
-            .position([850., 0.], imgui::Condition::Always)
-            .size([350., 900.], imgui::Condition::Always)
+        ui.window("Keys")
+            .position([0., 320.], sdk::imgui::Condition::Always)
+            .size([width, 380.], sdk::imgui::Condition::Always)
+            .build(|| editor.1.draw(ui, &mut host, &mut editor.0.borrow_mut()));
+        ui.window("Inspector")
+            .position([width, 0.], sdk::imgui::Condition::Always)
+            .size(
+                [if width > 500. { 360. } else { 240. }, 700.],
+                sdk::imgui::Condition::Always,
+            )
             .build(|| {
                 inspector.draw(ExtensionUi {
                     ui,
                     host: &mut host,
                 })
             });
-        // Match the shell's two-pass viewer: image first, then append overlay
-        // items to the same window. The saved cursor is below the image.
-        let mut rect = None;
-        ui.window("Viewer")
-            .position([0., 0.], imgui::Condition::Always)
-            .size(
-                if maximized {
-                    [1500., 600.]
-                } else {
-                    [850., 300.]
-                },
-                imgui::Condition::Always,
-            )
-            .build(|| {
-                let size = ui.content_region_avail();
-                rect = Some(fold_ui::sdk::ViewerRect {
-                    editable: true,
-                    image_current: true,
-                    canvas_origin: [0., 0.],
-                    canvas_size: [640., 480.],
-                    origin: ui.cursor_screen_pos(),
-                    size,
-                    dimensions: [640, 240],
-                });
-                ui.dummy(size); // Same layout advance as the preview image.
-            });
-        ui.window("Viewer").build(|| {
-            canvas.draw_viewer_overlay(
-                ExtensionUi {
-                    ui,
-                    host: &mut host,
-                },
-                rect.unwrap(),
-            )
-        });
-        assert!(context.render_legacy().total_vtx_count() > 100);
-    }
-    assert_eq!(host.project.snapshot().revision(), revision);
-    assert_eq!(host.project.snapshot().state().documents.len(), 1);
-    let _: DocumentId = state.borrow().document.unwrap();
-
-    // A popup may disappear before its custom numeric field can report
-    // deactivation. Its preview still commits once, without quantizing a
-    // continuous alignment to the three named presets.
-    let before = host.project.snapshot();
-    {
-        let mut state = state.borrow_mut();
-        let selected = state.selected[0];
-        let mut motion = state.view_motion().unwrap();
-        a::node(&mut motion, selected)
-            .unwrap()
-            .set("alignment", Datum::Scalar(0.375));
-        state.property_editing = true;
-        state.replace_view(motion);
-        state.preview(&mut host);
+        let draw = context.render_legacy();
+        assert!(draw.total_vtx_count() > 0);
     }
     assert_eq!(host.project.snapshot().revision(), before.revision());
-    let ui = context.frame();
-    ui.window("Motion properties").build(|| {
-        inspector.draw(ExtensionUi {
-            ui,
-            host: &mut host,
-        })
-    });
-    drop(context.render_legacy());
-    assert_eq!(
-        host.project.snapshot().revision().0,
-        before.revision().0 + 1
-    );
-    assert!(!state.borrow().editing);
-    let saved = Motion::from_document(
-        &host.project.snapshot().state().documents[&state.borrow().document.unwrap()],
+}
+
+#[test]
+fn graph_rewires_preserve_expression_identity_and_reject_invalid_topology() {
+    use crate::{
+        binding::Binding,
+        expression::{Binary, Expr},
+        model::Reference,
+    };
+    use sdk::graph_canvas::{GraphChange, Socket, WireView};
+    let host = setup();
+    let document = host.state.selection.document.unwrap();
+    let mut before = crate::model::Construction::from_document(
+        &host.project.snapshot().state().documents[&document],
     )
     .unwrap();
-    assert_eq!(
-        saved.graph.node(state.borrow().selected[0]).unwrap().inputs["alignment"],
-        crate::graph::Input::Value(Datum::Scalar(0.375))
-    );
-    host.project.undo().unwrap();
-    assert_eq!(
-        host.project.snapshot().state().documents,
-        before.state().documents
-    );
-}
-
-#[test]
-fn shared_editor_events_keep_motion_batches_atomic_and_selection_plural() {
-    use fold_ui::sdk::graph_canvas::*;
-    let mut host = Host::new();
-    let mut state = state::State::default();
-    state.create(&mut host);
-    state.change(&mut host, |m| {
-        a::add_content(m, "fold.motion.rectangle").map(Some)
-    });
-    let rectangle = state.selected[0];
-    let output = state.motion.as_ref().unwrap().graph.output.node;
-    let before = host.project.snapshot();
-    let mut adapter = graph::Context {
-        state: &mut state,
-        host: &mut host,
+    let definition = before.root.definition;
+    let asset = &mut before.definitions[0];
+    let mut alternate = asset.inputs[0].clone();
+    alternate.id = fold_foundation::ObjectId::new();
+    alternate.name = "Alternate width".into();
+    let alternate_id = alternate.id;
+    asset.inputs.push(alternate);
+    let shape = asset.nodes[0].id;
+    let parameter = asset.nodes[0].parameters.get_mut("width").unwrap();
+    let Binding::Link { mut reference } = parameter.binding().unwrap() else {
+        unreachable!()
     };
-    adapter
-        .event(GraphEvent::Select(vec![rectangle, output]))
-        .unwrap();
-    assert_eq!(adapter.state.selected, vec![rectangle, output]);
-    assert_eq!(
-        adapter.host.state().selection.objects,
-        vec![rectangle, output]
-    );
-    assert!(
-        adapter
-            .validate(&GraphChange::Delete(vec![output]))
-            .is_err()
-    );
-    let original = adapter.state.motion.clone();
-    // Removing a normal node first must not leak if a later deletion is illegal.
-    assert!(
-        adapter
-            .event(GraphEvent::Commit(vec![GraphChange::Delete(vec![
-                rectangle, output
-            ])]))
-            .is_err()
-    );
-    assert_eq!(adapter.state.motion, original);
-    let invalid = GraphChange::Connect(WireView {
-        source: Socket {
-            node: rectangle,
-            key: "content".into(),
-        },
-        target: Socket {
-            node: rectangle,
-            key: "width".into(),
-        },
-    });
-    assert!(adapter.validate(&invalid).is_err());
-    assert_eq!(adapter.state.motion, original);
-    for x in [10., 20., 30.] {
-        adapter
-            .event(GraphEvent::PreviewPositions(vec![(rectangle, [x, 40.])]))
-            .unwrap();
-    }
-    assert_eq!(
-        adapter.host.snapshot().unwrap().revision(),
-        before.revision()
-    );
-    adapter.event(GraphEvent::Cancel).unwrap();
-    assert_eq!(adapter.state.motion, original);
-    adapter
-        .event(GraphEvent::PreviewPositions(vec![(rectangle, [50., 60.])]))
-        .unwrap();
-    adapter.event(GraphEvent::Commit(vec![])).unwrap();
-    assert_eq!(
-        adapter.host.snapshot().unwrap().revision().0,
-        before.revision().0 + 1
-    );
-    host.project.undo().unwrap();
-    state.sync(&mut host);
-    assert_eq!(
-        host.project.snapshot().state().documents,
-        before.state().documents
-    );
-    state.change(&mut host, |m| a::group_node(m, rectangle).map(Some));
-    let instance = state.selected[0];
-    let root_output = state.motion.as_ref().unwrap().graph.output.clone();
-    let before = host.project.snapshot();
-    let mut adapter = graph::Context {
-        state: &mut state,
-        host: &mut host,
-    };
-    let root_key = adapter.graph().key;
-    adapter.event(GraphEvent::Navigate(Some(instance))).unwrap();
-    assert_ne!(adapter.graph().key, root_key);
-    assert!(adapter.graph().has_parent);
-    assert!(adapter.state.selected.is_empty());
-    assert!(adapter.graph().nodes.iter().any(|n| n.id == rectangle));
-    assert_eq!(
-        adapter.host.snapshot().unwrap().revision(),
-        before.revision()
-    );
-    adapter
-        .event(GraphEvent::Commit(vec![GraphChange::Positions(vec![(
-            rectangle,
-            [70., 80.],
-        )])]))
-        .unwrap();
-    assert_eq!(
-        adapter.state.motion.as_ref().unwrap().graph.output,
-        root_output
-    );
-    adapter.event(GraphEvent::Navigate(None)).unwrap();
-    assert_eq!(adapter.graph().key, root_key);
-    assert_eq!(
-        adapter.host.snapshot().unwrap().revision().0,
-        before.revision().0 + 1
-    );
-    host.project.undo().unwrap();
-    assert_eq!(
-        host.project.snapshot().state().documents,
-        before.state().documents
-    );
-}
-
-#[test]
-fn scene_modifier_gestures_commit_once_and_cancel_restores_authored_scene() {
-    let mut host = Host::new();
-    let mut state = state::State::default();
-    state.create(&mut host);
-    state.change_scene(&mut host, |m| {
-        a::scene::create_object(m, "fold.motion.rectangle").map(Some)
-    });
-    let object = state.selected[0];
-    state.change_scene(&mut host, |m| {
-        let group = a::scene::new_modifier_definition(m, true)?;
-        a::scene::add_modifier(m, object, group).map(Some)
-    });
-    let modifier = state.selected[0];
-    let before = host.project.snapshot();
-    for radius in [40., 90., 120.] {
-        a::node(state.motion.as_mut().unwrap(), modifier)
-            .unwrap()
-            .set("radius", Datum::Scalar(radius));
-        state.preview(&mut host);
-        assert_eq!(host.project.snapshot().revision(), before.revision());
-    }
-    state.commit(&mut host);
-    assert_eq!(
-        host.project.snapshot().revision().0,
-        before.revision().0 + 1
-    );
-    host.project.undo().unwrap();
-    assert_eq!(
-        host.project.snapshot().state().documents,
-        before.state().documents
-    );
-    state.sync(&mut host);
-    let original = state.motion.clone();
-    state
-        .motion
-        .as_mut()
-        .unwrap()
-        .scene
-        .as_mut()
-        .unwrap()
-        .objects[0]
-        .visible = false;
-    state.preview(&mut host);
-    state.cancel(&mut host);
-    assert_eq!(state.motion, original);
-    assert_eq!(
-        host.project.snapshot().state().documents,
-        before.state().documents
-    );
-}
-
-#[test]
-fn duplicator_creation_and_wave_toggle_are_separate_undoable_edits() {
-    let mut host = Host::new();
-    let mut state = state::State::default();
-    state.create(&mut host);
-    state.change_scene(&mut host, |m| a::scene::assets::badge(m).map(Some));
-    let source = state.selected[0];
-    state.change_scene(&mut host, |m| {
-        a::scene::assets::duplicate(m, source).map(Some)
-    });
-    let duplicate = state.selected[0];
-    assert!(
-        !state
-            .motion
-            .as_ref()
-            .unwrap()
-            .scene
-            .as_ref()
-            .unwrap()
-            .objects
-            .iter()
-            .find(|o| o.id == source)
-            .unwrap()
-            .visible
-    );
-    state.change_scene(&mut host, |m| {
-        a::scene::assets::attach_copy_wave(m, duplicate)?;
-        Ok(Some(duplicate))
-    });
-    let driver =
-        a::scene::assets::copy_driver(state.motion.as_ref().unwrap(), duplicate, "offset_y")
-            .unwrap();
-    assert!(state.motion.as_ref().unwrap().graph.node(driver).is_ok());
-    host.project.undo().unwrap();
-    state.sync(&mut host);
-    assert_eq!(
-        state
-            .motion
-            .as_ref()
-            .unwrap()
-            .graph
-            .node(duplicate)
-            .unwrap()
-            .inputs["offset_y"],
-        crate::graph::Input::Value(Datum::Scalar(0.))
-    );
-    host.project.undo().unwrap();
-    state.sync(&mut host);
-    assert!(
-        state
-            .motion
-            .as_ref()
-            .unwrap()
-            .graph
-            .node(duplicate)
-            .is_err()
-    );
-    assert!(
-        state
-            .motion
-            .as_ref()
-            .unwrap()
-            .scene
-            .as_ref()
-            .unwrap()
-            .objects
-            .iter()
-            .find(|o| o.id == source)
-            .unwrap()
-            .visible
-    );
-}
-
-#[test]
-fn exposed_count_socket_and_new_group_input_survive_reload_and_undo() {
-    use fold_ui::sdk::graph_canvas::GraphContext;
-    let mut host = Host::new();
-    let mut state = state::State::default();
-    state.create(&mut host);
-    state.change_scene(&mut host, |m| {
-        let source = a::scene::assets::badge(m)?;
-        a::scene::assets::duplicate(m, source).map(Some)
-    });
-    let id = state.selected[0];
-    state.network_object = Some(id);
-    let group = state
-        .motion
-        .as_ref()
-        .unwrap()
-        .graph
-        .node(id)
-        .unwrap()
-        .settings::<crate::nodes::interface::GroupSettings>()
-        .unwrap()
-        .group
-        .unwrap();
-    let before = host.project.snapshot();
-    a::node(state.motion.as_mut().unwrap(), id)
-        .unwrap()
+    let edge_id = reference.id;
+    reference
         .extensions
-        .insert(
-            "fold.motion.input_visibility".into(),
-            serde_json::json!({"count":true}),
-        );
-    state.commit(&mut host);
-    let view = graph::Context {
-        state: &mut state,
-        host: &mut host,
-    }
-    .graph();
-    assert!(
-        view.nodes
-            .iter()
-            .find(|n| n.id == id)
-            .unwrap()
-            .inputs
-            .iter()
-            .any(|p| p.key == "count")
-    );
-    host.project.undo().unwrap();
-    assert_eq!(
-        host.project.snapshot().state().documents,
-        before.state().documents
-    );
-    host.project.redo().unwrap();
-    state.sync(&mut host);
-    let before = host.project.snapshot();
-    let motion = state.motion.as_mut().unwrap();
-    let input = a::add_group_input(motion, group, Datum::Scalar(3.)).unwrap();
-    let key = motion.groups[&group].inputs.last().unwrap().id.clone();
-    motion
-        .groups
-        .get_mut(&group)
+        .insert("vendor".into(), serde_json::json!({"keep":true}));
+    parameter.value = serde_json::to_value(Binding::Expression {
+        expression: Expr::Binary {
+            op: Binary::Multiply,
+            left: Box::new(Expr::Reference { reference }),
+            right: Box::new(Expr::Literal {
+                value: Literal::Scalar { value: 2. },
+            }),
+        },
+    })
+    .unwrap();
+    let view = super::graph::view(&before, document, definition, 0, vec![]).unwrap();
+    let wire = view
+        .wires
+        .iter()
+        .find(|wire| wire.target.node == shape)
         .unwrap()
-        .inputs
-        .last_mut()
-        .unwrap()
-        .name = "Energy".into();
-    state.commit(&mut host);
-    assert!(state.error.is_empty(), "{}", state.error);
-    let saved =
-        Motion::from_document(&host.project.snapshot().state().documents[&state.document.unwrap()])
-            .unwrap();
-    let definition = &saved.groups[&group];
-    assert_eq!(definition.inputs.last().unwrap().name, "Energy");
-    assert_eq!(definition.graph.node(input).unwrap().settings["key"], key);
-    assert!(
-        saved
-            .signature(saved.graph.node(id).unwrap())
-            .unwrap()
-            .0
-            .iter()
-            .any(|p| p.id == key)
-    );
-    host.project.undo().unwrap();
-    assert_eq!(
-        host.project.snapshot().state().documents,
-        before.state().documents
-    );
-}
-
-#[test]
-fn oscillator_creation_is_one_undoable_connection() {
-    let mut host = Host::new();
-    let mut state = state::State::default();
-    state.create(&mut host);
-    state.change_scene(&mut host, |m| {
-        let source = a::scene::assets::badge(m)?;
-        a::scene::assets::duplicate(m, source).map(Some)
-    });
-    let target = state.selected[0];
-    let before = host.project.snapshot();
-    state.change(&mut host, |m| {
-        a::scene::assets::attach_oscillator(m, target, "count").map(Some)
-    });
-    assert!(state.error.is_empty(), "{}", state.error);
-    let driver = state.selected[0];
-    let motion = state.motion.as_ref().unwrap();
-    assert_eq!(
-        a::scene::assets::copy_driver(motion, target, "count"),
-        Some(driver)
-    );
-    let after = host.project.snapshot();
-    assert_eq!(after.revision().0, before.revision().0 + 1);
-    host.project.undo().unwrap();
-    assert_eq!(
-        host.project.snapshot().state().documents,
-        before.state().documents
-    );
-    host.project.redo().unwrap();
-    assert_eq!(
-        host.project.snapshot().state().documents,
-        after.state().documents
-    );
-}
-
-#[test]
-fn color_ramp_wiring_and_stop_edits_are_undoable_and_persistent() {
-    use crate::nodes::color_ramp::{Interpolation, Settings, stop};
-    let mut host = Host::new();
-    let mut state = state::State::default();
-    state.create(&mut host);
-    state.change_scene(&mut host, |m| {
-        let source = a::scene::assets::badge(m)?;
-        a::scene::assets::duplicate(m, source).map(Some)
-    });
-    let target = state.selected[0];
-    let before = host.project.snapshot();
-    state.change(&mut host, |m| {
-        a::scene::assets::attach_color_ramp(m, target, "color").map(Some)
-    });
-    assert!(state.error.is_empty(), "{}", state.error);
-    let ramp = state.selected[0];
-    let wired = host.project.snapshot();
-    state.change(&mut host, |m| {
-        let mut first = stop(0., [1., 0., 0., 0.25]);
-        first
-            .extensions
-            .insert("future".into(), serde_json::json!("keep"));
-        a::scene::assets::set_color_ramp(
-            m,
-            ramp,
-            Settings {
-                stops: vec![
-                    first,
-                    stop(0.4, [0., 1., 0., 0.5]),
-                    stop(1., [0., 0., 1., 1.]),
-                ],
-                interpolation: Interpolation::Stepped,
-            },
-        )?;
-        Ok(Some(ramp))
-    });
-    assert!(state.error.is_empty(), "{}", state.error);
-    let saved =
-        Motion::from_document(&host.project.snapshot().state().documents[&state.document.unwrap()])
-            .unwrap();
-    let group = saved
-        .graph
-        .node(ramp)
-        .unwrap()
-        .settings::<crate::nodes::interface::GroupSettings>()
-        .unwrap()
-        .group
-        .unwrap();
-    let settings = saved.groups[&group]
-        .graph
-        .node(ramp)
-        .unwrap()
-        .settings::<Settings>()
-        .unwrap();
-    assert_eq!(settings.stops.len(), 3);
-    assert_eq!(settings.stops[0].extensions["future"], "keep");
-    host.project.undo().unwrap();
-    assert_eq!(
-        host.project.snapshot().state().documents,
-        wired.state().documents
-    );
-    host.project.undo().unwrap();
-    assert_eq!(
-        host.project.snapshot().state().documents,
-        before.state().documents
-    );
-}
-
-#[test]
-fn scene_drop_is_one_undoable_edit() {
-    let mut host = Host::new();
-    let mut state = state::State::default();
-    state.create(&mut host);
-    state.change_scene(&mut host, |m| a::scene::assets::badge(m).map(Some));
-    let badge = state.selected[0];
-    state.change_scene(&mut host, |m| {
-        a::scene::create_object(m, "fold.motion.path").map(Some)
-    });
-    let path = state.selected[0];
-    let before = host.project.snapshot();
-    state.change_scene(&mut host, |m| {
-        a::scene::place_object(m, path, Some(badge), None, Time::ZERO)?;
-        Ok(Some(path))
-    });
-    assert!(state.error.is_empty(), "{}", state.error);
-    assert_eq!(
-        state
-            .motion
-            .as_ref()
-            .unwrap()
-            .scene
-            .as_ref()
-            .unwrap()
-            .objects
-            .iter()
-            .find(|o| o.id == path)
-            .unwrap()
-            .parent,
-        Some(badge)
-    );
-    host.project.undo().unwrap();
-    assert_eq!(
-        host.project.snapshot().state().documents,
-        before.state().documents
-    );
-}
-
-#[test]
-fn drifting_shapes_action_and_solver_graph_edits_share_undo_history() {
-    let mut host = Host::new();
-    let mut state = state::State::default();
-    state.create(&mut host);
-    state.change_scene(&mut host, |m| {
-        a::scene::create_object(m, "fold.motion.rectangle").map(Some)
-    });
-    let source = state.selected[0];
-    let before = host.project.snapshot();
-    state.change_scene(&mut host, |m| a::drift::from_object(m, source).map(Some));
-    assert!(state.error.is_empty(), "{}", state.error);
-    let created = host.project.snapshot();
-    assert_eq!(created.revision().0, before.revision().0 + 1);
-    let owner = state.selected[0];
-    let root_output = state.motion.as_ref().unwrap().graph.output.clone();
-    let outer = state
-        .motion
-        .as_ref()
-        .unwrap()
-        .graph
-        .node(owner)
-        .unwrap()
-        .settings::<crate::nodes::interface::GroupSettings>()
-        .unwrap()
-        .group
-        .unwrap();
-    state.group = Some(outer);
-    let solver = state
-        .view_motion()
-        .unwrap()
-        .graph
+        .clone();
+    let alternate = view
         .nodes
         .iter()
-        .find(|n| n.kind == "fold.motion.solver")
-        .unwrap()
-        .id;
-    let update = state
-        .view_motion()
-        .unwrap()
-        .graph
-        .node(solver)
-        .unwrap()
-        .settings::<crate::nodes::solver::Settings>()
-        .unwrap()
-        .group
+        .find(|node| node.id == alternate_id)
         .unwrap();
-    state.group = Some(update);
-    state.change(&mut host, |m| {
-        a::add_node(m, "fold.motion.read_attribute").map(Some)
-    });
-    assert!(state.error.is_empty(), "{}", state.error);
-    assert_eq!(state.motion.as_ref().unwrap().graph.output, root_output);
-    host.project.undo().unwrap();
-    assert_eq!(
-        host.project.snapshot().state().documents,
-        created.state().documents
-    );
-    host.project.undo().unwrap();
-    assert_eq!(
-        host.project.snapshot().state().documents,
-        before.state().documents
-    );
-    host.project.redo().unwrap();
-    assert_eq!(
-        host.project.snapshot().state().documents,
-        created.state().documents
-    );
-}
-
-#[test]
-fn embedded_font_document_supports_preview_cancel_commit_and_undo() {
-    let mut host = Host::new();
-    let id = DocumentId::new();
-    let mut motion = Motion::empty();
-    let mut font = crate::document::Font::builtin();
-    font.source = crate::document::FontSource::Embedded(font.bytes().to_vec());
-    motion.fonts.insert(fold_foundation::ObjectId::new(), font);
-    assert!(serde_json::to_vec(&motion).unwrap().len() > 1024 * 1024);
-    host.project
-        .commit(fold_project::EditBatch {
-            base: host.project.snapshot().revision(),
-            mutations: vec![fold_project::Mutation::PutDocument(
-                motion.document(id).unwrap(),
-            )],
-        })
-        .unwrap();
-    let before = host.project.snapshot();
-    let mut state = state::State::default();
-    state.sync(&mut host);
-    state.motion.as_mut().unwrap().graph.nodes[0].position[0] += 10.;
-    state.preview(&mut host);
-    assert!(host.state.transient);
-    assert_eq!(
-        host.project.snapshot().state().documents,
-        before.state().documents
-    );
-    state.cancel(&mut host);
-    assert_eq!(state.motion.as_ref().unwrap(), &motion);
-    state.motion.as_mut().unwrap().graph.nodes[0].position[0] += 20.;
-    state.preview(&mut host);
-    state.commit(&mut host);
-    assert_eq!(
-        host.project.snapshot().revision().0,
-        before.revision().0 + 1
-    );
-    assert_eq!(state.motion.as_ref().unwrap().fonts, motion.fonts);
-    let after = host.project.snapshot();
-    host.project.undo().unwrap();
-    assert_eq!(
-        host.project.snapshot().state().documents,
-        before.state().documents
-    );
-    host.project.redo().unwrap();
-    assert_eq!(
-        host.project.snapshot().state().documents,
-        after.state().documents
-    );
-}
-
-#[test]
-fn attract_particles_action_and_animation_share_one_undo_step() {
-    let mut host = Host::new();
-    let mut state = state::State::default();
-    state.create(&mut host);
-    state.change_scene(&mut host, |m| {
-        a::scene::create_object(m, "fold.motion.text").map(Some)
-    });
-    let target = state.selected[0];
-    let before = host.project.snapshot();
-    state.change_scene(&mut host, |m| {
-        a::particles::from_object(m, target).map(Some)
-    });
-    assert!(state.error.is_empty(), "{}", state.error);
-    assert_eq!(
-        host.project.snapshot().revision().0,
-        before.revision().0 + 1
-    );
-    let owner = state.selected[0];
-    assert!(
-        state
-            .motion
-            .as_ref()
-            .unwrap()
-            .graph
-            .node(owner)
-            .unwrap()
-            .animation
-            .contains_key("attraction.0")
-    );
-    host.project.undo().unwrap();
-    assert_eq!(
-        host.project.snapshot().state().documents,
-        before.state().documents
-    );
-    host.project.redo().unwrap();
-    let snapshot = host.project.snapshot();
-    let document = &snapshot.state().documents[&state.document.unwrap()];
-    assert!(
-        crate::Motion::from_document(document)
-            .unwrap()
-            .graph
-            .node(owner)
-            .is_ok()
-    );
-}
-
-#[test]
-fn badge_layer_selection_opens_its_original_graph_and_leaves_modifier_scope() {
-    use fold_ui::sdk::graph_canvas::{GraphContext, GraphEvent};
-    let mut host = Host::new();
-    host.project = fold_project::load(
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../demos/fold-badge-live.fold"),
-        32,
+    let replacement = WireView {
+        source: Socket {
+            node: alternate_id,
+            key: alternate.outputs[0].key.clone(),
+        },
+        target: wire.target.clone(),
+    };
+    let after = super::graph::apply(
+        &before,
+        definition,
+        &[GraphChange::Rewire {
+            remove: vec![wire.target.clone()],
+            add: vec![replacement],
+        }],
     )
     .unwrap();
-    let snapshot = host.project.snapshot();
-    let document = snapshot
-        .state()
-        .documents
-        .values()
-        .find(|d| d.type_id == crate::MOTION)
+    let binding = after.definitions[0].nodes[0].parameters["width"]
+        .binding()
         .unwrap();
-    let motion = Motion::from_document(document).unwrap();
-    let scene = motion.scene.as_ref().unwrap();
-    let copies = scene
-        .objects
+    let edges = crate::connections::edges(&binding).unwrap();
+    assert_eq!(edges[0].id, edge_id);
+    assert_eq!(
+        edges[0].target,
+        Reference::Input {
+            input: alternate_id
+        }
+    );
+    assert_eq!(
+        edges[0].extensions["vendor"],
+        serde_json::json!({"keep":true})
+    );
+    assert!(matches!(
+        binding,
+        Binding::Expression {
+            expression: Expr::Binary {
+                op: Binary::Multiply,
+                ..
+            }
+        }
+    ));
+    let geometry = view.nodes.iter().find(|node| node.id == shape).unwrap();
+    assert!(
+        super::graph::apply(
+            &before,
+            definition,
+            &[GraphChange::Connect(WireView {
+                source: Socket {
+                    node: shape,
+                    key: geometry.outputs[0].key.clone()
+                },
+                target: wire.target
+            })]
+        )
+        .is_err()
+    );
+    assert!(super::graph::apply(&before, definition, &[GraphChange::Delete(vec![shape])]).is_err());
+    let mut locked = before.clone();
+    locked.definitions[0].nodes[0]
+        .parameters
+        .get_mut("width")
+        .unwrap()
+        .protected = true;
+    let target = view
+        .wires
         .iter()
-        .find(|o| o.name == "Duplicator")
-        .unwrap();
-    let badge = scene
-        .objects
-        .iter()
-        .find(|o| o.name.to_lowercase() == "badge")
-        .unwrap();
-    let text = scene
-        .objects
-        .iter()
-        .find(|o| o.parent == Some(badge.id) && o.name == "Text")
-        .unwrap();
-    let mut state = state::State::default();
-    let mut graphs = vec![];
-    for object in [copies, badge, text] {
-        host.state.selection = Selection {
-            document: Some(document.id),
-            objects: vec![object.id],
-        };
-        state.sync(&mut host);
-        assert_eq!(
-            state.network_object,
-            Some(object.id),
-            "Layer selection must choose that layer's actual graph"
-        );
-        assert_eq!(state.group, None);
-        let mut context = graph::Context {
+        .find(|wire| wire.target.node == shape)
+        .unwrap()
+        .target
+        .clone();
+    assert!(
+        super::graph::apply(
+            &locked,
+            definition,
+            &[GraphChange::Connect(WireView {
+                source: Socket {
+                    node: alternate_id,
+                    key: alternate.outputs[0].key.clone()
+                },
+                target
+            })]
+        )
+        .is_err()
+    );
+}
+
+#[test]
+fn graph_catalog_creates_valid_nodes_and_layout_gestures_commit_once() {
+    use sdk::graph_canvas::{GraphChange, GraphContext, GraphEvent};
+    let mut host = setup();
+    let mut state = super::state::State::default();
+    state.sync(&mut host);
+    let original = state.construction.clone().unwrap();
+    let definition = original.root.definition;
+    let id = original.definitions[0].nodes[0].id;
+    let revision = host.project.snapshot().revision();
+    {
+        let mut context = super::graph::Context {
             state: &mut state,
             host: &mut host,
+            definition,
         };
-        let graph = context.graph();
-        assert!(graph.nodes.iter().any(|node| node.id == object.source.node));
-        assert!(graph.nodes.iter().any(|node| node.id == object.output.node));
-        assert!(graph.nodes.iter().all(|node| node.summary != "Graph"));
-        graphs.push(graph.nodes.iter().map(|node| node.id).collect::<Vec<_>>());
-        if object.id == copies.id {
-            let group = graph.nodes.iter().find(|node| node.can_open).unwrap();
-            context.event(GraphEvent::Navigate(Some(group.id))).unwrap();
-            assert!(context.state.group.is_some());
+        for template in context.catalog() {
+            let changed = super::graph::apply(
+                &original,
+                definition,
+                &[GraphChange::Add {
+                    template: template.key,
+                    position: [300., 100.],
+                }],
+            )
+            .unwrap();
+            changed.validate_semantics().unwrap();
+            assert!(changed.definitions[0].nodes.len() > original.definitions[0].nodes.len());
         }
+        context
+            .event(GraphEvent::PreviewPositions(vec![(id, [25., 45.])]))
+            .unwrap();
+        context
+            .event(GraphEvent::PreviewPositions(vec![(id, [50., 90.])]))
+            .unwrap();
     }
-    assert_ne!(graphs[0], graphs[1]);
-    assert_ne!(graphs[1], graphs[2]);
-}
-
-#[test]
-fn canvas_edits_persist_and_undo_without_rewriting_geometry() {
-    let mut host = Host::new();
-    let mut state = state::State::default();
-    state.create(&mut host);
-    let id = state.document.unwrap();
-    let before = state.motion.clone().unwrap();
-    let canvas = crate::canvas::Canvas {
-        size: [1920., 1080.],
-        framing: crate::canvas::Framing::Responsive,
-    };
-    state.change(&mut host, |m| {
-        m.canvas = Some(canvas);
-        Ok(None)
-    });
-    let saved = Motion::from_document(&host.project.snapshot().state().documents[&id]).unwrap();
-    assert_eq!(saved.canvas, Some(canvas));
-    assert_eq!(saved.graph, before.graph);
+    assert_eq!(host.project.snapshot().revision(), revision);
+    super::graph::Context {
+        state: &mut state,
+        host: &mut host,
+        definition,
+    }
+    .event(GraphEvent::Cancel)
+    .unwrap();
+    assert_eq!(state.construction.as_ref(), Some(&original));
+    super::graph::Context {
+        state: &mut state,
+        host: &mut host,
+        definition,
+    }
+    .event(GraphEvent::Commit(vec![GraphChange::Positions(vec![(
+        id,
+        [50., 90.],
+    )])]))
+    .unwrap();
+    assert_eq!(
+        state.construction.as_ref().unwrap().presentation.positions[&id],
+        [50., 90.]
+    );
     host.project.undo().unwrap();
-    let restored = Motion::from_document(&host.project.snapshot().state().documents[&id]).unwrap();
-    assert_eq!(restored, before);
+    state.sync(&mut host);
+    assert_eq!(state.construction.as_ref(), Some(&original));
 }
 
 #[test]
-fn welcome_demo_layer_requests_open_their_motion_networks() {
-    use fold_platform::{panel_context::PanelContext, workspace::EditorInstance};
-    use fold_ui::sdk::graph_canvas::GraphContext;
-    let mut host = Host::new();
-    host.project = fold_project::load(
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../demos/welcome-to-fold.fold"),
-        32,
+fn graph_scene_connections_keep_order_and_missing_sources_are_visible() {
+    use sdk::graph_canvas::{GraphChange, Socket, WireView};
+    let host = setup();
+    let document = host.state.selection.document.unwrap();
+    let before = crate::model::Construction::from_document(
+        &host.project.snapshot().state().documents[&document],
     )
     .unwrap();
-    let snapshot = host.project.snapshot();
+    let definition = before.root.definition;
+    let view = super::graph::view(&before, document, definition, 0, vec![]).unwrap();
+    let scene = before.definitions[0]
+        .nodes
+        .iter()
+        .find(|n| n.operation == "fold.motion.scene")
+        .unwrap();
+    let scene_view = view.nodes.iter().find(|n| n.id == scene.id).unwrap();
+    let existing = view
+        .wires
+        .iter()
+        .find(|w| w.target.node == scene.id)
+        .unwrap();
+    let append = scene_view
+        .inputs
+        .iter()
+        .find(|p| p.label.starts_with("Add "))
+        .unwrap();
+    let after = super::graph::apply(
+        &before,
+        definition,
+        &[GraphChange::Connect(WireView {
+            source: existing.source.clone(),
+            target: Socket {
+                node: scene.id,
+                key: append.key.clone(),
+            },
+        })],
+    )
+    .unwrap();
+    let original = scene.parameters["children"].binding().unwrap();
+    let original_edges = crate::connections::edges(&original).unwrap();
+    let changed = after
+        .definition(definition)
+        .unwrap()
+        .nodes
+        .iter()
+        .find(|n| n.id == scene.id)
+        .unwrap()
+        .parameters["children"]
+        .binding()
+        .unwrap();
+    let changed_edges = crate::connections::edges(&changed).unwrap();
+    assert_eq!(changed_edges.len(), original_edges.len() + 1);
+    assert_eq!(changed_edges[0], original_edges[0]);
+    assert_ne!(changed_edges[0].id, changed_edges[1].id);
+    let removed = super::graph::apply(
+        &after,
+        definition,
+        &[GraphChange::Disconnect(existing.target.clone())],
+    )
+    .unwrap();
+    let remaining = removed
+        .definition(definition)
+        .unwrap()
+        .nodes
+        .iter()
+        .find(|n| n.id == scene.id)
+        .unwrap()
+        .parameters["children"]
+        .binding()
+        .unwrap();
+    assert_eq!(
+        crate::connections::edges(&remaining).unwrap(),
+        vec![changed_edges[1]]
+    );
+    assert!(
+        super::graph::apply(
+            &before,
+            definition,
+            &[GraphChange::Delete(vec![scene.parameters["children"].id])]
+        )
+        .is_err()
+    );
+    let mut missing = before.clone();
+    missing.definitions[0].outputs[0].value.target = crate::model::Reference::Node {
+        node: fold_foundation::ObjectId::new(),
+    };
+    let projected = super::graph::view(&missing, document, definition, 0, vec![]).unwrap();
+    assert!(projected.error.contains("missing sources"));
+    assert_eq!(projected.wires.len(), view.wires.len() - 1);
+    missing
+        .presentation
+        .positions
+        .insert(scene.id, [f64::MAX, 0.]);
+    assert!(super::graph::view(&missing, document, definition, 0, vec![]).is_err());
+}
+
+#[test]
+fn stale_source_rebase_preserves_disjoint_edits_and_requires_explicit_apply() {
+    let mut host = setup();
+    let mut state = super::state::State::default();
+    state.sync(&mut host);
+    let document = state.document.unwrap();
+    let original = state.construction.clone().unwrap();
+    let mut proposed = original.clone();
+    proposed.seed += 1;
+    let text = crate::source::canonical(&proposed).unwrap();
+    state.drafts.get_mut(&document).unwrap().text = text;
+    state.drafts.get_mut(&document).unwrap().dirty = true;
+    let mut artist = original.clone();
+    let shape = artist.definitions[0].nodes[0].id;
+    artist.presentation.positions.insert(shape, [120., 240.]);
+    assert!(state.commit(&mut host, artist.clone()));
+    let revision = host.project.snapshot().revision();
+    state.rebase_source(&mut host);
+    assert!(state.error.is_empty(), "{}", state.error);
+    assert_eq!(host.project.snapshot().revision(), revision);
+    assert_eq!(state.construction.as_ref(), Some(&artist));
+    let draft = &state.drafts[&document];
+    assert!(draft.dirty);
+    assert_eq!(draft.base, revision);
+    let merged = crate::source::parse(&draft.text).unwrap().construction;
+    assert_eq!(merged.seed, proposed.seed);
+    assert_eq!(merged.presentation, artist.presentation);
+    assert!(state.commit(&mut host, merged));
+    host.project.undo().unwrap();
+    state.sync(&mut host);
+    assert_eq!(state.construction.as_ref(), Some(&artist));
+    state.reload_source(&mut host);
+    let mut proposed = artist.clone();
+    proposed.seed += 2;
+    let text = crate::source::canonical(&proposed).unwrap();
+    state.drafts.get_mut(&document).unwrap().text = text.clone();
+    state.drafts.get_mut(&document).unwrap().dirty = true;
+    let base = state.drafts[&document].base;
+    artist.seed += 3;
+    assert!(state.commit(&mut host, artist));
+    let revision = host.project.snapshot().revision();
+    state.rebase_source(&mut host);
+    assert!(state.error.contains("conflict"));
+    assert_eq!(state.drafts[&document].text, text);
+    assert_eq!(state.drafts[&document].base, base);
+    assert_eq!(host.project.snapshot().revision(), revision);
+}
+
+#[test]
+fn artist_unlock_is_selective_revision_bound_and_not_an_authoring_command() {
+    let mut host = setup();
+    let mut state = super::state::State::default();
+    state.sync(&mut host);
+    let document = state.document.unwrap();
+    let mut locked = state.construction.clone().unwrap();
+    locked.definitions[0].inputs[0].protected = true;
+    locked.definitions[0].nodes[0]
+        .parameters
+        .get_mut("height")
+        .unwrap()
+        .protected = true;
+    let input = locked.definitions[0].inputs[0].id;
+    assert!(state.commit(&mut host, locked.clone()));
+    let locked_revision = state.base;
+    let mut unlocked = locked.clone();
+    unlocked.definitions[0].inputs[0].protected = false;
+    assert!(!state.commit(&mut host, unlocked.clone()));
+    assert!(host.registry.commands().all(|c| !c.id.contains("unlock")));
+    super::protection::unlock(&mut host, &mut state, input);
+    assert!(state.error.is_empty(), "{}", state.error);
+    assert_eq!(state.construction.as_ref(), Some(&unlocked));
+    host.project.undo().unwrap();
+    state.sync(&mut host);
+    assert_eq!(state.construction.as_ref(), Some(&locked));
+    let revision = state.base;
+    host.command(DesktopCommand::UnlockControls {
+        document,
+        targets: vec![input],
+        base: locked_revision,
+    });
+    assert_eq!(host.project.snapshot().revision(), revision);
+    assert!(host.state.status.contains("stale"));
+    host.command(DesktopCommand::UnlockControls {
+        document,
+        targets: vec![input, fold_foundation::ObjectId::new()],
+        base: revision,
+    });
+    assert_eq!(host.project.snapshot().revision(), revision);
+}
+
+#[test]
+fn presentation_groups_notes_locks_and_undo_use_native_transactions() {
+    let mut host = setup();
     let mut state = state::State::default();
-    let mut checked = 0;
-    for document in snapshot
-        .state()
-        .documents
-        .values()
-        .filter(|d| d.type_id == fold_composition::COMPOSITION)
-    {
-        let composition = fold_composition::Composition::from_document(document).unwrap();
-        for layer in &composition.layers {
-            let Some(fold_platform::image_source::Source::Output(source)) = &layer.source else {
-                continue;
-            };
-            let graph_document = &snapshot.state().documents[&source.document];
-            if graph_document.type_id != crate::MOTION {
-                continue;
-            }
-            let object = layer
-                .graph_object()
-                .expect("demo motion layer references its object");
-            let mut parent = EditorInstance {
-                group: fold_platform::workspace::LinkGroup::A,
-                contribution: "composition".into(),
-                document_type: fold_composition::COMPOSITION.into(),
-                navigation: vec![ViewLocation {
-                    document: document.id,
-                    time: Time::ZERO,
-                    label: layer.name.clone(),
-                }],
-                selection: Selection {
-                    document: Some(document.id),
-                    objects: vec![layer.id],
-                },
-                mapped_navigation: false,
-            };
-            let mut context = PanelContext::new(&mut host, &mut parent);
-            context.command(DesktopCommand::OpenLayerGraph {
-                location: ViewLocation {
-                    document: source.document,
-                    time: Time::ZERO,
-                    label: layer.name.clone(),
-                },
-                objects: vec![object],
+    state.sync(&mut host);
+    let original = state.construction.clone().unwrap();
+    let definition = original.root.definition;
+    let node = original.definition(definition).unwrap().nodes[0].id;
+    let mut grouped = presentation::group(&original, definition, &[node]).unwrap();
+    let group = grouped.presentation.groups[0].id;
+    grouped.presentation.groups[0].name = "Layout".into();
+    grouped
+        .presentation
+        .annotations
+        .insert(node, "Keep aligned with the title".into());
+    grouped.presentation.groups[0]
+        .extensions
+        .insert("future".into(), serde_json::json!({"color":"blue"}));
+    assert!(state.commit(&mut host, grouped.clone()));
+    let document = state.document.unwrap();
+    let graph = graph::view(&grouped, document, definition, state.base.0, vec![node]).unwrap();
+    assert!(
+        graph
+            .nodes
+            .iter()
+            .find(|n| n.id == node)
+            .unwrap()
+            .summary
+            .contains("Layout")
+    );
+    host.project.undo().unwrap();
+    state.sync(&mut host);
+    assert_eq!(state.construction.as_ref(), Some(&original));
+    host.project.redo().unwrap();
+    state.sync(&mut host);
+    assert_eq!(state.construction.as_ref(), Some(&grouped));
+    let mut draft = grouped.clone();
+    draft
+        .presentation
+        .annotations
+        .insert(node, "Cancelled note".into());
+    state.construction = Some(draft);
+    state.preview(&mut host);
+    state.cancel(&mut host);
+    assert_eq!(state.construction.as_ref(), Some(&grouped));
+
+    let parent = fold_foundation::ObjectId::new();
+    grouped.presentation.groups.push(crate::model::Group {
+        id: parent,
+        name: "Parent".into(),
+        members: vec![group],
+        locked: false,
+        extensions: Default::default(),
+    });
+    let ungrouped = presentation::ungroup(&grouped, group).unwrap();
+    assert_eq!(ungrouped.presentation.groups[0].members, vec![node]);
+    assert_eq!(ungrouped.definitions, original.definitions);
+    assert_eq!(
+        ungrouped.presentation.annotations.get(&node),
+        grouped.presentation.annotations.get(&node)
+    );
+    grouped.presentation.groups[0].locked = true;
+    assert!(presentation::ungroup(&grouped, group).is_err());
+    let mut forbidden = grouped.clone();
+    forbidden
+        .presentation
+        .annotations
+        .insert(node, "Locked edit".into());
+    assert!(
+        crate::editing::validate_document(
+            &grouped.document(document).unwrap(),
+            crate::editing::Scope::Document,
+            forbidden
+        )
+        .is_err()
+    );
+}
+
+#[test]
+fn presentation_inspector_draws_expanded_at_normal_and_narrow_widths() {
+    let host = setup();
+    let document = host.state.selection.document.unwrap();
+    let snapshot = host.project.snapshot();
+    let original =
+        crate::model::Construction::from_document(&snapshot.state().documents[&document]).unwrap();
+    let definition = original.root.definition;
+    let node = original.definition(definition).unwrap().nodes[0].id;
+    let mut value = presentation::group(&original, definition, &[node]).unwrap();
+    value
+        .presentation
+        .annotations
+        .insert(node, "Artist note".into());
+    let before = value.clone();
+    let _guard = UI_TEST_LOCK.lock().unwrap();
+    let mut context = sdk::imgui::Context::create();
+    context.set_ini_filename(None::<String>).unwrap();
+    context
+        .font_atlas()
+        .try_claim_legacy_renderer()
+        .unwrap()
+        .build();
+    context.io_mut().set_display_size([800., 700.]);
+    context.io_mut().set_delta_time(1. / 60.);
+    for width in [360., 240., 360., 240.] {
+        let ui = context.frame();
+        ui.window("Inspector")
+            .position([0., 0.], sdk::imgui::Condition::Always)
+            .size([width, 680.], sdk::imgui::Condition::Always)
+            .build(|| {
+                let mut response = EditResponse::default();
+                assert!(
+                    presentation::draw(ui, &mut value, definition, &[node], &mut response)
+                        .is_none()
+                );
+                assert_eq!(response, EditResponse::default());
             });
-            let mut requested = context.take_layer_graph().unwrap();
-            drop(context);
-            assert_eq!(parent.selection.objects, vec![layer.id]);
-            let mut context = PanelContext::new(&mut host, &mut requested);
-            state.sync(&mut context);
-            assert_eq!(state.network_object, Some(object), "{}", layer.name);
-            let motion = Motion::from_document(graph_document).unwrap();
-            let owner = motion
-                .scene
-                .as_ref()
-                .unwrap()
-                .objects
-                .iter()
-                .find(|o| o.id == object)
-                .unwrap();
-            let network = graph::Context {
-                state: &mut state,
-                host: &mut context,
-            };
-            let graph = network.graph();
-            assert!(
-                graph.nodes.iter().any(|n| n.id == owner.source.node),
-                "{} source must be visible",
-                layer.name
-            );
-            assert!(
-                graph.nodes.iter().any(|n| n.id == owner.output.node),
-                "{} output must be visible",
-                layer.name
-            );
-            checked += 1;
-        }
+        assert!(context.render_legacy().total_vtx_count() > 0);
     }
-    assert_eq!(checked, 3, "exercise all three Welcome motion-text layers");
+    assert_eq!(value, before);
+}
+
+#[test]
+fn primitive_controls_preserve_exact_values_while_drawing() {
+    use crate::types::{Alpha, Encoding};
+    let _guard = UI_TEST_LOCK.lock().unwrap();
+    let mut context = sdk::imgui::Context::create();
+    context.set_ini_filename(None::<String>).unwrap();
+    context
+        .font_atlas()
+        .try_claim_legacy_renderer()
+        .unwrap()
+        .build();
+    context.io_mut().set_display_size([600., 800.]);
+    context.io_mut().set_delta_time(1. / 60.);
+    let original = vec![
+        Literal::Rotation {
+            value: [0., 0., 0., -1.],
+            space: crate::types::Space::Screen,
+        },
+        Literal::Rotation {
+            value: [0.5, 0.5, 0.5, 0.5],
+            space: crate::types::Space::World,
+        },
+        Literal::AssetRef {
+            value: crate::types::AssetReference::Definition(fold_foundation::ObjectId::new()),
+        },
+        Literal::AssetRef {
+            value: crate::types::AssetReference::Resource(fold_foundation::AssetId::new()),
+        },
+        Literal::Integer { value: i64::MIN },
+        Literal::Integer { value: i64::MAX },
+        Literal::Text {
+            value: "Title\nSecond line".into(),
+        },
+        Literal::Duration {
+            value: fold_foundation::Time::new(-1001, 24000).unwrap(),
+        },
+        Literal::Color {
+            value: [-0.2, 12., 0.1234567890123, 0.8],
+            encoding: Encoding::AcesCg,
+            alpha: Alpha::Straight,
+        },
+        Literal::Color {
+            value: [0., 0., 0., 0.],
+            encoding: Encoding::LinearRec709,
+            alpha: Alpha::Premultiplied,
+        },
+    ];
+    let mut values = original.clone();
+    let mut literal_controls = literal::Controls::default();
+    for width in [400., 240.] {
+        let ui = context.frame();
+        ui.window("Controls")
+            .size([width, 780.], sdk::imgui::Condition::Always)
+            .build(|| {
+                for (index, value) in values.iter_mut().enumerate() {
+                    let _id = ui.push_id(&index.to_string());
+                    let mut response = EditResponse::default();
+                    literal(ui, "Value", value, &mut response, &mut literal_controls);
+                    assert_eq!(response, EditResponse::default());
+                    value.validate().unwrap();
+                }
+            });
+        assert!(context.render_legacy().total_vtx_count() > 0);
+    }
+    assert_eq!(values, original);
+}
+
+#[test]
+fn instance_menu_input_creates_resets_and_undoes_one_override() {
+    use sdk::imgui::{Condition, ConfigFlags, Context, Key, MouseButton};
+    fn frame(
+        context: &mut Context,
+        host: &mut Host,
+        state: &mut state::State,
+    ) -> ([f32; 2], [f32; 2]) {
+        state.sync(host);
+        state.literal_controls.invalid = false;
+        let mut value = state.construction.clone().unwrap();
+        let inputs = value.definitions[0].inputs.clone();
+        let locked = crate::protection::locked_ids(&value).unwrap();
+        let mut response = EditResponse::default();
+        let mut button = [0.; 2];
+        let mut point = [0.; 2];
+        let ui = context.frame();
+        ui.window("Instance")
+            .position([0.; 2], Condition::Always)
+            .size([260., 350.], Condition::Always)
+            .build(|| {
+                let origin = ui.cursor_screen_pos();
+                let label = if locked.contains(&inputs[0].id) {
+                    "Locked"
+                } else if value.root.overrides.contains_key(&inputs[0].id) {
+                    "Instance override"
+                } else {
+                    "Asset default"
+                };
+                button = [
+                    origin[0]
+                        + ui.calc_text_size(label)[0]
+                        + ui.clone_style().item_spacing()[0]
+                        + (ui.frame_height() + 4.) / 2.,
+                    origin[1] + ui.text_line_height_with_spacing() + ui.frame_height() / 2.,
+                ];
+                point = [origin[0] + 55., button[1] + ui.frame_height_with_spacing()];
+                let _width = ui.push_item_width(110.);
+                instance::draw(
+                    ui,
+                    &mut value.root,
+                    &inputs,
+                    &locked,
+                    None,
+                    &mut response,
+                    &mut state.literal_controls,
+                );
+            });
+        drop(context.render_legacy());
+        if response.changed {
+            state.construction = Some(value.clone());
+            state.preview(host);
+        }
+        if response.finished && state.editing {
+            assert!(state.commit(host, value));
+        }
+        (button, point)
+    }
+    fn choose(context: &mut Context, host: &mut Host, state: &mut state::State, animate: bool) {
+        let (button, _) = frame(context, host, state);
+        context.io_mut().add_mouse_pos_event(button);
+        frame(context, host, state);
+        context
+            .io_mut()
+            .add_mouse_button_event(MouseButton::Left, true);
+        frame(context, host, state);
+        context
+            .io_mut()
+            .add_mouse_button_event(MouseButton::Left, false);
+        frame(context, host, state);
+        frame(context, host, state);
+        context.io_mut().add_key_event(Key::DownArrow, true);
+        frame(context, host, state);
+        context.io_mut().add_key_event(Key::DownArrow, false);
+        frame(context, host, state);
+        context.io_mut().add_key_event(Key::Home, true);
+        frame(context, host, state);
+        context.io_mut().add_key_event(Key::Home, false);
+        frame(context, host, state);
+        if animate {
+            context.io_mut().add_key_event(Key::DownArrow, true);
+            frame(context, host, state);
+            context.io_mut().add_key_event(Key::DownArrow, false);
+            frame(context, host, state);
+        }
+        context.io_mut().add_key_event(Key::Enter, true);
+        frame(context, host, state);
+        context.io_mut().add_key_event(Key::Enter, false);
+        frame(context, host, state);
+    }
+    let _guard = UI_TEST_LOCK.lock().unwrap();
+    let mut context = Context::create();
+    context.set_ini_filename(None::<String>).unwrap();
+    context
+        .io_mut()
+        .set_config_flags(ConfigFlags::NAV_ENABLE_KEYBOARD);
+    context
+        .font_atlas()
+        .try_claim_legacy_renderer()
+        .unwrap()
+        .build();
+    context.io_mut().set_display_size([400., 400.]);
+    context.io_mut().set_delta_time(1. / 60.);
+    let mut host = setup();
+    let mut state = state::State::default();
+    for _ in 0..3 {
+        frame(&mut context, &mut host, &mut state);
+    }
+    let before = state.construction.clone().unwrap();
+    let revision = host.project.snapshot().revision();
+    let input = before.definitions[0].inputs[0].id;
+    choose(&mut context, &mut host, &mut state, false);
+    let mut overridden = state.construction.clone().unwrap();
+    let parameter = overridden
+        .root
+        .overrides
+        .get(&input)
+        .expect("menu creates override");
+    assert_eq!(
+        parameter.binding().unwrap(),
+        Binding::Literal {
+            value: before.definitions[0].inputs[0].default.clone()
+        }
+    );
+    assert_eq!(host.project.snapshot().revision().0, revision.0 + 1);
+    assert_eq!(overridden.definitions, before.definitions);
+    let parameter_id = parameter.id;
+    // A value drag previews continuously, retains the parameter ID, and commits
+    // exactly once on release before the contextual reset is exercised.
+    let (_, point) = frame(&mut context, &mut host, &mut state);
+    context.io_mut().add_mouse_pos_event(point);
+    frame(&mut context, &mut host, &mut state);
+    context
+        .io_mut()
+        .add_mouse_button_event(MouseButton::Left, true);
+    frame(&mut context, &mut host, &mut state);
+    context
+        .io_mut()
+        .add_mouse_pos_event([point[0] + 40., point[1]]);
+    frame(&mut context, &mut host, &mut state);
+    assert!(state.editing);
+    assert_eq!(host.project.snapshot().revision().0, revision.0 + 1);
+    context
+        .io_mut()
+        .add_mouse_button_event(MouseButton::Left, false);
+    frame(&mut context, &mut host, &mut state);
+    let edited = state.construction.clone().unwrap();
+    assert_eq!(edited.root.overrides[&input].id, parameter_id);
+    assert_ne!(
+        edited.root.overrides[&input].value,
+        overridden.root.overrides[&input].value
+    );
+    assert_eq!(host.project.snapshot().revision().0, revision.0 + 2);
+    assert!(!state.editing);
+    overridden = edited;
+    choose(&mut context, &mut host, &mut state, false);
+    assert_eq!(state.construction.as_ref(), Some(&before));
+    host.project.undo().unwrap();
+    state.sync(&mut host);
+    assert_eq!(state.construction.as_ref(), Some(&overridden));
+    host.project.undo().unwrap();
+    state.sync(&mut host);
+    assert_eq!(
+        state.construction.as_ref().unwrap().root.overrides[&input].id,
+        parameter_id
+    );
+    host.project.undo().unwrap();
+    state.sync(&mut host);
+    assert_eq!(state.construction.as_ref(), Some(&before));
+    // The second menu action creates a scene-time track directly from inheritance.
+    choose(&mut context, &mut host, &mut state, true);
+    let animated = state.construction.clone().unwrap();
+    let Binding::Track { track } = animated.root.overrides[&input].binding().unwrap() else {
+        panic!("animated override")
+    };
+    assert_eq!(track.keys[0].time, fold_foundation::Time::ZERO);
+    assert_eq!(track.keys[0].value, before.definitions[0].inputs[0].default);
+    assert_eq!(animated.definitions, before.definitions);
+    host.project.undo().unwrap();
+    state.sync(&mut host);
+    assert_eq!(state.construction.as_ref(), Some(&before));
+    choose(&mut context, &mut host, &mut state, false);
+    let literal = state.construction.clone().unwrap();
+    choose(&mut context, &mut host, &mut state, true);
+    let animated = state.construction.clone().unwrap();
+    assert_eq!(
+        animated.root.overrides[&input].id,
+        literal.root.overrides[&input].id
+    );
+    assert!(matches!(
+        animated.root.overrides[&input].binding().unwrap(),
+        Binding::Track { .. }
+    ));
+    host.project.undo().unwrap();
+    state.sync(&mut host);
+    assert_eq!(state.construction.as_ref(), Some(&literal));
+    host.project.undo().unwrap();
+    state.sync(&mut host);
+    assert_eq!(state.construction.as_ref(), Some(&before));
+    let mut protected = before;
+    protected.definitions[0].inputs[0].protected = true;
+    assert!(state.commit(&mut host, protected.clone()));
+    let revision = host.project.snapshot().revision();
+    choose(&mut context, &mut host, &mut state, false);
+    assert_eq!(host.project.snapshot().revision(), revision);
+    assert_eq!(state.construction.as_ref(), Some(&protected));
+}
+
+#[test]
+fn instance_clock_gestures_preserve_exact_time_and_respect_group_locks() {
+    use crate::types::{Clock, Ratio};
+    use fold_foundation::{ObjectId, Time};
+    let mut host = setup();
+    let mut state = state::State::default();
+    state.sync(&mut host);
+    let before = state.construction.clone().unwrap();
+    let mut changed = before.clone();
+    changed.root.clock = Clock {
+        offset: Time::new(1001, 24000).unwrap(),
+        rate: Ratio::new(-1001, 1000).unwrap(),
+    };
+    assert_eq!(
+        changed.root.clock.at(Time::new(3, 4).unwrap()).unwrap(),
+        Time::new(-17015999, 24000000).unwrap()
+    );
+    let revision = host.project.snapshot().revision();
+    state.construction = Some(changed.clone());
+    state.preview(&mut host);
+    assert_eq!(host.project.snapshot().revision(), revision);
+    state.cancel(&mut host);
+    assert_eq!(state.construction.as_ref(), Some(&before));
+    assert!(state.commit(&mut host, changed.clone()));
+    host.project.undo().unwrap();
+    state.sync(&mut host);
+    assert_eq!(state.construction.as_ref(), Some(&before));
+    host.project.redo().unwrap();
+    state.sync(&mut host);
+    assert_eq!(state.construction.as_ref(), Some(&changed));
+    changed.presentation.groups.push(crate::model::Group {
+        id: ObjectId::new(),
+        name: "Protected instance".into(),
+        members: vec![changed.root.id],
+        locked: true,
+        extensions: Default::default(),
+    });
+    assert!(state.commit(&mut host, changed.clone()));
+    let mut frozen = changed.clone();
+    frozen.root.clock.rate = Ratio::new(0, 1).unwrap();
+    assert!(!state.commit(&mut host, frozen));
+    assert_eq!(state.construction.as_ref(), Some(&changed));
+}
+
+#[test]
+fn override_key_edits_preview_cancel_undo_and_respect_input_locks() {
+    use crate::binding::{Combination, Interpolation, Key, Track};
+    use fold_foundation::{ObjectId, Time};
+    let mut host = setup();
+    let mut state = state::State::default();
+    state.sync(&mut host);
+    let mut before = state.construction.clone().unwrap();
+    let input = before.definitions[0].inputs[0].clone();
+    let mut parameter = crate::model::Parameter::new(Binding::Track {
+        track: Track {
+            id: ObjectId::new(),
+            ty: input.ty.clone(),
+            combination: Combination::Replace,
+            base: None,
+            keys: vec![Key {
+                id: ObjectId::new(),
+                time: Time::ZERO,
+                value: input.default.clone(),
+                interpolation: Interpolation::Linear,
+                extensions: Default::default(),
+            }],
+            extensions: Default::default(),
+        },
+    })
+    .unwrap();
+    parameter
+        .extensions
+        .insert("vendor".into(), serde_json::json!({"retain":true}));
+    before.root.overrides.insert(input.id, parameter);
+    before.validate_semantics().unwrap();
+    assert!(state.commit(&mut host, before.clone()), "{}", state.error);
+    let mut changed = before.clone();
+    let parameter = changed.root.overrides.get_mut(&input.id).unwrap();
+    let Binding::Track { mut track } = parameter.binding().unwrap() else {
+        panic!("track")
+    };
+    track.keys[0].time = Time::new(-1, 3).unwrap();
+    track.keys[0].interpolation = Interpolation::Hold;
+    parameter.value = serde_json::to_value(Binding::Track { track }).unwrap();
+    let revision = host.project.snapshot().revision();
+    state.construction = Some(changed.clone());
+    state.preview(&mut host);
+    assert_eq!(host.project.snapshot().revision(), revision);
+    state.cancel(&mut host);
+    assert_eq!(state.construction.as_ref(), Some(&before));
+    assert!(state.commit(&mut host, changed.clone()));
+    assert_eq!(host.project.snapshot().revision().0, revision.0 + 1);
+    host.project.undo().unwrap();
+    state.sync(&mut host);
+    assert_eq!(state.construction.as_ref(), Some(&before));
+    host.project.redo().unwrap();
+    state.sync(&mut host);
+    assert_eq!(state.construction.as_ref(), Some(&changed));
+    changed.definitions[0].inputs[0].protected = true;
+    assert!(state.commit(&mut host, changed.clone()));
+    let mut reset = changed.clone();
+    reset.root.overrides.remove(&input.id);
+    assert!(!state.commit(&mut host, reset));
+    assert_eq!(state.construction.as_ref(), Some(&changed));
+}
+
+#[test]
+fn ramp_controls_draw_at_normal_and_narrow_widths_without_mutation() {
+    let _guard = UI_TEST_LOCK.lock().unwrap();
+    let mut context = sdk::imgui::Context::create();
+    context.set_ini_filename(None::<String>).unwrap();
+    context
+        .font_atlas()
+        .try_claim_legacy_renderer()
+        .unwrap()
+        .build();
+    context.io_mut().set_display_size([600., 800.]);
+    context.io_mut().set_delta_time(1. / 60.);
+    let mut value = crate::ramp::Ramp::two(
+        Literal::Scalar { value: 0.2 },
+        Literal::Scalar { value: 1. },
+    )
+    .unwrap();
+    value.insert(0.375).unwrap();
+    let before = value.clone();
+    let mut controls = literal::Controls::default();
+    for width in [400., 240.] {
+        let ui = context.frame();
+        ui.window("Ramp")
+            .size([width, 780.], sdk::imgui::Condition::Always)
+            .build(|| {
+                let mut response = EditResponse::default();
+                ramp::draw(ui, "Stops", &mut value, &mut response, &mut controls);
+                assert_eq!(response, EditResponse::default());
+            });
+        assert!(context.render_legacy().total_vtx_count() > 0);
+    }
+    assert_eq!(value, before);
+    assert!(!controls.invalid);
 }

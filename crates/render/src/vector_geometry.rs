@@ -35,11 +35,19 @@ const CACHE_BYTES: usize = 16 * 1024 * 1024;
 struct Builder<'a> {
     vertices: Vec<[f32; 2]>,
     triangles: Vec<Triangle>,
-    cancel: &'a Cancel,
+    checkpoint: &'a mut dyn FnMut() -> Result<(), String>,
+    stopped: Option<String>,
     overflow: bool,
 }
 impl GeometryBuilder for Builder<'_> {
     fn add_triangle(&mut self, a: VertexId, b: VertexId, c: VertexId) {
+        if self.stopped.is_some() {
+            return;
+        }
+        if let Err(error) = (self.checkpoint)() {
+            self.stopped = Some(error);
+            return;
+        }
         if self.triangles.len() == MAX_TRIANGLES {
             self.overflow = true;
             return;
@@ -53,13 +61,33 @@ impl GeometryBuilder for Builder<'_> {
 }
 impl FillGeometryBuilder for Builder<'_> {
     fn add_fill_vertex(&mut self, v: FillVertex<'_>) -> Result<VertexId, GeometryBuilderError> {
-        if self.vertices.len() == MAX_TRIANGLES || self.overflow || self.cancel.check().is_err() {
+        if self.stopped.is_none() {
+            self.stopped = (self.checkpoint)().err();
+        }
+        if self.vertices.len() == MAX_TRIANGLES {
+            self.overflow = true;
+        }
+        if self.overflow || self.stopped.is_some() {
             return Err(GeometryBuilderError::TooManyVertices);
         }
         let id = VertexId(self.vertices.len() as u32);
         let p = v.position();
         self.vertices.push([p.x, p.y]);
         Ok(id)
+    }
+}
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum PreparationError {
+    Stopped(String),
+    Budget(&'static str),
+    Invalid(String),
+}
+impl std::fmt::Display for PreparationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Stopped(message) | Self::Invalid(message) => f.write_str(message),
+            Self::Budget(message) => f.write_str(message),
+        }
     }
 }
 impl GeometryCache {
@@ -69,6 +97,16 @@ impl GeometryCache {
         stroke: Option<&Stroke>,
         cancel: &Cancel,
     ) -> Result<Arc<Vec<Triangle>>, String> {
+        self.get_with(d, stroke, &mut || cancel.check())
+            .map_err(|e| e.to_string())
+    }
+    pub(crate) fn get_with(
+        &mut self,
+        d: &Drawing,
+        stroke: Option<&Stroke>,
+        checkpoint: &mut dyn FnMut() -> Result<(), String>,
+    ) -> Result<Arc<Vec<Triangle>>, PreparationError> {
+        checkpoint().map_err(PreparationError::Stopped)?;
         let [a, b, c, e, _, _] = d.transform;
         let scale = ((a.abs() + c.abs())
             .max(b.abs() + e.abs())
@@ -100,7 +138,7 @@ impl GeometryCache {
             let mut previous = [0.; 2];
             let mut estimated = 0f64;
             for segment in d.path.iter() {
-                cancel.check()?;
+                checkpoint().map_err(PreparationError::Stopped)?;
                 let (points, end): (&[[f64; 2]], [f64; 2]) = match segment {
                     Segment::Move(p) | Segment::Line(p) => {
                         previous = *p;
@@ -128,7 +166,9 @@ impl GeometryCache {
             }
             estimated += (64. * stroke.width / tolerance).sqrt();
             if estimated > MAX_TRIANGLES as f64 / 4. {
-                return Err("vector subdivision work budget exceeded".into());
+                return Err(PreparationError::Budget(
+                    "vector subdivision work budget exceeded",
+                ));
             }
         }
         let Some(mut path) = vector::build_path(d) else {
@@ -137,7 +177,7 @@ impl GeometryCache {
         if let Some(s) = stroke {
             path = path
                 .stroke(&vector::raster_stroke(s), 2f32.powi(scale))
-                .ok_or("invalid stroke geometry")?;
+                .ok_or_else(|| PreparationError::Invalid("invalid stroke geometry".into()))?;
         }
         let mut builder = Path::builder();
         let mut open = false;
@@ -146,13 +186,17 @@ impl GeometryCache {
         let tolerance = 2f32.powi(-8 - scale);
         let minimum = <f32 as lyon_tessellation::path::geom::Scalar>::EPSILON.powi(2);
         if tolerance < minimum {
-            return Err("vector subdivision precision budget exceeded".into());
+            return Err(PreparationError::Budget(
+                "vector subdivision precision budget exceeded",
+            ));
         }
-        let mut spend = || -> Result<(), String> {
-            cancel.check()?;
+        let mut spend = || -> Result<(), PreparationError> {
+            checkpoint().map_err(PreparationError::Stopped)?;
             flattened_segments += 1;
             if flattened_segments > MAX_TRIANGLES / 4 {
-                return Err("vector subdivision work budget exceeded".into());
+                return Err(PreparationError::Budget(
+                    "vector subdivision work budget exceeded",
+                ));
             }
             Ok(())
         };
@@ -211,7 +255,8 @@ impl GeometryCache {
         let mut output = Builder {
             vertices: Vec::new(),
             triangles: Vec::new(),
-            cancel,
+            checkpoint,
+            stopped: None,
             overflow: false,
         };
         let options = FillOptions::default()
@@ -221,13 +266,16 @@ impl GeometryCache {
             } else {
                 lyon_tessellation::FillRule::NonZero
             });
-        FillTessellator::new()
-            .tessellate_path(&builder.build(), &options, &mut output)
-            .map_err(|e| format!("vector tessellation: {e:?}"))?;
-        cancel.check()?;
-        if output.overflow {
-            return Err("vector triangle budget exceeded".into());
+        let result =
+            FillTessellator::new().tessellate_path(&builder.build(), &options, &mut output);
+        if let Some(error) = output.stopped {
+            return Err(PreparationError::Stopped(error));
         }
+        if output.overflow {
+            return Err(PreparationError::Budget("vector triangle budget exceeded"));
+        }
+        result.map_err(|e| PreparationError::Invalid(format!("vector tessellation: {e:?}")))?;
+        (output.checkpoint)().map_err(PreparationError::Stopped)?;
         let triangles = Arc::new(output.triangles);
         let bytes = triangles.capacity() * std::mem::size_of::<Triangle>()
             + key.path.capacity() * std::mem::size_of::<Segment>();
@@ -631,6 +679,68 @@ mod tests {
             Segment::Line([x, y + w]),
             Segment::Close,
         ]
+    }
+    #[test]
+    fn preparation_stops_at_each_checkpoint_without_caching_partial_triangles() {
+        let drawing = shape(vec![
+            Segment::Move([0., 0.]),
+            Segment::Line([10., 0.]),
+            Segment::Line([10., 10.]),
+            Segment::Line([0., 10.]),
+            Segment::Close,
+        ]);
+        let mut count = 0;
+        let expected = GeometryCache::default()
+            .get_with(&drawing, None, &mut || {
+                count += 1;
+                Ok(())
+            })
+            .unwrap();
+        for at in 1..=count {
+            let mut cache = GeometryCache::default();
+            let mut seen = 0;
+            assert_eq!(
+                cache.get_with(&drawing, None, &mut || {
+                    seen += 1;
+                    if seen == at {
+                        Err("caller stopped".into())
+                    } else {
+                        Ok(())
+                    }
+                }),
+                Err(PreparationError::Stopped("caller stopped".into()))
+            );
+            assert_eq!(seen, at);
+            assert!(cache.entries.is_empty());
+            assert_eq!(
+                cache.get(&drawing, None, &Cancel::default()).unwrap(),
+                expected
+            );
+            assert_eq!(
+                cache.get_with(&drawing, None, &mut || Err("cached stop".into())),
+                Err(PreparationError::Stopped("cached stop".into()))
+            );
+        }
+    }
+    #[test]
+    fn tessellation_triangle_callback_retains_first_caller_failure() {
+        let mut calls = 0;
+        let mut checkpoint = || {
+            calls += 1;
+            Err("caller budget exhausted".into())
+        };
+        let mut builder = Builder {
+            vertices: vec![[0., 0.], [1., 0.], [0., 1.]],
+            triangles: vec![],
+            checkpoint: &mut checkpoint,
+            stopped: None,
+            overflow: false,
+        };
+        builder.add_triangle(VertexId(0), VertexId(1), VertexId(2));
+        builder.add_triangle(VertexId(0), VertexId(1), VertexId(2));
+        assert!(builder.triangles.is_empty());
+        assert_eq!(builder.stopped.as_deref(), Some("caller budget exhausted"));
+        assert_eq!(calls, 1);
     }
     #[test]
     fn pixel_classification_matches_unconditional_polygon_clipping() {

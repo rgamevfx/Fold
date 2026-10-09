@@ -306,7 +306,8 @@ impl Desktop {
                     .with_inner_size(LogicalSize::new(1280.0, 800.0)),
             )?,
         );
-        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
+        let instance =
+            fold_platform::gpu::Host::create_instance(&wgpu::InstanceDescriptor::default())?;
         let surface = instance.create_surface(window.clone())?;
         let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
             compatible_surface: Some(&surface),
@@ -319,8 +320,7 @@ impl Desktop {
                     & (wgpu::Features::FLOAT32_FILTERABLE
                         | wgpu::Features::TIMESTAMP_QUERY
                         | wgpu::Features::TIMESTAMP_QUERY_INSIDE_ENCODERS
-                        | wgpu::Features::TEXTURE_COMPRESSION_BC
-                        | wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES),
+                        | wgpu::Features::TEXTURE_COMPRESSION_BC),
                 ..Default::default()
             }))?;
         // Read once before starting the desktop; redraw/persistence remain worker-only.
@@ -345,8 +345,9 @@ impl Desktop {
         match std::env::var("FOLD_RENDER_BACKEND").as_deref() {
             Ok("cpu") => eprintln!("Fold render backend: CPU reference"),
             Ok("gpu") | Err(std::env::VarError::NotPresent) => {
-                let host = fold_platform::gpu::Host::from_adapter_device(
-                    &adapter,
+                let host = fold_platform::gpu::Host::from_device(
+                    instance.clone(),
+                    adapter.clone(),
                     device.clone(),
                     queue.clone(),
                     u64::from(budgets.gpu_mib) * 1024 * 1024,
@@ -555,12 +556,10 @@ impl Desktop {
             &mut self.renderer,
         )?;
         self.preview.present_viewers(self.client.as_mut());
-        self.preview
-            .agent_capture(self.client.as_mut(), self.shell.workspace.inspector_viewer);
         #[cfg(feature = "native-probe")]
         let preview_done = std::time::Instant::now();
         self.shell.cached_previews = self.preview.cached_keys();
-        for (id, key) in demands {
+        for (id, _) in demands {
             self.shell.review_state(id, self.preview.review_state(id));
             self.shell.presentation(
                 id,
@@ -568,11 +567,7 @@ impl Desktop {
                 self.preview.viewer_error(id).map(str::to_owned),
                 self.client.as_ref(),
             );
-            let preview = if id == fold_platform::desktop::AGENT_PREVIEW_VIEWER {
-                self.preview.state_for(key.as_ref())
-            } else {
-                self.preview.state_for_viewer(id)
-            };
+            let preview = self.preview.state_for_viewer(id);
             self.shell.viewer_instance(
                 ui,
                 id,

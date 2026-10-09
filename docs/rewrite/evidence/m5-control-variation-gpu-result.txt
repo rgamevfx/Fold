@@ -1,0 +1,46 @@
+M5 saved control-variation GPU evidence — 8 October 2026
+Uncommitted active rewrite; complete M3–M5 gates remain pending.
+
+Test loads the matched m5-controls-baseline.fold and m5-controls-variation.fold
+produced by the public authoring workflow. It does not rebuild their nodes.
+Registered scene evaluation renders baseline -> variation -> baseline at exact
+time 1/1, 1920x1080, using one shared renderer and retained original GPU frame.
+
+Observed results:
+- 28,826 changed title-region pixels and 32,434 changed clone-region pixels.
+- 8,393 green clone-region pixels establish new palette propagation.
+- Restored baseline pixels equal the original across the entire frame.
+- Held original GPU frame remains unchanged after variation and restoration.
+- Exact timestamps, finite channels, alpha error <= 0.002, zero CPU adapter nodes
+  and zero evaluation-time readback bytes before explicit inspection readback.
+Exact clone counts, stable IDs/rotations and independent field/ramp formulas are
+covered by m5-control-variations-result.txt; region counts are visual propagation
+checks, not a substitute for that numerical evidence.
+
+Lossless captures reviewed:
+m5-controls-baseline.png, m5-controls-variation.png.
+Both show matching wording in Screen and extruded text, intact O/B/8 holes and
+the cloner response. Variation shows MAKE IT FLOW, an expanded grid and green/blue
+palette. MSAA-off spatial edge aliasing remains visible. Capture uses the shared
+renderer output conversion once, then lossless PPM-to-PNG conversion.
+
+Command:
+FOLD_M5_RENDER_DIR=/tmp/fold-m5-variation-renders cargo test -p fold-app --features spatial --test motion_integrated saved_control_variation -- --ignored --nocapture
+Passed: 1 test, 9.70 seconds; existing baseline test filtered out (already qualified).
+Adapter: Vulkan llvmpipe, Mesa 26.1.6, LLVM 20.1.2, CPU software device.
+Log: /tmp/fold-m5-variation-gpu.log
+Initial compilation needed an explicit Option<Vec<[f32;4]>> test annotation;
+corrected before the successful run. No production behavior changed.
+
+Validation:
+cargo clippy -p fold-app --features spatial --test motion_integrated --no-deps
+cargo fmt --all --check
+python3 scripts/check_boundaries.py
+git diff --check
+All pass. Clippy retains the existing shared YUV dead-code and application
+source_preparation collapsible-if warnings; no new warnings.
+Clippy log: /tmp/fold-m5-variation-clippy.log.
+
+Scope: headless registered rendering at one second, retained-frame and baseline
+restoration checks. Public rendered frames/save, physical desktop interaction,
+artist ramp/key/lock/layout handoff and remaining M3–M5 gates remain open.

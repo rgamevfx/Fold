@@ -1,6 +1,6 @@
+mod support;
 use fold_app::{media_workflow, session::Session};
 use fold_foundation::DocumentId;
-use fold_motion::{Motion, authoring};
 use fold_platform::desktop::{DesktopClient, DesktopCommand};
 use fold_project::{DocumentRef, EditBatch, Mutation, Project};
 
@@ -11,7 +11,9 @@ fn scene_request_is_independent_of_viewer_keys_and_retains_alpha() {
     project
         .commit(EditBatch {
             base: project.snapshot().revision(),
-            mutations: vec![Mutation::PutDocument(Motion::empty().document(id).unwrap())],
+            mutations: vec![Mutation::PutDocument(
+                support::image([0.; 4]).document(id).unwrap(),
+            )],
         })
         .unwrap();
     let snapshot = project.snapshot();
@@ -67,14 +69,13 @@ fn delivery_selection_is_transactional_and_missing_selection_does_not_fall_back(
     let mut project = Project::new(8);
     let id = DocumentId::new();
     let other = DocumentId::new();
-    let mut motion = Motion::empty();
-    authoring::add_content(&mut motion, "fold.motion.rectangle").unwrap();
+    let image = support::image([1.; 4]);
     project
         .commit(EditBatch {
             base: project.snapshot().revision(),
             mutations: vec![
-                Mutation::PutDocument(motion.document(id).unwrap()),
-                Mutation::PutDocument(motion.document(other).unwrap()),
+                Mutation::PutDocument(image.document(id).unwrap()),
+                Mutation::PutDocument(image.document(other).unwrap()),
             ],
         })
         .unwrap();

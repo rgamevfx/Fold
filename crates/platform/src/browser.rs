@@ -8,15 +8,14 @@ pub enum Entry {
     Item(fold_project::ItemId),
 }
 impl Entry {
-    pub fn source(self) -> Result<PlacementSource, String> {
+    pub fn source(
+        self,
+        output: impl FnOnce(DocumentId) -> Result<DocumentRef, String>,
+    ) -> Result<PlacementSource, String> {
         match self {
             Self::Item(fold_project::ItemId::Asset(id)) => Ok(PlacementSource::Asset(id)),
             Self::Item(fold_project::ItemId::Document(document)) => {
-                Ok(PlacementSource::Output(DocumentRef {
-                    document,
-                    output: "video".into(),
-                    extensions: Default::default(),
-                }))
+                output(document).map(PlacementSource::Output)
             }
             Self::Bin(_) => Err("Place a media item or document, not a bin".into()),
         }

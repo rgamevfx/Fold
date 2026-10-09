@@ -1,5 +1,5 @@
 //! Feature-neutral project and published-output color metadata.
-pub use fold_color::authored::{from_picker, to_picker};
+pub use fold_color::authored::{from_picker, linear_rec709_to_aces, to_picker};
 pub use fold_color::settings::*;
 pub use fold_color::{DisplayTransform, WORKING_SPACE};
 use fold_foundation::DocumentId;

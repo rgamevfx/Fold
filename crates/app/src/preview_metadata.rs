@@ -68,11 +68,27 @@ mod tests {
     fn transient_roots_with_the_same_revision_and_undo_do_not_reuse_stale_queries() {
         let mut project = Project::new(8);
         let id = DocumentId::new();
-        let motion = fold_motion::Motion::empty();
+        let source = fold_compositor::Node::new(
+            fold_compositor::Parameters::Solid { rgba: [1.; 4] },
+            vec![],
+        );
+        let output =
+            fold_compositor::Node::new(fold_compositor::Parameters::Output, vec![source.id]);
+        let composite = fold_compositor::Composite {
+            info: fold_media::VideoInfo {
+                width: 64,
+                height: 64,
+                rate: [24, 1],
+                frames: 24,
+            },
+            output: output.id,
+            nodes: vec![source, output],
+            extensions: Default::default(),
+        };
         project
             .commit(EditBatch {
                 base: project.snapshot().revision(),
-                mutations: vec![Mutation::PutDocument(motion.document(id).unwrap())],
+                mutations: vec![Mutation::PutDocument(composite.document(id).unwrap())],
             })
             .unwrap();
         let committed = project.snapshot();
@@ -85,7 +101,7 @@ mod tests {
         let original = cache.content(&committed, id).unwrap();
         let original_info = cache.output(&committed, &output).unwrap();
         let mut edit = project.begin_edit();
-        let mut changed = motion.clone();
+        let mut changed = composite.clone();
         changed.info.width += 1;
         project
             .update_edit(

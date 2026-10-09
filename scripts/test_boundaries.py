@@ -33,7 +33,7 @@ class BoundaryTests(unittest.TestCase):
 
     def test_infrastructure_cannot_import_creative_packages(self):
         for source in ("fold-project", "fold-render", "fold-media", "fold-platform"):
-            for target in ("fold-timeline", "fold-compositor", "fold-motion"):
+            for target in ("fold-timeline", "fold-compositor"):
                 with self.subTest(source=source, target=target):
                     data = fixture()
                     add_edge(data, source, target)

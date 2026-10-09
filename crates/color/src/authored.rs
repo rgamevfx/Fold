@@ -18,6 +18,11 @@ fn matrix(v: [f64; 4], m: [[f64; 3]; 3]) -> [f64; 4] {
         v[3],
     ]
 }
+/// Straight scene-linear Rec.709 to ACEScg. Preserves alpha and signed HDR;
+/// no transfer function, display transform or premultiplication is applied.
+pub fn linear_rec709_to_aces(v: [f64; 4]) -> [f64; 4] {
+    matrix(v, TO_ACES)
+}
 pub fn from_picker(mut v: [f64; 4], aces: bool) -> [f64; 4] {
     for c in &mut v[..3] {
         *c = if *c <= 0.04045 {
@@ -26,7 +31,7 @@ pub fn from_picker(mut v: [f64; 4], aces: bool) -> [f64; 4] {
             ((*c + 0.055) / 1.055).powf(2.4)
         };
     }
-    if aces { matrix(v, TO_ACES) } else { v }
+    if aces { linear_rec709_to_aces(v) } else { v }
 }
 pub fn to_picker(v: [f64; 4], aces: bool) -> [f64; 4] {
     let mut v = if aces { matrix(v, FROM_ACES) } else { v };
@@ -41,6 +46,20 @@ pub fn to_picker(v: [f64; 4], aces: bool) -> [f64; 4] {
 }
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn linear_rec709_conversion_preserves_hdr_alpha_without_transfer_or_clamping() {
+        let source = [-0.25, 2., 0.18, 0.3];
+        let converted = super::linear_rec709_to_aces(source);
+        assert_eq!(converted[3], source[3]);
+        assert!(converted[1] > 1.);
+        let restored = super::matrix(converted, super::FROM_ACES);
+        for (actual, expected) in restored.into_iter().zip(source) {
+            assert!((actual - expected).abs() < 0.00002);
+        }
+        let gray = super::linear_rec709_to_aces([0.18, 0.18, 0.18, 0.5]);
+        assert!((gray[0] - 0.18).abs() < 1e-6);
+    }
+
     #[test]
     fn picker_roundtrip_and_hdr_are_not_clamped() {
         for source in [[1., 0., 0., 0.25], [-0.2, 2., 0.18, 1.]] {

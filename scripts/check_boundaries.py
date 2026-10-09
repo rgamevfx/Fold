@@ -7,7 +7,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 SHARED = {"fold-animation", "fold-foundation", "fold-color", "fold-project", "fold-media", "fold-render", "fold-platform"}
-CREATIVE = {"fold-timeline", "fold-compositor", "fold-motion", "fold-composition"}
+CREATIVE = {"fold-timeline", "fold-compositor", "fold-composition", "fold-motion"}
 ALLOWED = {
     "fold-foundation": set(),
     "fold-animation": {"fold-foundation"},
@@ -17,7 +17,8 @@ ALLOWED = {
     "fold-media": {"fold-foundation", "fold-native-video"},
     "fold-render": {"fold-foundation", "fold-color", "fold-media", "fold-native-video"},
     "fold-platform": SHARED - {"fold-platform"},
-    "fold-ui": {"fold-animation", "fold-foundation", "fold-platform"},
+    # UI document settings and media thumbnails consume neutral project/media values.
+    "fold-ui": {"fold-animation", "fold-foundation", "fold-platform", "fold-project", "fold-media"},
     **{name: SHARED | {"fold-ui", "fold-composition"} for name in CREATIVE},
     "fold-app": SHARED | CREATIVE | {"fold-ui"},
 }

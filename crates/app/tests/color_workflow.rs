@@ -1,3 +1,4 @@
+mod support;
 use fold_app::{color, media_workflow as workflow};
 use fold_foundation::{DocumentId, Time};
 use fold_project::{EditBatch, Mutation, Project};
@@ -48,11 +49,7 @@ fn scene(snapshot: &fold_project::Snapshot, document: DocumentId) -> fold_render
 fn persisted_color_undo_legacy_and_matched_cli_preview_output() {
     let mut project = color::new_project(16);
     let id = DocumentId::new();
-    let mut document = fold_motion::Solid {
-        rgb: [-0.05, 0.18, 2.],
-    }
-    .document(id)
-    .unwrap();
+    let mut document = support::solid([-0.05, 0.18, 2.]).document(id).unwrap();
     document
         .extensions
         .insert("future".into(), serde_json::json!({"bytes":[8,4,1]}));
@@ -213,9 +210,7 @@ fn persisted_color_undo_legacy_and_matched_cli_preview_output() {
         .commit(EditBatch {
             base: legacy.snapshot().revision(),
             mutations: vec![Mutation::PutDocument(
-                fold_motion::Solid { rgb: [0., 0.5, 1.] }
-                    .document(id)
-                    .unwrap(),
+                support::solid([0., 0.5, 1.]).document(id).unwrap(),
             )],
         })
         .unwrap();

@@ -1,0 +1,49 @@
+Combined frozen M2/M3 automated oracle — 8 October 2026
+Automated specification passes; physical artist and complete phase acceptance remain open.
+
+Fresh native animated-shape capture, actual CLI/MCP frozen-shape transport captures,
+controlled-monotonic-clock expiry and actual CLI/MCP integrated ramp/field captures
+are assembled by docs/rewrite/assemble_slice.py. The unchanged verify_slice.py passes
+against docs/rewrite/evidence/m3-complete-slice.json. That retained file contains
+complete normalized native snapshots, rejection snapshots, integrated before/after
+constructions, schemas, measured history results and hashes of its five inputs.
+
+The integrated test adds a real title-color asset override, native key/ramp/count
+lock/layout edits, public field direction and duration patches, concurrent native
+ramp/layout edits and rebase. Captured native Undo traversal measures one group for
+Apply and no additional group for identical retry after Undo/Redo. Clock/selection
+are captured on both sides of candidate observation. Public save_project_copy writes
+the final construction; native New/Open restores it and public samples match the
+candidate. CLI and MCP captures are exactly equal, including complete constructions.
+
+Source fingerprint: f2e98cc84b7d2c4c9f72bdbcc2e9790b8a9affd219fa8930036401137407974e
+Build target/profile/package are retained in the combined JSON. This fingerprint
+covers source content rather than merely the Git commit of a dirty worktree.
+
+Commands and results:
+FOLD_M5_HANDOFF_DIR=/tmp/fold-m5-oracle-handoff FOLD_SLICE_CAPTURE_DIR=/tmp/fold-oracle-current cargo test -p fold-app --test agent_handoff --test agent_dispatch
+15 passed (12 dispatcher, 3 handoff); /tmp/fold-oracle-current.log.
+FOLD_SLICE_CAPTURE_DIR=/tmp/fold-oracle-current cargo test -p fold-motion capture_frozen_slice_native_evidence
+One selected capture test passed; /tmp/fold-oracle-native.log. Filtered suites with
+zero selected tests supply no extra acceptance evidence.
+cargo clippy -p fold-app --test agent_handoff --no-deps
+Passed; existing source_preparation.rs collapsible-if warning remains.
+/tmp/fold-oracle-clippy.log.
+python3 docs/rewrite/assemble_slice.py /tmp/fold-oracle-current/native-evidence.json /tmp/fold-oracle-current/transport-evidence.json /tmp/fold-oracle-current/expiry-evidence.json /tmp/fold-m5-oracle-handoff/cli.json /tmp/fold-m5-oracle-handoff/mcp.json /tmp/fold-oracle-current/combined.json
+python3 docs/rewrite/verify_slice.py /tmp/fold-oracle-current/combined.json
+Both passed. Copies corrupted in sample position, undo count, retry count, retained
+override or MCP schema each fail the unchanged verifier.
+Formatting, package boundaries and whitespace checks passed.
+
+The first compile passed a JSON value to Parameter::new, which requires Binding;
+the fixture constructor was corrected before the successful full test run. No
+production validation was weakened. No UI controls or rendering behavior changed.
+
+The full input reports remain under the temporary capture directories above; the
+combined evidence retains everything consumed by the frozen verifier. Integrated
+sample reports and saved archives remain there separately. Native clock/key/graph
+edits here invoke application services, not physical desktop input. Expiry advances
+an explicit dispatcher clock, not ten elapsed minutes through a transport. No new
+GPU/physical appearance claim is made for this overridden title-color construction.
+Remaining M3–M5 rendering, physical interaction and workspace checkpoint gates are
+not closed by this automated oracle.

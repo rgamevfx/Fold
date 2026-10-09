@@ -115,6 +115,14 @@ impl Time {
         )
     }
 
+    /// Divide by a signed integer, reducing before checking storage capacity.
+    pub fn checked_divide(self, divisor: i64) -> Result<Self, TimeError> {
+        Self::normalize(
+            i128::from(self.numerator) * i128::from(divisor.signum()),
+            i128::from(self.denominator) * i128::from(divisor).abs(),
+        )
+    }
+
     /// Convert to integer sample/frame boundaries at a positive rational rate.
     pub fn to_ticks(
         self,
@@ -192,6 +200,23 @@ mod tests {
         );
         assert_eq!(Time::new(0, 77), Ok(Time::ZERO));
         assert_eq!(Time::new(2, 4), Time::new(1, 2));
+    }
+
+    #[test]
+    fn integer_division_reduces_before_capacity_checks() {
+        let large = Time::new(i64::MIN, 1).unwrap();
+        assert_eq!(large.checked_divide(i64::MIN), Time::new(1, 1));
+        assert_eq!(Time::ZERO.checked_divide(i64::MIN), Ok(Time::ZERO));
+        assert_eq!(
+            Time::new(1, 3).unwrap().checked_divide(-2),
+            Time::new(-1, 6)
+        );
+        assert_eq!(large.checked_divide(-1), Err(TimeError::Overflow));
+        assert_eq!(large.checked_divide(0), Err(TimeError::ZeroDenominator));
+        assert_eq!(
+            Time::new(1, 1).unwrap().checked_divide(i64::MIN),
+            Err(TimeError::Overflow)
+        );
     }
 
     #[test]

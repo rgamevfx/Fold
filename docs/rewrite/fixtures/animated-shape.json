@@ -1,0 +1,22 @@
+{
+  "fixture": "animated-shape-v1",
+  "seed": 20261008,
+  "canvas": [1920, 1080],
+  "inputs": {
+    "size": {"type": "Distance<Canvas>", "default": 100},
+    "accent": {"type": "Color<LinearRec709>", "default": [1, 0, 0, 1]},
+    "count": {"type": "Integer", "default": 1, "protected": true}
+  },
+  "construction": [
+    {"name": "width", "operation": "expression", "expression": "size * 2"},
+    {"name": "profile", "operation": "shape", "mode": "rectangle", "width": "width", "height": "size"},
+    {"name": "entrance", "operation": "tween", "from": [0, 80], "to": [0, 0], "duration": [3, 5], "ease": "linear", "outside": "clamp"},
+    {"name": "opacity", "operation": "keyframes", "type": "Scalar", "keys": [[[0, 1], 0], [[1, 2], 1], [[1, 1], 0.5]], "interpolation": "linear", "outside": "hold"},
+    {"name": "placement", "operation": "place", "mode": "screen", "geometry": "profile", "position": "entrance", "opacity": "opacity"},
+    {"name": "scene", "operation": "scene", "placements": ["placement"]},
+    {"name": "main", "operation": "output", "value": "scene"}
+  ],
+  "times": [[-1, 1], [0, 1], [1, 4], [1, 2], [3, 5], [1, 1], [2, 1]],
+  "orders": [[0, 1, 2, 3, 4, 5, 6], [6, 5, 4, 3, 2, 1, 0], [4, 0, 6, 2, 5, 1, 3]],
+  "asset_instances": [{"name": "original", "overrides": {}}, {"name": "variant", "overrides": {"accent": [0, 0, 1, 1]}, "clock": {"offset": [1, 4], "rate": [-1, 1]}}]
+}

@@ -1,3 +1,4 @@
+mod support;
 use fold_app::session::Session;
 use fold_foundation::{DocumentId, ObjectId, Time};
 use fold_platform::desktop::{
@@ -10,9 +11,9 @@ fn fixture() -> (Session, [DocumentId; 3]) {
     use fold_compositor::{Composite, Node, Parameters};
     use fold_timeline::{Clip, Sequence, SourceMedia, Track, TrackKind};
     let ids = [DocumentId::new(), DocumentId::new(), DocumentId::new()];
-    let mut motion = fold_motion::Motion::empty();
-    motion.info.rate = [48, 1];
-    motion.info.frames = 48;
+    let mut image = support::image([0.; 4]);
+    image.info.rate = [48, 1];
+    image.info.frames = 48;
     let solid = Node::new(
         Parameters::Solid {
             rgba: [0., 0., 0., 1.],
@@ -21,12 +22,12 @@ fn fixture() -> (Session, [DocumentId; 3]) {
     );
     let output = Node::new(Parameters::Output, vec![solid.id]);
     let composite = Composite {
-        info: motion.info.clone(),
+        info: image.info.clone(),
         output: output.id,
         nodes: vec![solid, output],
         extensions: Default::default(),
     };
-    let track = Track::new(TrackKind::Video, "Motion");
+    let track = Track::new(TrackKind::Video, "Image");
     let sequence = Sequence {
         transitions: vec![],
         dimensions: [64, 64],
@@ -44,7 +45,7 @@ fn fixture() -> (Session, [DocumentId; 3]) {
                     output: "video".into(),
                     extensions: Default::default(),
                 },
-                info: motion.info.clone(),
+                info: image.info.clone(),
             },
             start: Time::ZERO,
             source_start: Time::ZERO,
@@ -59,7 +60,7 @@ fn fixture() -> (Session, [DocumentId; 3]) {
         .commit(EditBatch {
             base: project.snapshot().revision(),
             mutations: vec![
-                Mutation::PutDocument(motion.document(ids[0]).unwrap()),
+                Mutation::PutDocument(image.document(ids[0]).unwrap()),
                 Mutation::PutDocument(composite.document(ids[1]).unwrap()),
                 Mutation::PutDocument(sequence.document(ids[2]).unwrap()),
             ],

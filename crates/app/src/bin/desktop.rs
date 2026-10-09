@@ -3,9 +3,27 @@ use fold_platform::desktop::{DesktopClient, DesktopCommand};
 fn main() -> std::process::ExitCode {
     let mut session = fold_app::session::Session::default();
     let mut args: Vec<_> = std::env::args_os().skip(1).collect();
-    if args.iter().any(|a| a == "--agent") {
-        args.retain(|a| a != "--agent");
-        session.set_agent_access(true);
+    if args.first().is_some_and(|arg| arg == "--protocol-dir") {
+        #[cfg(target_os = "linux")]
+        {
+            let Some(parent) = args.get(1) else {
+                eprintln!("--protocol-dir requires a directory");
+                return std::process::ExitCode::FAILURE;
+            };
+            match session.enable_agent_transport(std::path::Path::new(parent)) {
+                Ok(path) => eprintln!("Fold protocol socket: {}", path.display()),
+                Err(error) => {
+                    eprintln!("Cannot enable Fold protocol: {error}");
+                    return std::process::ExitCode::FAILURE;
+                }
+            }
+            args.drain(..2);
+        }
+        #[cfg(not(target_os = "linux"))]
+        {
+            eprintln!("Local protocol transport is not qualified on this platform");
+            return std::process::ExitCode::FAILURE;
+        }
     }
     if !args.is_empty() {
         if args[0] == "--project" && args.len() == 2 {
@@ -19,11 +37,6 @@ fn main() -> std::process::ExitCode {
             session.command(DesktopCommand::OpenInWorkspace {
                 path: args[1].clone().into(),
                 document_type: fold_compositor::COMPOSITE.into(),
-            });
-        } else if args[0] == "--motion" && args.len() == 2 {
-            session.command(DesktopCommand::OpenInWorkspace {
-                path: args[1].clone().into(),
-                document_type: fold_motion::MOTION.into(),
             });
         } else if args[0] == "--layers" {
             session.command(DesktopCommand::Import(
@@ -62,8 +75,8 @@ fn main() -> std::process::ExitCode {
     if let Err(error) = fold_app::project_panel::register(&mut panels)
         .and_then(|()| fold_timeline::ui::register(&mut panels))
         .and_then(|()| fold_compositor::ui::register(&mut panels))
-        .and_then(|()| fold_motion::ui::register(&mut panels))
         .and_then(|()| fold_composition::ui::register(&mut panels))
+        .and_then(|()| fold_motion::ui::register(&mut panels))
     {
         eprintln!("Fold panel registration failed: {error}");
         return std::process::ExitCode::FAILURE;

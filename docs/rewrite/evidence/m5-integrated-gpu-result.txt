@@ -1,0 +1,150 @@
+M5 integrated saved-project GPU rendering — 8 October 2026
+Uncommitted active rewrite; complete M3–M5 gates remain pending.
+
+Input: demos/m5-integrated.fold, authored through public CLI Source/Apply, then
+saved/reopened by the native integration harness. This GPU fixture loads that
+artifact and resolves its registered output; it does not rebuild the scene nodes.
+
+Command:
+FOLD_M5_RENDER_DIR=/tmp/fold-m5-integrated-renders cargo test -p fold-app --features spatial --test motion_integrated -- --ignored --nocapture
+Passed, 20.16 seconds test runtime.
+Adapter: Vulkan llvmpipe, LLVM 20.1.2, Mesa 26.1.6 software renderer.
+1920x1080; scene-linear render graph, one sRGB output conversion, existing fixed
+MSAA-off spatial profile. Captures were losslessly converted from RGB PPM to PNG.
+
+Samples: 0,1/4,1/2,3/4,1,2,4, then 0 seconds.
+- Registered application evaluate_scene_gpu publishes exact timestamps for the
+  first six required times and repeated zero, with zero CPU image-adapter nodes
+  and zero image readback bytes before explicit test readback.
+- Four seconds is accepted by native construction/image-graph evaluation. The
+  VideoProvider currently rejects time == duration (half-open interval). The test
+  explicitly verifies that rejection, renders four through the native image graph,
+  and compares every pixel to the settled two-second image. This is a test of the
+  separate native endpoint, not a production fallback or registered endpoint claim.
+- Every channel is finite. Background corner and visible orange content checks
+  pass. Maximum whole-image absolute alpha error from opaque is 0.0000743866 at
+  every sample, below the frozen 0.002 alpha tolerance.
+- Held first-frame pixels remain identical after later renders. Returning to zero
+  reproduces every pixel exactly. Four and two seconds also match exactly.
+
+Initial run used an unjustified alpha == 1 assertion. A diagnostic run measured
+range [0.9999256,1.0], including the first differing sample 0.99999994. The final
+assertion uses the already-frozen 0.002 acceptance tolerance; renderer code and the
+acceptance threshold were not changed. Diagnostic log: /tmp/fold-m5-integrated-alpha.log.
+
+Visual review (all seven lossless 1920x1080 PNGs under docs/rewrite/evidence):
+m5-integrated-0-1.png, m5-integrated-1-4.png, m5-integrated-1-2.png,
+m5-integrated-3-4.png, m5-integrated-1-1.png, m5-integrated-2-1.png,
+m5-integrated-4-1.png.
+Reviewed coherent Screen/World text entrance and the settling of individual words,
+open O/B/8 holes and visible extrusion side walls, diagonal scale/color progression
+through the rotated cloner, stable background and foreground paint order where the
+Screen title overlaps the World title. Spatial edges remain visibly aliased under
+the declared MSAA-off profile. This review is not an independent per-pixel oracle
+for the entire lit scene or physical display/artist acceptance.
+
+Other checks:
+cargo clippy -p fold-app --features spatial --test motion_integrated --no-deps
+  Passed on final source; existing shared YUV/source_preparation warnings remain.
+cargo fmt --all --check
+python3 scripts/check_boundaries.py
+git diff --check
+  Passed.
+
+Remaining: public CLI/MCP rendered frames and endpoint policy, control variations,
+artist ramp/key/lock/layout handoff, physical desktop agreement, general affine
+composition and other open M4 requirements, full vertical-slice checks. No phase
+is claimed complete.
+
+Captured final output:
+
+/tmp/fold-m5-integrated-gpu-final.log
+   Compiling fold-app v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/app)
+warning: field `format` is never read
+  --> crates/render/src/gpu/yuv.rs:22:9
+   |
+16 | pub(super) struct Layout {
+   |                   ------ field in this struct
+...
+22 |     pub format: fold_media::VideoFormat,
+   |         ^^^^^^
+   |
+   = note: `Layout` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `parameters` is never used
+  --> crates/render/src/gpu/yuv.rs:26:8
+   |
+25 | impl Layout {
+   | ----------- method in this implementation
+26 |     fn parameters(self, size: u64) -> Result<[u32; 20], String> {
+   |        ^^^^^^^^^^
+
+warning: `fold-render` (lib) generated 2 warnings
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 10s
+     Running tests/motion_integrated.rs (target/debug/deps/motion_integrated-69cccf6c685f7e25)
+
+running 1 test
+Integrated Motion GPU: AdapterInfo { name: "llvmpipe (LLVM 20.1.2, 256 bits)", vendor: 65541, device: 0, device_type: Cpu, driver: "llvmpipe", driver_info: "Mesa 26.1.6-1pop0~1787580452~24.04~a5619ea (LLVM 20.1.2)", backend: Vulkan }
+Integrated time=0/1: finite output, alpha error=0.0000743866, scene colors, exact registered timing except native endpoint, zero CPU image transfer, retained-frame/reseek checks passed
+Integrated time=1/4: finite output, alpha error=0.0000743866, scene colors, exact registered timing except native endpoint, zero CPU image transfer, retained-frame/reseek checks passed
+Integrated time=1/2: finite output, alpha error=0.0000743866, scene colors, exact registered timing except native endpoint, zero CPU image transfer, retained-frame/reseek checks passed
+Integrated time=3/4: finite output, alpha error=0.0000743866, scene colors, exact registered timing except native endpoint, zero CPU image transfer, retained-frame/reseek checks passed
+Integrated time=1/1: finite output, alpha error=0.0000743866, scene colors, exact registered timing except native endpoint, zero CPU image transfer, retained-frame/reseek checks passed
+Integrated time=2/1: finite output, alpha error=0.0000743866, scene colors, exact registered timing except native endpoint, zero CPU image transfer, retained-frame/reseek checks passed
+Integrated time=4/1: finite output, alpha error=0.0000743866, scene colors, exact registered timing except native endpoint, zero CPU image transfer, retained-frame/reseek checks passed
+Integrated time=0/1: finite output, alpha error=0.0000743866, scene colors, exact registered timing except native endpoint, zero CPU image transfer, retained-frame/reseek checks passed
+test saved_integrated_motion_renders_required_times_and_retains_frames ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 20.16s
+
+
+/tmp/fold-m5-integrated-gpu-final-clippy.log
+    Blocking waiting for file lock on build directory
+warning: field `format` is never read
+  --> crates/render/src/gpu/yuv.rs:22:9
+   |
+16 | pub(super) struct Layout {
+   |                   ------ field in this struct
+...
+22 |     pub format: fold_media::VideoFormat,
+   |         ^^^^^^
+   |
+   = note: `Layout` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `parameters` is never used
+  --> crates/render/src/gpu/yuv.rs:26:8
+   |
+25 | impl Layout {
+   | ----------- method in this implementation
+26 |     fn parameters(self, size: u64) -> Result<[u32; 20], String> {
+   |        ^^^^^^^^^^
+
+warning: `fold-render` (lib) generated 2 warnings
+   Compiling fold-app v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/app)
+warning: this `if` statement can be collapsed
+   --> crates/app/src/source_preparation.rs:120:9
+    |
+120 | /         if let Some((key, cancel)) = &state.active {
+121 | |             if !requests
+122 | |                 .iter()
+123 | |                 .any(|r| r.same_work(key) || key.advances_to(r))
+...   |
+127 | |         }
+    | |_________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#collapsible_if
+    = note: `#[warn(clippy::collapsible_if)]` on by default
+help: collapse nested if block
+    |
+120 ~         if let Some((key, cancel)) = &state.active
+121 ~             && !requests
+122 |                 .iter()
+...
+125 |                 cancel.cancel();
+126 ~             }
+    |
+
+warning: `fold-app` (lib) generated 1 warning (run `cargo clippy --fix --lib -p fold-app -- --no-deps` to apply 1 suggestion)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1m 15s

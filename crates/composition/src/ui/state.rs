@@ -62,7 +62,7 @@ impl State {
                     {
                         continue;
                     }
-                    match host.animation_channels(source.document, layer.graph_object()) {
+                    match host.animation_channels(source.document, None) {
                         Ok(channels) => {
                             self.graph_channels.insert(layer.id, channels);
                         }
@@ -268,7 +268,7 @@ impl State {
         if graph {
             host.command(DesktopCommand::OpenLayerGraph {
                 location,
-                objects: layer.graph_object().into_iter().collect(),
+                objects: vec![],
             });
         } else {
             host.command(DesktopCommand::Navigate(location));

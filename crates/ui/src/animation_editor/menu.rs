@@ -18,6 +18,9 @@ impl Editor {
             ("Linear", Interpolation::Linear),
             ("Bézier", Interpolation::Bezier),
         ] {
+            if self.linear_only && interpolation == Interpolation::Bezier {
+                continue;
+            }
             if ui.menu_item(label) {
                 for c in channels.iter_mut() {
                     for k in &mut c.curve.keys {
@@ -30,28 +33,30 @@ impl Editor {
                 response.edit.finished = true;
             }
         }
-        for (label, tangents) in [
-            ("Automatic tangents", Tangents::Auto),
-            ("Linked tangents", Tangents::Linked),
-            ("Broken tangents", Tangents::Broken),
-        ] {
-            if ui.menu_item(label) {
-                for c in channels.iter_mut() {
-                    for i in 0..c.curve.keys.len() {
-                        if self.selected.contains(&c.curve.keys[i].id) {
-                            let incoming = c.curve.handle(i, true);
-                            let outgoing = c.curve.handle(i, false);
-                            c.curve.keys[i].incoming = incoming;
-                            c.curve.keys[i].outgoing = outgoing;
-                            c.curve.keys[i].tangents = tangents;
-                            if tangents == Tangents::Linked {
-                                c.curve.set_handle(i, false, outgoing);
+        if !self.linear_only {
+            for (label, tangents) in [
+                ("Automatic tangents", Tangents::Auto),
+                ("Linked tangents", Tangents::Linked),
+                ("Broken tangents", Tangents::Broken),
+            ] {
+                if ui.menu_item(label) {
+                    for c in channels.iter_mut() {
+                        for i in 0..c.curve.keys.len() {
+                            if self.selected.contains(&c.curve.keys[i].id) {
+                                let incoming = c.curve.handle(i, true);
+                                let outgoing = c.curve.handle(i, false);
+                                c.curve.keys[i].incoming = incoming;
+                                c.curve.keys[i].outgoing = outgoing;
+                                c.curve.keys[i].tangents = tangents;
+                                if tangents == Tangents::Linked {
+                                    c.curve.set_handle(i, false, outgoing);
+                                }
                             }
                         }
                     }
+                    response.edit.changed = true;
+                    response.edit.finished = true;
                 }
-                response.edit.changed = true;
-                response.edit.finished = true;
             }
         }
         if let Some(_menu) = ui.begin_menu("Retime selected keys") {

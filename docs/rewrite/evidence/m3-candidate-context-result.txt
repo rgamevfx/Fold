@@ -1,0 +1,45 @@
+Immutable candidate evaluation context — 8 October 2026
+M3–M5 gates remain open.
+
+Previously editing::Candidate retained only before/after Motion documents and a
+base revision. A frame renderer would also need the matching project settings,
+resource records and sibling documents. Consulting the live project at observation
+time could mix a retained candidate with a newer color/resource configuration.
+
+Preparation now forks the supplied committed snapshot and uses the existing
+feature-neutral transient edit overlay to replace its Motion document. Candidate
+retains the overlay's immutable evaluation Snapshot. Unchanged project records
+share handles. The live project is untouched, and Snapshot has no save/export
+authority. Its provisional revision is not a published observation identity;
+callers must continue reporting the candidate base revision and generation.
+Rebase constructs a distinct candidate/snapshot using the newly supplied context.
+
+The focused regression proves:
+- Proposed document present in the snapshot; live project still equals the base.
+- Unchanged sibling document retains pointer identity.
+- Later settings, asset-record and sibling-document edits do not change the old
+  candidate snapshot; explicit rebase adopts all three.
+- Retained observation handle remains valid after candidate cancellation while
+  the store rejects new access through the cancelled handle.
+- Apply publishes the rebased content; older evaluation snapshot remains intact.
+This freezes authored resource references/fingerprints, not mutable external-file
+contents. Existing resource resolution/verification still owns that boundary.
+
+Commands:
+cargo test -p fold-motion --test reference
+28 passed, including the new context-retention regression.
+cargo test -p fold-motion --test candidates
+5 lifecycle tests passed.
+cargo test -p fold-app --test agent_handoff -- --nocapture
+Both CLI/MCP handoff tests passed, 9.13 seconds, with approved private-socket
+escalation. Log: /tmp/fold-candidate-context-handoff.log.
+cargo clippy -p fold-motion --all-targets --no-deps -- -D warnings
+Passed without warnings.
+cargo fmt --all --check
+python3 scripts/check_boundaries.py
+git diff --check
+All passed.
+
+Logs: /tmp/fold-candidate-context-{reference,lifecycle,clippy}.log
+Public rendered frames, shared-host render-worker integration, candidate frame
+provenance/cancellation qualification and complete M3–M5 acceptance remain open.

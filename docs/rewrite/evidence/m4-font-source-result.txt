@@ -1,0 +1,31 @@
+M4/M5 text font-source verification
+Noto Sans SHA-256: b85c38ecea8a7cfb39c24e395a4007474fa5a4fc864f6ee33309eb4948d232d5
+Native Text authoring, project font import and aggregate font-memory admission remain unqualified.
+
+/tmp/fold-m5-font-linked-tests.log
+     Running tests/font_source.rs (target/debug/deps/font_source-7d980742a6a53f59)
+running 2 tests
+test verified_font_bytes_outlive_linked_file_and_feed_the_same_layout ... ok
+test new_font_acquisitions_reject_changed_missing_invalid_and_oversized_sources ... ok
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+/tmp/fold-m5-font-text-regression.log
+     Running unittests src/lib.rs (target/debug/deps/fold_render-96bae99242f58ec5)
+running 10 tests
+test text::font::tests::stream_growth_truncation_and_mid_read_cancellation_never_publish ... ok
+test text::outlines::tests::glyph_contours_and_vector_paths_share_one_layout ... ok
+test text::tests::normalized_glyphs_match_shaper_and_retain_logical_mapping ... ok
+test text::mesh::tests::retained_layout_placement_and_repeated_meshes_survive_cache_reuse ... ok
+test text::mesh::tests::invalid_scale_mapping_and_cancel_do_not_publish_geometry ... ok
+test text::tests::content_identity_and_font_ownership_survive_context_reuse ... ok
+test text::tests::missing_fonts_glyphs_and_invalid_requests_are_explicit ... ok
+test text::outlines::tests::unsupported_missing_glyphs_and_cancellation_do_not_publish_partial_paths ... ok
+test text::outlines::tests::ob8_holes_remain_transparent_in_cpu_vector_output ... ok
+test text::mesh::tests::planar_mesh_coverage_matches_vector_interiors_and_faces_positive_z ... ok
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 18 filtered out; finished in 11.19s
+
+/tmp/fold-m5-font-source-tests.log
+     Running unittests src/lib.rs (target/debug/deps/fold_render-96bae99242f58ec5)
+running 1 test
+test text::font::tests::stream_growth_truncation_and_mid_read_cancellation_never_publish ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 27 filtered out; finished in 0.02s

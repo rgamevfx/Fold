@@ -1,0 +1,259 @@
+M4/M5 provider-resolved document placement — 8 October 2026
+Actual committed Motion -> Timeline nesting verified with CPU raster and undo/redo.
+Physical drag/drop, linked viewer routing and mixed/spatial publication are not claimed.
+
+Commands:
+cargo test -p fold-app --test motion_video
+cargo test -p fold-timeline --test sequence
+cargo test -p fold-platform --test packages
+cargo check -p fold-app --features desktop
+cargo clippy -p fold-platform -p fold-timeline -p fold-app --features fold-app/desktop --no-deps
+cargo fmt --all -- --check
+python3 scripts/check_boundaries.py
+git diff --check
+
+Initial integration failures identified Timeline's literal video-name restriction
+(fixed) and a comparison missing Timeline's opaque black backdrop (fixture corrected).
+
+/tmp/fold-m5-output-placement.log
+    Blocking waiting for file lock on artifact directory
+   Compiling fold-app v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/app)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 42.16s
+     Running tests/motion_video.rs (target/debug/deps/motion_video-1e6e17a6b1e1547a)
+
+running 3 tests
+test registered_screen_output_converts_straight_rec709_paint_once_for_aces ... ok
+test motion_document_placement_retains_named_output_and_renders_through_timeline ... ok
+test registered_screen_output_preserves_identity_time_and_snapshot_pixels ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+
+/tmp/fold-m5-output-timeline.log
+    Blocking waiting for file lock on artifact directory
+   Compiling fold-timeline v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/timeline)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 47.74s
+     Running tests/sequence.rs (target/debug/deps/sequence-ce1014dfbf7789be)
+
+running 7 tests
+test moving_effect_keys_follows_clip_and_split_has_independent_identity ... ok
+test malformed_documents_and_shadowed_extensions_are_rejected ... ok
+test source_handles_and_video_lowering_use_exact_half_open_ranges ... ok
+test sub_sample_split_uses_one_shared_boundary_without_rounding_drift ... ok
+test move_trim_split_preserve_mapping_extensions_and_history ... ok
+test invalid_edits_and_stale_proposals_publish_nothing ... ok
+test edited_sequence_survives_save_reopen ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.81s
+
+
+/tmp/fold-m5-output-platform.log
+    Blocking waiting for file lock on artifact directory
+   Compiling fold-project v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/project)
+   Compiling fold-animation v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/animation)
+   Compiling fold-color v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/color)
+   Compiling fold-render v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/render)
+   Compiling fold-platform v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/platform)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 37.64s
+     Running tests/packages.rs (target/debug/deps/packages-6d00d2c4eda6b120)
+
+running 4 tests
+test document_type_identity_is_independent_and_has_one_explicit_owner ... ok
+test invalid_contribution_sets_fail_atomically ... ok
+test document_registration_does_not_require_video_metadata ... ok
+test static_registration_and_host_transactions_do_not_require_feature_switches ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+/tmp/fold-m5-output-desktop.log
+    Blocking waiting for file lock on build directory
+    Checking fold-timeline v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/timeline)
+   Compiling fold-app v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/app)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 54.43s
+
+/tmp/fold-m5-output-clippy.log
+    Blocking waiting for file lock on build directory
+    Checking fold-foundation v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/foundation)
+   Compiling fold-native-video v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/native-video)
+    Checking fold-color v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/color)
+   Compiling fold-app v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/app)
+    Checking fold-animation v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/animation)
+    Checking fold-project v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/project)
+    Checking fold-media v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/media)
+    Checking fold-render v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/render)
+    Checking fold-platform v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/platform)
+warning: this function has too many arguments (9/7)
+   --> crates/platform/src/lib.rs:239:5
+    |
+239 | /     fn compile_nested(
+240 | |         &self,
+241 | |         snapshot: &Snapshot,
+242 | |         source: &DocumentRef,
+...   |
+248 | |         inherited: Option<effects::Context>,
+249 | |     ) -> Result<ChannelGraph, String> {
+    | |_____________________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#too_many_arguments
+    = note: `#[warn(clippy::too_many_arguments)]` on by default
+
+warning: `fold-platform` (lib) generated 1 warning
+    Checking fold-ui v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/ui)
+    Checking fold-compositor v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/compositor)
+    Checking fold-timeline v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/timeline)
+    Checking fold-motion v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/motion)
+    Checking fold-composition v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/composition)
+warning: this `if` statement can be collapsed
+   --> crates/timeline/src/editing.rs:244:13
+    |
+244 | /             if let (Some(a), Some(b)) = (
+245 | |                 result.clips.iter().find(|c| c.id == transition.outgoing),
+246 | |                 result.clips.iter().find(|c| c.id == transition.incoming),
+247 | |             ) {
+...   |
+256 | |             }
+    | |_____________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#collapsible_if
+    = note: `#[warn(clippy::collapsible_if)]` on by default
+help: collapse nested if block
+    |
+247 ~             )
+248 ~                 && a.end()? == b.start {
+249 |                     let delta = b.start.checked_sub(old_cut).map_err(|e| e.to_string())?;
+...
+254 |                         .map_err(|e| e.to_string())?;
+255 ~                 }
+    |
+
+warning: very complex type used. Consider factoring parts into `type` definitions
+  --> crates/timeline/src/ui/canvas.rs:23:20
+   |
+23 |       pub placement: Option<
+   |  ____________________^
+24 | |         &'a dyn Fn(
+25 | |             fold_platform::browser::Entry,
+26 | |             Option<ObjectId>,
+...  |
+30 | |         ) -> Result<Sequence, String>,
+31 | |     >,
+   | |_____^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#type_complexity
+   = note: `#[warn(clippy::type_complexity)]` on by default
+
+warning: this `if` statement can be collapsed
+   --> crates/timeline/src/ui/inspector.rs:141:9
+    |
+141 | /         if let SourceMedia::Document { source, .. } = &clip.info {
+142 | |             if ui.small_button("Open Network") {
+143 | |                 host.command(DesktopCommand::CancelPreviewEdit);
+144 | |                 self.editing = false;
+...   |
+158 | |         }
+    | |_________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#collapsible_if
+help: collapse nested if block
+    |
+141 ~         if let SourceMedia::Document { source, .. } = &clip.info
+142 ~             && ui.small_button("Open Network") {
+143 |                 host.command(DesktopCommand::CancelPreviewEdit);
+...
+156 |                 ));
+157 ~             }
+    |
+
+warning: this `if` statement can be collapsed
+   --> crates/timeline/src/ui/inspector.rs:182:13
+    |
+182 | /             if changed {
+183 | |                 if let Ok(request) = super::request(snapshot.revision(), document, edit.clone()) {
+184 | |                     host.command(DesktopCommand::PreviewExtension(request));
+185 | |                     self.editing = true;
+186 | |                 }
+187 | |             }
+    | |_____________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#collapsible_if
+help: collapse nested if block
+    |
+182 ~             if changed
+183 ~                 && let Ok(request) = super::request(snapshot.revision(), document, edit.clone()) {
+184 |                     host.command(DesktopCommand::PreviewExtension(request));
+185 |                     self.editing = true;
+186 ~                 }
+    |
+
+warning: this `if` statement can be collapsed
+   --> crates/timeline/src/ui/inspector.rs:193:9
+    |
+193 | /         if fold_ui::sdk::imgui::Drag::new(if track.kind == TrackKind::Video {
+194 | |             "Opacity"
+195 | |         } else {
+196 | |             "Gain"
+...   |
+214 | |         }
+    | |_________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#collapsible_if
+help: collapse nested if block
+    |
+200 ~         .build(ui, &mut self.level)
+201 ~             && let Ok(request) = super::request(
+202 |                 snapshot.revision(),
+...
+211 |                 self.editing = true;
+212 ~             }
+    |
+
+warning: `fold-timeline` (lib) generated 5 warnings (run `cargo clippy --fix --lib -p fold-timeline -- --no-deps` to apply 4 suggestions)
+warning: this `if` statement can be collapsed
+   --> crates/app/src/project_panel.rs:213:13
+    |
+213 | /             if let Entry::Item(ItemId::Document(id)) = row.entry {
+214 | |                 if host.document_settings(id).ok().flatten().is_some() && ui.menu_item("Settings…")
+215 | |                 {
+216 | |                     host.command(DesktopCommand::OpenSettings(Some(id)));
+217 | |                 }
+218 | |             }
+    | |_____________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#collapsible_if
+    = note: `#[warn(clippy::collapsible_if)]` on by default
+help: collapse nested if block
+    |
+213 ~             if let Entry::Item(ItemId::Document(id)) = row.entry
+214 ~                 && host.document_settings(id).ok().flatten().is_some() && ui.menu_item("Settings…")
+215 |                 {
+216 |                     host.command(DesktopCommand::OpenSettings(Some(id)));
+217 ~                 }
+    |
+
+warning: this `if` statement can be collapsed
+   --> crates/app/src/source_preparation.rs:120:9
+    |
+120 | /         if let Some((key, cancel)) = &state.active {
+121 | |             if !requests
+122 | |                 .iter()
+123 | |                 .any(|r| r.same_work(key) || key.advances_to(r))
+...   |
+127 | |         }
+    | |_________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.95.0/index.html#collapsible_if
+help: collapse nested if block
+    |
+120 ~         if let Some((key, cancel)) = &state.active
+121 ~             && !requests
+122 |                 .iter()
+...
+125 |                 cancel.cancel();
+126 ~             }
+    |
+
+warning: `fold-app` (lib) generated 2 warnings (run `cargo clippy --fix --lib -p fold-app -- --no-deps` to apply 2 suggestions)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1m 11s
+
+Formatting, package boundaries/headless UI isolation and whitespace checks passed.

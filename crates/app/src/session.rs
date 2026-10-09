@@ -52,8 +52,10 @@ impl Drop for Background {
 
 pub struct Session {
     settings_request: Option<Option<fold_foundation::DocumentId>>,
-    automation: crate::automation::host::Host,
     project: Project,
+    agent: crate::agent::dispatch::Dispatcher,
+    #[cfg(target_os = "linux")]
+    agent_endpoint: Option<crate::agent::local::Endpoint>,
     saved_project: fold_project::CommittedSnapshot,
     state: DesktopState,
     overlay: Option<fold_project::EditSession>,
@@ -81,9 +83,11 @@ impl Session {
     pub fn new(project: Project) -> Self {
         let mut session = Self {
             settings_request: None,
-            automation: Default::default(),
             saved_project: crate::color::new_project(32).snapshot(),
             project,
+            agent: Default::default(),
+            #[cfg(target_os = "linux")]
+            agent_endpoint: None,
             state: DesktopState::default(),
             overlay: None,
             preview: PreviewWorker::new(),
@@ -100,6 +104,39 @@ impl Session {
         };
         session.refresh();
         session
+    }
+    #[cfg(target_os = "linux")]
+    pub fn enable_agent_transport(
+        &mut self,
+        parent: &std::path::Path,
+    ) -> std::io::Result<std::path::PathBuf> {
+        if self.agent_endpoint.is_none() {
+            self.agent_endpoint = Some(crate::agent::local::Endpoint::bind(parent)?);
+        }
+        Ok(self
+            .agent_endpoint
+            .as_ref()
+            .expect("enabled endpoint")
+            .path()
+            .to_owned())
+    }
+    /// Native owner entry point shared by local protocol adapters. Workers retain
+    /// committed snapshots; only this owner can apply their inspected proposals.
+    pub fn dispatch_agent(&mut self, bytes: &[u8]) -> Vec<u8> {
+        #[cfg(feature = "gpu")]
+        self.agent
+            .set_render_host(self.preview.shared.0.lock().unwrap().render_host.clone());
+        let before = self.project.snapshot().revision();
+        let response = self.agent.dispatch_with_edit_state(
+            &mut self.project,
+            bytes,
+            std::time::Instant::now(),
+            self.overlay.is_some(),
+        );
+        if self.project.snapshot().revision() != before {
+            self.refresh();
+        }
+        response
     }
     fn refresh(&mut self) {
         self.state.dirty = !self.project.snapshot().same_content(&self.saved_project);
@@ -137,15 +174,24 @@ impl Session {
             self.state.selection = Default::default();
         }
         let output = if let Some(location) = self.state.navigation.last() {
-            crate::packages::builtins()
-                .output(&snapshot, location.document)
-                .map(|info| (location.document, info))
+            let registry = crate::packages::builtins();
+            registry
+                .default_output(&snapshot, location.document)
+                .and_then(|source| {
+                    registry
+                        .output_ref(&snapshot, &source)
+                        .map(|info| (source, info))
+                })
         } else {
-            workflow::output(&snapshot).map(|(source, info)| (source.document, info))
+            workflow::output(&snapshot)
         };
         self.playback_ranges
             .retain(|id, _| committed.state().documents.contains_key(id));
-        self.state.viewer_document = output.as_ref().ok().map(|(id, _)| *id);
+        self.state.viewer_document = output.as_ref().ok().map(|(source, _)| source.document);
+        self.state.viewer_output = output
+            .as_ref()
+            .ok()
+            .map(|(source, _)| source.output.clone());
         self.state.playback_range = self
             .state
             .viewer_document
@@ -288,8 +334,6 @@ impl Session {
         });
     }
 }
-#[path = "session_candidate.rs"]
-mod candidate_preview;
 impl DesktopClient for Session {
     fn take_settings_request(&mut self) -> Option<Option<fold_foundation::DocumentId>> {
         self.settings_request.take()
@@ -305,30 +349,6 @@ impl DesktopClient for Session {
             .get(&id)
             .ok_or("Missing document")?;
         crate::packages::builtins().document_settings(document)
-    }
-
-    fn agent_preview(&self) -> Option<fold_platform::desktop::AgentPreview> {
-        self.candidate_preview_info().ok().flatten()
-    }
-    fn agent_preview_action(&mut self, action: &str, frame: Option<u32>) -> Result<(), String> {
-        self.candidate_preview_action(action, frame)
-    }
-
-    fn agent_access(&self) -> serde_json::Value {
-        serde_json::json!({"enabled":self.automation.server.is_some() || self.automation.starting.is_some(),"session":self.automation.server.as_ref().map(|s|&s.session),"error":self.automation.last_error})
-    }
-    fn set_agent_access(&mut self, enabled: bool) {
-        if enabled {
-            self.automation.enable();
-        } else {
-            self.automation.disable();
-        }
-    }
-    fn agent_viewers(&mut self, viewers: serde_json::Value) {
-        self.automation.viewers = viewers;
-    }
-    fn take_agent_captures(&mut self) -> Vec<fold_platform::desktop::AgentCapture> {
-        std::mem::take(&mut self.automation.captures)
     }
 
     fn set_preview_wake(&mut self, wake: std::sync::Arc<dyn Fn() + Send + Sync>) {
@@ -389,11 +409,6 @@ impl DesktopClient for Session {
         &self,
         viewer: fold_platform::workspace::PanelInstanceId,
     ) -> Option<(u64, fold_foundation::Time)> {
-        if viewer == fold_platform::desktop::AGENT_PREVIEW_VIEWER {
-            return self
-                .agent_preview()
-                .map(|p| (p.generation, p.key.target.unwrap().1));
-        }
         self.viewer_request_state(viewer)
     }
     fn present_viewer(
@@ -402,9 +417,6 @@ impl DesktopClient for Session {
         generation: u64,
         key: &PreviewKey,
     ) -> bool {
-        if viewer == fold_platform::desktop::AGENT_PREVIEW_VIEWER {
-            return self.agent_preview().is_some_and(|p| p.key == *key);
-        }
         self.present_viewer_frame(viewer, generation, key)
     }
     fn viewer_audio_error(
@@ -492,6 +504,7 @@ impl DesktopClient for Session {
             objects: vec![],
         };
         state.viewer_document = Some(output.document);
+        state.viewer_output = Some(output.output.clone());
         let snapshot = self.preview_snapshot();
         let info = self.metadata.borrow_mut().output(&snapshot, output);
         state.content = None;
@@ -567,7 +580,31 @@ impl DesktopClient for Session {
         crate::packages::builtins().supports(document)
     }
     fn poll(&mut self) {
-        self.poll_automation();
+        self.agent.poll(std::time::Instant::now());
+        #[cfg(target_os = "linux")]
+        if let Some(endpoint) = &mut self.agent_endpoint {
+            endpoint.poll_waiters(&mut self.agent, std::time::Instant::now());
+        }
+        #[cfg(target_os = "linux")]
+        for _ in 0..8 {
+            let Some(request) = self
+                .agent_endpoint
+                .as_ref()
+                .and_then(|endpoint| endpoint.next())
+            else {
+                break;
+            };
+            let Some(request) = self
+                .agent_endpoint
+                .as_mut()
+                .expect("active endpoint")
+                .defer(request, &mut self.agent, std::time::Instant::now())
+            else {
+                continue;
+            };
+            let response = self.dispatch_agent(&request.bytes);
+            let _ = request.response.try_send(response);
+        }
         if let Some(choices) = self.preview.shared.0.lock().unwrap().colors.take() {
             self.state.color_choices = choices;
         }
@@ -611,9 +648,8 @@ impl DesktopClient for Session {
             // their token and must not cancel themselves on worker teardown.
             job.completed = true;
             drop(job);
-            self.state.busy = !self.background.is_empty() || self.automation.file_busy();
-            self.state.file_busy =
-                self.background.iter().any(|job| !job.export) || self.automation.file_busy();
+            self.state.busy = !self.background.is_empty();
+            self.state.file_busy = self.background.iter().any(|job| !job.export);
             // Discard cancelled proposals, but never claim that an already
             // finalized save/export was rolled back by a late cancel click.
             let result = if cancelled
@@ -685,6 +721,7 @@ impl DesktopClient for Session {
                         self.viewers.clocks.clear();
                         self.saved_project = project.snapshot();
                         self.project = project;
+                        self.agent = Default::default();
                         self.state.project_path = Some(path.clone().into());
                         self.workspace_project = Some(path);
                         self.workspace_epoch += 1;
@@ -737,6 +774,7 @@ impl DesktopClient for Session {
                 self.viewers.clocks.clear();
                 self.cancel_preview();
                 self.project = crate::color::new_project(32);
+                self.agent = Default::default();
                 self.saved_project = self.project.snapshot();
                 self.workspace_project = None;
                 self.workspace_epoch += 1;
@@ -861,6 +899,18 @@ impl DesktopClient for Session {
                 self.state.selection = selection;
                 return;
             }
+            DesktopCommand::UnlockControls {
+                document,
+                targets,
+                base,
+            } => crate::packages::builtins()
+                .unlock_for_artist(&self.project.snapshot(), base, document, &targets)
+                .and_then(|batch| {
+                    self.project
+                        .commit_named(batch, "Unlock controls".into())
+                        .map(|_| ())
+                        .map_err(|e| e.to_string())
+                }),
             DesktopCommand::Extension(request) => {
                 let registry = crate::packages::builtins();
                 match registry.command(&request.id) {
@@ -1022,23 +1072,10 @@ impl DesktopClient for Session {
                 .collect(),
         );
         let snapshot = self.preview_snapshot();
-        let candidate = self.agent_preview();
-        let mut forks = std::collections::BTreeMap::new();
-        if candidate.is_some()
-            && let Ok(Some(root)) = self.candidate_preview_snapshot()
-        {
-            forks.insert(
-                fold_platform::desktop::AGENT_PREVIEW_VIEWER,
-                root.evaluation(),
-            );
-        }
         let valid: Vec<_> = demands
             .into_iter()
             .take(128)
             .filter(|demand| {
-                if demand.consumer == fold_platform::desktop::AGENT_PREVIEW_VIEWER {
-                    return candidate.as_ref().is_some_and(|p| p.key == demand.key);
-                }
                 demand.key.target.is_some_and(|(id, _)| {
                     self.metadata
                         .borrow_mut()
@@ -1056,7 +1093,7 @@ impl DesktopClient for Session {
                     let clock = self.viewers.clocks.get(&demand.consumer)?;
                     (!demand.background && clock.transport.playing).then(|| {
                         preview_worker::source_preparation::Request {
-                            snapshot: forks.get(&demand.consumer).unwrap_or(&snapshot).clone(),
+                            snapshot: snapshot.clone(),
                             key: demand.key.clone(),
                             transport: clock.transport.clone(),
                         }
@@ -1064,7 +1101,7 @@ impl DesktopClient for Session {
                 })
                 .collect(),
         );
-        self.preview.demands_forks(snapshot, valid, forks);
+        self.preview.demands(snapshot, valid);
     }
     fn begin_preview_update(&mut self) {
         self.preview.begin_update();
@@ -1118,6 +1155,3 @@ fn choose_project(
         Err("Native project dialogs require desktop support".into())
     }
 }
-
-#[path = "session_automation.rs"]
-mod automation;

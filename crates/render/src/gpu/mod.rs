@@ -6,19 +6,19 @@ mod presentation;
 pub use presentation::PresentationTransfer;
 mod cache;
 pub use cache::PresentationCompressor;
-mod bake_encoder;
 mod baked;
-pub use bake_encoder::BakeEncoder;
 mod color;
 mod display;
 mod fusion;
 mod gaussian;
 mod host;
+mod precision;
 mod preparation;
 mod sampling;
 mod shader;
+#[cfg(feature = "spatial")]
+pub mod spatial;
 mod still;
-mod textured;
 mod upload;
 pub use display::Display;
 #[cfg(all(feature = "native-video", target_os = "linux"))]
@@ -162,9 +162,13 @@ impl GpuFrame {
             pixel_aspect: [1, 1],
             planes: vec![Plane {
                 offset: 0,
-                row_stride: u64::from(self.dimensions()[0]) * 16,
+                row_stride: u64::from(self.dimensions()[0]) * self.pixel_bytes(),
                 channels: 4,
-                component: Component::Float32,
+                component: if self.pixel_bytes() == 8 {
+                    Component::Float16
+                } else {
+                    Component::Float32
+                },
             }],
             alpha: Alpha::Premultiplied,
             color: ColorEncoding::Scene {
@@ -185,6 +189,13 @@ impl GpuFrame {
                 }
             },
         })
+    }
+    fn pixel_bytes(&self) -> u64 {
+        match self.image.texture.format() {
+            wgpu::TextureFormat::Rgba16Float => 8,
+            wgpu::TextureFormat::Rgba32Float => 16,
+            _ => unreachable!("scene frames own floating-point RGBA images"),
+        }
     }
     pub fn dimensions(&self) -> [u32; 2] {
         self.image.dimensions
@@ -214,7 +225,8 @@ impl GpuFrame {
             std::thread::sleep(std::time::Duration::from_millis(1));
         }
         let [width, height] = self.dimensions();
-        let stride = (width * 16).div_ceil(256) * 256;
+        let pixel_bytes = self.pixel_bytes() as usize;
+        let stride = (width * pixel_bytes as u32).div_ceil(256) * 256;
         let size = u64::from(stride) * u64::from(height);
         let reservation = self.host.reserve(size)?;
         let device = self.host.device();
@@ -273,9 +285,14 @@ impl GpuFrame {
             .try_reserve_exact((width * height) as usize)
             .map_err(|_| "readback CPU allocation failed")?;
         for row in mapped.chunks_exact(stride as usize) {
-            for bytes in row[..width as usize * 16].chunks_exact(16) {
+            for bytes in row[..width as usize * pixel_bytes].chunks_exact(pixel_bytes) {
                 let pixel = std::array::from_fn(|c| {
-                    f32::from_le_bytes(bytes[c * 4..c * 4 + 4].try_into().unwrap())
+                    if pixel_bytes == 8 {
+                        half::f16::from_le_bytes(bytes[c * 2..c * 2 + 2].try_into().unwrap())
+                            .to_f32()
+                    } else {
+                        f32::from_le_bytes(bytes[c * 4..c * 4 + 4].try_into().unwrap())
+                    }
                 });
                 fold_color::validate_pixel(pixel)?;
                 pixels.push(pixel);
@@ -320,9 +337,12 @@ pub struct Renderer {
     vector: vector::VectorPipeline,
     gaussian: gaussian::Gaussian,
     sampling: sampling::Sampling,
-    textured: textured::Pipeline,
+    baked_sampling: baked::Sampling,
     baked: baked::Cache,
     shaders: shader::Cache,
+    precision: Option<(bool, wgpu::ComputePipeline)>,
+    #[cfg(feature = "spatial")]
+    spatial: Option<spatial::Adapter>,
     #[cfg(all(feature = "native-video", target_os = "linux"))]
     native_video: Option<native_video::NativeVideo>,
 }
@@ -409,7 +429,7 @@ impl Renderer {
         });
         let gaussian = gaussian::Gaussian::new(&host);
         let sampling = sampling::Sampling::new(&host);
-        let textured = textured::Pipeline::new(&host);
+        let baked_sampling = baked::Sampling::new(&host);
         let yuv = yuv::YuvPipeline::new(&host);
         let vector = vector::VectorPipeline::new(&host);
         host.check()?;
@@ -430,9 +450,12 @@ impl Renderer {
             data_display,
             gaussian,
             sampling,
-            textured,
+            baked_sampling,
             baked: Default::default(),
             shaders: Default::default(),
+            precision: None,
+            #[cfg(feature = "spatial")]
+            spatial: None,
             host,
             pipeline,
             yuv,
@@ -547,7 +570,9 @@ impl Renderer {
             .map(|c| crate::scheduling::Scheduler::shared().enter(c, cancel))
             .transpose()?;
         cancel.check()?;
-        let output = self.host.image(plan.output.dimensions())?;
+        let output = self
+            .host
+            .image_format(plan.output.dimensions(), frame.image.texture.format())?;
         let mut encoder = self
             .host
             .device()
@@ -620,7 +645,6 @@ impl Renderer {
             self.host.sources().clear();
             self.yuv.clear();
             self.vector.clear();
-            self.textured.clear();
             self.baked.clear();
             self.uploads.clear();
             #[cfg(all(feature = "native-video", target_os = "linux"))]
@@ -642,6 +666,32 @@ impl Renderer {
         };
         let mut sources: Vec<Option<GpuFrame>> = (0..graph.nodes.len()).map(|_| None).collect();
         for (id, op) in graph.nodes.iter().enumerate() {
+            if needed[id]
+                && let ImageOp::Spatial { scene, binding } = op
+            {
+                #[cfg(feature = "spatial")]
+                {
+                    let _permit = class
+                        .map(|class| crate::scheduling::Scheduler::shared().enter(class, cancel))
+                        .transpose()?;
+                    if self.spatial.is_none() {
+                        self.spatial = Some(spatial::Adapter::new(self.host.clone())?);
+                    }
+                    let frame = self
+                        .spatial
+                        .as_mut()
+                        .unwrap()
+                        .render(scene, binding.clone(), cancel)?
+                        .into_image(binding)?;
+                    stats.accumulate(&frame.statistics);
+                    sources[id] = Some(frame);
+                }
+                #[cfg(not(feature = "spatial"))]
+                {
+                    let _ = (scene, binding);
+                    return Err("Spatial rendering is not enabled in this build".into());
+                }
+            }
             if needed[id]
                 && let ImageOp::WindowedSource { source, .. } = op
             {
@@ -722,7 +772,6 @@ impl Renderer {
         // read: distinct passes provide barriers. It does not escape to the host
         // pool until the entire submission completes.
         let mut scratch = Vec::<Arc<Image>>::new();
-        let mut textured_surface = None;
         let mut uploads = Vec::new();
         let mut immutable = vec![false; graph.nodes.len()];
         let mut retained = Vec::new();
@@ -738,6 +787,15 @@ impl Renderer {
                 continue;
             }
             cancel.check()?;
+            if !aces && matches!(op, ImageOp::Spatial { .. }) {
+                let source = sources[id]
+                    .take()
+                    .ok_or("Missing prepared spatial source")?;
+                leases.push(source.image.clone());
+                frames[id] = Some(source.image);
+                immutable[id] = true;
+                continue;
+            }
             let still_key = keys[id].take();
             if let Some(image) = resident[id].take() {
                 leases.push(image.clone());
@@ -772,6 +830,28 @@ impl Renderer {
             let mask = inputs[2].map_or(&dummy, |i| frames[i].as_ref().unwrap());
             let mut compute = true;
             match op {
+                ImageOp::Spatial { .. } => {
+                    let source = sources[id]
+                        .take()
+                        .ok_or("Missing prepared spatial source")?;
+                    let (pipeline, uploaded) =
+                        self.color_pipeline(Some(&processors[fold_color::LINEAR_SRGB]), false)?;
+                    stats.lut_upload_bytes += uploaded;
+                    let intermediate = pipeline.encode(
+                        &self.host,
+                        &mut encoder,
+                        &source.image,
+                        &output,
+                        false,
+                        &status,
+                    )?;
+                    leases.push(source.image);
+                    leases.push(intermediate.clone());
+                    scratch.push(intermediate);
+                    buffers.push(pipeline.reservation.clone());
+                    stats.compute_passes += 2;
+                    compute = false;
+                }
                 ImageOp::Shader { inputs, program } => {
                     let images: Vec<_> = inputs
                         .iter()
@@ -984,73 +1064,28 @@ impl Renderer {
                     scratch.push(intermediate);
                     compute = false;
                 }
-                ImageOp::Baked(_) | ImageOp::BakedTextured { .. } => {
-                    let fullscreen;
-                    let (batch, driver) = match op {
-                        ImageOp::Baked(texture) => {
-                            fullscreen = crate::baked::fullscreen(texture.clone(), dimensions);
-                            (&fullscreen, None)
-                        }
-                        ImageOp::BakedTextured { batch, driver } => (batch.as_ref(), *driver),
-                        _ => unreachable!(),
-                    };
-                    if batch.textures.iter().any(|t| {
-                        t.aces != aces
-                            || t.config.as_deref()
-                                != config.map(|c| c.identity().content_sha256.as_str())
-                    }) {
+                ImageOp::Baked(texture) => {
+                    if texture.aces != aces
+                        || texture.config.as_deref()
+                            != config.map(|c| c.identity().content_sha256.as_str())
+                    {
                         return Err("Baked texture color configuration changed; rebuild".into());
                     }
                     let (source, reservations, uploaded) =
-                        self.baked.acquire(&self.host, &batch.textures)?;
+                        self.baked.acquire(&self.host, texture)?;
                     stats.upload_bytes += uploaded;
                     buffers.extend(reservations);
-                    leases.push(source.clone());
-                    if textured_surface.is_none() {
-                        let image = self
-                            .host
-                            .image_format(dimensions, self.host.textured_format())?;
-                        leases.push(image.clone());
-                        textured_surface = Some(image);
-                    }
-                    let (reservations, bytes) = self.textured.encode(
+                    buffers.push(self.baked_sampling.encode(
                         &self.host,
                         &mut encoder,
                         &source,
-                        if driver.is_some() { first } else { &source },
                         &output,
-                        textured_surface.as_ref().unwrap(),
-                        &batch.draw,
+                        texture.format,
                         &status,
-                        aces,
-                    )?;
-                    buffers.extend(reservations);
-                    stats.upload_bytes += bytes;
-                    stats.compute_passes += 2;
-                    compute = false;
-                }
-                ImageOp::Textured { draw, .. } => {
-                    if textured_surface.is_none() {
-                        let image = self
-                            .host
-                            .image_format(dimensions, self.host.textured_format())?;
-                        leases.push(image.clone());
-                        textured_surface = Some(image);
-                    }
-                    let (reservations, bytes) = self.textured.encode(
-                        &self.host,
-                        &mut encoder,
-                        first,
-                        second,
-                        &output,
-                        textured_surface.as_ref().unwrap(),
-                        draw,
-                        &status,
-                        aces,
-                    )?;
-                    buffers.extend(reservations);
-                    stats.upload_bytes += bytes;
-                    stats.compute_passes += 2;
+                    )?);
+                    leases.push(source);
+                    stats.upload_bytes += 16;
+                    stats.compute_passes += 1;
                     compute = false;
                 }
                 ImageOp::Vector(drawings) => {

@@ -181,8 +181,7 @@ impl Panel for TimelinePanel {
                         .get(&source.document)
                         .map(|d| d.type_id.as_str())
                         .unwrap_or("");
-                    let graph =
-                        matches!(kind, "fold.compositor.composite" | "fold.motion.document");
+                    let graph = kind == "fold.compositor.composite";
                     (
                         fold_platform::browser::item_name(
                             &snapshot,
@@ -279,11 +278,15 @@ impl Panel for TimelinePanel {
             crate::EditMode::Overwrite => fold_platform::browser::PlacementMode::Overwrite,
         };
         let placement = |entry: fold_platform::browser::Entry, track, at, new_track, audio_only| {
-            let source = entry.source()?;
+            let source = entry.source(|id| host.default_output(id))?;
             let output = match &source {
-                fold_platform::browser::PlacementSource::Output(source) => {
-                    Some(host.video_info(source.document)?)
-                }
+                fold_platform::browser::PlacementSource::Output(source) => Some(
+                    host.outputs(source.document)
+                        .into_iter()
+                        .find(|output| output.reference == *source)
+                        .ok_or("Missing document output")?
+                        .info?,
+                ),
                 _ => None,
             };
             let request = fold_platform::browser::Placement {
@@ -319,7 +322,7 @@ impl Panel for TimelinePanel {
                     at,
                     new_track,
                     audio_only,
-                } => match entry.source() {
+                } => match entry.source(|id| host.default_output(id)) {
                     Ok(source) => host.command(DesktopCommand::Browser(
                         fold_platform::browser::BrowserCommand::Place(
                             fold_platform::browser::Placement {
