@@ -150,6 +150,7 @@ fn shared_gpu_inputs_and_reused_uploads_preserve_held_frames_and_source_changes(
             .evaluate(first, None, &mut decoder, &cancel)
             .err()
             .unwrap()
+            .message
             .contains("fingerprint")
     );
     assert!(host.memory().allocated <= host.memory().budget);

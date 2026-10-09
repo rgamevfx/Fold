@@ -34,7 +34,7 @@ impl YuvFrame {
         data: Vec<u8>,
         timestamp: Time,
         duration: Time,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, fold_foundation::Failure> {
         Self::from_planes(
             crate::VideoFormat::default(),
             dimensions,
@@ -49,7 +49,7 @@ impl YuvFrame {
         data: Vec<u8>,
         timestamp: Time,
         duration: Time,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, fold_foundation::Failure> {
         format.validate()?;
         let [w, h] = dimensions;
         let pixels = u64::from(w) * u64::from(h);
@@ -106,7 +106,7 @@ impl YuvFrame {
         &self,
         dimensions: [u32; 2],
         cancel: &crate::Cancel,
-    ) -> Result<crate::RgbImage, String> {
+    ) -> Result<crate::RgbImage, fold_foundation::Failure> {
         cancel.check()?;
         let count = u64::from(dimensions[0]) * u64::from(dimensions[1]);
         if count == 0 || count > crate::MAX_PIXELS as u64 {
@@ -278,6 +278,7 @@ mod tests {
             frame
                 .reconstruct_signal([3, 3], &cancel)
                 .unwrap_err()
+                .message
                 .contains("cancel")
         );
         let mut spare = Vec::with_capacity(32);

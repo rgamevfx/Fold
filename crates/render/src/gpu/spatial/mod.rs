@@ -84,14 +84,17 @@ pub struct Frame {
     pub preparation: Preparation,
 }
 impl Frame {
-    pub(super) fn into_image(self, expected: &Binding) -> Result<GpuFrame, String> {
+    pub(super) fn into_image(
+        self,
+        expected: &Binding,
+    ) -> Result<GpuFrame, fold_foundation::Failure> {
         self.image(expected)?;
         Ok(self.image)
     }
     pub fn binding(&self) -> &Binding {
         &self.binding
     }
-    pub fn image(&self, expected: &Binding) -> Result<&GpuFrame, String> {
+    pub fn image(&self, expected: &Binding) -> Result<&GpuFrame, fold_foundation::Failure> {
         if &self.binding != expected {
             return Err("Spatial frame does not match request".into());
         }
@@ -101,7 +104,7 @@ impl Frame {
         &mut self,
         expected: &Binding,
         cancel: &fold_media::Cancel,
-    ) -> Result<crate::Frame, String> {
+    ) -> Result<crate::Frame, fold_foundation::Failure> {
         self.image(expected)?;
         self.image.readback(cancel)
     }
@@ -120,7 +123,7 @@ pub struct Adapter {
     precision: Option<(bool, wgpu::ComputePipeline)>,
 }
 impl Adapter {
-    pub fn new(host: Host) -> Result<Self, String> {
+    pub fn new(host: Host) -> Result<Self, fold_foundation::Failure> {
         host.check()?;
         if host.adapter().get_info().backend != wgpu::Backend::Vulkan
             || !wgpu::Limits::default().check_limits(&host.device().limits())
@@ -215,7 +218,7 @@ impl Adapter {
         scene: &Scene,
         binding: Binding,
         cancel: &fold_media::Cancel,
-    ) -> Result<Frame, String> {
+    ) -> Result<Frame, fold_foundation::Failure> {
         cancel.check()?;
         self.host.check()?;
         scene.validate(&binding)?;
@@ -262,7 +265,7 @@ impl Adapter {
             match &pipeline.state {
                 CachedPipelineState::Ok(_) => {}
                 CachedPipelineState::Err(error) => {
-                    return Err(format!("Spatial pipeline failed: {error}"));
+                    return Err(format!("Spatial pipeline failed: {error}").into());
                 }
                 _ => return Err("Spatial pipelines are still preparing; retry this request".into()),
             }

@@ -196,11 +196,60 @@ pub fn nest(snapshot: &Snapshot, bytes: &[u8], cancel: &Cancel) -> Result<EditBa
 }
 struct Documents;
 impl DocumentProvider for Documents {
-    fn parameter_sources(
+    fn package_id(&self) -> &'static str {
+        crate::PACKAGE
+    }
+    fn type_id(&self) -> &'static str {
+        crate::COMPOSITION
+    }
+    fn schema(&self) -> u32 {
+        3
+    }
+    fn supports_schema(&self, schema: u32) -> bool {
+        schema == 3
+    }
+    fn validate(&self, document: &Document) -> Result<(), String> {
+        Composition::from_document(document).map(|_| ())
+    }
+    fn parameters_capability(&self) -> Option<&dyn fold_platform::packages::Parameters> {
+        Some(self)
+    }
+    fn parameter_sources_capability(
         &self,
-        document: &Document,
-    ) -> Result<Vec<fold_platform::parameters::Source>, String> {
-        crate::parameters::sources(document)
+    ) -> Option<&dyn fold_platform::packages::ParameterSources> {
+        Some(self)
+    }
+    fn settings_capability(&self) -> Option<&dyn fold_platform::packages::Settings> {
+        Some(self)
+    }
+    fn authoring_capability(&self) -> Option<&dyn fold_platform::packages::Authoring> {
+        Some(self)
+    }
+    fn creation_capability(&self) -> Option<&dyn fold_platform::packages::Creation> {
+        Some(self)
+    }
+    fn browser_kind_capability(&self) -> Option<&dyn fold_platform::packages::BrowserKind> {
+        Some(self)
+    }
+    fn placement_capability(&self) -> Option<&dyn fold_platform::packages::Placement> {
+        Some(self)
+    }
+    fn relink_capability(&self) -> Option<&dyn fold_platform::packages::Relink> {
+        Some(self)
+    }
+    fn evaluation_identity_capability(
+        &self,
+    ) -> Option<&dyn fold_platform::packages::EvaluationIdentity> {
+        Some(self)
+    }
+}
+impl fold_platform::packages::Parameters for Documents {
+    fn parameter_time(
+        &self,
+        _document: &Document,
+        output_time: fold_foundation::Time,
+    ) -> Result<fold_foundation::Time, String> {
+        Ok(output_time)
     }
 
     fn parameters(
@@ -218,14 +267,16 @@ impl DocumentProvider for Documents {
     ) -> Result<fold_platform::parameters::Literal, String> {
         crate::parameters::sample(document, target, time, cancel)
     }
-
-    fn authoring_catalog(&self) -> serde_json::Value {
-        crate::automation::catalog()
+}
+impl fold_platform::packages::ParameterSources for Documents {
+    fn parameter_sources(
+        &self,
+        document: &Document,
+    ) -> Result<Vec<fold_platform::parameters::Source>, String> {
+        crate::parameters::sources(document)
     }
-    fn author(&self, document: &Document, edits: &[serde_json::Value]) -> Result<Document, String> {
-        crate::automation::author(document, edits)
-    }
-
+}
+impl fold_platform::packages::Settings for Documents {
     fn settings(
         &self,
         document: &Document,
@@ -243,74 +294,32 @@ impl DocumentProvider for Documents {
         value.info = settings.format.clone();
         value.document(document.id)
     }
-
-    fn package_id(&self) -> &'static str {
-        crate::PACKAGE
+}
+impl fold_platform::packages::Authoring for Documents {
+    fn authoring_catalog(&self) -> serde_json::Value {
+        crate::automation::catalog()
     }
-    fn type_id(&self) -> &'static str {
-        crate::COMPOSITION
+    fn inspect(&self, document: &Document) -> Result<serde_json::Value, String> {
+        serde_json::to_value(Composition::from_document(document)?).map_err(|e| e.to_string())
     }
-    fn schema(&self) -> u32 {
-        3
+    fn author(&self, document: &Document, edits: &[serde_json::Value]) -> Result<Document, String> {
+        crate::automation::author(document, edits)
     }
-    fn supports_schema(&self, schema: u32) -> bool {
-        schema == 3
+}
+impl fold_platform::packages::Creation for Documents {
+    fn create(&self, id: DocumentId) -> Result<Document, String> {
+        Composition::default().document(id)
     }
-    fn validate(&self, document: &Document) -> Result<(), String> {
-        Composition::from_document(document).map(|_| ())
-    }
+}
+impl fold_platform::packages::BrowserKind for Documents {
     fn browser_kind(&self) -> Option<fold_platform::browser::DocumentKind> {
         Some(fold_platform::browser::DocumentKind {
             type_id: crate::COMPOSITION,
             title: "Composition",
         })
     }
-    fn create(&self, id: DocumentId) -> Result<Document, String> {
-        Composition::default().document(id)
-    }
-    fn validate_relink(
-        &self,
-        document: &Document,
-        asset: fold_foundation::AssetId,
-        metadata: &fold_media::ingest::SourceMetadata,
-    ) -> Result<(), String> {
-        for layer in Composition::from_document(document)?.layers {
-            if layer.source != Some(Source::Asset(asset)) {
-                continue;
-            }
-            let valid = match &metadata.profile {
-                fold_media::ingest::SourceProfile::Video(info) => *info == layer.info,
-                fold_media::ingest::SourceProfile::Ppm { dimensions } => {
-                    *dimensions == [layer.info.width, layer.info.height]
-                }
-                fold_media::ingest::SourceProfile::Exr(info) => {
-                    info.dimensions == [layer.info.width, layer.info.height]
-                        && info
-                            .sequence
-                            .as_ref()
-                            .is_none_or(|s| s.last() - s.first() + 1 == layer.info.frames)
-                }
-                _ => false,
-            };
-            if !valid {
-                return Err(
-                    "Relink changes the composition layer's source dimensions or duration".into(),
-                );
-            }
-        }
-        Ok(())
-    }
-    fn evaluation_identity(&self, document: &Document) -> Result<Vec<u8>, String> {
-        let mut composition = Composition::from_document(document)?;
-        for layer in &mut composition.layers {
-            layer.name.clear();
-            layer.locked = false;
-        }
-        serde_json::to_vec(&composition).map_err(|e| e.to_string())
-    }
-    fn inspect(&self, document: &Document) -> Result<serde_json::Value, String> {
-        serde_json::to_value(Composition::from_document(document)?).map_err(|e| e.to_string())
-    }
+}
+impl fold_platform::packages::Placement for Documents {
     fn place(
         &self,
         snapshot: &Snapshot,
@@ -385,6 +394,51 @@ impl DocumentProvider for Documents {
         })
     }
 }
+impl fold_platform::packages::Relink for Documents {
+    fn validate_relink(
+        &self,
+        document: &Document,
+        asset: fold_foundation::AssetId,
+        metadata: &fold_media::ingest::SourceMetadata,
+    ) -> Result<(), String> {
+        for layer in Composition::from_document(document)?.layers {
+            if layer.source != Some(Source::Asset(asset)) {
+                continue;
+            }
+            let valid = match &metadata.profile {
+                fold_media::ingest::SourceProfile::Video(info) => *info == layer.info,
+                fold_media::ingest::SourceProfile::Ppm { dimensions } => {
+                    *dimensions == [layer.info.width, layer.info.height]
+                }
+                fold_media::ingest::SourceProfile::Exr(info) => {
+                    info.dimensions == [layer.info.width, layer.info.height]
+                        && info
+                            .sequence
+                            .as_ref()
+                            .is_none_or(|s| s.last() - s.first() + 1 == layer.info.frames)
+                }
+                _ => false,
+            };
+            if !valid {
+                return Err(
+                    "Relink changes the composition layer's source dimensions or duration".into(),
+                );
+            }
+        }
+        Ok(())
+    }
+}
+impl fold_platform::packages::EvaluationIdentity for Documents {
+    fn evaluation_identity(&self, document: &Document) -> Result<Vec<u8>, String> {
+        let mut composition = Composition::from_document(document)?;
+        for layer in &mut composition.layers {
+            layer.name.clear();
+            layer.locked = false;
+        }
+        serde_json::to_vec(&composition).map_err(|e| e.to_string())
+    }
+}
+
 pub fn register(registry: &mut PackageRegistry) -> Result<(), String> {
     register_with_edit(registry, edit)
 }

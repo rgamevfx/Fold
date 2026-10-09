@@ -50,7 +50,7 @@ impl Info {
             && self.data_dimensions == other.data_dimensions
             && self.channels == other.channels
     }
-    pub fn validate(&self) -> Result<(), String> {
+    pub fn validate(&self) -> Result<(), fold_foundation::Failure> {
         for dimensions in [self.dimensions, self.data_dimensions] {
             let count = u64::from(dimensions[0]) * u64::from(dimensions[1]);
             if count == 0 || count > crate::MAX_PIXELS as u64 {
@@ -90,7 +90,7 @@ struct Layout {
     parts: Vec<Part>,
 }
 
-fn metadata(reader: impl Read) -> Result<Layout, String> {
+fn metadata(reader: impl Read) -> Result<Layout, fold_foundation::Failure> {
     let metadata = MetaData::read_from_buffered(reader, true).map_err(|e| e.to_string())?;
     let first = metadata.headers.first().ok_or("EXR has no parts")?;
     let display = first.shared_attributes.display_window;
@@ -219,7 +219,7 @@ fn retain_scratch(bytes: u64, lease: Arc<budget::Lease>) {
         }
     })
 }
-pub fn inspect(path: &Path, cancel: &Cancel) -> Result<Info, String> {
+pub fn inspect(path: &Path, cancel: &Cancel) -> Result<Info, fold_foundation::Failure> {
     cancel.check()?;
     let file = std::fs::File::open(path).map_err(|e| e.to_string())?;
     if file.metadata().map_err(|e| e.to_string())?.len() > MAX_FILE_BYTES {
@@ -242,7 +242,7 @@ pub fn decode(
     channels: [Option<&str>; 4],
     dimensions: [u32; 2],
     cancel: &Cancel,
-) -> Result<Pixels, String> {
+) -> Result<Pixels, fold_foundation::Failure> {
     source.info.validate()?;
     cancel.check()?;
     let count = u64::from(dimensions[0]) * u64::from(dimensions[1]);
@@ -280,7 +280,7 @@ pub fn decode(
     }
     for name in channels.into_iter().flatten() {
         if !source.info.channels.iter().any(|c| c.source == name) {
-            return Err(format!("Missing EXR channel '{name}'"));
+            return Err(format!("Missing EXR channel '{name}'").into());
         }
     }
     let output_lease = budget::DECODED.reserve(count * 16)?;

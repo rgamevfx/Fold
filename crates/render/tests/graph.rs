@@ -297,7 +297,10 @@ fn live_pixel_budget_releases_intermediates_and_skips_dead_work() {
     ]);
     assert_eq!(
         render(plan.clone()).unwrap_err(),
-        "render graph exceeds 64 MiB live pixel budget"
+        fold_foundation::Failure::new(
+            fold_foundation::FailureKind::RequestTooLarge,
+            "render graph exceeds 64 MiB live pixel budget"
+        )
     );
     // Selecting an earlier output makes all the over-budget branch dead.
     plan.output = 0;

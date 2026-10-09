@@ -1,0 +1,22 @@
+   Compiling naga v27.0.3
+   Compiling fontique v0.7.0
+   Compiling harfrust v0.3.2
+   Compiling parley v0.7.0
+   Compiling fold-media v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/media)
+   Compiling wgpu-hal v27.0.4
+   Compiling wgpu-core-deps-windows-linux-android v27.0.0
+   Compiling wgpu-core v27.0.3
+   Compiling wgpu v27.0.1
+   Compiling block_compression v0.7.0
+   Compiling fold-render v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/render)
+    Finished `test` profile [unoptimized] target(s) in 23.81s
+     Running unittests src/lib.rs (target/debug/deps/fold_render-310412472833597a)
+
+running 4 tests
+test scheduling::tests::audio_and_background_capacity_do_not_wait_for_graphics ... ok
+test scheduling::tests::cancellation_releases_a_waiting_ticket ... ok
+test scheduling::tests::opportunistic_retention_never_queues_ahead_of_demand ... ok
+test scheduling::tests::sustained_viewer_pressure_reserves_export_and_range_service ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 55 filtered out; finished in 0.01s
+

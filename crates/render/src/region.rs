@@ -197,7 +197,7 @@ impl Plan {
 }
 
 /// Worker-only extraction. The returned frame retains working color and timing.
-pub fn crop(mut frame: Frame, region: Region) -> Result<Frame, String> {
+pub fn crop(mut frame: Frame, region: Region) -> Result<Frame, fold_foundation::Failure> {
     region.validate(frame.dimensions())?;
     if region == Region::full(frame.dimensions()) {
         return Ok(frame);

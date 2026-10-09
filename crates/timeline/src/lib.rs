@@ -150,7 +150,10 @@ impl VideoProvider for ImageSequenceProvider {
         info.validate()?;
         Ok(info)
     }
-    fn compile(&self, request: fold_platform::VideoCompile<'_>) -> Result<RenderGraph, String> {
+    fn compile(
+        &self,
+        request: fold_platform::VideoCompile<'_>,
+    ) -> Result<RenderGraph, fold_foundation::Failure> {
         let fold_platform::VideoCompile {
             document,
             reference,

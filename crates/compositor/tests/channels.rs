@@ -32,7 +32,7 @@ fn compile(composite: &Composite) -> Result<fold_render::RenderGraph, String> {
         .unwrap();
     let mut registry = fold_platform::packages::PackageRegistry::default();
     fold_compositor::package::register(&mut registry).unwrap();
-    registry.video(
+    Ok(registry.video(
         &project.snapshot(),
         &DocumentRef {
             document: id,
@@ -42,7 +42,7 @@ fn compile(composite: &Composite) -> Result<fold_render::RenderGraph, String> {
         Time::ZERO,
         3,
         2,
-    )
+    )?)
 }
 #[test]
 fn twenty_layers_survive_processing_and_shuffle_without_twenty_pixel_buffers() {

@@ -241,7 +241,7 @@ impl Session {
         #[cfg(feature = "gpu")]
         let render_host = self.preview.shared.0.lock().unwrap().render_host.clone();
         let thread = std::thread::spawn(move || {
-            let result = token.check().and_then(|()| {
+            let result = token.check().map_err(String::from).and_then(|()| {
                 let command = match command {
                     DesktopCommand::ChooseOpen | DesktopCommand::ChooseSave => {
                         let save = matches!(command, DesktopCommand::ChooseSave);
@@ -342,7 +342,11 @@ impl DesktopClient for Session {
             .documents
             .get(&id)
             .ok_or("Missing document")?;
-        crate::packages::builtins().document_settings(document)
+        let registry = crate::packages::builtins();
+        if !registry.has_capability(document, fold_platform::packages::Capability::Settings) {
+            return Ok(None);
+        }
+        registry.document_settings(document)
     }
 
     fn set_preview_wake(&mut self, wake: std::sync::Arc<dyn Fn() + Send + Sync>) {
@@ -545,13 +549,16 @@ impl DesktopClient for Session {
         document: fold_foundation::DocumentId,
     ) -> Result<fold_platform::hierarchy::Hierarchy, String> {
         let snapshot = self.project.snapshot();
-        crate::packages::builtins().hierarchy(
-            snapshot
-                .state()
-                .documents
-                .get(&document)
-                .ok_or("Missing hierarchy document")?,
-        )
+        let document = snapshot
+            .state()
+            .documents
+            .get(&document)
+            .ok_or("Missing hierarchy document")?;
+        let registry = crate::packages::builtins();
+        if !registry.has_capability(document, fold_platform::packages::Capability::Hierarchy) {
+            return Ok(Default::default());
+        }
+        registry.hierarchy(document)
     }
     fn animation_channels(
         &self,
@@ -564,13 +571,27 @@ impl DesktopClient for Session {
             .documents
             .get(&document)
             .ok_or("Missing animation document")?;
-        crate::packages::builtins().animation_channels(document, object)
+        let registry = crate::packages::builtins();
+        if !registry.has_capability(document, fold_platform::packages::Capability::Animation) {
+            return Ok(vec![]);
+        }
+        registry.animation_channels(document, object)
     }
     fn image_inputs(
         &self,
         document: fold_foundation::DocumentId,
     ) -> Result<Vec<fold_platform::layer_graph::ImageInput>, String> {
-        crate::packages::builtins().image_inputs(&self.project.snapshot(), document)
+        let snapshot = self.project.snapshot();
+        let document = snapshot
+            .state()
+            .documents
+            .get(&document)
+            .ok_or("Missing graph")?;
+        let registry = crate::packages::builtins();
+        if !registry.has_capability(document, fold_platform::packages::Capability::ImageInputs) {
+            return Ok(vec![]);
+        }
+        registry.document_image_inputs(document)
     }
     fn timeline_cache(&self, key: &fold_platform::desktop::PreviewKey) -> bool {
         let snapshot = self.project.snapshot();

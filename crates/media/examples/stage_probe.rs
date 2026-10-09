@@ -44,7 +44,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let result = worker.join().map_err(|_| "decode worker panicked")?;
     let cancel_join_ms = begin.elapsed().as_secs_f64() * 1000.;
     let error = result.err();
-    if active_at_cancel && !error.as_ref().is_some_and(|e| e.contains("cancelled")) {
+    if active_at_cancel
+        && !error
+            .as_ref()
+            .is_some_and(|e| e.kind == fold_foundation::FailureKind::Cancelled)
+    {
         return Err(format!("active decode did not report cancellation: {error:?}").into());
     }
     println!(
@@ -53,7 +57,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "inspect_ms": inspect_ms, "cold_decode_ms": decode_ms[0],
             "warm_same_frame_decode_ms": decode_ms[1], "encode_frames": count,
             "encode_wall_ms": encode_ms, "active_at_cancel": active_at_cancel,
-            "cancel_to_join_ms": cancel_join_ms, "cancel_error": error,
+            "cancel_to_join_ms": cancel_join_ms, "cancel_error": error.map(|e| e.to_string()),
             "note": "repeat synthetic RGB8 midgray frame; encode includes conversion/process/finalization, no audio"
         })
     );

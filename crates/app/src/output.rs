@@ -11,7 +11,7 @@ pub struct OutputRenderer {
     gpu: Option<fold_render::gpu::Renderer>,
 }
 impl OutputRenderer {
-    pub fn from_environment() -> Result<Self, String> {
+    pub fn from_environment() -> Result<Self, fold_foundation::Failure> {
         let decoder = Decoder::from_environment()?;
         #[cfg(feature = "gpu")]
         let gpu = match std::env::var("FOLD_RENDER_BACKEND").as_deref() {
@@ -35,7 +35,9 @@ impl OutputRenderer {
         })
     }
     #[cfg(feature = "gpu")]
-    pub(crate) fn with_shared_host(host: Option<fold_render::gpu::Host>) -> Result<Self, String> {
+    pub(crate) fn with_shared_host(
+        host: Option<fold_render::gpu::Host>,
+    ) -> Result<Self, fold_foundation::Failure> {
         match host {
             Some(host) => Ok(Self {
                 decoder: Decoder::from_environment()?,
@@ -57,9 +59,14 @@ impl OutputRenderer {
         snapshot: &CommittedSnapshot,
         request: &SceneRequest,
         cancel: &Cancel,
-    ) -> Result<fold_render::Rgba16Output, String> {
+    ) -> Result<fold_render::Rgba16Output, fold_foundation::Failure> {
         self.with_budget_retry(cancel, |renderer| {
             renderer.evaluate_rgba16_once(snapshot, request, cancel)
+        })
+        .map_err(|error| {
+            error
+                .context(request.source.document)
+                .context(&request.source.output)
         })
     }
     fn evaluate_rgba16_once(
@@ -67,7 +74,7 @@ impl OutputRenderer {
         snapshot: &CommittedSnapshot,
         request: &SceneRequest,
         cancel: &Cancel,
-    ) -> Result<fold_render::Rgba16Output, String> {
+    ) -> Result<fold_render::Rgba16Output, fold_foundation::Failure> {
         cancel.check()?;
         #[cfg(feature = "gpu")]
         let scene = if let Some(renderer) = self.gpu.as_mut() {
@@ -109,24 +116,26 @@ impl OutputRenderer {
         snapshot: &CommittedSnapshot,
         request: &SceneRequest,
         cancel: &Cancel,
-    ) -> Result<DisplayFrame, String> {
+    ) -> Result<DisplayFrame, fold_foundation::Failure> {
         self.with_budget_retry(cancel, |renderer| {
             renderer.evaluate_once(snapshot, request, cancel)
+        })
+        .map_err(|error| {
+            error
+                .context(request.source.document)
+                .context(&request.source.output)
         })
     }
     fn with_budget_retry<T>(
         &mut self,
         cancel: &Cancel,
-        mut evaluate: impl FnMut(&mut Self) -> Result<T, String>,
-    ) -> Result<T, String> {
+        mut evaluate: impl FnMut(&mut Self) -> Result<T, fold_foundation::Failure>,
+    ) -> Result<T, fold_foundation::Failure> {
         let began = std::time::Instant::now();
         loop {
             cancel.check()?;
             match evaluate(self) {
-                Err(error)
-                    if error.contains("GPU working budget exhausted")
-                        && began.elapsed().as_secs() < 30 =>
-                {
+                Err(error) if error.retryable() && began.elapsed().as_secs() < 30 => {
                     // Submitted preview leases may still be in flight. Release
                     // admission and partial work before waiting; the pinned
                     // request remains immutable and no encoder output was sent.
@@ -145,7 +154,7 @@ impl OutputRenderer {
         snapshot: &CommittedSnapshot,
         request: &SceneRequest,
         cancel: &Cancel,
-    ) -> Result<DisplayFrame, String> {
+    ) -> Result<DisplayFrame, fold_foundation::Failure> {
         cancel.check()?;
         #[cfg(feature = "gpu")]
         if let Some(renderer) = self.gpu.as_mut() {
@@ -192,5 +201,58 @@ impl OutputRenderer {
             .enter(fold_render::scheduling::Class::Export, cancel)?;
         let scene = evaluate_scene(snapshot, request, &mut self.decoder, cancel)?.over_black();
         crate::color::delivery(snapshot, request.source.document, &scene)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use fold_foundation::{Failure, FailureKind};
+    fn renderer() -> OutputRenderer {
+        OutputRenderer {
+            decoder: Decoder::default(),
+            #[cfg(feature = "gpu")]
+            gpu: None,
+        }
+    }
+    #[test]
+    fn pressure_retries_independently_of_wording_but_permanent_failure_does_not() {
+        let mut attempts = 0;
+        let result = renderer()
+            .with_budget_retry(&Cancel::default(), |_| {
+                attempts += 1;
+                if attempts == 1 {
+                    Err(Failure::new(FailureKind::ResourcePressure, "busy"))
+                } else {
+                    Ok(42)
+                }
+            })
+            .unwrap();
+        assert_eq!((result, attempts), (42, 2));
+        for kind in [
+            FailureKind::RequestTooLarge,
+            FailureKind::Execution,
+            FailureKind::InvalidInput,
+        ] {
+            let mut attempts = 0;
+            let result: Result<(), _> = renderer().with_budget_retry(&Cancel::default(), |_| {
+                attempts += 1;
+                Err(Failure::new(kind, "GPU working budget exhausted"))
+            });
+            assert_eq!(result.unwrap_err().kind, kind);
+            assert_eq!(attempts, 1);
+        }
+    }
+    #[test]
+    fn cancellation_stops_export_retry_before_another_evaluation() {
+        let cancel = Cancel::default();
+        let mut attempts = 0;
+        let result: Result<(), _> = renderer().with_budget_retry(&cancel, |_| {
+            attempts += 1;
+            cancel.cancel();
+            Err(Failure::new(FailureKind::ResourcePressure, "busy"))
+        });
+        assert_eq!(result.unwrap_err().kind, FailureKind::Cancelled);
+        assert_eq!(attempts, 1);
     }
 }

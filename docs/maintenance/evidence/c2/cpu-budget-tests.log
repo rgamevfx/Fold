@@ -1,0 +1,15 @@
+   Compiling fold-render v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/render)
+    Finished `test` profile [unoptimized] target(s) in 0.55s
+     Running tests/graph.rs (target/debug/deps/graph-cf4ad66e75c9cbae)
+
+running 7 tests
+test dci_4k_scene_and_alpha_delivery_share_the_bounded_working_allowance ... ok
+test live_pixel_budget_releases_intermediates_and_skips_dead_work ... ok
+test premultiplied_opacity_and_ordered_over_match_delivery ... ok
+test shared_inputs_and_duplicate_edges_are_released_correctly ... ok
+test transforms_use_pixel_centers_and_transparent_borders ... ok
+test validation_rejects_bad_edges_parameters_and_dimensions ... ok
+test worker_multilayer_graph_uses_the_configured_working_allowance ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.42s
+

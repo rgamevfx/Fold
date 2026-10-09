@@ -4,7 +4,7 @@
 use super::{Host, host::Reservation};
 use std::sync::{Arc, Mutex};
 
-type ResultState = Arc<Mutex<Option<Result<Option<f64>, String>>>>;
+type ResultState = Arc<Mutex<Option<Result<Option<f64>, fold_foundation::Failure>>>>;
 pub(super) struct Status {
     pub gpu: wgpu::Buffer,
     pub failure: &'static str,
@@ -25,14 +25,14 @@ impl Completion {
         Self(state)
     }
 
-    pub fn gpu_nanoseconds(&self) -> Result<Option<f64>, String> {
+    pub fn gpu_nanoseconds(&self) -> Result<Option<f64>, fold_foundation::Failure> {
         match self.0.lock().unwrap().as_ref() {
             Some(Ok(time)) => Ok(*time),
             Some(Err(e)) => Err(e.clone()),
             None => Ok(None),
         }
     }
-    pub fn ready(&self) -> Result<bool, String> {
+    pub fn ready(&self) -> Result<bool, fold_foundation::Failure> {
         match self.0.lock().unwrap().as_ref() {
             None => Ok(false),
             Some(Ok(_)) => Ok(true),
@@ -41,7 +41,7 @@ impl Completion {
     }
 }
 impl Status {
-    pub fn new(host: &Host) -> Result<Self, String> {
+    pub fn new(host: &Host) -> Result<Self, fold_foundation::Failure> {
         let timed = host
             .device()
             .features()
@@ -109,22 +109,24 @@ impl Status {
         self.readback
             .slice(..)
             .map_async(wgpu::MapMode::Read, move |mapped| {
-                let status = mapped.map_err(|e| e.to_string()).and_then(|()| {
-                    let bytes = buffer.slice(..).get_mapped_range();
-                    let valid = bytes[..4] == [0; 4];
-                    let time = self.timestamps.as_ref().map(|(_, _, period)| {
-                        let start = u64::from_le_bytes(bytes[8..16].try_into().unwrap());
-                        let end = u64::from_le_bytes(bytes[16..24].try_into().unwrap());
-                        end.wrapping_sub(start) as f64 * f64::from(*period)
+                let status = mapped
+                    .map_err(|e| fold_foundation::Failure::from(e.to_string()))
+                    .and_then(|()| {
+                        let bytes = buffer.slice(..).get_mapped_range();
+                        let valid = bytes[..4] == [0; 4];
+                        let time = self.timestamps.as_ref().map(|(_, _, period)| {
+                            let start = u64::from_le_bytes(bytes[8..16].try_into().unwrap());
+                            let end = u64::from_le_bytes(bytes[16..24].try_into().unwrap());
+                            end.wrapping_sub(start) as f64 * f64::from(*period)
+                        });
+                        drop(bytes);
+                        buffer.unmap();
+                        if valid {
+                            Ok(time)
+                        } else {
+                            Err(self.failure.into())
+                        }
                     });
-                    drop(bytes);
-                    buffer.unmap();
-                    if valid {
-                        Ok(time)
-                    } else {
-                        Err(self.failure.into())
-                    }
-                });
                 drop(self.reservation);
                 *output.lock().unwrap() = Some(status);
             });

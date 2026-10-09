@@ -56,6 +56,7 @@ fn flat_twenty_layer_exr_preserves_depth_and_negative_values_selectively() {
             &cancel
         )
         .unwrap_err()
+        .message
         .contains("Missing EXR channel")
     );
     let mut changed = source.clone();
@@ -63,6 +64,7 @@ fn flat_twenty_layer_exr_preserves_depth_and_negative_values_selectively() {
     assert!(
         media::decode(&changed, [None; 4], [3, 2], &cancel)
             .unwrap_err()
+            .message
             .contains("fingerprint")
     );
     cancel.cancel();
@@ -276,6 +278,6 @@ fn shared_source_tickets_isolate_cancellation_and_reject_replaced_files() {
         .unwrap()
         .wait(&cancel)
         .unwrap_err();
-    assert!(changed.contains("fingerprint"), "{changed}");
+    assert!(changed.message.contains("fingerprint"), "{changed}");
     assert_eq!(held.pixels.len(), 6);
 }

@@ -22,7 +22,7 @@ impl Key {
         op: &ImageOp,
         dimensions: [u32; 2],
         processors: &std::collections::BTreeMap<String, fold_color::Processor>,
-    ) -> Result<Option<Self>, String> {
+    ) -> Result<Option<Self>, fold_foundation::Failure> {
         if let ImageOp::Media(image) = op {
             if let Some(identity) = image.rgb_identity() {
                 return Ok(Some(Self {
@@ -87,7 +87,7 @@ impl Cache {
         &mut self,
         key: &Key,
         cancel: &fold_media::Cancel,
-    ) -> Result<Option<Arc<Image>>, String> {
+    ) -> Result<Option<Arc<Image>>, fold_foundation::Failure> {
         let Some(index) = self.entries.iter().position(|e| &e.key == key) else {
             return Ok(None);
         };

@@ -29,14 +29,14 @@ impl PendingBuffer {
     /// Must be allocated on the consuming device. Query its actual UUID rather
     /// than assuming CUDA ordinal zero refers to the same physical adapter.
     pub fn new(device: &wgpu::Device, bytes: u64) -> Result<Self, String> {
-        Self::new_reserved(device, bytes, |_| Ok(())).map(|(buffer, ())| buffer)
+        Self::new_reserved::<_, String>(device, bytes, |_| Ok(())).map(|(buffer, ())| buffer)
     }
     /// Reserve the exact driver allocation requirement before allocating VRAM.
-    pub fn new_reserved<R>(
+    pub fn new_reserved<R, E: From<String> + From<&'static str>>(
         device: &wgpu::Device,
         bytes: u64,
-        reserve: impl FnOnce(u64) -> Result<R, String>,
-    ) -> Result<(Self, R), String> {
+        reserve: impl FnOnce(u64) -> Result<R, E>,
+    ) -> Result<(Self, R), E> {
         if bytes == 0 || bytes > 8 * 1024 * 1024 || !bytes.is_multiple_of(4) {
             return Err("invalid native buffer size".into());
         }
@@ -124,7 +124,7 @@ impl PendingBuffer {
                 Ok(memory) => memory,
                 Err(e) => {
                     raw.destroy_buffer(buffer, None);
-                    return Err(e.to_string());
+                    return Err(e.to_string().into());
                 }
             };
             let result = raw.bind_buffer_memory(buffer, memory, 0).and_then(|_| {
@@ -139,7 +139,7 @@ impl PendingBuffer {
                 Err(e) => {
                     raw.destroy_buffer(buffer, None);
                     raw.free_memory(memory, None);
-                    return Err(e.to_string());
+                    return Err(e.to_string().into());
                 }
             };
             Ok((

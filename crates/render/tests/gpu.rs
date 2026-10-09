@@ -248,6 +248,7 @@ fn native_aces_signed_hdr_and_alpha() {
         invalid
             .readback(&cancel)
             .unwrap_err()
+            .message
             .contains("intermediate")
     );
     // A per-frame validation error does not poison a healthy device.

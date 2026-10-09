@@ -16,14 +16,19 @@ mod tests;
 pub(crate) struct Stream {
     process: Option<Process>,
     demand: Option<SyncSender<()>>,
-    frames: Receiver<Result<(Vec<u8>, std::sync::Arc<crate::budget::Lease>), String>>,
+    frames:
+        Receiver<Result<(Vec<u8>, std::sync::Arc<crate::budget::Lease>), fold_foundation::Failure>>,
     reader: Option<JoinHandle<()>>,
 }
 impl Stream {
-    pub fn new(command: Command, frame_bytes: usize) -> Result<Self, String> {
+    pub fn new(command: Command, frame_bytes: usize) -> Result<Self, fold_foundation::Failure> {
         Self::with_audio(command, frame_bytes, false)
     }
-    pub fn with_audio(command: Command, frame_bytes: usize, audio: bool) -> Result<Self, String> {
+    pub fn with_audio(
+        command: Command,
+        frame_bytes: usize,
+        audio: bool,
+    ) -> Result<Self, fold_foundation::Failure> {
         // A request token must not own a retained process's lifetime. Each read
         // observes its current caller's token; failure drops/kills the stream.
         let mut process = if audio {
@@ -37,20 +42,25 @@ impl Stream {
         let reader = std::thread::spawn(move || {
             while requests.recv().is_ok() {
                 let mut bytes = Vec::new();
-                let reservation = crate::budget::PIPE
-                    .reserve(frame_bytes as u64)
-                    .map_err(str::to_owned);
+                let reservation = crate::budget::PIPE.reserve(frame_bytes as u64);
                 let result = reservation.and_then(|reservation| {
                     bytes
                         .try_reserve_exact(frame_bytes)
-                        .map_err(|_| "decoder frame allocation failed".to_owned())
+                        .map_err(|_| {
+                            fold_foundation::Failure::new(
+                                fold_foundation::FailureKind::ResourcePressure,
+                                "decoder frame allocation failed",
+                            )
+                        })
                         .and_then(|()| {
                             bytes.resize(frame_bytes, 0);
                             stdout
                                 .read_exact(&mut bytes)
                                 .map(|()| (bytes, reservation))
                                 .map_err(|error| {
-                                    format!("incomplete retained video decode: {error}")
+                                    fold_foundation::Failure::from(format!(
+                                        "incomplete retained video decode: {error}"
+                                    ))
                                 })
                         })
                 });
@@ -70,7 +80,7 @@ impl Stream {
     pub fn read(
         &mut self,
         cancel: &Cancel,
-    ) -> Result<(Vec<u8>, std::sync::Arc<crate::budget::Lease>), String> {
+    ) -> Result<(Vec<u8>, std::sync::Arc<crate::budget::Lease>), fold_foundation::Failure> {
         let result = self.read_next(cancel);
         if result.is_err() {
             self.demand.take();
@@ -81,7 +91,7 @@ impl Stream {
     fn read_next(
         &mut self,
         cancel: &Cancel,
-    ) -> Result<(Vec<u8>, std::sync::Arc<crate::budget::Lease>), String> {
+    ) -> Result<(Vec<u8>, std::sync::Arc<crate::budget::Lease>), fold_foundation::Failure> {
         cancel.check()?;
         self.demand
             .as_ref()
@@ -93,13 +103,15 @@ impl Stream {
             cancel.check()?;
             match self.frames.recv_timeout(Duration::from_millis(10)) {
                 Ok(Ok(bytes)) => return Ok(bytes),
-                Ok(Err(error)) => {
+                Ok(Err(mut error)) => {
                     let details = self
                         .process
                         .take()
                         .and_then(|process| process.abort().err())
+                        .map(|e| e.to_string())
                         .unwrap_or_default();
-                    return Err(format!("{error}; {details}"));
+                    error.message = format!("{}; {details}", error.message);
+                    return Err(error);
                 }
                 Err(mpsc::RecvTimeoutError::Disconnected) => {
                     return Err("decoder reader disconnected".into());

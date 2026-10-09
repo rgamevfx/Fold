@@ -82,7 +82,9 @@ pub fn sample(
         .ok_or("Expected a native Motion parameter")?;
     let prepared = Prepared::new(graph)?;
     let value = prepared
-        .sample_parameters(&target.occurrence, &[parameter], time, &|| cancel.check())?
+        .sample_parameters(&target.occurrence, &[parameter], time, &|| {
+            Ok(cancel.check()?)
+        })?
         .remove(&parameter)
         .ok_or("Parameter is not a primitive value")?;
     fold_platform::parameters::select_component(value, target)

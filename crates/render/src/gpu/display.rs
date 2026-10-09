@@ -53,7 +53,7 @@ impl Display {
         }
     }
 
-    pub fn gpu_nanoseconds(&self) -> Result<Option<f64>, String> {
+    pub fn gpu_nanoseconds(&self) -> Result<Option<f64>, fold_foundation::Failure> {
         let compression = match &self.compression {
             Some(completion) => completion.gpu_nanoseconds()?,
             None => Some(0.),
@@ -87,7 +87,7 @@ impl Display {
     pub fn is_compressed(&self) -> bool {
         self.image.texture.format() == wgpu::TextureFormat::Bc7RgbaUnorm
     }
-    pub fn is_ready(&self) -> Result<bool, String> {
+    pub fn is_ready(&self) -> Result<bool, fold_foundation::Failure> {
         self.host.check()?;
         for ready in &self.dependencies {
             if !ready.ready()? {
@@ -115,7 +115,10 @@ impl Display {
         &self.identity
     }
     /// Explicit encoder/test boundary. Never used by normal viewer publication.
-    pub fn readback(&mut self, cancel: &fold_media::Cancel) -> Result<crate::DisplayFrame, String> {
+    pub fn readback(
+        &mut self,
+        cancel: &fold_media::Cancel,
+    ) -> Result<crate::DisplayFrame, fold_foundation::Failure> {
         if self.is_compressed() {
             return Err("BC7 presentation entries are not delivery/readback sources".into());
         }
@@ -208,7 +211,7 @@ impl Renderer {
         frame: &GpuFrame,
         range: crate::view::Range,
         cancel: &fold_media::Cancel,
-    ) -> Result<Display, String> {
+    ) -> Result<Display, fold_foundation::Failure> {
         use wgpu::util::DeviceExt;
         cancel.check()?;
         self.host.check()?;
@@ -296,7 +299,7 @@ impl Renderer {
         frame: &GpuFrame,
         processor: Option<&fold_color::Processor>,
         cancel: &fold_media::Cancel,
-    ) -> Result<Display, String> {
+    ) -> Result<Display, fold_foundation::Failure> {
         let output_begin = std::time::Instant::now();
         cancel.check()?;
         self.host.check()?;

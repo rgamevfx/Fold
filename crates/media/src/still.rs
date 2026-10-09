@@ -14,7 +14,11 @@ struct Entry {
     image: RgbImage,
 }
 static CACHE: OnceLock<Mutex<VecDeque<Entry>>> = OnceLock::new();
-pub fn ppm(path: &Path, fingerprint: &str, cancel: &Cancel) -> Result<RgbImage, String> {
+pub fn ppm(
+    path: &Path,
+    fingerprint: &str,
+    cancel: &Cancel,
+) -> Result<RgbImage, fold_foundation::Failure> {
     cancel.check()?;
     let stamp = crate::exr::cache::Stamp::read(path, cancel)?;
     let cache = CACHE.get_or_init(|| Mutex::new(VecDeque::new()));
@@ -88,6 +92,7 @@ mod tests {
         assert!(
             ppm(&path, &fingerprint, &Cancel::default())
                 .unwrap_err()
+                .message
                 .contains("changed")
         );
         let cancel = Cancel::default();

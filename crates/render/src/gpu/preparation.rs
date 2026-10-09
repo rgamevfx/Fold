@@ -17,7 +17,7 @@ impl Renderer {
         decoder: &mut Decoder,
         cancel: &Cancel,
         stats: &mut Statistics,
-    ) -> Result<Vec<Option<Video>>, String> {
+    ) -> Result<Vec<Option<Video>>, fold_foundation::Failure> {
         let sources: Vec<_> = graph
             .nodes
             .iter()

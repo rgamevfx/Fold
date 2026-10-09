@@ -19,7 +19,7 @@ impl PresentationTransfer {
         source: &Display,
         limit: usize,
         cancel: &fold_media::Cancel,
-    ) -> Result<Pixels, String> {
+    ) -> Result<Pixels, fold_foundation::Failure> {
         cancel.check()?;
         if !source.is_ready()? {
             return Err("Presentation retention requires a ready frame".into());
@@ -94,7 +94,9 @@ impl PresentationTransfer {
                 break Err(error);
             }
             match receive.try_recv() {
-                Ok(result) => break result.map_err(|e| e.to_string()),
+                Ok(result) => {
+                    break result.map_err(|e| fold_foundation::Failure::from(e.to_string()));
+                }
                 Err(std::sync::mpsc::TryRecvError::Disconnected) => {
                     break Err("Cache transfer disconnected".into());
                 }
@@ -123,7 +125,10 @@ impl PresentationTransfer {
 impl Host {
     /// Worker-only upload of existing display bytes; preserves compression and
     /// registers completion before publication. No re-render/display transform.
-    pub fn restore_presentation(&self, pixels: &Pixels) -> Result<Display, String> {
+    pub fn restore_presentation(
+        &self,
+        pixels: &Pixels,
+    ) -> Result<Display, fold_foundation::Failure> {
         pixels.validate()?;
         let (dimensions, row, _) = pixels.description.layout()?;
         let format = match pixels.description.format {

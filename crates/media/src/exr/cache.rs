@@ -19,7 +19,7 @@ pub struct Stamp {
     fingerprint: String,
 }
 impl Stamp {
-    pub fn read(path: &Path, cancel: &Cancel) -> Result<Self, String> {
+    pub fn read(path: &Path, cancel: &Cancel) -> Result<Self, fold_foundation::Failure> {
         cancel.check()?;
         #[cfg(unix)]
         {
@@ -62,7 +62,7 @@ impl Request {
 struct Work {
     request: Request,
     stamp: Stamp,
-    result: Mutex<Option<Result<Arc<Pixels>, String>>>,
+    result: Mutex<Option<Result<Arc<Pixels>, fold_foundation::Failure>>>,
     ready: Condvar,
     cancel: Cancel,
     interests: AtomicUsize,
@@ -72,7 +72,7 @@ pub struct Ticket {
     work: Arc<Work>,
 }
 impl Ticket {
-    pub fn wait(&self, cancel: &Cancel) -> Result<Arc<Pixels>, String> {
+    pub fn wait(&self, cancel: &Cancel) -> Result<Arc<Pixels>, fold_foundation::Failure> {
         let mut state = self.work.result.lock().unwrap();
         loop {
             cancel.check()?;
@@ -127,8 +127,8 @@ struct Service {
     state: Mutex<State>,
     wake: Condvar,
 }
-fn service() -> Result<&'static Arc<Service>, String> {
-    static SERVICE: OnceLock<Result<Arc<Service>, String>> = OnceLock::new();
+fn service() -> Result<&'static Arc<Service>, fold_foundation::Failure> {
+    static SERVICE: OnceLock<Result<Arc<Service>, fold_foundation::Failure>> = OnceLock::new();
     SERVICE
         .get_or_init(|| {
             let service = Arc::new(Service {
@@ -153,7 +153,7 @@ fn service() -> Result<&'static Arc<Service>, String> {
                                 .unwrap_or(0);
                             state.queue.remove(index).unwrap()
                         };
-                        let decode = || -> Result<Arc<Pixels>, String> {
+                        let decode = || -> Result<Arc<Pixels>, fold_foundation::Failure> {
                             work.cancel.check()?;
                             let r = &work.request;
                             let pixels = super::decode(
@@ -168,11 +168,7 @@ fn service() -> Result<&'static Arc<Service>, String> {
                             Ok(Arc::new(pixels))
                         };
                         let mut result = decode();
-                        if result
-                            .as_ref()
-                            .err()
-                            .is_some_and(|e| e.contains("budget exhausted"))
-                        {
+                        if result.as_ref().err().is_some_and(|e| e.retryable()) {
                             worker.state.lock().unwrap().trim(0);
                             result = decode();
                         }
@@ -193,11 +189,18 @@ fn service() -> Result<&'static Arc<Service>, String> {
 }
 /// `foreground` promotes an existing speculative request without duplicating it.
 /// Ingress is bounded independently of the allocation budgets.
-pub fn request(request: Request, foreground: bool, cancel: &Cancel) -> Result<Ticket, String> {
+pub fn request(
+    request: Request,
+    foreground: bool,
+    cancel: &Cancel,
+) -> Result<Ticket, fold_foundation::Failure> {
     request.source.info.validate()?;
     let count = u64::from(request.dimensions[0]) * u64::from(request.dimensions[1]);
     if count == 0 || count > crate::MAX_PIXELS as u64 {
-        return Err("Invalid EXR output dimensions".into());
+        return Err(fold_foundation::Failure::new(
+            fold_foundation::FailureKind::InvalidInput,
+            "Invalid EXR output dimensions",
+        ));
     }
     let stamp = Stamp::read(&request.source.path, cancel)?;
     let service = service()?;
@@ -227,7 +230,10 @@ pub fn request(request: Request, foreground: bool, cancel: &Cancel) -> Result<Ti
             break;
         }
         if !foreground {
-            return Err("EXR preparation capacity exhausted".into());
+            return Err(fold_foundation::Failure::new(
+                fold_foundation::FailureKind::ResourcePressure,
+                "EXR preparation capacity exhausted",
+            ));
         }
         // Demand waits cancellably for bounded ingress; speculative callers
         // can skip without causing a CPU or GPU render to fail under contention.

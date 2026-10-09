@@ -33,7 +33,10 @@ pub fn pinned_source_bytes() -> u64 {
     BYTES.load(Ordering::Acquire)
 }
 
-pub(crate) fn acquire(source: &VideoSource, cancel: &Cancel) -> Result<Arc<Pinned>, String> {
+pub(crate) fn acquire(
+    source: &VideoSource,
+    cancel: &Cancel,
+) -> Result<Arc<Pinned>, fold_foundation::Failure> {
     let existing = {
         let mut registry = SOURCES.lock().unwrap();
         registry.retain(|entry| entry.strong_count() > 0);
@@ -50,8 +53,13 @@ pub(crate) fn acquire(source: &VideoSource, cancel: &Cancel) -> Result<Arc<Pinne
         video::remember_verified(&source.fingerprint, &source.info, existing.format);
         return Ok(existing);
     }
-    let mut input = std::fs::File::open(&source.path)
-        .map_err(|e| format!("missing media {}: {e}", source.path.display()))?;
+    let mut input = std::fs::File::open(&source.path).map_err(|e| {
+        fold_foundation::Failure::new(
+            fold_foundation::FailureKind::MissingResource,
+            format!("missing media {}: {e}", source.path.display()),
+        )
+        .context(source.path.display())
+    })?;
     let metadata = input.metadata().map_err(|e| e.to_string())?;
     if !metadata.is_file() || metadata.len() > 2 * 1024 * 1024 * 1024 {
         return Err("media must be a regular file within the 2 GiB source budget".into());
@@ -61,7 +69,12 @@ pub(crate) fn acquire(source: &VideoSource, cancel: &Cancel) -> Result<Arc<Pinne
         .fetch_update(Ordering::AcqRel, Ordering::Acquire, |used| {
             used.checked_add(bytes).filter(|total| *total <= BUDGET)
         })
-        .map_err(|_| "aggregate immutable-source budget exhausted (4 GiB)")?;
+        .map_err(|_| {
+            fold_foundation::Failure::new(
+                fold_foundation::FailureKind::ResourcePressure,
+                "aggregate immutable-source budget exhausted (4 GiB)",
+            )
+        })?;
     let reservation = Reservation(bytes);
     let mut file = crate::scratch::file().map_err(|e| e.to_string())?;
     let mut hash = Sha256::new();

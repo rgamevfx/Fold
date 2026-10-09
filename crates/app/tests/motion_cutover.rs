@@ -63,7 +63,7 @@ fn old_motion_is_opaque_and_cannot_render_after_save_reopen() {
     let error = registry
         .video(&snapshot, &source, Time::ZERO, 16, 16)
         .unwrap_err();
-    assert!(error.contains("provider"), "{error}");
+    assert!(error.message.contains("provider"), "{error}");
 }
 
 #[test]

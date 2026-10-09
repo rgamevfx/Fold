@@ -63,7 +63,7 @@ impl VideoProvider for Provider {
             })
             .collect()
     }
-    fn compile(&self, request: VideoCompile<'_>) -> Result<RenderGraph, String> {
+    fn compile(&self, request: VideoCompile<'_>) -> Result<RenderGraph, fold_foundation::Failure> {
         request.cancel.check()?;
         if request.invocation.is_some() {
             return Err("Motion image-effect invocation is not qualified".into());
@@ -99,7 +99,7 @@ impl VideoProvider for Provider {
             scene_time,
             request.dimensions,
             Default::default(),
-            &|| request.cancel.check(),
+            &|| Ok(request.cancel.check()?),
         )
         .map_err(|e| format!("Motion image preparation failed: {e:?}"))?;
         let aces = fold_platform::color::project(request.snapshot)?.is_some();

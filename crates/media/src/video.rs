@@ -62,7 +62,7 @@ pub struct VideoInfo {
 }
 impl VideoInfo {
     /// General authored output constraints, independent of an encoder profile.
-    pub fn validate(&self) -> Result<(), String> {
+    pub fn validate(&self) -> Result<(), fold_foundation::Failure> {
         let pixels = u64::from(self.width) * u64::from(self.height);
         if pixels == 0
             || pixels > crate::MAX_PIXELS as u64
@@ -76,7 +76,7 @@ impl VideoInfo {
         Ok(())
     }
     /// Restrictions of the currently verified MP4/H.264 adapter, not documents.
-    fn validate_media_profile(&self) -> Result<(), String> {
+    fn validate_media_profile(&self) -> Result<(), fold_foundation::Failure> {
         self.validate()?;
         if !self.width.is_multiple_of(2)
             || !self.height.is_multiple_of(2)
@@ -86,13 +86,13 @@ impl VideoInfo {
         }
         Ok(())
     }
-    pub fn time(&self, frame: u32) -> Result<Time, String> {
+    pub fn time(&self, frame: u32) -> Result<Time, fold_foundation::Failure> {
         let numerator = i64::from(frame)
             .checked_mul(i64::from(self.rate[1]))
             .ok_or("output time exceeds rational range")?;
-        Time::new(numerator, self.rate[0]).map_err(|e| e.to_string())
+        Ok(Time::new(numerator, self.rate[0]).map_err(|e| e.to_string())?)
     }
-    pub fn frame_at(&self, time: Time) -> Result<u32, String> {
+    pub fn frame_at(&self, time: Time) -> Result<u32, fold_foundation::Failure> {
         self.validate()?;
         let frame = time
             .to_ticks(self.rate[0], self.rate[1], Rounding::Floor)
@@ -111,7 +111,7 @@ pub struct VideoSource {
     pub info: VideoInfo,
 }
 
-pub fn fingerprint(path: &Path, cancel: &Cancel) -> Result<String, String> {
+pub fn fingerprint(path: &Path, cancel: &Cancel) -> Result<String, fold_foundation::Failure> {
     let mut file = std::fs::File::open(path).map_err(|e| format!("{}: {e}", path.display()))?;
     if !file.metadata().map_err(|e| e.to_string())?.is_file() {
         return Err("media must be a regular file".into());
@@ -142,7 +142,7 @@ fn base(program: &str) -> Command {
     cmd
 }
 
-pub fn inspect(path: &Path, cancel: &Cancel) -> Result<VideoSource, String> {
+pub fn inspect(path: &Path, cancel: &Cancel) -> Result<VideoSource, fold_foundation::Failure> {
     let path = path.canonicalize().map_err(|e| e.to_string())?;
     let hash = fingerprint(&path, cancel)?;
     let (info, format) = match verified_info(&hash).zip(verified_format(&hash)) {
@@ -163,7 +163,7 @@ pub fn inspect(path: &Path, cancel: &Cancel) -> Result<VideoSource, String> {
 pub(crate) fn probe(
     path: &Path,
     cancel: &Cancel,
-) -> Result<(VideoInfo, crate::VideoFormat), String> {
+) -> Result<(VideoInfo, crate::VideoFormat), fold_foundation::Failure> {
     let output = crate::scratch::file().map_err(|e| e.to_string())?;
     let mut cmd = base("ffprobe");
     cmd.args(["-threads", "1", "-select_streams", "v", "-show_streams", "-show_packets", "-show_format", "-show_entries", "stream=codec_name,pix_fmt,width,height,r_frame_rate,time_base,start_pts,duration_ts,color_space,color_transfer,color_primaries,color_range,sample_aspect_ratio,field_order,chroma_location:stream_side_data=rotation:packet=pts,duration:format=format_name", "-of", "json"])
@@ -203,7 +203,7 @@ pub(crate) fn probe(
     }) {
         return Err("rotated video is not supported".into());
     }
-    fn ratio(value: &serde_json::Value) -> Result<[u32; 2], String> {
+    fn ratio(value: &serde_json::Value) -> Result<[u32; 2], fold_foundation::Failure> {
         let (n, d) = value
             .as_str()
             .and_then(|s| s.split_once('/'))
@@ -250,7 +250,7 @@ fn validate_timing(
     tb: [u32; 2],
     frames: &[serde_json::Value],
     stream: &serde_json::Value,
-) -> Result<(), String> {
+) -> Result<(), fold_foundation::Failure> {
     // This first profile is exactly CFR from timestamp zero. Reject VFR instead
     // of guessing frame numbers from average frame rate.
     for (i, frame) in frames.iter().enumerate() {
@@ -346,7 +346,7 @@ impl Decoded {
             Self::Yuv(_) => DecodeFormat::NativeYuv,
         }
     }
-    fn rgb(self) -> Result<RgbImage, String> {
+    fn rgb(self) -> Result<RgbImage, fold_foundation::Failure> {
         match self {
             Self::Rgb(f) => Ok(f),
             _ => Err("expected RGB decoder result".into()),
@@ -381,7 +381,7 @@ impl Default for Decoder {
 impl Decoder {
     /// Explicit process policy, independent of project content and GPU rendering.
     /// CUDA failure is reported, never silently relabelled as hardware success.
-    pub fn from_environment() -> Result<Self, String> {
+    pub fn from_environment() -> Result<Self, fold_foundation::Failure> {
         let backend = match std::env::var("FOLD_VIDEO_DECODER").as_deref() {
             Err(std::env::VarError::NotPresent) | Ok("software") => DecodeBackend::Software,
             Ok("cuda") => DecodeBackend::Cuda,
@@ -411,7 +411,11 @@ impl Decoder {
             .map(|(_, _, _, image)| image.storage_bytes())
             .sum()
     }
-    pub(crate) fn pin(&mut self, source: &VideoSource, cancel: &Cancel) -> Result<PathBuf, String> {
+    pub(crate) fn pin(
+        &mut self,
+        source: &VideoSource,
+        cancel: &Cancel,
+    ) -> Result<PathBuf, fold_foundation::Failure> {
         cancel.check()?;
         source.info.validate_media_profile()?;
         if let Some(index) = self.pinned.iter().position(|p| {
@@ -449,7 +453,7 @@ impl Decoder {
         &mut self,
         source: &VideoSource,
         cancel: &Cancel,
-    ) -> Result<crate::VideoFormat, String> {
+    ) -> Result<crate::VideoFormat, fold_foundation::Failure> {
         self.pin(source, cancel)?;
         Ok(self.pinned.back().unwrap().format)
     }
@@ -460,7 +464,7 @@ impl Decoder {
         time: Time,
         dimensions: [u32; 2],
         cancel: &Cancel,
-    ) -> Result<RgbImage, String> {
+    ) -> Result<RgbImage, fold_foundation::Failure> {
         if self.source_format(source, cancel)?.alpha {
             return self.decode_signal(source, time, dimensions, cancel);
         }
@@ -476,7 +480,7 @@ impl Decoder {
         time: Time,
         dimensions: [u32; 2],
         cancel: &Cancel,
-    ) -> Result<RgbImage, String> {
+    ) -> Result<RgbImage, fold_foundation::Failure> {
         cancel.check()?;
         let pixels = u64::from(dimensions[0]) * u64::from(dimensions[1]);
         if pixels == 0 || pixels > super::MAX_PIXELS as u64 {
@@ -496,7 +500,7 @@ impl Decoder {
         time: Time,
         dimensions: [u32; 2],
         cancel: &Cancel,
-    ) -> Result<RgbImage, String> {
+    ) -> Result<RgbImage, fold_foundation::Failure> {
         self.decode_mode(source, time, dimensions, cancel, DecodeFormat::Signal)?
             .rgb()
     }
@@ -508,7 +512,7 @@ impl Decoder {
         source: &VideoSource,
         time: Time,
         cancel: &Cancel,
-    ) -> Result<crate::YuvFrame, String> {
+    ) -> Result<crate::YuvFrame, fold_foundation::Failure> {
         match self.decode_mode(
             source,
             time,
@@ -528,7 +532,7 @@ impl Decoder {
         dimensions: [u32; 2],
         cancel: &Cancel,
         format: DecodeFormat,
-    ) -> Result<Decoded, String> {
+    ) -> Result<Decoded, fold_foundation::Failure> {
         let frame = source.info.frame_at(time)?;
         if self.backend == DecodeBackend::Cuda
             && (!(48..=4096).contains(&source.info.width)
@@ -606,9 +610,7 @@ impl Decoder {
         }
         let image = match format {
             DecodeFormat::Signal => Decoded::Rgb(RgbImage::from_gbr(dimensions, &bytes)?),
-            DecodeFormat::Rgb8 => {
-                Decoded::Rgb(RgbImage::from_rgb(dimensions, bytes).map_err(str::to_owned)?)
-            }
+            DecodeFormat::Rgb8 => Decoded::Rgb(RgbImage::from_rgb(dimensions, bytes)?),
             DecodeFormat::NativeYuv => Decoded::Yuv(crate::YuvFrame::from_planes(
                 native,
                 dimensions,
@@ -646,7 +648,7 @@ impl Decoder {
         dimensions: [u32; 2],
         format: DecodeFormat,
         cancel: &Cancel,
-    ) -> Result<ActiveStream, String> {
+    ) -> Result<ActiveStream, fold_foundation::Failure> {
         let path = self.pin(source, cancel)?;
         let native = self.pinned.back().unwrap().format;
         // Seek to a whole second at/before the requested frame. Accurate input
@@ -792,7 +794,7 @@ impl Encoder {
         info: &VideoInfo,
         frames: u32,
         cancel: Cancel,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, fold_foundation::Failure> {
         Self::new_with_signal(destination, info, frames, cancel, false, false)
     }
     /// Display-rendered Rec.709 RGB: only RGB-to-YUV reconstruction is applied,
@@ -802,7 +804,7 @@ impl Encoder {
         info: &VideoInfo,
         frames: u32,
         cancel: Cancel,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, fold_foundation::Failure> {
         Self::new_with_signal(destination, info, frames, cancel, true, false)
     }
     /// ProRes 4444 in MOV, straight RGBA64 input; 10-bit 4:4:4 color and alpha
@@ -813,7 +815,7 @@ impl Encoder {
         frames: u32,
         cancel: Cancel,
         rec709: bool,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, fold_foundation::Failure> {
         Self::new_with_signal(destination, info, frames, cancel, rec709, true)
     }
     fn new_with_signal(
@@ -823,7 +825,7 @@ impl Encoder {
         cancel: Cancel,
         rec709: bool,
         prores: bool,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, fold_foundation::Failure> {
         info.validate()?;
         let mut delivery = info.clone();
         delivery.frames = frames;
@@ -914,13 +916,13 @@ impl Encoder {
             cancel,
         })
     }
-    pub fn write_rgb(&mut self, rgb: &[u8]) -> Result<(), String> {
+    pub fn write_rgb(&mut self, rgb: &[u8]) -> Result<(), fold_foundation::Failure> {
         if self.bytes_per_pixel != 3 {
             return Err("Encoder requires RGBA16 input".into());
         }
         self.write_bytes(rgb)
     }
-    pub fn write_rgba16(&mut self, rgba: &[u8]) -> Result<(), String> {
+    pub fn write_rgba16(&mut self, rgba: &[u8]) -> Result<(), fold_foundation::Failure> {
         self.cancel.check()?;
         if rgba.len() != self.pixels * 8 || self.written >= self.expected {
             return Err("export frame length/count mismatch".into());
@@ -960,7 +962,7 @@ impl Encoder {
             self.write_bytes(rgba)
         }
     }
-    fn write_bytes(&mut self, rgb: &[u8]) -> Result<(), String> {
+    fn write_bytes(&mut self, rgb: &[u8]) -> Result<(), fold_foundation::Failure> {
         self.cancel.check()?;
         if rgb.len() != self.pixels * self.bytes_per_pixel || self.written >= self.expected {
             return Err("export frame length/count mismatch".into());
@@ -980,13 +982,14 @@ impl Encoder {
                 .unwrap()
                 .finish()
                 .err()
+                .map(|e| e.to_string())
                 .unwrap_or_default();
-            return Err(format!("encoder input: {error}; {details}"));
+            return Err(format!("encoder input: {error}; {details}").into());
         }
         self.written += 1;
         Ok(())
     }
-    pub fn finish(mut self) -> Result<(), String> {
+    pub fn finish(mut self) -> Result<(), fold_foundation::Failure> {
         if self.written != self.expected {
             return Err("incomplete export".into());
         }

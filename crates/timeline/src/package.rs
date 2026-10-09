@@ -39,11 +39,55 @@ fn import(snapshot: &Snapshot, args: &[u8], cancel: &Cancel) -> Result<EditBatch
 }
 struct Documents;
 impl DocumentProvider for Documents {
-    fn parameter_sources(
+    fn package_id(&self) -> &'static str {
+        crate::PACKAGE
+    }
+    fn type_id(&self) -> &'static str {
+        SEQUENCE
+    }
+    fn schema(&self) -> u32 {
+        SEQUENCE_SCHEMA
+    }
+    fn supports_schema(&self, schema: u32) -> bool {
+        schema == SEQUENCE_SCHEMA
+    }
+    fn validate(&self, document: &Document) -> Result<(), String> {
+        Sequence::from_document(document).map(|_| ())
+    }
+    fn parameters_capability(&self) -> Option<&dyn fold_platform::packages::Parameters> {
+        Some(self)
+    }
+    fn parameter_sources_capability(
         &self,
-        document: &Document,
-    ) -> Result<Vec<fold_platform::parameters::Source>, String> {
-        crate::parameters::sources(document)
+    ) -> Option<&dyn fold_platform::packages::ParameterSources> {
+        Some(self)
+    }
+    fn settings_capability(&self) -> Option<&dyn fold_platform::packages::Settings> {
+        Some(self)
+    }
+    fn authoring_capability(&self) -> Option<&dyn fold_platform::packages::Authoring> {
+        Some(self)
+    }
+    fn creation_capability(&self) -> Option<&dyn fold_platform::packages::Creation> {
+        Some(self)
+    }
+    fn browser_kind_capability(&self) -> Option<&dyn fold_platform::packages::BrowserKind> {
+        Some(self)
+    }
+    fn placement_capability(&self) -> Option<&dyn fold_platform::packages::Placement> {
+        Some(self)
+    }
+    fn relink_capability(&self) -> Option<&dyn fold_platform::packages::Relink> {
+        Some(self)
+    }
+}
+impl fold_platform::packages::Parameters for Documents {
+    fn parameter_time(
+        &self,
+        _document: &Document,
+        output_time: fold_foundation::Time,
+    ) -> Result<fold_foundation::Time, String> {
+        Ok(output_time)
     }
 
     fn parameters(
@@ -61,7 +105,16 @@ impl DocumentProvider for Documents {
     ) -> Result<fold_platform::parameters::Literal, String> {
         crate::parameters::sample(document, target, time, cancel)
     }
-
+}
+impl fold_platform::packages::ParameterSources for Documents {
+    fn parameter_sources(
+        &self,
+        document: &Document,
+    ) -> Result<Vec<fold_platform::parameters::Source>, String> {
+        crate::parameters::sources(document)
+    }
+}
+impl fold_platform::packages::Settings for Documents {
     fn settings(
         &self,
         document: &Document,
@@ -91,7 +144,8 @@ impl DocumentProvider for Documents {
         }
         value.document(document.id)
     }
-
+}
+impl fold_platform::packages::Authoring for Documents {
     fn authoring_catalog(&self) -> serde_json::Value {
         crate::automation::catalog()
     }
@@ -101,16 +155,21 @@ impl DocumentProvider for Documents {
     fn author(&self, document: &Document, edits: &[serde_json::Value]) -> Result<Document, String> {
         crate::automation::author(document, edits)
     }
-
+}
+impl fold_platform::packages::Creation for Documents {
+    fn create(&self, id: fold_foundation::DocumentId) -> Result<Document, String> {
+        crate::placement::create(id)
+    }
+}
+impl fold_platform::packages::BrowserKind for Documents {
     fn browser_kind(&self) -> Option<fold_platform::browser::DocumentKind> {
         Some(fold_platform::browser::DocumentKind {
             type_id: SEQUENCE,
             title: "Sequence",
         })
     }
-    fn create(&self, id: fold_foundation::DocumentId) -> Result<Document, String> {
-        crate::placement::create(id)
-    }
+}
+impl fold_platform::packages::Placement for Documents {
     fn place(
         &self,
         snapshot: &Snapshot,
@@ -124,21 +183,8 @@ impl DocumentProvider for Documents {
             )],
         })
     }
-    fn package_id(&self) -> &'static str {
-        crate::PACKAGE
-    }
-    fn type_id(&self) -> &'static str {
-        SEQUENCE
-    }
-    fn schema(&self) -> u32 {
-        SEQUENCE_SCHEMA
-    }
-    fn supports_schema(&self, schema: u32) -> bool {
-        schema == SEQUENCE_SCHEMA
-    }
-    fn validate(&self, document: &Document) -> Result<(), String> {
-        Sequence::from_document(document).map(|_| ())
-    }
+}
+impl fold_platform::packages::Relink for Documents {
     fn validate_relink(
         &self,
         document: &Document,
@@ -175,6 +221,7 @@ impl DocumentProvider for Documents {
         Ok(())
     }
 }
+
 struct Audio;
 impl AudioProvider for Audio {
     fn package_id(&self) -> &'static str {

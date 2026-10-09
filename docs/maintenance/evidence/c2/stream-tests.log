@@ -1,0 +1,11 @@
+   Compiling fold-foundation v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/foundation)
+   Compiling fold-media v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/media)
+    Finished `test` profile [unoptimized] target(s) in 1.58s
+     Running unittests src/lib.rs (target/debug/deps/fold_media-8057e444d812e633)
+
+running 2 tests
+test video_stream::tests::blocked_pipe_cancels_and_reaps_promptly ... ok
+test video_stream::tests::failed_child_reports_diagnostics_and_short_frame ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.07s
+

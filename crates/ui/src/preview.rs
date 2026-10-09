@@ -783,10 +783,10 @@ impl PreviewHost {
                 Ok(true) => {}
                 Err(error) => {
                     if let Some(key) = &self.result_key {
-                        self.failures.push((key.clone(), error.clone()));
+                        self.failures.push((key.clone(), error.to_string()));
                     }
                     self.pending = None;
-                    self.state = Preview::Failed(error);
+                    self.state = Preview::Failed(error.to_string());
                     return Ok(false);
                 }
             }

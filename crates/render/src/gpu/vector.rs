@@ -119,7 +119,7 @@ impl VectorPipeline {
         self.sources = Sources::default();
         self.legacy.clear();
     }
-    fn reserve(&mut self, bytes: u64) -> Result<Arc<Reservation>, String> {
+    fn reserve(&mut self, bytes: u64) -> Result<Arc<Reservation>, fold_foundation::Failure> {
         match self
             .host
             .reserve_as(bytes, super::host::AllocationKind::Geometry)
@@ -136,7 +136,7 @@ impl VectorPipeline {
             }
         }
     }
-    fn check_buffer(&self, size: u64) -> Result<(), String> {
+    fn check_buffer(&self, size: u64) -> Result<(), fold_foundation::Failure> {
         let limits = self.host.device().limits();
         let limit = limits
             .max_buffer_size
@@ -144,7 +144,8 @@ impl VectorPipeline {
         if size > limit {
             return Err(format!(
                 "vector buffer budget exceeded: {size} bytes, device limit {limit}"
-            ));
+            )
+            .into());
         }
         Ok(())
     }
@@ -170,7 +171,7 @@ impl VectorPipeline {
             mapped_at_creation: false,
         })
     }
-    fn atlas(&mut self, scene: &Scene) -> Result<(Arc<Atlas>, u64), String> {
+    fn atlas(&mut self, scene: &Scene) -> Result<(Arc<Atlas>, u64), fold_foundation::Failure> {
         if let Some(index) = self.atlases.iter().position(|a| {
             a.sources.len() == scene.sources.len()
                 && a.sources
@@ -223,7 +224,7 @@ impl VectorPipeline {
         drawings: &[Drawing],
         size: [u32; 2],
         cancel: &fold_media::Cancel,
-    ) -> Result<Option<(Arc<Packet>, Report)>, String> {
+    ) -> Result<Option<(Arc<Packet>, Report)>, fold_foundation::Failure> {
         cancel.check()?;
         if let Some(index) = self
             .cache
@@ -249,7 +250,8 @@ impl VectorPipeline {
         if tile_bytes > MAX_TILE_BYTES {
             return Err(format!(
                 "vector visibility budget exceeded: {tile_bytes} bytes, limit {MAX_TILE_BYTES}"
-            ));
+            )
+            .into());
         }
         let lengths = [
             (scene.instances.len().max(1) * size_of::<Instance>()) as u64,
@@ -338,7 +340,7 @@ impl VectorPipeline {
         status: &Status,
         reservations: &mut Vec<Arc<Reservation>>,
         cancel: &fold_media::Cancel,
-    ) -> Result<Report, String> {
+    ) -> Result<Report, fold_foundation::Failure> {
         let begin = std::time::Instant::now();
         let Some((packet, mut report)) = self.packet(drawings, output.dimensions, cancel)? else {
             let (bytes, _) =

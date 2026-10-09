@@ -27,7 +27,7 @@ impl Pool {
         dimensions: [u32; 2],
         encoder: &mut wgpu::CommandEncoder,
         target: &wgpu::Texture,
-    ) -> Result<(Upload, bool), String> {
+    ) -> Result<(Upload, bool), fold_foundation::Failure> {
         let stride = (dimensions[0] * 16).div_ceil(256) * 256;
         let bytes = u64::from(stride) * u64::from(dimensions[1]);
         let available = self

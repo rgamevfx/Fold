@@ -111,7 +111,10 @@ impl Rgba16Output {
 }
 
 impl Frame {
-    pub fn to_data_display(&self, range: view::Range) -> Result<DisplayFrame, String> {
+    pub fn to_data_display(
+        &self,
+        range: view::Range,
+    ) -> Result<DisplayFrame, fold_foundation::Failure> {
         let [black, white] = range.values();
         let storage = fold_media::budget::reserve_output(self.pixels.len() as u64 * 4)?;
         let mut rgba = Vec::new();
@@ -135,7 +138,7 @@ impl Frame {
         mut self,
         timestamp: fold_foundation::Time,
         duration: fold_foundation::Time,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, fold_foundation::Failure> {
         if duration <= fold_foundation::Time::ZERO {
             return Err("Frame duration must be positive".into());
         }
@@ -182,7 +185,10 @@ impl Frame {
     /// Only here are signed/HDR scene values quantized/clamped to RGBA8.
     /// This allocates a float transform buffer and encoded output; callers own
     /// those allocations separately from the evaluator's live-pixel budget.
-    pub fn to_output(&self, processor: &fold_color::Processor) -> Result<DisplayFrame, String> {
+    pub fn to_output(
+        &self,
+        processor: &fold_color::Processor,
+    ) -> Result<DisplayFrame, fold_foundation::Failure> {
         let source = match self.working_space {
             WorkingSpace::LegacyLinearSrgb => fold_color::LINEAR_SRGB,
             WorkingSpace::AcesCg => fold_color::WORKING_SPACE,
@@ -235,7 +241,7 @@ impl Frame {
     pub fn into_rgba16(
         mut self,
         processor: Option<&fold_color::Processor>,
-    ) -> Result<Rgba16Output, String> {
+    ) -> Result<Rgba16Output, fold_foundation::Failure> {
         if let Some(processor) = processor {
             let source = match self.working_space {
                 WorkingSpace::LegacyLinearSrgb => fold_color::LINEAR_SRGB,
@@ -295,12 +301,18 @@ impl Frame {
     }
 
     /// CPU presentation fallback. Reject alpha rather than silently flattening it.
-    pub fn to_display(&self) -> Result<DisplayFrame, &'static str> {
+    pub fn to_display(&self) -> Result<DisplayFrame, fold_foundation::Failure> {
         if self.working_space != WorkingSpace::LegacyLinearSrgb {
-            return Err("ACEScg requires an explicit OCIO output transform");
+            return Err(fold_foundation::Failure::new(
+                fold_foundation::FailureKind::InvalidInput,
+                "ACEScg requires an explicit OCIO output transform",
+            ));
         }
         if self.pixels.iter().any(|p| p[3] != 1.0) {
-            return Err("display output requires opaque pixels");
+            return Err(fold_foundation::Failure::new(
+                fold_foundation::FailureKind::InvalidInput,
+                "display output requires opaque pixels",
+            ));
         }
         let storage = fold_media::budget::reserve_output(self.pixels.len() as u64 * 4)?;
         let mut rgba = Vec::new();
@@ -392,7 +404,7 @@ fn cpu_pixel_budget(plan: &RenderGraph, baseline: usize) -> usize {
 }
 
 /// Executes the shared image graph. SolidPlan is a one-node convenience adapter.
-pub fn render(plan: impl Into<RenderGraph>) -> Result<Frame, String> {
+pub fn render(plan: impl Into<RenderGraph>) -> Result<Frame, fold_foundation::Failure> {
     let plan = plan.into();
     let budget = cpu_pixel_budget(&plan, 64 * 1024 * 1024);
     graph::evaluate(
@@ -411,7 +423,7 @@ pub fn render_with(
     plan: RenderGraph,
     decoder: &mut fold_media::Decoder,
     cancel: &fold_media::Cancel,
-) -> Result<Frame, String> {
+) -> Result<Frame, fold_foundation::Failure> {
     let budget = cpu_working_budget();
     graph::evaluate(plan, decoder, cancel, budget, None)
 }
@@ -425,7 +437,7 @@ pub fn render_aces_with(
     config: &fold_color::Config,
     decoder: &mut fold_media::Decoder,
     cancel: &fold_media::Cancel,
-) -> Result<Frame, String> {
+) -> Result<Frame, fold_foundation::Failure> {
     let budget = cpu_working_budget();
     graph::evaluate(plan, decoder, cancel, budget, Some(config))
 }

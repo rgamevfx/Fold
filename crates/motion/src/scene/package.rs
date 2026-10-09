@@ -232,14 +232,41 @@ fn graph_edit(
 }
 pub struct Documents;
 impl DocumentProvider for Documents {
-    fn parameter_time(&self, document: &Document, output_time: Time) -> Result<Time, String> {
-        Scene::from_document(document)?
-            .canvas
-            .start
-            .checked_add(output_time)
-            .map_err(|e| e.to_string())
+    fn package_id(&self) -> &'static str {
+        crate::PACKAGE
     }
-
+    fn type_id(&self) -> &'static str {
+        TYPE
+    }
+    fn schema(&self) -> u32 {
+        SCHEMA
+    }
+    fn validate(&self, d: &Document) -> Result<(), String> {
+        Scene::from_document(d).map(|_| ())
+    }
+    fn parameters_capability(&self) -> Option<&dyn fold_platform::packages::Parameters> {
+        Some(self)
+    }
+    fn animation_capability(&self) -> Option<&dyn fold_platform::packages::Animation> {
+        Some(self)
+    }
+    fn hierarchy_capability(&self) -> Option<&dyn fold_platform::packages::Hierarchy> {
+        Some(self)
+    }
+    fn artist_unlock_capability(&self) -> Option<&dyn fold_platform::packages::ArtistUnlock> {
+        Some(self)
+    }
+    fn authoring_capability(&self) -> Option<&dyn fold_platform::packages::Authoring> {
+        Some(self)
+    }
+    fn creation_capability(&self) -> Option<&dyn fold_platform::packages::Creation> {
+        Some(self)
+    }
+    fn browser_kind_capability(&self) -> Option<&dyn fold_platform::packages::BrowserKind> {
+        Some(self)
+    }
+}
+impl fold_platform::packages::Parameters for Documents {
     fn parameters(
         &self,
         document: &Document,
@@ -255,15 +282,15 @@ impl DocumentProvider for Documents {
     ) -> Result<crate::types::Literal, String> {
         super::parameters::sample(document, target, time, cancel)
     }
-
-    fn unlock_for_artist(
-        &self,
-        document: &Document,
-        object: Option<ObjectId>,
-        targets: &[ObjectId],
-    ) -> Result<Document, String> {
-        unlock_graph(document, object.ok_or("Select an object graph")?, targets)
+    fn parameter_time(&self, document: &Document, output_time: Time) -> Result<Time, String> {
+        Scene::from_document(document)?
+            .canvas
+            .start
+            .checked_add(output_time)
+            .map_err(|e| e.to_string())
     }
+}
+impl fold_platform::packages::Animation for Documents {
     fn animation_channels(
         &self,
         d: &Document,
@@ -279,6 +306,8 @@ impl DocumentProvider for Documents {
     ) -> Result<Document, String> {
         animation::replace(&Scene::from_document(d)?, channels)?.replace(d)
     }
+}
+impl fold_platform::packages::Hierarchy for Documents {
     fn hierarchy(&self, d: &Document) -> Result<fold_platform::hierarchy::Hierarchy, String> {
         let scene = Scene::from_document(d)?;
         let rows = scene
@@ -402,44 +431,24 @@ impl DocumentProvider for Documents {
             scene.replace(d)
         }
     }
-
-    fn package_id(&self) -> &'static str {
-        crate::PACKAGE
+}
+impl fold_platform::packages::ArtistUnlock for Documents {
+    fn unlock_for_artist(
+        &self,
+        document: &Document,
+        object: Option<ObjectId>,
+        targets: &[ObjectId],
+    ) -> Result<Document, String> {
+        unlock_graph(document, object.ok_or("Select an object graph")?, targets)
     }
-    fn type_id(&self) -> &'static str {
-        TYPE
-    }
-    fn schema(&self) -> u32 {
-        SCHEMA
-    }
-    fn validate(&self, d: &Document) -> Result<(), String> {
-        Scene::from_document(d).map(|_| ())
-    }
-    fn browser_kind(&self) -> Option<fold_platform::browser::DocumentKind> {
-        Some(fold_platform::browser::DocumentKind {
-            type_id: TYPE,
-            title: "Scene",
-        })
-    }
-    fn create(&self, id: DocumentId) -> Result<Document, String> {
-        create(
-            id,
-            Canvas {
-                width: 1920,
-                height: 1080,
-                rate: [24, 1],
-                start: Time::ZERO,
-                end: Time::new(5, 1).map_err(|e| e.to_string())?,
-                extensions: Default::default(),
-            },
-        )
+}
+impl fold_platform::packages::Authoring for Documents {
+    fn authoring_catalog(&self) -> serde_json::Value {
+        serde_json::json!({"operations":["replace_scene","object_source"],"object_kinds":["camera","light","box","sphere","text"],"scene_type":TYPE,"schema":SCHEMA})
     }
     fn inspect(&self, d: &Document) -> Result<serde_json::Value, String> {
         let scene = Scene::from_document(d)?;
         serde_json::to_value(scene).map_err(|e| e.to_string())
-    }
-    fn authoring_catalog(&self) -> serde_json::Value {
-        serde_json::json!({"operations":["replace_scene","object_source"],"object_kinds":["camera","light","box","sphere","text"],"scene_type":TYPE,"schema":SCHEMA})
     }
     fn author(&self, d: &Document, edits: &[serde_json::Value]) -> Result<Document, String> {
         let mut current = d.clone();
@@ -495,6 +504,30 @@ impl DocumentProvider for Documents {
         Ok(current)
     }
 }
+impl fold_platform::packages::Creation for Documents {
+    fn create(&self, id: DocumentId) -> Result<Document, String> {
+        create(
+            id,
+            Canvas {
+                width: 1920,
+                height: 1080,
+                rate: [24, 1],
+                start: Time::ZERO,
+                end: Time::new(5, 1).map_err(|e| e.to_string())?,
+                extensions: Default::default(),
+            },
+        )
+    }
+}
+impl fold_platform::packages::BrowserKind for Documents {
+    fn browser_kind(&self) -> Option<fold_platform::browser::DocumentKind> {
+        Some(fold_platform::browser::DocumentKind {
+            type_id: TYPE,
+            title: "Scene",
+        })
+    }
+}
+
 pub fn commands() -> Vec<CommandRegistration> {
     vec![
         CommandRegistration {

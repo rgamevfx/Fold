@@ -103,6 +103,7 @@ fn registry_rejects_bad_types_cycles_ports_and_dependency_declarations() {
         packages::builtins()
             .video(&p.snapshot(), &invalid, t(0), 16, 16)
             .unwrap_err()
+            .message
             .contains("port")
     );
     // Project-level cycle rejection is atomic, even when local node graphs are valid.
@@ -312,6 +313,7 @@ fn unavailable_nested_provider_fails_even_in_an_inactive_read() {
         packages::builtins()
             .video(&project.snapshot(), &reference(id), t(0), 16, 16)
             .unwrap_err()
+            .message
             .contains("provider")
     );
 }

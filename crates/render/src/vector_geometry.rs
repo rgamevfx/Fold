@@ -97,7 +97,7 @@ impl GeometryCache {
         stroke: Option<&Stroke>,
         cancel: &Cancel,
     ) -> Result<Arc<Vec<Triangle>>, String> {
-        self.get_with(d, stroke, &mut || cancel.check())
+        self.get_with(d, stroke, &mut || Ok(cancel.check()?))
             .map_err(|e| e.to_string())
     }
     pub(crate) fn get_with(

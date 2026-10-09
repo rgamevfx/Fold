@@ -70,7 +70,7 @@ impl VectorPipeline {
         drawings: &[Drawing],
         size: [u32; 2],
         cancel: &fold_media::Cancel,
-    ) -> Result<(Arc<Packet>, u64), String> {
+    ) -> Result<(Arc<Packet>, u64), fold_foundation::Failure> {
         cancel.check()?;
         if let Some(index) = self
             .cache
@@ -155,7 +155,7 @@ impl VectorPipeline {
         status: &Status,
         reservations: &mut Vec<Arc<Reservation>>,
         cancel: &fold_media::Cancel,
-    ) -> Result<(u64, u128), String> {
+    ) -> Result<(u64, u128), fold_foundation::Failure> {
         let begin = std::time::Instant::now();
         let (packet, bytes) = self.packet(drawings, output.dimensions, cancel)?;
         let elapsed = begin.elapsed().as_nanos();

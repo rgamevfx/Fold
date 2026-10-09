@@ -36,7 +36,7 @@ impl Sampling {
         dimensions: [u32; 2],
         region: Region,
         status: &Status,
-    ) -> Result<Arc<Reservation>, String> {
+    ) -> Result<Arc<Reservation>, fold_foundation::Failure> {
         let [source, scratch, output] = images;
         let rows = crate::sampling::rows(source.dimensions[1], dimensions[1], region);
         let reservation = host.reserve(64)?;

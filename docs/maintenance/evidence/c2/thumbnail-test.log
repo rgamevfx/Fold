@@ -1,0 +1,37 @@
+   Compiling fold-foundation v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/foundation)
+   Compiling fold-animation v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/animation)
+   Compiling fold-project v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/project)
+   Compiling fold-media v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/media)
+   Compiling fold-graph v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/graph)
+   Compiling fold-render v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/render)
+warning: field `format` is never read
+  --> crates/render/src/gpu/yuv.rs:22:9
+   |
+16 | pub(super) struct Layout {
+   |                   ------ field in this struct
+...
+22 |     pub format: fold_media::VideoFormat,
+   |         ^^^^^^
+   |
+   = note: `Layout` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `parameters` is never used
+  --> crates/render/src/gpu/yuv.rs:26:8
+   |
+25 | impl Layout {
+   | ----------- method in this implementation
+26 |     fn parameters(self, size: u64) -> Result<[u32; 20], fold_foundation::Failure> {
+   |        ^^^^^^^^^^
+
+   Compiling fold-platform v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/platform)
+warning: `fold-render` (lib) generated 2 warnings
+   Compiling fold-ui v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/ui)
+    Finished `test` profile [unoptimized] target(s) in 18.22s
+     Running unittests src/lib.rs (target/debug/deps/fold_ui-c3f5af71859d12ea)
+
+running 1 test
+test sdk::media_thumbnails::tests::pressure_is_retried_but_oversized_and_execution_failures_are_cached ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 116 filtered out; finished in 0.00s
+

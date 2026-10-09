@@ -12,7 +12,7 @@ pub fn thumbnail(
     fingerprint: &str,
     profile: &SourceProfile,
     cancel: &Cancel,
-) -> Result<Vec<u8>, String> {
+) -> Result<Vec<u8>, fold_foundation::Failure> {
     thumbnail_range(path, fingerprint, profile, cancel, None)
 }
 pub fn thumbnail_range(
@@ -21,12 +21,15 @@ pub fn thumbnail_range(
     profile: &SourceProfile,
     cancel: &Cancel,
     range: Option<(fold_foundation::Time, fold_foundation::Time, bool)>,
-) -> Result<Vec<u8>, String> {
+) -> Result<Vec<u8>, fold_foundation::Failure> {
     // Archives are not proof of decode safety. Revalidate the narrow source
     // profile on the worker before letting the codec allocate native planes.
     let inspected = crate::ingest::inspect_linked(path, cancel)?;
     if inspected.fingerprint != fingerprint || &inspected.metadata.profile != profile {
-        return Err("Source changed; relink required".into());
+        return Err(fold_foundation::Failure::new(
+            fold_foundation::FailureKind::InvalidInput,
+            "Source changed; relink required",
+        ));
     }
     let output = crate::scratch::file().map_err(|e| e.to_string())?;
     let mut command = Command::new("ffmpeg");
@@ -53,7 +56,10 @@ pub fn thumbnail_range(
             || duration <= fold_foundation::Time::ZERO
             || duration > fold_foundation::Time::new(600, 1).unwrap()
         {
-            return Err("Invalid preview range".into());
+            return Err(fold_foundation::Failure::new(
+                fold_foundation::FailureKind::InvalidInput,
+                "Invalid preview range",
+            ));
         }
         let seconds = |t: fold_foundation::Time| t.numerator() as f64 / f64::from(t.denominator());
         if audio {
@@ -87,9 +93,10 @@ pub fn thumbnail_range(
                 }
             }
             SourceProfile::Exr(_) => {
-                return Err(
-                    "EXR browser thumbnails require a selected color interpretation".into(),
-                );
+                return Err(fold_foundation::Failure::new(
+                    fold_foundation::FailureKind::UnsupportedCapability,
+                    "EXR browser thumbnails require a selected color interpretation",
+                ));
             }
             SourceProfile::Ppm { .. } => {
                 command.args(["-vf", "scale=128:72:force_original_aspect_ratio=decrease:flags=bilinear,pad=128:72:(ow-iw)/2:(oh-ih)/2"]);

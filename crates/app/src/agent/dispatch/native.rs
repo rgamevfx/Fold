@@ -121,7 +121,7 @@ impl Candidate {
             for output in registry.document_outputs(document) {
                 registry
                     .validate_video_source(self.snapshot(), &output.reference, cancel)
-                    .map_err(Failure::invalid)?;
+                    .map_err(|error| Failure::invalid(error.to_string()))?;
             }
         }
         Ok(())
@@ -359,9 +359,14 @@ pub fn inspect(document: &Document) -> Result<Value, Failure> {
         .into_iter()
         .map(|output| json!({"reference":output.reference,"label":output.label,"info":output.info}))
         .collect::<Vec<_>>();
-    let inputs = registry
-        .document_image_inputs(document)
-        .map_err(Failure::invalid)?
+    let inputs =
+        if registry.has_capability(document, fold_platform::packages::Capability::ImageInputs) {
+            registry
+                .document_image_inputs(document)
+                .map_err(Failure::invalid)?
+        } else {
+            vec![]
+        }
         .into_iter()
         .map(|port| json!({"id":port.id,"label":port.label,"source":port.source}))
         .collect::<Vec<_>>();

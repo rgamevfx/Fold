@@ -28,7 +28,10 @@ impl VideoProvider for Provider {
     ) -> Result<fold_platform::effects::Interface, String> {
         Ok(Composition::from_document(document)?.reusable()?.interface)
     }
-    fn compile(&self, mut request: VideoCompile<'_>) -> Result<RenderGraph, String> {
+    fn compile(
+        &self,
+        mut request: VideoCompile<'_>,
+    ) -> Result<RenderGraph, fold_foundation::Failure> {
         let mut composition = Composition::from_document(request.document)?;
         if let Some(invocation) = request.invocation {
             composition.bind_values(invocation)?;
@@ -76,7 +79,7 @@ impl VideoProvider for Provider {
             graph: &mut RenderGraph,
             transparent: usize,
             definition: Option<&crate::reusable::Definition>,
-        ) -> Result<usize, String> {
+        ) -> Result<usize, fold_foundation::Failure> {
             let mut output = transparent;
             for layer in composition
                 .layers

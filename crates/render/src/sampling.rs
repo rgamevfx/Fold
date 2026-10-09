@@ -62,7 +62,7 @@ pub(crate) fn resize(
     dimensions: [u32; 2],
     region: Region,
     cancel: &fold_media::Cancel,
-) -> Result<Frame, String> {
+) -> Result<Frame, fold_foundation::Failure> {
     region.validate(dimensions)?;
     if frame.dimensions() == dimensions {
         return crate::region::crop(frame, region);

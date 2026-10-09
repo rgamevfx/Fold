@@ -34,6 +34,7 @@ fn spatial_image_graph_preserves_camera_extent_and_rejects_invalid_contracts() {
     assert!(
         fold_render::render(graph.clone())
             .unwrap_err()
+            .message
             .contains("GPU")
     );
     // Working-space conversion belongs to the GPU color processor, while the

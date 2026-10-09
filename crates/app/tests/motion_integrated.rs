@@ -60,7 +60,7 @@ fn saved_integrated_motion_renders_required_times_and_retains_frames() {
                 time,
                 request.dimensions,
                 Default::default(),
-                &|| cancel.check(),
+                &|| Ok(cancel.check()?),
             )
             .unwrap();
             renderer

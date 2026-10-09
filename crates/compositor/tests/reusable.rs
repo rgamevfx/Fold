@@ -57,7 +57,7 @@ fn render(
         .unwrap();
     let mut registry = fold_platform::packages::PackageRegistry::default();
     fold_compositor::package::register(&mut registry).unwrap();
-    registry.video(&project.snapshot(), &reference(root), time, 2, 2)
+    Ok(registry.video(&project.snapshot(), &reference(root), time, 2, 2)?)
 }
 fn definition() -> Composite {
     let source = Node::new(

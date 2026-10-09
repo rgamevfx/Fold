@@ -80,6 +80,7 @@ fn rgba16_preserves_scene_metadata_pixels_and_ownership() {
             .rgba16(frame, &cancel)
             .err()
             .unwrap()
+            .message
             .contains("different host")
     );
     let frame = renderer

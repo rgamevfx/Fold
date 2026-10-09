@@ -150,7 +150,7 @@ fn prepare(
     key = next;
     let scene = workflow::preview_request(&request.snapshot, &key)?;
     let (graph, _) = workflow::compile_scene(&request.snapshot, &scene, cancel)?;
-    fold_render::prepare_sources(&graph, cancel).map(Some)
+    Ok(fold_render::prepare_sources(&graph, cancel).map(Some)?)
 }
 fn next_key(
     key: &PreviewKey,

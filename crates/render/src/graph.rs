@@ -578,11 +578,13 @@ pub(crate) fn evaluate(
     cancel: &fold_media::Cancel,
     budget: usize,
     config: Option<&fold_color::Config>,
-) -> Result<Frame, String> {
+) -> Result<Frame, fold_foundation::Failure> {
     cancel.check()?;
     let aces = config.is_some();
     crate::sampling::prepare(&mut graph);
-    let count = validate(&graph, aces)?;
+    let count = validate(&graph, aces).map_err(|error| {
+        fold_foundation::Failure::new(fold_foundation::FailureKind::InvalidInput, error)
+    })?;
     let processors = input_processors(&graph, config)?;
     let (needed, mut uses) = dependencies(&graph);
     let mut frames: Vec<Option<Frame>> = (0..graph.nodes.len()).map(|_| None).collect();
@@ -594,9 +596,12 @@ pub(crate) fn evaluate(
         }
         cancel.check()?;
         if live_bytes + bytes > budget {
-            return Err(format!(
-                "render graph exceeds {} MiB live pixel budget",
-                budget / (1024 * 1024)
+            return Err(fold_foundation::Failure::new(
+                fold_foundation::FailureKind::RequestTooLarge,
+                format!(
+                    "render graph exceeds {} MiB live pixel budget",
+                    budget / (1024 * 1024)
+                ),
             ));
         }
         let storage = fold_media::budget::reserve_working(bytes as u64)?;

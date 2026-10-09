@@ -9,7 +9,7 @@ impl Host {
         dimensions: [u32; 2],
         identity: String,
         cancel: &Cancel,
-    ) -> Result<crate::DisplayFrame, String> {
+    ) -> Result<crate::DisplayFrame, fold_foundation::Failure> {
         cancel.check()?;
         let [sw, sh] = dimensions;
         if sw == 0 || sh == 0 || sw > source.width() || sh > source.height() {

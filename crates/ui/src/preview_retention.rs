@@ -167,7 +167,7 @@ impl Storage {
                     }
                     Ok(None) => {}
                     Err(error) => {
-                        response.error = Some(error);
+                        response.error = Some(error.to_string());
                         response.retention_failed = Some(key);
                     }
                 }
@@ -294,7 +294,7 @@ impl Retention {
             let compressor = match PresentationCompressor::new(host.clone()) {
                 Ok(compressor) => Some(compressor),
                 Err(error) => {
-                    response.error = Some(error);
+                    response.error = Some(error.to_string());
                     response.disabled = true;
                     None
                 }

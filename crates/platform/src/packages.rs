@@ -49,93 +49,131 @@ pub struct CommandRegistration {
     pub execution: Execution,
     pub handler: CommandHandler,
 }
+/// Required identity, schema support and validation only. Optional contracts are
+/// discovered from actual trait references; absence never means an empty success.
+/// Packages are assembled statically; this is not a plugin ABI.
 pub trait DocumentProvider: Send + Sync {
-    fn parameter_sources(
-        &self,
-        _document: &Document,
-    ) -> Result<Vec<crate::parameters::Source>, String> {
-        Ok(vec![])
+    fn package_id(&self) -> &'static str;
+    fn type_id(&self) -> &'static str;
+    fn schema(&self) -> u32;
+    fn supports_schema(&self, schema: u32) -> bool {
+        schema == self.schema()
     }
-    /// Convert a placed source's output-relative clock to authored document time.
-    fn parameter_time(&self, _document: &Document, output_time: Time) -> Result<Time, String> {
-        Ok(output_time)
+    fn validate(&self, document: &Document) -> Result<(), String>;
+    fn parameters_capability(&self) -> Option<&dyn Parameters> {
+        None
     }
-
+    fn parameter_sources_capability(&self) -> Option<&dyn ParameterSources> {
+        None
+    }
+    fn animation_capability(&self) -> Option<&dyn Animation> {
+        None
+    }
+    fn hierarchy_capability(&self) -> Option<&dyn Hierarchy> {
+        None
+    }
+    fn artist_unlock_capability(&self) -> Option<&dyn ArtistUnlock> {
+        None
+    }
+    fn settings_capability(&self) -> Option<&dyn Settings> {
+        None
+    }
+    fn image_inputs_capability(&self) -> Option<&dyn ImageInputs> {
+        None
+    }
+    fn authoring_capability(&self) -> Option<&dyn Authoring> {
+        None
+    }
+    fn query_capability(&self) -> Option<&dyn Query> {
+        None
+    }
+    fn authoring_receipt_capability(&self) -> Option<&dyn AuthoringReceipt> {
+        None
+    }
+    fn creation_capability(&self) -> Option<&dyn Creation> {
+        None
+    }
+    fn browser_kind_capability(&self) -> Option<&dyn BrowserKind> {
+        None
+    }
+    fn placement_capability(&self) -> Option<&dyn Placement> {
+        None
+    }
+    fn relink_capability(&self) -> Option<&dyn Relink> {
+        None
+    }
+    fn evaluation_identity_capability(&self) -> Option<&dyn EvaluationIdentity> {
+        None
+    }
+}
+pub trait Parameters: Send + Sync {
     fn parameters(
         &self,
         _document: &Document,
-    ) -> Result<Vec<crate::parameters::Descriptor>, String> {
-        Ok(vec![])
-    }
-    /// Exact document time. The provider maps nested occurrence clocks once.
+    ) -> Result<Vec<crate::parameters::Descriptor>, String>;
     fn sample_parameter(
         &self,
         _document: &Document,
         _target: &crate::parameters::Target,
         _time: Time,
         _cancel: &Cancel,
-    ) -> Result<fold_graph::types::Literal, String> {
-        Err("Parameter sampling is unavailable for this provider".into())
-    }
-
-    fn hierarchy(&self, _document: &Document) -> Result<crate::hierarchy::Hierarchy, String> {
-        Ok(Default::default())
-    }
-    fn edit_hierarchy(
+    ) -> Result<fold_graph::types::Literal, String>;
+    /// Map placed output-relative time to authored document time exactly once.
+    fn parameter_time(&self, document: &Document, output_time: Time) -> Result<Time, String>;
+}
+pub trait ParameterSources: Send + Sync {
+    fn parameter_sources(
         &self,
         _document: &Document,
-        _edits: &[crate::hierarchy::Edit],
-    ) -> Result<Document, String> {
-        Err("Hierarchy edits unavailable".into())
-    }
-
-    /// Trusted local artist action. Not part of the agent authoring catalog.
-    /// Implementations may clear only the requested lock flags, never content.
-    fn unlock_for_artist(
-        &self,
-        _document: &Document,
-        _object: Option<fold_foundation::ObjectId>,
-        _targets: &[fold_foundation::ObjectId],
-    ) -> Result<Document, String> {
-        Err("This provider does not support artist unlocking".into())
-    }
-
+    ) -> Result<Vec<crate::parameters::Source>, String>;
+}
+pub trait Animation: Send + Sync {
     fn animation_channels(
         &self,
         _document: &Document,
         _object: Option<fold_foundation::ObjectId>,
-    ) -> Result<Vec<crate::animation::Channel>, String> {
-        Ok(vec![])
-    }
+    ) -> Result<Vec<crate::animation::Channel>, String>;
     fn edit_animation(
         &self,
         _document: &Document,
         _channels: &[crate::animation::Channel],
         _time: Time,
-    ) -> Result<Document, String> {
-        Err("Animation editing is unavailable for this provider".into())
-    }
-
+    ) -> Result<Document, String>;
+}
+pub trait Hierarchy: Send + Sync {
+    fn hierarchy(&self, _document: &Document) -> Result<crate::hierarchy::Hierarchy, String>;
+    fn edit_hierarchy(
+        &self,
+        _document: &Document,
+        _edits: &[crate::hierarchy::Edit],
+    ) -> Result<Document, String>;
+}
+/// Trusted local artist action, separate from agent authoring. Implementations
+/// may clear only the requested locks, never change the protected content.
+pub trait ArtistUnlock: Send + Sync {
+    fn unlock_for_artist(
+        &self,
+        _document: &Document,
+        _object: Option<fold_foundation::ObjectId>,
+        _targets: &[fold_foundation::ObjectId],
+    ) -> Result<Document, String>;
+}
+pub trait Settings: Send + Sync {
     fn settings(
         &self,
         _document: &Document,
-    ) -> Result<Option<crate::settings::DocumentSettings>, String> {
-        Ok(None)
-    }
+    ) -> Result<Option<crate::settings::DocumentSettings>, String>;
     fn set_settings(
         &self,
         _document: &Document,
         _settings: &crate::settings::DocumentSettings,
-    ) -> Result<Document, String> {
-        Err("Document settings are unavailable".into())
-    }
-
+    ) -> Result<Document, String>;
+}
+pub trait ImageInputs: Send + Sync {
     fn image_inputs(
         &self,
         _document: &Document,
-    ) -> Result<Vec<crate::layer_graph::ImageInput>, String> {
-        Ok(vec![])
-    }
+    ) -> Result<Vec<crate::layer_graph::ImageInput>, String>;
     fn bind_image_input(
         &self,
         _snapshot: &Snapshot,
@@ -143,42 +181,16 @@ pub trait DocumentProvider: Send + Sync {
         _port: &str,
         _source: Option<crate::image_source::Source>,
         _info: VideoInfo,
-    ) -> Result<Document, String> {
-        Err("This graph does not expose image inputs".into())
-    }
-
-    /// Package-owned automation metadata and edits; host never interprets payloads.
-    fn authoring_catalog(&self) -> serde_json::Value {
-        serde_json::Value::Null
-    }
-    fn inspect(&self, _document: &Document) -> Result<serde_json::Value, String> {
-        Err("provider does not expose authoring inspection".into())
-    }
-    fn query(
-        &self,
-        _document: &Document,
-        _query: &serde_json::Value,
-    ) -> Result<serde_json::Value, String> {
-        Err("provider does not support graph queries".into())
-    }
+    ) -> Result<Document, String>;
+}
+pub trait Authoring: Send + Sync {
+    fn authoring_catalog(&self) -> serde_json::Value;
+    fn inspect(&self, _document: &Document) -> Result<serde_json::Value, String>;
     fn author(
         &self,
         _document: &Document,
         _edits: &[serde_json::Value],
-    ) -> Result<Document, String> {
-        Err("provider does not expose authoring operations".into())
-    }
-
-    fn query_cancellable(
-        &self,
-        document: &Document,
-        query: &serde_json::Value,
-        cancel: &Cancel,
-    ) -> Result<serde_json::Value, String> {
-        cancel.check()?;
-        self.query(document, query)
-    }
-
+    ) -> Result<Document, String>;
     fn author_cancellable(
         &self,
         document: &Document,
@@ -188,48 +200,56 @@ pub trait DocumentProvider: Send + Sync {
         cancel.check()?;
         self.author(document, edits)
     }
+}
+pub trait Query: Send + Sync {
+    fn query(
+        &self,
+        _document: &Document,
+        _query: &serde_json::Value,
+    ) -> Result<serde_json::Value, String>;
+    fn query_cancellable(
+        &self,
+        document: &Document,
+        query: &serde_json::Value,
+        cancel: &Cancel,
+    ) -> Result<serde_json::Value, String> {
+        cancel.check()?;
+        self.query(document, query)
+    }
+}
+pub trait AuthoringReceipt: Send + Sync {
     fn authoring_receipt(
         &self,
         _before: &Document,
         _after: &Document,
-    ) -> Result<serde_json::Value, String> {
-        Ok(serde_json::Value::Null)
-    }
-    fn package_id(&self) -> &'static str;
-    fn type_id(&self) -> &'static str;
-    fn schema(&self) -> u32;
-    fn supports_schema(&self, schema: u32) -> bool {
-        schema == self.schema()
-    }
-    fn validate(&self, document: &Document) -> Result<(), String>;
-    fn browser_kind(&self) -> Option<crate::browser::DocumentKind> {
-        None
-    }
-    fn create(&self, _id: DocumentId) -> Result<Document, String> {
-        Err("provider does not support document creation".into())
-    }
+    ) -> Result<serde_json::Value, String>;
+}
+pub trait Creation: Send + Sync {
+    fn create(&self, _id: DocumentId) -> Result<Document, String>;
+}
+pub trait BrowserKind: Send + Sync {
+    fn browser_kind(&self) -> Option<crate::browser::DocumentKind>;
+}
+pub trait Placement: Send + Sync {
     fn place(
         &self,
         _snapshot: &Snapshot,
         _placement: &crate::browser::Placement,
         _info: Option<VideoInfo>,
-    ) -> Result<EditBatch, String> {
-        Err("this editor does not support this Project item".into())
-    }
-    /// Validate every authored use before relinking. Unknown providers fail closed.
+    ) -> Result<EditBatch, String>;
+}
+pub trait Relink: Send + Sync {
     fn validate_relink(
         &self,
         _document: &Document,
         _asset: fold_foundation::AssetId,
         _metadata: &fold_media::ingest::SourceMetadata,
-    ) -> Result<(), String> {
-        Err("provider does not support asset relinking".into())
-    }
-    /// Semantic evaluation identity, excluding provider-owned presentation data.
-    fn evaluation_identity(&self, document: &Document) -> Result<Vec<u8>, String> {
-        self.validate(document)?;
-        Ok(document.payload.clone())
-    }
+    ) -> Result<(), String>;
+}
+/// Optional semantic identity excluding provider-owned presentation data.
+/// Without this specialization the registry validates and uses opaque payload bytes.
+pub trait EvaluationIdentity: Send + Sync {
+    fn evaluation_identity(&self, document: &Document) -> Result<Vec<u8>, String>;
 }
 pub trait AudioProvider: Send + Sync {
     fn package_id(&self) -> &'static str;
@@ -251,12 +271,59 @@ pub struct PackageRegistry {
     video: VideoRegistry,
     audio: Vec<Box<dyn AudioProvider>>,
 }
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Capability {
+    Parameters,
+    ParameterSources,
+    Animation,
+    Hierarchy,
+    ArtistUnlock,
+    Settings,
+    ImageInputs,
+    Authoring,
+    Query,
+    AuthoringReceipt,
+    Creation,
+    BrowserKind,
+    Placement,
+    Relink,
+    EvaluationIdentity,
+}
 impl PackageRegistry {
+    pub fn has_capability(&self, document: &Document, capability: Capability) -> bool {
+        self.documents
+            .iter()
+            .find(|p| {
+                p.package_id() == document.package_id
+                    && p.type_id() == document.type_id
+                    && p.supports_schema(document.schema_version)
+            })
+            .is_some_and(|p| match capability {
+                Capability::Parameters => p.parameters_capability().is_some(),
+                Capability::ParameterSources => p.parameter_sources_capability().is_some(),
+                Capability::Animation => p.animation_capability().is_some(),
+                Capability::Hierarchy => p.hierarchy_capability().is_some(),
+                Capability::ArtistUnlock => p.artist_unlock_capability().is_some(),
+                Capability::Settings => p.settings_capability().is_some(),
+                Capability::ImageInputs => p.image_inputs_capability().is_some(),
+                Capability::Authoring => p.authoring_capability().is_some(),
+                Capability::Query => p.query_capability().is_some(),
+                Capability::AuthoringReceipt => p.authoring_receipt_capability().is_some(),
+                Capability::Creation => p.creation_capability().is_some(),
+                Capability::BrowserKind => p.browser_kind_capability().is_some(),
+                Capability::Placement => p.placement_capability().is_some(),
+                Capability::Relink => p.relink_capability().is_some(),
+                Capability::EvaluationIdentity => p.evaluation_identity_capability().is_some(),
+            })
+    }
+
     pub fn hierarchy(&self, document: &Document) -> Result<crate::hierarchy::Hierarchy, String> {
         self.documents
             .iter()
             .find(|p| p.package_id() == document.package_id && p.type_id() == document.type_id)
             .ok_or("Unavailable hierarchy provider")?
+            .hierarchy_capability()
+            .ok_or("Unsupported Hierarchy capability")?
             .hierarchy(document)
     }
     pub fn edit_hierarchy(
@@ -269,7 +336,10 @@ impl PackageRegistry {
             .iter()
             .find(|p| p.package_id() == document.package_id && p.type_id() == document.type_id)
             .ok_or("Unavailable hierarchy provider")?;
-        let result = provider.edit_hierarchy(document, edits)?;
+        let result = provider
+            .hierarchy_capability()
+            .ok_or("Unsupported Hierarchy capability")?
+            .edit_hierarchy(document, edits)?;
         if result.id != document.id
             || result.package_id != document.package_id
             || result.type_id != document.type_id
@@ -290,6 +360,8 @@ impl PackageRegistry {
             .iter()
             .find(|p| p.package_id() == document.package_id && p.type_id() == document.type_id)
             .ok_or("Unavailable animation provider")?
+            .animation_capability()
+            .ok_or("Unsupported Animation capability")?
             .animation_channels(document, object)
     }
     pub fn edit_animation(
@@ -303,7 +375,10 @@ impl PackageRegistry {
             .iter()
             .find(|p| p.package_id() == document.package_id && p.type_id() == document.type_id)
             .ok_or("Unavailable animation provider")?;
-        let result = provider.edit_animation(document, channels, time)?;
+        let result = provider
+            .animation_capability()
+            .ok_or("Unsupported Animation capability")?
+            .edit_animation(document, channels, time)?;
         if result.id != document.id
             || result.type_id != document.type_id
             || result.package_id != document.package_id
@@ -331,6 +406,8 @@ impl PackageRegistry {
             .iter()
             .find(|p| p.package_id() == document.package_id && p.type_id() == document.type_id)
             .ok_or("Unavailable graph provider")?
+            .image_inputs_capability()
+            .ok_or("Unsupported ImageInputs capability")?
             .image_inputs(document)
     }
     pub fn bind_image_input(
@@ -348,13 +425,18 @@ impl PackageRegistry {
             .find(|p| p.package_id() == original.package_id && p.type_id() == original.type_id)
             .ok_or("Unavailable graph provider")?;
         if !provider
+            .image_inputs_capability()
+            .ok_or("Unsupported ImageInputs capability")?
             .image_inputs(original)?
             .iter()
             .any(|input| input.id == port)
         {
             return Err("Unavailable graph image input".into());
         }
-        let document = provider.bind_image_input(snapshot, original, port, source, info)?;
+        let document = provider
+            .image_inputs_capability()
+            .ok_or("Unsupported ImageInputs capability")?
+            .bind_image_input(snapshot, original, port, source, info)?;
         if document.id != original.id
             || document.package_id != original.package_id
             || document.type_id != original.type_id
@@ -453,6 +535,8 @@ impl PackageRegistry {
             .iter()
             .find(|p| p.type_id() == document.type_id && p.package_id() == document.package_id)
             .ok_or("Unavailable document provider")?
+            .settings_capability()
+            .ok_or("Unsupported Settings capability")?
             .settings(document)
     }
     pub fn set_document_settings(
@@ -466,7 +550,10 @@ impl PackageRegistry {
             .iter()
             .find(|p| p.type_id() == original.type_id && p.package_id() == original.package_id)
             .ok_or("Unavailable document provider")?;
-        let mut document = provider.set_settings(original, settings)?;
+        let mut document = provider
+            .settings_capability()
+            .ok_or("Unsupported Settings capability")?
+            .set_settings(original, settings)?;
         if document.id != original.id
             || document.type_id != original.type_id
             || document.package_id != original.package_id
@@ -484,6 +571,9 @@ impl PackageRegistry {
         id: DocumentId,
     ) -> Result<Document, String> {
         let document = self.create(kind, id)?;
+        if !self.has_capability(&document, Capability::Settings) {
+            return Ok(document);
+        }
         let Some(mut settings) = self.document_settings(&document)? else {
             return Ok(document);
         };
@@ -493,7 +583,7 @@ impl PackageRegistry {
     pub fn document_kinds(&self) -> Vec<crate::browser::DocumentKind> {
         self.documents
             .iter()
-            .filter_map(|p| p.browser_kind())
+            .filter_map(|p| p.browser_kind_capability().and_then(|c| c.browser_kind()))
             .collect()
     }
     pub fn create(&self, kind: &str, id: DocumentId) -> Result<Document, String> {
@@ -502,7 +592,10 @@ impl PackageRegistry {
             .iter()
             .find(|p| p.type_id() == kind)
             .ok_or("unavailable document provider")?;
-        let document = provider.create(id)?;
+        let document = provider
+            .creation_capability()
+            .ok_or("Unsupported Creation capability")?
+            .create(id)?;
         if document.id != id
             || document.type_id != provider.type_id()
             || document.package_id != provider.package_id()
@@ -552,7 +645,10 @@ impl PackageRegistry {
                 Some(self.output(snapshot, source.document)?)
             }
         };
-        let batch = provider.place(snapshot, placement, info)?;
+        let batch = provider
+            .placement_capability()
+            .ok_or("Unsupported Placement capability")?
+            .place(snapshot, placement, info)?;
         if batch.base != snapshot.revision()
             || !batch
                 .mutations
@@ -575,7 +671,7 @@ impl PackageRegistry {
         self.documents
             .iter()
             .filter_map(|p| {
-                let catalog = p.authoring_catalog();
+                let catalog = p.authoring_capability()?.authoring_catalog();
                 (!catalog.is_null())
                     .then(|| serde_json::json!({"type":p.type_id(),"catalog":catalog}))
             })
@@ -586,6 +682,8 @@ impl PackageRegistry {
             .iter()
             .find(|p| p.type_id() == document.type_id && p.package_id() == document.package_id)
             .ok_or("missing provider")?
+            .authoring_capability()
+            .ok_or("Unsupported Authoring capability")?
             .inspect(document)
     }
     pub fn query(
@@ -605,6 +703,8 @@ impl PackageRegistry {
             .iter()
             .find(|p| p.type_id() == document.type_id && p.package_id() == document.package_id)
             .ok_or("missing provider")?
+            .query_capability()
+            .ok_or("Unsupported Query capability")?
             .query_cancellable(document, query, cancel)
     }
     pub fn author(
@@ -617,7 +717,10 @@ impl PackageRegistry {
             .iter()
             .find(|p| p.type_id() == document.type_id && p.package_id() == document.package_id)
             .ok_or("missing provider")?;
-        let result = provider.author(document, edits)?;
+        let result = provider
+            .authoring_capability()
+            .ok_or("Unsupported Authoring capability")?
+            .author(document, edits)?;
         provider.validate(&result)?;
         Ok(result)
     }
@@ -632,9 +735,15 @@ impl PackageRegistry {
             .iter()
             .find(|p| p.type_id() == document.type_id && p.package_id() == document.package_id)
             .ok_or("missing provider")?;
-        let result = provider.author_cancellable(document, edits, cancel)?;
+        let result = provider
+            .authoring_capability()
+            .ok_or("Unsupported Authoring capability")?
+            .author_cancellable(document, edits, cancel)?;
         provider.validate(&result)?;
-        let receipt = provider.authoring_receipt(document, &result)?;
+        let receipt = match provider.authoring_receipt_capability() {
+            Some(capability) => capability.authoring_receipt(document, &result)?,
+            None => serde_json::Value::Null,
+        };
         Ok((result, receipt))
     }
     pub fn authoring_receipt(
@@ -646,6 +755,8 @@ impl PackageRegistry {
             .iter()
             .find(|p| p.type_id() == after.type_id && p.package_id() == after.package_id)
             .ok_or("missing provider")?
+            .authoring_receipt_capability()
+            .ok_or("Unsupported AuthoringReceipt capability")?
             .authoring_receipt(before, after)
     }
     /// Called only by the native desktop unlock action, not ordinary command dispatch.
@@ -677,7 +788,10 @@ impl PackageRegistry {
                     && p.supports_schema(original.schema_version)
             })
             .ok_or("missing document provider")?;
-        let after = provider.unlock_for_artist(original, object, targets)?;
+        let after = provider
+            .artist_unlock_capability()
+            .ok_or("Unsupported ArtistUnlock capability")?
+            .unlock_for_artist(original, object, targets)?;
         if after.id != original.id
             || after.package_id != original.package_id
             || after.type_id != original.type_id
@@ -757,7 +871,10 @@ impl PackageRegistry {
                     && p.supports_schema(document.schema_version)
             })
             .ok_or("missing relink document provider")?;
-        provider.validate_relink(document, asset, metadata)
+        provider
+            .relink_capability()
+            .ok_or("Unsupported Relink capability")?
+            .validate_relink(document, asset, metadata)
     }
     pub fn supports(&self, document: &Document) -> bool {
         self.documents.iter().any(|p| {
@@ -882,7 +999,14 @@ impl PackageRegistry {
             .iter()
             .find(|p| p.package_id() == document.package_id && p.type_id() == document.type_id)
             .ok_or("missing document provider")?
-            .evaluation_identity(document)
+            .evaluation_identity_capability()
+            .map_or_else(
+                || {
+                    self.validate_document(document)?;
+                    Ok(document.payload.clone())
+                },
+                |capability| capability.evaluation_identity(document),
+            )
     }
     pub fn video(
         &self,
@@ -891,7 +1015,7 @@ impl PackageRegistry {
         time: Time,
         width: u32,
         height: u32,
-    ) -> Result<RenderGraph, String> {
+    ) -> Result<RenderGraph, fold_foundation::Failure> {
         self.video_with(snapshot, source, time, [width, height], &Cancel::default())
     }
     pub fn video_with(
@@ -901,7 +1025,7 @@ impl PackageRegistry {
         time: Time,
         dimensions: [u32; 2],
         cancel: &Cancel,
-    ) -> Result<RenderGraph, String> {
+    ) -> Result<RenderGraph, fold_foundation::Failure> {
         self.validate_video_dependencies(
             snapshot,
             source,
@@ -927,7 +1051,7 @@ impl PackageRegistry {
         dimensions: [u32; 2],
         cancel: &Cancel,
         selection: &fold_render::view::Selection,
-    ) -> Result<RenderGraph, String> {
+    ) -> Result<RenderGraph, fold_foundation::Failure> {
         self.validate_video_dependencies(
             snapshot,
             source,
@@ -944,7 +1068,7 @@ impl PackageRegistry {
         snapshot: &Snapshot,
         source: &DocumentRef,
         cancel: &Cancel,
-    ) -> Result<(), String> {
+    ) -> Result<(), fold_foundation::Failure> {
         self.validate_video_dependencies(
             snapshot,
             source,
@@ -960,32 +1084,49 @@ impl PackageRegistry {
         path: &mut Vec<DocumentId>,
         done: &mut BTreeSet<DocumentId>,
         cancel: &Cancel,
-    ) -> Result<(), String> {
+    ) -> Result<(), fold_foundation::Failure> {
         cancel.check()?;
         if path.contains(&source.document) || path.len() >= 64 {
-            return Err("recursive or excessively deep document references".into());
+            return Err(fold_foundation::Failure::new(
+                fold_foundation::FailureKind::InvalidInput,
+                "recursive or excessively deep document references",
+            )
+            .context(source.document));
+        }
+        let document = snapshot
+            .state()
+            .documents
+            .get(&source.document)
+            .ok_or_else(|| {
+                fold_foundation::Failure::new(
+                    fold_foundation::FailureKind::MissingResource,
+                    "missing document",
+                )
+                .context(source.document)
+            })?;
+        if !self.supports(document) || !self.has_video(document) {
+            return Err(fold_foundation::Failure::new(
+                fold_foundation::FailureKind::UnsupportedCapability,
+                "missing video provider or unsupported schema",
+            )
+            .context(document.id));
         }
         self.output_ref(snapshot, source).map_err(|error| {
-            format!(
-                "video dependency {:?} / {}: {error}",
-                source.document, source.output
-            )
+            fold_foundation::Failure::new(fold_foundation::FailureKind::InvalidInput, error)
+                .context(source.document)
+                .context(&source.output)
         })?;
         if done.contains(&source.document) {
             return Ok(());
         }
-        let document = &snapshot.state().documents[&source.document];
-        if !self
-            .video
-            .providers
-            .iter()
-            .any(|p| p.package_id() == document.package_id && p.type_id() == document.type_id)
-        {
-            return Err(format!("missing video capability: {:?}", document.id));
-        }
         for id in &document.assets {
             if !snapshot.state().assets.contains_key(id) {
-                return Err(format!("missing asset {id:?}"));
+                return Err(fold_foundation::Failure::new(
+                    fold_foundation::FailureKind::MissingResource,
+                    "missing asset",
+                )
+                .context(id)
+                .context(document.id));
             }
         }
         path.push(source.document);

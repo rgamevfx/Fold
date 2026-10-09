@@ -48,7 +48,7 @@ impl Frame {
         &mut self,
         expected: &Binding,
         cancel: &fold_media::Cancel,
-    ) -> Result<Depth, String> {
+    ) -> Result<Depth, fold_foundation::Failure> {
         self.image(expected)?;
         cancel.check()?;
         let host = &self.image.host;

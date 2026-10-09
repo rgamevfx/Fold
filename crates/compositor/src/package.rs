@@ -63,6 +63,68 @@ fn publish_shader(snapshot: &Snapshot, args: &[u8], cancel: &Cancel) -> Result<E
 }
 struct Documents;
 impl DocumentProvider for Documents {
+    fn package_id(&self) -> &'static str {
+        crate::PACKAGE
+    }
+    fn type_id(&self) -> &'static str {
+        crate::COMPOSITE
+    }
+    fn schema(&self) -> u32 {
+        8
+    }
+    fn supports_schema(&self, schema: u32) -> bool {
+        schema == 8
+    }
+    fn validate(&self, document: &Document) -> Result<(), String> {
+        Composite::from_document(document).map(|_| ())
+    }
+    fn parameters_capability(&self) -> Option<&dyn fold_platform::packages::Parameters> {
+        Some(self)
+    }
+    fn animation_capability(&self) -> Option<&dyn fold_platform::packages::Animation> {
+        Some(self)
+    }
+    fn settings_capability(&self) -> Option<&dyn fold_platform::packages::Settings> {
+        Some(self)
+    }
+    fn image_inputs_capability(&self) -> Option<&dyn fold_platform::packages::ImageInputs> {
+        Some(self)
+    }
+    fn authoring_capability(&self) -> Option<&dyn fold_platform::packages::Authoring> {
+        Some(self)
+    }
+    fn query_capability(&self) -> Option<&dyn fold_platform::packages::Query> {
+        Some(self)
+    }
+    fn authoring_receipt_capability(
+        &self,
+    ) -> Option<&dyn fold_platform::packages::AuthoringReceipt> {
+        Some(self)
+    }
+    fn creation_capability(&self) -> Option<&dyn fold_platform::packages::Creation> {
+        Some(self)
+    }
+    fn placement_capability(&self) -> Option<&dyn fold_platform::packages::Placement> {
+        Some(self)
+    }
+    fn relink_capability(&self) -> Option<&dyn fold_platform::packages::Relink> {
+        Some(self)
+    }
+    fn evaluation_identity_capability(
+        &self,
+    ) -> Option<&dyn fold_platform::packages::EvaluationIdentity> {
+        Some(self)
+    }
+}
+impl fold_platform::packages::Parameters for Documents {
+    fn parameter_time(
+        &self,
+        _document: &Document,
+        output_time: fold_foundation::Time,
+    ) -> Result<fold_foundation::Time, String> {
+        Ok(output_time)
+    }
+
     fn parameters(
         &self,
         document: &Document,
@@ -78,7 +140,8 @@ impl DocumentProvider for Documents {
     ) -> Result<fold_graph::types::Literal, String> {
         crate::parameters::sample(document, target, time, cancel)
     }
-
+}
+impl fold_platform::packages::Animation for Documents {
     fn animation_channels(
         &self,
         document: &Document,
@@ -94,7 +157,8 @@ impl DocumentProvider for Documents {
     ) -> Result<Document, String> {
         crate::keyed_parameters::edit(document, channels, time)
     }
-
+}
+impl fold_platform::packages::Settings for Documents {
     fn settings(
         &self,
         document: &Document,
@@ -112,7 +176,8 @@ impl DocumentProvider for Documents {
         value.info = settings.format.clone();
         value.document(document.id)
     }
-
+}
+impl fold_platform::packages::ImageInputs for Documents {
     fn image_inputs(
         &self,
         document: &Document,
@@ -129,13 +194,19 @@ impl DocumentProvider for Documents {
     ) -> Result<Document, String> {
         crate::inputs::bind(snapshot, document, port, source, info)
     }
-
+}
+impl fold_platform::packages::Authoring for Documents {
     fn authoring_catalog(&self) -> serde_json::Value {
         crate::automation::catalog()
     }
     fn inspect(&self, document: &Document) -> Result<serde_json::Value, String> {
         crate::automation::inspect(document)
     }
+    fn author(&self, document: &Document, edits: &[serde_json::Value]) -> Result<Document, String> {
+        crate::automation::author(document, edits)
+    }
+}
+impl fold_platform::packages::Query for Documents {
     fn query(
         &self,
         document: &Document,
@@ -143,6 +214,8 @@ impl DocumentProvider for Documents {
     ) -> Result<serde_json::Value, String> {
         crate::automation::query(document, query)
     }
+}
+impl fold_platform::packages::AuthoringReceipt for Documents {
     fn authoring_receipt(
         &self,
         before: &Document,
@@ -150,13 +223,13 @@ impl DocumentProvider for Documents {
     ) -> Result<serde_json::Value, String> {
         crate::automation::receipt(before, after)
     }
-    fn author(&self, document: &Document, edits: &[serde_json::Value]) -> Result<Document, String> {
-        crate::automation::author(document, edits)
-    }
-
+}
+impl fold_platform::packages::Creation for Documents {
     fn create(&self, id: fold_foundation::DocumentId) -> Result<Document, String> {
         crate::placement::create(id)
     }
+}
+impl fold_platform::packages::Placement for Documents {
     fn place(
         &self,
         snapshot: &Snapshot,
@@ -170,21 +243,8 @@ impl DocumentProvider for Documents {
             )?)],
         })
     }
-    fn package_id(&self) -> &'static str {
-        crate::PACKAGE
-    }
-    fn type_id(&self) -> &'static str {
-        crate::COMPOSITE
-    }
-    fn schema(&self) -> u32 {
-        8
-    }
-    fn supports_schema(&self, schema: u32) -> bool {
-        schema == 8
-    }
-    fn validate(&self, document: &Document) -> Result<(), String> {
-        Composite::from_document(document).map(|_| ())
-    }
+}
+impl fold_platform::packages::Relink for Documents {
     fn validate_relink(
         &self,
         document: &Document,
@@ -225,6 +285,8 @@ impl DocumentProvider for Documents {
         }
         Ok(())
     }
+}
+impl fold_platform::packages::EvaluationIdentity for Documents {
     fn evaluation_identity(&self, document: &Document) -> Result<Vec<u8>, String> {
         let mut graph = Composite::from_document(document)?;
         for node in &mut graph.nodes {
@@ -234,6 +296,7 @@ impl DocumentProvider for Documents {
         serde_json::to_vec(&graph).map_err(|e| e.to_string())
     }
 }
+
 pub fn register(registry: &mut PackageRegistry) -> Result<(), String> {
     registry.register(Contributions {
         manifest: Manifest {

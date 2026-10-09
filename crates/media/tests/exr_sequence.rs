@@ -148,6 +148,7 @@ fn sequence_manifest_handles_numbering_holes_stills_and_replaced_bytes() {
             &Cancel::default()
         )
         .unwrap_err()
+        .message
         .contains("fingerprint")
     );
 }

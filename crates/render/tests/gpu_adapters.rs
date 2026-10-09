@@ -150,7 +150,7 @@ fn native_nested_sources_vectors_and_scratch_upload_order() {
                 held.push(frame);
             }
             Err(error) => {
-                assert!(error.contains("budget"));
+                assert!(error.message.contains("budget"));
                 break;
             }
         }

@@ -17,6 +17,7 @@ fn native_bc7_unavailable_features_and_allocation_pressure_leave_host_usable() {
         PresentationCompressor::new(unsupported.clone())
             .err()
             .unwrap()
+            .message
             .contains("unavailable")
     );
     unsupported.check().unwrap();
@@ -25,6 +26,7 @@ fn native_bc7_unavailable_features_and_allocation_pressure_leave_host_usable() {
         PresentationCompressor::new(small.clone())
             .err()
             .unwrap()
+            .message
             .contains("budget")
     );
     assert_eq!(small.memory().allocated, 0);

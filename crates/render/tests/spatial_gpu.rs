@@ -327,6 +327,7 @@ fn spatial_retains_resources_and_immutable_revision_bound_frames() {
             .readback(&overflow_binding, &cancel)
             .err()
             .unwrap()
+            .message
             .contains("RGBA16F")
     );
     scene.camera.ev100 = 8.;
@@ -535,6 +536,7 @@ fn spatial_image_source_composites_without_readback_and_retains_source_precision
     assert!(
         fold_render::render(source_graph.clone())
             .unwrap_err()
+            .message
             .contains("GPU")
     );
     let graph = RenderGraph {
@@ -642,6 +644,7 @@ fn spatial_image_source_composites_without_readback_and_retains_source_precision
             .evaluate(invalid, None, &mut decoder, &cancel)
             .err()
             .unwrap()
+            .message
             .contains("dimensions")
     );
     let mut saturated = scene;
@@ -674,6 +677,7 @@ fn spatial_image_source_composites_without_readback_and_retains_source_precision
             .readback(&cancel)
             .err()
             .unwrap()
+            .message
             .contains("RGBA16F")
     );
     let mut recovered = renderer
@@ -789,6 +793,7 @@ fn spatial_aces_conversion_matches_cpu_processor_and_preserves_alpha() {
             .readback(&cancel)
             .err()
             .unwrap()
+            .message
             .contains("RGBA16F")
     );
     eprintln!("Spatial ACES retains upstream half-float saturation errors after gamut conversion");

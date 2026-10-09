@@ -28,7 +28,7 @@ impl Cache {
         inputs: &[&Image],
         output: &Image,
         status: &Status,
-    ) -> Result<Arc<Reservation>, String> {
+    ) -> Result<Arc<Reservation>, fold_foundation::Failure> {
         let source = program.wgsl()?;
         if !self.pipelines.contains_key(&source) {
             program.validate_source()?;
@@ -103,7 +103,7 @@ impl Cache {
                 cache: None,
             });
             if let Some(error) = pollster::block_on(device.pop_error_scope()) {
-                return Err(format!("Shader pipeline: {error}"));
+                return Err(format!("Shader pipeline: {error}").into());
             }
             self.compilations += 1;
             if self.pipelines.len() >= 64 {

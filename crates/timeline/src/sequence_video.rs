@@ -20,7 +20,7 @@ impl VideoProvider for SequenceProvider {
     ) -> Result<fold_media::VideoInfo, String> {
         Sequence::from_document(document)?.info()
     }
-    fn compile(&self, request: VideoCompile<'_>) -> Result<RenderGraph, String> {
+    fn compile(&self, request: VideoCompile<'_>) -> Result<RenderGraph, fold_foundation::Failure> {
         let document = request.document;
         let reference = request.reference;
         let time = request.time;
@@ -158,7 +158,7 @@ fn clip_image(
     clip: &crate::Clip,
     request: &VideoCompile<'_>,
     graph: &mut RenderGraph,
-) -> Result<usize, String> {
+) -> Result<usize, fold_foundation::Failure> {
     request.cancel.check()?;
     if clip.level == 0. {
         let id = graph.nodes.len();

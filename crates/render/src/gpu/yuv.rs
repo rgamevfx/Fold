@@ -23,7 +23,7 @@ pub(super) struct Layout {
     pub sample_shift: u32,
 }
 impl Layout {
-    fn parameters(self, size: u64) -> Result<[u32; 20], String> {
+    fn parameters(self, size: u64) -> Result<[u32; 20], fold_foundation::Failure> {
         self.format_parameters(size, self.format, 0)
     }
     fn format_parameters(
@@ -31,7 +31,7 @@ impl Layout {
         size: u64,
         format: fold_media::VideoFormat,
         alpha: u32,
-    ) -> Result<[u32; 20], String> {
+    ) -> Result<[u32; 20], fold_foundation::Failure> {
         format.validate()?;
         let step = format.sample_bytes();
         let [w, h] = self.dimensions;
@@ -131,7 +131,7 @@ impl YuvPipeline {
         frame: &fold_media::YuvFrame,
         output: &Image,
         reservations: &mut Vec<Arc<Reservation>>,
-    ) -> Result<u64, String> {
+    ) -> Result<u64, fold_foundation::Failure> {
         let (entry, uploaded) = if let Some(index) = self
             .cache
             .iter()
@@ -212,7 +212,7 @@ impl YuvPipeline {
         layout: Layout,
         output: &Image,
         reservations: &mut Vec<Arc<Reservation>>,
-    ) -> Result<(), String> {
+    ) -> Result<(), fold_foundation::Failure> {
         let params = layout.parameters(buffer.size())?;
         let entry = if let Some(index) = self
             .external_layouts

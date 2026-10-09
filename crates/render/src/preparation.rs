@@ -10,7 +10,10 @@ pub struct PreparedSources {
     _tickets: Vec<fold_media::exr::cache::Ticket>,
     _allowance: std::sync::Arc<fold_media::budget::Lease>,
 }
-pub fn prepare_sources(graph: &RenderGraph, cancel: &Cancel) -> Result<PreparedSources, String> {
+pub fn prepare_sources(
+    graph: &RenderGraph,
+    cancel: &Cancel,
+) -> Result<PreparedSources, fold_foundation::Failure> {
     if graph.nodes.is_empty() || graph.output >= graph.nodes.len() {
         return Err("invalid source preparation graph".into());
     }
@@ -74,7 +77,7 @@ impl SourcePipeline {
     pub fn new(
         requests: impl IntoIterator<Item = (usize, Request)>,
         cancel: &Cancel,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, fold_foundation::Failure> {
         let mut pipeline = Self {
             pending: requests.into_iter().collect(),
             tickets: Default::default(),
@@ -83,7 +86,7 @@ impl SourcePipeline {
         pipeline.fill(cancel)?;
         Ok(pipeline)
     }
-    fn fill(&mut self, cancel: &Cancel) -> Result<(), String> {
+    fn fill(&mut self, cancel: &Cancel) -> Result<(), fold_foundation::Failure> {
         while let Some((_, request)) = self.pending.front() {
             let bytes = u64::from(request.dimensions[0]) * u64::from(request.dimensions[1]) * 16;
             if !self.tickets.is_empty()
@@ -103,7 +106,7 @@ impl SourcePipeline {
         &mut self,
         id: usize,
         cancel: &Cancel,
-    ) -> Result<std::sync::Arc<fold_media::exr::Pixels>, String> {
+    ) -> Result<std::sync::Arc<fold_media::exr::Pixels>, fold_foundation::Failure> {
         let (expected, bytes, ticket) = self
             .tickets
             .pop_front()

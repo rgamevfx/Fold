@@ -66,7 +66,7 @@ impl Request {
 pub fn compile(
     request: &Request,
     context: &crate::VideoCompile<'_>,
-) -> Result<RenderGraph, String> {
+) -> Result<RenderGraph, fold_foundation::Failure> {
     context.cancel.check()?;
     let [width, height] = context.dimensions;
     let single = |op| RenderGraph {
@@ -88,7 +88,7 @@ pub fn compile(
     if context.context.is_some()
         && let Source::Output(reference) = &request.source
     {
-        return (context.resolve_image)(reference, request.time)?.select(None);
+        return Ok((context.resolve_image)(reference, request.time)?.select(None)?);
     }
     let Some(time) = request.mapped_time()? else {
         return Ok(single(ImageOp::Solid { rgba: [0.; 4] }));
@@ -97,7 +97,7 @@ pub fn compile(
         let Source::Output(reference) = &request.source else {
             unreachable!()
         };
-        return (context.resolve_image)(reference, time)?.select(None);
+        return Ok((context.resolve_image)(reference, time)?.select(None)?);
     };
     let asset = context
         .snapshot

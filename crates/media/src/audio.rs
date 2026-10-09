@@ -27,7 +27,7 @@ impl AudioSource {
             Self::Wave(s) => format!("{}:{:?}", s.fingerprint, s.info),
         }
     }
-    pub fn validate(&self) -> Result<(), String> {
+    pub fn validate(&self) -> Result<(), fold_foundation::Failure> {
         match self {
             Self::Video(s) => s.info.validate(),
             Self::Wave(s) => s.info.validate(),
@@ -60,10 +60,14 @@ fn command(program: &str) -> Command {
         .stdout(Stdio::null());
     cmd
 }
-pub fn has_audio(path: &Path, cancel: &Cancel) -> Result<bool, String> {
+pub fn has_audio(path: &Path, cancel: &Cancel) -> Result<bool, fold_foundation::Failure> {
     has_audio_mode(path, cancel, false)
 }
-fn has_audio_mode(path: &Path, cancel: &Cancel, interactive: bool) -> Result<bool, String> {
+fn has_audio_mode(
+    path: &Path,
+    cancel: &Cancel,
+    interactive: bool,
+) -> Result<bool, fold_foundation::Failure> {
     let probe = crate::scratch::file().map_err(|e| e.to_string())?;
     let mut cmd = command("ffprobe");
     cmd.args([
@@ -107,7 +111,11 @@ impl AudioDecoder {
         self.pcm.retain(|pcm| identities.contains(&pcm.identity));
     }
 
-    fn prepare(&mut self, source: &AudioSource, cancel: &Cancel) -> Result<&mut Pcm, String> {
+    fn prepare(
+        &mut self,
+        source: &AudioSource,
+        cancel: &Cancel,
+    ) -> Result<&mut Pcm, fold_foundation::Failure> {
         cancel.check()?;
         source.validate()?;
         let identity = source.identity();
@@ -198,7 +206,11 @@ impl AudioDecoder {
         });
         Ok(self.pcm.back_mut().unwrap())
     }
-    pub fn preflight(&mut self, source: &AudioSource, cancel: &Cancel) -> Result<(), String> {
+    pub fn preflight(
+        &mut self,
+        source: &AudioSource,
+        cancel: &Cancel,
+    ) -> Result<(), fold_foundation::Failure> {
         self.read(source, 0, 1, cancel).map(|_| ())
     }
     /// At most one second per request; negative and post-EOF samples are silence.
@@ -208,7 +220,7 @@ impl AudioDecoder {
         start: i64,
         count: usize,
         cancel: &Cancel,
-    ) -> Result<Vec<[f32; 2]>, String> {
+    ) -> Result<Vec<[f32; 2]>, fold_foundation::Failure> {
         cancel.check()?;
         if count > AUDIO_RATE as usize {
             return Err("audio block exceeds one second".into());
@@ -225,7 +237,7 @@ impl AudioDecoder {
         start: i64,
         count: usize,
         cancel: &Cancel,
-    ) -> Result<Vec<[f32; 2]>, String> {
+    ) -> Result<Vec<[f32; 2]>, fold_foundation::Failure> {
         // Keep at most two backpressured PCM processes per worker. Disk blocks
         // remain reusable; a displaced cursor restarts at an exact sample trim.
         if !self
@@ -312,7 +324,7 @@ pub fn mux_audio(
     pcm: &Path,
     destination: &Path,
     cancel: &Cancel,
-) -> Result<(), String> {
+) -> Result<(), fold_foundation::Failure> {
     if destination.exists() {
         return Err("export destination already exists".into());
     }

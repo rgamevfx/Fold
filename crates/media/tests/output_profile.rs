@@ -41,7 +41,7 @@ fn unsupported_delivery_is_rejected_before_starting_a_codec() {
         },
     ] {
         let result = Encoder::new(&destination, &output, output.frames, Cancel::default());
-        assert!(matches!(result, Err(error) if error.contains("MP4/H.264")));
+        assert!(matches!(result, Err(error) if error.message.contains("MP4/H.264")));
         assert!(!destination.exists());
     }
     assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 0);

@@ -79,9 +79,13 @@ impl Drop for Reservation {
     }
 }
 impl Pool {
-    fn make_room(&mut self, bytes: u64, budget: u64) -> Result<(), String> {
+    fn make_room(&mut self, bytes: u64, budget: u64) -> Result<(), fold_foundation::Failure> {
         if bytes > budget {
-            return Err("GPU allocation exceeds host budget".into());
+            return Err(fold_foundation::Failure::new(
+                fold_foundation::FailureKind::RequestTooLarge,
+                "GPU allocation exceeds host budget",
+            )
+            .context(bytes));
         }
         while self.bytes > budget - bytes {
             let Some(index) = self
@@ -89,9 +93,11 @@ impl Pool {
                 .iter()
                 .position(|image| Arc::strong_count(image) == 1)
             else {
-                return Err(
-                    "GPU working budget exhausted; release completed frames or retry later".into(),
-                );
+                return Err(fold_foundation::Failure::new(
+                    fold_foundation::FailureKind::ResourcePressure,
+                    "GPU working budget exhausted; release completed frames or retry later",
+                )
+                .context(bytes));
             };
             let image = self.images.swap_remove(index);
             self.bytes -= image.bytes;
@@ -129,7 +135,7 @@ impl Host {
     /// Keep adapter/device selection outside this short critical section.
     pub fn create_instance(
         descriptor: &wgpu::InstanceDescriptor,
-    ) -> Result<wgpu::Instance, String> {
+    ) -> Result<wgpu::Instance, fold_foundation::Failure> {
         let _creation = INSTANCE_CREATION
             .lock()
             .map_err(|_| "GPU instance initialization lock poisoned")?;
@@ -137,7 +143,9 @@ impl Host {
     }
 
     /// Construct off the UI thread. No surface or Dear ImGui dependency.
-    pub async fn headless(budget: u64) -> Result<(Self, wgpu::AdapterInfo), String> {
+    pub async fn headless(
+        budget: u64,
+    ) -> Result<(Self, wgpu::AdapterInfo), fold_foundation::Failure> {
         let instance = Self::create_instance(&wgpu::InstanceDescriptor {
             backends: wgpu::Backends::VULKAN,
             ..Default::default()
@@ -174,7 +182,7 @@ impl Host {
         device: wgpu::Device,
         queue: wgpu::Queue,
         budget: u64,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, fold_foundation::Failure> {
         if budget == 0 {
             return Err("GPU budget must be positive".into());
         }
@@ -227,14 +235,14 @@ impl Host {
     pub fn queue(&self) -> &wgpu::Queue {
         &self.0.queue
     }
-    pub fn check(&self) -> Result<(), String> {
+    pub fn check(&self) -> Result<(), fold_foundation::Failure> {
         match self.0.stopped.lock().unwrap().as_ref() {
-            Some(error) => Err(error.clone()),
+            Some(error) => Err(error.clone().into()),
             None => Ok(()),
         }
     }
     /// Nonblocking completion pump, usable by the desktop event loop.
-    pub fn poll(&self) -> Result<(), String> {
+    pub fn poll(&self) -> Result<(), fold_foundation::Failure> {
         self.device()
             .poll(wgpu::PollType::Poll)
             .map_err(|e| e.to_string())?;
@@ -259,14 +267,14 @@ impl Host {
             scratch: pool.by_kind[4],
         }
     }
-    pub(crate) fn reserve(&self, bytes: u64) -> Result<Arc<Reservation>, String> {
+    pub(crate) fn reserve(&self, bytes: u64) -> Result<Arc<Reservation>, fold_foundation::Failure> {
         self.reserve_as(bytes, AllocationKind::Scratch)
     }
     pub(crate) fn reserve_as(
         &self,
         bytes: u64,
         kind: AllocationKind,
-    ) -> Result<Arc<Reservation>, String> {
+    ) -> Result<Arc<Reservation>, fold_foundation::Failure> {
         self.check()?;
         let mut pool = self.0.pool.lock().unwrap();
         pool.make_room(bytes, self.0.budget)?;
@@ -277,14 +285,17 @@ impl Host {
             kind,
         }))
     }
-    pub(crate) fn image(&self, dimensions: [u32; 2]) -> Result<Arc<Image>, String> {
+    pub(crate) fn image(
+        &self,
+        dimensions: [u32; 2],
+    ) -> Result<Arc<Image>, fold_foundation::Failure> {
         self.image_format(dimensions, wgpu::TextureFormat::Rgba32Float)
     }
     pub(crate) fn image_format(
         &self,
         dimensions: [u32; 2],
         format: wgpu::TextureFormat,
-    ) -> Result<Arc<Image>, String> {
+    ) -> Result<Arc<Image>, fold_foundation::Failure> {
         self.check()?;
         let [width, height] = dimensions;
         let limit = self.device().limits().max_texture_dimension_2d;
@@ -393,5 +404,30 @@ impl Host {
             drop(leases);
             drop(buffers);
         });
+    }
+}
+
+#[cfg(test)]
+mod budget_tests {
+    use super::*;
+    use fold_foundation::FailureKind;
+    #[test]
+    fn oversized_reservations_are_permanent_and_held_leases_are_pressure() {
+        let mut pool = Pool {
+            by_kind: [0; 5],
+            images: vec![],
+            bytes: 12,
+            peak: 12,
+        };
+        assert_eq!(
+            pool.make_room(17, 16).unwrap_err().kind,
+            FailureKind::RequestTooLarge
+        );
+        assert_eq!(
+            pool.make_room(8, 16).unwrap_err().kind,
+            FailureKind::ResourcePressure
+        );
+        pool.bytes = 0;
+        pool.make_room(16, 16).unwrap();
     }
 }

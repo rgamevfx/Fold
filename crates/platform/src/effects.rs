@@ -211,8 +211,8 @@ impl Invocation<'_> {
         Ok(())
     }
 }
-pub type Resolver<'a> =
-    dyn Fn(&DocumentRef, Time, &Invocation<'_>) -> Result<RenderGraph, String> + 'a;
+pub type Resolver<'a> = dyn Fn(&DocumentRef, Time, &Invocation<'_>) -> Result<RenderGraph, fold_foundation::Failure>
+    + 'a;
 
 pub fn validate_stack(stack: &[Instance]) -> Result<(), String> {
     if stack.len() > 64 {
@@ -235,7 +235,7 @@ pub fn apply_stack(
     timing: Range,
     format: crate::format::Format,
     resolve: &Resolver<'_>,
-) -> Result<ImageId, String> {
+) -> Result<ImageId, fold_foundation::Failure> {
     validate_stack(stack)?;
     for instance in stack.iter().filter(|i| i.enabled) {
         let invocation = Invocation {

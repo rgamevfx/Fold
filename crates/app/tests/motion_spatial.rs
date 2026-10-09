@@ -151,7 +151,7 @@ fn motion_document_spatial_frames_match_ray_oracle_and_retain_snapshot_binding()
         Time::ZERO,
         [640, 220],
         Default::default(),
-        &|| cancel.check(),
+        &|| Ok(cancel.check()?),
     )
     .unwrap();
     let (host, info) = pollster::block_on(Host::headless(32 * 1024 * 1024)).unwrap();
@@ -195,7 +195,7 @@ fn motion_document_spatial_frames_match_ray_oracle_and_retain_snapshot_binding()
         Time::new(1, 2).unwrap(),
         [640, 220],
         Default::default(),
-        &|| cancel.check(),
+        &|| Ok(cancel.check()?),
     )
     .unwrap();
     assert_ne!(changed.binding.revision, prepared.binding.revision);
@@ -220,7 +220,7 @@ fn motion_document_spatial_frames_match_ray_oracle_and_retain_snapshot_binding()
         Time::ZERO,
         [640, 220],
         Default::default(),
-        &|| cancel.check(),
+        &|| Ok(cancel.check()?),
     )
     .unwrap();
     assert_eq!(retained_scene.binding, prepared.binding);
@@ -246,7 +246,7 @@ fn motion_document_spatial_frames_match_ray_oracle_and_retain_snapshot_binding()
         Time::new(1, 2).unwrap(),
         [640, 220],
         Default::default(),
-        &|| cancel.check(),
+        &|| Ok(cancel.check()?),
     )
     .unwrap();
     assert_ne!(
@@ -324,7 +324,7 @@ fn motion_document_spatial_frames_match_ray_oracle_and_retain_snapshot_binding()
             Time::new(1, 2).unwrap(),
             [640, 220],
             Default::default(),
-            &|| cancel.check(),
+            &|| Ok(cancel.check()?),
         )
         .unwrap();
         let mut frame = adapter
@@ -756,7 +756,7 @@ fn native_box_gpu_matches_analytic_slabs_and_retains_shared_prototype_frames() {
             Time::new(index as i64, 24).unwrap(),
             [640, 220],
             Default::default(),
-            &|| cancel.check(),
+            &|| Ok(cancel.check()?),
         )
         .unwrap();
         assert_eq!(prepared.scene.meshes.len(), 1);
@@ -1063,7 +1063,7 @@ fn qualify_cloner_gpu(animated: bool) {
             time,
             dimensions,
             Default::default(),
-            &|| cancel.check(),
+            &|| Ok(cancel.check()?),
         )
         .unwrap();
         assert_eq!(prepared.scene.meshes.len(), usize::from(columns != 0));

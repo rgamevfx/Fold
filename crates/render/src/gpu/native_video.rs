@@ -29,7 +29,7 @@ pub(super) struct NativeVideo {
     pub submit_nanoseconds: u128,
 }
 impl NativeVideo {
-    pub fn new() -> Result<Self, String> {
+    pub fn new() -> Result<Self, fold_foundation::Failure> {
         Ok(Self {
             decoder: NativeDecoder::new()?,
             cache: VecDeque::new(),
@@ -53,7 +53,7 @@ impl NativeVideo {
         source: &VideoSource,
         time: Time,
         cancel: &Cancel,
-    ) -> Result<Arc<NativeInput>, String> {
+    ) -> Result<Arc<NativeInput>, fold_foundation::Failure> {
         cancel.check()?;
         host.check()?;
         self.allocate_nanoseconds = 0;
@@ -254,7 +254,7 @@ mod tests {
             .err()
             .expect("destroyed host rejected");
         assert!(
-            error.contains("lost") || error.contains("stopped"),
+            error.message.contains("lost") || error.message.contains("stopped"),
             "{error}"
         );
         assert!(

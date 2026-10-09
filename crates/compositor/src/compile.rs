@@ -36,14 +36,17 @@ impl VideoProvider for Provider {
         let composite = Composite::from_document(document)?;
         composite.channel_names_with(composite.output, resolve)
     }
-    fn compile_image(&self, request: VideoCompile<'_>) -> Result<ChannelGraph, String> {
+    fn compile_image(
+        &self,
+        request: VideoCompile<'_>,
+    ) -> Result<ChannelGraph, fold_foundation::Failure> {
         compile(request)
     }
-    fn compile(&self, request: VideoCompile<'_>) -> Result<RenderGraph, String> {
-        compile(request)?.select(None)
+    fn compile(&self, request: VideoCompile<'_>) -> Result<RenderGraph, fold_foundation::Failure> {
+        Ok(compile(request)?.select(None)?)
     }
 }
-fn compile(request: VideoCompile<'_>) -> Result<ChannelGraph, String> {
+fn compile(request: VideoCompile<'_>) -> Result<ChannelGraph, fold_foundation::Failure> {
     let VideoCompile {
         snapshot,
         document,

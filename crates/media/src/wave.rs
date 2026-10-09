@@ -15,7 +15,7 @@ pub struct WaveInfo {
     pub frames: u32,
 }
 impl WaveInfo {
-    pub fn validate(&self) -> Result<(), String> {
+    pub fn validate(&self) -> Result<(), fold_foundation::Failure> {
         if !(8000..=192000).contains(&self.rate)
             || !(1..=2).contains(&self.channels)
             || self.frames == 0
@@ -25,9 +25,9 @@ impl WaveInfo {
         }
         Ok(())
     }
-    pub fn duration(&self) -> Result<Time, String> {
+    pub fn duration(&self) -> Result<Time, fold_foundation::Failure> {
         self.validate()?;
-        Time::new(i64::from(self.frames), self.rate).map_err(|e| e.to_string())
+        Ok(Time::new(i64::from(self.frames), self.rate).map_err(|e| e.to_string())?)
     }
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -38,7 +38,7 @@ pub struct WaveSource {
 }
 static VERIFIED: std::sync::Mutex<std::collections::VecDeque<(String, WaveInfo)>> =
     std::sync::Mutex::new(std::collections::VecDeque::new());
-pub fn inspect_wave(path: &Path, cancel: &Cancel) -> Result<WaveSource, String> {
+pub fn inspect_wave(path: &Path, cancel: &Cancel) -> Result<WaveSource, fold_foundation::Failure> {
     let path = path.canonicalize().map_err(|e| e.to_string())?;
     let hash = fingerprint(&path, cancel)?;
     if let Some(info) = VERIFIED
@@ -104,7 +104,7 @@ pub fn inspect_wave(path: &Path, cancel: &Cancel) -> Result<WaveSource, String> 
     ]
     .contains(&codec)
     {
-        return Err(format!("unsupported audio codec: {codec}"));
+        return Err(format!("unsupported audio codec: {codec}").into());
     }
     let mut frames = value["frames"]
         .as_array()

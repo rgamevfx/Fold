@@ -101,6 +101,36 @@ fn document_registration_does_not_require_video_metadata() {
         })
         .unwrap();
     assert!(registry.supports(&project.snapshot().state().documents[&id]));
+    let snapshot = project.snapshot();
+    let document = &snapshot.state().documents[&id];
+    registry.validate_document(document).unwrap();
+    for capability in [
+        Capability::Authoring,
+        Capability::Parameters,
+        Capability::Animation,
+        Capability::Hierarchy,
+        Capability::Settings,
+        Capability::Placement,
+        Capability::ImageInputs,
+    ] {
+        assert!(!registry.has_capability(document, capability));
+    }
+    assert!(registry.inspect(document).is_err());
+    assert!(registry.hierarchy(document).is_err());
+    assert!(registry.parameters(document).is_err());
+    assert!(registry.document_image_inputs(document).is_err());
+    assert!(registry.document_settings(document).is_err());
+    assert!(
+        registry
+            .project_parameters(&snapshot, &Cancel::default())
+            .unwrap()
+            .is_empty()
+    );
+    assert_eq!(
+        registry.evaluation_identity(document).unwrap(),
+        document.payload
+    );
+
     assert!(
         registry
             .output(&project.snapshot(), id)

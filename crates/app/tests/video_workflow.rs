@@ -166,6 +166,7 @@ fn codec_timing_color_import_composition_export_and_persistence() {
     assert!(
         workflow::evaluate(&pinned, &key, &mut fresh, &cancel)
             .unwrap_err()
+            .message
             .contains("fingerprint")
     );
     // The retained source remains immutable even after replacement on disk.
@@ -308,6 +309,7 @@ fn saturated_colors_untagged_layout_and_explicit_profile_rejection() {
     assert!(
         fold_media::inspect(&hdr, &Cancel::default())
             .unwrap_err()
+            .message
             .contains("unsupported")
     );
     let cancelled = Cancel::default();
@@ -315,6 +317,7 @@ fn saturated_colors_untagged_layout_and_explicit_profile_rejection() {
     assert!(
         fold_media::inspect(&path, &cancelled)
             .unwrap_err()
+            .message
             .contains("cancel")
     );
 }

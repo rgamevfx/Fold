@@ -84,7 +84,7 @@ fn invalid_channel_mapping_is_rejected_before_evaluation() {
         mapping: [4, 1, 2, 3],
     });
     // Even disconnected malformed operators must fail preflight.
-    assert!(render(graph).unwrap_err().contains("connected B"));
+    assert!(render(graph).unwrap_err().message.contains("connected B"));
     assert!(channels::ChannelName::try_from("depth..Z".to_owned()).is_err());
 }
 #[cfg(feature = "gpu")]

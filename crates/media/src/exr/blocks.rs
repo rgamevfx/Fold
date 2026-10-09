@@ -19,7 +19,7 @@ struct Job {
     retained_lease: Arc<budget::Lease>,
     selection: Selection,
     lease: Arc<budget::Lease>,
-    result: mpsc::Sender<Result<Block, String>>,
+    result: mpsc::Sender<Result<Block, fold_foundation::Failure>>,
 }
 struct Block {
     index: ::exr::block::BlockIndex,
@@ -30,8 +30,8 @@ struct Pool {
     sender: mpsc::SyncSender<Job>,
     workers: usize,
 }
-fn pool() -> Result<&'static Pool, String> {
-    static POOL: OnceLock<Result<Pool, String>> = OnceLock::new();
+fn pool() -> Result<&'static Pool, fold_foundation::Failure> {
+    static POOL: OnceLock<Result<Pool, fold_foundation::Failure>> = OnceLock::new();
     POOL.get_or_init(|| {
         let workers = std::thread::available_parallelism()
             .map_or(1, usize::from)
@@ -66,7 +66,7 @@ pub(super) struct Selection {
     pub opaque: bool,
 }
 impl Job {
-    fn decode(self) -> Result<Block, String> {
+    fn decode(self) -> Result<Block, fold_foundation::Failure> {
         self.cancel.check()?;
         retain_scratch(self.retained, self.retained_lease);
         let mut data = UncompressedBlock::decompress_chunk(self.chunk, &self.metadata, true)
@@ -127,7 +127,7 @@ pub(super) fn read(
     scratch: u64,
     retained: u64,
     cancel: &Cancel,
-) -> Result<Vec<[f32; 4]>, String> {
+) -> Result<Vec<[f32; 4]>, fold_foundation::Failure> {
     let mut pixels = Vec::new();
     pixels
         .try_reserve_exact(size.area())
@@ -150,7 +150,7 @@ pub(super) fn read(
             let lease = match budget::reserve_working(scratch) {
                 Ok(lease) => lease,
                 Err(_) if pending > 0 => break,
-                Err(error) => return Err(error.into()),
+                Err(error) => return Err(error),
             };
             // Reserve retained dependency storage before admitting the block.
             // The worker transfers only its growth into thread-local ownership.
@@ -158,7 +158,7 @@ pub(super) fn read(
             let retained_lease = match budget::reserve_working(retained) {
                 Ok(lease) => lease,
                 Err(_) if pending > 0 => break,
-                Err(error) => return Err(error.into()),
+                Err(error) => return Err(error),
             };
             let Some(chunk) = chunks.next() else {
                 finished = true;

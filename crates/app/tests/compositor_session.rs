@@ -346,6 +346,7 @@ fn missing_input_is_a_render_diagnostic_not_a_silent_bypass() {
         packages::builtins()
             .video(&snapshot, &source, Time::ZERO, 16, 16)
             .unwrap_err()
+            .message
             .contains("connect 'image'")
     );
 }

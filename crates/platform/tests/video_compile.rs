@@ -16,7 +16,7 @@ impl VideoProvider for Provider {
     fn type_id(&self) -> &'static str {
         "test.video.document"
     }
-    fn compile(&self, request: VideoCompile<'_>) -> Result<RenderGraph, String> {
+    fn compile(&self, request: VideoCompile<'_>) -> Result<RenderGraph, fold_foundation::Failure> {
         self.0.fetch_add(1, Ordering::Relaxed);
         assert_eq!(request.dimensions, [2, 2]);
         if let Some(nested) = request.document.dependencies.first() {
@@ -75,6 +75,7 @@ fn cancellation_is_checked_before_dispatch_and_inherited_by_nested_resolution() 
         registry
             .compile_with(&project.snapshot(), &source, Time::ZERO, [2, 2], &cancelled)
             .unwrap_err()
+            .message
             .contains("cancelled")
     );
     assert_eq!(calls.load(Ordering::Relaxed), 0);
@@ -83,6 +84,7 @@ fn cancellation_is_checked_before_dispatch_and_inherited_by_nested_resolution() 
         registry
             .compile_with(&project.snapshot(), &source, Time::ZERO, [2, 2], &cancel)
             .unwrap_err()
+            .message
             .contains("cancelled")
     );
     assert_eq!(
@@ -101,7 +103,48 @@ fn providers_cannot_silently_ignore_reference_controls() {
         registry
             .compile(&project.snapshot(), &source, Time::ZERO, 2, 2)
             .unwrap_err()
+            .message
             .contains("control overrides")
     );
     assert_eq!(calls.load(Ordering::Relaxed), 0);
+}
+
+#[test]
+fn nested_failure_retains_category_and_document_context() {
+    struct Pressure;
+    impl VideoProvider for Pressure {
+        fn package_id(&self) -> &'static str {
+            "test.video"
+        }
+        fn type_id(&self) -> &'static str {
+            "test.video.document"
+        }
+        fn compile(
+            &self,
+            request: VideoCompile<'_>,
+        ) -> Result<RenderGraph, fold_foundation::Failure> {
+            if let Some(nested) = request.document.dependencies.first() {
+                return (request.resolve)(nested, request.time);
+            }
+            Err(fold_foundation::Failure::new(
+                fold_foundation::FailureKind::ResourcePressure,
+                "held by another frame",
+            ))
+        }
+    }
+    let (project, source, _, _) = fixture();
+    let mut registry = VideoRegistry::default();
+    registry.register(Pressure).unwrap();
+    let error = registry
+        .compile(&project.snapshot(), &source, Time::ZERO, 2, 2)
+        .unwrap_err();
+    assert_eq!(error.kind, fold_foundation::FailureKind::ResourcePressure);
+    assert!(error.context.contains(&source.document.to_string()));
+    assert!(
+        error.context.contains(
+            &project.snapshot().state().documents[&source.document].dependencies[0]
+                .document
+                .to_string()
+        )
+    );
 }

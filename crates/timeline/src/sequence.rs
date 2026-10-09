@@ -58,9 +58,9 @@ impl SourceMedia {
             Self::Adjustment => Err("Adjustment clips have no source duration".into()),
             Self::Video(info) | Self::Image(info) | Self::Document { info, .. } => {
                 info.validate()?;
-                info.time(info.frames)
+                Ok(info.time(info.frames)?)
             }
-            Self::Audio(info) => info.duration(),
+            Self::Audio(info) => Ok(info.duration()?),
         }
     }
 }

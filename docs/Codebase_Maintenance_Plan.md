@@ -1,7 +1,7 @@
 # Fold Codebase Maintenance Plan
 
 **Date:** 9 October 2026
-**Status:** C0 baseline complete, with native measurement failures recorded. C1 complete; desktop/native acceptance limitations remain recorded. C2–C9 not started.
+**Status:** C0 baseline complete, with native measurement failures recorded. C1 and C2 complete; desktop/native acceptance limitations remain recorded. C3–C9 not started.
 **Audit baseline:** `6280fb6` — Implement M5c parameter references and scoped inspection.
 
 ## Purpose and authority
@@ -30,7 +30,7 @@ M3–M5 and M5a–M5c acceptance remain open. The desktop freeze remains unresol
 | --- | --- | --- | --- |
 | C0 | Baseline, deletion inventory, and acceptance fixtures | None | Complete; native failures remain open |
 | C1 | One supported generation of documents and operations | C0 | Complete; see evidence and limitations |
-| C2 | Typed failures and explicit provider capabilities | C1 | Planned |
+| C2 | Typed failures and explicit provider capabilities | C1 | Complete; see evidence and limitations |
 | C3 | Prepared Compositor representation | C2 | Planned |
 | C4 | Provider-owned agent editing | C3 | Planned |
 | C5 | Focused application coordinator | C4 | Planned |
@@ -93,6 +93,8 @@ Native desktop captures failed with SIGSEGV in release and debug; a control also
 5. Specify the provider-owned scoped proposal interface needed by C4, including preparation, inspection, reconciliation, protection, and diagnostics. Preserve project ownership of candidate lifetime and atomic publication.
 
 **Gate:** Error-message wording cannot affect retry behavior. Capability discovery agrees with actual support. A provider implementing only its required capabilities remains usable. Existing cancellation, conflict, and resource-pressure behavior passes focused tests.
+
+**C2 completion — 9 October 2026:** [Results and limitations](maintenance/evidence/c2/result.md). Typed failures now survive resource admission, nested compilation and evaluation; retry decisions use categories. Optional provider traits replace implicit empty-success defaults, with explicit discovery and minimal-provider coverage. 84 focused tests and affected desktop/headless checks passed. [C4 scoped proposal specification](maintenance/c4-scoped-proposal-interface.md) records the next ownership boundary without implementing it. Existing desktop failures and Motion acceptance gates remain open; C3/C4 implementation and M6 have not begun.
 
 ## C3 — Rewrite Compositor preparation
 

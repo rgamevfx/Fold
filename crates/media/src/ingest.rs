@@ -57,7 +57,10 @@ pub struct LinkedSource {
     pub metadata: SourceMetadata,
 }
 
-pub fn inspect_linked(path: &Path, cancel: &Cancel) -> Result<LinkedSource, String> {
+pub fn inspect_linked(
+    path: &Path,
+    cancel: &Cancel,
+) -> Result<LinkedSource, fold_foundation::Failure> {
     cancel.check()?;
     let path = path
         .canonicalize()
@@ -206,7 +209,7 @@ pub fn inspect_linked(path: &Path, cancel: &Cancel) -> Result<LinkedSource, Stri
                     facts: facts.clone(),
                 })
             })
-            .collect::<Result<Vec<_>, String>>()?;
+            .collect::<Result<Vec<_>, fold_foundation::Failure>>()?;
         (streams, raw["format"].clone())
     };
     if fingerprint(&path, cancel)? != hash {

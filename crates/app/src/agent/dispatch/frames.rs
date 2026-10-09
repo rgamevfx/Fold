@@ -57,7 +57,7 @@ impl Worker {
         >::new()));
         let active = cancellations.clone();
         let thread = std::thread::spawn(move || {
-            let mut gpu: Option<(u64, Result<Renderer, String>)> = None;
+            let mut gpu: Option<(u64, Result<Renderer, fold_foundation::Failure>)> = None;
             let mut decoder = fold_media::Decoder::default();
             for Task {
                 id,

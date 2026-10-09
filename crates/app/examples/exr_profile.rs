@@ -65,7 +65,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             };
             let mut elapsed = Vec::new();
             let mut preparation: Option<
-                std::thread::JoinHandle<Result<fold_render::PreparedSources, String>>,
+                std::thread::JoinHandle<
+                    Result<fold_render::PreparedSources, fold_foundation::Failure>,
+                >,
             > = None;
             for (iteration, frame) in (0..count).chain(std::iter::once(0)).enumerate() {
                 let start = Instant::now();
@@ -123,7 +125,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .over_black();
                     let expected = match display.as_ref() {
                         Some(processor) => reference.to_output(processor)?,
-                        None => reference.to_display().map_err(str::to_owned)?,
+                        None => reference.to_display()?,
                     };
                     let actual = output.readback(&cancel)?;
                     let error = actual
@@ -134,7 +136,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         .max()
                         .unwrap_or(0);
                     if error > 1 {
-                        return Err(format!("CPU/GPU mismatch: {error} codes"));
+                        return Err(format!("CPU/GPU mismatch: {error} codes").into());
                     }
                     eprintln!("verified {document_id} frame {frame}: max_code_error={error}");
                 }
@@ -150,7 +152,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             if let Ok(limit) = std::env::var("FOLD_PROFILE_MAX_MS") {
                 let limit: f64 = limit.parse().map_err(|_| "invalid FOLD_PROFILE_MAX_MS")?;
                 if mean > limit {
-                    return Err(format!("frame budget exceeded: {mean:.3} > {limit:.3} ms"));
+                    return Err(format!("frame budget exceeded: {mean:.3} > {limit:.3} ms").into());
                 }
             }
         }

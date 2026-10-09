@@ -1,0 +1,32 @@
+   Compiling fold-foundation v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/foundation)
+   Compiling fold-native-video v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/native-video)
+   Compiling fold-media v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/media)
+   Compiling fold-project v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/project)
+   Compiling fold-animation v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/animation)
+   Compiling fold-render v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/render)
+   Compiling fold-graph v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/graph)
+   Compiling fold-platform v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/platform)
+   Compiling fold-app v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/app)
+   Compiling fold-ui v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/ui)
+   Compiling fold-timeline v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/timeline)
+   Compiling fold-compositor v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/compositor)
+   Compiling fold-motion v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/motion)
+   Compiling fold-composition v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/composition)
+    Finished `test` profile [unoptimized] target(s) in 33.12s
+     Running unittests src/lib.rs (target/debug/deps/fold_app-0b7272e68237a27a)
+
+running 11 tests
+test session::preview_worker::source_preparation::tests::lookahead_uses_exact_time_and_stops_or_wraps_at_the_review_boundary ... ok
+test session::preview_worker::source_preparation::tests::seek_range_edit_and_pause_cancel_old_work_and_bound_pending_snapshots ... ok
+test session::preview_worker::tests::advancing_viewers_and_background_ranges_receive_fair_service ... ok
+test session::preview_worker::tests::allocation_pressure_yields_and_retries_valid_demand_without_failure_publication ... ok
+test session::preview_worker::tests::ingress_and_result_retention_are_bounded ... ok
+test session::preview_worker::tests::joining_an_active_key_does_not_queue_duplicate_work_after_completion ... ok
+test session::preview_worker::tests::pressure_policy_rejects_permanent_errors_and_respects_timeout_and_cancellation ... ok
+test session::preview_worker::tests::range_and_current_frame_deduplicate_without_moving_the_viewer ... ok
+test session::preview_worker::tests::realtime_gets_capacity_without_starving_every_frame ... ok
+test session::preview_worker::tests::shared_work_survives_one_seek_but_cancels_when_all_owners_retire ... ok
+test session::preview_worker::tests::spatial_changes_cancel_only_the_viewer_that_moved ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 31 filtered out; finished in 0.00s
+

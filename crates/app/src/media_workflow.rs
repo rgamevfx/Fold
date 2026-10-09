@@ -81,7 +81,7 @@ pub fn evaluate(
     key: &PreviewKey,
     decoder: &mut Decoder,
     cancel: &Cancel,
-) -> Result<fold_render::Frame, String> {
+) -> Result<fold_render::Frame, fold_foundation::Failure> {
     cancel.check()?;
     evaluate_scene(snapshot, &preview_request(snapshot, key)?, decoder, cancel)
         .map(fold_render::Frame::over_black)
@@ -136,7 +136,7 @@ pub fn evaluate_scene(
     request: &SceneRequest,
     decoder: &mut Decoder,
     cancel: &Cancel,
-) -> Result<fold_render::Frame, String> {
+) -> Result<fold_render::Frame, fold_foundation::Failure> {
     let (plan, duration) = compile_scene(snapshot, request, cancel)?;
     crate::color::with_config(snapshot, |config| {
         let (plan, crop) = if let Some(region) = request.region {
@@ -164,7 +164,7 @@ pub fn evaluate_scene_gpu(
     renderer: &mut fold_render::gpu::Renderer,
     decoder: &mut Decoder,
     cancel: &Cancel,
-) -> Result<fold_render::gpu::GpuFrame, String> {
+) -> Result<fold_render::gpu::GpuFrame, fold_foundation::Failure> {
     evaluate_scene_gpu_admitted(snapshot, request, renderer, decoder, cancel, None)
 }
 
@@ -176,7 +176,7 @@ pub(crate) fn evaluate_scene_gpu_admitted(
     decoder: &mut Decoder,
     cancel: &Cancel,
     class: Option<fold_render::scheduling::Class>,
-) -> Result<fold_render::gpu::GpuFrame, String> {
+) -> Result<fold_render::gpu::GpuFrame, fold_foundation::Failure> {
     let (plan, duration) = compile_scene(snapshot, request, cancel)?;
     crate::color::with_config(snapshot, |config| {
         if let Some(region) = request.region {
@@ -195,12 +195,40 @@ pub(crate) fn compile_scene(
     snapshot: &Snapshot,
     request: &SceneRequest,
     cancel: &Cancel,
-) -> Result<(fold_render::RenderGraph, fold_foundation::Time), String> {
+) -> Result<(fold_render::RenderGraph, fold_foundation::Time), fold_foundation::Failure> {
     cancel.check()?;
     let registry = crate::packages::builtins();
-    let info = registry.output_ref(snapshot, &request.source)?;
+    let document = snapshot
+        .state()
+        .documents
+        .get(&request.source.document)
+        .ok_or_else(|| {
+            fold_foundation::Failure::new(
+                fold_foundation::FailureKind::MissingResource,
+                "missing output document",
+            )
+            .context(request.source.document)
+        })?;
+    if !registry.supports(document) || !registry.has_video(document) {
+        return Err(fold_foundation::Failure::new(
+            fold_foundation::FailureKind::UnsupportedCapability,
+            "missing video provider or unsupported schema",
+        )
+        .context(document.id));
+    }
+    let info = registry
+        .output_ref(snapshot, &request.source)
+        .map_err(|error| {
+            fold_foundation::Failure::new(fold_foundation::FailureKind::InvalidInput, error)
+                .context(document.id)
+                .context(&request.source.output)
+        })?;
     if request.time < fold_foundation::Time::ZERO || request.time >= info.time(info.frames)? {
-        return Err("frame outside sequence".into());
+        return Err(fold_foundation::Failure::new(
+            fold_foundation::FailureKind::InvalidInput,
+            "frame outside sequence",
+        )
+        .context(request.source.document));
     }
     let plan = if let Some(view) = &request.preview {
         registry.video_channels(
@@ -406,7 +434,7 @@ fn export_inner(
         #[cfg(feature = "gpu")]
         host,
     )?;
-    fold_media::audio::mux_audio(&video, &pcm, path, cancel)
+    Ok(fold_media::audio::mux_audio(&video, &pcm, path, cancel)?)
 }
 
 fn prores_destination(path: &Path) -> Result<bool, String> {
@@ -471,7 +499,7 @@ fn export_video(
             };
             encoder.write_rgba16(output.bytes())?;
         }
-        return encoder.finish();
+        return Ok(encoder.finish()?);
     }
     let mut evaluate_output =
         |request: &SceneRequest| evaluator.evaluate(snapshot, request, cancel);
@@ -501,5 +529,5 @@ fn export_video(
             .collect();
         encoder.write_rgb(&rgb)?;
     }
-    encoder.finish()
+    Ok(encoder.finish()?)
 }

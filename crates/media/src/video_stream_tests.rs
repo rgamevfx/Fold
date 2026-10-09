@@ -15,11 +15,12 @@ fn blocked_pipe_cancels_and_reaps_promptly() {
         token.cancel();
     });
     let start = Instant::now();
-    assert!(stream.read(&cancel).unwrap_err().contains("cancel"));
+    assert!(stream.read(&cancel).unwrap_err().message.contains("cancel"));
     assert!(
         stream
             .read(&Cancel::default())
             .unwrap_err()
+            .message
             .contains("stopped")
     );
     drop(stream);
@@ -33,6 +34,6 @@ fn failed_child_reports_diagnostics_and_short_frame() {
         .stdout(Stdio::piped());
     let mut stream = Stream::new(command, 16).unwrap();
     let error = stream.read(&Cancel::default()).unwrap_err();
-    assert!(error.contains("incomplete"), "{error}");
-    assert!(error.contains("fixture decoder failure"), "{error}");
+    assert!(error.message.contains("incomplete"), "{error}");
+    assert!(error.message.contains("fixture decoder failure"), "{error}");
 }

@@ -332,7 +332,12 @@ fn sequence_offset_gap_policies_still_mode_and_relink_use_exact_frames() {
         .map(|f| f.pixels()[0])
     };
     assert!((evaluate(&project, 0).unwrap()[3] - 0.375).abs() < 0.001);
-    assert!(evaluate(&project, 1).unwrap_err().contains("missing"));
+    assert!(
+        evaluate(&project, 1)
+            .unwrap_err()
+            .message
+            .contains("missing")
+    );
     assert_eq!(evaluate(&project, 3).unwrap(), [0.; 4]);
     graph
         .node_mut(read_id)

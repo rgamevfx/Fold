@@ -26,15 +26,18 @@ struct Slot {
     regular: bool,
 }
 impl Capacity {
-    fn reserve(&'static self, audio: bool) -> Result<Slot, String> {
+    fn reserve(&'static self, audio: bool) -> Result<Slot, fold_foundation::Failure> {
         if !audio {
             self.regular
                 .fetch_update(Ordering::AcqRel, Ordering::Acquire, |n| {
                     (n < 6).then_some(n + 1)
                 })
-                .map_err(
-                    |_| "media process capacity exhausted (6 regular; 2 reserved for audio)",
-                )?;
+                .map_err(|_| {
+                    fold_foundation::Failure::new(
+                        fold_foundation::FailureKind::ResourcePressure,
+                        "media process capacity exhausted (6 regular; 2 reserved for audio)",
+                    )
+                })?;
         }
         if self
             .active
@@ -46,7 +49,10 @@ impl Capacity {
             if !audio {
                 self.regular.fetch_sub(1, Ordering::AcqRel);
             }
-            return Err("media process capacity exhausted (8 active jobs)".into());
+            return Err(fold_foundation::Failure::new(
+                fold_foundation::FailureKind::ResourcePressure,
+                "media process capacity exhausted (8 active jobs)",
+            ));
         }
         Ok(Slot {
             capacity: self,
@@ -69,9 +75,12 @@ impl Cancel {
     pub fn cancel(&self) {
         self.0.store(true, Ordering::Release);
     }
-    pub fn check(&self) -> Result<(), String> {
+    pub fn check(&self) -> Result<(), fold_foundation::Failure> {
         if self.0.load(Ordering::Acquire) {
-            Err("job cancelled".into())
+            Err(fold_foundation::Failure::new(
+                fold_foundation::FailureKind::Cancelled,
+                "job cancelled",
+            ))
         } else {
             Ok(())
         }
@@ -81,7 +90,7 @@ impl Cancel {
 pub(crate) struct Process {
     pub stdin: Option<ChildStdin>,
     pub stdout: Option<ChildStdout>,
-    worker: Option<JoinHandle<Result<(), String>>>,
+    worker: Option<JoinHandle<Result<(), fold_foundation::Failure>>>,
     stop: Cancel,
 }
 impl Process {
@@ -89,7 +98,7 @@ impl Process {
         command: Command,
         cancel: Cancel,
         limit: Option<(std::path::PathBuf, u64)>,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, fold_foundation::Failure> {
         Self::supervise(
             command,
             cancel,
@@ -102,15 +111,15 @@ impl Process {
         command: Command,
         cancel: Cancel,
         limit: Option<(std::path::PathBuf, u64)>,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, fold_foundation::Failure> {
         Self::supervise(command, cancel, limit, Some(Duration::from_secs(600)), true)
     }
-    pub fn retained(command: Command) -> Result<Self, String> {
+    pub fn retained(command: Command) -> Result<Self, fold_foundation::Failure> {
         // Idle retained decoders are pipe-backpressured. Each demanded read has
         // its own cancellation/30s deadline, rather than a wall-lifetime limit.
         Self::supervise(command, Cancel::default(), None, None, false)
     }
-    pub fn retained_audio(command: Command) -> Result<Self, String> {
+    pub fn retained_audio(command: Command) -> Result<Self, fold_foundation::Failure> {
         Self::supervise(command, Cancel::default(), None, None, true)
     }
     fn supervise(
@@ -119,7 +128,7 @@ impl Process {
         limit: Option<(std::path::PathBuf, u64)>,
         timeout: Option<Duration>,
         audio: bool,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, fold_foundation::Failure> {
         cancel.check()?;
         let slot = CAPACITY.reserve(audio)?;
         let log = crate::scratch::file().map_err(|e| e.to_string())?;
@@ -161,22 +170,23 @@ impl Process {
                         break if status.success() {
                             Ok(())
                         } else {
-                            Err(format!("codec exited with {status}"))
+                            Err(format!("codec exited with {status}").into())
                         };
                     }
                     Ok(None) => std::thread::sleep(Duration::from_millis(10)),
-                    Err(error) => break Err(error.to_string()),
+                    Err(error) => break Err(error.to_string().into()),
                 }
             };
             // Also reap on cancellation, timeout, and monitoring failures.
             let _ = child.kill();
             let _ = child.wait();
-            result.map_err(|error| {
+            result.map_err(|mut error| {
                 let mut details = String::new();
                 if let Ok(file) = log.reopen() {
                     let _ = file.take(8192).read_to_string(&mut details);
                 }
-                format!("{error}: {details}")
+                error.message = format!("{}: {details}", error.message);
+                error
             })
         });
         Ok(Self {
@@ -192,11 +202,11 @@ impl Process {
             .as_ref()
             .is_none_or(|worker| worker.is_finished())
     }
-    pub fn abort(self) -> Result<(), String> {
+    pub fn abort(self) -> Result<(), fold_foundation::Failure> {
         self.stop.cancel();
         self.finish()
     }
-    pub fn finish(mut self) -> Result<(), String> {
+    pub fn finish(mut self) -> Result<(), fold_foundation::Failure> {
         self.stdin.take();
         self.stdout.take();
         self.worker

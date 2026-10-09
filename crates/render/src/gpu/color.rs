@@ -21,7 +21,7 @@ impl ColorPipeline {
         host: &Host,
         processor: Option<&fold_color::Processor>,
         display: bool,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, fold_foundation::Failure> {
         let desc = match processor {
             Some(p) => p.gpu_shader()?,
             None => fold_color::GpuShader { shader: "vec4 fold_ocio(vec4 p) { return vec4(mix(12.92*p.rgb, 1.055*pow(max(p.rgb,vec3(0.0)),vec3(1.0/2.4))-0.055, greaterThan(p.rgb,vec3(0.0031308))),p.a); }".into(), textures: vec![] },
@@ -246,7 +246,7 @@ impl ColorPipeline {
             cache: None,
         });
         if let Some(error) = pollster::block_on(device.pop_error_scope()) {
-            return Err(format!("OCIO GPU shader: {error}"));
+            return Err(format!("OCIO GPU shader: {error}").into());
         }
         let finish_source = include_str!("color_finish.wgsl")
             .replace("FORMAT", if display { "rgba8unorm" } else { "rgba32float" });
@@ -281,7 +281,7 @@ impl ColorPipeline {
         output: &Image,
         matte: bool,
         status: &Status,
-    ) -> Result<Arc<Image>, String> {
+    ) -> Result<Arc<Image>, fold_foundation::Failure> {
         let intermediate = host.image(output.dimensions)?;
         let uniform = host
             .device()

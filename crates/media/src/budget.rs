@@ -19,16 +19,26 @@ impl Budget {
             limit: AtomicU64::new(limit),
         }
     }
-    pub fn reserve(&'static self, bytes: u64) -> Result<Arc<Lease>, &'static str> {
+    pub fn reserve(&'static self, bytes: u64) -> Result<Arc<Lease>, fold_foundation::Failure> {
+        if bytes > self.limit.load(Ordering::Acquire) {
+            return Err(fold_foundation::Failure::new(
+                fold_foundation::FailureKind::RequestTooLarge,
+                "media allocation exceeds storage budget",
+            )
+            .context(bytes));
+        }
         let previous = self
             .used
             .fetch_update(Ordering::AcqRel, Ordering::Acquire, |used| {
                 used.checked_add(bytes)
                     .filter(|n| *n <= self.limit.load(Ordering::Acquire))
             })
-            .map_err(
-                |_| "aggregate media storage budget exhausted; release unused leases and retry",
-            )?;
+            .map_err(|_| {
+                fold_foundation::Failure::new(
+                    fold_foundation::FailureKind::ResourcePressure,
+                    "aggregate media storage budget exhausted; release unused leases and retry",
+                )
+            })?;
         self.peak.fetch_max(previous + bytes, Ordering::AcqRel);
         Ok(Arc::new(Lease {
             budget: self,
@@ -75,7 +85,7 @@ static PREPARATION: Budget = Budget::new(128 * 1024 * 1024);
 
 /// Admission allowance, not additional physical storage: prepared samples also
 /// retain their normal decoded leases. Leave half the decode budget for demand.
-pub fn reserve_preparation(bytes: u64) -> Result<Arc<Lease>, &'static str> {
+pub fn reserve_preparation(bytes: u64) -> Result<Arc<Lease>, fold_foundation::Failure> {
     PREPARATION.reserve(bytes)
 }
 pub fn preparation_usage() -> Usage {
@@ -110,11 +120,17 @@ mod tests {
         let held = first.clone();
         drop(first);
         assert_eq!(BUDGET.usage().bytes, 12);
-        assert!(BUDGET.reserve(8).is_err());
+        assert_eq!(
+            BUDGET.reserve(8).unwrap_err().kind,
+            fold_foundation::FailureKind::ResourcePressure
+        );
         drop(held);
         let next = BUDGET.reserve(16).unwrap();
         assert_eq!(BUDGET.usage().peak, 16);
-        assert!(BUDGET.reserve(u64::MAX).is_err());
+        assert_eq!(
+            BUDGET.reserve(u64::MAX).unwrap_err().kind,
+            fold_foundation::FailureKind::RequestTooLarge
+        );
         drop(next);
         assert_eq!(BUDGET.usage().bytes, 0);
     }
@@ -136,16 +152,16 @@ pub fn delivery_disk_usage() -> Usage {
 pub fn delivery_pcm_usage() -> Usage {
     DELIVERY_PCM.usage()
 }
-pub fn reserve_working(bytes: u64) -> Result<Arc<Lease>, &'static str> {
+pub fn reserve_working(bytes: u64) -> Result<Arc<Lease>, fold_foundation::Failure> {
     WORKING.reserve(bytes)
 }
-pub fn reserve_output(bytes: u64) -> Result<Arc<Lease>, &'static str> {
+pub fn reserve_output(bytes: u64) -> Result<Arc<Lease>, fold_foundation::Failure> {
     OUTPUT.reserve(bytes)
 }
-pub fn reserve_delivery(bytes: u64) -> Result<Arc<Lease>, &'static str> {
+pub fn reserve_delivery(bytes: u64) -> Result<Arc<Lease>, fold_foundation::Failure> {
     DELIVERY.reserve(bytes)
 }
-pub fn reserve_delivery_pcm(bytes: u64) -> Result<Arc<Lease>, &'static str> {
+pub fn reserve_delivery_pcm(bytes: u64) -> Result<Arc<Lease>, fold_foundation::Failure> {
     DELIVERY_PCM.reserve(bytes)
 }
 

@@ -27,7 +27,7 @@ impl Default for VideoFormat {
     }
 }
 impl VideoFormat {
-    pub fn validate(self) -> Result<(), String> {
+    pub fn validate(self) -> Result<(), fold_foundation::Failure> {
         if ![8, 10, 12].contains(&self.depth)
             || ![[2, 2], [2, 1], [1, 1]].contains(&self.subsampling)
             || self.chroma_origin.iter().any(|v| *v > 1)
@@ -46,10 +46,10 @@ impl VideoFormat {
                 * u64::from(h.div_ceil(self.subsampling[1])))
             * u64::from(self.sample_bytes())
     }
-    pub(crate) fn parse(s: &serde_json::Value) -> Result<Self, String> {
+    pub(crate) fn parse(s: &serde_json::Value) -> Result<Self, fold_foundation::Failure> {
         let codec = s["codec_name"].as_str().unwrap_or("");
         if !["h264", "hevc", "prores", "dnxhd"].contains(&codec) {
-            return Err(format!("unsupported video codec: {codec}"));
+            return Err(format!("unsupported video codec: {codec}").into());
         }
         let pix = s["pix_fmt"].as_str().unwrap_or("");
         let rgb = pix.starts_with("gbrp");
@@ -67,13 +67,13 @@ impl VideoFormat {
             "yuv444p12le" => ("yuv444p12le", 12, [1, 1], false),
             "yuva444p10le" => ("yuva444p10le", 10, [1, 1], true),
             "yuva444p12le" => ("yuva444p12le", 12, [1, 1], true),
-            _ => return Err(format!("unsupported video pixel format: {pix}")),
+            _ => return Err(format!("unsupported video pixel format: {pix}").into()),
         };
         for key in ["color_space", "color_transfer", "color_primaries"] {
             if s[key].as_str().is_some_and(|v| {
                 !["unknown", "bt709"].contains(&v) && !(rgb && key == "color_space" && v == "gbr")
             }) {
-                return Err(format!("unsupported SDR {key}: {}", s[key]));
+                return Err(format!("unsupported SDR {key}: {}", s[key]).into());
             }
         }
         if s["sample_aspect_ratio"]

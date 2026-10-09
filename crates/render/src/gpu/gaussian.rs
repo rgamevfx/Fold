@@ -40,7 +40,7 @@ impl Gaussian {
         sigma: f32,
         edges: Edges,
         status: &Status,
-    ) -> Result<Arc<Reservation>, String> {
+    ) -> Result<Arc<Reservation>, fold_foundation::Failure> {
         let host = &self.host;
         let [input, output] = images;
         let weights = gaussian_weights(sigma);

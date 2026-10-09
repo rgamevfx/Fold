@@ -281,6 +281,7 @@ fn nested_composites_preserve_channel_catalogs_values_and_inactive_frames() {
             &Default::default()
         )
         .unwrap_err()
+        .message
         .contains("connect")
     );
 }
@@ -445,6 +446,6 @@ fn unchanged_exr_reuses_gpu_input_across_time_and_effect_edits() {
     )
     .err()
     .unwrap();
-    assert!(error.contains("fingerprint"), "{error}");
+    assert!(error.message.contains("fingerprint"), "{error}");
     assert!(host.memory().allocated <= host.memory().budget);
 }

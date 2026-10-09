@@ -167,7 +167,7 @@ fn wrong_device_is_rejected_without_fallback() {
             &Cancel::default(),
         )
         .unwrap_err();
-    assert!(error.contains("UUID"), "{error}");
+    assert!(error.message.contains("UUID"), "{error}");
 }
 #[test]
 #[ignore = "requires >=62 frame fixture and native GPU helper"]

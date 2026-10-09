@@ -10,7 +10,7 @@ impl Renderer {
         &mut self,
         frame: GpuFrame,
         cancel: &fold_media::Cancel,
-    ) -> Result<GpuFrame, String> {
+    ) -> Result<GpuFrame, fold_foundation::Failure> {
         convert(&self.host, &mut self.precision, frame, cancel, false)
     }
 }
@@ -21,7 +21,7 @@ pub(super) fn convert(
     mut frame: GpuFrame,
     cancel: &fold_media::Cancel,
     validate_existing: bool,
-) -> Result<GpuFrame, String> {
+) -> Result<GpuFrame, fold_foundation::Failure> {
     cancel.check()?;
     host.check()?;
     if frame.host.id() != host.id() {
@@ -84,7 +84,10 @@ pub(super) fn convert(
     Ok(frame)
 }
 
-fn pipeline(host: &super::Host, stored_half: bool) -> Result<wgpu::ComputePipeline, String> {
+fn pipeline(
+    host: &super::Host,
+    stored_half: bool,
+) -> Result<wgpu::ComputePipeline, fold_foundation::Failure> {
     let _guard = super::shader::COMPILE_LOCK
         .lock()
         .map_err(|_| "Shader compiler lock poisoned")?;
@@ -172,7 +175,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         cache: None,
     });
     if let Some(error) = pollster::block_on(device.pop_error_scope()) {
-        return Err(format!("Scene precision pipeline: {error}"));
+        return Err(format!("Scene precision pipeline: {error}").into());
     }
     Ok(pipeline)
 }
@@ -225,7 +228,7 @@ mod tests {
             if pixel[0] == -16. {
                 assert_eq!(result.unwrap().pixels()[0], pixel);
             } else {
-                assert!(result.err().unwrap().contains("RGBA16F"));
+                assert!(result.err().unwrap().message.contains("RGBA16F"));
             }
         }
     }

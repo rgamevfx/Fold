@@ -24,7 +24,7 @@ impl Cache {
         &mut self,
         host: &Host,
         source: &Arc<Texture>,
-    ) -> Result<(Arc<Image>, Vec<Arc<Reservation>>, u64), String> {
+    ) -> Result<(Arc<Image>, Vec<Arc<Reservation>>, u64), fold_foundation::Failure> {
         let key = source.identity.clone();
         if let Some(i) = self.entries.iter().position(|e| e.key == key) {
             let e = self.entries.remove(i).unwrap();
@@ -159,7 +159,7 @@ impl Sampling {
         output: &Image,
         format: Format,
         status: &super::validation::Status,
-    ) -> Result<Arc<Reservation>, String> {
+    ) -> Result<Arc<Reservation>, fold_foundation::Failure> {
         use wgpu::util::DeviceExt;
         let reservation = host.reserve(16)?;
         let uniform = host

@@ -134,7 +134,7 @@ pub struct GpuFrame {
     pub statistics: Statistics,
 }
 impl GpuFrame {
-    pub fn gpu_nanoseconds(&self) -> Result<Option<f64>, String> {
+    pub fn gpu_nanoseconds(&self) -> Result<Option<f64>, fold_foundation::Failure> {
         let mut total = self.ready.gpu_nanoseconds()?;
         for ready in &self.dependencies {
             total = total.zip(ready.gpu_nanoseconds()?).map(|(a, b)| a + b);
@@ -145,7 +145,7 @@ impl GpuFrame {
         mut self,
         timestamp: fold_foundation::Time,
         duration: fold_foundation::Time,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, fold_foundation::Failure> {
         if duration <= fold_foundation::Time::ZERO {
             return Err("Frame duration must be positive".into());
         }
@@ -155,7 +155,7 @@ impl GpuFrame {
         });
         Ok(self)
     }
-    pub fn descriptor(&self) -> Result<crate::frame::Descriptor, String> {
+    pub fn descriptor(&self) -> Result<crate::frame::Descriptor, fold_foundation::Failure> {
         use crate::frame::*;
         Ok(Descriptor {
             dimensions: self.dimensions(),
@@ -200,7 +200,7 @@ impl GpuFrame {
     pub fn dimensions(&self) -> [u32; 2] {
         self.image.dimensions
     }
-    pub fn is_ready(&self) -> Result<bool, String> {
+    pub fn is_ready(&self) -> Result<bool, fold_foundation::Failure> {
         self.host.check()?;
         for ready in &self.dependencies {
             if !ready.ready()? {
@@ -212,7 +212,10 @@ impl GpuFrame {
     /// Explicit worker-only reference/export boundary. Never call from a UI
     /// callback. Readback is accounted, timeout bounded, and cancellation checked
     /// on both sides of GPU completion (submitted GPU work is not preempted).
-    pub fn readback(&mut self, cancel: &fold_media::Cancel) -> Result<Frame, String> {
+    pub fn readback(
+        &mut self,
+        cancel: &fold_media::Cancel,
+    ) -> Result<Frame, fold_foundation::Failure> {
         cancel.check()?;
         self.host.check()?;
         let begin = std::time::Instant::now();
@@ -347,7 +350,7 @@ pub struct Renderer {
     native_video: Option<native_video::NativeVideo>,
 }
 impl Renderer {
-    pub fn new(host: Host) -> Result<Self, String> {
+    pub fn new(host: Host) -> Result<Self, fold_foundation::Failure> {
         host.check()?;
         let device = host.device();
         let texture = |binding| wgpu::BindGroupLayoutEntry {
@@ -529,7 +532,7 @@ impl Renderer {
         &mut self,
         processor: Option<&fold_color::Processor>,
         display: bool,
-    ) -> Result<(Arc<color::ColorPipeline>, u64), String> {
+    ) -> Result<(Arc<color::ColorPipeline>, u64), fold_foundation::Failure> {
         let key = (
             processor
                 .map_or("legacy-srgb-v1", |p| p.identity())
@@ -560,7 +563,7 @@ impl Renderer {
         decoder: &mut fold_media::Decoder,
         cancel: &fold_media::Cancel,
         class: Option<crate::scheduling::Class>,
-    ) -> Result<GpuFrame, String> {
+    ) -> Result<GpuFrame, fold_foundation::Failure> {
         let plan = crate::region::Plan::new(graph, region, config.is_some())?;
         let mut frame = self.evaluate_admitted(plan.graph, config, decoder, cancel, class)?;
         if plan.output == crate::region::Region::full(frame.dimensions()) {
@@ -611,7 +614,7 @@ impl Renderer {
         config: Option<&fold_color::Config>,
         decoder: &mut fold_media::Decoder,
         cancel: &fold_media::Cancel,
-    ) -> Result<GpuFrame, String> {
+    ) -> Result<GpuFrame, fold_foundation::Failure> {
         self.evaluate_admitted(graph, config, decoder, cancel, None)
     }
 
@@ -624,7 +627,7 @@ impl Renderer {
         decoder: &mut fold_media::Decoder,
         cancel: &fold_media::Cancel,
         class: crate::scheduling::Class,
-    ) -> Result<GpuFrame, String> {
+    ) -> Result<GpuFrame, fold_foundation::Failure> {
         self.evaluate_admitted(graph, config, decoder, cancel, Some(class))
     }
 
@@ -635,7 +638,7 @@ impl Renderer {
         decoder: &mut fold_media::Decoder,
         cancel: &fold_media::Cancel,
         class: Option<crate::scheduling::Class>,
-    ) -> Result<GpuFrame, String> {
+    ) -> Result<GpuFrame, fold_foundation::Failure> {
         cancel.check()?;
         self.host.poll()?;
         // Retained inputs are expendable under host pressure; displayed and
@@ -655,7 +658,9 @@ impl Renderer {
         let evaluate_begin = std::time::Instant::now();
         let aces = config.is_some();
         crate::sampling::prepare(&mut graph);
-        graph::validate(&graph, aces)?;
+        graph::validate(&graph, aces).map_err(|error| {
+            fold_foundation::Failure::new(fold_foundation::FailureKind::InvalidInput, error)
+        })?;
         let processors = graph::input_processors(&graph, config)?;
         let (mut needed, mut uses) = graph::dependencies(&graph);
         let fused = fusion::opacity_over(&graph, &mut needed, &mut uses);

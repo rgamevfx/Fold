@@ -30,10 +30,12 @@ pub use fold_render::DisplayFrame;
 pub use fold_render::gpu;
 
 /// Nested outputs compile into the caller's IR, never into rendered frames.
-pub type VideoResolver<'a> = dyn Fn(&DocumentRef, Time) -> Result<RenderGraph, String> + 'a;
+pub type VideoResolver<'a> =
+    dyn Fn(&DocumentRef, Time) -> Result<RenderGraph, fold_foundation::Failure> + 'a;
 
 pub type ChannelResolver<'a> = dyn Fn(&DocumentRef) -> Result<Vec<ChannelName>, String> + 'a;
-pub type ImageResolver<'a> = dyn Fn(&DocumentRef, Time) -> Result<ChannelGraph, String> + 'a;
+pub type ImageResolver<'a> =
+    dyn Fn(&DocumentRef, Time) -> Result<ChannelGraph, fold_foundation::Failure> + 'a;
 
 /// One compilation interface for every registered source.
 /// Nested resolution inherits the snapshot, dimensions and cancellation token.
@@ -97,10 +99,13 @@ pub trait VideoProvider: Send + Sync {
     }
     /// RGBA-only providers retain their existing interface; multilayer providers
     /// override this method to preserve their named outputs through nesting.
-    fn compile_image(&self, request: VideoCompile<'_>) -> Result<ChannelGraph, String> {
+    fn compile_image(
+        &self,
+        request: VideoCompile<'_>,
+    ) -> Result<ChannelGraph, fold_foundation::Failure> {
         self.compile(request).map(ChannelGraph::rgba)
     }
-    fn compile(&self, request: VideoCompile<'_>) -> Result<RenderGraph, String>;
+    fn compile(&self, request: VideoCompile<'_>) -> Result<RenderGraph, fold_foundation::Failure>;
 }
 
 #[derive(Default)]
@@ -150,7 +155,7 @@ impl VideoRegistry {
         time: Time,
         width: u32,
         height: u32,
-    ) -> Result<RenderGraph, String> {
+    ) -> Result<RenderGraph, fold_foundation::Failure> {
         self.compile_with(snapshot, source, time, [width, height], &Cancel::default())
     }
 
@@ -161,9 +166,10 @@ impl VideoRegistry {
         time: Time,
         dimensions: [u32; 2],
         cancel: &Cancel,
-    ) -> Result<RenderGraph, String> {
-        self.compile_nested(snapshot, source, time, dimensions, cancel, &[], None, None)?
-            .select(None)
+    ) -> Result<RenderGraph, fold_foundation::Failure> {
+        Ok(self
+            .compile_nested(snapshot, source, time, dimensions, cancel, &[], None, None)?
+            .select(None)?)
     }
 
     pub fn channels(
@@ -226,9 +232,10 @@ impl VideoRegistry {
         dimensions: [u32; 2],
         cancel: &Cancel,
         selection: &fold_render::view::Selection,
-    ) -> Result<RenderGraph, String> {
-        self.compile_nested(snapshot, source, time, dimensions, cancel, &[], None, None)?
-            .select(Some(selection))
+    ) -> Result<RenderGraph, fold_foundation::Failure> {
+        Ok(self
+            .compile_nested(snapshot, source, time, dimensions, cancel, &[], None, None)?
+            .select(Some(selection))?)
     }
     pub fn effect_interface(&self, document: &Document) -> Result<effects::Interface, String> {
         self.providers
@@ -247,13 +254,14 @@ impl VideoRegistry {
         ancestors: &[fold_foundation::DocumentId],
         invocation: Option<&effects::Invocation<'_>>,
         inherited: Option<effects::Context>,
-    ) -> Result<ChannelGraph, String> {
+    ) -> Result<ChannelGraph, fold_foundation::Failure> {
         cancel.check()?;
         if ancestors.contains(&source.document) || ancestors.len() >= 64 {
             return Err(format!(
                 "recursive or excessively deep document reference: {:?}",
                 source.document
-            ));
+            )
+            .into());
         }
         let document = snapshot
             .state()
@@ -275,7 +283,7 @@ impl VideoRegistry {
             .iter()
             .any(|o| o.reference.output == source.output)
         {
-            return Err(format!("unavailable video output {}", source.output));
+            return Err(format!("unavailable video output {}", source.output).into());
         }
         if source.extensions.contains_key("fold.controls") && !provider.supports_controls() {
             return Err("referenced provider does not support control overrides".into());
@@ -288,13 +296,14 @@ impl VideoRegistry {
         };
         let mut path = ancestors.to_vec();
         path.push(source.document);
-        let resolve_image = |nested: &DocumentRef, local_time: Time| {
+        let resolve_image = |nested: &DocumentRef,
+                             local_time: Time|
+         -> Result<ChannelGraph, fold_foundation::Failure> {
             cancel.check()?;
             if !document.dependencies.contains(nested) {
-                return Err(format!(
-                    "undeclared document dependency: {:?}",
-                    nested.document
-                ));
+                return Err(
+                    format!("undeclared document dependency: {:?}", nested.document).into(),
+                );
             }
             self.compile_nested(
                 snapshot,
@@ -324,9 +333,12 @@ impl VideoRegistry {
                     None,
                 )?
                 .select(None)
+                .map_err(fold_foundation::Failure::from)
             };
         let resolve = |nested: &DocumentRef, local_time: Time| {
-            resolve_image(nested, local_time)?.select(None)
+            resolve_image(nested, local_time)?
+                .select(None)
+                .map_err(fold_foundation::Failure::from)
         };
         let catalog = std::cell::RefCell::default();
         let describe_channels = |nested: &DocumentRef| {
@@ -370,7 +382,14 @@ impl VideoRegistry {
             describe_channels: &describe_channels,
             describe_video: &describe_video,
         };
-        let graph = provider.compile_image(request)?;
+        let graph = provider.compile_image(request).map_err(|error| {
+            cancel
+                .check()
+                .err()
+                .unwrap_or(error)
+                .context(source.document)
+                .context(&source.output)
+        })?;
         cancel.check()?;
         Ok(graph)
     }

@@ -275,7 +275,7 @@ pub(crate) fn gaussian(
     size: [f32; 2],
     edges: Edges,
     cancel: &fold_media::Cancel,
-) -> Result<(), String> {
+) -> Result<(), fold_foundation::Failure> {
     validate_blur(size)?;
     let [width, height] = dimensions;
     let _scratch = fold_media::budget::reserve_working(pixels.len() as u64 * 16)?;

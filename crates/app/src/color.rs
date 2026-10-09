@@ -23,8 +23,8 @@ pub fn runtime() -> Result<Runtime, String> {
 }
 pub fn with_config<T>(
     snapshot: &Snapshot,
-    f: impl FnOnce(Option<&Config>) -> Result<T, String>,
-) -> Result<T, String> {
+    f: impl FnOnce(Option<&Config>) -> Result<T, fold_foundation::Failure>,
+) -> Result<T, fold_foundation::Failure> {
     let Some(settings) = fold_platform::color::project(snapshot)? else {
         return f(None);
     };
@@ -87,12 +87,12 @@ pub fn external(
 }
 pub fn choices(snapshot: &Snapshot) -> Choices {
     match with_config(snapshot, |config| {
-        config.map(Choices::from_config).transpose()
+        Ok(config.map(Choices::from_config).transpose()?)
     }) {
         Ok(Some(choices)) => choices,
         Ok(None) => Choices::default(),
         Err(error) => Choices {
-            error: Some(error),
+            error: Some(error.to_string()),
             ..Default::default()
         },
     }
@@ -100,25 +100,25 @@ pub fn choices(snapshot: &Snapshot) -> Choices {
 pub fn preview(
     snapshot: &Snapshot,
     frame: &fold_render::Frame,
-) -> Result<fold_render::DisplayFrame, String> {
+) -> Result<fold_render::DisplayFrame, fold_foundation::Failure> {
     with_config(snapshot, |config| match config {
         Some(config) => {
             frame.to_output(&config.display(fold_color::WORKING_SPACE, &Default::default())?)
         }
-        None => frame.to_display().map_err(str::to_owned),
+        None => frame.to_display(),
     })
 }
 pub fn delivery(
     snapshot: &Snapshot,
     document: fold_foundation::DocumentId,
     frame: &fold_render::Frame,
-) -> Result<fold_render::DisplayFrame, String> {
+) -> Result<fold_render::DisplayFrame, fold_foundation::Failure> {
     with_config(snapshot, |config| match config {
         Some(config) => frame.to_output(&config.display(
             fold_color::WORKING_SPACE,
             &fold_platform::color::output(snapshot, document)?.display_transform(),
         )?),
-        None => frame.to_display().map_err(str::to_owned),
+        None => frame.to_display(),
     })
 }
 pub fn set_output(

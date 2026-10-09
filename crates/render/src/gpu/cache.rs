@@ -16,7 +16,7 @@ pub struct PresentationCompressor {
 }
 impl PresentationCompressor {
     /// Pipeline creation is expensive: construct on a worker, not the UI thread.
-    pub fn new(host: Host) -> Result<Self, String> {
+    pub fn new(host: Host) -> Result<Self, fold_foundation::Failure> {
         host.check()?;
         if !host
             .device()
@@ -71,7 +71,7 @@ impl PresentationCompressor {
     }
     /// Input must already be ready. The caller decides when background work may
     /// run; returned storage cannot be published until `is_ready()` succeeds.
-    pub fn compress(&mut self, source: &Display) -> Result<Display, String> {
+    pub fn compress(&mut self, source: &Display) -> Result<Display, fold_foundation::Failure> {
         if source.owner() != self.host.id() || source.is_compressed() || !source.is_ready()? {
             return Err("BC7 requires a ready RGBA8 display from the same host".into());
         }

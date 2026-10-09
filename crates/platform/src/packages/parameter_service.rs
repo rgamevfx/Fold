@@ -64,7 +64,11 @@ impl PackageRegistry {
             if !self.supports(current) {
                 continue;
             }
-            for mut entry in self.parameters(current)? {
+            for mut entry in if self.has_capability(current, super::Capability::Parameters) {
+                self.parameters(current)?
+            } else {
+                vec![]
+            } {
                 entry.path.splice(0..0, prefix.clone());
                 entry.editable &= editable;
                 if !owners.is_empty() {
@@ -78,7 +82,14 @@ impl PackageRegistry {
                     return Err("Parameter catalog budget exceeded".into());
                 }
             }
-            for source in self.parameter_sources(current)?.into_iter().rev() {
+            for source in if self.has_capability(current, super::Capability::ParameterSources) {
+                self.parameter_sources(current)?
+            } else {
+                vec![]
+            }
+            .into_iter()
+            .rev()
+            {
                 if pending.len() >= 131072 {
                     return Err("Parameter source occurrence budget exceeded".into());
                 }
@@ -112,6 +123,8 @@ impl PackageRegistry {
             .iter()
             .find(|p| p.package_id() == document.package_id && p.type_id() == document.type_id)
             .ok_or("Unavailable parameter provider")?
+            .parameters_capability()
+            .ok_or("Unsupported Parameters capability")?
             .parameters(document)?;
         if entries.len() > 131072 {
             return Err("Parameter catalog budget exceeded".into());
@@ -170,7 +183,10 @@ impl PackageRegistry {
                             && p.supports_schema(child.schema_version)
                     })
                     .ok_or("Unavailable source parameter provider")?;
-                time = provider.parameter_time(child, time)?;
+                time = provider
+                    .parameters_capability()
+                    .ok_or("Unsupported Parameters capability")?
+                    .parameter_time(child, time)?;
             }
             if document_id != target.document {
                 return Err("Parameter placement changed its source document".into());
@@ -223,7 +239,10 @@ impl PackageRegistry {
                     && p.supports_schema(document.schema_version)
             })
             .ok_or("Unavailable parameter source provider")?;
-        let sources = provider.parameter_sources(document)?;
+        let sources = provider
+            .parameter_sources_capability()
+            .ok_or("Unsupported ParameterSources capability")?
+            .parameter_sources(document)?;
         let mut owners = BTreeSet::new();
         for source in &sources {
             if !owners.insert(source.owner) || !document.dependencies.contains(&source.reference) {
@@ -255,7 +274,10 @@ impl PackageRegistry {
             .iter()
             .find(|p| p.package_id() == document.package_id && p.type_id() == document.type_id)
             .ok_or("Unavailable parameter provider")?;
-        let value = provider.sample_parameter(document, target, time, cancel)?;
+        let value = provider
+            .parameters_capability()
+            .ok_or("Unsupported Parameters capability")?
+            .sample_parameter(document, target, time, cancel)?;
         value.validate()?;
         cancel.check()?;
         Ok(value)

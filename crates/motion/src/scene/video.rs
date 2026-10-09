@@ -49,7 +49,10 @@ impl VideoProvider for Provider {
             playback_mode: fold_platform::desktop::PlaybackMode::EveryFrame,
         }]
     }
-    fn compile(&self, r: VideoCompile<'_>) -> Result<fold_render::RenderGraph, String> {
+    fn compile(
+        &self,
+        r: VideoCompile<'_>,
+    ) -> Result<fold_render::RenderGraph, fold_foundation::Failure> {
         r.cancel.check()?;
         let scene = Scene::from_document(r.document)?;
         if r.invocation.is_some() || r.reference.output != scene.output.to_string() {
@@ -63,7 +66,7 @@ impl VideoProvider for Provider {
         if r.time < Time::ZERO || r.time >= duration {
             return Err("Scene time outside its half-open range".into());
         }
-        crate::rendering::image(
+        Ok(crate::rendering::image(
             r.snapshot,
             r.document.id,
             scene.output,
@@ -74,8 +77,8 @@ impl VideoProvider for Provider {
                 .map_err(|e| e.to_string())?,
             r.dimensions,
             Default::default(),
-            &|| r.cancel.check(),
+            &|| Ok(r.cancel.check()?),
         )
-        .map_err(|e| format!("Scene rendering failed: {e:?}"))
+        .map_err(|e| format!("Scene rendering failed: {e:?}"))?)
     }
 }

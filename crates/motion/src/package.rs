@@ -185,14 +185,40 @@ pub fn create_for_canvas(id: DocumentId, canvas: Canvas) -> Result<Document, Str
 
 struct Documents;
 impl DocumentProvider for Documents {
-    fn parameter_time(&self, document: &Document, output_time: Time) -> Result<Time, String> {
-        Construction::from_document(document)?
-            .canvas
-            .start
-            .checked_add(output_time)
-            .map_err(|e| e.to_string())
+    fn package_id(&self) -> &'static str {
+        crate::PACKAGE
     }
-
+    fn type_id(&self) -> &'static str {
+        crate::CONSTRUCTION
+    }
+    fn schema(&self) -> u32 {
+        crate::SCHEMA_VERSION
+    }
+    fn validate(&self, document: &Document) -> Result<(), String> {
+        Construction::from_document(document).map(|_| ())
+    }
+    fn parameters_capability(&self) -> Option<&dyn fold_platform::packages::Parameters> {
+        Some(self)
+    }
+    fn animation_capability(&self) -> Option<&dyn fold_platform::packages::Animation> {
+        Some(self)
+    }
+    fn artist_unlock_capability(&self) -> Option<&dyn fold_platform::packages::ArtistUnlock> {
+        Some(self)
+    }
+    fn authoring_capability(&self) -> Option<&dyn fold_platform::packages::Authoring> {
+        Some(self)
+    }
+    fn authoring_receipt_capability(
+        &self,
+    ) -> Option<&dyn fold_platform::packages::AuthoringReceipt> {
+        Some(self)
+    }
+    fn creation_capability(&self) -> Option<&dyn fold_platform::packages::Creation> {
+        Some(self)
+    }
+}
+impl fold_platform::packages::Parameters for Documents {
     fn parameters(
         &self,
         document: &Document,
@@ -211,19 +237,15 @@ impl DocumentProvider for Documents {
         }
         crate::parameters::sample(Construction::from_document(document)?, target, time, cancel)
     }
-
-    fn unlock_for_artist(
-        &self,
-        document: &Document,
-        object: Option<ObjectId>,
-        targets: &[ObjectId],
-    ) -> Result<Document, String> {
-        if object.is_some() {
-            return Err("Standalone graph unlock has no object scope".into());
-        }
-        editing::unlock_document_for_artist(document, targets).map_err(|error| format!("{error:?}"))
+    fn parameter_time(&self, document: &Document, output_time: Time) -> Result<Time, String> {
+        Construction::from_document(document)?
+            .canvas
+            .start
+            .checked_add(output_time)
+            .map_err(|e| e.to_string())
     }
-
+}
+impl fold_platform::packages::Animation for Documents {
     fn animation_channels(
         &self,
         document: &Document,
@@ -241,22 +263,21 @@ impl DocumentProvider for Documents {
             crate::keyed::replace(&Construction::from_document(document)?, channels)?;
         construction.replace_document(document)
     }
-
-    fn package_id(&self) -> &'static str {
-        crate::PACKAGE
+}
+impl fold_platform::packages::ArtistUnlock for Documents {
+    fn unlock_for_artist(
+        &self,
+        document: &Document,
+        object: Option<ObjectId>,
+        targets: &[ObjectId],
+    ) -> Result<Document, String> {
+        if object.is_some() {
+            return Err("Standalone graph unlock has no object scope".into());
+        }
+        editing::unlock_document_for_artist(document, targets).map_err(|error| format!("{error:?}"))
     }
-    fn type_id(&self) -> &'static str {
-        crate::CONSTRUCTION
-    }
-    fn schema(&self) -> u32 {
-        crate::SCHEMA_VERSION
-    }
-    fn validate(&self, document: &Document) -> Result<(), String> {
-        Construction::from_document(document).map(|_| ())
-    }
-    fn create(&self, id: DocumentId) -> Result<Document, String> {
-        create(id)
-    }
+}
+impl fold_platform::packages::Authoring for Documents {
     fn authoring_catalog(&self) -> serde_json::Value {
         crate::registry::catalog()
     }
@@ -283,6 +304,8 @@ impl DocumentProvider for Documents {
         editing::validate_document(document, editing::Scope::Document, after)
             .map_err(|e| format!("{e:?}"))
     }
+}
+impl fold_platform::packages::AuthoringReceipt for Documents {
     fn authoring_receipt(
         &self,
         before: &Document,
@@ -295,6 +318,12 @@ impl DocumentProvider for Documents {
         .map_err(|e| e.to_string())
     }
 }
+impl fold_platform::packages::Creation for Documents {
+    fn create(&self, id: DocumentId) -> Result<Document, String> {
+        create(id)
+    }
+}
+
 pub fn register(registry: &mut PackageRegistry) -> Result<(), String> {
     registry.register(Contributions {
         manifest: Manifest {

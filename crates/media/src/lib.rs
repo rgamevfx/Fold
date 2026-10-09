@@ -50,9 +50,9 @@ pub struct RgbImage {
 
 impl RgbImage {
     /// P6 fixtures/image sequences are one adapter, not the viewer cache format.
-    fn ppm(bytes: &[u8]) -> Result<([u32; 2], &[u8]), &'static str> {
+    fn ppm(bytes: &[u8]) -> Result<([u32; 2], &[u8]), fold_foundation::Failure> {
         if bytes.len() > MAX_SOURCE_BYTES {
-            return Err("PPM exceeds source byte budget");
+            return Err("PPM exceeds source byte budget".into());
         }
         let mut position = 0;
         fn token<'a>(bytes: &'a [u8], position: &mut usize) -> &'a [u8] {
@@ -77,7 +77,7 @@ impl RgbImage {
             &bytes[start..*position]
         }
         if token(bytes, &mut position) != b"P6" {
-            return Err("expected binary P6 PPM");
+            return Err("expected binary P6 PPM".into());
         }
         let mut number = || {
             let text = std::str::from_utf8(token(bytes, &mut position))
@@ -90,33 +90,33 @@ impl RgbImage {
         let width = number()?;
         let height = number()?;
         if number()? != 255 {
-            return Err("only RGB8 PPM maxval 255 is supported");
+            return Err("only RGB8 PPM maxval 255 is supported".into());
         }
         let count = u64::from(width) * u64::from(height);
         if count == 0 || count > MAX_PIXELS as u64 {
-            return Err("PPM resolution exceeds pixel budget");
+            return Err("PPM resolution exceeds pixel budget".into());
         }
         // P6 requires exactly one whitespace separator before binary pixels.
         // Never skip arbitrary whitespace here: a pixel may itself be whitespace.
         if !bytes.get(position).is_some_and(u8::is_ascii_whitespace) {
-            return Err("missing PPM raster separator");
+            return Err("missing PPM raster separator".into());
         }
         position += 1;
         if position > 4096 {
-            return Err("PPM header exceeds budget");
+            return Err("PPM header exceeds budget".into());
         }
         let rgb = &bytes[position..];
         if rgb.len() != count as usize * 3 {
-            return Err("PPM raster length mismatch");
+            return Err("PPM raster length mismatch".into());
         }
         Ok(([width, height], rgb))
     }
 
     /// Header/length validation only: no decoded storage allocation or processing.
-    pub fn ppm_dimensions(bytes: &[u8]) -> Result<[u32; 2], &'static str> {
+    pub fn ppm_dimensions(bytes: &[u8]) -> Result<[u32; 2], fold_foundation::Failure> {
         Self::ppm(bytes).map(|(size, _)| size)
     }
-    pub fn decode_ppm(bytes: &[u8]) -> Result<Self, &'static str> {
+    pub fn decode_ppm(bytes: &[u8]) -> Result<Self, fold_foundation::Failure> {
         let (dimensions, rgb) = Self::ppm(bytes)?;
         let storage = budget::DECODED.reserve(rgb.len() as u64)?;
         Ok(Self {
@@ -128,10 +128,10 @@ impl RgbImage {
         })
     }
 
-    pub fn from_rgb(dimensions: [u32; 2], rgb: Vec<u8>) -> Result<Self, &'static str> {
+    pub fn from_rgb(dimensions: [u32; 2], rgb: Vec<u8>) -> Result<Self, fold_foundation::Failure> {
         let count = u64::from(dimensions[0]) * u64::from(dimensions[1]);
         if count == 0 || count > MAX_PIXELS as u64 || rgb.len() as u64 != count * 3 {
-            return Err("invalid RGB8 frame dimensions or storage");
+            return Err("invalid RGB8 frame dimensions or storage".into());
         }
         let storage = budget::DECODED.reserve(rgb.capacity() as u64)?;
         Ok(Self {
@@ -143,7 +143,10 @@ impl RgbImage {
         })
     }
 
-    pub(crate) fn from_gbr(dimensions: [u32; 2], bytes: &[u8]) -> Result<Self, String> {
+    pub(crate) fn from_gbr(
+        dimensions: [u32; 2],
+        bytes: &[u8],
+    ) -> Result<Self, fold_foundation::Failure> {
         let count = dimensions[0] as usize * dimensions[1] as usize;
         if count == 0 || count > MAX_PIXELS || ![count * 12, count * 16].contains(&bytes.len()) {
             return Err("Invalid float decode planes".into());

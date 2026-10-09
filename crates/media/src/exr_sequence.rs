@@ -19,7 +19,7 @@ pub struct Summary {
     pub numbering_hash: String,
 }
 impl Summary {
-    pub fn validate(&self) -> Result<(), String> {
+    pub fn validate(&self) -> Result<(), fold_foundation::Failure> {
         if self.first > self.last
             || self.last >= i32::MAX as u32
             || self.count == 0
@@ -84,7 +84,7 @@ impl Sequence {
     pub fn last(&self) -> u32 {
         *self.frames.last_key_value().expect("validated sequence").0
     }
-    pub fn validate(&self) -> Result<(), String> {
+    pub fn validate(&self) -> Result<(), fold_foundation::Failure> {
         if self.frames.is_empty() || self.frames.len() > 18000 {
             return Err("EXR sequence requires 1–18000 frames".into());
         }
@@ -115,7 +115,11 @@ fn numbered(name: &str) -> Option<(&str, &str, &str, u32)> {
     }
     Some((&stem[..start], digits, extension, digits.parse().ok()?))
 }
-pub fn discover(path: &Path, info: &Info, cancel: &Cancel) -> Result<Option<Sequence>, String> {
+pub fn discover(
+    path: &Path,
+    info: &Info,
+    cancel: &Cancel,
+) -> Result<Option<Sequence>, fold_foundation::Failure> {
     let name = path
         .file_name()
         .and_then(|n| n.to_str())
@@ -157,9 +161,9 @@ pub fn discover(path: &Path, info: &Info, cancel: &Cancel) -> Result<Option<Sequ
         let path = parent.join(&file);
         let fingerprint = crate::fingerprint(&path, cancel)?;
         if &crate::exr::inspect(&path, cancel)? != info {
-            return Err(format!(
-                "EXR sequence frame {number} changes channels or image windows"
-            ));
+            return Err(
+                format!("EXR sequence frame {number} changes channels or image windows").into(),
+            );
         }
         frames.insert(number, Frame { file, fingerprint });
     }
@@ -173,7 +177,7 @@ pub fn resolve(
     frame: i64,
     options: &Options,
     outside: bool,
-) -> Result<Option<Source>, String> {
+) -> Result<Option<Source>, fold_foundation::Failure> {
     let mut result = source.clone();
     let sequence = result.info.sequence.take();
     if options.still || sequence.is_none() {
@@ -200,7 +204,8 @@ pub fn resolve(
                     } else {
                         "missing"
                     }
-                ));
+                )
+                .into());
             }
             Policy::Black => return Ok(None),
             Policy::Hold => {

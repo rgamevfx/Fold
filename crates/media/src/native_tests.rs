@@ -78,7 +78,7 @@ fn timeout_crash_and_inflight_cancel_reap_helpers() {
                     &Cancel::default(),
                 )
                 .unwrap_err();
-            assert!(error.contains(expected), "{error}");
+            assert!(error.message.contains(expected), "{error}");
             assert!(start.elapsed() < Duration::from_secs(2));
             assert!(decoder.sessions.is_empty());
             let stats = decoder.statistics();
@@ -111,7 +111,7 @@ fn timeout_crash_and_inflight_cancel_reap_helpers() {
         )
         .unwrap_err();
     thread.join().unwrap();
-    assert!(error.contains("cancel"), "{error}");
+    assert!(error.message.contains("cancel"), "{error}");
     assert!(start.elapsed() < Duration::from_secs(2));
     assert_eq!(decoder.statistics().gpu_local_copy_bytes, 0);
 }

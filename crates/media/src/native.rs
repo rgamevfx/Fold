@@ -23,7 +23,7 @@ pub struct Nv12Layout {
     pub bytes: u64,
 }
 impl Nv12Layout {
-    pub fn for_source(source: &VideoSource) -> Result<Self, String> {
+    pub fn for_source(source: &VideoSource) -> Result<Self, fold_foundation::Failure> {
         let format = crate::video::verified_format(&source.fingerprint)
             .ok_or("native source format must be inspected before allocation")?;
         Self::for_format(source, format)
@@ -31,7 +31,7 @@ impl Nv12Layout {
     pub(crate) fn for_format(
         source: &VideoSource,
         format: crate::VideoFormat,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, fold_foundation::Failure> {
         source.info.validate()?;
         let [w, h] = [source.info.width, source.info.height];
         if !(48..=4096).contains(&w)
@@ -68,7 +68,11 @@ struct Session {
     ranges: fold_native_video::Ranges,
 }
 impl Session {
-    fn receive(&mut self, cancel: &Cancel, deadline: Instant) -> Result<Vec<u8>, String> {
+    fn receive(
+        &mut self,
+        cancel: &Cancel,
+        deadline: Instant,
+    ) -> Result<Vec<u8>, fold_foundation::Failure> {
         loop {
             self.check_wait(cancel, deadline)?;
             let mut bytes = [0; 64];
@@ -79,11 +83,15 @@ impl Session {
                         e.kind(),
                         std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut
                     ) => {}
-                Err(e) => return Err(format!("native helper socket: {e}")),
+                Err(e) => return Err(format!("native helper socket: {e}").into()),
             }
         }
     }
-    fn check_wait(&mut self, cancel: &Cancel, deadline: Instant) -> Result<(), String> {
+    fn check_wait(
+        &mut self,
+        cancel: &Cancel,
+        deadline: Instant,
+    ) -> Result<(), fold_foundation::Failure> {
         cancel.check()?;
         if Instant::now() >= deadline {
             return Err("native decoder deadline exceeded".into());
@@ -93,7 +101,8 @@ impl Session {
             return Err(format!(
                 "native helper stopped: {}",
                 result.err().unwrap_or_else(|| "unexpected exit".into())
-            ));
+            )
+            .into());
         }
         Ok(())
     }
@@ -103,7 +112,7 @@ impl Session {
         helper: &std::path::Path,
         cancel: &Cancel,
         deadline: Instant,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, fold_foundation::Failure> {
         let source = &pin.source;
         let directory = tempfile::tempdir().map_err(|e| e.to_string())?;
         let parent = directory.path().join("parent.sock");
@@ -176,7 +185,7 @@ pub struct NativeDecoder {
     statistics: NativeStatistics,
 }
 impl NativeDecoder {
-    pub fn new() -> Result<Self, String> {
+    pub fn new() -> Result<Self, fold_foundation::Failure> {
         let helper = std::env::var_os("FOLD_VIDEO_HELPER")
             .map(PathBuf::from)
             .unwrap_or(
@@ -185,7 +194,7 @@ impl NativeDecoder {
                     .with_file_name("fold-video-helper"),
             );
         if !helper.is_file() {
-            return Err(format!("native NVDEC helper missing: {}", helper.display()));
+            return Err(format!("native NVDEC helper missing: {}", helper.display()).into());
         }
         Ok(Self {
             sessions: VecDeque::new(),
@@ -207,7 +216,7 @@ impl NativeDecoder {
         time: Time,
         ticket: fold_native_video::WriteTicket<'_>,
         cancel: &Cancel,
-    ) -> Result<fold_native_video::WriteComplete, String> {
+    ) -> Result<fold_native_video::WriteComplete, fold_foundation::Failure> {
         cancel.check()?;
         let layout = Nv12Layout::for_source(source)?;
         let frame = source.info.frame_at(time)?;

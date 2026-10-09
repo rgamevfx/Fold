@@ -45,7 +45,7 @@ impl VideoProvider for Provider {
             })
             .into()
     }
-    fn compile(&self, request: VideoCompile<'_>) -> Result<RenderGraph, String> {
+    fn compile(&self, request: VideoCompile<'_>) -> Result<RenderGraph, fold_foundation::Failure> {
         assert_eq!(request.reference.output, "matte");
         Ok(SolidPlan {
             width: 2,

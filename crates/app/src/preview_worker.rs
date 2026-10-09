@@ -162,11 +162,9 @@ impl Mailbox {
         &mut self,
         snapshot: &Snapshot,
         key: &PreviewKey,
-        error: Option<&str>,
+        error: Option<&fold_foundation::Failure>,
     ) -> bool {
-        if !error.is_some_and(|error| {
-            error.contains("budget exhausted") || error.contains("capacity exhausted")
-        }) {
+        if !error.is_some_and(|error| error.retryable()) {
             self.pressure_since = None;
             return false;
         }
@@ -254,7 +252,10 @@ impl PreviewWorker {
             let mut decoder = Decoder::from_environment();
             let mut color_identity = None;
             #[cfg(feature = "gpu")]
-            let mut gpu: Option<(u64, Result<fold_render::gpu::Renderer, String>)> = None;
+            let mut gpu: Option<(
+                u64,
+                Result<fold_render::gpu::Renderer, fold_foundation::Failure>,
+            )> = None;
             loop {
                 let (snapshot, key, cancel, background) = {
                     let (lock, ready) = &*state;
@@ -319,11 +320,7 @@ impl PreviewWorker {
                         })
                     })();
                     let mut queue = state.0.lock().unwrap();
-                    if queue.retry_pressure(
-                        &snapshot,
-                        &key,
-                        frame.as_ref().err().map(String::as_str),
-                    ) {
+                    if queue.retry_pressure(&snapshot, &key, frame.as_ref().err()) {
                         let _ = state
                             .1
                             .wait_timeout(queue, std::time::Duration::from_millis(10))
@@ -334,7 +331,7 @@ impl PreviewWorker {
                     if cancel.check().is_ok() && !queue.stop {
                         queue.gpu_result = Some(fold_platform::desktop::GpuPreviewResult {
                             key,
-                            frame,
+                            frame: frame.map_err(|e| e.to_string()),
                             consumers,
                         });
                     }
@@ -346,11 +343,18 @@ impl PreviewWorker {
                     Ok(permit) => permit,
                     Err(error) => {
                         let mut queue = state.0.lock().unwrap();
+                        if queue.retry_pressure(&snapshot, &key, Some(&error)) {
+                            let _ = state
+                                .1
+                                .wait_timeout(queue, std::time::Duration::from_millis(10))
+                                .unwrap();
+                            continue;
+                        }
                         let consumers = queue.finish();
                         if cancel.check().is_ok() && !queue.stop {
                             queue.result = Some(PreviewResult {
                                 key,
-                                frame: Err(error),
+                                frame: Err(error.to_string()),
                                 consumers,
                             });
                         }
@@ -367,7 +371,7 @@ impl PreviewWorker {
                         _ => crate::color::preview(&snapshot, &f),
                     });
                 let mut queue = state.0.lock().unwrap();
-                if queue.retry_pressure(&snapshot, &key, frame.as_ref().err().map(String::as_str)) {
+                if queue.retry_pressure(&snapshot, &key, frame.as_ref().err()) {
                     let _ = state
                         .1
                         .wait_timeout(queue, std::time::Duration::from_millis(10))
@@ -379,7 +383,7 @@ impl PreviewWorker {
                 if cancel.check().is_ok() && !queue.stop {
                     queue.result = Some(PreviewResult {
                         key,
-                        frame,
+                        frame: frame.map_err(|e| e.to_string()),
                         consumers,
                     });
                 }
@@ -618,13 +622,39 @@ mod tests {
         let d = demand(1, 1, 7, false);
         queue.replace(snapshot.clone(), vec![d.clone()]);
         queue.next().unwrap();
-        assert!(queue.retry_pressure(&snapshot, &d.key, Some("GPU working budget exhausted")));
+        assert!(queue.retry_pressure(
+            &snapshot,
+            &d.key,
+            Some(&fold_foundation::Failure::new(
+                fold_foundation::FailureKind::ResourcePressure,
+                "unrelated wording"
+            ))
+        ));
         assert_eq!(queue.pressure_retries(), 1);
         assert!(!queue.occupied());
         assert_eq!(queue.next().unwrap().1, d.key);
         assert!(!queue.retry_pressure(&snapshot, &d.key, None));
         assert_eq!(queue.finish(), [(PanelInstanceId(1), 1)]);
         queue.replace(snapshot, vec![]);
+        assert!(queue.next().is_none());
+    }
+    #[test]
+    fn pressure_policy_rejects_permanent_errors_and_respects_timeout_and_cancellation() {
+        use fold_foundation::{Failure, FailureKind};
+        let mut queue = Mailbox::default();
+        let snapshot = snapshot();
+        let d = demand(1, 1, 7, false);
+        queue.replace(snapshot.clone(), vec![d.clone()]);
+        let (_, _, cancel, _) = queue.next().unwrap();
+        let oversized = Failure::new(FailureKind::RequestTooLarge, "budget exhausted");
+        assert!(!queue.retry_pressure(&snapshot, &d.key, Some(&oversized)));
+        let pressure = Failure::new(FailureKind::ResourcePressure, "busy");
+        queue.pressure_since = Some(std::time::Instant::now() - std::time::Duration::from_secs(31));
+        assert!(!queue.retry_pressure(&snapshot, &d.key, Some(&pressure)));
+        queue.pressure_since = None;
+        cancel.cancel();
+        assert!(queue.retry_pressure(&snapshot, &d.key, Some(&pressure)));
+        assert_eq!(queue.pressure_retries(), 0);
         assert!(queue.next().is_none());
     }
     #[test]

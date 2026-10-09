@@ -52,7 +52,7 @@ impl Texture {
     pub fn bytes(&self) -> u64 {
         self.levels.iter().map(|l| l.bytes.len() as u64).sum()
     }
-    pub fn validate(&self) -> Result<(), String> {
+    pub fn validate(&self) -> Result<(), fold_foundation::Failure> {
         if self.format == Format::Auto
             || self.levels.is_empty()
             || self.levels.len() > 13
@@ -84,7 +84,7 @@ impl Texture {
         frame: &crate::Frame,
         requested: Format,
         cancel: &Cancel,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, fold_foundation::Failure> {
         Self::encode_with(frame, requested, cancel, |rgba, w, h, cancel| {
             let mut blocks = vec![0u8; (w * h) as usize];
             for row in 0..h / 4 {
@@ -107,8 +107,8 @@ impl Texture {
         frame: &crate::Frame,
         requested: Format,
         cancel: &Cancel,
-        mut compress: impl FnMut(&[u8], u32, u32, &Cancel) -> Result<Vec<u8>, String>,
-    ) -> Result<Self, String> {
+        mut compress: impl FnMut(&[u8], u32, u32, &Cancel) -> Result<Vec<u8>, fold_foundation::Failure>,
+    ) -> Result<Self, fold_foundation::Failure> {
         let dims = [frame.width, frame.height];
         if dims.iter().any(|v| *v == 0 || *v > 4096) {
             return Err("bake resolution must be 1..4096".into());
@@ -221,7 +221,7 @@ impl Texture {
         result.identity = fold_media::content_hash(&result.serialize()?);
         Ok(result)
     }
-    fn serialize(&self) -> Result<Vec<u8>, String> {
+    fn serialize(&self) -> Result<Vec<u8>, fold_foundation::Failure> {
         let header = serde_json::to_vec(&Header {
             version: 1,
             format: self.format,
@@ -242,7 +242,7 @@ impl Texture {
         }
         Ok(bytes)
     }
-    pub fn save(&self, path: &Path, cancel: &Cancel) -> Result<(), String> {
+    pub fn save(&self, path: &Path, cancel: &Cancel) -> Result<(), fold_foundation::Failure> {
         use std::io::Write;
         cancel.check()?;
         self.validate()?;
@@ -265,7 +265,11 @@ impl Texture {
         );
         Ok(())
     }
-    pub fn load(path: &Path, identity: &str, cancel: &Cancel) -> Result<Arc<Self>, String> {
+    pub fn load(
+        path: &Path,
+        identity: &str,
+        cancel: &Cancel,
+    ) -> Result<Arc<Self>, fold_foundation::Failure> {
         type Cached = (
             std::path::PathBuf,
             String,
@@ -317,7 +321,7 @@ impl Texture {
         identity: &str,
         verify: bool,
         cancel: &Cancel,
-    ) -> Result<Arc<Self>, String> {
+    ) -> Result<Arc<Self>, fold_foundation::Failure> {
         use std::io::Read;
         cancel.check()?;
         let length = std::fs::metadata(path).map_err(|e| e.to_string())?.len();
@@ -380,7 +384,11 @@ impl Texture {
         cancel.check()?;
         Ok(Arc::new(texture))
     }
-    pub fn decode(&self, level: usize, cancel: &Cancel) -> Result<crate::Frame, String> {
+    pub fn decode(
+        &self,
+        level: usize,
+        cancel: &Cancel,
+    ) -> Result<crate::Frame, fold_foundation::Failure> {
         self.validate()?;
         cancel.check()?;
         let l = &self.levels[level.min(self.levels.len() - 1)];
@@ -457,7 +465,7 @@ impl Texture {
         &self,
         dimensions: [u32; 2],
         cancel: &Cancel,
-    ) -> Result<Vec<[f32; 4]>, String> {
+    ) -> Result<Vec<[f32; 4]>, fold_foundation::Failure> {
         let [width, height] = dimensions;
         let [sw, sh] = self.dimensions();
         let lod = (sw as f32 / width as f32)

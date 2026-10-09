@@ -23,7 +23,7 @@ pub(super) fn save(
     path: &str,
     cancel: &fold_media::Cancel,
 ) -> Result<workers::Output, Failure> {
-    let warning = match fold_project::save_new(snapshot, path, &|| cancel.check()) {
+    let warning = match fold_project::save_new(snapshot, path, &|| Ok(cancel.check()?)) {
         Ok(()) => None,
         Err(SaveError::DirectorySync(error)) => Some(error.to_string()),
         Err(SaveError::Cancelled(reason)) => return Err(Failure::new("cancelled", reason)),

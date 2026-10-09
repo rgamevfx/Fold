@@ -59,7 +59,7 @@ fn video_prepares_while_graphics_is_busy_and_cancels_its_wait() {
         prepared,
         "source must become ready before waiting for graphics admission"
     );
-    assert!(error.contains("cancel"), "{error}");
+    assert!(error.message.contains("cancel"), "{error}");
     assert_eq!(scheduler.queue_depth().0, 0);
     assert!(scheduler.enter(Class::Viewer, &Cancel::default()).is_ok());
 }

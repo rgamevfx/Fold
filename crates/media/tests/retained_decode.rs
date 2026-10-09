@@ -109,6 +109,7 @@ fn exercise(backend: DecodeBackend) {
         decoder
             .decode_signal(&source, source.info.time(0).unwrap(), [64, 32], &cancel)
             .unwrap_err()
+            .message
             .contains("cancel")
     );
     std::fs::remove_file(&source.path).unwrap();
@@ -153,7 +154,10 @@ fn unsupported_nvdec_geometry_fails_before_launch() {
             &Cancel::default(),
         )
         .unwrap_err();
-    assert!(error.contains("select the software decoder"), "{error}");
+    assert!(
+        error.message.contains("select the software decoder"),
+        "{error}"
+    );
     assert_eq!(decoder.statistics().launches, 0);
 }
 
@@ -171,7 +175,7 @@ fn timestamp_gaps_and_forged_metadata_are_not_treated_as_cfr() {
             &Cancel::default(),
         )
         .unwrap_err();
-    assert!(error.contains("metadata mismatch"), "{error}");
+    assert!(error.message.contains("metadata mismatch"), "{error}");
     let vfr = directory.path().join("gap.mp4");
     let status = std::process::Command::new("ffmpeg")
         .args(["-v", "error", "-nostdin", "-i"])
@@ -191,7 +195,7 @@ fn timestamp_gaps_and_forged_metadata_are_not_treated_as_cfr() {
         .unwrap();
     assert!(status.success());
     let error = fold_media::inspect(&vfr, &Cancel::default()).unwrap_err();
-    assert!(error.contains("constant-frame-rate"), "{error}");
+    assert!(error.message.contains("constant-frame-rate"), "{error}");
 }
 
 #[test]

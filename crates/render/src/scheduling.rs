@@ -89,12 +89,15 @@ impl Scheduler {
     }
     /// Worker-only, cooperatively cancellable admission. Never use from UI or
     /// audio callbacks. Hold at most one permit and release at each video frame.
-    pub fn enter(&self, class: Class, cancel: &Cancel) -> Result<Permit, String> {
+    pub fn enter(&self, class: Class, cancel: &Cancel) -> Result<Permit, fold_foundation::Failure> {
         cancel.check()?;
         let (lock, ready) = &*self.0;
         let mut state = lock.lock().unwrap();
         if state.waiting.len() >= 128 {
-            return Err("execution queue full (128); retry after completion".into());
+            return Err(fold_foundation::Failure::new(
+                fold_foundation::FailureKind::ResourcePressure,
+                "execution queue full (128); retry after completion",
+            ));
         }
         let ticket = state.next;
         state.next = state.next.wrapping_add(1);

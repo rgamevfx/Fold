@@ -96,7 +96,7 @@ pub fn resolve(
     snapshot: &fold_project::Snapshot,
     request: &Request,
     cancel: &fold_media::Cancel,
-) -> Result<std::sync::Arc<fold_render::baked::Texture>, String> {
+) -> Result<std::sync::Arc<fold_render::baked::Texture>, fold_foundation::Failure> {
     cancel.check()?;
     let manifest = manifest(reference, cancel)?;
     let record =

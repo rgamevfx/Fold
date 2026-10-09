@@ -56,7 +56,7 @@ pub(super) fn run(
     let mut fonts = BTreeMap::new();
     for &time in times {
         cancel.check().map_err(|e| Failure::new("cancelled", e))?;
-        let result = prepared.evaluate_detailed(output, time, limits, &|| cancel.check())?;
+        let result = prepared.evaluate_detailed(output, time, limits, &|| Ok(cancel.check()?))?;
         let mut measurement = Measurement {
             cancel,
             geometries: BTreeMap::new(),

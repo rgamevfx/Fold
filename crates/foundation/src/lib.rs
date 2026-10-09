@@ -62,3 +62,6 @@ impl ObjectId {
 }
 
 stable_id!(BinId);
+
+pub mod failure;
+pub use failure::{Failure, FailureKind};

@@ -22,7 +22,7 @@ struct Cached {
     value: Result<ManagedTextureId, String>,
     used: u64,
 }
-type ResultMessage = (Key, Result<Vec<u8>, String>);
+type ResultMessage = (Key, Result<Vec<u8>, fold_foundation::Failure>);
 #[derive(Default)]
 pub struct Thumbnails {
     cache: BTreeMap<
@@ -52,9 +52,7 @@ impl Thumbnails {
         self.pending = None;
         // Capacity pressure is temporary: allow a later browser request to retry
         // instead of retaining it as a permanent source/codec failure.
-        if pixels.as_ref().is_err_and(|error| {
-            error.contains("budget exhausted") || error.contains("capacity exhausted")
-        }) {
+        if pixels.as_ref().is_err_and(|error| error.retryable()) {
             return;
         }
         if let Some(old) = self.cache.remove(&(key.id, key.range))
@@ -76,6 +74,7 @@ impl Thumbnails {
             }
         }
         let value = pixels
+            .map_err(|e| e.to_string())
             .and_then(|pixels| {
                 OwnedTextureData::from_pixels(TextureFormat::RGBA32, 128, 72, &pixels)
                     .map_err(|e| e.to_string())
@@ -128,10 +127,20 @@ impl Thumbnails {
                         .enter(fold_platform::scheduling::Class::Background, &cancel);
                     let result = admission.and_then(|_permit| {
                         metadata
-                            .ok_or("Source metadata unavailable".to_owned())
+                            .ok_or_else(|| {
+                                fold_foundation::Failure::new(
+                                    fold_foundation::FailureKind::MissingResource,
+                                    "Source metadata unavailable",
+                                )
+                            })
                             .and_then(|value| {
                                 serde_json::from_value::<fold_media::ingest::SourceMetadata>(value)
-                                    .map_err(|e| e.to_string())
+                                    .map_err(|e| {
+                                        fold_foundation::Failure::new(
+                                            fold_foundation::FailureKind::InvalidInput,
+                                            e.to_string(),
+                                        )
+                                    })
                             })
                             .and_then(|metadata| {
                                 fold_media::thumbnail::thumbnail_range(
@@ -156,5 +165,36 @@ impl Thumbnails {
 impl Drop for Thumbnails {
     fn drop(&mut self) {
         self.cancel.cancel();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use fold_foundation::{Failure, FailureKind};
+    #[test]
+    fn pressure_is_retried_but_oversized_and_execution_failures_are_cached() {
+        let mut context = imgui::Context::create();
+        let mut thumbnails = Thumbnails::default();
+        let key = Key {
+            id: AssetId::new(),
+            location: "fixture".into(),
+            fingerprint: "fixture".into(),
+            range: None,
+        };
+        for (kind, message, cached) in [
+            (FailureKind::ResourcePressure, "busy", false),
+            (FailureKind::RequestTooLarge, "budget exhausted", true),
+            (FailureKind::Execution, "capacity exhausted", true),
+        ] {
+            let (sender, receiver) = mpsc::sync_channel(1);
+            sender
+                .send((key.clone(), Err(Failure::new(kind, message))))
+                .unwrap();
+            thumbnails.pending = Some(receiver);
+            thumbnails.prepare(&mut context);
+            assert_eq!(thumbnails.cache.contains_key(&(key.id, None)), cached);
+            assert!(thumbnails.pending.is_none());
+        }
     }
 }
