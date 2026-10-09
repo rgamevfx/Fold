@@ -62,6 +62,7 @@ impl State<'_> {
         let face_ids = identities(mesh.indices.len() / 3, "face")?;
         let regions = BTreeMap::from([("surface".into(), 0..mesh.indices.len())]);
         Ok(Value::Geometry(Arc::new(Geometry {
+            attributes: Default::default(),
             id: geometry_id,
             space: Space::World,
             unit: Unit::Meters,
@@ -126,6 +127,7 @@ impl State<'_> {
             )?);
         }
         Ok(Value::Geometry(Arc::new(Geometry {
+            attributes: Default::default(),
             id: geometry_id,
             space: Space::World,
             unit: Unit::Meters,
@@ -155,4 +157,71 @@ impl State<'_> {
             appearance: Appearance::default(),
         })))
     }
+}
+
+/// A grid is an ordinary mesh; cell-based identities survive row/column growth.
+pub fn grid(
+    columns: usize,
+    rows: usize,
+    spacing: [f64; 2],
+    center: [f64; 3],
+    id: u64,
+    step: &mut impl FnMut() -> Result<(), String>,
+) -> Result<Mesh, String> {
+    let total = columns.checked_mul(rows).ok_or("Grid count overflow")?;
+    if total > 100_000
+        || columns > 100_000
+        || rows > 100_000
+        || spacing.iter().any(|v| !v.is_finite() || *v <= 0.)
+        || center.iter().any(|v| !v.is_finite() || v.abs() > 1e6)
+    {
+        return Err("Invalid grid count, spacing or center".into());
+    }
+    let mut positions = Vec::with_capacity(total);
+    let mut vertex_ids = Vec::with_capacity(total);
+    let mut indices = Vec::new();
+    let mut face_ids = Vec::new();
+    for row in 0..rows {
+        step()?;
+        for column in 0..columns {
+            step()?;
+            let p = [
+                center[0] + (column as f64 - (columns as f64 - 1.) * 0.5) * spacing[0],
+                center[1] + (row as f64 - (rows as f64 - 1.) * 0.5) * spacing[1],
+                center[2],
+            ];
+            if p.iter().any(|v| !v.is_finite() || v.abs() > 1e6) {
+                return Err("Grid positions exceed supported World extent".into());
+            }
+            let cell = (column as u64) | ((row as u64) << 32);
+            let point = super::attributes::stable_id(id, cell);
+            vertex_ids.push(point);
+            positions.push(p.map(|v| v as f32));
+            if column + 1 < columns && row + 1 < rows {
+                let a = (row * columns + column) as u32;
+                let c = a + columns as u32;
+                indices.extend([a, a + 1, c + 1, a, c + 1, c]);
+                face_ids.extend([
+                    super::attributes::stable_id(point, 0),
+                    super::attributes::stable_id(point, 1),
+                ]);
+            }
+        }
+    }
+    Ok(Mesh {
+        source: None,
+        vertex_ids,
+        face_ids,
+        prepared: Prepared {
+            mesh: Arc::new(fold_render::spatial::Mesh {
+                positions,
+                normals: vec![[0., 0., 1.]; total],
+                indices,
+            }),
+            uv: vec![[0.; 2]; total],
+            regions: Default::default(),
+            source_vertices: vec![],
+            source_geometry: None,
+        },
+    })
 }

@@ -191,6 +191,7 @@ impl State<'_> {
             _ => return Err("Transform mode requires contours/Outline Text, a metric mesh, or instances respectively".into()),
         };
         Ok(Value::Geometry(Arc::new(Geometry {
+            attributes: source.attributes.clone(),
             id: self.identity(scope, id, source.id, b"transform")?,
             space,
             unit,

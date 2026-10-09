@@ -1219,12 +1219,12 @@ fn grid_observation_exposes_metric_cells_and_stable_ids_after_count_change() {
     };
     let (mut d, mut p, id, output) = setup();
     let mut c = Construction::from_document(&p.snapshot().state().documents[&id]).unwrap();
-    let grid = registry::resolve("fold.motion.distribute", 1, "grid")
+    let grid = registry::resolve("fold.motion.distribute", 2, "grid")
         .unwrap()
         .node("Grid", Default::default())
         .unwrap();
     let grid_id = grid.id;
-    c.definitions[0].outputs[0].ty = Type::Points;
+    c.definitions[0].outputs[0].ty = Type::Geometry;
     c.definitions[0].outputs[0].value = Reference::Node { node: grid_id }.into();
     c.definitions[0].nodes.push(grid);
     let mut ids = std::collections::BTreeMap::new();
@@ -1258,14 +1258,22 @@ fn grid_observation_exposes_metric_cells_and_stable_ids_after_count_change() {
         let sample = &response["result"]["samples"][0];
         assert_eq!(sample["counts"]["unique_points"], columns * 12);
         let stream = &sample["value"];
-        assert_eq!(stream["kind"], "points");
-        assert_eq!(stream["space"], "world");
-        assert_eq!(stream["unit"], "meters");
-        assert_eq!(stream["identity_policy"], "grid_cell");
-        for point in stream["points"].as_array().unwrap() {
-            let cell: [u32; 2] = serde_json::from_value(point["cell"].clone()).unwrap();
-            if let Some(old) = ids.insert(cell, point["id"].clone()) {
-                assert_eq!(old, point["id"]);
+        assert_eq!(stream["kind"], "geometry");
+        let mesh = &sample["geometries"][stream["id"].as_u64().unwrap().to_string()];
+        assert_eq!(mesh["space"], "world");
+        assert_eq!(mesh["unit"], "meters");
+        for (index, id) in mesh["mesh"]["vertex_ids"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .enumerate()
+        {
+            let cell = [
+                (index % columns as usize) as u32,
+                (index / columns as usize) as u32,
+            ];
+            if let Some(old) = ids.insert(cell, id.clone()) {
+                assert_eq!(old, *id);
             }
         }
         if columns == 0 {
@@ -1285,10 +1293,18 @@ fn cloner_observation_reports_shared_prototype_instances_and_world_bounds() {
             reference: Reference::Node { node }.into(),
         };
         let node = |key: &str, mode: &str, name: &str, bindings| {
-            registry::resolve(&format!("fold.motion.{key}"), 1, mode)
-                .unwrap()
-                .node(name, bindings)
-                .unwrap()
+            registry::resolve(
+                &format!("fold.motion.{key}"),
+                if matches!(key, "distribute" | "cloner") {
+                    2
+                } else {
+                    1
+                },
+                mode,
+            )
+            .unwrap()
+            .node(name, bindings)
+            .unwrap()
         };
         let mesh = node("mesh", "box", "Box", std::collections::BTreeMap::new());
         let grid = node(
@@ -1415,9 +1431,13 @@ fn cloner_observation_reports_shared_prototype_instances_and_world_bounds() {
         let bounds = &sample["value"]["placement"]["bounds"];
         let half = f64::from(0.03f32) * factor;
         let rotated_half = half * (angle.cos().abs() + angle.sin().abs());
-        for (axis, extent) in [1.14 + rotated_half, 0.66 + rotated_half, half]
-            .into_iter()
-            .enumerate()
+        for (axis, extent) in [
+            f64::from(1.14f32) + rotated_half,
+            f64::from(0.66f32) + rotated_half,
+            half,
+        ]
+        .into_iter()
+        .enumerate()
         {
             assert!((bounds[0][axis].as_f64().unwrap() + extent).abs() < 1e-12);
             assert!((bounds[1][axis].as_f64().unwrap() - extent).abs() < 1e-12);

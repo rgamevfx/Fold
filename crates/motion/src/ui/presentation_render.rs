@@ -42,8 +42,14 @@ fn instance_menu_capture() {
 fn scene_panels_capture() {
     capture(Capture::Scene);
 }
+#[test]
+#[ignore = "requires GPU; writes /tmp/fold-motion-wrangle.ppm"]
+fn wrangle_inspector_capture() {
+    capture(Capture::Wrangle);
+}
 #[derive(Clone, Copy)]
 enum Capture {
+    Wrangle,
     Scene,
     Network,
     Presentation,
@@ -246,6 +252,13 @@ fn capture(kind: Capture) {
             value: crate::types::AssetReference::Definition(definition),
         },
     ));
+    if matches!(kind, Capture::Wrangle) {
+        controls=vec![
+            ("Run Over",Literal::Text{value:"detail".into()}),
+            ("Parameters",Literal::Text{value:r#"{"amplitude":0.25,"count":12,"speed":1.0}"#.into()}),
+            ("Rhai Source",Literal::Text{value:"let g = grid(params.count, 8, 0.25);\nfor i in 0..count(g, \"point\") {\n    let p = point(g, i);\n    p.z = sin(time * params.speed + p.x)\n        * params.amplitude;\n    set_point(g, i, p);\n}\ng".into()}),
+        ];
+    }
     let original_controls = controls.clone();
     let mut literal_controls = literal::Controls::default();
     literal_controls.assets = vec![(definition, "Title artwork".into())];
@@ -302,7 +315,7 @@ fn capture(kind: Capture) {
                     }
                     let mut response = EditResponse::default();
                     let _width = ui.push_item_width((ui.content_region_avail()[0] * 0.43).max(60.));
-                    if matches!(kind, Capture::Literals) {
+                    if matches!(kind, Capture::Literals | Capture::Wrangle) {
                         for (index, (label, value)) in controls.iter_mut().enumerate() {
                             let _id = ui.push_id(&index.to_string());
                             literal(ui, label, value, &mut response, &mut literal_controls);
@@ -404,6 +417,7 @@ fn capture(kind: Capture) {
     assert_eq!(host.snapshot().unwrap().revision(), before.revision());
     std::fs::write(
         match kind {
+            Capture::Wrangle => "/tmp/fold-motion-wrangle.ppm",
             Capture::Scene => "/tmp/fold-motion-scene.ppm",
             Capture::Network => "/tmp/fold-motion-network.ppm",
             Capture::Literals => "/tmp/fold-motion-literals.ppm",

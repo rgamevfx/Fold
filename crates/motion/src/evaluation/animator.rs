@@ -76,6 +76,7 @@ impl State<'_> {
             }
         }
         Ok(Value::Geometry(Arc::new(Geometry {
+            attributes: source.attributes.clone(),
             id: self.identity(
                 scope,
                 id,

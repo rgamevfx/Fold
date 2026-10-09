@@ -47,20 +47,34 @@ pub(super) fn operations() -> Vec<Operation> {
                 ),
             ),
         ],
-        ResultType::Exact { ty: Type::Points },
+        ResultType::Exact { ty: Type::Geometry },
         Cost::Geometry,
         vec![Domain::Point],
     )];
     entries.push(operation(
-        ("cloner", "points", "Cloner", Builtin::Cloner),
+        ("cloner", "points", "Copy to Points", Builtin::Cloner),
         Palette::Artist,
         vec![
             ("prototype", value("Prototype", exact(Type::Geometry), None)),
-            ("points", value("Distribution", exact(Type::Points), None)),
+            (
+                "points",
+                value("Target Points", exact(Type::Geometry), None),
+            ),
+            (
+                "attributes",
+                value(
+                    "Attributes to Copy",
+                    exact(Type::Text),
+                    Some(Literal::Text { value: "Cd".into() }),
+                ),
+            ),
         ],
         ResultType::Exact { ty: Type::Geometry },
         Cost::Geometry,
         vec![Domain::Instance],
     ));
+    for entry in &mut entries {
+        entry.version = 2;
+    }
     entries
 }

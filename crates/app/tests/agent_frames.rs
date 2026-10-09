@@ -43,7 +43,7 @@ fn decode(response: &Value) -> Vec<u8> {
 fn public_frame_jobs_match_registered_pixels_and_retain_candidate_context() {
     let mut project = fold_project::load(
         std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../docs/rewrite/evidence/m5-controls-baseline.fold"),
+            .join("../../docs/rewrite/evidence/m5b-controls-baseline.fold"),
         32,
     )
     .unwrap();

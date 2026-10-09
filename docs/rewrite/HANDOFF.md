@@ -2,6 +2,36 @@
 
 ## Resume here
 
+### M5b continuation — geometry attributes and live Wrangle
+
+The requested M5b implementation is present. Read [M5b evidence](evidence/m5b-result.md)
+and the M5b phase before continuing. The requested recovery artwork is saved at
+`demos/m5b-background-spheres.fold`; the independent programmable example is
+`demos/m5b-wrangle.fold`. Both have public save/reopen source and pixel checks.
+The running development session uses the edited temporary recovery copy under
+`/tmp/fold-m5b-szf4gw17`; preserve its window and unsaved state. Original recovery
+artwork under `/tmp/fold-freeze-diagnosis` was not overwritten; the old recovery
+process had already exited normally before this work.
+
+Grid and Copy to Points now use version 2 and Geometry ports. Old version-1
+records stay unsupported; no runtime migration or aliases were added. Current
+handoff/render tests use explicitly re-authored M5b fixture copies. Rhai 1.26.1
+runs in-process with a closed host API; source edits require no build/restart.
+See `skills/fold/references/wrangle.md` for public contracts and verified examples.
+
+Physical artist acceptance and the pre-existing desktop-freeze investigation
+remain open. Do not advance M6. The older process paths and status below are
+historical; inspect running processes before assuming any session survives.
+
+### Previous M5a report
+
+**Latest report:** After commit `6db32c6`, the user reported UI corruption and a
+freeze, but cannot recall the trigger. Desktop workflow acceptance is reopened.
+Read [the incident record](evidence/m5a-desktop-freeze.md). A recovery copy is
+running under `/tmp/fold-freeze-diagnosis/monitor.py`; preserve that process and
+inspect its event/desktop logs if the user reports another freeze. No fix has
+been established. The earlier passing evidence below does not dismiss this report.
+
 The compositor cutover and mixed-scene implementation are complete in this
 continuation. Read the [final cutover record](evidence/m5a-compositor-cutover/result.md)
 and [28-operation audit](m5a-compositor-inventory.md) before starting new work.

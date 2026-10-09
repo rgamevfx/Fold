@@ -21,6 +21,7 @@ serde.workspace = true
 serde_json = { workspace = true, features = ["float_roundtrip"] }
 schemars.workspace = true
 sha2 = "0.10"
+rhai = { version = "=1.26.1", features = ["serde", "sync", "metadata"] }
 
 [lints]
 workspace = true

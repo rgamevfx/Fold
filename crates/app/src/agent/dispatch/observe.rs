@@ -117,10 +117,10 @@ impl Measurement<'_> {
                 let mut instances = vec![];
                 for instance in &collection.instances {
                     self.step()?;
-                    instances.push(json!({"id":instance.id,"source_point":instance.source_point,"position":instance.position,"scale":instance.scale,"rotation_z":instance.rotation_z,"color":instance.color}));
+                    instances.push(json!({"id":instance.id,"source_point":instance.source_point,"position":instance.position,"scale":instance.scale,"rotation_z":instance.rotation_z,"orient":instance.orient,"color":instance.color}));
                 }
                 let bounds = json!(bounds);
-                self.geometries.insert(geometry.id, json!({"id":geometry.id,"unit":geometry.unit,"space":geometry.space,"prototype":collection.prototype.id,"distribution":collection.distribution.id,"instances":instances,"bounds":bounds,"bounds_kind":"mesh"}));
+                self.geometries.insert(geometry.id, json!({"id":geometry.id,"unit":geometry.unit,"space":geometry.space,"prototype":collection.prototype.id,"attributes":geometry.attributes,"distribution":collection.distribution.id,"instances":instances,"bounds":bounds,"bounds_kind":"mesh"}));
                 return Ok(bounds);
             }
             GeometryData::Solids(solids) => return self.solids(geometry, solids),
@@ -138,7 +138,7 @@ impl Measurement<'_> {
                 }
                 self.points += mesh.prepared.mesh.positions.len();
                 let bounds = json!(bounds);
-                self.geometries.insert(geometry.id, json!({"id":geometry.id,"unit":geometry.unit,"space":geometry.space,"bounds":bounds,"bounds_kind":"mesh","mesh":{"vertex_ids":mesh.vertex_ids,"face_ids":mesh.face_ids,"positions":mesh.prepared.mesh.positions,"normals":mesh.prepared.mesh.normals,"indices":mesh.prepared.mesh.indices,"uv":mesh.prepared.uv,"regions":mesh.prepared.regions,"source_vertices":mesh.prepared.source_vertices,"source_geometry":mesh.prepared.source_geometry},"precision":"f32"}));
+                self.geometries.insert(geometry.id, json!({"id":geometry.id,"unit":geometry.unit,"space":geometry.space,"bounds":bounds,"bounds_kind":"mesh","mesh":{"vertex_ids":mesh.vertex_ids,"face_ids":mesh.face_ids,"positions":mesh.prepared.mesh.positions,"normals":mesh.prepared.mesh.normals,"indices":mesh.prepared.mesh.indices,"uv":mesh.prepared.uv,"regions":mesh.prepared.regions,"source_vertices":mesh.prepared.source_vertices,"source_geometry":mesh.prepared.source_geometry},"attributes":geometry.attributes,"precision":"f32"}));
                 return Ok(bounds);
             }
             GeometryData::Contours(contours) => contours,
@@ -424,22 +424,9 @@ impl Measurement<'_> {
     }
     fn value(&mut self, value: &evaluation::Value) -> Result<Value, Failure> {
         match value {
-            evaluation::Value::Points(stream) => {
-                let mut bounds = None;
-                let mut points = Vec::with_capacity(stream.points.len());
-                for point in &stream.points {
-                    self.step()?;
-                    include3(&mut bounds, point.position)?;
-                    points.push(json!({"id":point.id,"cell":point.cell,"position":point.position}));
-                }
-                self.points += points.len();
-                Ok(
-                    json!({"kind":"points","id":stream.id,"space":stream.space,"unit":stream.unit,"points":points,"bounds":bounds,"bounds_kind":"points","identity_policy":"grid_cell","ordering":"row_major"}),
-                )
-            }
             evaluation::Value::Primitive(value) => Ok(json!({"kind":"primitive","value":value})),
             evaluation::Value::Geometry(geometry) => Ok(
-                json!({"kind":"geometry","id":geometry.id,"bounds":self.geometry(geometry)?,"bounds_kind":bounds_kind(geometry),"appearance":geometry.appearance}),
+                json!({"kind":"geometry","id":geometry.id,"bounds":self.geometry(geometry)?,"bounds_kind":bounds_kind(geometry),"appearance":geometry.appearance,"attributes":geometry.attributes}),
             ),
             evaluation::Value::Placement(placement) => {
                 Ok(json!({"kind":"placement","placement":self.placement(placement)?}))
@@ -538,6 +525,7 @@ mod tests {
             remaining: 0,
         };
         let geometry = Geometry {
+            attributes: Default::default(),
             id: 1,
             space: fold_motion::types::Space::Screen,
             unit: fold_motion::types::Unit::Canvas,

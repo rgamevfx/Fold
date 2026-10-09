@@ -200,6 +200,7 @@ impl State<'_> {
             )?);
         }
         Ok(Value::Geometry(Arc::new(Geometry {
+            attributes: Default::default(),
             id: geometry_id,
             space: Space::Screen,
             unit: Unit::Canvas,

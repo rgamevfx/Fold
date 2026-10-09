@@ -4,6 +4,7 @@ mod graph_templates;
 mod instance;
 mod keyframes;
 mod literal;
+mod procedural;
 mod ramp;
 use literal::draw as literal;
 mod presentation;
@@ -333,6 +334,7 @@ impl Panel for Inspector {
                         ui.text_disabled("Unresolved operation · Edit in Source");
                         continue;
                     };
+                    procedural::schema(ui, node, &locked, &mut response);
                     for (name, parameter) in &mut node.parameters {
                         let _id = UiId {
                             package: crate::PACKAGE,

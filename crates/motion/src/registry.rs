@@ -1,6 +1,7 @@
 //! Single contract authority for native operations. A declaration is not execution qualification.
 mod animator;
 mod distribution;
+mod procedural;
 mod profile;
 mod spatial;
 mod style;
@@ -80,6 +81,10 @@ pub enum Builtin {
     BoxMesh,
     SphereMesh,
     Grid,
+    AttributeCreate,
+    AttributeRandomize,
+    AttributeTransfer,
+    Wrangle,
     Cloner,
     InstanceScale,
     InstanceColor,
@@ -333,6 +338,7 @@ pub fn operations() -> &'static [Operation] {
         ];
         entries.extend(animator::operations());
         entries.extend(distribution::operations());
+        entries.extend(procedural::operations());
         entries.extend(spatial::operations());
         entries.extend(style::operations());
         entries.extend(text::operations());
@@ -633,7 +639,7 @@ pub fn node_schema() -> Value {
 }
 /// The same records supply editor labels/defaults, discoverable references and declarations.
 pub fn catalog() -> Value {
-    json!({"operations":operations(),"language":operations().iter().map(Operation::declaration).collect::<Vec<_>>(),"node_schema":node_schema()})
+    json!({"wrangle":{"language":"rhai","version":"1.26.1","functions":crate::evaluation::wrangle::reference(),"run_over":["detail","point","primitive","corner","edge","instance"],"clock":"asset time; exact time_numerator/time_denominator plus seconds time","result":"Return Geometry as the final expression","attributes":"Cd: linear Rec.709 RGB vec3; P: World meters vec3; N: unitless normal vec3; orient: World quaternion"},"operations":operations(),"language":operations().iter().map(Operation::declaration).collect::<Vec<_>>(),"node_schema":node_schema()})
 }
 
 #[cfg(test)]

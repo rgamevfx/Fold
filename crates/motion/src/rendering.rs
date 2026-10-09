@@ -142,21 +142,34 @@ fn prepare_spatial(
                     return Err(Error::Budget);
                 }
                 let mut copies = Vec::with_capacity(collection.instances.len());
-                for instance in &collection.instances {
+                for (index, instance) in collection.instances.iter().enumerate() {
                     step()?;
                     copies.push((
                         Some(instance.id),
                         instance.position,
                         instance.scale,
                         instance.rotation_z,
-                        instance.color.as_ref().map(|color| color.value),
+                        instance.orient,
+                        instance
+                            .color
+                            .as_ref()
+                            .map(|color| color.value)
+                            .or_else(|| {
+                                placement
+                                    .geometry
+                                    .attributes
+                                    .get(evaluation::attributes::Domain::Instance, "Cd")
+                                    .and_then(|a| a.values.get(index))
+                                    .and_then(|v| evaluation::attributes::xyz(v).ok())
+                                    .map(|c| [c[0], c[1], c[2], material.color.value[3]])
+                            }),
                     ));
                 }
                 (collection.prototype.as_ref(), copies)
             } else {
                 (
                     placement.geometry.as_ref(),
-                    vec![(None, [0.; 3], 1., 0., None)],
+                    vec![(None, [0.; 3], 1., 0., [0., 0., 0., 1.], None)],
                 )
             };
         let mut parts = vec![];
@@ -194,7 +207,7 @@ fn prepare_spatial(
         {
             return Err(Error::Budget);
         }
-        for (copy_id, position, scale, rotation_z, instance_color) in copies {
+        for (copy_id, position, scale, rotation_z, orient, instance_color) in copies {
             let material_id = match (copy_id, instance_color) {
                 (Some(copy), Some(_)) => {
                     copied_resource(b"fold.motion.render.material.v1", entry.id, copy, 0)
@@ -251,7 +264,14 @@ fn prepare_spatial(
                     },
                     mesh: mesh_id,
                     material: material_id,
-                    transform: instance_transform(world, position, scale, rotation_z, translation),
+                    transform: instance_transform(
+                        world,
+                        position,
+                        scale,
+                        rotation_z,
+                        orient,
+                        translation,
+                    ),
                 });
             }
         }
@@ -270,9 +290,26 @@ fn instance_transform(
     position: [f64; 3],
     scale: f64,
     angle: f64,
+    orient: [f64; 4],
     translation: [f64; 3],
 ) -> render::Transform {
     let (half_sin, half_cos) = (angle * 0.5).sin_cos();
+    if orient != [0., 0., 0., 1.] {
+        let copy = fold_foundation::affine::Affine::trs(
+            position,
+            [0., 0., half_sin, half_cos],
+            [scale; 3],
+        )
+        .compose(fold_foundation::affine::Affine::trs(
+            [0.; 3], orient, [1.; 3],
+        ));
+        return render::Transform {
+            affine: Some(world.matrix().compose(copy).compose(
+                fold_foundation::affine::Affine::trs(translation, [0., 0., 0., 1.], [1.; 3]),
+            )),
+            ..Default::default()
+        };
+    }
     let copy =
         fold_foundation::affine::Affine::trs(position, [0., 0., half_sin, half_cos], [scale; 3]);
     if world.affine.is_none() && (angle == 0. || world.scale[0] == world.scale[1]) {

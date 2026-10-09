@@ -650,7 +650,7 @@ fn handoff_properties(value: &Construction) -> Value {
 fn integrated_ramp_key_lock_and_layout_survive_public_field_handoff() {
     let fixture = fold_project::load(
         Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../docs/rewrite/evidence/m5-controls-baseline.fold"),
+            .join("../../docs/rewrite/evidence/m5b-controls-baseline.fold"),
         32,
     )
     .unwrap();
@@ -948,7 +948,7 @@ fn integrated_ramp_key_lock_and_layout_survive_public_field_handoff() {
 fn cli_and_mcp_return_identical_revision_bound_frames() {
     let project = fold_project::load(
         Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../docs/rewrite/evidence/m5-controls-baseline.fold"),
+            .join("../../docs/rewrite/evidence/m5b-controls-baseline.fold"),
         32,
     )
     .unwrap();
@@ -1027,7 +1027,7 @@ fn cli_and_mcp_return_identical_revision_bound_frames() {
 #[test]
 fn cli_and_mcp_save_committed_project_copies_with_exact_retry_and_reopen() {
     let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../docs/rewrite/evidence/m5-controls-baseline.fold");
+        .join("../../docs/rewrite/evidence/m5b-controls-baseline.fold");
     let mut archives = vec![];
     for transport in [Transport::Cli, Transport::Mcp] {
         let project = fold_project::load(&fixture, 32).unwrap();

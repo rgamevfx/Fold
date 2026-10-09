@@ -1,5 +1,7 @@
 //! Immutable CPU reference snapshots. Rendering consumes their geometry later.
 mod animator;
+mod attribute_nodes;
+pub mod attributes;
 pub mod cloner;
 pub mod distribution;
 pub mod extrude;
@@ -14,6 +16,7 @@ pub mod style;
 pub mod text;
 mod text_animator;
 mod transform;
+pub mod wrangle;
 use crate::{
     binding::Binding,
     execution::{Budget, Context},
@@ -46,6 +49,7 @@ pub enum GeometryData {
 }
 #[derive(Clone, Debug, PartialEq)]
 pub struct Geometry {
+    pub attributes: attributes::Attributes,
     /// Topology identity is shared by appearance-only branches.
     pub id: u64,
     pub space: Space,
@@ -76,7 +80,6 @@ pub struct Scene {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Value {
     Primitive(Literal),
-    Points(Arc<distribution::Points>),
     Geometry(Arc<Geometry>),
     Placement(Arc<Placement>),
     Scene(Arc<Scene>),
@@ -531,6 +534,7 @@ impl State<'_> {
                     });
                 }
                 Value::Geometry(Arc::new(Geometry {
+                    attributes: Default::default(),
                     id: geometry_id,
                     space: Space::Screen,
                     unit: Unit::Canvas,
@@ -558,6 +562,42 @@ impl State<'_> {
             Builtin::LinearField => self.linear_field(scope, id, &args)?,
             Builtin::InstanceRandom => self.instance_random(scope, id, &args)?,
             Builtin::Cloner => self.cloner(scope, id, &args)?,
+            Builtin::AttributeCreate | Builtin::AttributeRandomize | Builtin::AttributeTransfer => {
+                self.attribute_node(scope, id, &args, operation.builtin)?
+            }
+            Builtin::Wrangle => {
+                let Binding::List { values } = &operation.bindings["inputs"] else {
+                    return Err("Wrangle inputs must be a list".into());
+                };
+                let mut inputs = Vec::new();
+                for binding in values {
+                    let Value::Geometry(g) = self.binding(scope, id, binding)? else {
+                        return Err("Wrangle inputs require geometry".into());
+                    };
+                    inputs.push(g);
+                }
+                let source = attribute_nodes::text(&args, "source")?;
+                let domain = attribute_nodes::text(&args, "run_over")?;
+                let parameters = attribute_nodes::text(&args, "parameters")?;
+                let seed = self.identity(scope, id, 0, b"wrangle")?;
+                let geometry = wrangle::evaluate(
+                    source,
+                    domain,
+                    parameters,
+                    inputs,
+                    duration("time")?,
+                    seed,
+                    self.remaining_elements,
+                    &mut self.budget,
+                )?;
+                self.reserve(
+                    geometry
+                        .count(attributes::Domain::Point)
+                        .or_else(|_| geometry.count(attributes::Domain::Instance))?
+                        + 1,
+                )?;
+                Value::Geometry(Arc::new(geometry))
+            }
             Builtin::Grid => self.grid(scope, id, &args)?,
             Builtin::BoxMesh => self.box_mesh(scope, id, &args)?,
             Builtin::SphereMesh => self.sphere_mesh(scope, id, &args)?,

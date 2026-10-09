@@ -232,6 +232,7 @@ impl State<'_> {
             )?);
         }
         Ok(Value::Geometry(Arc::new(Geometry {
+            attributes: Default::default(),
             id: topology,
             space: Space::World,
             unit: Unit::Meters,
@@ -294,6 +295,7 @@ mod tests {
                 .collect(),
         };
         let source = Geometry {
+            attributes: Default::default(),
             id: 123,
             space: Space::Screen,
             unit: Unit::Canvas,

@@ -10,7 +10,7 @@ fn saved_integrated_motion_renders_required_times_and_retains_frames() {
     let project = fold_project::load(
         std::path::Path::new(concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../../demos/m5-integrated.fold"
+            "/../../demos/m5b-integrated.fold"
         )),
         8,
     )
@@ -145,7 +145,7 @@ fn saved_control_variation_changes_rendered_text_and_palette_without_mutating_he
     let mut baseline_pixels: Option<Vec<[f32; 4]>> = None;
     for name in ["baseline", "variation", "baseline"] {
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(format!(
-            "../../docs/rewrite/evidence/m5-controls-{name}.fold"
+            "../../docs/rewrite/evidence/m5b-controls-{name}.fold"
         ));
         let project = fold_project::load(&path, 8).unwrap();
         let snapshot = project.snapshot();

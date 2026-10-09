@@ -12,13 +12,13 @@ fn fixture() -> (Construction, ObjectId) {
     let mut c =
         Construction::from_document(&fold_motion::package::create(DocumentId::new()).unwrap())
             .unwrap();
-    let grid = registry::resolve("fold.motion.distribute", 1, "grid")
+    let grid = registry::resolve("fold.motion.distribute", 2, "grid")
         .unwrap()
         .node("Grid", Default::default())
         .unwrap();
     let id = grid.id;
     c.definitions[0].nodes = vec![grid];
-    c.definitions[0].outputs[0].ty = Type::Points;
+    c.definitions[0].outputs[0].ty = Type::Geometry;
     c.definitions[0].outputs[0].value = Reference::Node { node: id }.into();
     (c, id)
 }
@@ -28,11 +28,30 @@ fn set(c: &mut Construction, key: &str, value: Literal) {
         Parameter::new(Binding::Literal { value }).unwrap(),
     );
 }
-fn points(
-    c: &Construction,
-    time: Time,
-) -> std::sync::Arc<fold_motion::evaluation::distribution::Points> {
-    let Value::Points(points) = Prepared::new(c.clone())
+#[derive(Clone)]
+struct Sample {
+    id: u64,
+    cell: [u32; 2],
+    position: [f64; 3],
+}
+struct GridView {
+    id: u64,
+    points: Vec<Sample>,
+    space: Space,
+    unit: Unit,
+}
+fn samples(g: &fold_motion::evaluation::Geometry, columns: usize) -> Vec<Sample> {
+    use fold_motion::evaluation::attributes::Domain;
+    (0..g.count(Domain::Point).unwrap())
+        .map(|i| Sample {
+            id: g.element_id(Domain::Point, i).unwrap(),
+            cell: [(i % columns) as u32, (i / columns) as u32],
+            position: g.position(Domain::Point, i).unwrap(),
+        })
+        .collect()
+}
+fn points(c: &Construction, time: Time) -> GridView {
+    let Value::Geometry(points) = Prepared::new(c.clone())
         .unwrap()
         .evaluate(
             c.definitions[0].outputs[0].id,
@@ -44,7 +63,20 @@ fn points(
     else {
         panic!()
     };
-    points
+    let Binding::Literal {
+        value: Literal::Integer { value: columns },
+    } = c.definitions[0].nodes[0].parameters["columns"]
+        .binding()
+        .unwrap()
+    else {
+        panic!()
+    };
+    GridView {
+        id: points.id,
+        points: samples(&points, columns as usize),
+        space: points.space,
+        unit: points.unit,
+    }
 }
 #[test]
 fn centered_grid_preserves_cell_identity_through_growth_spacing_and_time() {
@@ -72,8 +104,8 @@ fn centered_grid_preserves_cell_identity_through_growth_spacing_and_time() {
     );
     for (index, p) in initial.points.iter().enumerate() {
         assert_eq!(p.cell, [(index % 20) as u32, (index / 20) as u32]);
-        assert!((p.position[0] - (p.cell[0] as f64 * 0.12 - 1.14)).abs() < 1e-12);
-        assert!((p.position[1] - (p.cell[1] as f64 * 0.12 - 0.66)).abs() < 1e-12);
+        assert!((p.position[0] - (p.cell[0] as f64 * 0.12 - 1.14)).abs() < 1e-6);
+        assert!((p.position[1] - (p.cell[1] as f64 * 0.12 - 0.66)).abs() < 1e-6);
         assert_eq!(p.position[2], 0.);
     }
     set(&mut c, "columns", Literal::Integer { value: 21 });
@@ -108,8 +140,8 @@ fn centered_grid_preserves_cell_identity_through_growth_spacing_and_time() {
             if let Some(old) = ids.get(&p.cell) {
                 assert_eq!(*old, p.id);
             }
-            assert!((p.position[0] - (p.cell[0] as f64 * 0.2 - 1.)).abs() < 1e-12);
-            assert!((p.position[1] - (p.cell[1] as f64 * 0.3 + 0.2)).abs() < 1e-12);
+            assert!((p.position[0] - (p.cell[0] as f64 * 0.2 - 1.)).abs() < 1e-6);
+            assert!((p.position[1] - (p.cell[1] as f64 * 0.3 + 0.2)).abs() < 1e-6);
             assert_eq!(p.position[2], 3.);
         }
     }
@@ -200,10 +232,18 @@ fn cloner_fixture() -> (Construction, ObjectId) {
         reference: Reference::Node { node }.into(),
     };
     let node = |key: &str, mode: &str, name: &str, bindings| {
-        registry::resolve(&format!("fold.motion.{key}"), 1, mode)
-            .unwrap()
-            .node(name, bindings)
-            .unwrap()
+        registry::resolve(
+            &format!("fold.motion.{key}"),
+            if matches!(key, "distribute" | "cloner") {
+                2
+            } else {
+                1
+            },
+            mode,
+        )
+        .unwrap()
+        .node(name, bindings)
+        .unwrap()
     };
     let prototype = node("mesh", "box", "Box", BTreeMap::new());
     let prototype_id = prototype.id;
@@ -318,7 +358,7 @@ fn cloner_keeps_one_prototype_and_cell_correspondence_through_growth_and_mesh_ed
         for ((instance, point), rendered) in collection
             .instances
             .iter()
-            .zip(&collection.distribution.points)
+            .zip(samples(&collection.distribution, columns as usize))
             .zip(&frame.scene.instances)
         {
             assert_eq!(instance.source_point, point.id);
@@ -570,7 +610,7 @@ fn moving_radial_field_samples_upstream_instances_and_reaches_shared_render_mesh
         for ((instance, point), rendered) in collection
             .instances
             .iter()
-            .zip(&collection.distribution.points)
+            .zip(samples(&collection.distribution, 20))
             .zip(&frame.scene.instances)
         {
             let distance = (0..3)
@@ -749,10 +789,18 @@ fn color_ramp_animates_instances_preserving_scale_prototype_and_material_setting
         reference: Reference::Node { node }.into(),
     };
     let node = |key: &str, mode: &str, name: &str, bindings| {
-        registry::resolve(&format!("fold.motion.{key}"), 1, mode)
-            .unwrap()
-            .node(name, bindings)
-            .unwrap()
+        registry::resolve(
+            &format!("fold.motion.{key}"),
+            if matches!(key, "distribute" | "cloner") {
+                2
+            } else {
+                1
+            },
+            mode,
+        )
+        .unwrap()
+        .node(name, bindings)
+        .unwrap()
     };
     let vector = |value| Binding::Literal {
         value: Literal::Vector {
@@ -1093,8 +1141,8 @@ fn linear_field_projects_animated_endpoints_clamps_and_preserves_instances() {
         ];
         let delta: [f64; 3] = std::array::from_fn(|i| end[i] - start[i]);
         for (index, instance) in collection.instances.iter().enumerate() {
-            let x = (index % 20) as f64 * 0.12 - 19. * 0.06;
-            let y = (index / 20) as f64 * 0.12 - 11. * 0.06;
+            let x = ((index % 20) as f64 * 0.12 - 19. * 0.06) as f32 as f64;
+            let y = ((index / 20) as f64 * 0.12 - 11. * 0.06) as f32 as f64;
             let amount = ((x - start[0]) * delta[0] + (y - start[1]) * delta[1]
                 - start[2] * delta[2])
                 / delta.iter().map(|v| v * v).sum::<f64>();

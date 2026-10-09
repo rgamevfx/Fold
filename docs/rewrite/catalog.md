@@ -1,6 +1,6 @@
 # Initial operation coverage
 
-All keys below are suffixes of `fold.motion.`; initial version is 1. This is a planned-home matrix, not discovery advertising. M2 modes must qualify in M3; M5 rendering depends on M4. Remaining family modes described in the proposal belong to M7 unless explicitly assigned M8. Each M7 row requires its own mode fixtures before implementation; none is claimed complete.
+All keys below are suffixes of `fold.motion.`; initial version is 1; the M5b Grid and Copy to Points contracts use version 2. This is a planned-home matrix, not discovery advertising. M2 modes must qualify in M3; M5 rendering depends on M4. Remaining family modes described in the proposal belong to M7 unless explicitly assigned M8. Each M7 row requires its own mode fixtures before implementation; none is claimed complete.
 
 | Palette | Key | First phase | Initial modes | Domains | Dependencies | Acceptance fixture |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -66,3 +66,24 @@ native operation/parameter/edge records under schema 8. Public discovery exposes
 native default records and named typed sockets. Useful image kernels remain
 specialized; no Motion dependency, old document reader or Parameters-tag protocol
 alias remains. Qualification and limitations are in the linked cutover evidence.
+
+## M5b foundation addition — 9 October 2026
+
+The [M5b phase](../Motion_System_Rewrite_Plan.md#m5b--geometry-attributes-and-live-rhai-wrangle)
+adds the following contracts before M6. Rows describe implemented scope awaiting
+phase acceptance, not a waiver of M7's broader operation requirements.
+
+| Key / mode | Scope | Evidence target |
+| --- | --- | --- |
+| `distribute.grid` | Ordinary triangulated mesh with point/primitive/corner/edge domains and cell identities | Native sphere workflow |
+| `cloner.points` | Mesh point sources, selected attributes on shared instances, quaternion orientation and scalar size | Native sphere workflow |
+| `attribute_create.set` | Named typed attributes on qualified domains | Procedural tests / public observation |
+| `attribute_randomize.uniform` | Stable seeded float/integer/vector/quaternion values | Procedural tests / sphere graph |
+| `attribute_transfer.radius` | Nearest or falloff blend in a common coordinate space | Radius/missing/type tests |
+| `wrangle.rhai` | Optional inputs, geometry/attribute editing and generation, native parameters and arbitrary-time evaluation | Live source / save-reopen / rendered animation |
+
+Wrangle extends the original 50-operation catalog. Attribute nodes share the
+geometry model rather than implementing a parallel engine. Attribute Promote,
+attribute expressions, selection/group operations, Scatter, Resample and the
+other discussed foundational families require their own qualification; the
+current runtime does not silently complete their catalog obligations.

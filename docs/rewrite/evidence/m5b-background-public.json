@@ -1,0 +1,1154 @@
+{
+  "original": "motion 1;\nseed 0;\ncanvas {\"width\":1920,\"height\":1080,\"rate\":[30,1],\"start\":{\"numerator\":0,\"denominator\":1},\"end\":{\"numerator\":4,\"denominator\":1}};\nasset \"Box\" @{\"id\":\"647fdc73-812f-4a20-ad12-47268da71df9\"} {\n  let \"Sphere\" @{\"id\":\"9715f9c6-c0de-508d-ae70-d196c6178459\"} = \"fold.motion.mesh\".\"sphere\" @1 (\n    \"radius\" @{\"id\":\"ba614e47-e94b-5152-b782-20cc39e2499c\",\"protected\":false} = value(0.18m);\n  );\n  unresolved {\"id\":\"efac6a66-6919-5863-8e7d-878debba83d4\",\"name\":\"Points\",\"operation\":\"fold.motion.distribute\",\"version\":1,\"mode\":\"grid\",\"parameters\":{\"center\":{\"id\":\"89f09e8d-1919-59a6-a666-d0813d95cf12\",\"value\":{\"kind\":\"literal\",\"value\":{\"kind\":\"vector\",\"space\":\"world\",\"unit\":\"meters\",\"value\":[0.0,-0.9,0.0]}},\"protected\":false},\"columns\":{\"id\":\"dc98e699-a295-5e9e-bdb3-828849fa4762\",\"value\":{\"kind\":\"literal\",\"value\":{\"kind\":\"integer\",\"value\":11}},\"protected\":false},\"rows\":{\"id\":\"80e21986-e0a6-5b09-b5b9-37f25d54f6d5\",\"value\":{\"kind\":\"literal\",\"value\":{\"kind\":\"integer\",\"value\":4}},\"protected\":false},\"spacing\":{\"id\":\"b9733872-ad33-5b19-949a-6f4311c2587d\",\"value\":{\"kind\":\"literal\",\"value\":{\"kind\":\"vector\",\"space\":\"world\",\"unit\":\"meters\",\"value\":[0.57,0.53]}},\"protected\":false}}};\n  unresolved {\"id\":\"f6e5d5c7-bf0c-5f57-ba10-be6c04d29236\",\"name\":\"Copy to Points\",\"operation\":\"fold.motion.cloner\",\"version\":1,\"mode\":\"points\",\"parameters\":{\"points\":{\"id\":\"be1c7ba3-68f8-5936-ada6-ee8e3862d959\",\"value\":{\"kind\":\"link\",\"reference\":{\"id\":\"a9a473fd-2760-5f53-bbfb-34c7d7286705\",\"target\":{\"kind\":\"node\",\"node\":\"efac6a66-6919-5863-8e7d-878debba83d4\"}}},\"protected\":false},\"prototype\":{\"id\":\"bb867178-5867-5311-a110-3abebf02544b\",\"value\":{\"kind\":\"link\",\"reference\":{\"id\":\"ad873fba-18dd-5278-98c9-ead545ed2bfd\",\"target\":{\"kind\":\"node\",\"node\":\"9715f9c6-c0de-508d-ae70-d196c6178459\"}}},\"protected\":false}}};\n  let \"Random colors\" @{\"id\":\"b4d3a420-eb0c-548b-bd67-c432822ad9b2\"} = \"fold.motion.random\".\"uniform\" @1 (\n    \"maximum\" @{\"id\":\"3838c36e-9f4e-558d-bc56-462646527249\",\"protected\":false} = value(1);\n    \"minimum\" @{\"id\":\"5e1ef348-5f10-523c-b137-9f0d753c609d\",\"protected\":false} = value(0);\n    \"stream\" @{\"id\":\"6200cafb-f181-5b2f-8d29-311daa1df52f\",\"protected\":false} = value(\"variation\");\n  );\n  let \"Palette\" @{\"id\":\"e6d7fcb4-7bac-5a78-8bb4-2e2037d5774e\"} = \"fold.motion.ramp\".\"color_linear\" @1 (\n    \"position\" @{\"id\":\"c62970ba-fc09-5144-9518-e50d307cc083\",\"protected\":false} = link($\"Random colors\" @{\"id\":\"80a93c24-ff8c-5754-88bb-2c6066f01f78\"});\n    \"stops\" @{\"id\":\"2186b291-0e65-536b-ab69-465054e6727f\",\"protected\":false} = ramp({\"id\":\"936ea4c2-a80a-5133-bb16-61b391f24b83\",\"ty\":{\"kind\":\"color\",\"encoding\":\"linear_rec709\",\"alpha\":\"straight\"},\"stops\":[{\"id\":\"1a7e0579-c8c3-5c38-81cd-b0284525a5ab\",\"position\":0.0,\"value\":{\"kind\":\"color\",\"value\":[1.0,0.07,0.025,1.0],\"encoding\":\"linear_rec709\",\"alpha\":\"straight\"}},{\"id\":\"07f9bad6-301c-5e5f-bccb-96af991e24a5\",\"position\":0.2,\"value\":{\"kind\":\"color\",\"value\":[1.0,0.42,0.035,1.0],\"encoding\":\"linear_rec709\",\"alpha\":\"straight\"}},{\"id\":\"d7123067-15f7-582b-8873-798be1c220a4\",\"position\":0.4,\"value\":{\"kind\":\"color\",\"value\":[0.05,0.55,0.36,1.0],\"encoding\":\"linear_rec709\",\"alpha\":\"straight\"}},{\"id\":\"5c99514c-24d5-5ffd-9b3e-ea1aafae0423\",\"position\":0.6,\"value\":{\"kind\":\"color\",\"value\":[0.06,0.16,0.95,1.0],\"encoding\":\"linear_rec709\",\"alpha\":\"straight\"}},{\"id\":\"4a0718e8-ae0b-5a4e-9749-02feef7c1fde\",\"position\":0.8,\"value\":{\"kind\":\"color\",\"value\":[0.42,0.06,0.9,1.0],\"encoding\":\"linear_rec709\",\"alpha\":\"straight\"}},{\"id\":\"1a779bdb-7f52-5bd3-9609-9ba7c5e1c5ec\",\"position\":1.0,\"value\":{\"kind\":\"color\",\"value\":[0.96,0.19,0.5,1.0],\"encoding\":\"linear_rec709\",\"alpha\":\"straight\"}}]});\n  );\n  let \"Color copies\" @{\"id\":\"00530062-595d-5b07-ae0d-4f8ff2b9299f\"} = \"fold.motion.animator\".\"color_replace\" @1 (\n    \"color\" @{\"id\":\"b4bd68bf-6f05-59e8-8ff2-e23b410bc3fb\",\"protected\":false} = link($\"Palette\" @{\"id\":\"ec22d9bf-230b-592b-a967-02b590fdedb9\"});\n    \"geometry\" @{\"id\":\"3c08eead-a40e-504a-8c3f-44bab275679e\",\"protected\":false} = link($\"Copy to Points\" @{\"id\":\"ee0a604e-bad2-57d3-ab39-9115ecdd5784\"});\n  );\n  let \"Soft material\" @{\"id\":\"73da2f61-446d-5fc2-a0ec-9901f5dfcd70\"} = \"fold.motion.material\".\"lit\" @1 (\n    \"color\" @{\"id\":\"45b28242-d17e-5a6a-b2a7-9ba456eb49fb\",\"protected\":false} = value(literal({\"kind\":\"color\",\"value\":[1.0,1.0,1.0,1.0],\"encoding\":\"linear_rec709\",\"alpha\":\"straight\"}));\n    \"geometry\" @{\"id\":\"676d2a6e-e755-5004-b025-d213320c95fa\",\"protected\":false} = link($\"Color copies\" @{\"id\":\"9d7caee1-cb88-59cb-a3e3-d1087b2f9789\"});\n    \"reflectance\" @{\"id\":\"871c92a9-ee94-5425-b18d-23f1bfa124da\",\"protected\":false} = value(0.5);\n    \"roughness\" @{\"id\":\"a92b57a9-4dbe-5810-a4e6-7686436f3953\",\"protected\":false} = value(0.3);\n  );\n  output \"main\" @{\"id\":\"38955edb-5dda-40ba-9c67-b515c05a309e\"} : {\"kind\":\"geometry\"} = $\"Soft material\" @{\"id\":\"22acea32-0bf1-5879-91da-f3db5f315754\"};\n}\nroot \"Box\" @{\"id\":\"a8fe73a6-6ef4-49cf-89b4-73fa1966b578\"} = \"Box\" clock {\"offset\":{\"numerator\":0,\"denominator\":1},\"rate\":{\"numerator\":1,\"denominator\":1}} {\n};\npresentation {\"positions\":{\"00530062-595d-5b07-ae0d-4f8ff2b9299f\":[680.0,0.0],\"73da2f61-446d-5fc2-a0ec-9901f5dfcd70\":[1020.0,0.0],\"9715f9c6-c0de-508d-ae70-d196c6178459\":[0.0,0.0],\"b4d3a420-eb0c-548b-bd67-c432822ad9b2\":[0.0,540.0],\"e6d7fcb4-7bac-5a78-8bb4-2e2037d5774e\":[340.0,540.0],\"efac6a66-6919-5863-8e7d-878debba83d4\":[0.0,270.0],\"f6e5d5c7-bf0c-5f57-ba10-be6c04d29236\":[340.0,0.0]},\"groups\":[],\"annotations\":{}};\nextensions {};\n",
+  "source": "motion 1;\nseed 0;\ncanvas {\"width\":1920,\"height\":1080,\"rate\":[30,1],\"start\":{\"numerator\":0,\"denominator\":1},\"end\":{\"numerator\":4,\"denominator\":1}};\nasset \"Box\" @{\"id\":\"647fdc73-812f-4a20-ad12-47268da71df9\"} {\n  let \"Sphere\" @{\"id\":\"9715f9c6-c0de-508d-ae70-d196c6178459\"} = \"fold.motion.mesh\".\"sphere\" @1 (\n    \"radius\" @{\"id\":\"ba614e47-e94b-5152-b782-20cc39e2499c\",\"protected\":false} = value(0.18m);\n  );\n  let \"Grid\" @{\"id\":\"efac6a66-6919-5863-8e7d-878debba83d4\"} = \"fold.motion.distribute\".\"grid\" @2 (\n    \"center\" @{\"id\":\"89f09e8d-1919-59a6-a666-d0813d95cf12\",\"protected\":false} = value(literal({\"kind\":\"vector\",\"value\":[0.0,-0.9,0.0],\"unit\":\"meters\",\"space\":\"world\"}));\n    \"columns\" @{\"id\":\"dc98e699-a295-5e9e-bdb3-828849fa4762\",\"protected\":false} = value(11i);\n    \"rows\" @{\"id\":\"80e21986-e0a6-5b09-b5b9-37f25d54f6d5\",\"protected\":false} = value(4i);\n    \"spacing\" @{\"id\":\"b9733872-ad33-5b19-949a-6f4311c2587d\",\"protected\":false} = value(literal({\"kind\":\"vector\",\"value\":[0.57,0.53],\"unit\":\"meters\",\"space\":\"world\"}));\n  );\n  let \"Attribute Randomize\" @{\"id\":\"3fbaa617-9523-5b6f-bab5-dd98ef4d1166\"} = \"fold.motion.attribute_randomize\".\"uniform\" @1 (\n    \"attribute\" @{\"id\":\"67a9c258-a664-5548-a855-8b7258f16ba3\",\"protected\":false} = value(\"Cd\");\n    \"domain\" @{\"id\":\"48a130f2-1715-5232-86c6-8e774e8ab4cf\",\"protected\":false} = value(\"point\");\n    \"geometry\" @{\"id\":\"03327e41-ab83-5585-911a-f155f32f5cd8\",\"protected\":false} = link($\"Grid\" @{\"id\":\"68dc4993-5535-51c4-8727-27c62e882a1d\"});\n    \"maximum\" @{\"id\":\"f79fa7a2-dcc4-5574-b71f-09647185620b\",\"protected\":false} = value(literal({\"kind\":\"vector\",\"value\":[1.0,1.0,1.0],\"unit\":\"unitless\",\"space\":\"world\"}));\n    \"minimum\" @{\"id\":\"0bb65c64-479b-567d-89a0-7c2c235f9dc2\",\"protected\":false} = value(literal({\"kind\":\"vector\",\"value\":[0.03,0.03,0.03],\"unit\":\"unitless\",\"space\":\"world\"}));\n    \"seed\" @{\"id\":\"9ee5e6c3-77ff-50a8-b860-99343ba352b0\",\"protected\":false} = value(0i);\n  );\n  let \"Copy to Points\" @{\"id\":\"f6e5d5c7-bf0c-5f57-ba10-be6c04d29236\"} = \"fold.motion.cloner\".\"points\" @2 (\n    \"attributes\" @{\"id\":\"c937a17b-46cd-51fa-b9a6-0d499c42fd7b\",\"protected\":false} = value(\"Cd\");\n    \"points\" @{\"id\":\"be1c7ba3-68f8-5936-ada6-ee8e3862d959\",\"protected\":false} = link($\"Attribute Randomize\" @{\"id\":\"cbdb182d-ea10-5ee9-b7ea-5fdfbe5dd34c\"});\n    \"prototype\" @{\"id\":\"bb867178-5867-5311-a110-3abebf02544b\",\"protected\":false} = link($\"Sphere\" @{\"id\":\"d9be435d-30ee-5b80-95e1-3f372011afdd\"});\n  );\n  let \"Soft material\" @{\"id\":\"73da2f61-446d-5fc2-a0ec-9901f5dfcd70\"} = \"fold.motion.material\".\"lit\" @1 (\n    \"color\" @{\"id\":\"45b28242-d17e-5a6a-b2a7-9ba456eb49fb\",\"protected\":false} = value(literal({\"kind\":\"color\",\"value\":[1.0,1.0,1.0,1.0],\"encoding\":\"linear_rec709\",\"alpha\":\"straight\"}));\n    \"geometry\" @{\"id\":\"676d2a6e-e755-5004-b025-d213320c95fa\",\"protected\":false} = link($\"Copy to Points\" @{\"id\":\"1dae1a05-efd2-5cd7-9922-932e561a3d19\"});\n    \"reflectance\" @{\"id\":\"871c92a9-ee94-5425-b18d-23f1bfa124da\",\"protected\":false} = value(0.5);\n    \"roughness\" @{\"id\":\"a92b57a9-4dbe-5810-a4e6-7686436f3953\",\"protected\":false} = value(0.3);\n  );\n  output \"main\" @{\"id\":\"38955edb-5dda-40ba-9c67-b515c05a309e\"} : {\"kind\":\"geometry\"} = $\"Soft material\" @{\"id\":\"accd2288-7ad2-5e84-9885-77a44e9ab1d1\"};\n}\nroot \"Box\" @{\"id\":\"a8fe73a6-6ef4-49cf-89b4-73fa1966b578\"} = \"Box\" clock {\"offset\":{\"numerator\":0,\"denominator\":1},\"rate\":{\"numerator\":1,\"denominator\":1}} {\n};\npresentation {\"positions\":{\"38955edb-5dda-40ba-9c67-b515c05a309e\":[1280.0,0.0],\"3fbaa617-9523-5b6f-bab5-dd98ef4d1166\":[320.0,260.0],\"73da2f61-446d-5fc2-a0ec-9901f5dfcd70\":[960.0,0.0],\"9715f9c6-c0de-508d-ae70-d196c6178459\":[0.0,0.0],\"efac6a66-6919-5863-8e7d-878debba83d4\":[0.0,260.0],\"f6e5d5c7-bf0c-5f57-ba10-be6c04d29236\":[640.0,0.0]},\"groups\":[],\"annotations\":{}};\nextensions {};\n",
+  "review": {
+    "epoch": "c2ee6f28-b602-4f0b-9336-49ab5b274e24",
+    "result": {
+      "base": 13,
+      "changes": [
+        {
+          "changes": [
+            {
+              "after": null,
+              "before": {
+                "id": "00530062-595d-5b07-ae0d-4f8ff2b9299f",
+                "mode": "color_replace",
+                "name": "Color copies",
+                "operation": "fold.motion.animator",
+                "parameters": {
+                  "color": {
+                    "id": "b4bd68bf-6f05-59e8-8ff2-e23b410bc3fb",
+                    "protected": false,
+                    "value": {
+                      "kind": "link",
+                      "reference": {
+                        "id": "ec22d9bf-230b-592b-a967-02b590fdedb9",
+                        "target": {
+                          "kind": "node",
+                          "node": "e6d7fcb4-7bac-5a78-8bb4-2e2037d5774e"
+                        }
+                      }
+                    }
+                  },
+                  "geometry": {
+                    "id": "3c08eead-a40e-504a-8c3f-44bab275679e",
+                    "protected": false,
+                    "value": {
+                      "kind": "link",
+                      "reference": {
+                        "id": "ee0a604e-bad2-57d3-ab39-9115ecdd5784",
+                        "target": {
+                          "kind": "node",
+                          "node": "f6e5d5c7-bf0c-5f57-ba10-be6c04d29236"
+                        }
+                      }
+                    }
+                  }
+                },
+                "version": 1
+              },
+              "kind": "removal",
+              "native_id": "00530062-595d-5b07-ae0d-4f8ff2b9299f",
+              "path": [
+                {
+                  "kind": "field",
+                  "value": "definitions"
+                },
+                {
+                  "kind": "element",
+                  "value": "647fdc73-812f-4a20-ad12-47268da71df9"
+                },
+                {
+                  "kind": "field",
+                  "value": "nodes"
+                },
+                {
+                  "kind": "element",
+                  "value": "00530062-595d-5b07-ae0d-4f8ff2b9299f"
+                }
+              ]
+            },
+            {
+              "after": {
+                "id": "3fbaa617-9523-5b6f-bab5-dd98ef4d1166",
+                "mode": "uniform",
+                "name": "Attribute Randomize",
+                "operation": "fold.motion.attribute_randomize",
+                "parameters": {
+                  "attribute": {
+                    "id": "67a9c258-a664-5548-a855-8b7258f16ba3",
+                    "protected": false,
+                    "value": {
+                      "kind": "literal",
+                      "value": {
+                        "kind": "text",
+                        "value": "Cd"
+                      }
+                    }
+                  },
+                  "domain": {
+                    "id": "48a130f2-1715-5232-86c6-8e774e8ab4cf",
+                    "protected": false,
+                    "value": {
+                      "kind": "literal",
+                      "value": {
+                        "kind": "text",
+                        "value": "point"
+                      }
+                    }
+                  },
+                  "geometry": {
+                    "id": "03327e41-ab83-5585-911a-f155f32f5cd8",
+                    "protected": false,
+                    "value": {
+                      "kind": "link",
+                      "reference": {
+                        "id": "68dc4993-5535-51c4-8727-27c62e882a1d",
+                        "target": {
+                          "kind": "node",
+                          "node": "efac6a66-6919-5863-8e7d-878debba83d4"
+                        }
+                      }
+                    }
+                  },
+                  "maximum": {
+                    "id": "f79fa7a2-dcc4-5574-b71f-09647185620b",
+                    "protected": false,
+                    "value": {
+                      "kind": "literal",
+                      "value": {
+                        "kind": "vector",
+                        "space": "world",
+                        "unit": "unitless",
+                        "value": [
+                          1.0,
+                          1.0,
+                          1.0
+                        ]
+                      }
+                    }
+                  },
+                  "minimum": {
+                    "id": "0bb65c64-479b-567d-89a0-7c2c235f9dc2",
+                    "protected": false,
+                    "value": {
+                      "kind": "literal",
+                      "value": {
+                        "kind": "vector",
+                        "space": "world",
+                        "unit": "unitless",
+                        "value": [
+                          0.03,
+                          0.03,
+                          0.03
+                        ]
+                      }
+                    }
+                  },
+                  "seed": {
+                    "id": "9ee5e6c3-77ff-50a8-b860-99343ba352b0",
+                    "protected": false,
+                    "value": {
+                      "kind": "literal",
+                      "value": {
+                        "kind": "integer",
+                        "value": 0
+                      }
+                    }
+                  }
+                },
+                "version": 1
+              },
+              "before": null,
+              "kind": "addition",
+              "native_id": "3fbaa617-9523-5b6f-bab5-dd98ef4d1166",
+              "path": [
+                {
+                  "kind": "field",
+                  "value": "definitions"
+                },
+                {
+                  "kind": "element",
+                  "value": "647fdc73-812f-4a20-ad12-47268da71df9"
+                },
+                {
+                  "kind": "field",
+                  "value": "nodes"
+                },
+                {
+                  "kind": "element",
+                  "value": "3fbaa617-9523-5b6f-bab5-dd98ef4d1166"
+                }
+              ]
+            },
+            {
+              "after": {
+                "id": "1dae1a05-efd2-5cd7-9922-932e561a3d19",
+                "target": {
+                  "kind": "node",
+                  "node": "f6e5d5c7-bf0c-5f57-ba10-be6c04d29236"
+                }
+              },
+              "before": {
+                "id": "9d7caee1-cb88-59cb-a3e3-d1087b2f9789",
+                "target": {
+                  "kind": "node",
+                  "node": "00530062-595d-5b07-ae0d-4f8ff2b9299f"
+                }
+              },
+              "kind": "connection",
+              "native_id": "676d2a6e-e755-5004-b025-d213320c95fa",
+              "path": [
+                {
+                  "kind": "field",
+                  "value": "definitions"
+                },
+                {
+                  "kind": "element",
+                  "value": "647fdc73-812f-4a20-ad12-47268da71df9"
+                },
+                {
+                  "kind": "field",
+                  "value": "nodes"
+                },
+                {
+                  "kind": "element",
+                  "value": "73da2f61-446d-5fc2-a0ec-9901f5dfcd70"
+                },
+                {
+                  "kind": "field",
+                  "value": "parameters"
+                },
+                {
+                  "kind": "field",
+                  "value": "geometry"
+                },
+                {
+                  "kind": "field",
+                  "value": "value"
+                },
+                {
+                  "kind": "field",
+                  "value": "reference"
+                }
+              ]
+            },
+            {
+              "after": null,
+              "before": {
+                "id": "b4d3a420-eb0c-548b-bd67-c432822ad9b2",
+                "mode": "uniform",
+                "name": "Random colors",
+                "operation": "fold.motion.random",
+                "parameters": {
+                  "maximum": {
+                    "id": "3838c36e-9f4e-558d-bc56-462646527249",
+                    "protected": false,
+                    "value": {
+                      "kind": "literal",
+                      "value": {
+                        "kind": "scalar",
+                        "value": 1.0
+                      }
+                    }
+                  },
+                  "minimum": {
+                    "id": "5e1ef348-5f10-523c-b137-9f0d753c609d",
+                    "protected": false,
+                    "value": {
+                      "kind": "literal",
+                      "value": {
+                        "kind": "scalar",
+                        "value": 0.0
+                      }
+                    }
+                  },
+                  "stream": {
+                    "id": "6200cafb-f181-5b2f-8d29-311daa1df52f",
+                    "protected": false,
+                    "value": {
+                      "kind": "literal",
+                      "value": {
+                        "kind": "text",
+                        "value": "variation"
+                      }
+                    }
+                  }
+                },
+                "version": 1
+              },
+              "kind": "removal",
+              "native_id": "b4d3a420-eb0c-548b-bd67-c432822ad9b2",
+              "path": [
+                {
+                  "kind": "field",
+                  "value": "definitions"
+                },
+                {
+                  "kind": "element",
+                  "value": "647fdc73-812f-4a20-ad12-47268da71df9"
+                },
+                {
+                  "kind": "field",
+                  "value": "nodes"
+                },
+                {
+                  "kind": "element",
+                  "value": "b4d3a420-eb0c-548b-bd67-c432822ad9b2"
+                }
+              ]
+            },
+            {
+              "after": null,
+              "before": {
+                "id": "e6d7fcb4-7bac-5a78-8bb4-2e2037d5774e",
+                "mode": "color_linear",
+                "name": "Palette",
+                "operation": "fold.motion.ramp",
+                "parameters": {
+                  "position": {
+                    "id": "c62970ba-fc09-5144-9518-e50d307cc083",
+                    "protected": false,
+                    "value": {
+                      "kind": "link",
+                      "reference": {
+                        "id": "80a93c24-ff8c-5754-88bb-2c6066f01f78",
+                        "target": {
+                          "kind": "node",
+                          "node": "b4d3a420-eb0c-548b-bd67-c432822ad9b2"
+                        }
+                      }
+                    }
+                  },
+                  "stops": {
+                    "id": "2186b291-0e65-536b-ab69-465054e6727f",
+                    "protected": false,
+                    "value": {
+                      "kind": "ramp",
+                      "ramp": {
+                        "id": "936ea4c2-a80a-5133-bb16-61b391f24b83",
+                        "stops": [
+                          {
+                            "id": "1a7e0579-c8c3-5c38-81cd-b0284525a5ab",
+                            "position": 0.0,
+                            "value": {
+                              "alpha": "straight",
+                              "encoding": "linear_rec709",
+                              "kind": "color",
+                              "value": [
+                                1.0,
+                                0.07,
+                                0.025,
+                                1.0
+                              ]
+                            }
+                          },
+                          {
+                            "id": "07f9bad6-301c-5e5f-bccb-96af991e24a5",
+                            "position": 0.2,
+                            "value": {
+                              "alpha": "straight",
+                              "encoding": "linear_rec709",
+                              "kind": "color",
+                              "value": [
+                                1.0,
+                                0.42,
+                                0.035,
+                                1.0
+                              ]
+                            }
+                          },
+                          {
+                            "id": "d7123067-15f7-582b-8873-798be1c220a4",
+                            "position": 0.4,
+                            "value": {
+                              "alpha": "straight",
+                              "encoding": "linear_rec709",
+                              "kind": "color",
+                              "value": [
+                                0.05,
+                                0.55,
+                                0.36,
+                                1.0
+                              ]
+                            }
+                          },
+                          {
+                            "id": "5c99514c-24d5-5ffd-9b3e-ea1aafae0423",
+                            "position": 0.6,
+                            "value": {
+                              "alpha": "straight",
+                              "encoding": "linear_rec709",
+                              "kind": "color",
+                              "value": [
+                                0.06,
+                                0.16,
+                                0.95,
+                                1.0
+                              ]
+                            }
+                          },
+                          {
+                            "id": "4a0718e8-ae0b-5a4e-9749-02feef7c1fde",
+                            "position": 0.8,
+                            "value": {
+                              "alpha": "straight",
+                              "encoding": "linear_rec709",
+                              "kind": "color",
+                              "value": [
+                                0.42,
+                                0.06,
+                                0.9,
+                                1.0
+                              ]
+                            }
+                          },
+                          {
+                            "id": "1a779bdb-7f52-5bd3-9609-9ba7c5e1c5ec",
+                            "position": 1.0,
+                            "value": {
+                              "alpha": "straight",
+                              "encoding": "linear_rec709",
+                              "kind": "color",
+                              "value": [
+                                0.96,
+                                0.19,
+                                0.5,
+                                1.0
+                              ]
+                            }
+                          }
+                        ],
+                        "ty": {
+                          "alpha": "straight",
+                          "encoding": "linear_rec709",
+                          "kind": "color"
+                        }
+                      }
+                    }
+                  }
+                },
+                "version": 1
+              },
+              "kind": "removal",
+              "native_id": "e6d7fcb4-7bac-5a78-8bb4-2e2037d5774e",
+              "path": [
+                {
+                  "kind": "field",
+                  "value": "definitions"
+                },
+                {
+                  "kind": "element",
+                  "value": "647fdc73-812f-4a20-ad12-47268da71df9"
+                },
+                {
+                  "kind": "field",
+                  "value": "nodes"
+                },
+                {
+                  "kind": "element",
+                  "value": "e6d7fcb4-7bac-5a78-8bb4-2e2037d5774e"
+                }
+              ]
+            },
+            {
+              "after": "Grid",
+              "before": "Points",
+              "kind": "value",
+              "native_id": "efac6a66-6919-5863-8e7d-878debba83d4",
+              "path": [
+                {
+                  "kind": "field",
+                  "value": "definitions"
+                },
+                {
+                  "kind": "element",
+                  "value": "647fdc73-812f-4a20-ad12-47268da71df9"
+                },
+                {
+                  "kind": "field",
+                  "value": "nodes"
+                },
+                {
+                  "kind": "element",
+                  "value": "efac6a66-6919-5863-8e7d-878debba83d4"
+                },
+                {
+                  "kind": "field",
+                  "value": "name"
+                }
+              ]
+            },
+            {
+              "after": 2,
+              "before": 1,
+              "kind": "value",
+              "native_id": "efac6a66-6919-5863-8e7d-878debba83d4",
+              "path": [
+                {
+                  "kind": "field",
+                  "value": "definitions"
+                },
+                {
+                  "kind": "element",
+                  "value": "647fdc73-812f-4a20-ad12-47268da71df9"
+                },
+                {
+                  "kind": "field",
+                  "value": "nodes"
+                },
+                {
+                  "kind": "element",
+                  "value": "efac6a66-6919-5863-8e7d-878debba83d4"
+                },
+                {
+                  "kind": "field",
+                  "value": "version"
+                }
+              ]
+            },
+            {
+              "after": {
+                "attributes": {
+                  "id": "c937a17b-46cd-51fa-b9a6-0d499c42fd7b",
+                  "protected": false,
+                  "value": {
+                    "kind": "literal",
+                    "value": {
+                      "kind": "text",
+                      "value": "Cd"
+                    }
+                  }
+                },
+                "points": {
+                  "id": "be1c7ba3-68f8-5936-ada6-ee8e3862d959",
+                  "protected": false,
+                  "value": {
+                    "kind": "link",
+                    "reference": {
+                      "id": "cbdb182d-ea10-5ee9-b7ea-5fdfbe5dd34c",
+                      "target": {
+                        "kind": "node",
+                        "node": "3fbaa617-9523-5b6f-bab5-dd98ef4d1166"
+                      }
+                    }
+                  }
+                },
+                "prototype": {
+                  "id": "bb867178-5867-5311-a110-3abebf02544b",
+                  "protected": false,
+                  "value": {
+                    "kind": "link",
+                    "reference": {
+                      "id": "d9be435d-30ee-5b80-95e1-3f372011afdd",
+                      "target": {
+                        "kind": "node",
+                        "node": "9715f9c6-c0de-508d-ae70-d196c6178459"
+                      }
+                    }
+                  }
+                }
+              },
+              "before": {
+                "points": {
+                  "id": "be1c7ba3-68f8-5936-ada6-ee8e3862d959",
+                  "protected": false,
+                  "value": {
+                    "kind": "link",
+                    "reference": {
+                      "id": "a9a473fd-2760-5f53-bbfb-34c7d7286705",
+                      "target": {
+                        "kind": "node",
+                        "node": "efac6a66-6919-5863-8e7d-878debba83d4"
+                      }
+                    }
+                  }
+                },
+                "prototype": {
+                  "id": "bb867178-5867-5311-a110-3abebf02544b",
+                  "protected": false,
+                  "value": {
+                    "kind": "link",
+                    "reference": {
+                      "id": "ad873fba-18dd-5278-98c9-ead545ed2bfd",
+                      "target": {
+                        "kind": "node",
+                        "node": "9715f9c6-c0de-508d-ae70-d196c6178459"
+                      }
+                    }
+                  }
+                }
+              },
+              "kind": "value",
+              "native_id": "f6e5d5c7-bf0c-5f57-ba10-be6c04d29236",
+              "path": [
+                {
+                  "kind": "field",
+                  "value": "definitions"
+                },
+                {
+                  "kind": "element",
+                  "value": "647fdc73-812f-4a20-ad12-47268da71df9"
+                },
+                {
+                  "kind": "field",
+                  "value": "nodes"
+                },
+                {
+                  "kind": "element",
+                  "value": "f6e5d5c7-bf0c-5f57-ba10-be6c04d29236"
+                },
+                {
+                  "kind": "field",
+                  "value": "parameters"
+                }
+              ]
+            },
+            {
+              "after": 2,
+              "before": 1,
+              "kind": "value",
+              "native_id": "f6e5d5c7-bf0c-5f57-ba10-be6c04d29236",
+              "path": [
+                {
+                  "kind": "field",
+                  "value": "definitions"
+                },
+                {
+                  "kind": "element",
+                  "value": "647fdc73-812f-4a20-ad12-47268da71df9"
+                },
+                {
+                  "kind": "field",
+                  "value": "nodes"
+                },
+                {
+                  "kind": "element",
+                  "value": "f6e5d5c7-bf0c-5f57-ba10-be6c04d29236"
+                },
+                {
+                  "kind": "field",
+                  "value": "version"
+                }
+              ]
+            },
+            {
+              "after": [
+                "9715f9c6-c0de-508d-ae70-d196c6178459",
+                "efac6a66-6919-5863-8e7d-878debba83d4",
+                "3fbaa617-9523-5b6f-bab5-dd98ef4d1166",
+                "f6e5d5c7-bf0c-5f57-ba10-be6c04d29236",
+                "73da2f61-446d-5fc2-a0ec-9901f5dfcd70"
+              ],
+              "before": [
+                "9715f9c6-c0de-508d-ae70-d196c6178459",
+                "efac6a66-6919-5863-8e7d-878debba83d4",
+                "f6e5d5c7-bf0c-5f57-ba10-be6c04d29236",
+                "b4d3a420-eb0c-548b-bd67-c432822ad9b2",
+                "e6d7fcb4-7bac-5a78-8bb4-2e2037d5774e",
+                "00530062-595d-5b07-ae0d-4f8ff2b9299f",
+                "73da2f61-446d-5fc2-a0ec-9901f5dfcd70"
+              ],
+              "kind": "order",
+              "native_id": "647fdc73-812f-4a20-ad12-47268da71df9",
+              "path": [
+                {
+                  "kind": "field",
+                  "value": "definitions"
+                },
+                {
+                  "kind": "element",
+                  "value": "647fdc73-812f-4a20-ad12-47268da71df9"
+                },
+                {
+                  "kind": "field",
+                  "value": "nodes"
+                },
+                {
+                  "kind": "order"
+                }
+              ]
+            },
+            {
+              "after": {
+                "id": "accd2288-7ad2-5e84-9885-77a44e9ab1d1",
+                "target": {
+                  "kind": "node",
+                  "node": "73da2f61-446d-5fc2-a0ec-9901f5dfcd70"
+                }
+              },
+              "before": {
+                "id": "22acea32-0bf1-5879-91da-f3db5f315754",
+                "target": {
+                  "kind": "node",
+                  "node": "73da2f61-446d-5fc2-a0ec-9901f5dfcd70"
+                }
+              },
+              "kind": "connection",
+              "native_id": "38955edb-5dda-40ba-9c67-b515c05a309e",
+              "path": [
+                {
+                  "kind": "field",
+                  "value": "definitions"
+                },
+                {
+                  "kind": "element",
+                  "value": "647fdc73-812f-4a20-ad12-47268da71df9"
+                },
+                {
+                  "kind": "field",
+                  "value": "outputs"
+                },
+                {
+                  "kind": "element",
+                  "value": "38955edb-5dda-40ba-9c67-b515c05a309e"
+                },
+                {
+                  "kind": "field",
+                  "value": "value"
+                }
+              ]
+            },
+            {
+              "after": null,
+              "before": [
+                680.0,
+                0.0
+              ],
+              "kind": "removal",
+              "native_id": null,
+              "path": [
+                {
+                  "kind": "field",
+                  "value": "presentation"
+                },
+                {
+                  "kind": "field",
+                  "value": "positions"
+                },
+                {
+                  "kind": "field",
+                  "value": "00530062-595d-5b07-ae0d-4f8ff2b9299f"
+                }
+              ]
+            },
+            {
+              "after": [
+                1280.0,
+                0.0
+              ],
+              "before": null,
+              "kind": "addition",
+              "native_id": null,
+              "path": [
+                {
+                  "kind": "field",
+                  "value": "presentation"
+                },
+                {
+                  "kind": "field",
+                  "value": "positions"
+                },
+                {
+                  "kind": "field",
+                  "value": "38955edb-5dda-40ba-9c67-b515c05a309e"
+                }
+              ]
+            },
+            {
+              "after": [
+                320.0,
+                260.0
+              ],
+              "before": null,
+              "kind": "addition",
+              "native_id": null,
+              "path": [
+                {
+                  "kind": "field",
+                  "value": "presentation"
+                },
+                {
+                  "kind": "field",
+                  "value": "positions"
+                },
+                {
+                  "kind": "field",
+                  "value": "3fbaa617-9523-5b6f-bab5-dd98ef4d1166"
+                }
+              ]
+            },
+            {
+              "after": [
+                960.0,
+                0.0
+              ],
+              "before": [
+                1020.0,
+                0.0
+              ],
+              "kind": "value",
+              "native_id": null,
+              "path": [
+                {
+                  "kind": "field",
+                  "value": "presentation"
+                },
+                {
+                  "kind": "field",
+                  "value": "positions"
+                },
+                {
+                  "kind": "field",
+                  "value": "73da2f61-446d-5fc2-a0ec-9901f5dfcd70"
+                }
+              ]
+            },
+            {
+              "after": null,
+              "before": [
+                0.0,
+                540.0
+              ],
+              "kind": "removal",
+              "native_id": null,
+              "path": [
+                {
+                  "kind": "field",
+                  "value": "presentation"
+                },
+                {
+                  "kind": "field",
+                  "value": "positions"
+                },
+                {
+                  "kind": "field",
+                  "value": "b4d3a420-eb0c-548b-bd67-c432822ad9b2"
+                }
+              ]
+            },
+            {
+              "after": null,
+              "before": [
+                340.0,
+                540.0
+              ],
+              "kind": "removal",
+              "native_id": null,
+              "path": [
+                {
+                  "kind": "field",
+                  "value": "presentation"
+                },
+                {
+                  "kind": "field",
+                  "value": "positions"
+                },
+                {
+                  "kind": "field",
+                  "value": "e6d7fcb4-7bac-5a78-8bb4-2e2037d5774e"
+                }
+              ]
+            },
+            {
+              "after": [
+                0.0,
+                260.0
+              ],
+              "before": [
+                0.0,
+                270.0
+              ],
+              "kind": "value",
+              "native_id": null,
+              "path": [
+                {
+                  "kind": "field",
+                  "value": "presentation"
+                },
+                {
+                  "kind": "field",
+                  "value": "positions"
+                },
+                {
+                  "kind": "field",
+                  "value": "efac6a66-6919-5863-8e7d-878debba83d4"
+                }
+              ]
+            },
+            {
+              "after": [
+                640.0,
+                0.0
+              ],
+              "before": [
+                340.0,
+                0.0
+              ],
+              "kind": "value",
+              "native_id": null,
+              "path": [
+                {
+                  "kind": "field",
+                  "value": "presentation"
+                },
+                {
+                  "kind": "field",
+                  "value": "positions"
+                },
+                {
+                  "kind": "field",
+                  "value": "f6e5d5c7-bf0c-5f57-ba10-be6c04d29236"
+                }
+              ]
+            }
+          ],
+          "document": "d36da6b2-86ac-40c0-aa68-e11a8a3e2cfa",
+          "object": "0fbd0af3-e5a9-4ca3-85fe-40746a3bec15"
+        }
+      ],
+      "handle": {
+        "epoch": "c2ee6f28-b602-4f0b-9336-49ab5b274e24",
+        "generation": "24b9c053-9506-4894-9ade-d9d5b131049a"
+      },
+      "receipt": "6e7ff7c6-edd6-4543-a487-66cf6fde1d00",
+      "scope": {
+        "definition": null,
+        "document": "d36da6b2-86ac-40c0-aa68-e11a8a3e2cfa",
+        "object": "0fbd0af3-e5a9-4ca3-85fe-40746a3bec15"
+      },
+      "source": "motion 1;\nseed 0;\ncanvas {\"width\":1920,\"height\":1080,\"rate\":[30,1],\"start\":{\"numerator\":0,\"denominator\":1},\"end\":{\"numerator\":4,\"denominator\":1}};\nasset \"Box\" @{\"id\":\"647fdc73-812f-4a20-ad12-47268da71df9\"} {\n  let \"Sphere\" @{\"id\":\"9715f9c6-c0de-508d-ae70-d196c6178459\"} = \"fold.motion.mesh\".\"sphere\" @1 (\n    \"radius\" @{\"id\":\"ba614e47-e94b-5152-b782-20cc39e2499c\",\"protected\":false} = value(0.18m);\n  );\n  let \"Grid\" @{\"id\":\"efac6a66-6919-5863-8e7d-878debba83d4\"} = \"fold.motion.distribute\".\"grid\" @2 (\n    \"center\" @{\"id\":\"89f09e8d-1919-59a6-a666-d0813d95cf12\",\"protected\":false} = value(literal({\"kind\":\"vector\",\"value\":[0.0,-0.9,0.0],\"unit\":\"meters\",\"space\":\"world\"}));\n    \"columns\" @{\"id\":\"dc98e699-a295-5e9e-bdb3-828849fa4762\",\"protected\":false} = value(11i);\n    \"rows\" @{\"id\":\"80e21986-e0a6-5b09-b5b9-37f25d54f6d5\",\"protected\":false} = value(4i);\n    \"spacing\" @{\"id\":\"b9733872-ad33-5b19-949a-6f4311c2587d\",\"protected\":false} = value(literal({\"kind\":\"vector\",\"value\":[0.57,0.53],\"unit\":\"meters\",\"space\":\"world\"}));\n  );\n  let \"Attribute Randomize\" @{\"id\":\"3fbaa617-9523-5b6f-bab5-dd98ef4d1166\"} = \"fold.motion.attribute_randomize\".\"uniform\" @1 (\n    \"attribute\" @{\"id\":\"67a9c258-a664-5548-a855-8b7258f16ba3\",\"protected\":false} = value(\"Cd\");\n    \"domain\" @{\"id\":\"48a130f2-1715-5232-86c6-8e774e8ab4cf\",\"protected\":false} = value(\"point\");\n    \"geometry\" @{\"id\":\"03327e41-ab83-5585-911a-f155f32f5cd8\",\"protected\":false} = link($\"Grid\" @{\"id\":\"68dc4993-5535-51c4-8727-27c62e882a1d\"});\n    \"maximum\" @{\"id\":\"f79fa7a2-dcc4-5574-b71f-09647185620b\",\"protected\":false} = value(literal({\"kind\":\"vector\",\"value\":[1.0,1.0,1.0],\"unit\":\"unitless\",\"space\":\"world\"}));\n    \"minimum\" @{\"id\":\"0bb65c64-479b-567d-89a0-7c2c235f9dc2\",\"protected\":false} = value(literal({\"kind\":\"vector\",\"value\":[0.03,0.03,0.03],\"unit\":\"unitless\",\"space\":\"world\"}));\n    \"seed\" @{\"id\":\"9ee5e6c3-77ff-50a8-b860-99343ba352b0\",\"protected\":false} = value(0i);\n  );\n  let \"Copy to Points\" @{\"id\":\"f6e5d5c7-bf0c-5f57-ba10-be6c04d29236\"} = \"fold.motion.cloner\".\"points\" @2 (\n    \"attributes\" @{\"id\":\"c937a17b-46cd-51fa-b9a6-0d499c42fd7b\",\"protected\":false} = value(\"Cd\");\n    \"points\" @{\"id\":\"be1c7ba3-68f8-5936-ada6-ee8e3862d959\",\"protected\":false} = link($\"Attribute Randomize\" @{\"id\":\"cbdb182d-ea10-5ee9-b7ea-5fdfbe5dd34c\"});\n    \"prototype\" @{\"id\":\"bb867178-5867-5311-a110-3abebf02544b\",\"protected\":false} = link($\"Sphere\" @{\"id\":\"d9be435d-30ee-5b80-95e1-3f372011afdd\"});\n  );\n  let \"Soft material\" @{\"id\":\"73da2f61-446d-5fc2-a0ec-9901f5dfcd70\"} = \"fold.motion.material\".\"lit\" @1 (\n    \"color\" @{\"id\":\"45b28242-d17e-5a6a-b2a7-9ba456eb49fb\",\"protected\":false} = value(literal({\"kind\":\"color\",\"value\":[1.0,1.0,1.0,1.0],\"encoding\":\"linear_rec709\",\"alpha\":\"straight\"}));\n    \"geometry\" @{\"id\":\"676d2a6e-e755-5004-b025-d213320c95fa\",\"protected\":false} = link($\"Copy to Points\" @{\"id\":\"1dae1a05-efd2-5cd7-9922-932e561a3d19\"});\n    \"reflectance\" @{\"id\":\"871c92a9-ee94-5425-b18d-23f1bfa124da\",\"protected\":false} = value(0.5);\n    \"roughness\" @{\"id\":\"a92b57a9-4dbe-5810-a4e6-7686436f3953\",\"protected\":false} = value(0.3);\n  );\n  output \"main\" @{\"id\":\"38955edb-5dda-40ba-9c67-b515c05a309e\"} : {\"kind\":\"geometry\"} = $\"Soft material\" @{\"id\":\"accd2288-7ad2-5e84-9885-77a44e9ab1d1\"};\n}\nroot \"Box\" @{\"id\":\"a8fe73a6-6ef4-49cf-89b4-73fa1966b578\"} = \"Box\" clock {\"offset\":{\"numerator\":0,\"denominator\":1},\"rate\":{\"numerator\":1,\"denominator\":1}} {\n};\npresentation {\"positions\":{\"38955edb-5dda-40ba-9c67-b515c05a309e\":[1280.0,0.0],\"3fbaa617-9523-5b6f-bab5-dd98ef4d1166\":[320.0,260.0],\"73da2f61-446d-5fc2-a0ec-9901f5dfcd70\":[960.0,0.0],\"9715f9c6-c0de-508d-ae70-d196c6178459\":[0.0,0.0],\"efac6a66-6919-5863-8e7d-878debba83d4\":[0.0,260.0],\"f6e5d5c7-bf0c-5f57-ba10-be6c04d29236\":[640.0,0.0]},\"groups\":[],\"annotations\":{}};\nextensions {};\n"
+    },
+    "version": 2
+  },
+  "frames": [
+    {
+      "provenance": {
+        "candidate": null,
+        "canvas_size": [
+          960,
+          540
+        ],
+        "configuration": {
+          "adapter": "AdapterInfo { name: \"NVIDIA GeForce GTX 1070\", vendor: 4318, device: 7137, device_type: DiscreteGpu, driver: \"NVIDIA\", driver_info: \"580.173.02\", backend: Vulkan }",
+          "build": "f37bbe887fc3a4c4009b2451d69c884754d0889b4c460888376e81c211baf3b8",
+          "dimensions": [
+            960,
+            540
+          ],
+          "display_transform": "1d4915451d0796608bee0ab5367036bad8131330432169307acee677850ee99c",
+          "profile": "gpu_display_no_history",
+          "project_settings": {
+            "fold.color": {
+              "config": {
+                "kind": "Bundled",
+                "sha256": "d8b361f76750ebfbedf0ded0b5e4315b283eed5e095814486b9d7c416cfbbb4c"
+              },
+              "ocio_version": "2.4.2",
+              "version": 1,
+              "working_space": "ACEScg"
+            }
+          },
+          "region": {
+            "height": 540,
+            "width": 960,
+            "x": 0,
+            "y": 0
+          },
+          "spatial": true,
+          "spatial_msaa": 1,
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "display_transform": "1d4915451d0796608bee0ab5367036bad8131330432169307acee677850ee99c",
+        "document": "62754d5e-6751-4cda-8978-e2cfdcf23687",
+        "epoch": "c2ee6f28-b602-4f0b-9336-49ab5b274e24",
+        "fingerprints": {
+          "configuration": "097070f2dc31f9b2b51bbe39d306794345a039ad4862f8593803b56dc2939515",
+          "project": "2eff6a3bea18ddf0c687a02975a89db04c3f1f096afe3bb1745f1704fd6b8915"
+        },
+        "frames_available": true,
+        "output": "video",
+        "output_size": [
+          960,
+          540
+        ],
+        "quality": "gpu_display_no_history",
+        "region": {
+          "height": 540,
+          "width": 960,
+          "x": 0,
+          "y": 0
+        },
+        "resource_inputs": {
+          "external_content_verified": false,
+          "scope": "immutable_project"
+        },
+        "revision": 14,
+        "time": {
+          "denominator": 1,
+          "numerator": 0
+        },
+        "time_basis": "output_relative"
+      },
+      "sha256": "d88d58cce8d557d536644688128fd7e3f9acf6788a5d4450004ad8cbe78d08ef"
+    },
+    {
+      "provenance": {
+        "candidate": null,
+        "canvas_size": [
+          960,
+          540
+        ],
+        "configuration": {
+          "adapter": "AdapterInfo { name: \"NVIDIA GeForce GTX 1070\", vendor: 4318, device: 7137, device_type: DiscreteGpu, driver: \"NVIDIA\", driver_info: \"580.173.02\", backend: Vulkan }",
+          "build": "f37bbe887fc3a4c4009b2451d69c884754d0889b4c460888376e81c211baf3b8",
+          "dimensions": [
+            960,
+            540
+          ],
+          "display_transform": "1d4915451d0796608bee0ab5367036bad8131330432169307acee677850ee99c",
+          "profile": "gpu_display_no_history",
+          "project_settings": {
+            "fold.color": {
+              "config": {
+                "kind": "Bundled",
+                "sha256": "d8b361f76750ebfbedf0ded0b5e4315b283eed5e095814486b9d7c416cfbbb4c"
+              },
+              "ocio_version": "2.4.2",
+              "version": 1,
+              "working_space": "ACEScg"
+            }
+          },
+          "region": {
+            "height": 540,
+            "width": 960,
+            "x": 0,
+            "y": 0
+          },
+          "spatial": true,
+          "spatial_msaa": 1,
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "display_transform": "1d4915451d0796608bee0ab5367036bad8131330432169307acee677850ee99c",
+        "document": "62754d5e-6751-4cda-8978-e2cfdcf23687",
+        "epoch": "c2ee6f28-b602-4f0b-9336-49ab5b274e24",
+        "fingerprints": {
+          "configuration": "097070f2dc31f9b2b51bbe39d306794345a039ad4862f8593803b56dc2939515",
+          "project": "2eff6a3bea18ddf0c687a02975a89db04c3f1f096afe3bb1745f1704fd6b8915"
+        },
+        "frames_available": true,
+        "output": "video",
+        "output_size": [
+          960,
+          540
+        ],
+        "quality": "gpu_display_no_history",
+        "region": {
+          "height": 540,
+          "width": 960,
+          "x": 0,
+          "y": 0
+        },
+        "resource_inputs": {
+          "external_content_verified": false,
+          "scope": "immutable_project"
+        },
+        "revision": 14,
+        "time": {
+          "denominator": 1,
+          "numerator": 2
+        },
+        "time_basis": "output_relative"
+      },
+      "sha256": "38e26033a7c21edb96dc1b67e0ab32d7c29b82932cb78a727d50d41f117b3fc9"
+    },
+    {
+      "provenance": {
+        "candidate": null,
+        "canvas_size": [
+          960,
+          540
+        ],
+        "configuration": {
+          "adapter": "AdapterInfo { name: \"NVIDIA GeForce GTX 1070\", vendor: 4318, device: 7137, device_type: DiscreteGpu, driver: \"NVIDIA\", driver_info: \"580.173.02\", backend: Vulkan }",
+          "build": "f37bbe887fc3a4c4009b2451d69c884754d0889b4c460888376e81c211baf3b8",
+          "dimensions": [
+            960,
+            540
+          ],
+          "display_transform": "1d4915451d0796608bee0ab5367036bad8131330432169307acee677850ee99c",
+          "profile": "gpu_display_no_history",
+          "project_settings": {
+            "fold.color": {
+              "config": {
+                "kind": "Bundled",
+                "sha256": "d8b361f76750ebfbedf0ded0b5e4315b283eed5e095814486b9d7c416cfbbb4c"
+              },
+              "ocio_version": "2.4.2",
+              "version": 1,
+              "working_space": "ACEScg"
+            }
+          },
+          "region": {
+            "height": 540,
+            "width": 960,
+            "x": 0,
+            "y": 0
+          },
+          "spatial": true,
+          "spatial_msaa": 1,
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "display_transform": "1d4915451d0796608bee0ab5367036bad8131330432169307acee677850ee99c",
+        "document": "62754d5e-6751-4cda-8978-e2cfdcf23687",
+        "epoch": "c2ee6f28-b602-4f0b-9336-49ab5b274e24",
+        "fingerprints": {
+          "configuration": "097070f2dc31f9b2b51bbe39d306794345a039ad4862f8593803b56dc2939515",
+          "project": "2eff6a3bea18ddf0c687a02975a89db04c3f1f096afe3bb1745f1704fd6b8915"
+        },
+        "frames_available": true,
+        "output": "video",
+        "output_size": [
+          960,
+          540
+        ],
+        "quality": "gpu_display_no_history",
+        "region": {
+          "height": 540,
+          "width": 960,
+          "x": 0,
+          "y": 0
+        },
+        "resource_inputs": {
+          "external_content_verified": false,
+          "scope": "immutable_project"
+        },
+        "revision": 14,
+        "time": {
+          "denominator": 1,
+          "numerator": 3
+        },
+        "time_basis": "output_relative"
+      },
+      "sha256": "38e26033a7c21edb96dc1b67e0ab32d7c29b82932cb78a727d50d41f117b3fc9"
+    }
+  ],
+  "saved": {
+    "epoch": "c2ee6f28-b602-4f0b-9336-49ab5b274e24",
+    "result": {
+      "durable": true,
+      "path": "/home/rgame/.codex/worktrees/efc8/Fold/demos/m5b-background-spheres.fold",
+      "revision": 14,
+      "session_file_changed": false,
+      "state": "saved",
+      "warning": null
+    },
+    "version": 2
+  },
+  "retained_nodes": {
+    "Sphere": "Sphere",
+    "Points": "Grid",
+    "Copy to Points": "Copy to Points",
+    "Soft material": "Soft material"
+  }
+}

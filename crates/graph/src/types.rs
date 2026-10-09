@@ -73,7 +73,6 @@ pub enum Type {
     },
     AssetRef,
     Geometry,
-    Points,
     Placement,
     Camera,
     Light,

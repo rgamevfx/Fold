@@ -46,7 +46,7 @@ pub(super) fn add(asset: &mut Definition, template: &str) -> Result<Vec<ObjectId
         | Builtin::InstanceScale
         | Builtin::InstanceColor
         | Builtin::InstanceRotationZ => {
-            let template = serde_json::to_string(&("fold.motion.cloner", 1, "points"))
+            let template = serde_json::to_string(&("fold.motion.cloner", 2, "points"))
                 .map_err(|e| e.to_string())?;
             ids = add(asset, &template)?;
             bindings.insert(
@@ -82,10 +82,19 @@ pub(super) fn add(asset: &mut Definition, template: &str) -> Result<Vec<ObjectId
         }
         Builtin::Cloner => {
             for (key, mode, parameter) in [
-                ("fold.motion.mesh", "box", "prototype"),
+                ("fold.motion.mesh", "sphere", "prototype"),
                 ("fold.motion.distribute", "grid", "points"),
             ] {
-                let template = serde_json::to_string(&(key, 1, mode)).map_err(|e| e.to_string())?;
+                let template = serde_json::to_string(&(
+                    key,
+                    if key == "fold.motion.distribute" {
+                        2
+                    } else {
+                        1
+                    },
+                    mode,
+                ))
+                .map_err(|e| e.to_string())?;
                 let dependencies = add(asset, &template)?;
                 bindings.insert(
                     parameter.into(),
@@ -99,6 +108,34 @@ pub(super) fn add(asset: &mut Definition, template: &str) -> Result<Vec<ObjectId
                 ids.extend(dependencies);
             }
         }
+        Builtin::AttributeCreate | Builtin::AttributeRandomize | Builtin::AttributeTransfer => {
+            let template = serde_json::to_string(&("fold.motion.distribute", 2, "grid"))
+                .map_err(|e| e.to_string())?;
+            ids = add(asset, &template)?;
+            let binding = Binding::Link {
+                reference: Reference::Node {
+                    node: *ids.last().ok_or("Missing geometry")?,
+                }
+                .into(),
+            };
+            bindings.insert("geometry".into(), binding.clone());
+            if operation.builtin == Builtin::AttributeTransfer {
+                let template = serde_json::to_string(&("fold.motion.attribute_create", 1, "set"))
+                    .map_err(|e| e.to_string())?;
+                let dependencies = add(asset, &template)?;
+                bindings.insert(
+                    "source".into(),
+                    Binding::Link {
+                        reference: Reference::Node {
+                            node: *dependencies.last().ok_or("Missing source")?,
+                        }
+                        .into(),
+                    },
+                );
+                ids.extend(dependencies);
+            }
+        }
+        Builtin::Wrangle => {}
         Builtin::Expression => {
             bindings.insert("value".into(), scalar(0.));
         }

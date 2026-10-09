@@ -176,6 +176,8 @@ The initial execution graph is acyclic. Reject accidental feedback and recursive
 
 ### 5.1 Language scope
 
+**9 October amendment:** [Rewrite phase M5b](Motion_System_Rewrite_Plan.md#m5b--geometry-attributes-and-live-rhai-wrangle) adds a general live Rhai Wrangle inside the native graph, including geometry generation and time-driven animation. The declarative network language remains authoritative for graph structure; Wrangle source is retained within its native node. The initial imperative-program exclusion below does not apply to this bounded runtime. Rhai is dynamically typed; Fold owns typed geometry/attribute contracts and host validation. The old Rust/WASM Wrangle remains removed.
+
 The language describes the construction directly. It supports:
 
 - Typed inputs, constants, expressions, named operations, and named outputs.

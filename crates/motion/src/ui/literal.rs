@@ -157,10 +157,95 @@ pub(super) fn draw(
         }
         Literal::Text { value } => {
             ui.text(label);
-            let changed = ui
-                .input_text_multiline("##text", value, [ui.content_region_avail()[0].max(1.), 80.])
-                .build();
-            response.item(ui, changed);
+            let choices: Option<&[&str]> = match label {
+                "Domain" | "Source Domain" | "Run Over" => {
+                    Some(&["point", "primitive", "corner", "edge", "detail", "instance"])
+                }
+                "Sampling" => Some(&["nearest", "blend"]),
+                _ => None,
+            };
+            if label == "Parameters" {
+                if let Ok(serde_json::Value::Object(mut params)) = serde_json::from_str(value) {
+                    let before = params.clone();
+                    for (name, item) in &mut params {
+                        let _id = ui.push_id(name);
+                        match item {
+                            serde_json::Value::Number(n) => {
+                                if let Some(mut v) = n.as_i64() {
+                                    ui.text(name);
+                                    let changed = ui.input_scalar("##integer", &mut v).build();
+                                    response.item(ui, changed);
+                                    if changed {
+                                        *item = serde_json::Value::Number(v.into());
+                                    }
+                                } else if let Some(mut v) = n.as_f64() {
+                                    let before = v;
+                                    number(ui, name, &mut v, "", response);
+                                    if v != before
+                                        && let Some(n) = serde_json::Number::from_f64(v)
+                                    {
+                                        *item = serde_json::Value::Number(n);
+                                    }
+                                }
+                            }
+                            serde_json::Value::Bool(v) => {
+                                let changed = ui.checkbox(name, v);
+                                response.item(ui, changed);
+                            }
+                            _ => {}
+                        }
+                    }
+                    if params != before {
+                        *value = serde_json::to_string(&params).expect("JSON parameters");
+                    }
+                }
+                if ui.collapsing_header(
+                    "Edit parameter definitions",
+                    fold_ui::sdk::imgui::TreeNodeFlags::empty(),
+                ) {
+                    let changed = ui
+                        .input_text_multiline(
+                            "##definitions",
+                            value,
+                            [ui.content_region_avail()[0].max(1.), 100.],
+                        )
+                        .build();
+                    response.item(ui, changed);
+                    if serde_json::from_str::<serde_json::Map<String, serde_json::Value>>(value)
+                        .is_err()
+                    {
+                        ui.text_wrapped("Enter a JSON object of named parameters.");
+                    }
+                }
+            } else if let Some(choices) = choices {
+                if let Some(_combo) = ui.begin_combo("##choice", value.as_str()) {
+                    for choice in choices {
+                        if ui
+                            .selectable_config(*choice)
+                            .selected(value == choice)
+                            .build()
+                        {
+                            *value = (*choice).into();
+                            response.began = true;
+                            response.changed = true;
+                            response.finished = true;
+                        }
+                    }
+                }
+            } else {
+                let source = label == "Rhai Source";
+                let changed = ui
+                    .input_text_multiline(
+                        "##text",
+                        value,
+                        [
+                            ui.content_region_avail()[0].max(1.),
+                            if source { 240. } else { 80. },
+                        ],
+                    )
+                    .build();
+                response.item(ui, changed);
+            }
         }
         Literal::Duration { value } => {
             rational(ui, &format!("{label} · seconds"), value, response);

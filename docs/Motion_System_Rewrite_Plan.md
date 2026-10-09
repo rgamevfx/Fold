@@ -45,7 +45,7 @@ Automatic old-motion migration is excluded. Keep original user projects untouche
 
 ## 3. Delivery sequence and tracking
 
-Phases M0–M9 are ordered, with the M5a course correction below added before M6. M5a contract/design work starts during the still-open M0–M5 work; its acceptance requires the relevant M3–M5 behavior. M4 and M5 may prepare independent parts after M3, but M6 requires M5 and M5a acceptance. Finish each gate before claiming its dependent phase complete. This document is the status ledger; add evidence links here rather than resuming old numbered phases.
+Phases M0–M9 are ordered, with the M5a and M5b course corrections below added before M6. M5a contract/design work starts during the still-open M0–M5 work; its acceptance requires the relevant M3–M5 behavior. M4 and M5 may prepare independent parts after M3, but M6 requires M5, M5a and M5b acceptance. Finish each gate before claiming its dependent phase complete. This document is the status ledger; add evidence links here rather than resuming old numbered phases.
 
 | Phase | Deliverable | Proposal slice | Status |
 | --- | --- | --- | --- |
@@ -55,7 +55,8 @@ Phases M0–M9 are ordered, with the M5a course correction below added before M6
 | M3 | Native editing and new MCP/CLI round trip | A | In progress |
 | M4 | Qualified Parley/vector/Bevy rendering boundary | B | Screen/World rendering and desktop preview path; gate pending |
 | M5 | Integrated motion-design construction | B | Native typography, shared cloner preparation and Screen/World publication; integrated gate pending |
-| M5a | Shared typed graph framework, scene hierarchy and unified authoring UI | Course correction | Implementation and automated/native rendered qualification complete; physical acceptance unverified; see final evidence |
+| M5a | Shared typed graph framework, scene hierarchy and unified authoring UI | Course correction | Implementation/automated evidence retained; reported desktop freeze reopens workflow acceptance |
+| M5b | Geometry attributes and live Rhai Wrangle | Foundation correction | Implemented; automated/public evidence recorded, physical/export acceptance open |
 | M6 | Incremental execution, GPU fields and full observation loop | C | Pending |
 | M7 | Production operation modes, assets and images | D | Pending |
 | M8 | USD and production delivery | D | Pending |
@@ -498,7 +499,7 @@ kept distinct without waiving any M0–M5 requirement.
 
 ### M5a — Shared typed graphs, scene hierarchy and unified authoring
 
-**Status:** Implementation and automated/native rendered workflow qualification complete; physical artist acceptance unverified. Schema 8 compositor cutover, public mixed-scene fixture, scoped source/conflict/undo/reopen, nested occurrence Inspector clocks, normal/narrow Track/Curve review and observation evidence diagnosis are recorded in the [final cutover evidence](rewrite/evidence/m5a-compositor-cutover/result.md). Final checkpoint results are recorded there. Earlier M0–M5 obligations remain open; M6 is not advanced.
+**Status:** Implementation and automated/native rendered evidence retained; desktop workflow acceptance reopened after a reported UI glitch and freeze. The failure is not yet reproduced or fixed; see the [desktop incident](rewrite/evidence/m5a-desktop-freeze.md). Physical artist acceptance remains unverified. Schema 8 compositor cutover, public mixed-scene fixture, scoped source/conflict/undo/reopen, nested occurrence Inspector clocks, normal/narrow Track/Curve review and observation evidence diagnosis are recorded in the [final cutover evidence](rewrite/evidence/m5a-compositor-cutover/result.md). Final checkpoint results are recorded there. Earlier M0–M5 obligations remain open; M6 is not advanced.
 
 **Sequencing:** Freeze these contracts now, while M0–M5 remains open. Do not extend the standalone Motion editor as the target workflow. Preserve valid M0–M5 evaluator/rendering evidence, but qualify artist continuation against this corrected workflow. M5a acceptance follows the relevant M3–M5 behavior and blocks M6; remaining M0–M5 obligations are not waived.
 
@@ -597,9 +598,40 @@ constraints. This session boundary is not M5a acceptance.
 - Diagnosed the old observation evidence: its alleged missing-spheres frame has the same sphere-region bytes as reveal/held. Retained the artifact with a correction and reproducible hash audit; no speculative renderer fix.
 - [Final evidence](rewrite/evidence/m5a-compositor-cutover/result.md) records checkpoint commands/results, removal scope, artifact provenance and launch. The earlier “still required” paragraphs above are historical checkpoints superseded by this record. Earlier M0–M5 obligations are not waived and M6 remains blocked.
 
+### M5b — Geometry attributes and live Rhai Wrangle
+
+**Authorized direction — 9 October 2026:** Implement one general Wrangle node using embedded Rhai. Geometry inputs are optional; programs create and modify geometry, attributes and instances and can author a complete time-driven animation. No Cargo invocation, application rebuild, restart, Rust dynamic library or old WASM runtime is involved in artist edits. This explicitly replaces the initial prohibition on imperative programs inside native nodes; the removal of the old Rust/WASM Wrangle and Solver remains mandatory.
+
+**Depends on:** Relevant M3–M5 document, evaluation, rendering and M5a shared graph interfaces. Work may proceed while existing acceptance remains open; it does not waive the desktop-freeze investigation or any earlier gate. M5b acceptance blocks M6.
+
+**Work**
+
+- Establish shared typed geometry attributes, with explicit domains, stable element identities and immutable evaluation snapshots. Point positions are authoritative `P`; `Cd` is RGB with explicit encoding, separate opacity; `N` is a normal and `orient` a normalized quaternion. Arbitrary named attributes follow the same schema and validation rules. Define Point, Primitive, Corner, Edge, Detail and Instance support without advertising unimplemented domains.
+- Replace the isolated distribution point value with geometry exposing points. Grid produces mesh topology; Copy to Points accepts any qualified point-bearing geometry, consumes placement attributes and copies a selected attribute list onto shared instances. Define attribute conflicts, transform semantics and realization policies. Remove superseded special cases rather than retaining a parallel evaluator.
+- Implement Attribute Create, Attribute Randomize and radius-based Attribute Transfer against that model. Randomization follows stable identity and explicit seed. Transfer declares source/destination domains, space, radius, interpolation and unmatched behavior. Quaternion and categorical values have type-appropriate policies.
+- Embed a pinned Rhai release behind Motion-owned execution. Use its in-memory prepared AST and native Rust geometry functions; cache source preparation separately from parameter/time evaluation. Rhai is dynamically typed: Fold validates port/attribute schemas and host-function arguments/results, with precise runtime diagnostics where static checking is unavailable. Do not claim a statically typed Rhai language or a custom bytecode/JIT implementation.
+- Expose one Wrangle with Run Over (Detail/once or a qualified element domain), optional geometry inputs, editable source, parameters and outputs. Run Over controls invocation, not permission to create geometry. Supply functions, loops, math, vectors, color, quaternion construction, deterministic randomness, geometry generation/editing, attribute access and spatial queries. Source remains source within a native node; it is not decompiled into a graph.
+- Freeze read/write semantics: element invocations read upstream snapshots; collect output edits deterministically, define conflicting writes and generated identities, and never leak failed/partial output. Detail mode controls the whole construction. Evaluation receives Fold's exact clock with explicit numeric conversion; reverse/random seeks have no hidden accumulated state. Persistent simulation is outside this phase.
+- Keep preparation and evaluation off the UI thread. Bound source, recursion, loops, allocations, generated geometry and native calls; support cancellation within host operations. Expose only registered Fold functions and packaged modules, not arbitrary filesystem/network/process access. Publish only current completed generations. Preserve invalid source and report errors while visibly identifying any last-valid preview; never export stale results as current success.
+- Integrate source/parameters with transactions, undo, native inspector, save/reopen, scoped source editing and public candidates. Preserve authored code including comments. Generate agent-facing function/type documentation from the actual host registry and provide executable examples plus inspectable attributes and geometry results. Follow fold-ui and the Fold public workflow skills.
+- Rebuild the requested background spheres through public edits: Sphere → Copy to Points (prototype); Grid → Attribute Randomize (Point `Cd`) → Copy to Points (attributes `Cd`) → Soft Material → Output. Preserve other networks, stable identities/layout where applicable, and the original recovery artwork. Qualify a separate input-free Wrangle generating animated geometry and an input-driven Wrangle changing topology/attributes.
+
+**Acceptance**
+
+- Focused tests cover attribute domains/types, grid topology, copied RGB and quaternion placement, seeded identity stability, radius transfer and unmatched values, geometry generation/deletion, input-free animation, source diagnostics, host type failures, output validation, budgets and cancellation without partial publication.
+- Save/reopen and public candidate/apply/undo tests retain Wrangle source, parameters and geometry semantics. Compare preview/headless/export preparation at rational times and forward/reverse/random seeks. Verify parameter/time changes reuse prepared source. Record actual edit-to-result and cancellation latency; no unmeasured interactive-performance claim.
+- Review the requested sphere graph and Wrangle inspector at normal/narrow sizes; inspect rendered frames and artist continuation separately. Public-tool examples must execute without reading Rust implementation files.
+- Run workspace check, tests, Clippy and boundary checks at this vertical-slice checkpoint. Record removed paths, dependency versions, commands, results and outstanding acceptance in an implementation record here. Broader foundational node families remain tracked in the catalog; they are not silently claimed by this phase.
+
+**Gate:** Both the native attribute-driven sphere workflow and a complete live-authored Wrangle animation work through the same geometry/rendering model, survive public/native editing and reopen, remain cancellable, and have fresh automated and artist/agent evidence. Documentation, implementation and acceptance are distinct; Rhai selection alone qualifies none of them.
+
+**Implementation — 9 October 2026:** The shared geometry attribute model, mesh Grid, Copy to Points attribute list, Attribute Create/Randomize/Transfer, and embedded Rhai Wrangle are implemented. The old Points value and Grid/Cloner version-1 executable contracts are removed; unsupported records remain opaque. [Implementation and validation record](rewrite/evidence/m5b-result.md) separates automated tests, public live edits/save/reopen, rendered evidence, and remaining artist acceptance. [Updated recovery artwork](../demos/m5b-background-spheres.fold) and [input-free animated Wrangle](../demos/m5b-wrangle.fold) are saved separately. The original recovery project is preserved. The phase gate remains open for outstanding acceptance recorded there.
+
+**References:** [Rhai AST preparation](https://rhai.rs/book/engine/compile.html), [Rhai types/features](https://rhai.rs/book/about/features.html), [execution limits](https://rhai.rs/book/safety/index.html). Exact dependency version/features and host contracts must be recorded during implementation.
+
 ### M6 — Incremental execution, performance and observation
 
-**Depends on:** M5 and M5a.
+**Depends on:** M5, M5a and M5b.
 
 **Work**
 
@@ -657,7 +689,7 @@ constraints. This session boundary is not M5a acceptance.
 
 During each phase, format touched Rust files and check affected crates. Add focused behavioral tests for changed semantics; test the document/IR independently of UI and use image/runtime fixtures for rendering contracts. Compare CPU/GPU at declared tolerances rather than silently relaxing them. Exercise examples through real public tools.
 
-At M1, M3, M5, M5a and M9 checkpoints, run applicable workspace boundary, format, check, test and Clippy checks documented in the repository, plus targeted native/headless workflows. A non-rendering phase cannot claim visual acceptance. Physical presentation, native interaction, headless output and automated unit results are distinct evidence. Record actual commands, dependency environment, failures and unverified cases.
+At M1, M3, M5, M5a, M5b and M9 checkpoints, run applicable workspace boundary, format, check, test and Clippy checks documented in the repository, plus targeted native/headless workflows. A non-rendering phase cannot claim visual acceptance. Physical presentation, native interaction, headless output and automated unit results are distinct evidence. Record actual commands, dependency environment, failures and unverified cases.
 
 For each acceptance run, retain source/project revision, protocol/operation versions, seed/font/assets, exact times, output settings, hardware and dependency versions beside the results. Performance evidence must separate parse/validate/compile/evaluate/prepare/submit/present/readback/encode costs.
 

@@ -174,7 +174,7 @@ def add(name, key, mode, **bindings):
             binding = default(spec["default"])
         params.append("    " + dump(key) + " " + metadata("parameter/" + name + "/" + key) + " = " + binding + ";")
     node_names.append(name)
-    nodes.append("  let " + dump(name) + " " + metadata("node/" + name) + " = " + dump(op["key"]) + "." + dump(mode) + " @1 (\n" + "\n".join(params) + "\n  );")
+    nodes.append("  let " + dump(name) + " " + metadata("node/" + name) + " = " + dump(op["key"]) + "." + dump(mode) + " @" + str(op["version"]) + " (\n" + "\n".join(params) + "\n  );")
     return name
 
 def ramp(name, first, last):

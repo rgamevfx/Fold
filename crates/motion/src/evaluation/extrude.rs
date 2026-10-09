@@ -167,6 +167,7 @@ impl State<'_> {
             });
         }
         Ok(Value::Geometry(Arc::new(Geometry {
+            attributes: Default::default(),
             id: self.identity(scope, id, source.id, b"solids")?,
             space: Space::World,
             unit: Unit::Meters,

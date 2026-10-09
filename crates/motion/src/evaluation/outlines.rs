@@ -77,6 +77,7 @@ impl State<'_> {
             });
         }
         Ok(Value::Geometry(Arc::new(Geometry {
+            attributes: Default::default(),
             id: self.identity(scope, id, geometry.id, b"outlines")?,
             space: geometry.space,
             unit: geometry.unit,

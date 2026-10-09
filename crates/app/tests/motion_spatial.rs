@@ -22,13 +22,21 @@ fn literal(value: Literal) -> Binding {
     Binding::Literal { value }
 }
 fn node(key: &str, mode: &str, name: &str, bindings: Vec<(&str, Binding)>) -> Node {
-    registry::resolve(&format!("fold.motion.{key}"), 1, mode)
-        .unwrap()
-        .node(
-            name,
-            bindings.into_iter().map(|(k, v)| (k.into(), v)).collect(),
-        )
-        .unwrap()
+    registry::resolve(
+        &format!("fold.motion.{key}"),
+        if matches!(key, "distribute" | "cloner") {
+            2
+        } else {
+            1
+        },
+        mode,
+    )
+    .unwrap()
+    .node(
+        name,
+        bindings.into_iter().map(|(k, v)| (k.into(), v)).collect(),
+    )
+    .unwrap()
 }
 fn position(value: [f64; 3]) -> Binding {
     literal(Literal::Vector {
@@ -1065,14 +1073,9 @@ fn qualify_cloner_gpu(animated: bool) {
         else {
             panic!()
         };
-        for ((point, instance), rendered) in collection
-            .distribution
-            .points
-            .iter()
-            .zip(&collection.instances)
-            .zip(&prepared.scene.instances)
-        {
-            if let Some(old) = identities.insert(point.cell, (instance.id, rendered.id)) {
+        for (instance, rendered) in collection.instances.iter().zip(&prepared.scene.instances) {
+            if let Some(old) = identities.insert(instance.source_point, (instance.id, rendered.id))
+            {
                 assert_eq!(old, (instance.id, rendered.id));
             }
         }

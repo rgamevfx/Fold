@@ -16,13 +16,21 @@ fn literal(value: Literal) -> Binding {
     Binding::Literal { value }
 }
 fn node(key: &str, mode: &str, bindings: Vec<(&str, Binding)>) -> Node {
-    registry::resolve(&format!("fold.motion.{key}"), 1, mode)
-        .unwrap()
-        .node(
-            format!("{key}_{mode}"),
-            bindings.into_iter().map(|(k, v)| (k.into(), v)).collect(),
-        )
-        .unwrap()
+    registry::resolve(
+        &format!("fold.motion.{key}"),
+        if matches!(key, "distribute" | "cloner") {
+            2
+        } else {
+            1
+        },
+        mode,
+    )
+    .unwrap()
+    .node(
+        format!("{key}_{mode}"),
+        bindings.into_iter().map(|(k, v)| (k.into(), v)).collect(),
+    )
+    .unwrap()
 }
 fn fixture(nodes: Vec<Node>) -> Construction {
     let mut c =

@@ -44,3 +44,8 @@ unverified; see the linked evidence for automated and rendered qualification.
 
 For repository implementation status, consult the
 [Motion System Rewrite Plan](../../docs/Motion_System_Rewrite_Plan.md).
+
+For Grid point sources, Attribute Create/Randomize/Transfer, or live Rhai Wrangle,
+read [Geometry attributes and Wrangle](references/wrangle.md). Discover the
+running host's catalog before using the examples; implementation and acceptance
+status remain in rewrite phase M5b.
