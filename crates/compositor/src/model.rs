@@ -1,3 +1,4 @@
+use crate::OperationConfig;
 use fold_foundation::{AssetId, DocumentId, ObjectId, Time};
 use fold_media::VideoInfo;
 use fold_project::{Document, DocumentRef, Metadata, Revision};
@@ -5,184 +6,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 use fold_graph::types::Type;
-#[derive(Clone, Debug)]
-pub struct Operator {
-    pub id: &'static str,
-    pub inputs: &'static [Type],
-    pub output: Type,
-    pub version: u32,
-}
-use Type::{Image, Mask};
-pub const OPERATORS: &[Operator] = &[
-    Operator {
-        id: "Read",
-        inputs: &[],
-        output: Image,
-        version: 1,
-    },
-    Operator {
-        id: "Solid",
-        inputs: &[],
-        output: Image,
-        version: 1,
-    },
-    Operator {
-        id: "Transform",
-        inputs: &[Image],
-        output: Image,
-        version: 1,
-    },
-    Operator {
-        id: "Crop",
-        inputs: &[Image],
-        output: Image,
-        version: 1,
-    },
-    Operator {
-        id: "Blur",
-        inputs: &[Image],
-        output: Image,
-        version: 1,
-    },
-    Operator {
-        id: "Grade",
-        inputs: &[Image],
-        output: Image,
-        version: 1,
-    },
-    Operator {
-        id: "Mask",
-        inputs: &[],
-        output: Mask,
-        version: 1,
-    },
-    Operator {
-        id: "ApplyMask",
-        inputs: &[Image, Mask],
-        output: Image,
-        version: 1,
-    },
-    Operator {
-        id: "Merge",
-        inputs: &[Image, Image],
-        output: Image,
-        version: 1,
-    },
-    Operator {
-        id: "Output",
-        inputs: &[Image],
-        output: Image,
-        version: 1,
-    },
-    Operator {
-        id: "Shuffle",
-        inputs: &[Image, Image],
-        output: Image,
-        version: 1,
-    },
-    Operator {
-        id: "RemoveChannels",
-        inputs: &[Image],
-        output: Image,
-        version: 1,
-    },
-    Operator {
-        id: "Grade",
-        inputs: &[Image],
-        output: Image,
-        version: 2,
-    },
-    Operator {
-        id: "Merge",
-        inputs: &[Image, Image],
-        output: Image,
-        version: 2,
-    },
-    Operator {
-        id: "Transform",
-        inputs: &[Image],
-        output: Image,
-        version: 2,
-    },
-    Operator {
-        id: "Blur",
-        inputs: &[Image],
-        output: Image,
-        version: 2,
-    },
-    Operator {
-        id: "Exposure",
-        inputs: &[Image],
-        output: Image,
-        version: 1,
-    },
-    Operator {
-        id: "Invert",
-        inputs: &[Image],
-        output: Image,
-        version: 1,
-    },
-    Operator {
-        id: "Clamp",
-        inputs: &[Image],
-        output: Image,
-        version: 1,
-    },
-    Operator {
-        id: "Premult",
-        inputs: &[Image],
-        output: Image,
-        version: 1,
-    },
-    Operator {
-        id: "Unpremult",
-        inputs: &[Image],
-        output: Image,
-        version: 1,
-    },
-    Operator {
-        id: "Rectangle",
-        inputs: &[],
-        output: Image,
-        version: 1,
-    },
-    Operator {
-        id: "Ellipse",
-        inputs: &[],
-        output: Image,
-        version: 1,
-    },
-    Operator {
-        id: "Input",
-        inputs: &[],
-        output: Image,
-        version: 1,
-    },
-    Operator {
-        id: "Effect",
-        inputs: &[],
-        output: Image,
-        version: 1,
-    },
-    Operator {
-        id: "Dissolve",
-        inputs: &[Image, Image],
-        output: Image,
-        version: 1,
-    },
-    Operator {
-        id: "Relative Transform",
-        inputs: &[Image],
-        output: Image,
-        version: 1,
-    },
-    Operator {
-        id: "Shader",
-        inputs: &[],
-        output: Image,
-        version: 1,
-    },
-];
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub enum Source {
@@ -221,302 +44,12 @@ impl Source {
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub enum Parameters {
-    Shader {
-        settings: crate::shader::Shader,
-    },
-    RelativeTransform {
-        settings: crate::RelativeTransform,
-    },
-    Input {
-        id: String,
-    },
-    Instance {
-        instance: fold_platform::effects::Instance,
-        images: Vec<String>,
-    },
-    Dissolve {
-        curve: fold_animation::timing::Curve,
-    },
-    Read {
-        source: Source,
-        start: Time,
-        source_start: Time,
-        duration: Time,
-    },
-    Solid {
-        rgba: [f32; 4],
-    },
-    /// Translation and scale in document pixels, plus opacity.
-    Transform {
-        translate: [f64; 2],
-        scale: [f64; 2],
-        opacity: f32,
-    },
-    Crop {
-        rect: [u32; 4],
-    },
-    Blur {
-        radius: u32,
-    },
-    Grade {
-        gain: [f32; 3],
-    },
-    Mask {
-        rect: [u32; 4],
-    },
-    Unary {
-        operation: fold_render::operations::Unary,
-    },
-    Shape {
-        shape: crate::Shape,
-        bounds: [f64; 4],
-    },
-    GaussianBlur {
-        size: [f32; 2],
-        edges: fold_render::operations::Edges,
-    },
-    TransformImage {
-        settings: crate::Transform,
-    },
-    ColorGrade {
-        settings: fold_render::operations::Grade,
-    },
-    Composite {
-        mode: fold_render::operations::MergeMode,
-    },
-    ApplyMask,
-    Shuffle {
-        mappings: Vec<crate::ChannelMapping>,
-    },
-    RemoveChannels {
-        channels: Vec<fold_render::channels::ChannelName>,
-        keep: bool,
-    },
-    /// Input 0 is foreground, input 1 background.
-    Merge,
-    Output,
-}
-impl Parameters {
-    pub fn input_count(&self) -> usize {
-        match self {
-            Self::Shader { settings } => settings.images.len(),
-            Self::Instance { images, .. } => images.len(),
-            _ => self.operator().inputs.len(),
-        }
-    }
-    pub fn input_key(&self, slot: usize) -> &str {
-        match self {
-            Self::Shader { settings } => &settings.images[slot],
-            Self::Instance { images, .. } => &images[slot],
-            Self::Dissolve { .. } => {
-                if slot == 0 {
-                    "outgoing"
-                } else {
-                    "incoming"
-                }
-            }
-            _ => self.operator().input_key(slot),
-        }
-    }
-    pub fn input_type(&self, slot: usize) -> Type {
-        match self {
-            Self::Shader { .. } | Self::Instance { .. } => Type::Image,
-            _ => self.operator().inputs[slot].clone(),
-        }
-    }
-
-    pub fn operator(&self) -> &'static Operator {
-        &OPERATORS[match self {
-            Self::Shader { .. } => 27,
-            Self::RelativeTransform { .. } => 26,
-            Self::Input { .. } => 23,
-            Self::Instance { .. } => 24,
-            Self::Dissolve { .. } => 25,
-            Self::Read { .. } => 0,
-            Self::Solid { .. } => 1,
-            Self::Transform { .. } => 2,
-            Self::Crop { .. } => 3,
-            Self::Blur { .. } => 4,
-            Self::Grade { .. } => 5,
-            Self::Mask { .. } => 6,
-            Self::ApplyMask => 7,
-            Self::Merge => 8,
-            Self::Output => 9,
-            Self::Shuffle { .. } => 10,
-            Self::RemoveChannels { .. } => 11,
-            Self::ColorGrade { .. } => 12,
-            Self::Composite { .. } => 13,
-            Self::TransformImage { .. } => 14,
-            Self::GaussianBlur { .. } => 15,
-            Self::Unary { operation } => {
-                16 + match operation {
-                    fold_render::operations::Unary::Exposure { .. } => 0,
-                    fold_render::operations::Unary::Invert => 1,
-                    fold_render::operations::Unary::Clamp { .. } => 2,
-                    fold_render::operations::Unary::Premult => 3,
-                    fold_render::operations::Unary::Unpremult => 4,
-                }
-            }
-            Self::Shape { shape, .. } => {
-                if *shape == crate::Shape::Rectangle {
-                    21
-                } else {
-                    22
-                }
-            }
-        }]
-    }
-    pub(crate) fn validate(&self) -> Result<(), String> {
-        match self {
-            Self::Shader { settings } => settings.validate()?,
-            Self::RelativeTransform { settings } => {
-                settings.matrix(
-                    fold_platform::format::Format::square([1920, 1080]),
-                    [1920, 1080],
-                )?;
-            }
-            Self::Input { id } => {
-                if id.is_empty() || id.len() > 128 {
-                    return Err("Input requires a stable port identity".into());
-                }
-            }
-            Self::Instance { instance, images } => {
-                instance.validate()?;
-                let unique: BTreeSet<_> = images.iter().collect();
-                if images.len() > 16
-                    || unique.len() != images.len()
-                    || images.iter().any(|i| i.is_empty() || i.len() > 128)
-                {
-                    return Err("Invalid effect image interface".into());
-                }
-            }
-            Self::Dissolve { curve } => curve.validate()?,
-            Self::Unary { operation } => operation.validate()?,
-            Self::Shape { shape, bounds } => {
-                crate::shapes::drawing(*shape, *bounds, [1.; 2])?;
-            }
-            Self::GaussianBlur { size, .. } => fold_render::operations::validate_blur(*size)?,
-            Self::TransformImage { settings } => {
-                settings.matrix([1.; 2])?;
-            }
-            Self::ColorGrade { settings } => settings.validate()?,
-            Self::Shuffle { mappings } => {
-                let unique: BTreeSet<_> = mappings.iter().map(|m| &m.destination).collect();
-                if mappings.len() > 256 || unique.len() != mappings.len() {
-                    return Err(
-                        "Shuffle requires unique destinations and at most 256 mappings".into(),
-                    );
-                }
-            }
-            Self::RemoveChannels { channels, .. } if channels.len() > 256 => {
-                return Err("Select at most 256 channels".into());
-            }
-            Self::Read {
-                source,
-                start,
-                source_start,
-                duration,
-            } => {
-                let info = source.info();
-                info.validate()?;
-                if let Source::Exr {
-                    image,
-                    color_layers,
-                    sequence,
-                    ..
-                } = source
-                {
-                    if color_layers.len() > 256
-                        || color_layers.iter().any(|layer| {
-                            !["red", "green", "blue"].iter().all(|component| {
-                                image
-                                    .channels
-                                    .iter()
-                                    .any(|c| c.name == format!("{layer}.{component}"))
-                            })
-                        })
-                    {
-                        return Err("EXR color assignments require complete RGB layers".into());
-                    }
-                    image.validate()?;
-                    if image.sequence.is_some() {
-                        return Err(
-                            "Read stores a sequence summary; manifests belong to imported assets"
-                                .into(),
-                        );
-                    }
-                    if let Some(sequence) = sequence {
-                        sequence.validate()?;
-                        if sequence.last >= info.frames {
-                            return Err("EXR sequence exceeds source frame range".into());
-                        }
-                    }
-                    if image.dimensions != [info.width, info.height] {
-                        return Err("EXR source dimensions disagree".into());
-                    }
-                }
-                if *source_start < Time::ZERO
-                    || *duration <= Time::ZERO
-                    || source_start
-                        .checked_add(*duration)
-                        .map_err(|e| e.to_string())?
-                        > info.time(info.frames)?
-                {
-                    return Err("Read requires a valid half-open source range".into());
-                }
-                start.checked_add(*duration).map_err(|e| e.to_string())?;
-                if let Source::Document { source, .. } = source
-                    && source.output.is_empty()
-                {
-                    return Err("Read requires a named video output port".into());
-                }
-            }
-            Self::Solid { rgba }
-                if rgba.iter().any(|v| !v.is_finite()) || !(0.0..=1.0).contains(&rgba[3]) =>
-            {
-                return Err("Solid requires finite RGB and alpha in 0..1".into());
-            }
-            Self::Transform {
-                translate,
-                scale,
-                opacity,
-            } if translate
-                .iter()
-                .chain(scale)
-                .any(|v| !v.is_finite() || v.abs() > 1e6)
-                || scale.iter().any(|v| v.abs() < 1e-6)
-                || !opacity.is_finite()
-                || !(0.0..=1.0).contains(opacity) =>
-            {
-                return Err("Transform requires finite invertible scale and opacity 0..1".into());
-            }
-            Self::Crop { rect } | Self::Mask { rect } if rect[0] > rect[2] || rect[1] > rect[3] => {
-                return Err("invalid rectangle".into());
-            }
-            Self::Blur { radius } if *radius > 64 => return Err("blur radius exceeds 64".into()),
-            Self::Grade { gain }
-                if gain
-                    .iter()
-                    .any(|v| !v.is_finite() || !(0.0..=16.0).contains(v)) =>
-            {
-                return Err("gain must be finite in 0..16".into());
-            }
-            _ => {}
-        }
-        Ok(())
-    }
-}
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct Node {
-    pub id: ObjectId,
-    pub parameters: Parameters,
+    pub operation: fold_graph::model::Node,
     #[serde(default, skip_serializing_if = "crate::animation::Channels::is_empty")]
     pub animation: crate::animation::Channels,
     /// Fixed, named operator ports; None is a deliberately disconnected socket.
     pub inputs: Vec<Option<fold_graph::model::Edge>>,
-    #[serde(default, skip_serializing_if = "crate::Effect::is_default")]
     pub effect: crate::Effect,
     #[serde(default)]
     pub position: Option<[f32; 2]>,
@@ -545,10 +78,9 @@ impl Node {
         }
         Ok(())
     }
-    pub fn new(parameters: Parameters, inputs: Vec<ObjectId>) -> Self {
+    pub fn new(parameters: OperationConfig, inputs: Vec<ObjectId>) -> Self {
         Self {
-            id: ObjectId::new(),
-            parameters,
+            operation: crate::operation::record(&parameters),
             animation: Default::default(),
             inputs: inputs
                 .into_iter()
@@ -579,33 +111,67 @@ impl Composite {
         {
             return Err("composite requires 1..512 nodes and at most ten minutes".into());
         }
+        for node in &self.nodes {
+            node.try_configuration()?.validate()?;
+        }
         let mut ports = BTreeMap::new();
         for node in &self.nodes {
-            if !matches!(node.parameters, Parameters::Output) {
-                ports.insert(node.id, node.parameters.operator().output.clone());
+            if !matches!(node.configuration(), OperationConfig::Output) {
+                ports.insert(node.id, node.configuration().operator().output.clone());
             }
         }
         let mut ids = BTreeSet::new();
         for node in &self.nodes {
+            fold_graph::model::extension_keys(
+                &node.operation.extensions,
+                &["id", "name", "operation", "version", "mode", "parameters"],
+            )?;
+            if node.name.len() > 256 {
+                return Err("Node name exceeds 256 bytes".into());
+            }
+            if let Some(instance) = node.native_instance()? {
+                for id in instance.identities()? {
+                    if !ids.insert(id) {
+                        return Err("Duplicate instance control identity".into());
+                    }
+                }
+            }
+            for parameter in node.operation.parameters.values() {
+                if !ids.insert(parameter.id) {
+                    return Err("Duplicate compositor parameter identity".into());
+                }
+                fold_graph::model::extension_keys(
+                    &parameter.extensions,
+                    &["id", "value", "protected"],
+                )?;
+            }
             for id in node.animation.identities()? {
                 if !ids.insert(id) {
                     return Err("Duplicate authored identity".into());
                 }
             }
-            node.parameters.validate()?;
+            node.configuration().validate()?;
             node.effect.validate()?;
-            if !node.parameters.operator().supports_effect() && !node.effect.is_default() {
+            if !ids.insert(node.effect.id) {
+                return Err("Duplicate effect control identity".into());
+            }
+            if let Some(edge) = &node.effect.mask
+                && !ids.insert(edge.id)
+            {
+                return Err("Duplicate effect mask connection identity".into());
+            }
+            if !node.configuration().operator().supports_effect() && !node.effect.is_default() {
                 return Err("This node does not support effect controls".into());
             }
-            if let Some(mask) = node.effect.mask
+            if let Some(mask) = node.effect.mask_node()
                 && !matches!(ports.get(&mask), Some(Type::Image | Type::Mask))
             {
                 return Err("Mask input requires an image or mask output".into());
             }
             node.validate_animation()?;
-            let op = node.parameters.operator();
+            let op = node.configuration().operator();
             if !ids.insert(node.id)
-                || node.inputs.len() != node.parameters.input_count()
+                || node.inputs.len() != node.configuration().input_count()
                 || node
                     .position
                     .is_some_and(|p| p.iter().any(|v| !v.is_finite() || v.abs() > 1e7))
@@ -626,7 +192,7 @@ impl Composite {
                 }
             }
             for (slot, input) in node.input_ids().iter().enumerate() {
-                let expected = node.parameters.input_type(slot);
+                let expected = node.configuration().input_type(slot);
                 if let Some(input) = input
                     && ports.get(input) != Some(&expected)
                     && !(expected == Type::Mask && ports.get(input) == Some(&Type::Image))
@@ -641,7 +207,7 @@ impl Composite {
         if !self
             .nodes
             .iter()
-            .any(|n| n.id == self.output && matches!(n.parameters, Parameters::Output))
+            .any(|n| n.id == self.output && matches!(n.configuration(), OperationConfig::Output))
         {
             return Err("composite output must identify an Output node".into());
         }
@@ -651,6 +217,64 @@ impl Composite {
     }
     pub(crate) fn check_protection(&self, next: &Self) -> Result<(), String> {
         for node in &self.nodes {
+            let replacement = next.nodes.iter().find(|n| n.id == node.id);
+            if let Some(instance) = node.native_instance()? {
+                let next = replacement
+                    .map(|n| n.native_instance())
+                    .transpose()?
+                    .flatten();
+                instance.check_protection(next.as_ref())?;
+            }
+            if node.effect.protected && replacement.map(|n| &n.effect) != Some(&node.effect) {
+                return Err("Effect controls are protected".into());
+            }
+            if node.operation.parameters.values().any(|p| p.protected)
+                && replacement.is_none_or(|n| {
+                    n.operation.operation != node.operation.operation
+                        || n.version != node.version
+                        || n.mode != node.mode
+                })
+            {
+                return Err("Protected operation cannot be reinterpreted".into());
+            }
+            for (name, parameter) in &node.operation.parameters {
+                if parameter.protected
+                    && replacement.and_then(|n| n.operation.parameters.get(name)) != Some(parameter)
+                {
+                    return Err(format!("Protected compositor parameter {name}"));
+                }
+            }
+            let config = node.configuration();
+            for property in node.animated_properties() {
+                let protected = if property.id == "mix" && config.operator().supports_effect() {
+                    node.effect.protected
+                } else {
+                    node.operation
+                        .parameters
+                        .get(config.parameter_for_property(&property.id))
+                        .is_some_and(|p| p.protected)
+                };
+                if protected {
+                    let prefix = format!("{}.", property.id);
+                    let before: BTreeMap<_, _> = node
+                        .animation
+                        .bindings()
+                        .iter()
+                        .filter(|(path, _)| path.starts_with(&prefix))
+                        .collect();
+                    let after: BTreeMap<_, _> = replacement
+                        .into_iter()
+                        .flat_map(|n| n.animation.bindings())
+                        .filter(|(path, _)| path.starts_with(&prefix))
+                        .collect();
+                    if before != after {
+                        return Err(format!(
+                            "Protected compositor control {} cannot change animation",
+                            property.id
+                        ));
+                    }
+                }
+            }
             let animation = next
                 .nodes
                 .iter()
@@ -664,17 +288,17 @@ impl Composite {
     pub fn dependencies(&self) -> Vec<DocumentRef> {
         let mut refs = Vec::new();
         for node in &self.nodes {
-            if let Parameters::Read {
+            if let OperationConfig::Read {
                 source: Source::Document { source, .. },
                 ..
-            } = &node.parameters
+            } = &node.configuration()
                 && !refs.contains(source)
             {
                 refs.push(source.clone());
             }
         }
         for node in &self.nodes {
-            if let Parameters::Instance { instance, .. } = &node.parameters
+            if let OperationConfig::Instance { instance, .. } = &node.configuration()
                 && !refs.contains(&instance.definition)
             {
                 refs.push(instance.definition.clone());
@@ -685,8 +309,8 @@ impl Composite {
     fn assets(&self) -> Vec<AssetId> {
         self.nodes
             .iter()
-            .filter_map(|n| match n.parameters {
-                Parameters::Read {
+            .filter_map(|n| match n.configuration() {
+                OperationConfig::Read {
                     source: Source::Asset { asset, .. } | Source::Exr { asset, .. },
                     ..
                 } => Some(asset),
@@ -706,7 +330,7 @@ impl Composite {
             id,
             package_id: crate::PACKAGE.into(),
             type_id: crate::COMPOSITE.into(),
-            schema_version: 7,
+            schema_version: 8,
             revision: Revision::default(),
             dependencies: self.dependencies(),
             assets: self.assets(),
@@ -717,7 +341,7 @@ impl Composite {
     pub fn from_document(document: &Document) -> Result<Self, String> {
         if document.package_id != crate::PACKAGE
             || document.type_id != crate::COMPOSITE
-            || document.schema_version != 7
+            || document.schema_version != 8
             || document.payload.len() > 1024 * 1024
         {
             return Err("unsupported composite document".into());

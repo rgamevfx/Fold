@@ -24,8 +24,8 @@ pub fn replace(
         .ok_or("Missing composition")?;
     let mut composite = fold_compositor::Composite::from_document(previous)?;
     if !matches!(
-        composite.node(args.node)?.parameters,
-        fold_compositor::Parameters::Read { .. }
+        composite.node(args.node)?.configuration(),
+        fold_compositor::OperationConfig::Read { .. }
     ) {
         return Err("Select a Read node".into());
     }
@@ -95,13 +95,14 @@ pub fn replace(
         composite.info.frames = composite.info.frames.max(source.info().frames);
     }
     let node = composite.node_mut(args.node)?;
-    let fold_compositor::Parameters::Read {
+    let mut config = node.configuration();
+    let fold_compositor::OperationConfig::Read {
         source: old_source,
         source_start,
         start,
         duration: old_duration,
         ..
-    } = &mut node.parameters
+    } = &mut config
     else {
         unreachable!()
     };
@@ -111,6 +112,7 @@ pub fn replace(
         *start = first_time;
     }
     *old_duration = duration;
+    node.set_configuration(config)?;
     // Per-use input color interpretation is retained deliberately.
     let mut document = composite.document(args.document)?;
     document.extensions = previous.extensions.clone();

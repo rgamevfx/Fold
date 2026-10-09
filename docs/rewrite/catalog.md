@@ -56,3 +56,13 @@ All keys below are suffixes of `fold.motion.`; initial version is 1. This is a p
 | Foundation | `output` | M2 | named typed publication | uniform | schema | `save-reopen` |
 
 Later candidates stay outside the initial 50: `scatter`, `sample_geometry`, `offset_path`, `sweep`, `bevel`, `subdivide`, `morph`, `text_on_points`.
+
+
+## M5a compositor catalog cutover
+
+The compositor's 28 versioned operations are inventoried separately in
+[m5a-compositor-inventory.md](m5a-compositor-inventory.md). All now persist shared
+native operation/parameter/edge records under schema 8. Public discovery exposes
+native default records and named typed sockets. Useful image kernels remain
+specialized; no Motion dependency, old document reader or Parameters-tag protocol
+alias remains. Qualification and limitations are in the linked cutover evidence.

@@ -69,11 +69,11 @@ mod tests {
         let mut project = Project::new(8);
         let id = DocumentId::new();
         let source = fold_compositor::Node::new(
-            fold_compositor::Parameters::Solid { rgba: [1.; 4] },
+            fold_compositor::OperationConfig::Solid { rgba: [1.; 4] },
             vec![],
         );
         let output =
-            fold_compositor::Node::new(fold_compositor::Parameters::Output, vec![source.id]);
+            fold_compositor::Node::new(fold_compositor::OperationConfig::Output, vec![source.id]);
         let composite = fold_compositor::Composite {
             info: fold_media::VideoInfo {
                 width: 64,

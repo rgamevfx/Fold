@@ -560,6 +560,7 @@ impl State<'_> {
             Builtin::Cloner => self.cloner(scope, id, &args)?,
             Builtin::Grid => self.grid(scope, id, &args)?,
             Builtin::BoxMesh => self.box_mesh(scope, id, &args)?,
+            Builtin::SphereMesh => self.sphere_mesh(scope, id, &args)?,
             Builtin::TransformScreen | Builtin::TransformMesh | Builtin::TransformInstances => {
                 self.transform_geometry(scope, id, &args, operation.builtin)?
             }

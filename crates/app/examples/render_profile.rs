@@ -2,7 +2,7 @@
 //! Run a release native-video build with FOLD_COLOR_ROOT and decoder configuration.
 //! Reports uncached evaluation, not presentation-cache or physical UI latency.
 //! FOLD_PROFILE_VERIFY=1 compares the first frame with CPU and delivery output.
-use fold_compositor::{Composite, Node, Parameters as P, Source};
+use fold_compositor::{Composite, Node, OperationConfig as P, Source};
 use fold_foundation::{DocumentId, Time};
 use fold_project::{DocumentRef, EditBatch, Mutation};
 use fold_render::operations::{Edges, Grade};
@@ -71,7 +71,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         },
         vec![transform.id],
     );
-    grade.effect.mask = Some(mask.id);
+    grade.effect.set_mask(mask.id);
     let output = Node::new(
         P::Output,
         vec![match stage {

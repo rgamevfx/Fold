@@ -1,5 +1,5 @@
 use super::state::Shared;
-use crate::{Parameters as P, package};
+use crate::{OperationConfig as P, package};
 use fold_foundation::Time;
 use fold_platform::desktop::DesktopCommand;
 use fold_ui::sdk::{EditResponse as Response, ExtensionUi, Panel, UiId, imgui::Ui};
@@ -92,7 +92,7 @@ impl Panel for Inspector {
             .graph
             .as_ref()
             .and_then(|g| {
-                g.node(id).ok()?.effect.mask.and_then(|id| {
+                g.node(id).ok()?.effect.mask_node().and_then(|id| {
                     g.channel_names_with(id, &|source| host.channels(source))
                         .ok()
                 })
@@ -108,7 +108,7 @@ impl Panel for Inspector {
         };
         ui.text(
             if matches!(
-                node.parameters,
+                node.configuration(),
                 P::Read {
                     source: crate::Source::Document { .. },
                     ..
@@ -116,7 +116,7 @@ impl Panel for Inspector {
             ) {
                 "Image Reference"
             } else {
-                node.parameters.operator().label()
+                node.configuration().operator().label()
             },
         );
         ui.separator();
@@ -143,7 +143,8 @@ impl Panel for Inspector {
             );
         }
         let mut shader_migration = None;
-        match &mut node.parameters {
+        let mut config = node.configuration();
+        match &mut config {
             P::Shader { settings } => {
                 shader_migration = self.2.draw(ui, document.map(|d| (d, id)), settings);
                 let size = [
@@ -336,11 +337,14 @@ impl Panel for Inspector {
                 }
             }
         }
-        if node.parameters.operator().supports_effect() {
+        if let Err(error) = node.set_configuration(config.clone()) {
+            ui.text_wrapped(error);
+        }
+        if config.operator().supports_effect() {
             super::channels::effect(
                 ui,
                 &mut node.effect,
-                if matches!(node.parameters, P::Merge | P::Composite { .. }) {
+                if matches!(config, P::Merge | P::Composite { .. }) {
                     &input_b
                 } else {
                     &input_a

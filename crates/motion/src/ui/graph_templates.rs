@@ -244,6 +244,7 @@ pub(super) fn add(asset: &mut Definition, template: &str) -> Result<Vec<ObjectId
         | Builtin::InstanceRandom
         | Builtin::Grid
         | Builtin::BoxMesh
+        | Builtin::SphereMesh
         | Builtin::Rectangle
         | Builtin::SceneTime
         | Builtin::AssetTime

@@ -1,5 +1,5 @@
 use super::*;
-use crate::{Composite, Node, Parameters};
+use crate::{Composite, Node, OperationConfig};
 use fold_foundation::DocumentId;
 use fold_platform::{desktop::*, packages::PackageRegistry};
 use fold_project::{CommittedSnapshot, EditBatch, Mutation, Project};
@@ -51,12 +51,12 @@ pub(super) fn setup() -> (Host, state::State) {
         registry,
     };
     let source = Node::new(
-        Parameters::Solid {
+        OperationConfig::Solid {
             rgba: [0.5, 0.2, 0.1, 1.],
         },
         vec![],
     );
-    let output = Node::new(Parameters::Output, vec![source.id]);
+    let output = Node::new(OperationConfig::Output, vec![source.id]);
     let graph = Composite {
         info: fold_media::VideoInfo {
             width: 16,
@@ -289,32 +289,32 @@ fn production_node_inspectors_fit_normal_and_narrow_panels_without_edits() {
     let mut composite = initial.graph.unwrap();
     let image = composite.nodes[0].id;
     for parameters in [
-        Parameters::ColorGrade {
+        OperationConfig::ColorGrade {
             settings: Default::default(),
         },
-        Parameters::TransformImage {
+        OperationConfig::TransformImage {
             settings: Default::default(),
         },
-        Parameters::GaussianBlur {
+        OperationConfig::GaussianBlur {
             size: [3.; 2],
             edges: Default::default(),
         },
-        Parameters::Composite {
+        OperationConfig::Composite {
             mode: Default::default(),
         },
-        Parameters::Shuffle { mappings: vec![] },
-        Parameters::RemoveChannels {
+        OperationConfig::Shuffle { mappings: vec![] },
+        OperationConfig::RemoveChannels {
             channels: vec![],
             keep: false,
         },
-        Parameters::Unary {
+        OperationConfig::Unary {
             operation: fold_render::operations::Unary::Exposure { stops: 0. },
         },
-        Parameters::Shape {
+        OperationConfig::Shape {
             shape: crate::Shape::Ellipse,
             bounds: [0., 0., 16., 16.],
         },
-        Parameters::Read {
+        OperationConfig::Read {
             source: crate::Source::Unassigned {
                 info: composite.info.clone(),
             },
@@ -327,8 +327,8 @@ fn production_node_inspectors_fit_normal_and_narrow_panels_without_edits() {
         for slot in 0..node.inputs.len() {
             node.set_input(slot, image).unwrap();
         }
-        if node.parameters.operator().supports_effect() {
-            node.effect.mask = Some(image);
+        if node.configuration().operator().supports_effect() {
+            node.effect.set_mask(image);
         }
         composite.nodes.push(node);
     }
@@ -369,7 +369,7 @@ fn production_node_inspectors_fit_normal_and_narrow_panels_without_edits() {
                                 ui.scroll_max_x(),
                                 0.,
                                 "{} at {width}px",
-                                node.parameters.operator().label()
+                                node.configuration().operator().label()
                             );
                         }
                     });

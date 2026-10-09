@@ -111,6 +111,7 @@ impl Panel for Editor {
                         {
                             state.graph_definition = Some(*id);
                             state.graph_history.clear();
+                            state.graph_occurrences.clear();
                             state.select(host, vec![]);
                         }
                     }

@@ -282,3 +282,247 @@ fn public_frame_jobs_match_registered_pixels_and_retain_candidate_context() {
         changed
     );
 }
+
+#[test]
+#[ignore = "requires a native Vulkan adapter"]
+fn public_mixed_document_candidate_frames_match_committed_composition() {
+    let mut project = Project::new(16);
+    let mut dispatcher = Dispatcher::default();
+    let epoch = dispatcher.epoch();
+    let document = fold_foundation::DocumentId::new();
+    let scope = json!({"document":document,"definition":null,"object":null});
+    let guard = |p: &Project| json!({"epoch":epoch,"request_id":ObjectId::new(),"base":p.snapshot().revision().0,"scope":scope});
+    let g = guard(&project);
+    let submitted = request(
+        &mut dispatcher,
+        &mut project,
+        json!({"method":"propose","guard":g,"edit":{"kind":"project","edits":[
+            {"op":"create","document":document,"type_id":fold_composition::COMPOSITION,"name":"Mixed"},
+            {"op":"add_layer","composition":document,"kind":"scene"},
+            {"op":"add_layer","composition":document,"kind":"image"}
+        ]}}),
+    );
+    let prepared = finish(&mut dispatcher, &mut project, submitted);
+    let handle = prepared["result"]["handle"].clone();
+    let (host, _) = pollster::block_on(Host::headless(512 * 1024 * 1024)).unwrap();
+    dispatcher.set_render_host(Some(host));
+    let submitted = request(
+        &mut dispatcher,
+        &mut project,
+        json!({"method":"observe_frame","target":{"kind":"candidate","handle":handle},"output":"video","time":Time::ZERO,"dimensions":[160,90]}),
+    );
+    let candidate = finish(&mut dispatcher, &mut project, submitted);
+    assert_eq!(candidate["result"]["provenance"]["candidate"], handle);
+    assert!(project.snapshot().state().documents.is_empty());
+    let submitted = request(
+        &mut dispatcher,
+        &mut project,
+        json!({"method":"inspect_candidate","handle":handle}),
+    );
+    let inspection = finish(&mut dispatcher, &mut project, submitted);
+    let g = guard(&project);
+    let applied = request(
+        &mut dispatcher,
+        &mut project,
+        json!({"method":"apply","guard":g,"handle":handle,"receipt":inspection["result"]["receipt"]}),
+    );
+    assert!(applied.get("error").is_none(), "{applied}");
+    let target = json!({"kind":"committed","epoch":epoch,"revision":project.snapshot().revision().0,"document":document});
+    let submitted = request(
+        &mut dispatcher,
+        &mut project,
+        json!({"method":"observe_frame","target":target,"output":"video","time":Time::ZERO,"dimensions":[160,90]}),
+    );
+    let committed = finish(&mut dispatcher, &mut project, submitted);
+    assert_eq!(decode(&candidate), decode(&committed));
+    assert!(committed["result"]["provenance"]["fingerprints"]["project"].is_string());
+    let info = fold_app::packages::builtins()
+        .output(&project.snapshot(), document)
+        .unwrap();
+    let mut invalid = request(
+        &mut dispatcher,
+        &mut project,
+        json!({"method":"observe_frame","target":target,"output":"video","time":info.time(info.frames).unwrap(),"dimensions":[160,90]}),
+    );
+    let job = invalid["result"]["job"].clone();
+    let deadline = Instant::now() + Duration::from_secs(30);
+    while invalid["result"]["state"] == "running" {
+        assert!(Instant::now() < deadline);
+        std::thread::sleep(Duration::from_millis(1));
+        invalid = request(
+            &mut dispatcher,
+            &mut project,
+            json!({"method":"job_status","handle":job}),
+        );
+    }
+    assert_eq!(invalid["error"]["code"], "type", "{invalid}");
+}
+
+#[test]
+#[ignore = "requires native Vulkan and the packaged color runtime"]
+fn mixed_scene_first_frame_retains_static_spheres_when_title_is_transparent() {
+    check_scene_observations("Make-it-move.fold");
+}
+#[test]
+#[ignore = "requires a native Vulkan adapter"]
+fn mixed_compositor_fixture_matches_preview_after_public_source_edits() {
+    check_scene_observations("m5a-mixed-scene.fold");
+}
+fn check_scene_observations(fixture: &str) {
+    let mut project = fold_project::load(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(format!("../../demos/{fixture}")),
+        32,
+    )
+    .unwrap();
+    let document = project
+        .snapshot()
+        .state()
+        .documents
+        .values()
+        .find(|d| d.type_id == fold_composition::COMPOSITION)
+        .unwrap()
+        .id;
+    let mut dispatcher = Dispatcher::default();
+    let (host, _) = pollster::block_on(Host::headless(512 * 1024 * 1024)).unwrap();
+    // Simulate a visible full-size Viewer sharing its GPU host with the
+    // observation renderer, which uses a different output raster.
+    let mut viewer = Renderer::new(host.clone()).unwrap();
+    let snapshot = project.snapshot();
+    let cancel = fold_media::Cancel::default();
+    let mut viewer_frame = |snapshot: &fold_project::Snapshot, time: Time, dimensions: [u32; 2]| {
+        let scene = evaluate_scene_gpu(
+            snapshot,
+            &SceneRequest {
+                source: fold_project::DocumentRef {
+                    document,
+                    output: "video".into(),
+                    extensions: Default::default(),
+                },
+                time,
+                dimensions,
+                region: None,
+                preview: None,
+            },
+            &mut viewer,
+            &mut fold_media::Decoder::default(),
+            &cancel,
+        )
+        .unwrap();
+        fold_app::color::with_config(snapshot, |config| {
+            let processor = config
+                .map(|c| c.display(fold_color::WORKING_SPACE, &Default::default()))
+                .transpose()?;
+            viewer
+                .output(&scene, processor.as_ref(), &cancel)?
+                .readback(&cancel)
+        })
+        .unwrap()
+        .rgba()
+        .to_vec()
+    };
+    viewer_frame(&snapshot, Time::ZERO, [1920, 1080]);
+    dispatcher.set_render_host(Some(host));
+    for pass in 0..6 {
+        // The original failure followed a public title-source edit, not merely
+        // reopening a static project. Keep both Viewer and observation renderers
+        // alive across the edit and render the newly committed snapshot.
+        let snapshot = project.snapshot();
+        let scene = snapshot
+            .state()
+            .documents
+            .values()
+            .find_map(|d| {
+                let scene = fold_motion::scene::Scene::from_document(d).ok()?;
+                scene
+                    .objects
+                    .iter()
+                    .find(|o| o.name == "Title reveal")
+                    .map(|o| {
+                        (
+                            d.id,
+                            o.id,
+                            fold_motion::source::canonical(&o.graph).unwrap(),
+                        )
+                    })
+            })
+            .unwrap();
+        let next = if scene.2.contains("[-2.65,1.45,0.0]") {
+            scene.2.replace("[-2.65,1.45,0.0]", "[-2.65,1.4,0.0]")
+        } else {
+            scene.2.replace("[-2.65,1.4,0.0]", "[-2.65,1.45,0.0]")
+        };
+        assert_ne!(next, scene.2, "Reproduction must change the title graph");
+        let guard = json!({"epoch":dispatcher.epoch(),"request_id":ObjectId::new(),"base":snapshot.revision(),"scope":{"document":scene.0,"definition":null}});
+        let submitted = request(
+            &mut dispatcher,
+            &mut project,
+            json!({"method":"propose","guard":guard,"edit":{"kind":"project","edits":[{"op":"object_source","document":scene.0,"object":scene.1,"expected":scene.2,"source":next}]}}),
+        );
+        let proposal = finish(&mut dispatcher, &mut project, submitted);
+        let handle = proposal["result"]["handle"].clone();
+        let submitted = request(
+            &mut dispatcher,
+            &mut project,
+            json!({"method":"inspect_candidate","handle":handle}),
+        );
+        let inspected = finish(&mut dispatcher, &mut project, submitted);
+        let mut apply_guard = guard;
+        apply_guard["request_id"] = json!(ObjectId::new());
+        let applied = request(
+            &mut dispatcher,
+            &mut project,
+            json!({"method":"apply","guard":apply_guard,"handle":handle,"receipt":inspected["result"]["receipt"]}),
+        );
+        finish(&mut dispatcher, &mut project, applied);
+        let snapshot = project.snapshot();
+        let target = json!({"kind":"committed","epoch":dispatcher.epoch(),"revision":snapshot.revision(),"document":document});
+        let mut frames = vec![];
+        for time in [Time::ZERO, Time::new(1, 1).unwrap(), Time::ZERO] {
+            let submitted = request(
+                &mut dispatcher,
+                &mut project,
+                json!({"method":"observe_frame","target":target,"output":"video","time":time,"dimensions":[960,540]}),
+            );
+            let handle = submitted["result"]["job"].clone();
+            let mut observed = submitted;
+            let deadline = Instant::now() + Duration::from_secs(90);
+            while observed["result"]["state"] == "running" {
+                assert!(Instant::now() < deadline, "Concurrent frame job timed out");
+                // Continue actual scene evaluation and GPU submission, not just
+                // presentation of a previously rendered Viewer texture.
+                viewer_frame(&snapshot, Time::ZERO, [1920, 1080]);
+                observed = request(
+                    &mut dispatcher,
+                    &mut project,
+                    json!({"method":"job_status","handle":handle}),
+                );
+            }
+            assert!(observed.get("error").is_none(), "{observed}");
+            let pixels = decode(&observed);
+            assert_eq!(
+                pixels,
+                viewer_frame(&snapshot, time, [960, 540]),
+                "Public observation differs from native preview"
+            );
+            frames.push(pixels);
+        }
+        let crop = |image: &Vec<u8>| image[960 * 300 * 4..].to_vec();
+        let reference = crop(&frames[1]);
+        let colors: std::collections::BTreeSet<_> = reference.chunks_exact(4).collect();
+        assert!(
+            colors.len() > 100,
+            "Held frame must contain shaded colored spheres"
+        );
+        assert_eq!(
+            crop(&frames[0]),
+            reference,
+            "First zero-opacity frame lost static spheres"
+        );
+        assert_eq!(
+            crop(&frames[2]),
+            reference,
+            "Reverse seek lost static spheres"
+        );
+        eprintln!("Source-edit observation pass {pass}: static sphere regions agree");
+    }
+}

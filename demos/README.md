@@ -1,3 +1,38 @@
+# Make it move — Composition and Outliner
+
+Open `Make-it-move.fold` in Composition. Expand its three scene layers to select
+the backdrop, title and colored-sphere objects; Network shows each object's own
+graph. Camera/light graphs remain separate. The title's reveal keys are in the
+Composition timeline. No parameters are exposed.
+
+To regenerate through public tools, start an empty desktop session with
+`--protocol-dir <directory>` and the installed `FOLD_COLOR_ROOT`/`FOLD_VIDEO_ROOT`.
+Then run `python3 demos/make-it-move.py <fold-cli> <socket> <new.fold> <new-report.json>`.
+The script inspects candidates before Apply and saves frames and a project copy.
+See the [qualification record](../docs/rewrite/evidence/m5a-public-scene-result.md),
+and the later [observation evidence correction](../docs/rewrite/evidence/m5a-compositor-cutover/result.md).
+
+## Mixed scene/compositor acceptance fixture
+
+`m5a-mixed-scene.fold` has a background scene with independent sphere and plate
+objects, its own camera/light, an explicitly connected Read → Grade → Output
+compositing layer, and a transparent title scene with separate camera/light.
+Expand scene rows in Composition, select objects in Outliner, use Network's
+Graph/Source tabs, and edit keys in the shared Track/Curve view. The original
+three-scene `Make-it-move.fold` remains a separate, unchanged deliverable.
+
+Regenerate from an empty public session:
+
+```sh
+python3 demos/m5a-mixed-scene.py <fold-cli> <socket> <new.fold> <new-report.json>
+```
+
+The script uses discovery, inspected candidates, guarded Apply, frame observation
+and public save only. See [cutover evidence](../docs/rewrite/evidence/m5a-compositor-cutover/result.md)
+for source/conflict/undo/reopen and native visual qualification.
+
+The older integrated fixture below is retained as earlier rewrite evidence.
+
 # Try the Motion rewrite
 
 From the repository root:
@@ -25,8 +60,8 @@ animate its properties in Composition's Track/Curve view. Scene object scale has
 independent X/Y/Z controls; parenting retains nonuniform scale and shear.
 
 The existing **MAKE IT MOVE** project below still uses the earlier flat
-Construction fixture. It has not yet been replaced by the M5a two-scene public
-authoring demo. New scene creation no longer offers a competing Motion layer.
+Construction fixture. The separate M5a fixture above qualifies the two-scene
+workflow. New scene creation no longer offers a competing Motion layer.
 
 ## Try these edits
 

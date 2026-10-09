@@ -1,5 +1,5 @@
 use fold_compositor::{
-    Composite, Node, Parameters as P,
+    Composite, Node, OperationConfig as P,
     reusable::{Binding, Definition, KEY},
 };
 use fold_foundation::{DocumentId, ObjectId, Time};
@@ -148,7 +148,7 @@ fn independent_instances_share_source_work_and_preserve_definition() {
     }
     let saved = Composite::from_document(&definition).unwrap();
     assert_eq!(saved, authored);
-    assert!(matches!(saved.nodes[1].parameters,P::Grade {gain} if gain == [1.;3]));
+    assert!(matches!(saved.nodes[1].configuration(),P::Grade {gain} if gain == [1.;3]));
 }
 #[test]
 fn dissolve_interpolates_alpha_instead_of_over_compositing() {
@@ -258,7 +258,7 @@ fn shader_interface_rename_preserves_connections_values_and_key_identity() {
         node.animation.curve("amount.0").unwrap().unwrap().keys[0].id,
         key
     );
-    let P::Shader { settings } = &node.parameters else {
+    let P::Shader { settings } = &node.configuration() else {
         panic!()
     };
     assert_eq!(settings.controls[0].default, vec![0.5]);
@@ -281,7 +281,7 @@ fn library_presets_are_editable_graphs_with_valid_promoted_controls() {
         graph.validate_reusable().unwrap();
         assert!(graph.nodes.len() >= 3);
         for node in &graph.nodes {
-            if let P::Shader { settings } = &node.parameters {
+            if let P::Shader { settings } = &node.configuration() {
                 settings
                     .program(fold_platform::format::Format::square([1920, 1080]), 0., 0.)
                     .unwrap()

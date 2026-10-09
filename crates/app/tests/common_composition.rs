@@ -53,15 +53,15 @@ fn close(a: &[[f32; 4]], b: &[[f32; 4]]) {
     assert!(error < 0.005, "pixel error {error}");
 }
 fn fixture() -> (Project, DocumentId, fold_compositor::Composite) {
-    use fold_compositor::{Composite, Node, Parameters, Shape};
+    use fold_compositor::{Composite, Node, OperationConfig, Shape};
     let profile = Node::new(
-        Parameters::Shape {
+        OperationConfig::Shape {
             shape: Shape::Rectangle,
             bounds: [10., 11., 22., 21.],
         },
         vec![],
     );
-    let output = Node::new(Parameters::Output, vec![profile.id]);
+    let output = Node::new(OperationConfig::Output, vec![profile.id]);
     let composite = Composite {
         info: fold_media::VideoInfo {
             width: 32,
@@ -204,7 +204,7 @@ fn nesting_preserves_mixed_pixels_and_exact_trim_origin() {
 
 #[test]
 fn named_image_inputs_bind_independently_without_changing_other_sources() {
-    use fold_compositor::{Composite, Node, Parameters as P, Source as S};
+    use fold_compositor::{Composite, Node, OperationConfig as P, Source as S};
     let (mut project, source, image) = fixture();
     let target = DocumentId::new();
     let id = DocumentId::new();

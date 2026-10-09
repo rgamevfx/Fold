@@ -15,10 +15,10 @@ pub(super) const MAX_IN_FLIGHT: usize = 8;
 pub(super) enum Product {
     Reply(jobs::Completion),
     Inspection {
-        proof: fold_motion::candidates::InspectionProof,
+        proof: fold_project::proposals::InspectionProof,
         bytes: Arc<[u8]>,
     },
-    Candidate(Box<fold_motion::editing::Candidate>),
+    Candidate(Box<super::native::Candidate>),
 }
 pub(super) enum Output {
     Published {
@@ -27,10 +27,10 @@ pub(super) enum Output {
     },
     Value(Value),
     Inspection {
-        proof: fold_motion::candidates::InspectionProof,
+        proof: fold_project::proposals::InspectionProof,
         bytes: Arc<[u8]>,
     },
-    Candidate(Box<fold_motion::editing::Candidate>),
+    Candidate(Box<super::native::Candidate>),
 }
 type Work = Box<dyn FnOnce(&Cancel) -> Result<Output, Failure> + Send>;
 pub(super) struct Completed {

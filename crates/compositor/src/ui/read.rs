@@ -1,5 +1,5 @@
 //! Read source, exact frame mapping and input-color controls.
-use crate::{Node, Parameters, Source};
+use crate::{Node, OperationConfig, Source};
 use fold_foundation::Time;
 use fold_platform::desktop::{DesktopClient, ViewLocation};
 use fold_ui::sdk::{
@@ -20,12 +20,13 @@ pub(super) fn draw(
     response: &mut Response,
 ) -> Actions {
     let mut actions = Actions::default();
-    let Parameters::Read {
+    let mut config = node.configuration();
+    let OperationConfig::Read {
         source,
         start,
         source_start,
         duration,
-    } = &mut node.parameters
+    } = &mut config
     else {
         return actions;
     };
@@ -236,6 +237,9 @@ pub(super) fn draw(
             }
         }
     }
+    if let Err(error) = node.set_configuration(config) {
+        ui.text_wrapped(error);
+    }
     actions
 }
 fn frame_range(
@@ -291,12 +295,12 @@ fn frame_range(
 
 /// The same exact-time navigation is used by Inspector and Network.
 pub(super) fn source_location(node: &Node, time: Time) -> Option<ViewLocation> {
-    let Parameters::Read {
+    let OperationConfig::Read {
         source: Source::Document { source, .. },
         start,
         source_start,
         duration,
-    } = &node.parameters
+    } = &node.configuration()
     else {
         return None;
     };

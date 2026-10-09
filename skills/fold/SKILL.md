@@ -33,11 +33,14 @@ cannot unlock protected controls. Use public discovery/errors to resolve missing
 capabilities; artwork work must not require reading Rust crates or editing project
 payloads directly.
 
-M5a adds native scene/Outliner editing in the application, but its public candidate
-transport is not yet qualified for scene/object documents. Use discovery's supported
-inspection scope; do not substitute direct project-payload edits for missing tools.
-The integrated Motion demo uses the current filled-rectangle starter, not a fixed
-three-node template. See the public workflow's qualification notes.
+M5a exposes public Composition/scene creation, hierarchy edits, object-scoped
+source edits and mixed-document candidates. Use discovery's `project_authoring`
+schema and inspect all changed documents before Apply. The new
+[Make it move workflow](../../demos/make-it-move.py) uses three independent scene
+layers with shared Composition keys and no exposed controls. The separate
+[mixed-scene workflow](../../demos/m5a-mixed-scene.py) qualifies native compositor
+records/scoped source between two scenes. Physical artist acceptance remains
+unverified; see the linked evidence for automated and rendered qualification.
 
 For repository implementation status, consult the
 [Motion System Rewrite Plan](../../docs/Motion_System_Rewrite_Plan.md).

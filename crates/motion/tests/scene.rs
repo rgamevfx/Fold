@@ -549,3 +549,33 @@ fn paused_clock_projects_a_constant_sample_and_preserves_hidden_keys_on_value_ed
             .contains("Resume the clock")
     );
 }
+
+#[test]
+fn scene_replacement_cannot_attach_objects_under_a_locked_parent() {
+    let (id, mut before) = fixture();
+    before.objects[2].locked = true;
+    let parent = before.objects[2].id;
+    let original = before.document(id).unwrap();
+    let mut after = before.clone();
+    let mut child = scene::package::object(&before.canvas, "sphere").unwrap();
+    child.parent = Some(parent);
+    after.objects.push(child);
+    assert!(
+        after.replace(&original).is_err(),
+        "New children cannot bypass parent locks"
+    );
+    let mut after = before.clone();
+    after.objects[1].parent = Some(parent);
+    assert!(
+        after.replace(&original).is_err(),
+        "Reparenting cannot bypass parent locks"
+    );
+    let mut allowed = before;
+    allowed
+        .objects
+        .push(scene::package::object(&allowed.canvas, "sphere").unwrap());
+    assert!(
+        allowed.replace(&original).is_ok(),
+        "An unrelated root remains editable"
+    );
+}

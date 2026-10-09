@@ -2084,6 +2084,7 @@ dependencies = [
  "fold-composition",
  "fold-compositor",
  "fold-foundation",
+ "fold-graph",
  "fold-media",
  "fold-motion",
  "fold-platform",

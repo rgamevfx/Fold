@@ -3,7 +3,7 @@ use fold_composition::{
     Composition, Layer,
     reusable::{Binding, Definition, KEY, Target},
 };
-use fold_compositor::{Composite, Node, Parameters as P};
+use fold_compositor::{Composite, Node, OperationConfig as P};
 use fold_foundation::{DocumentId, ObjectId, Time};
 use fold_platform::effects::{Control, Instance, Interface};
 use fold_project::{DocumentRef, EditBatch, Mutation, Project};

@@ -357,14 +357,14 @@ fn main() {
 }
 
 fn checkpoint_composite(rgb: [f32; 3]) -> fold_compositor::Composite {
-    use fold_compositor::{Composite, Node, Parameters};
+    use fold_compositor::{Composite, Node, OperationConfig};
     let solid = Node::new(
-        Parameters::Solid {
+        OperationConfig::Solid {
             rgba: [rgb[0], rgb[1], rgb[2], 1.],
         },
         vec![],
     );
-    let output = Node::new(Parameters::Output, vec![solid.id]);
+    let output = Node::new(OperationConfig::Output, vec![solid.id]);
     Composite {
         info: fold_media::VideoInfo {
             width: 64,

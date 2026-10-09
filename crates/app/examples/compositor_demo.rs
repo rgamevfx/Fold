@@ -1,7 +1,9 @@
 //! Generate a self-contained multilayer compositor project for hands-on review.
 use exr::prelude::*;
 use fold_app::{media_workflow, packages};
-use fold_compositor::{ChannelMapping, ChannelSource, Composite, Node, Parameters as P, Source};
+use fold_compositor::{
+    ChannelMapping, ChannelSource, Composite, Node, OperationConfig as P, Source,
+};
 use fold_foundation::{DocumentId, Time};
 use fold_project::{DocumentRef, EditBatch, Mutation, Project};
 use fold_render::operations::{Edges, Grade, MergeMode};
@@ -134,7 +136,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         },
         vec![read.id],
     );
-    grade.effect.mask = Some(mask.id);
+    grade.effect.set_mask(mask.id);
     grade.effect.mix = 0.8;
     let mut transform = Node::new(
         P::TransformImage {

@@ -62,9 +62,12 @@ pub fn add(
             .effect_interface(snapshot, d.id)
             .is_ok_and(|i| i.images == ["outgoing", "incoming"])
             && fold_compositor::Composite::from_document(d).is_ok_and(|g| {
-                g.nodes
-                    .iter()
-                    .any(|n| matches!(n.parameters, fold_compositor::Parameters::Dissolve { .. }))
+                g.nodes.iter().any(|n| {
+                    matches!(
+                        n.configuration(),
+                        fold_compositor::OperationConfig::Dissolve { .. }
+                    )
+                })
             })
     });
     let definition = existing.map(|d| d.id).unwrap_or_default();

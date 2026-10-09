@@ -1,4 +1,4 @@
-use fold_compositor::{ChannelMapping, ChannelSource, Composite, Node, Parameters as P};
+use fold_compositor::{ChannelMapping, ChannelSource, Composite, Node, OperationConfig as P};
 use fold_foundation::{DocumentId, Time};
 use fold_project::{DocumentRef, EditBatch, Mutation, Project};
 fn name(value: &str) -> fold_render::channels::ChannelName {
@@ -109,7 +109,10 @@ fn arbitrary_image_channel_masks_are_optional_and_cycles_rollback() {
             .pixels(),
         &[[0.4, 0.4, 0.4, 1.]; 6]
     );
-    assert_eq!(composite.node(grade_id).unwrap().effect.mask, Some(mask_id));
+    assert_eq!(
+        composite.node(grade_id).unwrap().effect.mask_node(),
+        Some(mask_id)
+    );
     composite.node_mut(grade_id).unwrap().effect.mask_disabled = false;
     assert_eq!(
         fold_render::render(compile(&composite).unwrap())
@@ -153,9 +156,11 @@ fn shuffle_swaps_simultaneously_and_requires_b_only_when_referenced() {
             .pixels(),
         &[[0.3, 0.2, 0.1, 1.]; 6]
     );
-    if let P::Shuffle { mappings } = &mut composite.nodes[1].parameters {
+    let mut config = composite.nodes[1].configuration();
+    if let P::Shuffle { mappings } = &mut config {
         mappings[0].source = ChannelSource::B(name("rgba.red"));
     }
+    composite.nodes[1].set_configuration(config).unwrap();
     assert!(compile(&composite).unwrap_err().contains("connect B"));
 }
 
@@ -271,7 +276,7 @@ fn disabled_mask_does_not_evaluate_an_incomplete_mask_branch() {
     );
     let mask = Node::disconnected(P::Grade { gain: [1.; 3] });
     let mut grade = Node::new(P::Grade { gain: [2.; 3] }, vec![source.id]);
-    grade.effect.mask = Some(mask.id);
+    grade.effect.set_mask(mask.id);
     grade.effect.mask_disabled = true;
     let id = grade.id;
     let mut composite = fixture(vec![source, mask, grade]);
@@ -368,9 +373,9 @@ fn merge_a_is_foreground_b_is_background_and_mask_preserves_b() {
             vec![],
         );
         let mut merge = Node::new(parameters, vec![a.id, b.id]);
-        assert_eq!(merge.parameters.operator().input_key(0), "foreground");
-        assert_eq!(merge.parameters.operator().input_key(1), "background");
-        merge.effect.mask = Some(mask.id);
+        assert_eq!(merge.configuration().operator().input_key(0), "foreground");
+        assert_eq!(merge.configuration().operator().input_key(1), "background");
+        merge.effect.set_mask(mask.id);
         merge.effect.mask_channel = name("rgba.red");
         let id = merge.id;
         let mask_id = mask.id;
@@ -380,9 +385,13 @@ fn merge_a_is_foreground_b_is_background_and_mask_preserves_b() {
             (0.25, [0.125, 0., 0.875, 1.]),
             (1., [0.5, 0., 0.5, 1.]),
         ] {
-            composite.node_mut(mask_id).unwrap().parameters = P::Solid {
-                rgba: [coverage, 0., 0., 1.],
-            };
+            composite
+                .node_mut(mask_id)
+                .unwrap()
+                .set_configuration(P::Solid {
+                    rgba: [coverage, 0., 0., 1.],
+                })
+                .unwrap();
             let image = fold_render::render(compile(&composite).unwrap()).unwrap();
             assert_eq!(image.pixels(), &[expected; 6]);
         }
@@ -412,7 +421,7 @@ fn inserted_merge_passes_b_through_until_a_is_connected() {
         let unused_mask = Node::disconnected(P::Grade { gain: [2.; 3] });
         let mut merge = Node::disconnected(parameters);
         merge.set_input(1, background.id).unwrap();
-        merge.effect.mask = Some(unused_mask.id);
+        merge.effect.set_mask(unused_mask.id);
         let id = merge.id;
         let mut composite = fixture(vec![background, unused_mask, merge]);
         let image = fold_render::render(

@@ -1,6 +1,8 @@
 //! A real multilayer sequence, authored Shuffle, archive and encoded alpha movie.
 use fold_app::{media_workflow, packages};
-use fold_compositor::{ChannelMapping, ChannelSource, Composite, Node, Parameters as P, Source};
+use fold_compositor::{
+    ChannelMapping, ChannelSource, Composite, Node, OperationConfig as P, Source,
+};
 use fold_foundation::{DocumentId, Time};
 use fold_media::Cancel;
 use fold_project::{DocumentRef, EditBatch, Mutation, Project};
@@ -291,10 +293,16 @@ fn sequence_offset_gap_policies_still_mode_and_relink_use_exact_frames() {
     let (mut project, source, read_id) = build(&path);
     let mut graph =
         Composite::from_document(&project.snapshot().state().documents[&source.document]).unwrap();
-    let P::Read { start, .. } = &mut graph.node_mut(read_id).unwrap().parameters else {
-        panic!()
-    };
-    *start = Time::ZERO; // frame 1001 appears at composition frame 0.
+    graph
+        .node_mut(read_id)
+        .unwrap()
+        .edit_configuration(|config| {
+            let P::Read { start, .. } = config else {
+                panic!()
+            };
+            *start = Time::ZERO; // frame 1001 appears at composition frame 0.
+        })
+        .unwrap();
     let commit = |project: &mut Project, graph: &Composite| {
         project
             .commit(EditBatch {
@@ -326,24 +334,36 @@ fn sequence_offset_gap_policies_still_mode_and_relink_use_exact_frames() {
     assert!((evaluate(&project, 0).unwrap()[3] - 0.375).abs() < 0.001);
     assert!(evaluate(&project, 1).unwrap_err().contains("missing"));
     assert_eq!(evaluate(&project, 3).unwrap(), [0.; 4]);
-    if let P::Read {
-        source: Source::Exr { options, .. },
-        ..
-    } = &mut graph.node_mut(read_id).unwrap().parameters
-    {
-        options.missing = Policy::Hold;
-        options.outside = Policy::Hold;
-    }
+    graph
+        .node_mut(read_id)
+        .unwrap()
+        .edit_configuration(|config| {
+            if let P::Read {
+                source: Source::Exr { options, .. },
+                ..
+            } = config
+            {
+                options.missing = Policy::Hold;
+                options.outside = Policy::Hold;
+            }
+        })
+        .unwrap();
     commit(&mut project, &graph);
     assert!((evaluate(&project, 1).unwrap()[3] - 0.375).abs() < 0.001);
     assert_eq!(evaluate(&project, 3).unwrap(), [0.5, 0.5, 0.5, 1.]);
-    if let P::Read {
-        source: Source::Exr { options, .. },
-        ..
-    } = &mut graph.node_mut(read_id).unwrap().parameters
-    {
-        options.still = true;
-    }
+    graph
+        .node_mut(read_id)
+        .unwrap()
+        .edit_configuration(|config| {
+            if let P::Read {
+                source: Source::Exr { options, .. },
+                ..
+            } = config
+            {
+                options.still = true;
+            }
+        })
+        .unwrap();
     commit(&mut project, &graph);
     assert!((evaluate(&project, 2).unwrap()[3] - 0.375).abs() < 0.001);
     project.undo().unwrap();
@@ -382,13 +402,19 @@ fn aces_output_transform_preserves_straight_alpha_before_and_after_encoding() {
     );
     let mut graph =
         Composite::from_document(&project.snapshot().state().documents[&source.document]).unwrap();
-    if let P::Read {
-        source: Source::Exr { color_layers, .. },
-        ..
-    } = &mut graph.node_mut(read).unwrap().parameters
-    {
-        color_layers.push("diffuse".into());
-    }
+    graph
+        .node_mut(read)
+        .unwrap()
+        .edit_configuration(|config| {
+            if let P::Read {
+                source: Source::Exr { color_layers, .. },
+                ..
+            } = config
+            {
+                color_layers.push("diffuse".into());
+            }
+        })
+        .unwrap();
     project
         .commit(EditBatch {
             base: project.snapshot().revision(),

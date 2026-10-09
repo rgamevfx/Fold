@@ -1,9 +1,7 @@
 //! One strict request schema for replacement transport adapters.
 use fold_foundation::{DocumentId, ObjectId, Time};
-use fold_motion::{
-    candidates::{Handle, Receipt},
-    patch::Patch,
-};
+use fold_motion::patch::Patch;
+use fold_project::proposals::{Handle, Receipt};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -13,6 +11,8 @@ use std::collections::BTreeMap;
 pub struct Scope {
     pub document: DocumentId,
     pub definition: Option<ObjectId>,
+    #[serde(default)]
+    pub object: Option<ObjectId>,
 }
 impl Scope {
     pub fn native(self) -> fold_motion::editing::Scope {
@@ -61,6 +61,9 @@ impl JobGuard {
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Edit {
+    Project {
+        edits: Vec<super::dispatch::native::Edit>,
+    },
     Source {
         expected: String,
         text: String,
@@ -127,7 +130,7 @@ pub enum Command {
     },
     ObserveFrame {
         target: ObservationTarget,
-        output: ObjectId,
+        output: String,
         /// Exact output-relative time in the registered output's half-open duration.
         time: Time,
         /// Full output raster size, before any region extraction.

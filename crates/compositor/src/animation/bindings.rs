@@ -14,6 +14,15 @@ use std::collections::BTreeMap;
 pub struct Channels(BTreeMap<String, Parameter>);
 
 impl Channels {
+    pub(crate) fn reconcile(base: &Self, proposed: &Self, current: &Self) -> Result<Self, String> {
+        let result = Self(fold_graph::reconcile::parameters(
+            &base.0,
+            &proposed.0,
+            &current.0,
+        )?);
+        result.validate()?;
+        Ok(result)
+    }
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }

@@ -21,8 +21,8 @@ pub(super) struct Request {
     pub snapshot: Snapshot,
     pub document: DocumentId,
     pub revision: Revision,
-    pub candidate: Option<fold_motion::candidates::Handle>,
-    pub output: ObjectId,
+    pub candidate: Option<fold_project::proposals::Handle>,
+    pub output: String,
     pub time: Time,
     pub dimensions: [u32; 2],
     pub region: Option<fold_render::region::Region>,
@@ -183,29 +183,61 @@ fn run(
         .documents
         .get(&document)
         .ok_or_else(|| Failure::new("missing_resource", "Missing frame document"))?;
-    let construction = fold_motion::model::Construction::from_document(document_record)
+    let source = DocumentRef {
+        document,
+        output: output.clone(),
+        extensions: Default::default(),
+    };
+    let registry = crate::packages::builtins();
+    let info = registry
+        .output_ref(&snapshot, &source)
         .map_err(Failure::invalid)?;
-    let scene_time = construction
-        .canvas
-        .start
-        .checked_add(time)
-        .map_err(|e| Failure::new("type", e.to_string()))?;
-    let measurements = observe::run(
-        epoch,
-        document_record,
-        revision,
-        candidate,
-        output,
-        &[scene_time],
-        cancel,
-    )?;
-    let mut provenance = measurements["provenance"].clone();
-    provenance["camera"] = measurements["samples"][0]["value"]["camera"].clone();
-    provenance["cameras"] = measurements["samples"][0]["value"]["cameras"].clone();
+    let duration = Time::new(
+        i64::from(info.frames) * i64::from(info.rate[1]),
+        info.rate[0],
+    )
+    .map_err(|e| Failure::invalid(e.to_string()))?;
+    if time < Time::ZERO || time >= duration {
+        return Err(Failure::new(
+            "type",
+            "Frame time outside output half-open range",
+        ));
+    }
+    let mut provenance = if document_record.type_id == fold_motion::CONSTRUCTION {
+        let construction = fold_motion::model::Construction::from_document(document_record)
+            .map_err(Failure::invalid)?;
+        let scene_time = construction
+            .canvas
+            .start
+            .checked_add(time)
+            .map_err(|e| Failure::invalid(e.to_string()))?;
+        let measurements = observe::run(
+            epoch,
+            document_record,
+            revision,
+            candidate,
+            serde_json::from_value(json!(output))
+                .map_err(|_| Failure::new("type", "Invalid construction output"))?,
+            &[scene_time],
+            cancel,
+        )?;
+        let mut provenance = measurements["provenance"].clone();
+        provenance["camera"] = measurements["samples"][0]["value"]["camera"].clone();
+        provenance["cameras"] = measurements["samples"][0]["value"]["cameras"].clone();
+        provenance["scene_time"] = json!(scene_time);
+        provenance["asset_time"] = measurements["samples"][0]["asset_time"].clone();
+        provenance
+    } else {
+        // Mixed outputs may contain several cameras and clocks. Fingerprint the
+        // immutable project rather than inventing one scene's provenance.
+        json!({"epoch":epoch,"document":document,"revision":revision,
+            "candidate":candidate,"output":output,
+            "fingerprints":{"project":format!("{:x}", Sha256::digest(
+                serde_json::to_vec(snapshot.state()).map_err(|e| Failure::invalid(e.to_string()))?))},
+            "resource_inputs":{"scope":"immutable_project","external_content_verified":false}})
+    };
     provenance["time"] = json!(time);
     provenance["time_basis"] = json!("output_relative");
-    provenance["scene_time"] = json!(scene_time);
-    provenance["asset_time"] = measurements["samples"][0]["asset_time"].clone();
     let output_region = region.unwrap_or_else(|| fold_render::region::Region::full(dimensions));
     let output_dimensions = output_region.dimensions();
     provenance["output_size"] = json!(output_dimensions);
@@ -216,11 +248,7 @@ fn run(
     let scene = media_workflow::evaluate_scene_gpu_admitted(
         &snapshot,
         &SceneRequest {
-            source: DocumentRef {
-                document,
-                output: output.to_string(),
-                extensions: Default::default(),
-            },
+            source,
             time,
             dimensions,
             region,

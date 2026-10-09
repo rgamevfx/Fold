@@ -1,5 +1,5 @@
 //! Compositor-owned property paths and sampled parameter values.
-use crate::{Node, Parameters};
+use crate::{Node, OperationConfig};
 mod bindings;
 pub use bindings::Channels;
 use fold_foundation::Time;
@@ -13,7 +13,21 @@ pub struct Property {
     pub values: Vec<f64>,
     pub range: Option<[f64; 2]>,
 }
-impl Parameters {
+impl OperationConfig {
+    /// Native static record owning an animatable control's authored base.
+    pub(crate) fn parameter_for_property<'a>(&self, property: &'a str) -> &'a str {
+        match self {
+            Self::Shader { .. }
+            | Self::RelativeTransform { .. }
+            | Self::TransformImage { .. }
+            | Self::ColorGrade { .. } => "settings",
+            Self::Unary { .. } => "operation",
+            Self::Solid { .. } => "rgba",
+            Self::Crop { .. } | Self::Mask { .. } => "rect",
+            Self::Transform { .. } if property == "position" => "translate",
+            _ => property,
+        }
+    }
     pub fn animated_properties(&self) -> Vec<Property> {
         let property = |id: &str, label: &str, unit, channels, values, range| Property {
             id: id.into(),
@@ -309,8 +323,8 @@ pub fn path(property: &str, component: usize) -> String {
 }
 impl Node {
     pub fn animated_properties(&self) -> Vec<Property> {
-        let mut properties = self.parameters.animated_properties();
-        if self.parameters.operator().supports_effect() {
+        let mut properties = self.configuration().animated_properties();
+        if self.configuration().operator().supports_effect() {
             properties.push(Property {
                 id: "mix".into(),
                 label: "Mix".into(),
@@ -323,14 +337,16 @@ impl Node {
         properties
     }
     pub fn set_property(&mut self, id: &str, values: &[f64]) -> Result<(), String> {
-        if id == "mix" && self.parameters.operator().supports_effect() {
+        if id == "mix" && self.configuration().operator().supports_effect() {
             if values.len() != 1 || !values[0].is_finite() || !(0.0..=1.).contains(&values[0]) {
                 return Err("Mix must be finite and in 0..1".into());
             }
             self.effect.mix = values[0] as f32;
             Ok(())
         } else {
-            self.parameters.set_property(id, values)
+            let mut config = self.configuration();
+            config.set_property(id, values)?;
+            self.set_configuration(config)
         }
     }
     pub fn evaluated_effect(&self, time: Time) -> Result<crate::Effect, String> {
@@ -360,8 +376,8 @@ impl Node {
         Ok(())
     }
 
-    pub fn evaluated_parameters(&self, time: Time) -> Result<Parameters, String> {
-        let mut parameters = self.parameters.clone();
+    pub fn evaluated_parameters(&self, time: Time) -> Result<OperationConfig, String> {
+        let mut parameters = self.try_configuration()?;
         for mut property in parameters.animated_properties() {
             let mut animated = false;
             for (i, value) in property.values.iter_mut().enumerate() {

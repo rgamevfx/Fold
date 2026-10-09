@@ -1,4 +1,4 @@
-use fold_compositor::{Composite, Node, Parameters, package};
+use fold_compositor::{Composite, Node, OperationConfig, package};
 use fold_foundation::ObjectId;
 use fold_platform::packages::PackageRegistry;
 use serde_json::json;
@@ -7,12 +7,12 @@ fn agent_creation_insertion_query_and_receipt() {
     let mut r = PackageRegistry::default();
     package::register(&mut r).unwrap();
     let source = Node::new(
-        Parameters::Solid {
+        OperationConfig::Solid {
             rgba: [1., 0., 0., 1.],
         },
         vec![],
     );
-    let mut output = Node::disconnected(Parameters::Output);
+    let mut output = Node::disconnected(OperationConfig::Output);
     output.set_input(0, source.id).unwrap();
     let sid = source.id;
     let oid = output.id;
@@ -30,7 +30,7 @@ fn agent_creation_insertion_query_and_receipt() {
     let d = c.document(Default::default()).unwrap();
     let blur = ObjectId::new();
     let (next,receipt)=r.author_cancellable(&d,&[
-        json!({"op":"create_node","id":blur,"parameters":{"GaussianBlur":{"size":[2,2],"edges":"Clamp"}}}),
+        json!({"op":"create_node","id":blur,"record":Node::disconnected(OperationConfig::GaussianBlur { size:[2.,2.], edges:fold_render::operations::Edges::Clamp }).operation}),
         json!({"op":"insert","node":oid,"input":"image","modifier":blur,"modifier_input":"image"})
     ],&Default::default()).unwrap();
     let c = Composite::from_document(&next).unwrap();

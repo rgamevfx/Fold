@@ -1,6 +1,6 @@
 //! Composite semantics adapted to the shared editor; no native UI machinery.
 use super::state::State;
-use crate::{Composite, Node, Parameters as P, Source};
+use crate::{Composite, Node, OperationConfig as P, Source};
 use fold_foundation::{ObjectId, Time};
 use fold_graph::types::Type;
 use fold_platform::desktop::{DesktopClient, DesktopCommand, Selection};
@@ -14,90 +14,29 @@ pub(super) struct Context<'a> {
 impl Context<'_> {
     fn templates(&self) -> Vec<(NodeTemplate, P)> {
         let graph = self.state.graph.as_ref().unwrap();
-        let rect = [0, 0, graph.info.width, graph.info.height];
-        let mut templates: Vec<_> = vec![
-            P::Read {
-                source: Source::Unassigned {
-                    info: graph.info.clone(),
-                },
-                start: Time::ZERO,
-                source_start: Time::ZERO,
-                duration: graph.info.time(graph.info.frames).unwrap(),
-            },
-            P::Solid {
-                rgba: [0.2, 0.3, 0.5, 1.],
-            },
-            P::TransformImage {
-                settings: crate::Transform {
-                    pivot: [graph.info.width as f64 / 2., graph.info.height as f64 / 2.],
-                    ..Default::default()
-                },
-            },
-            P::RelativeTransform {
-                settings: crate::RelativeTransform {
-                    source_size: [graph.info.width as f64, graph.info.height as f64],
-                    ..Default::default()
-                },
-            },
-            P::Shader {
-                settings: Default::default(),
-            },
-            P::Crop { rect },
-            P::GaussianBlur {
-                size: [3.; 2],
-                edges: Default::default(),
-            },
-            P::ColorGrade {
-                settings: Default::default(),
-            },
-            P::Shape {
-                shape: crate::Shape::Rectangle,
-                bounds: rect.map(f64::from),
-            },
-            P::Shape {
-                shape: crate::Shape::Ellipse,
-                bounds: rect.map(f64::from),
-            },
-            P::Unary {
-                operation: fold_render::operations::Unary::Exposure { stops: 0. },
-            },
-            P::Unary {
-                operation: fold_render::operations::Unary::Invert,
-            },
-            P::Unary {
-                operation: fold_render::operations::Unary::Clamp {
-                    minimum: 0.,
-                    maximum: 1.,
-                },
-            },
-            P::Unary {
-                operation: fold_render::operations::Unary::Premult,
-            },
-            P::Unary {
-                operation: fold_render::operations::Unary::Unpremult,
-            },
-            P::ApplyMask,
-            P::Composite {
-                mode: Default::default(),
-            },
-            P::Shuffle { mappings: vec![] },
-            P::RemoveChannels {
-                channels: vec![],
-                keep: false,
-            },
-        ]
-        .into_iter()
-        .map(|p| {
-            (
-                NodeTemplate {
-                    key: p.operator().id.into(),
-                    label: p.operator().label().into(),
-                    category: "Image".into(),
-                },
-                p,
-            )
-        })
-        .collect();
+        let mut templates: Vec<_> = crate::OPERATORS
+            .iter()
+            .filter(|op| {
+                !matches!(op.id, "Input" | "Effect" | "Dissolve" | "Output" | "Mask")
+                    && !matches!(
+                        (op.id, op.version),
+                        ("Transform" | "Blur" | "Grade" | "Merge", 1)
+                    )
+            })
+            .map(|op| op.defaults(&graph.info).expect("registered default"))
+            .collect::<Vec<_>>()
+            .into_iter()
+            .map(|p| {
+                (
+                    NodeTemplate {
+                        key: p.operator().id.into(),
+                        label: p.operator().label().into(),
+                        category: "Image".into(),
+                    },
+                    p,
+                )
+            })
+            .collect();
         if let Some(snapshot) = self.host.snapshot() {
             for d in snapshot
                 .state()
@@ -170,7 +109,7 @@ impl Context<'_> {
             if let P::Read {
                 source: Source::Asset { asset, .. } | Source::Exr { asset, .. },
                 ..
-            } = &node.parameters
+            } = &node.configuration()
             {
                 templates.push((
                     NodeTemplate {
@@ -178,7 +117,7 @@ impl Context<'_> {
                         label: format!("Read media {asset:?}"),
                         category: "Media".into(),
                     },
-                    node.parameters.clone(),
+                    node.configuration().clone(),
                 ));
             }
         }
@@ -193,7 +132,7 @@ impl Context<'_> {
             GraphChange::Connect(wire) => {
                 if graph
                     .node(wire.source.node)?
-                    .parameters
+                    .configuration()
                     .operator()
                     .output_key()
                     != wire.source.key
@@ -259,13 +198,14 @@ impl GraphContext for Context<'_> {
                 .nodes
                 .iter()
                 .map(|n| {
-                    let op = n.parameters.operator();
+                    let config = n.configuration();
+                    let op = config.operator();
                     NodeView {
                         id: n.id,
                         label: if let P::Read {
                             source: Source::Document { source, .. },
                             ..
-                        } = &n.parameters
+                        } = &n.configuration()
                         {
                             self.host
                                 .snapshot()
@@ -284,36 +224,36 @@ impl GraphContext for Context<'_> {
                                 })
                                 .unwrap_or("Document".into())
                         } else {
-                            if let P::Instance { instance, .. } = &n.parameters {
+                            if let P::Instance { instance, .. } = &n.configuration() {
                                 fold_ui::sdk::effects::name(self.host, &instance.definition)
                             } else {
                                 op.label().to_string()
                             }
                         },
-                        summary: summary(&n.parameters),
+                        summary: summary(&n.configuration()),
                         position: n.position,
                         can_open: matches!(
-                            n.parameters,
+                            n.configuration(),
                             P::Read {
                                 source: Source::Document { .. },
                                 ..
                             }
                         ),
-                        color: match n.parameters {
+                        color: match n.configuration() {
                             P::Read { .. } | P::Solid { .. } => GRAPH_COLORS.source,
                             P::Merge | P::Composite { .. } => GRAPH_COLORS.merge,
                             _ => color(op.output.clone()),
                         },
-                        inputs: (0..n.parameters.input_count())
+                        inputs: (0..n.configuration().input_count())
                             .map(|i| PortView {
-                                key: n.parameters.input_key(i).into(),
+                                key: n.configuration().input_key(i).into(),
                                 label: match (op.id, i) {
                                     ("Merge", 0) => "A · Foreground",
                                     ("Merge", 1) => "B · Background",
-                                    _ => n.parameters.input_key(i),
+                                    _ => config.input_key(i),
                                 }
                                 .into(),
-                                color: color(n.parameters.input_type(i)),
+                                color: color(n.configuration().input_type(i)),
                             })
                             .chain(op.supports_effect().then(|| PortView {
                                 key: "mask".into(),
@@ -321,7 +261,7 @@ impl GraphContext for Context<'_> {
                                 color: GRAPH_COLORS.mask,
                             }))
                             .collect(),
-                        outputs: if matches!(n.parameters, P::Output) {
+                        outputs: if matches!(n.configuration(), P::Output) {
                             vec![]
                         } else {
                             vec![PortView {
@@ -347,25 +287,25 @@ impl GraphContext for Context<'_> {
                                     key: graph
                                         .node(source)
                                         .unwrap()
-                                        .parameters
+                                        .configuration()
                                         .operator()
                                         .output_key()
                                         .into(),
                                 },
                                 target: Socket {
                                     node: n.id,
-                                    key: n.parameters.input_key(i).into(),
+                                    key: n.configuration().input_key(i).into(),
                                 },
                             })
                         })
-                        .chain(n.effect.mask.map(|source| {
+                        .chain(n.effect.mask_node().map(|source| {
                             WireView {
                                 source: Socket {
                                     node: source,
                                     key: graph
                                         .node(source)
                                         .unwrap()
-                                        .parameters
+                                        .configuration()
                                         .operator()
                                         .output_key()
                                         .into(),

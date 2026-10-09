@@ -67,3 +67,95 @@ pub fn box_mesh(size: [f32; 3]) -> Result<BoxMesh, Error> {
         faces: std::array::from_fn(|i| i * 6..(i + 1) * 6),
     })
 }
+
+/// A fixed-resolution UV sphere. Radius edits preserve topology slots; seam
+/// vertices carry separate UVs and identical smooth normals. Pole triangles are
+/// emitted once, avoiding zero-area faces. Maximum work is 561 vertices/960 faces.
+pub fn sphere_mesh(radius: f32) -> Result<(Arc<Mesh>, Vec<[f32; 2]>), Error> {
+    if !radius.is_finite() || !(1e-6..=1e6).contains(&radius) {
+        return Err(Error::InvalidSize);
+    }
+    const LONGITUDES: usize = 32;
+    const LATITUDES: usize = 16;
+    let mut positions = Vec::with_capacity((LONGITUDES + 1) * (LATITUDES + 1));
+    let mut normals = Vec::with_capacity(positions.capacity());
+    let mut uv = Vec::with_capacity(positions.capacity());
+    let mut indices = Vec::with_capacity(6 * LONGITUDES * (LATITUDES - 1));
+    for latitude in 0..=LATITUDES {
+        let v = latitude as f32 / LATITUDES as f32;
+        let theta = v * std::f32::consts::PI;
+        for longitude in 0..=LONGITUDES {
+            let u = longitude as f32 / LONGITUDES as f32;
+            let phi = if longitude == LONGITUDES {
+                0.
+            } else {
+                u * std::f32::consts::TAU
+            };
+            let normal = match latitude {
+                0 => [0., 1., 0.],
+                LATITUDES => [0., -1., 0.],
+                _ => [
+                    theta.sin() * phi.cos(),
+                    theta.cos(),
+                    theta.sin() * phi.sin(),
+                ],
+            };
+            positions.push(normal.map(|value| value * radius));
+            normals.push(normal);
+            uv.push([u, 1. - v]);
+        }
+    }
+    for latitude in 0..LATITUDES {
+        for longitude in 0..LONGITUDES {
+            let a = (latitude * (LONGITUDES + 1) + longitude) as u32;
+            let b = a + LONGITUDES as u32 + 1;
+            if latitude != 0 {
+                indices.extend([a, a + 1, b + 1]);
+            }
+            if latitude != LATITUDES - 1 {
+                indices.extend([a, b + 1, b]);
+            }
+        }
+    }
+    Ok((
+        Arc::new(Mesh {
+            positions,
+            normals,
+            indices,
+        }),
+        uv,
+    ))
+}
+
+#[cfg(test)]
+mod sphere_tests {
+    use super::*;
+    #[test]
+    fn sphere_has_smooth_unit_normals_outward_faces_and_stable_radius_topology() {
+        let (mesh, uv) = sphere_mesh(2.).unwrap();
+        let (resized, resized_uv) = sphere_mesh(3.).unwrap();
+        assert_eq!(mesh.positions.len(), 561);
+        assert_eq!(mesh.indices.len(), 2880);
+        assert_eq!(mesh.indices, resized.indices);
+        assert_eq!(mesh.normals, resized.normals);
+        assert_eq!(uv, resized_uv);
+        for (position, normal) in mesh.positions.iter().zip(&mesh.normals) {
+            assert!((normal.iter().map(|x| x * x).sum::<f32>() - 1.).abs() < 1e-6);
+            assert_eq!(*position, normal.map(|x| 2. * x));
+        }
+        for triangle in mesh.indices.chunks_exact(3) {
+            let [a, b, c] =
+                std::array::from_fn::<_, 3, _>(|i| mesh.positions[triangle[i] as usize]);
+            let u: [f32; 3] = std::array::from_fn(|i| b[i] - a[i]);
+            let v: [f32; 3] = std::array::from_fn(|i| c[i] - a[i]);
+            let cross = [
+                u[1] * v[2] - u[2] * v[1],
+                u[2] * v[0] - u[0] * v[2],
+                u[0] * v[1] - u[1] * v[0],
+            ];
+            assert!(cross.iter().zip(a).map(|(n, p)| n * p).sum::<f32>() > 0.);
+        }
+        assert!(sphere_mesh(0.).is_err());
+        assert!(sphere_mesh(f32::NAN).is_err());
+    }
+}

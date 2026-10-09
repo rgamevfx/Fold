@@ -8,19 +8,19 @@ use fold_platform::desktop::{
 use fold_project::{DocumentRef, EditBatch, Mutation, Project};
 
 fn fixture() -> (Session, [DocumentId; 3]) {
-    use fold_compositor::{Composite, Node, Parameters};
+    use fold_compositor::{Composite, Node, OperationConfig};
     use fold_timeline::{Clip, Sequence, SourceMedia, Track, TrackKind};
     let ids = [DocumentId::new(), DocumentId::new(), DocumentId::new()];
     let mut image = support::image([0.; 4]);
     image.info.rate = [48, 1];
     image.info.frames = 48;
     let solid = Node::new(
-        Parameters::Solid {
+        OperationConfig::Solid {
             rgba: [0., 0., 0., 1.],
         },
         vec![],
     );
-    let output = Node::new(Parameters::Output, vec![solid.id]);
+    let output = Node::new(OperationConfig::Output, vec![solid.id]);
     let composite = Composite {
         info: image.info.clone(),
         output: output.id,

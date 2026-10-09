@@ -1,7 +1,9 @@
 use crate::agent::retry;
-use fold_motion::{candidates, editing, patch};
+use fold_motion::{editing, patch};
+use fold_project::proposals as candidates;
 use serde_json::{Value, json};
-pub(super) struct Failure {
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Failure {
     pub code: &'static str,
     pub message: String,
     pub details: Value,
@@ -38,8 +40,11 @@ impl From<retry::Error> for Failure {
         Self::new(code, format!("{error:?}"))
     }
 }
-impl From<candidates::Error> for Failure {
-    fn from(error: candidates::Error) -> Self {
+impl<E: std::fmt::Debug> From<fold_project::proposals::Error<E>> for Failure
+where
+    Failure: From<E>,
+{
+    fn from(error: fold_project::proposals::Error<E>) -> Self {
         let code = match error {
             candidates::Error::Edit(error) => return error.into(),
             candidates::Error::Capacity => "capacity",

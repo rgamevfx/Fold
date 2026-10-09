@@ -4,9 +4,9 @@ pub fn solid(rgb: [f32; 3]) -> fold_compositor::Composite {
     image([rgb[0], rgb[1], rgb[2], 1.])
 }
 pub fn image(rgba: [f32; 4]) -> fold_compositor::Composite {
-    use fold_compositor::{Composite, Node, Parameters};
-    let source = Node::new(Parameters::Solid { rgba }, vec![]);
-    let output = Node::new(Parameters::Output, vec![source.id]);
+    use fold_compositor::{Composite, Node, OperationConfig};
+    let source = Node::new(OperationConfig::Solid { rgba }, vec![]);
+    let output = Node::new(OperationConfig::Output, vec![source.id]);
     Composite {
         info: fold_media::VideoInfo {
             width: 1920,

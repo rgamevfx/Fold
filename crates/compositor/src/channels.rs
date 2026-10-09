@@ -6,7 +6,10 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Effect {
-    pub mask: Option<ObjectId>,
+    pub id: ObjectId,
+    pub protected: bool,
+    pub extensions: fold_project::Metadata,
+    pub mask: Option<fold_graph::model::Edge>,
     #[serde(default)]
     pub mask_disabled: bool,
     pub mask_channel: ChannelName,
@@ -17,6 +20,9 @@ pub struct Effect {
 impl Default for Effect {
     fn default() -> Self {
         Self {
+            id: ObjectId::new(),
+            protected: false,
+            extensions: Default::default(),
             mask: None,
             mask_disabled: false,
             mask_channel: ChannelName::try_from("rgba.alpha".to_owned()).unwrap(),
@@ -29,10 +35,49 @@ impl Default for Effect {
     }
 }
 impl Effect {
+    pub fn mask_node(&self) -> Option<ObjectId> {
+        self.mask.as_ref().and_then(|edge| match edge.target {
+            fold_graph::model::Reference::Node { node } => Some(node),
+            _ => None,
+        })
+    }
+    pub fn set_mask(&mut self, node: ObjectId) {
+        let target = fold_graph::model::Reference::Node { node };
+        if let Some(edge) = &mut self.mask {
+            edge.target = target;
+        } else {
+            self.mask = Some(target.into());
+        }
+    }
     pub fn is_default(&self) -> bool {
-        self == &Self::default()
+        self.mask.is_none()
+            && !self.mask_disabled
+            && self.mask_channel.as_str() == "rgba.alpha"
+            && !self.invert
+            && self.mix == 1.
+            && self.channels.iter().map(|c| c.as_str()).eq(RGBA)
     }
     pub(crate) fn validate(&self) -> Result<(), String> {
+        fold_graph::model::extension_keys(
+            &self.extensions,
+            &[
+                "id",
+                "protected",
+                "extensions",
+                "mask",
+                "mask_disabled",
+                "mask_channel",
+                "invert",
+                "mix",
+                "channels",
+            ],
+        )?;
+        if let Some(edge) = &self.mask {
+            edge.validate()?;
+            if self.mask_node().is_none() {
+                return Err("Effect mask requires a native node connection".into());
+            }
+        }
         if !self.mix.is_finite() || !(0.0..=1.).contains(&self.mix) || self.channels.len() > 256 {
             return Err("Effect mix must be in 0..1; select at most 256 channels".into());
         }
@@ -69,8 +114,8 @@ impl crate::Composite {
         for id in self.evaluation_order()? {
             let node = self.node(id)?;
             let primary = usize::from(matches!(
-                node.parameters,
-                crate::Parameters::Merge | crate::Parameters::Composite { .. }
+                node.configuration(),
+                crate::OperationConfig::Merge | crate::OperationConfig::Composite { .. }
             ));
             let mut names = node
                 .input_ids()
@@ -82,14 +127,14 @@ impl crate::Composite {
                     RGBA.map(|name| ChannelName::try_from(name.to_owned()).unwrap())
                         .into()
                 });
-            match &node.parameters {
-                crate::Parameters::Read {
+            match &node.configuration() {
+                crate::OperationConfig::Read {
                     source: crate::Source::Document { source, .. },
                     ..
                 } => {
                     names = resolve(source)?;
                 }
-                crate::Parameters::Read {
+                crate::OperationConfig::Read {
                     source: crate::Source::Exr { image, .. },
                     ..
                 } => {
@@ -116,10 +161,10 @@ impl crate::Composite {
                     }
                 }
 
-                crate::Parameters::Shuffle { mappings } => {
+                crate::OperationConfig::Shuffle { mappings } => {
                     names.extend(mappings.iter().map(|mapping| mapping.destination.clone()));
                 }
-                crate::Parameters::RemoveChannels { channels, keep } => {
+                crate::OperationConfig::RemoveChannels { channels, keep } => {
                     names.retain(|name| channels.contains(name) == *keep);
                 }
                 _ => {}

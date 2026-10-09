@@ -1,6 +1,6 @@
 //! Actual inspector controls rendered through the shared native backend.
 use super::*;
-use crate::{ChannelMapping, ChannelSource, Node, Parameters};
+use crate::{ChannelMapping, ChannelSource, Node, OperationConfig};
 use fold_project::{EditBatch, Mutation};
 use fold_ui::sdk::render_backend::{FramebufferExtent, WgpuInitInfo, WgpuRenderer, wgpu};
 use fold_ui::sdk::{ExtensionUi, Panel, imgui, typography::Typography};
@@ -53,14 +53,14 @@ fn shuffle_inspector_normal_and_narrow() {
             })
             .collect::<Vec<_>>()
     };
-    let mut layers = Node::disconnected(Parameters::Shuffle {
+    let mut layers = Node::disconnected(OperationConfig::Shuffle {
         mappings: mapping("rgba", "diffuse")
             .into_iter()
             .chain(mapping("rgba", "specular"))
             .collect(),
     });
     layers.set_input(0, solid).unwrap();
-    let mut shuffle = Node::disconnected(Parameters::Shuffle {
+    let mut shuffle = Node::disconnected(OperationConfig::Shuffle {
         mappings: mapping("diffuse", "rgba")
             .into_iter()
             .chain(mapping("specular", "reflection"))
@@ -83,7 +83,10 @@ fn shuffle_inspector_normal_and_narrow() {
     context.io_mut().set_display_size([512., 480.]);
     context.io_mut().set_delta_time(1. / 60.);
     std::fs::create_dir_all("/tmp/fold-shuffle-ui").unwrap();
+    let mut sources = super::source::Sources::default();
     for (name, width) in [
+        ("source-normal", 420.),
+        ("source-narrow", 280.),
         ("normal", 420.),
         ("narrow", 280.),
         ("relative-normal", 420.),
@@ -99,11 +102,11 @@ fn shuffle_inspector_normal_and_narrow() {
             )
             .unwrap();
             let parameters = if name.starts_with("relative") {
-                Parameters::RelativeTransform {
+                OperationConfig::RelativeTransform {
                     settings: Default::default(),
                 }
             } else {
-                Parameters::Shader {
+                OperationConfig::Shader {
                     settings: Default::default(),
                 }
             };
@@ -142,10 +145,14 @@ fn shuffle_inspector_normal_and_narrow() {
                 .position([0., 0.], imgui::Condition::Always)
                 .size([width, 470.], imgui::Condition::Always)
                 .build(|| {
-                    inspector.draw(ExtensionUi {
-                        ui,
-                        host: &mut host,
-                    });
+                    if name.starts_with("source") {
+                        sources.draw(ui, &mut shared.borrow_mut(), &mut host);
+                    } else {
+                        inspector.draw(ExtensionUi {
+                            ui,
+                            host: &mut host,
+                        });
+                    }
                     if frame_index >= 2 {
                         assert_eq!(ui.scroll_max_x(), 0.);
                     }

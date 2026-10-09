@@ -298,6 +298,10 @@ fn multitrack_nle_edit_mix_render_save_reopen_and_export() {
     for ((sum, voice), music) in mixed.iter().zip(without_music).zip(solo) {
         assert!((sum[0] - voice[0] - music[0]).abs() < 0.000001);
     }
+    // Reference audio verification is finished. Its offline decoder owns
+    // retained codec processes; release them before testing concurrent preview
+    // and delivery, as the application does when retiring an analysis job.
+    drop(decoder);
     let saved = directory.join("Multi-track.fold");
     fold_project::save(&split, &saved).unwrap();
     let reopened = fold_project::load(&saved, 32).unwrap().snapshot();

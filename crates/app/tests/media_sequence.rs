@@ -152,9 +152,18 @@ fn input_output_transfer_roundtrips_every_rgb8_value() {
     let mut exported = Vec::new();
     frame.write_ppm(&mut exported).unwrap();
     assert_eq!(exported, bytes);
-    let mut mismatched = graph;
-    mismatched.width = 255;
-    assert!(render(mismatched).is_err());
+    // Native source dimensions are independent of the output raster. The shared
+    // sampling stage integrates linear working pixels before display encoding.
+    let mut resized = graph;
+    resized.width = 128;
+    let resized = render(resized).unwrap();
+    assert_eq!(resized.dimensions(), [128, 1]);
+    for (pixel, pair) in resized.pixels().iter().zip(frame.pixels().chunks_exact(2)) {
+        for component in 0..4 {
+            let expected = (pair[0][component] + pair[1][component]) * 0.5;
+            assert!((pixel[component] - expected).abs() < 1e-6);
+        }
+    }
 }
 
 #[test]

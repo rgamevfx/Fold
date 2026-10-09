@@ -10,7 +10,13 @@ pub(super) fn run(
     guard: Guard,
     edit: Edit,
     cancel: &Cancel,
-) -> Result<editing::Candidate, Failure> {
+) -> Result<super::native::Candidate, Failure> {
+    if guard.scope.object.is_some() {
+        return object(snapshot, guard, edit, cancel);
+    }
+    if let Edit::Project { edits } = &edit {
+        return super::native::prepare(snapshot, guard.scope, edits, cancel);
+    }
     cancel.check().map_err(|e| Failure::new("cancelled", e))?;
     let original = snapshot
         .state()
@@ -20,6 +26,7 @@ pub(super) fn run(
     let before = Construction::from_document(original).map_err(Failure::invalid)?;
     operation_budget(&before)?;
     let candidate = match edit {
+        Edit::Project { .. } => unreachable!("project proposal handled above"),
         Edit::Patches { patches } => editing::prepare_patches(
             snapshot,
             guard.scope.document,
@@ -70,5 +77,64 @@ pub(super) fn run(
         &Construction::from_document(candidate.document()).map_err(Failure::invalid)?,
     )?;
     cancel.check().map_err(|e| Failure::new("cancelled", e))?;
+    Ok(super::native::Candidate::Construction(Box::new(candidate)))
+}
+
+/// Reuse the native graph edit gate on an isolated object graph, then publish
+/// through the scene owner so hierarchy and inherited protection remain intact.
+fn object(
+    snapshot: &CommittedSnapshot,
+    guard: Guard,
+    edit: Edit,
+    cancel: &Cancel,
+) -> Result<super::native::Candidate, Failure> {
+    let scope = guard.scope;
+    let document = snapshot
+        .state()
+        .documents
+        .get(&scope.document)
+        .ok_or_else(|| Failure::new("missing_resource", "Missing scene"))?;
+    let scene = fold_motion::scene::Scene::from_document(document).map_err(Failure::invalid)?;
+    let object = scene
+        .object(scope.object.unwrap())
+        .map_err(Failure::invalid)?;
+    if matches!(edit, Edit::Project { .. }) {
+        return Err(Failure::new("type", "Object scope requires a graph edit"));
+    }
+    let expected = fold_motion::source::canonical(&object.graph).map_err(Failure::invalid)?;
+    let graph = object
+        .graph
+        .document(scope.document)
+        .map_err(Failure::invalid)?;
+    let mut isolated = fold_project::Project::new(0);
+    isolated
+        .commit(fold_project::EditBatch {
+            base: isolated.snapshot().revision(),
+            mutations: vec![fold_project::Mutation::PutDocument(graph)],
+        })
+        .map_err(|e| Failure::invalid(e.to_string()))?;
+    let mut graph_guard = guard;
+    graph_guard.scope.object = None;
+    let prepared = run(&isolated.snapshot(), graph_guard, edit, cancel)?;
+    use fold_project::proposals::Proposal;
+    let graph = Construction::from_document(prepared.document()).map_err(Failure::invalid)?;
+    let source = fold_motion::source::canonical(&graph).map_err(Failure::invalid)?;
+    let mut root = scope;
+    root.object = None;
+    root.definition = None;
+    let mut candidate = super::native::prepare(
+        snapshot,
+        root,
+        &[super::native::Edit::ObjectSource {
+            document: scope.document,
+            object: scope.object.unwrap(),
+            expected,
+            source,
+        }],
+        cancel,
+    )?;
+    if let super::native::Candidate::Documents(value) = &mut candidate {
+        value.scope = scope;
+    }
     Ok(candidate)
 }

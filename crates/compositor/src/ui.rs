@@ -9,6 +9,7 @@ mod read;
 mod render_tests;
 mod reusable;
 mod shader;
+mod source;
 mod state;
 #[cfg(test)]
 mod tests;

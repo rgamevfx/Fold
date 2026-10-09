@@ -177,8 +177,10 @@ impl GraphContext for Context<'_> {
                         .ok_or("Not an asset instance")?
                         .definition;
                     self.state.graph_history.push(self.definition);
+                    self.state.graph_occurrences.push(id);
                     destination
                 } else {
+                    self.state.graph_occurrences.pop();
                     self.state
                         .graph_history
                         .pop()

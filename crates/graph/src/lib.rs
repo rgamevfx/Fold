@@ -7,5 +7,6 @@ pub mod expression;
 pub mod expression_source;
 pub mod model;
 pub mod ramp;
+pub mod reconcile;
 pub mod types;
 pub mod validation;

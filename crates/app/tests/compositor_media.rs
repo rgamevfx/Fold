@@ -1,7 +1,7 @@
 //! End-to-end audio preservation and MP4 export. Set FOLD_COMPOSITOR_ARTIFACT_DIR
 //! to retain the editable project and exported movie outside the repository.
 use fold_app::{composition, media_workflow, packages};
-use fold_compositor::{Composite, Node, Parameters};
+use fold_compositor::{Composite, Node, OperationConfig};
 use fold_media::{Cancel, audio::AudioDecoder};
 use fold_project::Project;
 use fold_timeline::{ImportArgs, Sequence, SourceMedia, TrackKind, package};
@@ -210,12 +210,12 @@ fn create_composition_keeps_linked_audio_and_exports_the_same_video() {
     let index = composite.nodes.len() - 1;
     let previous = composite.nodes[index].input_ids()[0].unwrap();
     let grade = Node::new(
-        Parameters::Grade {
+        OperationConfig::Grade {
             gain: [0.65, 1.0, 0.8],
         },
         vec![previous],
     );
-    let blur = Node::new(Parameters::Blur { radius: 2 }, vec![grade.id]);
+    let blur = Node::new(OperationConfig::Blur { radius: 2 }, vec![grade.id]);
     composite.nodes[index].set_input(0, blur.id).unwrap();
     composite.nodes.splice(index..index, [grade, blur]);
     let request = package::request(

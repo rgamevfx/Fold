@@ -1,5 +1,5 @@
 use fold_app::{composition, media_workflow, packages};
-use fold_compositor::{Composite, Node, Parameters as P, Source};
+use fold_compositor::{Composite, Node, OperationConfig as P, Source};
 use fold_foundation::{DocumentId, ObjectId, Time};
 use fold_media::{Cancel, VideoInfo};
 use fold_platform::{desktop::PreviewKey, packages::CommandRequest};
@@ -110,20 +110,28 @@ fn registry_rejects_bad_types_cycles_ports_and_dependency_declarations() {
     let b = DocumentId::new();
     let mut ca = c.clone();
     let mut cb = c;
-    if let P::Read {
-        source: Source::Document { source, .. },
-        ..
-    } = &mut ca.nodes[0].parameters
-    {
-        *source = reference(b);
-    }
-    if let P::Read {
-        source: Source::Document { source, .. },
-        ..
-    } = &mut cb.nodes[0].parameters
-    {
-        *source = reference(a);
-    }
+    ca.nodes[0]
+        .edit_configuration(|config| {
+            if let P::Read {
+                source: Source::Document { source, .. },
+                ..
+            } = config
+            {
+                *source = reference(b);
+            }
+        })
+        .unwrap();
+    cb.nodes[0]
+        .edit_configuration(|config| {
+            if let P::Read {
+                source: Source::Document { source, .. },
+                ..
+            } = config
+            {
+                *source = reference(a);
+            }
+        })
+        .unwrap();
     let before = p.snapshot();
     assert!(
         p.commit(EditBatch {
@@ -211,9 +219,11 @@ fn nested_timing_alpha_cache_persistence_and_atomic_cross_document_undo() {
     assert_eq!(media_workflow::content(&project.snapshot()).unwrap(), hash);
     let saved_snapshot = project.snapshot();
     let mut edited = inner;
-    edited.nodes[0].parameters = P::Solid {
-        rgba: [0.0, 0.5, 0.0, 0.5],
-    };
+    edited.nodes[0]
+        .set_configuration(P::Solid {
+            rgba: [0.0, 0.5, 0.0, 0.5],
+        })
+        .unwrap();
     let req = request(
         &project,
         fold_compositor::package::EDIT,

@@ -15,7 +15,7 @@ pub struct Hierarchy {
     pub rows: Vec<Row>,
     pub create: Vec<String>,
 }
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Edit {
     Create {

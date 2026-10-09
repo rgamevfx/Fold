@@ -1,5 +1,5 @@
 //! Image operation lowering and shared channel/mask behavior.
-use crate::{Effect, Parameters as P};
+use crate::{Effect, OperationConfig as P};
 use fold_render::{
     Affine, ImageId, ImageOp as Op, RenderGraph,
     channels::{self, Channel, Channels, Value},

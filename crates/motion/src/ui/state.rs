@@ -20,10 +20,12 @@ pub(super) struct State {
     pub object: Option<fold_foundation::ObjectId>,
     pub graph_definition: Option<fold_foundation::ObjectId>,
     pub graph_history: Vec<fold_foundation::ObjectId>,
+    pub graph_occurrences: Vec<fold_foundation::ObjectId>,
     pub base: Revision,
     pub construction: Option<Construction>,
     pub drafts: BTreeMap<(DocumentId, Option<fold_foundation::ObjectId>), Draft>,
     pub editing: bool,
+    reload_pending: bool,
     pub literal_controls: super::literal::Controls,
     pub key_time: Option<(fold_foundation::ObjectId, fold_foundation::Time)>,
     pub error: String,
@@ -72,10 +74,12 @@ impl State {
         if self.document == desired
             && self.object == desired_object
             && self.base == snapshot.revision()
+            && !self.reload_pending
         {
             self.update_key_time(host);
             return;
         }
+        self.reload_pending = false;
         let scope_changed = self.object != desired_object || self.document != desired;
         self.object = desired_object;
         self.literal_controls = Default::default();
@@ -88,6 +92,7 @@ impl State {
             self.error.clear();
             self.graph_definition = None;
             self.graph_history.clear();
+            self.graph_occurrences.clear();
         }
         self.document = desired;
         self.base = snapshot.revision();
@@ -130,7 +135,7 @@ impl State {
         let Some(graph) = &self.construction else {
             return;
         };
-        let time = match self
+        let mut time = match self
             .object_time(host)
             .and_then(|time| graph.root.clock.at(time))
         {
@@ -140,7 +145,40 @@ impl State {
                 return;
             }
         };
-        self.key_time = Some((graph.root.definition, time));
+        // A definition opened directly has no occurrence clock. Entering an
+        // instance retains its exact path, including repeated uses of one asset.
+        if self.graph_history.len() != self.graph_occurrences.len()
+            || self
+                .graph_history
+                .first()
+                .is_some_and(|id| *id != graph.root.definition)
+        {
+            return;
+        }
+        let mut definition = graph.root.definition;
+        for id in &self.graph_occurrences {
+            let result = graph.definition(definition).and_then(|owner| {
+                let instance = owner
+                    .instances
+                    .iter()
+                    .find(|instance| instance.id == *id)
+                    .ok_or("The selected graph occurrence no longer exists")?;
+                Ok((instance.definition, instance.clock.at(time)?))
+            });
+            match result {
+                Ok((next, local)) => {
+                    definition = next;
+                    time = local;
+                }
+                Err(error) => {
+                    self.error = error;
+                    return;
+                }
+            }
+        }
+        if self.graph_definition.unwrap_or(graph.root.definition) == definition {
+            self.key_time = Some((definition, time));
+        }
     }
     pub fn object_time(&self, host: &dyn DesktopClient) -> Result<fold_foundation::Time, String> {
         let time = host
@@ -311,7 +349,7 @@ impl State {
         host.command(DesktopCommand::CancelPreviewEdit);
         self.editing = false;
         self.auto_keys.clear();
-        self.document = None;
+        self.reload_pending = true;
         self.sync(host);
     }
     pub fn finish_parameters(
@@ -381,7 +419,7 @@ impl State {
         }
         self.editing = false;
         self.auto_keys.clear();
-        self.document = None;
+        self.reload_pending = true;
         self.sync(host);
         applied
     }

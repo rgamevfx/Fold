@@ -27,6 +27,59 @@ pub struct Prepared {
     pub source_geometry: Option<u64>,
 }
 impl State<'_> {
+    pub(super) fn sphere_mesh(
+        &mut self,
+        scope: &Scope,
+        id: ObjectId,
+        args: &BTreeMap<&str, Value>,
+    ) -> Result<Value, String> {
+        let Literal::Distance {
+            value: radius,
+            unit: Unit::Meters,
+        } = args
+            .get("radius")
+            .ok_or("Missing sphere radius")?
+            .primitive()?
+        else {
+            return Err("Sphere radius requires metric distance".into());
+        };
+        if !radius.is_finite() || !(1e-6..=1e6).contains(radius) {
+            return Err("Sphere radius must be in [1e-6,1e6] meters".into());
+        }
+        self.reserve(1 + 561 + 960)?;
+        let (mesh, uv) = primitives::sphere_mesh(*radius as f32)
+            .map_err(|error| format!("Sphere preparation failed: {error:?}"))?;
+        let geometry_id = self.identity(scope, id, 0, b"sphere")?;
+        let mut identities = |count, kind: &str| -> Result<Vec<u64>, String> {
+            (0..count)
+                .map(|index| {
+                    self.budget.step()?;
+                    self.identity(scope, id, geometry_id, format!("{kind}:{index}").as_bytes())
+                })
+                .collect()
+        };
+        let vertex_ids = identities(mesh.positions.len(), "vertex")?;
+        let face_ids = identities(mesh.indices.len() / 3, "face")?;
+        let regions = BTreeMap::from([("surface".into(), 0..mesh.indices.len())]);
+        Ok(Value::Geometry(Arc::new(Geometry {
+            id: geometry_id,
+            space: Space::World,
+            unit: Unit::Meters,
+            data: GeometryData::Mesh(Arc::new(Mesh {
+                source: None,
+                prepared: Prepared {
+                    mesh,
+                    uv,
+                    regions,
+                    source_vertices: vec![],
+                    source_geometry: None,
+                },
+                vertex_ids,
+                face_ids,
+            })),
+            appearance: Appearance::default(),
+        })))
+    }
     pub(super) fn box_mesh(
         &mut self,
         scope: &Scope,

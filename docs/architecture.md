@@ -6,6 +6,27 @@ Source-inspection revision: 7 October 2026.
 
 This document maps the [product specification](Fold_Application_Product_Architecture.md) to current implementation. [The rewrite plan](Motion_System_Rewrite_Plan.md) owns current priorities and acceptance; [dev-plan.md](../dev-plan.md) preserves the retired ledger. Historical phase/consolidation documents describe their own checkpoints; they are not current implementation inventories. This revision is a code audit, not a fresh runtime, performance or release certification.
 
+## M5a implementation update — 9 October 2026
+
+This section supersedes the baseline's Motion/compositor/protocol inventory.
+`fold-graph` owns typed node/parameter/edge records, bindings/tracks, expressions,
+source support and conservative reconciliation. Compositor schema 8 persists
+those native records; `OperationConfig` is a transient specialized kernel/UI
+projection. Schemas 1–7 remain opaque, with no reader or execution fallback.
+Motion owns procedural object graphs and authoritative scene hierarchy. Common
+Outliner/Composition rows reference those objects; the existing Network hosts
+object and compositor Graph/Source views. Composition owns Track/Curve editing.
+Inspector nested occurrence paths supply exact local clocks, including reverse
+and paused reuse. Instance override channels retain native key identities.
+
+`fold-project::proposals` owns generic immutable candidate lifecycle. App's v2
+native dispatcher composes public creation, hierarchy, source and structured
+provider edits, explicit image bindings, inspection/rebase/Apply and save-copy.
+Shared project/render infrastructure contains no feature schema. See the
+[28-operation removal audit](rewrite/m5a-compositor-inventory.md) and
+[qualification evidence](rewrite/evidence/m5a-compositor-cutover/result.md).
+Earlier physical/performance and M0–M5 obligations remain separate.
+
 ## Ownership
 
 | Crate | Current responsibility | Source entry point |

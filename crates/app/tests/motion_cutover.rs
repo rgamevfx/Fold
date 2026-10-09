@@ -68,12 +68,12 @@ fn old_motion_is_opaque_and_cannot_render_after_save_reopen() {
 
 #[test]
 fn compositor_remains_renderable_with_transaction_history() {
-    use fold_compositor::{Composite, Node, Parameters};
+    use fold_compositor::{Composite, Node, OperationConfig};
     let id = DocumentId::new();
     let mut project = Project::new(8);
     let make = |rgba| {
-        let solid = Node::new(Parameters::Solid { rgba }, vec![]);
-        let output = Node::new(Parameters::Output, vec![solid.id]);
+        let solid = Node::new(OperationConfig::Solid { rgba }, vec![]);
+        let output = Node::new(OperationConfig::Output, vec![solid.id]);
         Composite {
             info: fold_media::VideoInfo {
                 width: 16,

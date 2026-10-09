@@ -1,6 +1,6 @@
 //! Write a small animation project for native workflow review.
 use fold_animation::{Curve, Interpolation, Tangents};
-use fold_compositor::{Composite, Node, Parameters as P};
+use fold_compositor::{Composite, Node, OperationConfig as P};
 use fold_foundation::{DocumentId, Time};
 use fold_project::{EditBatch, Mutation, Project};
 fn main() -> Result<(), Box<dyn std::error::Error>> {

@@ -93,6 +93,17 @@ pub fn object(canvas: &Canvas, kind: &str) -> Result<Object, String> {
             let id = material.id;
             ("Box", vec![mesh, material], id, Type::Geometry)
         }
+        "sphere" => {
+            let mesh = node("mesh", "sphere", "Sphere", Default::default())?;
+            let material = node(
+                "material",
+                "lit",
+                "Material",
+                [("geometry".into(), link(mesh.id))].into(),
+            )?;
+            let id = material.id;
+            ("Sphere", vec![mesh, material], id, Type::Geometry)
+        }
         "text" => {
             let text = node("text", "packaged", "Text", Default::default())?;
             let outline = node(
@@ -275,7 +286,13 @@ impl DocumentProvider for Documents {
             .collect::<Result<Vec<_>, String>>()?;
         Ok(fold_platform::hierarchy::Hierarchy {
             rows,
-            create: vec!["box".into(), "text".into(), "camera".into(), "light".into()],
+            create: vec![
+                "box".into(),
+                "sphere".into(),
+                "text".into(),
+                "camera".into(),
+                "light".into(),
+            ],
         })
     }
     fn edit_hierarchy(
@@ -398,7 +415,7 @@ impl DocumentProvider for Documents {
         serde_json::to_value(scene).map_err(|e| e.to_string())
     }
     fn authoring_catalog(&self) -> serde_json::Value {
-        serde_json::json!({"operations":["replace_scene","object_source"],"object_kinds":["camera","light","box","text"],"scene_type":TYPE,"schema":SCHEMA})
+        serde_json::json!({"operations":["replace_scene","object_source"],"object_kinds":["camera","light","box","sphere","text"],"scene_type":TYPE,"schema":SCHEMA})
     }
     fn author(&self, d: &Document, edits: &[serde_json::Value]) -> Result<Document, String> {
         let mut current = d.clone();

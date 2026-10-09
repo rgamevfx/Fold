@@ -6,7 +6,9 @@ use super::{
     wire::{self, Command, Scope},
 };
 use fold_foundation::ObjectId;
-use fold_motion::{candidates, editing, model::Construction, source};
+use fold_motion::{model::Construction, source};
+use fold_project::proposals::{self as candidates, Proposal};
+pub mod native;
 use fold_project::{Project, Revision};
 use serde_json::{Value, json};
 use std::time::Instant;
@@ -26,7 +28,7 @@ pub struct Dispatcher {
     render_host: Option<fold_render::gpu::Host>,
     #[cfg(feature = "gpu")]
     frames: Option<frames::Worker>,
-    candidates: candidates::Store,
+    candidates: candidates::Store<native::Candidate>,
     retries: Tracker,
     jobs: jobs::Jobs,
     workers: Option<workers::Workers>,
@@ -277,9 +279,10 @@ impl Dispatcher {
                 "documents":snapshot.state().documents.values().map(|document| json!({
                     "id":document.id,"package":document.package_id,"type":document.type_id,
                     "schema":document.schema_version,
-                    "native_inspection":document.package_id == fold_motion::PACKAGE && document.type_id == fold_motion::CONSTRUCTION && document.schema_version == fold_motion::SCHEMA_VERSION
+                    "native_inspection":(document.package_id == fold_motion::PACKAGE && document.type_id == fold_motion::CONSTRUCTION && document.schema_version == fold_motion::SCHEMA_VERSION) || (native::supported(&document.type_id) && crate::packages::builtins().supports(document))
                 })).collect::<Vec<_>>(),
                 "catalog":fold_motion::registry::catalog(),
+                "project_authoring":{"schema":schemars::schema_for!(native::Edit),"providers":crate::packages::builtins().authoring_catalog().into_iter().filter(|p| p["type"].as_str().is_some_and(native::supported)).collect::<Vec<_>>(),"inspection":"Native provider records are under native; scenes include read-only object_sources. Project candidates inspect all changed documents before atomic Apply."},
                 "transport_support":{"linux_local_socket":cfg!(target_os = "linux"),"cli_protocol":cfg!(target_os = "linux"),"mcp_stdio":cfg!(target_os = "linux")},
                 "implemented":({ let mut methods = vec!["job_status","cancel_job","save_project_copy","observe","inspect_document","inspect_candidate","propose","rebase","apply","cancel_candidate"]; if self.frames_available() { methods.push("observe_frame"); } methods }),
                 "frame_observation":{"available":self.frames_available(),"method":"observe_frame","encoding":"rgba8_hex","max_pixels":2073600,"max_dimension":4096,"in_flight":2,"time_range":"registered output half-open duration","presentation":"shared_viewer_display","regions":true},
@@ -376,6 +379,7 @@ impl Dispatcher {
                     let scope = Scope {
                         document,
                         definition: None,
+                        object: None,
                     };
                     self.job_scopes.insert(job.job, Some(scope));
                     worker.submit(
@@ -436,6 +440,7 @@ impl Dispatcher {
                     Scope {
                         document: document.id,
                         definition: None,
+                        object: None,
                     },
                     now,
                     move |cancel| {
@@ -461,8 +466,16 @@ impl Dispatcher {
                     cancel.check().map_err(|e| Failure::new("cancelled", e))?;
                     let original = snapshot.state().documents.get(&scope.document)
                         .ok_or_else(|| Failure::new("missing_resource", "Missing document"))?;
-                    let value = Construction::from_document(original).map_err(Failure::invalid)?;
-                    let text = projection(&value, scope)?;
+                    let text = if let Some(object) = scope.object {
+                        let scene = fold_motion::scene::Scene::from_document(original).map_err(Failure::invalid)?;
+                        projection(&scene.object(object).map_err(Failure::invalid)?.graph, scope)?
+                    } else if original.type_id == fold_motion::CONSTRUCTION {
+                        let value = Construction::from_document(original).map_err(Failure::invalid)?;
+                        projection(&value, scope)?
+                    } else {
+                        if scope.definition.is_some() { return Err(Failure::new("type", "This document uses document scope")); }
+                        serde_json::to_string_pretty(&native::inspect(original)?).map_err(|e| Failure::invalid(e.to_string()))?
+                    };
                     cancel.check().map_err(|e| Failure::new("cancelled", e))?;
                     Ok(workers::Output::Value(json!({"revision":snapshot.revision(),"scope":scope,"source":text,"rendering":false})))
                 })
@@ -471,10 +484,8 @@ impl Dispatcher {
                 let (document, native) = self.candidates.target(handle, now)?;
                 let scope = Scope {
                     document,
-                    definition: match native {
-                        editing::Scope::Document => None,
-                        editing::Scope::Definition(id) => Some(id),
-                    },
+                    definition: native.definition,
+                    object: native.object,
                 };
                 let task = self.candidates.prepare_inspection(handle, now)?;
                 let epoch = self.epoch();
@@ -498,8 +509,9 @@ impl Dispatcher {
                 })
             }
             Command::Propose { guard, edit } => self.submit(guard.scope, now, move |cancel| {
-                prepare::run(&snapshot, guard, edit, cancel)
-                    .map(|c| workers::Output::Candidate(Box::new(c)))
+                let candidate = prepare::run(&snapshot, guard, edit, cancel)?;
+                candidate.validate_dependencies(cancel)?;
+                Ok(workers::Output::Candidate(Box::new(candidate)))
             }),
             Command::Rebase { guard, handle } => {
                 self.check_scope(handle, guard.scope, now)?;
@@ -508,10 +520,8 @@ impl Dispatcher {
                     cancel.check().map_err(|e| Failure::new("cancelled", e))?;
                     let rebased = candidate.rebase(&snapshot)?;
                     cancel.check().map_err(|e| Failure::new("cancelled", e))?;
-                    operation_budget(
-                        &Construction::from_document(rebased.document())
-                            .map_err(Failure::invalid)?,
-                    )?;
+                    rebased.validate_budget()?;
+                    rebased.validate_dependencies(cancel)?;
                     Ok(workers::Output::Candidate(Box::new(rebased)))
                 })
             }
@@ -563,7 +573,7 @@ impl Dispatcher {
         if document != scope.document {
             return Err(Failure::new("conflict", "Candidate document scope differs"));
         }
-        if native != scope.native() {
+        if native != scope {
             return Err(Failure::new("conflict", "Candidate asset scope differs"));
         }
         Ok(())
@@ -603,6 +613,7 @@ fn encode(epoch: ObjectId, result: Result<Value, Failure>) -> Vec<u8> {
 mod tests {
     use super::*;
     use fold_foundation::DocumentId;
+    use fold_motion::editing;
     use fold_project::{EditBatch, Mutation};
     use std::{sync::mpsc, time::Duration};
 
@@ -693,6 +704,7 @@ mod tests {
         construction.seed = 42;
         let candidate =
             editing::prepare(&snapshot, document, editing::Scope::Document, construction).unwrap();
+        let candidate = native::Candidate::Construction(Box::new(candidate));
         let retained = candidate.clone();
         let (ready, started) = mpsc::channel();
         let (release, resume) = mpsc::channel();
@@ -702,6 +714,7 @@ mod tests {
                 Scope {
                     document,
                     definition: None,
+                    object: None,
                 },
                 now,
                 move |_| {
@@ -760,7 +773,10 @@ mod tests {
         let candidate =
             editing::prepare(&snapshot, document, editing::Scope::Document, value).unwrap();
         let now = Instant::now();
-        let handle = dispatcher.candidates.insert(candidate, now).unwrap();
+        let handle = dispatcher
+            .candidates
+            .insert(native::Candidate::Construction(Box::new(candidate)), now)
+            .unwrap();
         let (inspection, proof) = dispatcher
             .candidates
             .prepare_inspection(handle, now)
@@ -774,6 +790,7 @@ mod tests {
                 Scope {
                     document,
                     definition: None,
+                    object: None,
                 },
                 now,
                 move |_| {

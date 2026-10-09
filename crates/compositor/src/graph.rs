@@ -1,5 +1,5 @@
 //! Authoring operations independent of storage order, canvas position, or UI.
-use crate::{Composite, Node, Parameters};
+use crate::{Composite, Node, OperationConfig};
 use fold_foundation::ObjectId;
 use fold_graph::types::Type;
 use std::collections::{BTreeMap, BTreeSet};
@@ -62,8 +62,8 @@ impl Node {
     /// Inserting a Merge on B leaves A available without interrupting the pipe.
     pub(crate) fn background_only_merge(&self) -> bool {
         matches!(
-            self.parameters,
-            Parameters::Merge | Parameters::Composite { .. }
+            self.configuration(),
+            OperationConfig::Merge | OperationConfig::Composite { .. }
         ) && self.inputs.first().is_some_and(Option::is_none)
     }
     pub fn dependencies(&self) -> impl Iterator<Item = ObjectId> + '_ {
@@ -74,14 +74,13 @@ impl Node {
                 fold_graph::model::Reference::Node { node } => Some(node),
                 _ => None,
             })
-            .chain(self.effect.mask)
+            .chain(self.effect.mask_node())
     }
 
-    pub fn disconnected(parameters: Parameters) -> Self {
+    pub fn disconnected(parameters: OperationConfig) -> Self {
         let inputs = vec![None; parameters.input_count()];
         Self {
-            id: ObjectId::new(),
-            parameters,
+            operation: crate::operation::record(&parameters),
             animation: Default::default(),
             inputs,
             effect: Default::default(),
@@ -150,21 +149,21 @@ impl Composite {
                 let n = self.node(*id)?;
                 if let Some(mask) = n
                     .effect
-                    .mask
+                    .mask_node()
                     .filter(|_| !n.effect.mask_disabled && !n.background_only_merge())
                 {
                     needed.insert(mask);
                 }
                 for (slot, input) in n.input_ids().iter().enumerate() {
-                    if input.is_none() && n.parameters.operator().optional_input(slot) {
+                    if input.is_none() && n.configuration().operator().optional_input(slot) {
                         continue;
                     }
                     needed.insert(input.ok_or_else(|| {
                         format!(
                             "{} {:?}: connect '{}' input",
-                            n.parameters.operator().id,
+                            n.configuration().operator().id,
                             n.id,
-                            n.parameters.input_key(slot)
+                            n.configuration().input_key(slot)
                         )
                     })?);
                 }
@@ -179,24 +178,25 @@ impl Composite {
         port: &str,
     ) -> Result<(), String> {
         let source_node = self.node(source)?;
-        if matches!(source_node.parameters, Parameters::Output) {
+        if matches!(source_node.configuration(), OperationConfig::Output) {
             return Err("Output is a terminal node, not a source socket".into());
         }
-        let source_type = source_node.parameters.operator().output.clone();
+        let source_type = source_node.configuration().operator().output.clone();
         let target_node = self.node(target)?;
-        let op = target_node.parameters.operator();
+        let op = target_node.configuration().operator();
         if port == "mask" && op.supports_effect() {
             if !matches!(source_type, Type::Image | Type::Mask) {
                 return Err("Mask requires an image".into());
             }
-            let previous = self.node_mut(target)?.effect.mask.replace(source);
+            let previous = self.node(target)?.effect.mask.clone();
+            self.node_mut(target)?.effect.set_mask(source);
             if let Err(error) = self.evaluation_order() {
                 self.node_mut(target)?.effect.mask = previous;
                 return Err(error);
             }
             return Ok(());
         }
-        let parameters = &self.node(target)?.parameters;
+        let parameters = &self.node(target)?.configuration();
         let slot = (0..parameters.input_count())
             .find(|i| parameters.input_key(*i) == port)
             .ok_or("unknown input port")?;
@@ -220,12 +220,12 @@ impl Composite {
     }
     pub fn disconnect(&mut self, target: ObjectId, port: &str) -> Result<(), String> {
         let n = self.node_mut(target)?;
-        if port == "mask" && n.parameters.operator().supports_effect() {
+        if port == "mask" && n.configuration().operator().supports_effect() {
             n.effect.mask = None;
             return Ok(());
         }
         let slot = (0..n.inputs.len())
-            .find(|i| n.parameters.input_key(*i) == port)
+            .find(|i| n.configuration().input_key(*i) == port)
             .ok_or("unknown input port")?;
         n.inputs[slot] = None;
         Ok(())
@@ -236,7 +236,7 @@ impl Composite {
         }
         self.nodes.retain(|n| !ids.contains(&n.id));
         for n in &mut self.nodes {
-            if n.effect.mask.is_some_and(|id| ids.contains(&id)) {
+            if n.effect.mask_node().is_some_and(|id| ids.contains(&id)) {
                 n.effect.mask = None;
             }
             for input in &mut n.inputs {

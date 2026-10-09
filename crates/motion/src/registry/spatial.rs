@@ -106,6 +106,14 @@ pub(super) fn operations() -> Vec<Operation> {
             true,
         ),
         operation(
+            ("mesh", "sphere", "Sphere", Builtin::SphereMesh),
+            Palette::Artist,
+            vec![("radius", meters("Radius (m)", 0.03))],
+            ResultType::Exact { ty: Type::Geometry },
+            Cost::Geometry,
+            vec![Domain::Collection, Domain::Point, Domain::Face],
+        ),
+        operation(
             ("mesh", "box", "Box", Builtin::BoxMesh),
             Palette::Artist,
             vec![("size", vector("Size (m)", [0.06; 3], Unit::Meters))],

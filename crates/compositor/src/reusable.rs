@@ -40,13 +40,13 @@ impl Composite {
             if !self
                 .nodes
                 .iter()
-                .any(|n| matches!(&n.parameters,crate::Parameters::Input { id } if id == image))
+                .any(|n| matches!(&n.configuration(),crate::OperationConfig::Input { id } if id == image))
             {
                 return Err(format!("Published image {image} has no Input node"));
             }
         }
         for node in &self.nodes {
-            if let crate::Parameters::Input { id } = &node.parameters
+            if let crate::OperationConfig::Input { id } = &node.configuration()
                 && !definition.interface.images.contains(id)
             {
                 return Err("Input is absent from the published interface".into());
@@ -63,7 +63,7 @@ impl Composite {
             if !targets.insert((binding.node, &binding.property)) {
                 return Err("Multiple controls target the same property".into());
             }
-            let mut parameters = self.node(binding.node)?.parameters.clone();
+            let mut parameters = self.node(binding.node)?.configuration().clone();
             parameters.set_property(&binding.property, &control.default)?;
         }
         for control in &definition.interface.controls {
@@ -84,8 +84,7 @@ impl Composite {
             // Promoted instance values replace definition animation for that property.
             let prefix = format!("{}.", binding.property);
             node.animation = node.animation.for_evaluation_without(&prefix);
-            node.parameters
-                .set_property(&binding.property, &values[&binding.control])?;
+            node.set_property(&binding.property, &values[&binding.control])?;
         }
         Ok(())
     }

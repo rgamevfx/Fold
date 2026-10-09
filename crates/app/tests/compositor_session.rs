@@ -1,5 +1,5 @@
 use fold_app::{media_workflow, packages, session::Session};
-use fold_compositor::{Composite, Node, Parameters as P, package};
+use fold_compositor::{Composite, Node, OperationConfig as P, package};
 use fold_foundation::{DocumentId, Time};
 use fold_platform::{
     desktop::{DesktopClient, DesktopCommand as C, ViewLocation},
@@ -52,9 +52,11 @@ fn gesture_updates_preview_only_cancel_restores_and_release_is_one_undo_entry() 
     let original = host.snapshot().unwrap();
     let content = host.state().content.clone();
     for gain in [0.7, 0.5, 0.2] {
-        graph.nodes[1].parameters = P::Solid {
-            rgba: [gain, 0.0, 0.0, 1.0],
-        };
+        graph.nodes[1]
+            .set_configuration(P::Solid {
+                rgba: [gain, 0.0, 0.0, 1.0],
+            })
+            .unwrap();
         host.command(C::PreviewExtension(request(&host, id, graph.clone())));
         assert!(host.state().transient);
         assert_eq!(host.snapshot().unwrap().state(), original.state());
@@ -98,9 +100,11 @@ fn gesture_updates_preview_only_cancel_restores_and_release_is_one_undo_entry() 
 fn stale_preview_cannot_replace_newer_committed_state() {
     let (mut host, id, mut graph) = fixture();
     let stale = request(&host, id, graph.clone());
-    graph.nodes[1].parameters = P::Solid {
-        rgba: [0.0, 1.0, 0.0, 1.0],
-    };
+    graph.nodes[1]
+        .set_configuration(P::Solid {
+            rgba: [0.0, 1.0, 0.0, 1.0],
+        })
+        .unwrap();
     host.command(C::Extension(request(&host, id, graph)));
     let content = host.state().content.clone();
     host.command(C::PreviewExtension(stale));
@@ -352,7 +356,7 @@ fn shader_publication_validates_on_worker_and_cancel_never_publishes() {
     let source = graph
         .nodes
         .iter()
-        .find(|n| matches!(n.parameters, P::Solid { .. }))
+        .find(|n| matches!(n.configuration(), P::Solid { .. }))
         .unwrap()
         .id;
     let shader = Node::new(
@@ -397,9 +401,15 @@ fn shader_publication_validates_on_worker_and_cancel_never_publishes() {
     drain(&mut session);
     assert_ne!(session.snapshot().unwrap().revision(), before.revision());
     let good = session.snapshot().unwrap();
-    if let P::Shader { settings } = &mut graph.node_mut(shader.id).unwrap().parameters {
-        settings.source = "invalid WGSL".into();
-    }
+    graph
+        .node_mut(shader.id)
+        .unwrap()
+        .edit_configuration(|config| {
+            if let P::Shader { settings } = config {
+                settings.source = "invalid WGSL".into();
+            }
+        })
+        .unwrap();
     session.command(C::Extension(make_request(&session, &graph)));
     drain(&mut session);
     assert_eq!(session.snapshot().unwrap().revision(), good.revision());

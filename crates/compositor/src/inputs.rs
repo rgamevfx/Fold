@@ -1,5 +1,5 @@
 //! Provider-owned image input binding; external editors never interpret this graph.
-use crate::{Composite, Parameters, Source};
+use crate::{Composite, OperationConfig, Source};
 use fold_foundation::{ObjectId, Time};
 use fold_platform::{image_source::Source as ImageSource, layer_graph::ImageInput};
 use fold_project::{Document, Snapshot};
@@ -7,7 +7,7 @@ pub(crate) fn describe(document: &Document) -> Result<Vec<ImageInput>, String> {
     let graph = Composite::from_document(document)?;
     let mut inputs = vec![];
     for (index, node) in graph.nodes.iter().enumerate() {
-        if let Parameters::Read { source, .. } = &node.parameters {
+        if let OperationConfig::Read { source, .. } = &node.configuration() {
             inputs.push(ImageInput {
                 id: serde_json::to_string(&node.id).unwrap(),
                 label: format!("Read {}", index + 1),
@@ -26,7 +26,7 @@ pub(crate) fn describe(document: &Document) -> Result<Vec<ImageInput>, String> {
         let solids: Vec<_> = graph
             .nodes
             .iter()
-            .filter(|n| matches!(n.parameters, Parameters::Solid { .. }))
+            .filter(|n| matches!(n.configuration(), OperationConfig::Solid { .. }))
             .collect();
         if let [node] = solids.as_slice()
             && node.animation.is_empty()
@@ -64,12 +64,13 @@ pub(crate) fn bind(
         .iter_mut()
         .find(|n| n.id == id)
         .ok_or("Missing input node")?;
-    match &mut node.parameters {
-        Parameters::Read {
+    let mut config = node.configuration();
+    match &mut config {
+        OperationConfig::Read {
             source: current, ..
         } => *current = source,
-        Parameters::Solid { .. } if node.animation.is_empty() => {
-            node.parameters = Parameters::Read {
+        OperationConfig::Solid { .. } if node.animation.is_empty() => {
+            config = OperationConfig::Read {
                 source,
                 start: Time::ZERO,
                 source_start: Time::ZERO,
@@ -78,6 +79,7 @@ pub(crate) fn bind(
         }
         _ => return Err("Input is no longer a replaceable source".into()),
     }
+    node.set_configuration(config)?;
     let mut updated = graph.document(document.id)?;
     updated.extensions = document.extensions.clone();
     Ok(updated)

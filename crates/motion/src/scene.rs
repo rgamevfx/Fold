@@ -1,6 +1,7 @@
 //! Authored scene hierarchy. Objects own graphs; hierarchy is never a synthetic graph.
 pub mod animation;
 pub mod package;
+pub mod reconcile;
 pub mod video;
 use crate::{
     binding::Binding,
@@ -218,6 +219,16 @@ impl Scene {
     pub fn replace(&self, original: &Document) -> Result<Document, String> {
         let before = Self::from_document(original)?;
         self.validate()?;
+        for object in &self.objects {
+            let previous = before.objects.iter().find(|old| old.id == object.id);
+            if previous.is_none_or(|old| old.parent != object.parent)
+                && let Some(parent) = object.parent
+                && before.objects.iter().any(|old| old.id == parent)
+                && before.locked(parent)
+            {
+                return Err("Cannot attach an object under a locked ancestor".into());
+            }
+        }
         for old in &before.objects {
             let after = self.objects.iter().find(|o| o.id == old.id);
             if before.locked(old.id) && after != Some(old) {

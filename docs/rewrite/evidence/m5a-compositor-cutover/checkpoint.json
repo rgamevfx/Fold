@@ -1,0 +1,20 @@
+{
+  "workspace-tests.log": {
+    "passed": 721,
+    "failed": 0,
+    "ignored": 116,
+    "sha256": "0cbc6ba093479f1443a901193ab580517bd7577a02cff32a730701bc8195bde1"
+  },
+  "compositor-tests.log": {
+    "passed": 46,
+    "failed": 0,
+    "ignored": 1,
+    "sha256": "6fb7275bb7913af89e138993623c6b31695e5af6643cec79181b3d8a15707986"
+  },
+  "public-gpu-tests.log": {
+    "passed": 12,
+    "failed": 0,
+    "ignored": 0,
+    "sha256": "3896303dfce4740071500cd27c684784708f6b8661f728aa7b85b1481e5b738b"
+  }
+}

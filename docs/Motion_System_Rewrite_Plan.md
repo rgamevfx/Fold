@@ -55,7 +55,7 @@ Phases M0–M9 are ordered, with the M5a course correction below added before M6
 | M3 | Native editing and new MCP/CLI round trip | A | In progress |
 | M4 | Qualified Parley/vector/Bevy rendering boundary | B | Screen/World rendering and desktop preview path; gate pending |
 | M5 | Integrated motion-design construction | B | Native typography, shared cloner preparation and Screen/World publication; integrated gate pending |
-| M5a | Shared typed graph framework, scene hierarchy and unified authoring UI | Course correction | Shared graph primitives and Network/Composition entry path implemented; scene/compositor replacement and acceptance pending |
+| M5a | Shared typed graph framework, scene hierarchy and unified authoring UI | Course correction | Implementation and automated/native rendered qualification complete; physical acceptance unverified; see final evidence |
 | M6 | Incremental execution, GPU fields and full observation loop | C | Pending |
 | M7 | Production operation modes, assets and images | D | Pending |
 | M8 | USD and production delivery | D | Pending |
@@ -498,7 +498,7 @@ kept distinct without waiving any M0–M5 requirement.
 
 ### M5a — Shared typed graphs, scene hierarchy and unified authoring
 
-**Status:** In progress. Shared graph foundation, native scene/object documents, Outliner, per-object Network editing and nested Composition rows are implemented. Scene acceptance is partial; compositor document replacement, public scene authoring and the full phase gate remain open. See the implementation records below.
+**Status:** Implementation and automated/native rendered workflow qualification complete; physical artist acceptance unverified. Schema 8 compositor cutover, public mixed-scene fixture, scoped source/conflict/undo/reopen, nested occurrence Inspector clocks, normal/narrow Track/Curve review and observation evidence diagnosis are recorded in the [final cutover evidence](rewrite/evidence/m5a-compositor-cutover/result.md). Final checkpoint results are recorded there. Earlier M0–M5 obligations remain open; M6 is not advanced.
 
 **Sequencing:** Freeze these contracts now, while M0–M5 remains open. Do not extend the standalone Motion editor as the target workflow. Preserve valid M0–M5 evaluator/rendering evidence, but qualify artist continuation against this corrected workflow. M5a acceptance follows the relevant M3–M5 behavior and blocks M6; remaining M0–M5 obligations are not waived.
 
@@ -540,7 +540,7 @@ kept distinct without waiving any M0–M5 requirement.
 - Composition projects reusable graph occurrences and instance overrides with explicit occurrence paths and their actual clocks. Conflicting edits to shared tracks fail atomically. Inspector key tables are removed in favor of sampled controls and a compact animation menu. Object-transform auto-key and graph-parameter gesture auto-key use the existing preview/undo lifecycle; broader occurrence-specific Inspector navigation/auto-key still needs qualification.
 - [Continuation evidence](rewrite/evidence/m5a-animation-parenting-result.md) records focused tests, GPU regressions, screenshot review and outstanding work. This is not compositor or public-protocol cutover acceptance.
 
-**Still required for M5a completion (not approved deferrals):** replace compositor persistence/authoring/source/animation using the [28-entry inventory](rewrite/m5a-compositor-inventory.md); extend the version-2 public candidate/inspection protocol to scenes, object scopes and mixed-document transactions; author the final two-scene/title/compositor demo through that protocol; qualify the complete animation/instance Inspector workflow and normal/narrow Composition curve views; finish artist continuation, final removal audit and workspace checkpoint, including remaining media/test failures. Existing M0–M5 obligations remain open. M6 is still blocked.
+**Still required for M5a completion (not approved deferrals):** replace compositor persistence/authoring/source/animation using the [28-entry inventory](rewrite/m5a-compositor-inventory.md); author the final two-scene/title/compositor gate fixture through the now-implemented public protocol; qualify the complete animation/instance Inspector workflow and normal/narrow Composition curve views; resolve the intermittent observation omission; finish artist continuation and the final removal audit. Final cutover changes must pass the workspace checkpoint. Existing M0–M5 obligations remain open. M6 is still blocked.
 
 #### M5a continuation — compositor native tracks and connections (9 October)
 
@@ -562,6 +562,40 @@ the layers into one graph. This fixture does not waive the existing mixed-scene
 phase gate. The user requested a commit and resumable checkpoint;
 [HANDOFF.md](rewrite/HANDOFF.md#resume-here) records the exact state, next seams,
 verification limits and temporary launch sessions. M5a remains in progress.
+
+#### M5a continuation — public mixed candidates and requested demo (9 October)
+
+- Moved candidate lifecycle ownership into feature-neutral `fold-project`; public
+  v2 can now create Composition/scene documents, add layers, edit hierarchy and
+  scoped object/definition graphs, and publish mixed edits in one undo transaction.
+  Disjoint scene rebasing preserves artist changes; locks remain enforced.
+  Proposals and rebases validate named outputs for changed documents and affected
+  consumers; removed publications and concurrent dependency cycles cannot be applied.
+- Added Sphere and authored `demos/Make-it-move.fold` through public CLI proposals,
+  inspection, Apply and save: three independent scene layers, simple backdrop/title/
+  Copy to Points sphere graphs, and shared Composition reveal keys. This supersedes
+  the earlier “not created” fixture status; it does not waive the original mixed gate.
+- Public named-output frame observations support scenes and Composition. Focused
+  protocol and GPU tests pass; the workspace checkpoint passed 713 tests (115
+  ignored), with three GPU observation tests run separately. Workspace Clippy
+  completed with existing warnings. See [evidence](rewrite/evidence/m5a-public-scene-result.md).
+  An intermittent zero-time capture omission remains unresolved despite passing
+  cold-host/seek regressions. Full compositor replacement and all other open gates
+  above remain required. M5a remains in progress and M6 blocked.
+
+**Session handoff:** The user requested documentation and continuation in a new
+session. The current continuation is uncommitted on top of `fcad1e9`; the full
+compositor cutover has not started. [Resume instructions](rewrite/HANDOFF.md#resume-here)
+record the remaining work in order, verification scope, build settings and user
+constraints. This session boundary is not M5a acceptance.
+
+#### M5a final cutover — native compositor and qualified mixed workflow (9 October)
+
+- Completed the [28-operation replacement audit](rewrite/m5a-compositor-inventory.md): schema 8 shared operation/parameter/edge records, native mask/effect/override identities, scoped source, public edits/rebase, unified Network Source and shared Composition override curves. Schemas 1–7 and Parameters-tag authoring have no executable reader or shim.
+- Public-authored `demos/m5a-mixed-scene.fold` contains two independently scoped scenes around an explicitly bound Grade compositor. Reviewed start/reveal/held frames demonstrate title alpha, colored lit spheres and within-scene depth. Native preview/public observations match byte-for-byte through repeated public edits and reverse seeks.
+- Inspector tracks exact nested instance occurrence clocks, including reverse/paused time, auto-key and undo. Common Track/Curve, Outliner, Network and Inspector captures were reviewed at normal/narrow sizes. Automated interaction is distinct from physical artist acceptance, which remains unverified.
+- Diagnosed the old observation evidence: its alleged missing-spheres frame has the same sphere-region bytes as reveal/held. Retained the artifact with a correction and reproducible hash audit; no speculative renderer fix.
+- [Final evidence](rewrite/evidence/m5a-compositor-cutover/result.md) records checkpoint commands/results, removal scope, artifact provenance and launch. The earlier “still required” paragraphs above are historical checkpoints superseded by this record. Earlier M0–M5 obligations are not waived and M6 remains blocked.
 
 ### M6 — Incremental execution, performance and observation
 

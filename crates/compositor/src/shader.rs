@@ -89,7 +89,7 @@ pub fn migrate(
     renames: &std::collections::BTreeMap<String, String>,
     remove: &[String],
 ) -> Result<(), String> {
-    let crate::Parameters::Shader { settings: old } = &node.parameters else {
+    let crate::OperationConfig::Shader { settings: old } = &node.configuration() else {
         return Err("Select a Shader node".into());
     };
     next.validate()?;
@@ -159,7 +159,7 @@ pub fn migrate(
     let animation = node.animation.remap(&animation_names)?;
     node.inputs = inputs;
     node.animation = animation;
-    node.parameters = crate::Parameters::Shader { settings: next };
+    node.set_configuration(crate::OperationConfig::Shader { settings: next })?;
     Ok(())
 }
 
@@ -204,11 +204,12 @@ pub(crate) fn requires_validation(
     after: &crate::Composite,
 ) -> bool {
     after.nodes.iter().any(|node| {
-        let crate::Parameters::Shader { settings } = &node.parameters else {
+        let crate::OperationConfig::Shader { settings } = &node.configuration() else {
             return false;
         };
         let old = before.and_then(|graph| graph.node(node.id).ok());
-        let Some(crate::Parameters::Shader { settings: old }) = old.map(|node| &node.parameters)
+        let Some(crate::OperationConfig::Shader { settings: old }) =
+            old.map(|node| node.configuration())
         else {
             return true;
         };

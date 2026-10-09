@@ -1,6 +1,6 @@
 //! Library entries are ordinary retained graphs with promoted interfaces.
 use crate::{
-    Composite, Node, Parameters as P,
+    Composite, Node, OperationConfig as P,
     reusable::{Binding, Definition, KEY},
     shader::Shader,
 };

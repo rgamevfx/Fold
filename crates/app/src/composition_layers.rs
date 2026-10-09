@@ -1,7 +1,7 @@
 //! Cross-feature transactions. Engines stay independent; the application assembles
 //! their editable outputs under the common composition owner.
 use fold_composition::{Composition, Layer};
-use fold_compositor::{Composite, Node, Parameters as P, Source as ImageSource};
+use fold_compositor::{Composite, Node, OperationConfig as P, Source as ImageSource};
 use fold_foundation::{DocumentId, ObjectId, Time};
 use fold_media::Cancel;
 use fold_platform::image_source::Source;

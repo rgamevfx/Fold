@@ -48,11 +48,19 @@ fn common_composition_normal_and_narrow() {
     for (name, width) in [
         ("normal", 850.),
         ("narrow", 280.),
+        ("curve-normal", 850.),
+        ("curve-narrow", 280.),
         ("add-layer-menu", 850.),
         ("add-layer-menu-narrow", 280.),
     ] {
         // Let native graph camera framing settle after changing panel width.
         for frame_index in 0..40 {
+            if name == "curve-normal" && (frame_index == 2 || frame_index == 3) {
+                context.io_mut().add_mouse_pos_event([16., 64.]);
+                context
+                    .io_mut()
+                    .add_mouse_button_event(imgui::MouseButton::Left, frame_index == 2);
+            }
             if name.starts_with("add-layer-menu") {
                 context
                     .io_mut()

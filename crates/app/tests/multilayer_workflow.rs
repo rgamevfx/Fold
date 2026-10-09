@@ -1,5 +1,5 @@
 use fold_app::{media_workflow, packages};
-use fold_compositor::{Composite, Node, Parameters as P, Source};
+use fold_compositor::{Composite, Node, OperationConfig as P, Source};
 use fold_foundation::{DocumentId, Time};
 use fold_project::{DocumentRef, EditBatch, Mutation, Project};
 use fold_render::view::{Range, View};

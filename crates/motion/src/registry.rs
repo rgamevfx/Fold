@@ -78,6 +78,7 @@ pub enum Builtin {
     TransformMesh,
     TransformInstances,
     BoxMesh,
+    SphereMesh,
     Grid,
     Cloner,
     InstanceScale,

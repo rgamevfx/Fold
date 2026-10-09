@@ -42,9 +42,10 @@ fn edit(snapshot: &Snapshot, args: &[u8], _: &Cancel) -> Result<EditBatch, Strin
 }
 fn publish_shader(snapshot: &Snapshot, args: &[u8], cancel: &Cancel) -> Result<EditBatch, String> {
     let candidate: EditArgs = serde_json::from_slice(args).map_err(|e| e.to_string())?;
+    candidate.composite.validate()?;
     for node in &candidate.composite.nodes {
         cancel.check()?;
-        if let crate::Parameters::Shader { settings } = &node.parameters {
+        if let crate::OperationConfig::Shader { settings } = &node.configuration() {
             settings
                 .program(
                     fold_platform::format::Format::square([
@@ -160,10 +161,10 @@ impl DocumentProvider for Documents {
         crate::COMPOSITE
     }
     fn schema(&self) -> u32 {
-        7
+        8
     }
     fn supports_schema(&self, schema: u32) -> bool {
-        schema == 7
+        schema == 8
     }
     fn validate(&self, document: &Document) -> Result<(), String> {
         Composite::from_document(document).map(|_| ())
@@ -175,7 +176,7 @@ impl DocumentProvider for Documents {
         metadata: &fold_media::ingest::SourceMetadata,
     ) -> Result<(), String> {
         for node in Composite::from_document(document)?.nodes {
-            if let crate::Parameters::Read {
+            if let crate::OperationConfig::Read {
                 source:
                     crate::Source::Exr {
                         asset: id,
@@ -184,16 +185,16 @@ impl DocumentProvider for Documents {
                         ..
                     },
                 ..
-            } = &node.parameters
+            } = &node.configuration()
                 && *id == asset
                 && !matches!(&metadata.profile, fold_media::ingest::SourceProfile::Exr(new) if image.compatible_pixels(new) && match (sequence, &new.sequence) { (None,None) => true, (Some(expected),Some(actual)) => expected.matches(actual), _ => false })
             {
                 return Err("Relink changes the EXR channel catalog or image windows".into());
             }
-            if let crate::Parameters::Read {
+            if let crate::OperationConfig::Read {
                 source: crate::Source::Asset { asset: id, info },
                 ..
-            } = node.parameters
+            } = node.configuration()
                 && id == asset
                 && !match &metadata.profile {
                     fold_media::ingest::SourceProfile::Video(updated) => *updated == info,
@@ -225,7 +226,7 @@ pub fn register(registry: &mut PackageRegistry) -> Result<(), String> {
             host_api: HOST_API,
             dependencies: &[],
             panels: PANELS,
-            build: concat!(env!("CARGO_PKG_VERSION"), ":compositor-schema7-evaluator9"),
+            build: concat!(env!("CARGO_PKG_VERSION"), ":compositor-schema8-evaluator10"),
         },
         documents: vec![Box::new(Documents)],
         commands: vec![

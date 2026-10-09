@@ -229,7 +229,7 @@ fn persisted_color_undo_legacy_and_matched_cli_preview_output() {
 #[test]
 #[ignore = "requires packaged OCIO runtime and FFmpeg; set FOLD_COLOR_ROOT"]
 fn native_signal_input_overrides_read_nodes_export_and_external_configs() {
-    use fold_compositor::{Composite, Node, Parameters as P, Source};
+    use fold_compositor::{Composite, Node, OperationConfig as P, Source};
     let directory = tempfile::tempdir().unwrap();
     let video = directory.path().join("source.mp4");
     let result = std::process::Command::new("ffmpeg")

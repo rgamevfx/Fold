@@ -2,6 +2,61 @@
 
 ## Resume here
 
+The compositor cutover and mixed-scene implementation are complete in this
+continuation. Read the [final cutover record](evidence/m5a-compositor-cutover/result.md)
+and [28-operation audit](m5a-compositor-inventory.md) before starting new work.
+The session-start uncommitted public-scene work is retained; the original
+`demos/Make-it-move.fold` remains separate from `demos/m5a-mixed-scene.fold`.
+
+Schema 8 is the only executable compositor model. Shared native operation,
+parameter, connection, mask and override identities own persistence and edits;
+`OperationConfig` is a temporary kernel/UI projection. Network Source and public
+scoped edits use expected-value/protection gates. Inspector now follows nested
+instance occurrence clocks and preserves navigation across edits. The final
+fixture was authored and saved entirely through public v2 tools.
+
+The historical “missing spheres” PNG was mislabeled: a reproducible pixel audit
+shows its sphere region exactly matches the later frames. No renderer fix is
+claimed. Native GPU public/preview agreement and source-edit cycles pass.
+
+Automated workflow and normal/narrow native rendered review are recorded in the
+cutover evidence. Physical artist acceptance remains unverified: live computer
+use was screenshots-only, and the capture runtime could not start. Do not invent
+human acceptance or waive earlier M0–M5 obligations. **Do not advance M6.**
+
+The checkpoint passed: workspace 721 passed/116 ignored; final compositor safety
+review 46 passed/1 ignored; 4 GPU and 8 public project tests passed separately.
+Workspace check/Clippy, format and boundaries passed (existing lint warnings).
+The final release is running on `/tmp/fold-m5a-delivery-354ewy2h/M5a mixed scene.fold`;
+its held frame exactly matches reviewed evidence. The commit and normal launch
+are recorded in the cutover record. Preserve existing application windows and their unsaved state. The older
+sections below describe previous checkpoints, not remaining compositor work.
+
+### Build and verification context
+
+Use the current worktree `/home/rgame/.codex/worktrees/efc8/Fold`. The last disk
+check showed roughly 40 GiB free. These settings avoid recreating the large
+incremental/debug caches that were just removed:
+
+```sh
+export CARGO_BUILD_JOBS=2 CARGO_INCREMENTAL=0
+export CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0
+export FOLD_VIDEO_ROOT=/tmp/fold-codec-runtime
+export FOLD_COLOR_ROOT=/tmp/fold-ocio-package
+export FOLD_TEST_COLOR_ROOT=/tmp/fold-ocio-package
+```
+
+Verify that temporary runtime directories and any session sockets still exist.
+Use offline Cargo while the dependency cache is available. Native Vulkan and
+local-socket integration tests require execution permission beyond the sandbox.
+The [current evidence](evidence/m5a-public-scene-result.md) records exact commands,
+the durable workspace log, passed checks and remaining Clippy warnings. A normal
+release build has not yet been qualified for this uncommitted continuation.
+
+## Historical committed checkpoint — fcad1e9
+
+The remainder records the earlier commit, not current capability status.
+
 This is an **incomplete M5a checkpoint**, committed at the user's request. M3–M5
 and M5a still have open acceptance gates; M6 must not start. The user asked to
 finish all six remaining M5a areas and has not approved deferrals. They also

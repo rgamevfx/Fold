@@ -206,7 +206,7 @@ fn seeks_cross_fractional_second_boundaries_and_cancel_active_encoder() {
 }
 
 #[test]
-fn saturated_colors_and_explicit_profile_rejection() {
+fn saturated_colors_untagged_layout_and_explicit_profile_rejection() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("colors.mp4");
     let info = VideoInfo {
@@ -268,8 +268,31 @@ fn saturated_colors_and_explicit_profile_rejection() {
         .status()
         .unwrap();
     assert!(status.success());
+    // Missing color tags remain source metadata, distinct from the authored
+    // input-color assignment. The bounded SDR software decoder accepts them.
+    let untagged = fold_media::inspect(&unsupported, &Cancel::default()).unwrap();
+    assert_eq!([untagged.info.width, untagged.info.height], [64, 32]);
+    assert_eq!(untagged.info.frames, 1);
+    // An explicitly unsupported transfer must still fail, rather than being
+    // silently interpreted as SDR merely because the codec/layout are supported.
+    let hdr = dir.path().join("tagged-pq.mp4");
+    let status = std::process::Command::new("ffmpeg")
+        .args(["-v", "error", "-i"])
+        .arg(&unsupported)
+        .args([
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+            "-color_trc",
+            "smpte2084",
+        ])
+        .arg(&hdr)
+        .status()
+        .unwrap();
+    assert!(status.success());
     assert!(
-        fold_media::inspect(&unsupported, &Cancel::default())
+        fold_media::inspect(&hdr, &Cancel::default())
             .unwrap_err()
             .contains("unsupported")
     );

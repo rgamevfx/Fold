@@ -1,4 +1,4 @@
-use fold_compositor::{Composite, Node, Parameters as P};
+use fold_compositor::{Composite, Node, OperationConfig as P};
 use fold_foundation::DocumentId;
 fn fixture() -> Composite {
     let source = Node::new(

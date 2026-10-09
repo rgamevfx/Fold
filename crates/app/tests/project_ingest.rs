@@ -263,7 +263,7 @@ fn referenced_relink_validates_providers_invalidates_content_and_preserves_pinne
     .unwrap();
     let doc_id = document.id;
     let read = fold_compositor::Node::new(
-        fold_compositor::Parameters::Read {
+        fold_compositor::OperationConfig::Read {
             source: fold_compositor::Source::Asset {
                 asset: id,
                 info: info.clone(),
@@ -274,7 +274,8 @@ fn referenced_relink_validates_providers_invalidates_content_and_preserves_pinne
         },
         vec![],
     );
-    let output = fold_compositor::Node::new(fold_compositor::Parameters::Output, vec![read.id]);
+    let output =
+        fold_compositor::Node::new(fold_compositor::OperationConfig::Output, vec![read.id]);
     let composite = fold_compositor::Composite {
         info: info.clone(),
         output: output.id,

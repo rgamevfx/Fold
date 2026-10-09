@@ -1,0 +1,28 @@
+   Compiling fold-graph v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/graph)
+   Compiling fold-app v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/app)
+   Compiling fold-compositor v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/compositor)
+   Compiling fold-motion v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/motion)
+    Finished `test` profile [unoptimized] target(s) in 38.39s
+     Running tests/agent_frames.rs (target/debug/deps/agent_frames-5f4fafcdafbb5f54)
+
+running 4 tests
+test mixed_compositor_fixture_matches_preview_after_public_source_edits ... ok
+test mixed_scene_first_frame_retains_static_spheres_when_title_is_transparent ... ok
+test public_frame_jobs_match_registered_pixels_and_retain_candidate_context ... ok
+test public_mixed_document_candidate_frames_match_committed_composition ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 73.83s
+
+     Running tests/agent_project.rs (target/debug/deps/agent_project-50a7548f7e0575df)
+
+running 8 tests
+test explicit_layer_connections_use_discovered_ports_and_one_undo_entry ... ok
+test public_compositor_source_rebases_disjoint_controls_and_requires_fresh_inspection ... ok
+test public_mixed_creation_is_inspected_atomic_undoable_and_preserved_on_reopen ... ok
+test public_scene_hierarchy_rejects_stale_values_unlocks_and_partial_edits ... ok
+test rebase_rejects_cycles_introduced_by_concurrent_layer_connections ... ok
+test rebase_revalidates_named_outputs_after_an_artist_replaces_a_publication ... ok
+test replacing_a_scene_output_cannot_leave_existing_consumers_dangling ... ok
+test scoped_object_source_rebases_disjoint_artist_edits_and_honors_new_locks ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.92s

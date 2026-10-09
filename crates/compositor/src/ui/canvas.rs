@@ -11,6 +11,7 @@ pub(super) struct Canvas {
     state: Shared,
     files: fold_ui::sdk::project_drop::FileDrop,
     canvas: GraphCanvas,
+    sources: super::source::Sources,
 }
 impl Canvas {
     pub fn new(state: Shared) -> Self {
@@ -18,6 +19,7 @@ impl Canvas {
             state,
             files: Default::default(),
             canvas: GraphCanvas::default(),
+            sources: Default::default(),
         }
     }
 }
@@ -78,6 +80,21 @@ impl Panel for Canvas {
         self.canvas.accepts_background_pan(position)
     }
     fn draw_network(&mut self, context: ExtensionUi<'_>) {
+        let ExtensionUi { ui, host } = context;
+        self.canvas.clear_hit_map();
+        if let Some(_tabs) = ui.tab_bar("compositor-views") {
+            if let Some(_tab) = ui.tab_item("Graph") {
+                self.draw_graph(ExtensionUi { ui, host });
+            }
+            if let Some(_tab) = ui.tab_item("Source") {
+                self.sources.draw(ui, &mut self.state.borrow_mut(), host);
+            }
+        }
+    }
+}
+
+impl Canvas {
+    fn draw_graph(&mut self, context: ExtensionUi<'_>) {
         let ExtensionUi { ui, host } = context;
         self.canvas.clear_hit_map();
         let mut state = self.state.borrow_mut();

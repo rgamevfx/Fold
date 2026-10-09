@@ -1280,3 +1280,129 @@ fn auto_key_parameter_gesture_commits_once_and_cancel_discards_pending_keys() {
     assert!(state.auto_keys.is_empty());
     assert_eq!(state.construction.as_ref(), Some(&before));
 }
+
+#[test]
+fn nested_occurrence_inspector_auto_keys_use_reverse_and_paused_clocks() {
+    use crate::model::{Construction, Instance};
+    use crate::types::{Clock, Ratio};
+    use fold_foundation::{ObjectId, Time};
+    let mut host = setup();
+    let mut state = state::State::default();
+    state.sync(&mut host);
+    let mut graph = state.construction.clone().unwrap();
+    let root = graph.root.definition;
+    let make_definition = || {
+        Construction::from_document(
+            &host
+                .registry
+                .create(crate::CONSTRUCTION, DocumentId::new())
+                .unwrap(),
+        )
+        .unwrap()
+        .definitions
+        .remove(0)
+    };
+    let mut child = make_definition();
+    child.name = "Reusable branch".into();
+    let mut leaf = make_definition();
+    leaf.name = "Nested shape".into();
+    let parameter = leaf.nodes[0].parameters["height"].id;
+    let nested = Instance {
+        id: ObjectId::new(),
+        name: "Nested".into(),
+        definition: leaf.id,
+        clock: Clock {
+            offset: Time::new(-2, 1).unwrap(),
+            rate: Ratio::new(1, 2).unwrap(),
+        },
+        overrides: Default::default(),
+        extensions: Default::default(),
+    };
+    child.instances.push(nested.clone());
+    let reverse = Instance {
+        id: ObjectId::new(),
+        name: "Reverse".into(),
+        definition: child.id,
+        clock: Clock {
+            offset: Time::new(1, 4).unwrap(),
+            rate: Ratio::new(-2, 1).unwrap(),
+        },
+        overrides: Default::default(),
+        extensions: Default::default(),
+    };
+    let mut paused = reverse.clone();
+    paused.id = ObjectId::new();
+    paused.name = "Paused".into();
+    paused.clock.rate = Ratio::new(0, 1).unwrap();
+    graph.definitions[0]
+        .instances
+        .extend([reverse.clone(), paused.clone()]);
+    graph.definitions.extend([child.clone(), leaf.clone()]);
+    graph.root.clock = Clock {
+        offset: Time::new(1, 4).unwrap(),
+        rate: Ratio::new(2, 1).unwrap(),
+    };
+    assert!(state.commit(&mut host, graph.clone()), "{}", state.error);
+    host.state.navigation.push(ViewLocation {
+        document: state.document.unwrap(),
+        time: Time::new(3, 4).unwrap(),
+        label: "Occurrence".into(),
+    });
+    state.graph_definition = Some(leaf.id);
+    state.graph_history = vec![root, child.id];
+    for (instance, expected) in [
+        (reverse.id, Time::new(1, 4).unwrap()),
+        (paused.id, Time::new(1, 1).unwrap()),
+    ] {
+        state.graph_occurrences = vec![instance, nested.id];
+        state.sync(&mut host);
+        assert_eq!(state.key_time, Some((leaf.id, expected)));
+        let before = state.construction.clone().unwrap();
+        state.auto_keys.insert(parameter, state.key_time.unwrap().1);
+        state.preview(&mut host);
+        assert!(
+            state.finish_parameters(&mut host, before.clone()),
+            "{}",
+            state.error
+        );
+        assert_eq!(
+            state.graph_definition,
+            Some(leaf.id),
+            "Committing a gesture lost the selected occurrence"
+        );
+        let track_in = |graph: &Construction| {
+            let definition = graph.definition(leaf.id).unwrap();
+            let Binding::Link { reference } =
+                definition.nodes[0].parameters["height"].binding().unwrap()
+            else {
+                panic!("Auto-key must retain the authored parameter as a link")
+            };
+            let crate::model::Reference::Node { node } = reference.target else {
+                panic!()
+            };
+            let animation = definition.nodes.iter().find(|n| n.id == node).unwrap();
+            let Binding::Track { track } = animation.parameters["track"].binding().unwrap() else {
+                panic!()
+            };
+            track
+        };
+        let track = track_in(state.construction.as_ref().unwrap());
+        assert_eq!(track.keys[0].time, expected);
+        host.project.undo().unwrap();
+        state.sync(&mut host);
+        assert_eq!(state.construction.as_ref(), Some(&before));
+        host.project.redo().unwrap();
+        state.sync(&mut host);
+        let restored = track_in(state.construction.as_ref().unwrap());
+        assert_eq!(restored, track);
+        host.project.undo().unwrap();
+        state.sync(&mut host);
+    }
+    state.graph_history.clear();
+    state.graph_occurrences.clear();
+    state.sync(&mut host);
+    assert_eq!(
+        state.key_time, None,
+        "A definition without an occurrence must not borrow root time"
+    );
+}

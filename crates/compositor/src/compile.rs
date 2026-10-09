@@ -1,4 +1,4 @@
-use crate::{Composite, Parameters as P, Source};
+use crate::{Composite, OperationConfig as P, Source};
 use fold_foundation::Time;
 use fold_platform::{VideoCompile, VideoProvider};
 use fold_render::channels::{Channel, ChannelGraph, Channels, Interpretation, RGBA, Value};
@@ -288,7 +288,7 @@ fn compile(request: VideoCompile<'_>) -> Result<ChannelGraph, String> {
                 .map(|id| &ids[id])
                 .collect();
             let mask = effect
-                .mask
+                .mask_node()
                 .filter(|_| !effect.mask_disabled)
                 .map(|id| &ids[&id]);
             let result = crate::compile_image::effect(

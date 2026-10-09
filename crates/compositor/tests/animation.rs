@@ -1,5 +1,5 @@
 use fold_animation::Curve;
-use fold_compositor::{Composite, Node, Parameters as P};
+use fold_compositor::{Composite, Node, OperationConfig as P};
 use fold_foundation::{DocumentId, Time};
 use fold_platform::packages::{CommandRequest, PackageRegistry};
 use fold_project::{DocumentRef, EditBatch, Mutation, Project};
@@ -155,7 +155,7 @@ fn removing_the_last_channel_holds_its_current_value_and_static_parameters_are_e
     );
     assert_eq!(
         node.evaluated_parameters(Time::ZERO).unwrap(),
-        node.parameters
+        node.configuration()
     );
     let mut curve = Curve::default();
     curve.insert(Time::ZERO, 0.);
@@ -171,7 +171,7 @@ fn removing_the_last_channel_holds_its_current_value_and_static_parameters_are_e
     );
     node.remove_animation_channel("bounds.0", time).unwrap();
     assert!(node.animation.is_empty());
-    assert_eq!(node.parameters, value);
+    assert_eq!(node.configuration(), value);
 }
 
 #[test]

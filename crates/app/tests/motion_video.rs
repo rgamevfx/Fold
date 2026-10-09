@@ -260,13 +260,13 @@ fn motion_document_placement_retains_named_output_and_renders_through_timeline()
 
 #[test]
 fn compositor_read_preserves_motion_output_time_mapping_alpha_and_channels() {
-    use fold_compositor::{Composite, Node, Parameters, Source};
+    use fold_compositor::{Composite, Node, OperationConfig, Source};
     let (mut project, id, _) = fixture();
     let registry = fold_app::packages::builtins();
     let source = registry.default_output(&project.snapshot(), id).unwrap();
     let info = registry.output_ref(&project.snapshot(), &source).unwrap();
     let read = Node::new(
-        Parameters::Read {
+        OperationConfig::Read {
             source: Source::Document {
                 source: source.clone(),
                 info: info.clone(),
@@ -277,7 +277,7 @@ fn compositor_read_preserves_motion_output_time_mapping_alpha_and_channels() {
         },
         vec![],
     );
-    let output = Node::new(Parameters::Output, vec![read.id]);
+    let output = Node::new(OperationConfig::Output, vec![read.id]);
     let mut composite = Composite {
         info,
         output: output.id,
@@ -326,27 +326,19 @@ fn compositor_read_preserves_motion_output_time_mapping_alpha_and_channels() {
                 .unwrap();
         assert!(inactive.pixels().iter().all(|p| *p == [0.; 4]));
     }
-    let Parameters::Read {
-        source: Source::Document {
-            source: invalid, ..
-        },
-        ..
-    } = &mut composite.nodes[0].parameters
-    else {
-        panic!()
-    };
-    invalid.output.clear();
+    composite.nodes[0]
+        .operation
+        .parameters
+        .get_mut("source")
+        .unwrap()
+        .value["value"]["Document"]["source"]["output"] = serde_json::json!("");
     assert!(composite.document(composite_id).is_err());
-    let Parameters::Read {
-        source: Source::Document {
-            source: invalid, ..
-        },
-        ..
-    } = &mut composite.nodes[0].parameters
-    else {
-        panic!()
-    };
-    invalid.output = "missing-output".into();
+    composite.nodes[0]
+        .operation
+        .parameters
+        .get_mut("source")
+        .unwrap()
+        .value["value"]["Document"]["source"]["output"] = serde_json::json!("missing-output");
     project
         .commit(EditBatch {
             base: project.snapshot().revision(),

@@ -291,6 +291,13 @@ impl PackageRegistry {
         id: DocumentId,
     ) -> Result<Vec<crate::layer_graph::ImageInput>, String> {
         let document = snapshot.state().documents.get(&id).ok_or("Missing graph")?;
+        self.document_image_inputs(document)
+    }
+    /// Inspect provider-owned ports for newly created, uncommitted graphs too.
+    pub fn document_image_inputs(
+        &self,
+        document: &Document,
+    ) -> Result<Vec<crate::layer_graph::ImageInput>, String> {
         self.documents
             .iter()
             .find(|p| p.package_id() == document.package_id && p.type_id() == document.type_id)
@@ -901,6 +908,21 @@ impl PackageRegistry {
         )?;
         self.video
             .compile_channels(snapshot, source, time, dimensions, cancel, selection)
+    }
+    /// Validate references and dependency cycles without evaluating media or geometry.
+    pub fn validate_video_source(
+        &self,
+        snapshot: &Snapshot,
+        source: &DocumentRef,
+        cancel: &Cancel,
+    ) -> Result<(), String> {
+        self.validate_video_dependencies(
+            snapshot,
+            source,
+            &mut Vec::new(),
+            &mut BTreeSet::new(),
+            cancel,
+        )
     }
     fn validate_video_dependencies(
         &self,

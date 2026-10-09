@@ -1994,7 +1994,7 @@ fn hierarchy_scene_outputs_composite_independently_and_preserve_depth() {
     foreground.objects[2].position = position([0., 0., -3.]);
     foreground.objects[2].scale = literal(Literal::Scalar { value: 0.6 });
     let solid = fold_compositor::Node::new(
-        fold_compositor::Parameters::Solid {
+        fold_compositor::OperationConfig::Solid {
             rgba: [0., 0.25, 0., 0.25],
         },
         vec![],
@@ -2006,7 +2006,7 @@ fn hierarchy_scene_outputs_composite_independently_and_preserve_depth() {
         frames: 24,
     };
     let read = fold_compositor::Node::new(
-        fold_compositor::Parameters::Read {
+        fold_compositor::OperationConfig::Read {
             source: fold_compositor::Source::Document {
                 source: fold_project::DocumentRef {
                     document: ids[0],
@@ -2021,9 +2021,12 @@ fn hierarchy_scene_outputs_composite_independently_and_preserve_depth() {
         },
         vec![],
     );
-    let merge =
-        fold_compositor::Node::new(fold_compositor::Parameters::Merge, vec![solid.id, read.id]);
-    let output = fold_compositor::Node::new(fold_compositor::Parameters::Output, vec![merge.id]);
+    let merge = fold_compositor::Node::new(
+        fold_compositor::OperationConfig::Merge,
+        vec![solid.id, read.id],
+    );
+    let output =
+        fold_compositor::Node::new(fold_compositor::OperationConfig::Output, vec![merge.id]);
     let composite = fold_compositor::Composite {
         info: info.clone(),
         nodes: vec![read, solid, merge, output.clone()],

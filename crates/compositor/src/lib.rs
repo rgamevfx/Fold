@@ -28,3 +28,16 @@ mod automation;
 mod inputs;
 
 mod keyed_parameters;
+
+mod operation;
+
+mod source;
+
+mod kernel;
+mod registry;
+pub use kernel::OperationConfig;
+pub use registry::{OPERATORS, Operator};
+
+mod instance;
+
+mod reconcile;

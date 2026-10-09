@@ -18,8 +18,9 @@ Call `fold_request` with:
 
 Use `epoch` from the response envelope and `revision`, `documents`, `catalog`,
 `request_schema` and `limits` from `result`. Select an existing supported native
-document. Unknown documents stay opaque. Public document creation and opening
-project files are not implemented by this adapter. Saving a copy is described below.
+document. Unknown documents stay opaque. Public Composition, scene and compositor creation
+are described below; opening files remains an application action. Saving a copy
+is described below.
 
 ## Jobs and inspection
 
@@ -234,13 +235,7 @@ semantics have dispatcher tests; full handoff and physical native artist accepta
 remain incomplete. Report these distinctions with any result.
 
 
-## M5a scene availability and starter update
-
-The current application can create native 3D scenes, expose their hierarchy through
-Outliner/Composition and edit object graphs in Network. The version-2 public
-candidate/inspection transport remains Construction-specific; those UI capabilities
-do not imply public scene creation or object-scoped candidate support. Discover
-capabilities and report this gap. Do not edit project payloads as a workaround.
+## Earlier Construction starter
 
 The current untouched Motion starter has `Rectangle`, `Placement`, `Scene` and
 `Rectangle fill` nodes. `demos/m5-integrated.py` now checks that inspected source
@@ -289,3 +284,69 @@ Profile conversion retains source outlines and packaged font provenance in publi
 observations even without a separate Text placement. Outlined glyphs remain
 separate profile partitions; overlapping glyphs are not implicitly Boolean-unioned.
 Closed contour inputs share the explicitly selected fill rule.
+
+## Composition and object graphs (M5a)
+
+Discovery's `project_authoring.schema` describes `edit: {"kind":"project", "edits":[...]}`.
+Use the ordinary guarded proposal, candidate inspection and Apply lifecycle.
+`create` takes a new document UUID, a discovered supported `type_id`, and a name.
+`add_layer` takes a Composition UUID and `kind: "scene"` or `"image"`.
+Generated layer/document/object IDs are returned by candidate inspection; never
+invent or infer them from stack position. Several operations publish in one undo entry.
+
+For Composition and scene inspection, parse `result.source` as JSON. Its `native`
+field is the owning provider's record, `outputs` declares exact output references,
+`image_inputs` supplies exact named image sockets, and scenes include canonical
+`object_sources` keyed by stable object UUID.
+`author` and `hierarchy` edits require the complete inspected JSON envelope in
+`expected`; provider operation schemas are under `project_authoring.providers`.
+`connect_layers` binds an explicit named image input between Composition layers.
+Layer ordering alone never creates that dependency.
+
+Inspect one object's graph with `scope: {"document":SCENE_UUID,"object":OBJECT_UUID,
+"definition":null}`. Use the resulting canonical source as `expected` in the
+ordinary `kind:"source"` proposal, retaining that exact scope through rebase and
+Apply. A definition UUID further narrows the graph scope. Project batches can also
+use `object_source` with document/object UUIDs and exact expected/source text.
+Scene hierarchy, sibling graphs and inherited locks remain owned by the scene.
+Agent requests cannot unlock objects or controls. Rebase can merge disjoint scene
+properties and native graph edits; conflicting topology changes require a new proposal.
+
+`observe_frame.output` is the exact **string** declared by the provider: scene
+outputs are UUID strings, while Composition currently declares `video`. Mixed
+frames identify the immutable project fingerprint and output-relative time; they
+do not claim one camera/asset clock or verified external-resource content hashes.
+CPU `observe` still measures Construction outputs only.
+
+Verified example: `demos/make-it-move.py` builds three scene layers from an empty
+public session, authors separate graphs, keys the title in Composition, inspects
+frames and saves a copy. It requires GPU rendering, the packaged color runtime
+(`FOLD_COLOR_ROOT`) and Pillow for PNG decoding. No native click/drag is involved.
+The saved `demos/Make-it-move.fold` has a two-node backdrop graph, five-node title
+graph and seven-node sphere graph, plus separate camera/light graphs per scene.
+The historical zero-time image was mislabeled: its sphere region is byte-identical
+to the held frame. See the [pixel audit](../../../docs/rewrite/evidence/m5a-compositor-cutover/observation-audit.json); no renderer fix is claimed.
+
+
+## Native compositor source (schema 8)
+
+Compositor inspection returns `graph_source` alongside its `native` record and
+named `image_inputs`. Provider discovery lists all 28 operation/version entries
+and their native `record` examples. Example IDs are placeholders: allocate fresh
+node/parameter IDs for creation; preserve inspected IDs when editing.
+
+Use a project edit with `op:"compositor_source"`, `document`, optional `nodes`,
+exact `expected` source and replacement `source`. A node scope is a JSON array of
+those native nodes, preserving membership. Full source includes the complete
+node array; format and output selection use the corresponding structured edits. Both go through the ordinary proposal → inspection → Apply lifecycle.
+For provider structured edits, `create_node`/`replace` use `record`; static values
+are typed literal/list bindings or registered domain configuration. Animation
+and overrides carry native parameter/track/key identities. Use the discovered
+contract; the former Parameters-tag payload and old document schemas do not run.
+
+The verified [mixed-scene workflow](../../../demos/m5a-mixed-scene.py) starts with
+an empty public session and saves [m5a-mixed-scene.fold](../../../demos/m5a-mixed-scene.fold).
+It creates a sphere/plate scene, a Grade compositor explicitly bound to that
+scene, and a transparent title scene. It round-trips scoped compositor source,
+observes start/reveal/held frames and checks the unchanged sphere region. Run it
+with the same four arguments and packaged runtimes as `make-it-move.py`.

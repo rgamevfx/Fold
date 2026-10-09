@@ -1,12 +1,12 @@
 //! Project sources enter as editable Read nodes, without changing existing wiring.
-use crate::{Composite, Node, Parameters, Source};
+use crate::{Composite, Node, OperationConfig, Source};
 use fold_foundation::DocumentId;
 use fold_platform::browser::{Placement, PlacementSource, asset_metadata};
 use fold_project::{Document, Snapshot};
 
 pub fn create(id: DocumentId) -> Result<Document, String> {
-    let solid = Node::new(Parameters::Solid { rgba: [0.; 4] }, vec![]);
-    let output = Node::new(Parameters::Output, vec![solid.id]);
+    let solid = Node::new(OperationConfig::Solid { rgba: [0.; 4] }, vec![]);
+    let output = Node::new(OperationConfig::Output, vec![solid.id]);
     let mut graph = Composite {
         info: fold_media::VideoInfo {
             width: 1280,
@@ -77,7 +77,7 @@ pub fn place(
     }
     let duration = timing.range(source.info().time(source.info().frames)?)?;
     let mut node = Node::new(
-        Parameters::Read {
+        OperationConfig::Read {
             source,
             start: timing.at,
             source_start: timing.source_start,
