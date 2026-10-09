@@ -1,0 +1,92 @@
+    Finished `test` profile [unoptimized] target(s) in 0.45s
+     Running tests/agent_handoff.rs (target/debug/deps/agent_handoff-074bf733f53dc270)
+
+running 6 tests
+test cli_and_mcp_author_relative_parameter_expressions_without_primitive_nodes ... ok
+test cli_and_mcp_inspect_layer_and_timeline_properties_through_one_service ... ok
+test cli_and_mcp_preserve_native_handoff_through_undo_and_reopen ... ok
+test cli_and_mcp_return_identical_revision_bound_frames ... ignored, requires a native Vulkan adapter and private local sockets
+test cli_and_mcp_save_committed_project_copies_with_exact_retry_and_reopen ... ok
+test integrated_ramp_key_lock_and_layout_survive_public_field_handoff ... ok
+
+test result: ok. 5 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 14.10s
+
+     Running tests/agent_project.rs (target/debug/deps/agent_project-f2b252fd24946836)
+
+running 8 tests
+test explicit_layer_connections_use_discovered_ports_and_one_undo_entry ... ok
+test public_compositor_source_rebases_disjoint_controls_and_requires_fresh_inspection ... ok
+test public_mixed_creation_is_inspected_atomic_undoable_and_preserved_on_reopen ... ok
+test public_scene_hierarchy_rejects_stale_values_unlocks_and_partial_edits ... ok
+test rebase_rejects_cycles_introduced_by_concurrent_layer_connections ... ok
+test rebase_revalidates_named_outputs_after_an_artist_replaces_a_publication ... ok
+test replacing_a_scene_output_cannot_leave_existing_consumers_dangling ... ok
+test scoped_object_source_rebases_disjoint_artist_edits_and_honors_new_locks ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.78s
+
+     Running tests/common_composition.rs (target/debug/deps/common_composition-90fd898725fe3784)
+
+running 9 tests
+test composition_auto_key_is_shared_with_graph_inspector_contexts ... ok
+test composition_exposes_compositor_keys_without_network_editor ... ok
+test deleting_the_only_graph_layer_is_undoable ... ok
+test mixed_layers_processing_connections_visibility_animation_and_cycle_rejection ... ok
+test named_image_inputs_bind_independently_without_changing_other_sources ... ok
+test nesting_preserves_mixed_pixels_and_exact_trim_origin ... ok
+test repeated_scene_occurrences_cannot_conflict_on_a_coupled_vector_key ... ok
+test scene_creation_is_atomic_and_rejects_the_retired_motion_layer_command ... ok
+test scene_layers_keep_object_graphs_and_animation_through_undo_and_save ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.25s
+
+     Running tests/nle_workflow.rs (target/debug/deps/nle_workflow-6960e49ccf99e05d)
+
+running 1 test
+test multitrack_nle_edit_mix_render_save_reopen_and_export ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.33s
+
+     Running tests/project_ingest.rs (target/debug/deps/project_ingest-7e21b0de3fa80b6c)
+
+running 5 tests
+test asset_only_worker_import_duplicates_history_and_persistence ... ok
+test cancellation_stale_errors_and_delete_publish_no_partial_state ... ok
+test referenced_relink_validates_providers_invalidates_content_and_preserves_pinned_source ... ok
+test unavailable_provider_prevents_destructive_changes_and_override_survives_relink ... ok
+test wave_stream_metadata_and_timeline_relink_are_verified ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.60s
+
+     Running tests/project_lifecycle.rs (target/debug/deps/project_lifecycle-83202012cada110e)
+
+running 2 tests
+test opening_does_not_discard_edits_published_while_io_runs ... ok
+test save_tracks_the_written_snapshot_and_undo_returns_to_clean_content ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+     Running tests/project_placement.rs (target/debug/deps/project_placement-81d45ab71f16c9ca)
+
+running 9 tests
+test common_composition_accepts_still_assets_as_full_duration_layers ... ok
+test desktop_ingest_completion_keeps_the_proposal_live_and_import_is_asset_only ... ok
+test folder_import_preserves_bins_skips_sidecars_and_undoes_together ... ok
+test invalid_targets_ranges_locked_tracks_cycles_and_unavailable_providers_are_atomic ... ok
+test multiple_native_images_are_sequential_on_one_new_timeline_track ... ok
+test native_drop_imports_and_places_all_targets_in_one_undo ... ok
+test project_workflow_reuses_assets_and_outputs_and_preserves_history_and_content ... ok
+test rejected_native_drop_leaves_no_import_or_partial_placement ... ok
+test timeline_new_track_placement_and_collision_modes_share_atomic_history ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.06s
+
+     Running tests/viewer_transport.rs (target/debug/deps/viewer_transport-930a4d96e8a94a5e)
+
+running 4 tests
+test instance_play_seek_retarget_and_close_never_change_another_clock_or_project ... ok
+test nested_motion_and_compositor_play_their_own_marked_range_then_hold_out ... ok
+test one_transport_controls_each_view_and_keeps_review_marks_out_of_project_data ... ok
+test playback_defaults_and_presentation_generations_preserve_exact_edit_context ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.95s

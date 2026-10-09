@@ -1,0 +1,381 @@
+{
+  "baseline_commit": "6280fb628beddf1b72725f2b7849740eaeb146f9",
+  "fixtures": [
+    {
+      "path": "demos/m5b-background-spheres.fold",
+      "sha256": "7ae1bb49c49bc098d2a0a9dcdf4524b702f7d886dbe1ce8dca800fed74115ae0",
+      "bytes": 104091,
+      "archive_version": 3,
+      "documents": [
+        {
+          "id": "62754d5e-6751-4cda-8978-e2cfdcf23687",
+          "type": "fold.composition.document",
+          "schema": 1,
+          "phase": "C1",
+          "action": "reauthor_if_current_fixture_else_preserve_historical_evidence",
+          "operations": []
+        },
+        {
+          "id": "635a0b26-211b-4fce-95b8-13670eb71fc5",
+          "type": "fold.motion.native.scene",
+          "schema": 1,
+          "phase": "C1",
+          "action": "retain_current_fixture",
+          "operations": [
+            {
+              "key": "fold.motion.camera",
+              "version": 1
+            },
+            {
+              "key": "fold.motion.extrude",
+              "version": 1
+            },
+            {
+              "key": "fold.motion.light",
+              "version": 1
+            },
+            {
+              "key": "fold.motion.material",
+              "version": 1
+            },
+            {
+              "key": "fold.motion.outline_text",
+              "version": 1
+            },
+            {
+              "key": "fold.motion.place",
+              "version": 1
+            },
+            {
+              "key": "fold.motion.text",
+              "version": 1
+            }
+          ]
+        },
+        {
+          "id": "b7de155f-91f9-4b4f-aa6c-05364dee8cdd",
+          "type": "fold.compositor.composite",
+          "schema": 8,
+          "phase": "C1",
+          "action": "reauthor_if_current_fixture_else_preserve_historical_evidence",
+          "operations": [
+            {
+              "key": "Grade",
+              "version": 1
+            },
+            {
+              "key": "Output",
+              "version": 1
+            },
+            {
+              "key": "Read",
+              "version": 1
+            }
+          ]
+        },
+        {
+          "id": "d36da6b2-86ac-40c0-aa68-e11a8a3e2cfa",
+          "type": "fold.motion.native.scene",
+          "schema": 1,
+          "phase": "C1",
+          "action": "retain_current_fixture",
+          "operations": [
+            {
+              "key": "fold.motion.attribute_randomize",
+              "version": 1
+            },
+            {
+              "key": "fold.motion.camera",
+              "version": 1
+            },
+            {
+              "key": "fold.motion.cloner",
+              "version": 2
+            },
+            {
+              "key": "fold.motion.distribute",
+              "version": 2
+            },
+            {
+              "key": "fold.motion.light",
+              "version": 1
+            },
+            {
+              "key": "fold.motion.material",
+              "version": 1
+            },
+            {
+              "key": "fold.motion.mesh",
+              "version": 1
+            },
+            {
+              "key": "fold.motion.place",
+              "version": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "demos/m5b-integrated.fold",
+      "sha256": "89d9bb90b35c5da0b0a3d783409c05f4d6345af3675ea9f399d60a0c3011ccbc",
+      "bytes": 114823,
+      "archive_version": 3,
+      "documents": [
+        {
+          "id": "8963297a-749f-4c34-89ae-f6cfc1cd0e73",
+          "type": "fold.motion.construction",
+          "schema": 1,
+          "phase": "C1",
+          "action": "retain_current_fixture",
+          "operations": [
+            {
+              "key": "fold.motion.animator",
+              "version": 1
+            },
+            {
+              "key": "fold.motion.camera",
+              "version": 1
+            },
+            {
+              "key": "fold.motion.cloner",
+              "version": 2
+            },
+            {
+              "key": "fold.motion.distribute",
+              "version": 2
+            },
+            {
+              "key": "fold.motion.extrude",
+              "version": 1
+            },
+            {
+              "key": "fold.motion.field",
+              "version": 1
+            },
+            {
+              "key": "fold.motion.fill",
+              "version": 1
+            },
+            {
+              "key": "fold.motion.light",
+              "version": 1
+            },
+            {
+              "key": "fold.motion.material",
+              "version": 1
+            },
+            {
+              "key": "fold.motion.mesh",
+              "version": 1
+            },
+            {
+              "key": "fold.motion.outline_text",
+              "version": 1
+            },
+            {
+              "key": "fold.motion.place",
+              "version": 1
+            },
+            {
+              "key": "fold.motion.ramp",
+              "version": 1
+            },
+            {
+              "key": "fold.motion.random",
+              "version": 1
+            },
+            {
+              "key": "fold.motion.scene",
+              "version": 1
+            },
+            {
+              "key": "fold.motion.shape",
+              "version": 1
+            },
+            {
+              "key": "fold.motion.stroke",
+              "version": 1
+            },
+            {
+              "key": "fold.motion.text",
+              "version": 1
+            },
+            {
+              "key": "fold.motion.text_animator",
+              "version": 1
+            },
+            {
+              "key": "fold.motion.time",
+              "version": 1
+            },
+            {
+              "key": "fold.motion.tween",
+              "version": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "docs/rewrite/evidence/m5b-controls-baseline.fold",
+      "sha256": "ed899803347d4739a6464e8b9eed9d9f86b54ea125e427b94f28adffa7988218",
+      "bytes": 107418,
+      "archive_version": 3,
+      "documents": [
+        {
+          "id": "24b305ec-9c75-4b52-8793-9e589eeb921f",
+          "type": "fold.motion.construction",
+          "schema": 1,
+          "phase": "C1",
+          "action": "preserve_dated_evidence_reauthor_only_if_used_by_current_tests",
+          "operations": [
+            {
+              "key": "fold.motion.animator",
+              "version": 1
+            },
+            {
+              "key": "fold.motion.camera",
+              "version": 1
+            },
+            {
+              "key": "fold.motion.cloner",
+              "version": 2
+            },
+            {
+              "key": "fold.motion.distribute",
+              "version": 2
+            },
+            {
+              "key": "fold.motion.extrude",
+              "version": 1
+            },
+            {
+              "key": "fold.motion.field",
+              "version": 1
+            },
+            {
+              "key": "fold.motion.fill",
+              "version": 1
+            },
+            {
+              "key": "fold.motion.light",
+              "version": 1
+            },
+            {
+              "key": "fold.motion.material",
+              "version": 1
+            },
+            {
+              "key": "fold.motion.mesh",
+              "version": 1
+            },
+            {
+              "key": "fold.motion.outline_text",
+              "version": 1
+            },
+            {
+              "key": "fold.motion.place",
+              "version": 1
+            },
+            {
+              "key": "fold.motion.ramp",
+              "version": 1
+            },
+            {
+              "key": "fold.motion.random",
+              "version": 1
+            },
+            {
+              "key": "fold.motion.scene",
+              "version": 1
+            },
+            {
+              "key": "fold.motion.shape",
+              "version": 1
+            },
+            {
+              "key": "fold.motion.stroke",
+              "version": 1
+            },
+            {
+              "key": "fold.motion.text",
+              "version": 1
+            },
+            {
+              "key": "fold.motion.text_animator",
+              "version": 1
+            },
+            {
+              "key": "fold.motion.time",
+              "version": 1
+            },
+            {
+              "key": "fold.motion.tween",
+              "version": 1
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "cpu_profile": {
+    "samples_per_stage": 31,
+    "first": "first invocation in a fresh process; OS caches are not flushed",
+    "warm": 30,
+    "process_repetitions": 3,
+    "motion_times": [
+      [
+        0,
+        1
+      ],
+      [
+        1,
+        2
+      ],
+      [
+        2,
+        1
+      ]
+    ],
+    "compositor_nodes": [
+      16,
+      64,
+      256
+    ],
+    "compositor_chain": "Solid, identity Grade v2 nodes, Output",
+    "output_dimensions": [
+      480,
+      270
+    ],
+    "rate": [
+      24,
+      1
+    ],
+    "frames": 96,
+    "ui_widths": [
+      1600,
+      580
+    ],
+    "ui_height": 1000
+  },
+  "native_profile": {
+    "seconds": 15,
+    "mode": "passive existing desktop draw path",
+    "configuration": "FOLD_PASSIVE_PROBE; native-probe feature; new project copy and XDG_STATE_HOME",
+    "samples": "all draws, max 6000",
+    "latency": "native present call and callback observation, not scanout; correlate apply timing to first changed presented content for edit-to-present-call"
+  },
+  "comparison": {
+    "correctness": "existing test assertions; exact IDs/opaque bytes/rational time/undo semantics; no tolerance relaxation",
+    "pixels": "GPU public/preview/delivery tests retain their existing per-fixture tolerance; same device/config exact repeat hashes where asserted",
+    "performance": "compare only same profile, hardware, fixtures and dimensions; investigate >20 percent warm median or p95 regression in two of three runs; report raw samples; this is an investigation threshold, not a promised product latency",
+    "memory": "logical retained authoring payload bytes and process-tree RSS; GPU allocation/transfer counters from native preview diagnostics; CPU allocator counts unavailable without a separate allocator profiler",
+    "cancellation": "pre-cancelled evaluator must reject; in-flight preview/agent cancellation checked in existing integration tests"
+  },
+  "limitations": [
+    "An idle passive trace does not reproduce unknown user input or prove absence of the original freeze.",
+    "Automated public source edit latency is not physical gesture latency.",
+    "No native artist acceptance or M6 gate closure follows from C0."
+  ]
+}

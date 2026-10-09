@@ -1,0 +1,20 @@
+{
+  "cli": {
+    "bytes": 16599649,
+    "sha256": "e37be72a173b3ec7c8d0e2cbf76de70878beb5dbc7cc0eca074f0ca44e77b47b",
+    "artifact": "handoff-state.json.gz",
+    "compressed_bytes": 1565341
+  },
+  "mcp": {
+    "bytes": 16599649,
+    "sha256": "e37be72a173b3ec7c8d0e2cbf76de70878beb5dbc7cc0eca074f0ca44e77b47b",
+    "artifact": "handoff-state.json.gz",
+    "compressed_bytes": 1565341
+  },
+  "transport-evidence": {
+    "bytes": 821140,
+    "sha256": "e65dfb220eb846cdf0adb2df6760a33fb00bf91fbbf8137dd9d5225ec0634f99",
+    "artifact": "handoff-transports.json.gz",
+    "compressed_bytes": 22892
+  }
+}

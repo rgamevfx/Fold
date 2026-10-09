@@ -48,6 +48,10 @@ required-features = ["gpu"]
 name = "render_profile"
 required-features = ["gpu"]
 
+[[example]]
+name = "maintenance_profile"
+required-features = ["native-probe"]
+
 [[bin]]
 name = "fold-desktop"
 path = "src/bin/desktop.rs"

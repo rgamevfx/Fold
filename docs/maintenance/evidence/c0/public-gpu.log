@@ -1,0 +1,6 @@
+
+running 1 test
+test cli_and_mcp_return_identical_revision_bound_frames ... Public transport frame adapter: AdapterInfo { name: "NVIDIA GeForce GTX 1070", vendor: 4318, device: 7137, device_type: DiscreteGpu, driver: "NVIDIA", driver_info: "580.173.02", backend: Vulkan }
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 7.39s

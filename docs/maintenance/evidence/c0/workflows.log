@@ -1,0 +1,60 @@
+   Compiling fold-native-video v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/native-video)
+   Compiling fold-app v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/app)
+   Compiling fold-media v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/media)
+   Compiling fold-render v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/render)
+   Compiling fold-platform v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/platform)
+   Compiling fold-ui v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/ui)
+   Compiling fold-composition v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/composition)
+   Compiling fold-compositor v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/compositor)
+   Compiling fold-motion v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/motion)
+   Compiling fold-timeline v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/timeline)
+    Finished `test` profile [unoptimized] target(s) in 1m 53s
+     Running tests/agent_handoff.rs (target/debug/deps/agent_handoff-074bf733f53dc270)
+
+running 6 tests
+test cli_and_mcp_author_relative_parameter_expressions_without_primitive_nodes ... FAILED
+test cli_and_mcp_inspect_layer_and_timeline_properties_through_one_service ... FAILED
+test cli_and_mcp_preserve_native_handoff_through_undo_and_reopen ... FAILED
+test cli_and_mcp_return_identical_revision_bound_frames ... ignored, requires a native Vulkan adapter and private local sockets
+test cli_and_mcp_save_committed_project_copies_with_exact_retry_and_reopen ... FAILED
+test integrated_ramp_key_lock_and_layout_survive_public_field_handoff ... FAILED
+
+failures:
+
+---- cli_and_mcp_author_relative_parameter_expressions_without_primitive_nodes stdout ----
+
+thread 'cli_and_mcp_author_relative_parameter_expressions_without_primitive_nodes' (482) panicked at crates/app/tests/agent_handoff.rs:1163:69:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- cli_and_mcp_inspect_layer_and_timeline_properties_through_one_service stdout ----
+
+thread 'cli_and_mcp_inspect_layer_and_timeline_properties_through_one_service' (486) panicked at crates/app/tests/agent_handoff.rs:1339:71:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+
+---- cli_and_mcp_preserve_native_handoff_through_undo_and_reopen stdout ----
+
+thread 'cli_and_mcp_preserve_native_handoff_through_undo_and_reopen' (490) panicked at crates/app/tests/agent_handoff.rs:192:69:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+
+---- cli_and_mcp_save_committed_project_copies_with_exact_retry_and_reopen stdout ----
+
+thread 'cli_and_mcp_save_committed_project_copies_with_exact_retry_and_reopen' (494) panicked at crates/app/tests/agent_handoff.rs:1038:71:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+
+---- integrated_ramp_key_lock_and_layout_survive_public_field_handoff stdout ----
+
+thread 'integrated_ramp_key_lock_and_layout_survive_public_field_handoff' (498) panicked at crates/app/tests/agent_handoff.rs:702:69:
+called `Result::unwrap()` on an `Err` value: Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" }
+
+
+failures:
+    cli_and_mcp_author_relative_parameter_expressions_without_primitive_nodes
+    cli_and_mcp_inspect_layer_and_timeline_properties_through_one_service
+    cli_and_mcp_preserve_native_handoff_through_undo_and_reopen
+    cli_and_mcp_save_committed_project_copies_with_exact_retry_and_reopen
+    integrated_ramp_key_lock_and_layout_survive_public_field_handoff
+
+test result: FAILED. 0 passed; 5 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+error: test failed, to rerun pass `-p fold-app --test agent_handoff`

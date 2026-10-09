@@ -1,0 +1,12 @@
+{
+  "crates/app/examples/maintenance_profile.rs": "00ca6db1d66070d89a17bb402b5f54b9577bbffe4fbac3e34adf7336d49e0686",
+  "crates/ui/src/native_probe.rs": "6893119685ae35f7e36eba87d62eb6197f517cab45b34b118bc967bf4d10d18d",
+  "crates/ui/src/desktop.rs": "9df53201bfcff4997ee26c0fc9d74d57931c508ef86ee41be107df74d24f756a",
+  "scripts/maintenance_inventory.py": "2e40de16b583bc88cc65eb4268c4c2ec6fcbe299b0559cf2d38ce2cec669e78d",
+  "scripts/maintenance_watch.py": "c414811aef4f441ee92eacb8095e93d778e1b008061491f6ce53ba62c2ca5e97",
+  "docs/maintenance/native_capture.py": "5fb4ebba0dd4190446cdda4bd09233a3ea0beb6e53121ec25373a481bbda1345",
+  "target/release/examples/maintenance_profile": "04fef7ac0219379f010c247a7369782de478684545d3e9ddfeae85f680cb12b9",
+  "target/release/fold-desktop": "b2cf8b1e7810994512def87c4a5a32e0d052b23354a2c1f2bcb5715eb305c722",
+  "target/debug/fold-desktop": "2d924bb12fa6249aa119324211d610c2e91eb14255f7d56ead096b0e22b13db7",
+  "target/debug/fold-cli": "c3b4fac8225062c679800064c37ce11ffebc4596c333fc0304a63670b8fc0676"
+}

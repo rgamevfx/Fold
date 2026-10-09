@@ -4,6 +4,8 @@
 **Resume checkpoint:** [Next-agent handoff](rewrite/HANDOFF.md). Implementation resumed at the user's request; M0–M5 is not complete.
 
 **Status:** Implementation resumed; M0 specification gate passed; M1 removal gate passed with shared-test exceptions recorded; M2 document/language/reference gate passed; M3–M5 acceptance remains incomplete.
+**Related maintenance:** [Codebase Maintenance Plan](Codebase_Maintenance_Plan.md) tracks the separately requested application cleanup. It does not waive this plan's phase gates; overlapping changes must carry evidence in both records. Incremental Motion execution remains M6 work.
+**C0 evidence (9 October):** [Baseline results](maintenance/evidence/c0/result.md) record passing workflow/pixel checks and release timings, plus native desktop SIGSEGV captures in release/debug and with the runtime probe disabled. Cause and relationship to the original freeze remain unproven; native latency/allocation measurements and artist acceptance remain unavailable. No Motion gate is closed by this record.
 **Direction:** [Motion architecture and node-set proposal](Fold_Motion_Architecture_and_Node_Set_Proposal.md).  
 **Replaces:** The motion and agent roadmap in [retired dev-plan.md](../dev-plan.md), earlier motion proposals, and their implementation/qualification instructions. [Retirement register](Retired_Documentation.md) defines the scope.
 

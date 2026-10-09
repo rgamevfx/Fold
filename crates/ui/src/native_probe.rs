@@ -11,6 +11,8 @@ use std::{
 };
 
 pub(crate) struct Sample {
+    pub revision: Option<u64>,
+    pub presented: Vec<(u64, fold_platform::desktop::PreviewKey)>,
     pub gpu_records: Vec<String>,
     pub frame: Option<u32>,
     pub ready: bool,
@@ -30,6 +32,7 @@ pub(crate) struct Sample {
 }
 
 pub(crate) struct Probe {
+    pub passive: bool,
     pub shared: Option<crate::native_shared_probe::Shared>,
     pub start: Instant,
     epoch_ms: u128,
@@ -44,6 +47,12 @@ pub(crate) struct Probe {
 }
 impl Probe {
     pub fn from_env() -> Result<Option<Self>, Box<dyn std::error::Error>> {
+        // Bounded observation of current projects. No automatic seeks or edits.
+        if let Some(path) = std::env::var_os("FOLD_PASSIVE_PROBE") {
+            let mut probe = Self::create(std::path::Path::new(&path))?;
+            probe.passive = true;
+            return Ok(Some(probe));
+        }
         if let Some(path) = std::env::var_os("FOLD_SHARED_PROBE") {
             let path = std::path::Path::new(&path);
             let mut probe = Self::create(path)?;
@@ -64,6 +73,7 @@ impl Probe {
         let report = OpenOptions::new().write(true).create_new(true).open(path)?;
         let start = Instant::now();
         Ok(Self {
+            passive: false,
             shared: None,
             start,
             epoch_ms: SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis(),
@@ -97,6 +107,11 @@ impl Probe {
         frame: Option<u32>,
         ready: bool,
     ) -> Result<bool, Box<dyn std::error::Error>> {
+        if self.passive {
+            return Ok(
+                self.start.elapsed() >= Duration::from_secs(15) || self.samples.len() >= 6000
+            );
+        }
         if self.start.elapsed() > Duration::from_secs(90) || self.samples.len() >= 6000 {
             return Err("native probe timed out or exceeded sample budget".into());
         }
@@ -158,7 +173,8 @@ impl Probe {
         }
         let samples: Vec<_> = self.samples.iter().map(|s| {
             let ns = s.completion_ns.load(Ordering::Acquire);
-            serde_json::json!({"gpu_records": s.gpu_records, "frame": s.frame, "ready": s.ready,
+            serde_json::json!({"revision":s.revision,"presented":s.presented,
+                "gpu_records": s.gpu_records, "frame": s.frame, "ready": s.ready,
                 "start_ms": s.start_ms, "acquire_ms": s.acquire_ms, "draw_ms": s.draw_ms,
                 "client_poll_ms":s.client_poll_ms, "controls_ms":s.controls_ms,
                 "preview_ms":s.preview_ms, "viewers_ms":s.viewers_ms, "ui_encode_ms":s.ui_encode_ms,
@@ -174,7 +190,7 @@ impl Probe {
         serde_json::to_writer_pretty(
             &mut self.report,
             &serde_json::json!({
-                "success": success, "start_unix_ms": self.epoch_ms,
+                "success": success, "passive":self.passive, "start_unix_ms": self.epoch_ms,
                 "events": self.events, "samples": samples,
                 "shared": self.shared.as_ref().map(|shared| serde_json::json!({
                     "phases":shared.phases, "events":shared.events
@@ -220,6 +236,26 @@ mod tests {
         fn take_preview(&mut self) -> Option<PreviewResult> {
             unreachable!()
         }
+    }
+    #[test]
+    fn passive_probe_never_seeks_or_requires_a_specific_project() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut probe = Probe::create(&directory.path().join("passive.json")).unwrap();
+        probe.passive = true;
+        let mut client = Client {
+            state: DesktopState::default(),
+            seeks: vec![],
+        };
+        assert!(!probe.advance(&mut client, None, false).unwrap());
+        probe.start = Instant::now() - Duration::from_secs(16);
+        assert!(probe.advance(&mut client, None, false).unwrap());
+        assert!(client.seeks.is_empty());
+        assert!(probe.events.is_empty());
+        probe.finish(true).unwrap();
+        let report: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(directory.path().join("passive.json")).unwrap())
+                .unwrap();
+        assert_eq!(report["passive"], true);
     }
     #[test]
     fn schedule_cancellation_and_report_safety() {

@@ -1,0 +1,15 @@
+{
+  "fixture_sha256": "ed899803347d4739a6464e8b9eed9d9f86b54ea125e427b94f28adffa7988218",
+  "events": [
+    {
+      "method": "discover",
+      "unix_ms": 1791578278761.7808,
+      "state": null,
+      "error": null
+    }
+  ],
+  "failure": "Command '['/home/rgame/.codex/worktrees/efc8/Fold/target/debug/fold-cli', 'protocol', '/tmp/fold-c0-native-bound/fold-c0-native-ty12qgfj/fold-session-j1QyGZ/protocol.sock']' returned non-zero exit status 1.",
+  "supervisor_terminated_disposable_child": true,
+  "exit_code": -11,
+  "original_unchanged": true
+}

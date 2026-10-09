@@ -1,0 +1,86 @@
+{
+  "fixture_sha256": "ed899803347d4739a6464e8b9eed9d9f86b54ea125e427b94f28adffa7988218",
+  "events": [
+    {
+      "method": "discover",
+      "unix_ms": 1791578139367.4148,
+      "state": null,
+      "error": null
+    },
+    {
+      "method": "discover",
+      "unix_ms": 1791578139469.9675,
+      "state": null,
+      "error": null
+    },
+    {
+      "method": "inspect_document",
+      "unix_ms": 1791578139523.544,
+      "state": "running",
+      "error": null
+    },
+    {
+      "method": "job_status",
+      "unix_ms": 1791578139540.288,
+      "state": null,
+      "error": null
+    },
+    {
+      "method": "discover",
+      "unix_ms": 1791578141609.9143,
+      "state": null,
+      "error": null
+    },
+    {
+      "method": "propose",
+      "unix_ms": 1791578141632.4133,
+      "state": "running",
+      "error": null
+    },
+    {
+      "method": "job_status",
+      "unix_ms": 1791578141665.4028,
+      "state": null,
+      "error": null
+    },
+    {
+      "method": "inspect_candidate",
+      "unix_ms": 1791578141681.883,
+      "state": "running",
+      "error": null
+    },
+    {
+      "method": "job_status",
+      "unix_ms": 1791578141715.2407,
+      "state": null,
+      "error": null
+    },
+    {
+      "method": "discover",
+      "unix_ms": 1791578141759.4714,
+      "state": null,
+      "error": null
+    },
+    {
+      "method": "apply",
+      "unix_ms": 1791578141776.4954,
+      "state": null,
+      "error": null
+    }
+  ],
+  "apply_start_unix_ms": 1791578141759.8037,
+  "apply_done_unix_ms": 1791578141776.5002,
+  "applied": {
+    "epoch": "b01ae467-0cc0-455b-aa36-b30c348db801",
+    "result": {
+      "handle": {
+        "epoch": "b01ae467-0cc0-455b-aa36-b30c348db801",
+        "generation": "f01eb40b-8d70-4e32-8651-7630add6ea19"
+      },
+      "revision": 6
+    },
+    "version": 2
+  },
+  "exit_code": -11,
+  "original_unchanged": true
+}

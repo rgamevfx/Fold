@@ -1,0 +1,16 @@
+{
+  "command": [
+    "target/release/examples/maintenance_profile"
+  ],
+  "exit_code": 0,
+  "timed_out": false,
+  "wall_seconds": 1.9295200830001704,
+  "samples": 38,
+  "sampled_tree_rss_bytes": 46850048,
+  "sampled_scratch_bytes": 0,
+  "sampled_gpu_process_bytes": null,
+  "gpu_samples": 0,
+  "gpu_error": null,
+  "nominal_gpu_sample_interval_ms": null,
+  "nominal_sample_interval_ms": 50
+}

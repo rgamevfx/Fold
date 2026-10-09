@@ -634,6 +634,19 @@ impl Desktop {
             let end = std::time::Instant::now();
             let (frame, ready) = self.preview.probe_frame();
             probe.push(crate::native_probe::Sample {
+                revision: self.client.snapshot().map(|snapshot| snapshot.revision().0),
+                presented: self
+                    .shell
+                    .workspace
+                    .viewers
+                    .keys()
+                    .filter_map(|id| {
+                        self.preview
+                            .presented_key(*id)
+                            .cloned()
+                            .map(|key| (id.0, key))
+                    })
+                    .collect(),
                 gpu_records: std::mem::take(&mut self.preview.probe_records),
                 frame,
                 ready,
@@ -665,7 +678,7 @@ impl Desktop {
                 let _ = self.device.poll(wgpu::PollType::Poll);
                 probe.finish(true)?;
                 self.probe_done = true;
-            } else if probe.shared.is_none() {
+            } else if probe.shared.is_none() && !probe.passive {
                 self.shell.probe_time(self.client.as_mut());
             }
         }

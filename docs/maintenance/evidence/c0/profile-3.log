@@ -1,0 +1,30 @@
+{"event":"begin","stage":"motion_decode_structure","unix_ms":1791578127960}
+{"event":"end","stage":"motion_decode_structure","unix_ms":1791578127968}
+{"event":"begin","stage":"motion_clone_validate_prepare","unix_ms":1791578127968}
+{"event":"end","stage":"motion_clone_validate_prepare","unix_ms":1791578127985}
+{"event":"begin","stage":"motion_evaluate_Time { numerator: 0, denominator: 1 }","unix_ms":1791578127985}
+{"event":"end","stage":"motion_evaluate_Time { numerator: 0, denominator: 1 }","unix_ms":1791578128412}
+{"event":"begin","stage":"motion_evaluate_Time { numerator: 1, denominator: 2 }","unix_ms":1791578128412}
+{"event":"end","stage":"motion_evaluate_Time { numerator: 1, denominator: 2 }","unix_ms":1791578128846}
+{"event":"begin","stage":"motion_evaluate_Time { numerator: 2, denominator: 1 }","unix_ms":1791578128846}
+{"event":"end","stage":"motion_evaluate_Time { numerator: 2, denominator: 1 }","unix_ms":1791578129242}
+{"event":"begin","stage":"motion_precancelled_evaluation","unix_ms":1791578129242}
+{"event":"end","stage":"motion_precancelled_evaluation","unix_ms":1791578129242}
+{"event":"begin","stage":"compositor_decode_validate_16","unix_ms":1791578129243}
+{"event":"end","stage":"compositor_decode_validate_16","unix_ms":1791578129263}
+{"event":"begin","stage":"compositor_configurations_16","unix_ms":1791578129263}
+{"event":"end","stage":"compositor_configurations_16","unix_ms":1791578129264}
+{"event":"begin","stage":"compositor_decode_validate_64","unix_ms":1791578129267}
+{"event":"end","stage":"compositor_decode_validate_64","unix_ms":1791578129350}
+{"event":"begin","stage":"compositor_configurations_64","unix_ms":1791578129350}
+{"event":"end","stage":"compositor_configurations_64","unix_ms":1791578129354}
+{"event":"begin","stage":"compositor_decode_validate_256","unix_ms":1791578129367}
+{"event":"end","stage":"compositor_decode_validate_256","unix_ms":1791578129736}
+{"event":"begin","stage":"compositor_configurations_256","unix_ms":1791578129736}
+{"event":"end","stage":"compositor_configurations_256","unix_ms":1791578129760}
+{"event":"begin","stage":"session_undo_redo_with_refresh","unix_ms":1791578129762}
+{"event":"end","stage":"session_undo_redo_with_refresh","unix_ms":1791578129808}
+{"event":"begin","stage":"offscreen_shell_frame_1600","unix_ms":1791578129809}
+{"event":"end","stage":"offscreen_shell_frame_1600","unix_ms":1791578129836}
+{"event":"begin","stage":"offscreen_shell_frame_580","unix_ms":1791578129836}
+{"event":"end","stage":"offscreen_shell_frame_580","unix_ms":1791578129859}
