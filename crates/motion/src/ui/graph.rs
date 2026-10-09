@@ -27,10 +27,11 @@ fn port(target: &Target, label: &str) -> PortView {
         color: GRAPH_COLORS.image,
     }
 }
-fn source(reference: Reference) -> Socket {
+fn source(reference: Reference, definition: ObjectId) -> Socket {
     Socket {
         node: match reference {
-            Reference::Input { input } => input,
+            Reference::Parameter { parameter, .. } => parameter,
+            Reference::Input { .. } => definition,
             Reference::Node { node } => node,
             Reference::Instance { instance, .. } => instance,
         },
@@ -39,7 +40,7 @@ fn source(reference: Reference) -> Socket {
 }
 fn output(reference: Reference, label: &str) -> PortView {
     PortView {
-        key: source(reference).key,
+        key: serde_json::to_string(&reference).expect("native reference"),
         label: label.into(),
         color: GRAPH_COLORS.source,
     }
@@ -51,10 +52,43 @@ pub(super) struct Context<'a> {
     pub definition: ObjectId,
 }
 impl GraphContext for Context<'_> {
-    fn node_actions(&self, _node: ObjectId) -> Vec<(String, String)> {
-        vec![("group-selection".into(), "Group selection".into())]
+    fn node_actions(&self, node: ObjectId) -> Vec<(String, String)> {
+        let mut actions = vec![("group-selection".into(), "Group selection".into())];
+        if node == self.definition {
+            actions.push(("add-parameter".into(), "Add Parameter".into()));
+        }
+        actions
     }
     fn node_action(&mut self, node: ObjectId, action: &str) -> Result<(), String> {
+        if action == "add-parameter" && node == self.definition {
+            let mut after = self.state.construction.clone().ok_or("No construction")?;
+            let definition = after
+                .definitions
+                .iter_mut()
+                .find(|d| d.id == self.definition)
+                .ok_or("Missing graph")?;
+            let mut name = "Parameter".to_string();
+            let mut suffix = 2;
+            while definition.inputs.iter().any(|i| i.name == name)
+                || definition.nodes.iter().any(|n| n.name == name)
+                || definition.instances.iter().any(|i| i.name == name)
+            {
+                name = format!("Parameter {suffix}");
+                suffix += 1;
+            }
+            definition.inputs.push(crate::model::Input {
+                id: ObjectId::new(),
+                name,
+                ty: crate::types::Type::Scalar,
+                default: crate::types::Literal::Scalar { value: 0. },
+                protected: false,
+                extensions: Default::default(),
+            });
+            if self.state.commit(self.host, after) {
+                return Ok(());
+            }
+            return Err(self.state.error.clone());
+        }
         if action != "group-selection" {
             return Err("Unknown graph action".into());
         }

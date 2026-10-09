@@ -2259,7 +2259,7 @@ fn native_curve_projection_preserves_fractional_times_ids_units_and_extensions()
         .unwrap();
     distance.curve.keys[0].value = 225.;
     let result = fold_motion::keyed::replace(&animated, &[distance]).unwrap();
-    let Binding::Track { track } = result.definitions[0].nodes.last().unwrap().parameters["track"]
+    let Binding::Track { track } = result.definitions[0].nodes[1].parameters["height"]
         .binding()
         .unwrap()
     else {
@@ -2376,11 +2376,7 @@ fn animate_creates_native_vector_color_and_rotation_tracks_without_losing_parame
             .parameters["from"];
         assert_eq!(target.id, id);
         assert_eq!(target.extensions, metadata);
-        let Binding::Track { track } =
-            after.definitions[0].nodes.last().unwrap().parameters["track"]
-                .binding()
-                .unwrap()
-        else {
+        let Binding::Track { track } = target.binding().unwrap() else {
             panic!("native track")
         };
         assert_eq!(track.ty, value.ty());

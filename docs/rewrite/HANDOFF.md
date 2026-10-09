@@ -2,6 +2,34 @@
 
 ## Resume here
 
+### M5c continuation — parameter references
+
+The current checkpoint advances M5c, authorized by the user to implement the
+entire universal parameter-reference design. Read the phase and
+[evidence](evidence/m5c-result.md). This is not completion of that request.
+Motion definition-local references and dynamic Channel References are present.
+Expression discovery still reports `cross_document: false`. The new shared
+`fold-platform::parameters` service exposes stable document/object/occurrence/
+parameter-key/component targets. Keys are either Native IDs or fixed Property names;
+there are no JSON-pointer edits. Motion graph and scene placement adapters use their
+existing samplers; Compositor samples primitive configuration controls and native
+animation channels. Composition layers and Timeline tracks/clips now expose typed
+controls. Targets can also carry a placement root plus ordered layer/clip owner IDs;
+the service maps root time through source clocks and Motion canvas starts. Repeated
+uses remain distinct, and inherited placement locks constrain the catalog. Public `inspect_parameters`, `resolve_parameter` and
+`sample_parameter` run in bounded workers against a fixed revision. Project paths
+are discovery projections only: do not use them as cross-document `ch()` bindings
+yet. Continue cross-provider expression/dependency bindings, complete binding storage
+and reusable-effect occurrence support, and universal UI editing. Do not add a second expression
+evaluator or generic JSON-pointer mutation path around the providers.
+Current focused evidence: 28 tests pass; public handoff has 5 passes and 1 ignored
+Vulkan frame test. See the latest continuation section in the M5c evidence for
+non-overlapping counts and logs. Cross-document `ch()` must next bind these stable
+targets through the existing expression/type evaluator and provider-owned writes;
+do not claim that read-only source-clock traversal implements those bindings.
+Earlier desktop-freeze and rendering acceptance remain open. M6 stays blocked.
+
+
 ### M5b continuation — geometry attributes and live Wrangle
 
 The requested M5b implementation is present. Read [M5b evidence](evidence/m5b-result.md)

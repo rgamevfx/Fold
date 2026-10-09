@@ -29,6 +29,8 @@ pub(super) struct State {
     pub literal_controls: super::literal::Controls,
     pub key_time: Option<(fold_foundation::ObjectId, fold_foundation::Time)>,
     pub error: String,
+    pub reference_drafts: super::references::Drafts,
+    pub reference_samples: super::references::Samples,
     pub auto_keys: BTreeMap<fold_foundation::ObjectId, fold_foundation::Time>,
 }
 impl State {

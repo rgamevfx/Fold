@@ -6,6 +6,7 @@ mod keyframes;
 mod literal;
 mod procedural;
 mod ramp;
+mod references;
 use literal::draw as literal;
 mod presentation;
 #[cfg(test)]
@@ -238,12 +239,15 @@ impl Panel for Inspector {
                     .graph_definition
                     .unwrap_or(construction.root.definition)
             } else {
-                d.inputs.iter().any(|i| selected.contains(&i.id))
+                selected.contains(&d.id) || d.inputs.iter().any(|i| selected.contains(&i.id))
             }
         }) {
             ui.text(&definition.name);
             for input in &mut definition.inputs {
-                if !selected.is_empty() && !selected.contains(&input.id) {
+                if !selected.is_empty()
+                    && !selected.contains(&input.id)
+                    && !selected.contains(&definition.id)
+                {
                     continue;
                 }
                 let _id = UiId {
@@ -260,6 +264,15 @@ impl Panel for Inspector {
                     &mut input.default,
                     &mut response,
                     &mut state.literal_controls,
+                );
+                drop(_disabled);
+                references::input_menu(
+                    ui,
+                    document,
+                    definition.id,
+                    input,
+                    !locked.contains(&input.id),
+                    &mut response,
                 );
                 if locked.contains(&input.id) {
                     ui.text_disabled("Locked");
@@ -285,6 +298,44 @@ impl Panel for Inspector {
                 &mut state.literal_controls,
             );
         }
+        let inspected_definition = state
+            .graph_definition
+            .unwrap_or(construction.root.definition);
+        if state.key_time.is_some() && !state.editing {
+            if let Ok(time) = state.object_time(host) {
+                let parameters = construction
+                    .definition(inspected_definition)
+                    .map(|d| {
+                        d.nodes
+                            .iter()
+                            .filter(|n| selected.contains(&n.id))
+                            .flat_map(|n| n.parameters.values())
+                            .filter(|p| {
+                                matches!(
+                                    p.binding(),
+                                    Ok(Binding::Link { .. } | Binding::Expression { .. })
+                                )
+                            })
+                            .map(|p| p.id)
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                let key = references::SampleKey {
+                    document,
+                    object: state.object,
+                    revision: state.base,
+                    time,
+                    occurrence: state.graph_occurrences.clone(),
+                    parameters,
+                };
+                state.reference_samples.update(key, &construction);
+            }
+        } else {
+            state.reference_samples.values.clear();
+        }
+        let sampled_parameters = state.reference_samples.values.clone();
+        let reference_snapshot = construction.clone();
+        let mut reference_selection = None;
         let instance_inputs: std::collections::BTreeMap<_, _> = construction
             .definitions
             .iter()
@@ -414,8 +465,42 @@ impl Panel for Inspector {
                                 parameter.value = serde_json::to_value(Binding::Track { track })
                                     .expect("native track");
                             }
-                            Ok(_) => ui.text(format!("{label} · Driven")),
+                            Ok(_) => {
+                                if let Some(value) = sampled_parameters.get(&parameter.id) {
+                                    ui.text(format!(
+                                        "{label} · Driven: {}",
+                                        references::display(value)
+                                    ));
+                                } else {
+                                    ui.text(format!("{label} · Driven"));
+                                }
+                            }
                             Err(_) => ui.text(format!("{label} · Unresolved")),
+                        }
+                        drop(_disabled);
+                        let editable = !locked.contains(&parameter.id);
+                        let sampled = sampled_parameters.get(&parameter.id);
+                        match references::draw(
+                            ui,
+                            parameter,
+                            &mut state.reference_drafts,
+                            references::Context {
+                                document,
+                                graph: &reference_snapshot,
+                                definition: reference_snapshot
+                                    .definition(definition.id)
+                                    .expect("existing definition"),
+                                owner: &node.name,
+                                sampled,
+                                editable,
+                            },
+                        ) {
+                            Ok((changed, selection)) => {
+                                response.changed |= changed;
+                                response.finished |= changed;
+                                reference_selection = selection.or(reference_selection);
+                            }
+                            Err(error) => state.error = error,
                         }
                         if locked.contains(&parameter.id) {
                             ui.text_disabled("Locked");
@@ -423,6 +508,12 @@ impl Panel for Inspector {
                     }
                 }
             }
+        }
+        if let Some(selection) = reference_selection {
+            state.select(host, vec![selection]);
+        }
+        if !state.reference_samples.error.is_empty() {
+            ui.text_wrapped(&state.reference_samples.error);
         }
         let definition = state
             .graph_definition

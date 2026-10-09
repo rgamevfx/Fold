@@ -139,9 +139,15 @@ fn print(
                 "id".into(),
                 serde_json::to_value(reference.id).map_err(|e| e.to_string())?,
             );
+            let target =
+                serde_json::to_string(&name(reference.target)?).map_err(|e| e.to_string())?;
+            let target = if matches!(reference.target, Reference::Parameter { .. }) {
+                format!("ch({target})")
+            } else {
+                format!("${target}")
+            };
             Ok(format!(
-                "${} @{}",
-                serde_json::to_string(&name(reference.target)?).map_err(|e| e.to_string())?,
+                "{target} @{}",
                 serde_json::to_string(&metadata).map_err(|e| e.to_string())?
             ))
         }
@@ -387,6 +393,12 @@ impl<F: FnMut(&str) -> Result<Reference, String>> Parser<'_, F> {
             .as_bytes()
             .get(self.position)
             .is_some_and(u8::is_ascii_digit)
+            || (self.source[self.position..].starts_with('.')
+                && self
+                    .source
+                    .as_bytes()
+                    .get(self.position + 1)
+                    .is_some_and(u8::is_ascii_digit))
         {
             return self.number();
         }
@@ -418,6 +430,12 @@ impl<F: FnMut(&str) -> Result<Reference, String>> Parser<'_, F> {
                 Ok(Expr::Element {
                     property: Element::Position { unit, space },
                 })
+            }
+            "ch" => {
+                self.expect("(")?;
+                let path: String = self.json()?;
+                self.expect(")")?;
+                self.reference(start, format!("channel:{path}"))
             }
             "literal" => {
                 self.expect("(")?;

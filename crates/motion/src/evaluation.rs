@@ -170,6 +170,54 @@ impl Prepared {
     pub fn construction(&self) -> &Construction {
         &self.construction
     }
+    /// Inspect parameter values in one exact reusable-graph occurrence. Uses the
+    /// same bindings, clocks and budgets as output evaluation; callers run off UI.
+    pub fn sample_parameters(
+        &self,
+        occurrence: &[ObjectId],
+        parameters: &[ObjectId],
+        time: Time,
+        cancellation: &dyn Fn() -> Result<(), String>,
+    ) -> Result<BTreeMap<ObjectId, Literal>, String> {
+        let mut state = State {
+            prepared: self,
+            scene_time: time,
+            budget: Budget::new(100_000, cancellation),
+            remaining_elements: 100_000,
+            failure: None,
+            failure_context: None,
+            values: BTreeMap::new(),
+            scopes: BTreeMap::new(),
+            identities: BTreeMap::new(),
+            depth: 0,
+            text: None,
+            element: None,
+        };
+        let mut scope = state.instance(None, &self.construction.root)?;
+        for id in occurrence {
+            let definition = self.construction.definition(scope.definition)?;
+            let instance = definition
+                .instances
+                .iter()
+                .find(|i| i.id == *id)
+                .ok_or("Missing graph occurrence")?;
+            scope = state.instance(Some(&scope), instance)?;
+        }
+        let mut values = BTreeMap::new();
+        for id in parameters {
+            let value = state.reference(
+                &scope,
+                Reference::Parameter {
+                    parameter: *id,
+                    component: None,
+                },
+            )?;
+            if let Value::Primitive(value) = value {
+                values.insert(*id, value);
+            }
+        }
+        Ok(values)
+    }
     pub fn evaluate(
         &self,
         output: ObjectId,
@@ -374,6 +422,44 @@ impl State<'_> {
     }
     fn reference_inner(&mut self, scope: &Scope, reference: Reference) -> Result<Value, String> {
         match reference {
+            Reference::Parameter {
+                parameter,
+                component,
+            } => {
+                if let Some(value) = scope.inputs.get(&parameter) {
+                    return Ok(Value::Primitive(fold_graph::channel::component_value(
+                        value.clone(),
+                        component,
+                    )?));
+                }
+                let definition = self.prepared.construction.definition(scope.definition)?;
+                let (owner, target) = definition
+                    .nodes
+                    .iter()
+                    .find_map(|n| {
+                        n.parameters
+                            .values()
+                            .find(|p| p.id == parameter)
+                            .map(|p| (n.id, p))
+                    })
+                    .ok_or("Parameter outside evaluation scope")?;
+                let key = (scope.path.clone(), parameter);
+                let value = if let Some(value) = self.values.get(&key) {
+                    value.clone()
+                } else {
+                    let binding = target.binding()?;
+                    let value = self.binding(scope, owner, &binding)?;
+                    self.values.insert(key, value.clone());
+                    value
+                };
+                if component.is_none() {
+                    return Ok(value);
+                }
+                Ok(Value::Primitive(fold_graph::channel::component_value(
+                    value.primitive()?.clone(),
+                    component,
+                )?))
+            }
             Reference::Input { input } => scope
                 .inputs
                 .get(&input)
@@ -431,7 +517,13 @@ impl State<'_> {
                     },
                 )?))
             }
-            _ => Err("Track/list requires its owning operation".into()),
+            Binding::Track { track } => {
+                for _ in &track.keys {
+                    self.budget.step()?;
+                }
+                Ok(Value::Primitive(track.sample(scope.time)?))
+            }
+            _ => Err("Ramp/list requires its owning operation".into()),
         }
     }
     fn node(&mut self, scope: &Scope, id: ObjectId) -> Result<Value, String> {
@@ -468,10 +560,9 @@ impl State<'_> {
             {
                 continue;
             }
-            if !matches!(
-                binding,
-                Binding::Track { .. } | Binding::Ramp { .. } | Binding::List { .. }
-            ) {
+            if !(matches!(binding, Binding::Ramp { .. } | Binding::List { .. })
+                || operation.builtin == Builtin::Keyframes && name == "track")
+            {
                 args.insert(name.as_str(), self.binding(scope, id, binding)?);
             }
         }

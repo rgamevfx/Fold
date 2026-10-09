@@ -1,5 +1,6 @@
 //! Versioned in-process contribution contracts. These Rust traits/function
 //! pointers are deliberately NOT a durable dynamic-library ABI.
+mod parameter_service;
 use crate::{VideoProvider, VideoRegistry};
 use fold_foundation::{DocumentId, Time};
 use fold_media::{Cancel, VideoInfo};
@@ -49,6 +50,34 @@ pub struct CommandRegistration {
     pub handler: CommandHandler,
 }
 pub trait DocumentProvider: Send + Sync {
+    fn parameter_sources(
+        &self,
+        _document: &Document,
+    ) -> Result<Vec<crate::parameters::Source>, String> {
+        Ok(vec![])
+    }
+    /// Convert a placed source's output-relative clock to authored document time.
+    fn parameter_time(&self, _document: &Document, output_time: Time) -> Result<Time, String> {
+        Ok(output_time)
+    }
+
+    fn parameters(
+        &self,
+        _document: &Document,
+    ) -> Result<Vec<crate::parameters::Descriptor>, String> {
+        Ok(vec![])
+    }
+    /// Exact document time. The provider maps nested occurrence clocks once.
+    fn sample_parameter(
+        &self,
+        _document: &Document,
+        _target: &crate::parameters::Target,
+        _time: Time,
+        _cancel: &Cancel,
+    ) -> Result<fold_graph::types::Literal, String> {
+        Err("Parameter sampling is unavailable for this provider".into())
+    }
+
     fn hierarchy(&self, _document: &Document) -> Result<crate::hierarchy::Hierarchy, String> {
         Ok(Default::default())
     }

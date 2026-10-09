@@ -7,10 +7,7 @@ use fold_ui::sdk::{
 };
 fn choices(value: &Construction, definition: ObjectId) -> Result<Vec<(ObjectId, String)>, String> {
     let asset = value.definition(definition)?;
-    Ok(asset
-        .inputs
-        .iter()
-        .map(|v| (v.id, v.name.clone()))
+    Ok(std::iter::once((asset.id, "Channel References".into()))
         .chain(asset.nodes.iter().map(|v| (v.id, v.name.clone())))
         .chain(asset.instances.iter().map(|v| (v.id, v.name.clone())))
         .chain(asset.outputs.iter().map(|v| (v.id, v.name.clone())))

@@ -58,13 +58,17 @@ pub(in crate::ui) fn view(
         outputs,
         can_open,
     };
-    for input in &definition.inputs {
+    {
         nodes.push(node_view(
-            input.id,
-            &input.name,
-            "Control",
+            definition.id,
+            "Channel References",
+            "Container parameters",
             vec![],
-            vec![output(Reference::Input { input: input.id }, "Value")],
+            definition
+                .inputs
+                .iter()
+                .map(|input| output(Reference::Input { input: input.id }, &input.name))
+                .collect(),
             false,
         ));
     }
@@ -89,7 +93,7 @@ pub(in crate::ui) fn view(
                         );
                         if let Binding::Link { reference } = &binding {
                             wires.push(WireView {
-                                source: source(reference.target),
+                                source: source(reference.target, definition.id),
                                 target: Socket {
                                     node: node.id,
                                     key: target.key.clone(),
@@ -117,7 +121,7 @@ pub(in crate::ui) fn view(
                                 &format!("{label} {}", index + 1),
                             );
                             wires.push(WireView {
-                                source: source(edge.target),
+                                source: source(edge.target, definition.id),
                                 target: Socket {
                                     node: node.id,
                                     key: target.key.clone(),
@@ -157,7 +161,7 @@ pub(in crate::ui) fn view(
             if let Some(parameter) = instance.overrides.get(&input.id) {
                 match parameter.binding()? {
                     Binding::Link { reference } => wires.push(WireView {
-                        source: source(reference.target),
+                        source: source(reference.target, definition.id),
                         target: Socket {
                             node: instance.id,
                             key: target.key.clone(),
@@ -174,7 +178,7 @@ pub(in crate::ui) fn view(
                                 &format!("{} {}", input.name, index + 1),
                             );
                             wires.push(WireView {
-                                source: source(edge.target),
+                                source: source(edge.target, definition.id),
                                 target: Socket {
                                     node: instance.id,
                                     key: target.key.clone(),
@@ -213,7 +217,7 @@ pub(in crate::ui) fn view(
     for out in &definition.outputs {
         let target = port(&Target::Output, "Value");
         wires.push(WireView {
-            source: source(out.value.target),
+            source: source(out.value.target, definition.id),
             target: Socket {
                 node: out.id,
                 key: target.key.clone(),
@@ -227,6 +231,61 @@ pub(in crate::ui) fn view(
             vec![],
             false,
         ));
+    }
+    // Parameter dependencies are inspectable sockets on the owning node, not
+    // additional primitive nodes. Only referenced parameters need output sockets.
+    for wire in &mut wires {
+        let reference: Reference =
+            serde_json::from_str(&wire.source.key).map_err(|e| e.to_string())?;
+        if let Reference::Parameter {
+            parameter,
+            component,
+        } = reference
+        {
+            if let Some(input) = definition.inputs.iter().find(|i| i.id == parameter) {
+                wire.source.node = definition.id;
+                let node = nodes
+                    .iter_mut()
+                    .find(|n| n.id == definition.id)
+                    .ok_or("Missing Channel References")?;
+                if !node.outputs.iter().any(|p| p.key == wire.source.key) {
+                    let label = component.map_or_else(
+                        || input.name.clone(),
+                        |c| {
+                            format!(
+                                "{}/{}",
+                                input.name,
+                                ["x", "y", "z", "w"].get(usize::from(c)).unwrap_or(&"?")
+                            )
+                        },
+                    );
+                    node.outputs.push(output(reference, &label));
+                }
+            } else if let Some((owner, name)) = definition.nodes.iter().find_map(|node| {
+                node.parameters
+                    .iter()
+                    .find(|(_, p)| p.id == parameter)
+                    .map(|(name, _)| (node.id, name))
+            }) {
+                wire.source.node = owner;
+                let node = nodes
+                    .iter_mut()
+                    .find(|n| n.id == owner)
+                    .ok_or("Missing parameter owner")?;
+                if !node.outputs.iter().any(|p| p.key == wire.source.key) {
+                    let label = component.map_or_else(
+                        || name.clone(),
+                        |c| {
+                            format!(
+                                "{name}/{}",
+                                ["x", "y", "z", "w"].get(usize::from(c)).unwrap_or(&"?")
+                            )
+                        },
+                    );
+                    node.outputs.push(output(reference, &label));
+                }
+            }
+        }
     }
     let sources: std::collections::BTreeSet<_> = nodes
         .iter()

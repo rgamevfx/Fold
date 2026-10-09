@@ -33,6 +33,13 @@ fn fields(config: &OperationConfig) -> (String, BTreeMap<String, Value>) {
         _ => unreachable!("operation configurations have named fields"),
     }
 }
+pub(crate) fn parameter_values(config: &OperationConfig) -> BTreeMap<String, Value> {
+    fields(config)
+        .1
+        .into_iter()
+        .map(|(name, value)| (name, encode_value(value)))
+        .collect()
+}
 pub(crate) fn record(config: &OperationConfig) -> Record {
     let (_, mut fields) = fields(config);
     if let OperationConfig::Instance { instance, .. } = config {

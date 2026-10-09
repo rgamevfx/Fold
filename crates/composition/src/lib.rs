@@ -5,6 +5,7 @@ mod compile;
 pub mod layer;
 mod model;
 pub mod package;
+mod parameters;
 pub mod reusable;
 pub use model::{Composition, Layer};
 #[cfg(feature = "ui")]

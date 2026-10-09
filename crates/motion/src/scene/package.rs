@@ -232,6 +232,30 @@ fn graph_edit(
 }
 pub struct Documents;
 impl DocumentProvider for Documents {
+    fn parameter_time(&self, document: &Document, output_time: Time) -> Result<Time, String> {
+        Scene::from_document(document)?
+            .canvas
+            .start
+            .checked_add(output_time)
+            .map_err(|e| e.to_string())
+    }
+
+    fn parameters(
+        &self,
+        document: &Document,
+    ) -> Result<Vec<fold_platform::parameters::Descriptor>, String> {
+        super::parameters::catalog(document)
+    }
+    fn sample_parameter(
+        &self,
+        document: &Document,
+        target: &fold_platform::parameters::Target,
+        time: Time,
+        cancel: &fold_media::Cancel,
+    ) -> Result<crate::types::Literal, String> {
+        super::parameters::sample(document, target, time, cancel)
+    }
+
     fn unlock_for_artist(
         &self,
         document: &Document,

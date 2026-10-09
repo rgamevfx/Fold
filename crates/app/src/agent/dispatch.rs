@@ -284,7 +284,8 @@ impl Dispatcher {
                 "catalog":fold_motion::registry::catalog(),
                 "project_authoring":{"schema":schemars::schema_for!(native::Edit),"providers":crate::packages::builtins().authoring_catalog().into_iter().filter(|p| p["type"].as_str().is_some_and(native::supported)).collect::<Vec<_>>(),"inspection":"Native provider records are under native; scenes include read-only object_sources. Project candidates inspect all changed documents before atomic Apply."},
                 "transport_support":{"linux_local_socket":cfg!(target_os = "linux"),"cli_protocol":cfg!(target_os = "linux"),"mcp_stdio":cfg!(target_os = "linux")},
-                "implemented":({ let mut methods = vec!["job_status","cancel_job","save_project_copy","observe","inspect_document","inspect_candidate","propose","rebase","apply","cancel_candidate"]; if self.frames_available() { methods.push("observe_frame"); } methods }),
+                "implemented":({ let mut methods = vec!["job_status","cancel_job","save_project_copy","observe","inspect_parameters","resolve_parameter","sample_parameter","inspect_document","inspect_candidate","propose","rebase","apply","cancel_candidate"]; if self.frames_available() { methods.push("observe_frame"); } methods }),
+                "parameter_inspection":{"methods":["inspect_parameters","resolve_parameter","sample_parameter"],"providers":[fold_motion::CONSTRUCTION,fold_motion::scene::TYPE,fold_compositor::COMPOSITE,fold_composition::COMPOSITION,fold_timeline::SEQUENCE],"path_scope":"project/document/object/occurrence/parameter as returned by inspection; names are escaped per segment","binding_scope":"Motion ch() expressions remain definition-local","time":"placement root authored time when placement is present; otherwise target document authored time; source clocks apply once","page_limit":256,"structured_values":"discoverable but not sampled as primitives"},
                 "frame_observation":{"available":self.frames_available(),"method":"observe_frame","encoding":"rgba8_hex","max_pixels":2073600,"max_dimension":4096,"in_flight":2,"time_range":"registered output half-open duration","presentation":"shared_viewer_display","regions":true},
                 "unavailable":if self.frames_available() { json!({}) } else { json!({"frames":"No shared GPU host attached"}) },
                 "limits":{"job_wait_ms":jobs::MAX_LONG_POLL.as_millis(),"cpu_workers":2,"cpu_in_flight":workers::MAX_IN_FLIGHT,"jobs":jobs::MAX_JOBS,"job_lifetime_seconds":jobs::MAX_LIFETIME.as_secs(),"job_retention_seconds":jobs::RETENTION.as_secs(),"request_bytes":retry::MAX_REQUEST_BYTES,"response_bytes":retry::MAX_RESPONSE_BYTES,"observation_samples":64,"evaluation_steps":1000000,"evaluated_elements":1000000,"source_bytes":65536,"patches":128,"operations":10000,"asset_nesting":64,"live_candidates":candidates::MAX_LIVE,"candidate_idle_seconds":candidates::IDLE_LIFETIME.as_secs(),"request_ids":retry::MAX_REQUEST_IDS,"pending_requests":retry::MAX_PENDING,"cached_responses":retry::MAX_CACHED_RESPONSES,"cached_response_bytes":retry::MAX_CACHED_BYTES,"response_retention_seconds":retry::RESPONSE_LIFETIME.as_secs()}
@@ -451,6 +452,37 @@ impl Dispatcher {
                     },
                 )
             }
+            Command::InspectParameters { document, offset, limit, .. } => {
+                if !(1..=256).contains(&limit) {
+                    return Err(Failure::new("budget", "Parameter page size must be 1..256"));
+                }
+                self.submit(None, now, move |cancel| {
+                    let registry = crate::packages::builtins();
+                    let entries = if let Some(id) = document {
+                        let document = snapshot.state().documents.get(&id)
+                            .ok_or_else(|| Failure::new("missing_resource", "Missing document"))?;
+                        registry.document_parameters(&snapshot, document, cancel).map_err(Failure::invalid)?
+                    } else {
+                        registry.project_parameters(&snapshot, cancel).map_err(Failure::invalid)?
+                    };
+                    cancel.check().map_err(|e| Failure::new("cancelled", e))?;
+                    let total = entries.len();
+                    if offset > total { return Err(Failure::invalid("Parameter page offset exceeds catalog".into())); }
+                    let page: Vec<_> = entries.into_iter().skip(offset).take(limit).collect();
+                    let next = (offset + page.len() < total).then_some(offset + page.len());
+                    Ok(workers::Output::Value(json!({"revision":snapshot.revision(),"parameters":page,"total":total,"next":next})))
+                })
+            }
+            Command::ResolveParameter { owner, path, .. } => self.submit(None, now, move |cancel| {
+                let entries = crate::packages::builtins().project_parameters(&snapshot, cancel).map_err(Failure::invalid)?;
+                let entry = fold_platform::parameters::resolve(&entries, &owner, &path).map_err(Failure::invalid)?;
+                cancel.check().map_err(|e| Failure::new("cancelled", e))?;
+                Ok(workers::Output::Value(json!({"revision":snapshot.revision(),"parameter":entry})))
+            }),
+            Command::SampleParameter { target, time, .. } => self.submit(None, now, move |cancel| {
+                let value = crate::packages::builtins().sample_placed_parameter(&snapshot, &target, time, cancel).map_err(Failure::invalid)?;
+                Ok(workers::Output::Value(json!({"revision":snapshot.revision(),"target":target,"time":time,"value":value})))
+            }),
             Command::InspectDocument {
                 epoch,
                 revision,

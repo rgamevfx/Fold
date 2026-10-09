@@ -45,6 +45,7 @@ pub(crate) fn reference_name(
     target: Reference,
 ) -> Result<String, String> {
     match target {
+        Reference::Parameter { .. } => fold_graph::channel::definition_path(scope, target),
         Reference::Input { input } => scope
             .inputs
             .iter()
@@ -78,7 +79,8 @@ pub(crate) fn reference_name(
     }
 }
 fn local_name(name: &str) -> Result<String, String> {
-    if name.starts_with("instance:") || name.starts_with("binding:") {
+    if name.starts_with("instance:") || name.starts_with("binding:") || name.starts_with("channel:")
+    {
         Ok(format!("binding:{}", json(&name)?))
     } else {
         Ok(name.into())
@@ -90,6 +92,9 @@ pub fn resolve_reference_name(
     scope: &Definition,
     name: &str,
 ) -> Result<Reference, String> {
+    if name.starts_with("channel:") {
+        return fold_graph::channel::resolve_definition(scope, None, name);
+    }
     if let Some(pair) = name.strip_prefix("instance:") {
         let [instance_name, output_name]: [String; 2] =
             serde_json::from_str(pair).map_err(|e| e.to_string())?;

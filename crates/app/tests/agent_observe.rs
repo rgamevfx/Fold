@@ -42,12 +42,9 @@ fn setup() -> (Dispatcher, Project, DocumentId, ObjectId) {
         Time::ZERO,
     )
     .unwrap();
-    let parameter = animated.definitions[0]
-        .nodes
-        .last_mut()
-        .unwrap()
+    let parameter = animated.definitions[0].nodes[0]
         .parameters
-        .get_mut("track")
+        .get_mut("height")
         .unwrap();
     let Binding::Track { mut track } = parameter.binding().unwrap() else {
         panic!("native track")

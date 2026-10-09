@@ -172,6 +172,7 @@ fn id(value: &mut ObjectId, mapping: &IdentityMap) {
 }
 fn reference(value: &mut Reference, mapping: &IdentityMap) {
     match value {
+        Reference::Parameter { parameter, .. } => id(parameter, mapping),
         Reference::Input { input } => id(input, mapping),
         Reference::Node { node } => id(node, mapping),
         Reference::Instance { instance, output } => {

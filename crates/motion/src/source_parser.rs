@@ -17,11 +17,13 @@ pub struct Parsed {
     pub unresolved: Vec<ObjectId>,
 }
 struct PendingReference {
+    owner: Option<String>,
     scope: Option<ObjectId>,
     name: String,
     span: Span,
 }
 struct Parser<'a> {
+    owner: Option<String>,
     source: &'a str,
     position: usize,
     spans: BTreeMap<ObjectId, Span>,
@@ -139,6 +141,7 @@ impl Parser<'_> {
             });
         }
         Ok(Parser {
+            owner: None,
             source,
             position: 0,
             spans: BTreeMap::new(),
@@ -303,6 +306,7 @@ impl Parser<'_> {
             self.references.insert(
                 id,
                 PendingReference {
+                    owner: self.owner.clone(),
                     scope,
                     name,
                     span: Span {
@@ -422,7 +426,7 @@ impl Parser<'_> {
     fn instance(&mut self, scope: Option<ObjectId>) -> Result<Instance, Diagnostic> {
         self.whitespace();
         let start = self.position;
-        let name = self.json()?;
+        let name: String = self.json()?;
         let (id, extensions) = self.annotation()?;
         self.expect("=")?;
         let definition_name = self.json()?;
@@ -432,7 +436,9 @@ impl Parser<'_> {
         let mut overrides = BTreeMap::new();
         let mut names = std::collections::BTreeSet::new();
         while !self.take("}") {
+            self.owner = Some(name.clone());
             let (name, parameter) = self.parameter(scope)?;
+            self.owner = None;
             if !names.insert(name.clone()) {
                 return Err(self.error(Code::Value, "Duplicate override name"));
             }
@@ -506,7 +512,9 @@ impl Parser<'_> {
                     .map_err(|message| self.error(Code::Value, &message))?;
                 let mut parameters = BTreeMap::new();
                 while !self.take(")") {
+                    self.owner = Some(name.clone());
                     let (name, parameter) = self.parameter(Some(definition.id))?;
+                    self.owner = None;
                     if parameters.insert(name, parameter).is_some() {
                         return Err(self.error(Code::Value, "Duplicate parameter name"));
                     }
@@ -633,7 +641,15 @@ impl Parser<'_> {
                     .scope
                     .ok_or("Root overrides cannot reference a parent definition")?;
                 let definition = construction.definition(scope)?;
-                crate::source::resolve_reference_name(construction, definition, &pending.name)
+                if pending.name.starts_with("channel:") {
+                    fold_graph::channel::resolve_definition(
+                        definition,
+                        pending.owner.as_deref(),
+                        &pending.name,
+                    )
+                } else {
+                    crate::source::resolve_reference_name(construction, definition, &pending.name)
+                }
             })()
             .map_err(|message| Diagnostic {
                 code: Code::Reference,

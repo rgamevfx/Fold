@@ -4,6 +4,7 @@ mod editing;
 mod transform;
 pub use transform::Transform;
 pub mod package;
+mod parameters;
 mod placement;
 mod sequence;
 #[cfg(feature = "ui")]

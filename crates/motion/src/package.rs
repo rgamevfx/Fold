@@ -185,6 +185,33 @@ pub fn create_for_canvas(id: DocumentId, canvas: Canvas) -> Result<Document, Str
 
 struct Documents;
 impl DocumentProvider for Documents {
+    fn parameter_time(&self, document: &Document, output_time: Time) -> Result<Time, String> {
+        Construction::from_document(document)?
+            .canvas
+            .start
+            .checked_add(output_time)
+            .map_err(|e| e.to_string())
+    }
+
+    fn parameters(
+        &self,
+        document: &Document,
+    ) -> Result<Vec<fold_platform::parameters::Descriptor>, String> {
+        crate::parameters::catalog(&Construction::from_document(document)?, document.id, None)
+    }
+    fn sample_parameter(
+        &self,
+        document: &Document,
+        target: &fold_platform::parameters::Target,
+        time: Time,
+        cancel: &fold_media::Cancel,
+    ) -> Result<crate::types::Literal, String> {
+        if target.object.is_some() {
+            return Err("Standalone graph has no object scope".into());
+        }
+        crate::parameters::sample(Construction::from_document(document)?, target, time, cancel)
+    }
+
     fn unlock_for_artist(
         &self,
         document: &Document,

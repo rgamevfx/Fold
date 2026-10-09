@@ -2245,6 +2245,7 @@ dependencies = [
  "fold-animation",
  "fold-color",
  "fold-foundation",
+ "fold-graph",
  "fold-media",
  "fold-project",
  "fold-render",

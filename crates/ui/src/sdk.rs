@@ -378,3 +378,6 @@ pub mod effects;
 
 #[path = "normalized_curve.rs"]
 pub mod normalized_curve;
+
+#[path = "parameter_menu.rs"]
+pub mod parameter_menu;

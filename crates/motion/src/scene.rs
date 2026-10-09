@@ -1,6 +1,7 @@
 //! Authored scene hierarchy. Objects own graphs; hierarchy is never a synthetic graph.
 pub mod animation;
 pub mod package;
+mod parameters;
 pub mod reconcile;
 pub mod video;
 use crate::{

@@ -14,6 +14,7 @@ pub mod keyed;
 pub mod merge;
 pub mod model;
 pub mod package;
+pub mod parameters;
 pub mod patch;
 pub mod protection;
 pub mod reconcile;

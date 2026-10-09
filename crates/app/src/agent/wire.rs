@@ -138,6 +138,30 @@ pub enum Command {
         #[serde(default)]
         region: Option<FrameRegion>,
     },
+    InspectParameters {
+        epoch: ObjectId,
+        revision: u64,
+        /// None discovers the project. A document filter limits the work.
+        document: Option<DocumentId>,
+        #[serde(default)]
+        offset: usize,
+        #[schemars(range(min = 1, max = 256))]
+        limit: usize,
+    },
+    ResolveParameter {
+        epoch: ObjectId,
+        revision: u64,
+        /// Unescaped project path of the owning node/container.
+        owner: Vec<String>,
+        path: String,
+    },
+    SampleParameter {
+        epoch: ObjectId,
+        revision: u64,
+        target: fold_platform::parameters::Target,
+        /// Authored document time; the provider applies nested clocks.
+        time: Time,
+    },
     InspectDocument {
         epoch: ObjectId,
         revision: u64,
@@ -167,6 +191,15 @@ pub enum Command {
 impl Command {
     pub fn guard_base(&self) -> Option<(ObjectId, u64)> {
         match self {
+            Self::InspectParameters {
+                epoch, revision, ..
+            }
+            | Self::ResolveParameter {
+                epoch, revision, ..
+            }
+            | Self::SampleParameter {
+                epoch, revision, ..
+            } => Some((*epoch, *revision)),
             Self::CancelJob { guard, .. } => Some(guard.base()),
             Self::SaveProjectCopy { guard, .. } => Some((guard.epoch, guard.base)),
             Self::Propose { guard, .. }

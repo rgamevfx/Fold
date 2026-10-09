@@ -62,6 +62,11 @@ pub struct Output {
 )]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Reference {
+    Parameter {
+        parameter: ObjectId,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        component: Option<u8>,
+    },
     Input {
         input: ObjectId,
     },

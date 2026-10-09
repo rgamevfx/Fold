@@ -63,6 +63,22 @@ fn publish_shader(snapshot: &Snapshot, args: &[u8], cancel: &Cancel) -> Result<E
 }
 struct Documents;
 impl DocumentProvider for Documents {
+    fn parameters(
+        &self,
+        document: &Document,
+    ) -> Result<Vec<fold_platform::parameters::Descriptor>, String> {
+        crate::parameters::catalog(document)
+    }
+    fn sample_parameter(
+        &self,
+        document: &Document,
+        target: &fold_platform::parameters::Target,
+        time: fold_foundation::Time,
+        cancel: &Cancel,
+    ) -> Result<fold_graph::types::Literal, String> {
+        crate::parameters::sample(document, target, time, cancel)
+    }
+
     fn animation_channels(
         &self,
         document: &Document,

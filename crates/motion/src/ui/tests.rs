@@ -359,12 +359,18 @@ fn graph_rewires_preserve_expression_identity_and_reject_invalid_topology() {
     let alternate = view
         .nodes
         .iter()
-        .find(|node| node.id == alternate_id)
+        .find(|node| node.id == definition)
         .unwrap();
     let replacement = WireView {
         source: Socket {
-            node: alternate_id,
-            key: alternate.outputs[0].key.clone(),
+            node: definition,
+            key: alternate
+                .outputs
+                .iter()
+                .find(|p| p.label == "Alternate width")
+                .unwrap()
+                .key
+                .clone(),
         },
         target: wire.target.clone(),
     };
@@ -1372,17 +1378,10 @@ fn nested_occurrence_inspector_auto_keys_use_reverse_and_paused_clocks() {
         );
         let track_in = |graph: &Construction| {
             let definition = graph.definition(leaf.id).unwrap();
-            let Binding::Link { reference } =
+            let Binding::Track { track } =
                 definition.nodes[0].parameters["height"].binding().unwrap()
             else {
-                panic!("Auto-key must retain the authored parameter as a link")
-            };
-            let crate::model::Reference::Node { node } = reference.target else {
-                panic!()
-            };
-            let animation = definition.nodes.iter().find(|n| n.id == node).unwrap();
-            let Binding::Track { track } = animation.parameters["track"].binding().unwrap() else {
-                panic!()
+                panic!("Auto-key must retain a track on the authored parameter")
             };
             track
         };
@@ -1405,4 +1404,81 @@ fn nested_occurrence_inspector_auto_keys_use_reverse_and_paused_clocks() {
         state.key_time, None,
         "A definition without an occurrence must not borrow root time"
     );
+}
+
+#[test]
+fn channel_reference_ports_follow_identity_through_reorder_and_rename() {
+    let host = setup();
+    let document = host.state.selection.document.unwrap();
+    let mut graph = crate::model::Construction::from_document(
+        &host.project.snapshot().state().documents[&document],
+    )
+    .unwrap();
+    let definition = graph.root.definition;
+    let before = super::graph::view(&graph, document, definition, 0, vec![]).unwrap();
+    let channels = before.nodes.iter().find(|n| n.id == definition).unwrap();
+    assert_eq!(channels.label, "Channel References");
+    assert_eq!(channels.outputs.len(), graph.definitions[0].inputs.len());
+    assert!(
+        !before
+            .nodes
+            .iter()
+            .any(|n| graph.definitions[0].inputs.iter().any(|i| i.id == n.id))
+    );
+    let port = channels.outputs[0].key.clone();
+    let mut input = graph.definitions[0].inputs[0].clone();
+    input.id = fold_foundation::ObjectId::new();
+    input.name = "Other width".into();
+    graph.definitions[0].inputs.insert(0, input);
+    graph.definitions[0].inputs[1].name = "Renamed width".into();
+    let after = super::graph::view(&graph, document, definition, 1, vec![]).unwrap();
+    let channels = after.nodes.iter().find(|n| n.id == definition).unwrap();
+    assert_eq!(channels.outputs[1].key, port);
+    assert_eq!(channels.outputs[1].label, "Renamed width");
+    assert!(
+        after
+            .wires
+            .iter()
+            .any(|wire| wire.source.node == definition && wire.source.key == port)
+    );
+    let moved = super::graph::apply(
+        &graph,
+        definition,
+        &[sdk::graph_canvas::GraphChange::Positions(vec![(
+            definition,
+            [12., 34.],
+        )])],
+    )
+    .unwrap();
+    assert_eq!(moved.presentation.positions[&definition], [12., 34.]);
+    assert_eq!(moved.definitions, graph.definitions);
+}
+
+#[test]
+fn adding_a_container_parameter_uses_one_native_transaction() {
+    use sdk::graph_canvas::GraphContext;
+    let mut host = setup();
+    let mut state = state::State::default();
+    state.sync(&mut host);
+    let before = state.construction.clone().unwrap();
+    let definition = before.root.definition;
+    super::graph::Context {
+        state: &mut state,
+        host: &mut host,
+        definition,
+    }
+    .node_action(definition, "add-parameter")
+    .unwrap();
+    let after = state.construction.as_ref().unwrap();
+    assert_eq!(
+        after.definition(definition).unwrap().inputs.len(),
+        before.definition(definition).unwrap().inputs.len() + 1
+    );
+    assert_eq!(
+        after.definition(definition).unwrap().nodes,
+        before.definition(definition).unwrap().nodes
+    );
+    host.project.undo().unwrap();
+    state.sync(&mut host);
+    assert_eq!(state.construction.as_ref(), Some(&before));
 }

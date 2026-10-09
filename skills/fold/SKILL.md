@@ -10,6 +10,12 @@ verified proposal/inspection/Apply examples and the integrated Motion demo,
 read [Public workflow](references/public-workflow.md). For a local hands-on demo,
 use the [demo launcher and edit guide](../../demos/README.md).
 
+When exposing controls or linking parameters, read the
+[parameter-reference workflow](references/public-workflow.md#parameter-references).
+Use container inputs and inline expressions by default; do not create a separate
+primitive node for each control or simple arithmetic expression. Discover the
+running build's supported reference scope before proposing a link.
+
 1. Discover the current epoch, revision, supported documents, catalog and limits.
 2. Inspect the exact document revision and intended scope. Preserve stable IDs,
    protected controls, layout and unrelated source.

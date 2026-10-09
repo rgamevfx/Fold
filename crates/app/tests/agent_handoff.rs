@@ -1145,3 +1145,277 @@ fn cli_and_mcp_save_committed_project_copies_with_exact_retry_and_reopen() {
         "both transports must persist the identical committed archive"
     );
 }
+
+#[test]
+fn cli_and_mcp_author_relative_parameter_expressions_without_primitive_nodes() {
+    for transport in [Transport::Cli, Transport::Mcp] {
+        let id = DocumentId::new();
+        let document = fold_motion::package::create(id).unwrap();
+        let mut project = Project::new(16);
+        project
+            .commit(EditBatch {
+                base: project.snapshot().revision(),
+                mutations: vec![Mutation::PutDocument(document)],
+            })
+            .unwrap();
+        let mut session = Session::new(project);
+        let directory = tempfile::tempdir().unwrap();
+        let path = session.enable_agent_transport(directory.path()).unwrap();
+        let initial = call(&mut session, &path, transport, json!({"method":"discover"}));
+        assert_eq!(
+            initial["result"]["catalog"]["parameter_references"]["container_node"],
+            "Channel References"
+        );
+        let epoch = initial["epoch"].clone();
+        let base = initial["result"]["revision"].clone();
+        let scope = json!({"document":id,"definition":null});
+        let inspected = call(
+            &mut session,
+            &path,
+            transport,
+            json!({"method":"inspect_document","epoch":epoch,"revision":base,"scope":scope}),
+        );
+        let source = inspected["result"]["source"].as_str().unwrap();
+        let mut replaced = false;
+        let source = source
+            .lines()
+            .map(|line| {
+                if line.trim_start().starts_with("\"height\" @") {
+                    replaced = true;
+                    format!(
+                        "{} = expr(ch(\"width\") * 0.25);",
+                        line.split_once(" = ").unwrap().0
+                    )
+                } else {
+                    line.to_string()
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(replaced);
+        let before = construction(&session, id);
+        let guard =
+            || json!({"epoch":epoch,"request_id":ObjectId::new(),"base":base,"scope":scope});
+        let proposed = call(
+            &mut session,
+            &path,
+            transport,
+            json!({"method":"propose","guard":guard(),"edit":{"kind":"source","expected":inspected["result"]["source"],"text":source,"mapping":{}}}),
+        );
+        let handle = proposed["result"]["handle"].clone();
+        let inspected = call(
+            &mut session,
+            &path,
+            transport,
+            json!({"method":"inspect_candidate","handle":handle}),
+        );
+        call(
+            &mut session,
+            &path,
+            transport,
+            json!({"method":"apply","guard":guard(),"handle":handle,"receipt":inspected["result"]["receipt"]}),
+        );
+        let after = construction(&session, id);
+        assert_eq!(
+            after.definitions[0].nodes.len(),
+            before.definitions[0].nodes.len()
+        );
+        let height = after.definitions[0].nodes[0].parameters["height"].id;
+        let sampled = fold_motion::evaluation::Prepared::new(after.clone())
+            .unwrap()
+            .sample_parameters(&[], &[height], Time::ZERO, &|| Ok(()))
+            .unwrap();
+        assert_eq!(
+            sampled[&height],
+            Literal::Distance {
+                value: 50.,
+                unit: fold_motion::types::Unit::Canvas
+            }
+        );
+        let revision = session.snapshot().unwrap().revision();
+        let catalog = call(
+            &mut session,
+            &path,
+            transport,
+            json!({
+                "method":"inspect_parameters", "epoch":epoch, "revision":revision,
+                "document":id, "offset":0, "limit":256
+            }),
+        );
+        let parameter = catalog["result"]["parameters"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|entry| {
+                entry["target"]["parameter"]["id"] == json!(height)
+                    && entry["target"]["component"].is_null()
+            })
+            .unwrap();
+        let segments = parameter["path"].as_array().unwrap();
+        let resolved = call(
+            &mut session,
+            &path,
+            transport,
+            json!({
+                "method":"resolve_parameter", "epoch":epoch, "revision":revision,
+                "owner": &segments[..segments.len()-1], "path":"height"
+            }),
+        );
+        assert_eq!(
+            resolved["result"]["parameter"]["target"],
+            parameter["target"]
+        );
+        let public_sample = call(
+            &mut session,
+            &path,
+            transport,
+            json!({
+                "method":"sample_parameter", "epoch":epoch, "revision":revision,
+                "target":parameter["target"], "time":Time::ZERO
+            }),
+        );
+        assert_eq!(public_sample["result"]["value"], json!(sampled[&height]));
+        let stale = terminal(
+            &mut session,
+            &path,
+            transport,
+            json!({
+                "method":"sample_parameter", "epoch":epoch, "revision":base,
+                "target":parameter["target"], "time":Time::ZERO
+            }),
+        );
+        assert_eq!(stale["error"]["code"], "conflict");
+        assert_eq!(undo_to(&mut session, id, &before), 1);
+        session.command(DesktopCommand::Redo);
+        assert_eq!(construction(&session, id), after);
+    }
+}
+
+#[test]
+fn cli_and_mcp_inspect_layer_and_timeline_properties_through_one_service() {
+    for transport in [Transport::Cli, Transport::Mcp] {
+        let motion_id = DocumentId::new();
+        let motion_document = fold_motion::package::create(motion_id).unwrap();
+        let motion = Construction::from_document(&motion_document).unwrap();
+        let width = motion.definitions[0].nodes[0].parameters["width"].id;
+        let mut composition = fold_composition::Composition::default();
+        let mut layer =
+            fold_composition::Layer::new("Layer / One", None, composition.info.clone()).unwrap();
+        layer.source = Some(fold_platform::image_source::Source::Output(
+            fold_project::DocumentRef {
+                document: motion_id,
+                output: motion.definitions[0].outputs[0].id.to_string(),
+                extensions: Default::default(),
+            },
+        ));
+        layer.opacity = 0.4;
+        let layer_id = layer.id;
+        composition.layers.push(layer);
+        let composition_id = DocumentId::new();
+        let timeline_id = DocumentId::new();
+        let track = fold_timeline::Track::new(fold_timeline::TrackKind::Video, "Track / One");
+        let track_id = track.id;
+        let sequence = fold_timeline::Sequence {
+            dimensions: [16, 16],
+            rate: [24, 1],
+            tracks: vec![track],
+            clips: vec![],
+            transitions: vec![],
+            extensions: Default::default(),
+        };
+        let mut project = Project::new(8);
+        project
+            .commit(EditBatch {
+                base: project.snapshot().revision(),
+                mutations: vec![
+                    Mutation::PutDocument(motion_document),
+                    Mutation::PutDocument(composition.document(composition_id).unwrap()),
+                    Mutation::PutDocument(sequence.document(timeline_id).unwrap()),
+                ],
+            })
+            .unwrap();
+        let mut session = Session::new(project);
+        let directory = tempfile::tempdir().unwrap();
+        let socket = session.enable_agent_transport(directory.path()).unwrap();
+        let discovered = call(
+            &mut session,
+            &socket,
+            transport,
+            json!({"method":"discover"}),
+        );
+        let epoch = &discovered["epoch"];
+        let revision = &discovered["result"]["revision"];
+        for (document, object, key, expected) in [
+            (
+                composition_id,
+                layer_id,
+                "opacity",
+                json!(Literal::Scalar { value: 0.4 }),
+            ),
+            (
+                timeline_id,
+                track_id,
+                "enabled",
+                json!(Literal::Bool { value: true }),
+            ),
+        ] {
+            let catalog = call(
+                &mut session,
+                &socket,
+                transport,
+                json!({"method":"inspect_parameters","epoch":epoch,"revision":revision,"document":document,"offset":0,"limit":256}),
+            );
+            let entry = catalog["result"]["parameters"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|e| {
+                    e["target"]["object"] == json!(object)
+                        && e["target"]["parameter"]["name"] == key
+                })
+                .unwrap();
+            let path = entry["path"].as_array().unwrap();
+            let resolved = call(
+                &mut session,
+                &socket,
+                transport,
+                json!({"method":"resolve_parameter","epoch":epoch,"revision":revision,"owner":&path[..path.len()-1],"path":key}),
+            );
+            assert_eq!(resolved["result"]["parameter"]["target"], entry["target"]);
+            let sample = call(
+                &mut session,
+                &socket,
+                transport,
+                json!({"method":"sample_parameter","epoch":epoch,"revision":revision,"target":entry["target"],"time":Time::ZERO}),
+            );
+            assert_eq!(sample["result"]["value"], expected);
+        }
+        let catalog = call(
+            &mut session,
+            &socket,
+            transport,
+            json!({"method":"inspect_parameters","epoch":epoch,"revision":revision,"document":composition_id,"offset":0,"limit":256}),
+        );
+        let source = catalog["result"]["parameters"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|e| e["target"]["parameter"]["id"] == json!(width))
+            .unwrap();
+        assert_eq!(source["target"]["placement"]["root"], json!(composition_id));
+        assert_eq!(source["target"]["placement"]["owners"], json!([layer_id]));
+        let sample = call(
+            &mut session,
+            &socket,
+            transport,
+            json!({"method":"sample_parameter","epoch":epoch,"revision":revision,"target":source["target"],"time":Time::ZERO}),
+        );
+        assert_eq!(
+            sample["result"]["value"],
+            json!(Literal::Distance {
+                value: 200.,
+                unit: fold_motion::types::Unit::Canvas
+            })
+        );
+    }
+}

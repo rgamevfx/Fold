@@ -45,7 +45,7 @@ Automatic old-motion migration is excluded. Keep original user projects untouche
 
 ## 3. Delivery sequence and tracking
 
-Phases M0–M9 are ordered, with the M5a and M5b course corrections below added before M6. M5a contract/design work starts during the still-open M0–M5 work; its acceptance requires the relevant M3–M5 behavior. M4 and M5 may prepare independent parts after M3, but M6 requires M5, M5a and M5b acceptance. Finish each gate before claiming its dependent phase complete. This document is the status ledger; add evidence links here rather than resuming old numbered phases.
+Phases M0–M9 are ordered, with the M5a, M5b and M5c course corrections below added before M6. M5a contract/design work starts during the still-open M0–M5 work; its acceptance requires the relevant M3–M5 behavior. M4 and M5 may prepare independent parts after M3, but M6 requires M5, M5a, M5b and M5c acceptance. Finish each gate before claiming its dependent phase complete. This document is the status ledger; add evidence links here rather than resuming old numbered phases.
 
 | Phase | Deliverable | Proposal slice | Status |
 | --- | --- | --- | --- |
@@ -57,6 +57,7 @@ Phases M0–M9 are ordered, with the M5a and M5b course corrections below added 
 | M5 | Integrated motion-design construction | B | Native typography, shared cloner preparation and Screen/World publication; integrated gate pending |
 | M5a | Shared typed graph framework, scene hierarchy and unified authoring UI | Course correction | Implementation/automated evidence retained; reported desktop freeze reopens workflow acceptance |
 | M5b | Geometry attributes and live Rhai Wrangle | Foundation correction | Implemented; automated/public evidence recorded, physical/export acceptance open |
+| M5c | Universal parameter references and Channel References | Foundation correction | In progress; contracts and implementation underway |
 | M6 | Incremental execution, GPU fields and full observation loop | C | Pending |
 | M7 | Production operation modes, assets and images | D | Pending |
 | M8 | USD and production delivery | D | Pending |
@@ -629,9 +630,66 @@ constraints. This session boundary is not M5a acceptance.
 
 **References:** [Rhai AST preparation](https://rhai.rs/book/engine/compile.html), [Rhai types/features](https://rhai.rs/book/about/features.html), [execution limits](https://rhai.rs/book/safety/index.html). Exact dependency version/features and host contracts must be recorded during implementation.
 
+### M5c — Universal parameter references and Channel References
+
+**Authorized direction — 9 October 2026:** One shared parameter-reference contract
+for Motion, Compositor, Composition and Timeline. Container controls appear on one
+dynamic Channel References node. Artists and agents use the same typed bindings,
+readable paths and bounded expressions; no parallel evaluator or primitive-node
+expansion is permitted.
+
+**Depends on:** M5a shared graphs and M5b geometry foundations. This work is
+explicitly authorized while prior acceptance remains open. M5c acceptance blocks M6.
+
+**Work**
+
+- Replace individual container-input Control nodes with one Channel References
+  view. Ports follow input identities, names, types and order; instance overrides
+  and animation resolve through the original inputs. Layout edits remain presentation.
+- Give every authored parameter a discoverable address, including vector components,
+  object/container controls and feature-owned parameters. Define unique escaped
+  path segments, project-absolute and owner-relative paths, stable resolved targets,
+  nested occurrence scope, duplication/remapping and rename/move behavior.
+- Extend the common binding/expression system with typed parameter references and
+  `ch("../controller/width") * 0.5` syntax. Resolve dependencies against immutable
+  project snapshots. Sample source-local clocks at the same composition instant;
+  detect missing/ambiguous targets, cycles, type/unit errors and bounded execution.
+- Add shared Copy Parameter, Paste Relative Reference, Edit Expression, Go to Source
+  and Remove Reference controls. Show evaluated values and driven state. Preserve
+  locks, transactional undo, expression/track intent and invalid drafts.
+- Support public discovery, scoped candidates, conflict checks, inspection and
+  source round trips through the same contracts. Make exposed controls, dynamic
+  input nodes and inline expressions the documented default agent workflow.
+- Remove superseded per-input graph presentation and duplicated reference handling.
+  Keep unsupported payloads opaque; do not add legacy readers or aliases.
+
+**Acceptance:** Verify dynamic ports and reconnection, all parameter types and
+components, relative/absolute paths, rename/move/delete/duplicate, nested instances,
+retimed animation, cycle/error reporting, lock/conflict/undo/save/reopen, public/native
+agreement and preview/headless/export agreement. Review normal/narrow controls and
+artist continuation separately. Run the workspace checkpoint and update executable
+agent examples. Record implemented behavior, automated results and physical acceptance
+separately. Earlier phase gates remain open.
+
+**Status:** In progress. The first Motion definition slice is implemented: dynamic
+Channel References, direct identity-based parameter/component references, `ch()`
+expressions, inline tracks, Inspector reference actions and worker-based value
+inspection. The shared provider service now discovers stable parameter targets and
+project paths, and samples Motion graph occurrences, scene placement/graph controls,
+native Compositor primitive controls/channels, Composition layer controls, and
+Timeline track/clip controls. Fixed fields use provider-owned property keys and
+stable owner IDs. Composition and Timeline source placements retain their full
+owner-ID chain and map exact root time through source clocks and canvas starts. Public revision-bound inspection, resolution
+and sampling run on workers through CLI/MCP. These read operations do not enable
+cross-document expression bindings. The universal phase is not complete. Shared
+cross-provider expression/dependency bindings, complete feature binding storage and
+reusable-effect occurrence support, full Compositor binding support, complete component/instance Inspector editing, and full
+artist/export acceptance remain required. No deferral
+of that scope is approved. See [M5c continuation evidence](rewrite/evidence/m5c-result.md).
+
 ### M6 — Incremental execution, performance and observation
 
-**Depends on:** M5, M5a and M5b.
+**Depends on:** M5, M5a, M5b and M5c.
 
 **Work**
 

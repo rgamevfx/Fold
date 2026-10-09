@@ -10,3 +10,5 @@ pub mod ramp;
 pub mod reconcile;
 pub mod types;
 pub mod validation;
+
+pub mod channel;

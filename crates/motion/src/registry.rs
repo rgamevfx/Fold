@@ -486,7 +486,10 @@ impl Operation {
             let values = match (&port.form, &binding) {
                 (
                     Form::Value,
-                    Binding::Literal { .. } | Binding::Link { .. } | Binding::Expression { .. },
+                    Binding::Literal { .. }
+                    | Binding::Link { .. }
+                    | Binding::Expression { .. }
+                    | Binding::Track { .. },
                 ) => vec![binding_type(&binding, resolve)?],
                 (Form::List, Binding::List { values }) if values.len() <= 4096 => values
                     .iter()
@@ -596,6 +599,10 @@ pub(crate) fn binding_type(
         }
         Binding::Link { reference } => Ok(resolve(reference.target)?.sampled().clone()),
         Binding::Expression { expression } => expression.infer(resolve),
+        Binding::Track { track } => {
+            track.validate()?;
+            Ok(track.ty.clone())
+        }
         _ => Err("Expected a value binding".into()),
     }
 }
@@ -618,7 +625,7 @@ pub fn node_schema() -> Value {
     let variants:Vec<_>=operations().iter().filter(|op|op.role==Role::Operation).map(|op| {
         let properties:serde_json::Map<String,Value>=op.parameters.iter().map(|(name,port)| {
             let forms: &[&str] = match port.form {
-                Form::Value => &["literal", "link", "expression"],
+                Form::Value => &["literal", "link", "expression", "track"],
                 Form::List => &["list"],
                 Form::Track => &["track"],
                 Form::Ramp => &["ramp"],
@@ -639,7 +646,7 @@ pub fn node_schema() -> Value {
 }
 /// The same records supply editor labels/defaults, discoverable references and declarations.
 pub fn catalog() -> Value {
-    json!({"wrangle":{"language":"rhai","version":"1.26.1","functions":crate::evaluation::wrangle::reference(),"run_over":["detail","point","primitive","corner","edge","instance"],"clock":"asset time; exact time_numerator/time_denominator plus seconds time","result":"Return Geometry as the final expression","attributes":"Cd: linear Rec.709 RGB vec3; P: World meters vec3; N: unitless normal vec3; orient: World quaternion"},"operations":operations(),"language":operations().iter().map(Operation::declaration).collect::<Vec<_>>(),"node_schema":node_schema()})
+    json!({"parameter_references":{"scope":"current Motion graph definition","syntax":"ch(\"../node/parameter\") * 0.5","absolute":"/definition/node/parameter","components":["x","y","z","w","r","g","b","a"],"container_node":"Channel References","animation":"Value parameters accept inline tracks","cross_document":false},"wrangle":{"language":"rhai","version":"1.26.1","functions":crate::evaluation::wrangle::reference(),"run_over":["detail","point","primitive","corner","edge","instance"],"clock":"asset time; exact time_numerator/time_denominator plus seconds time","result":"Return Geometry as the final expression","attributes":"Cd: linear Rec.709 RGB vec3; P: World meters vec3; N: unitless normal vec3; orient: World quaternion"},"operations":operations(),"language":operations().iter().map(Operation::declaration).collect::<Vec<_>>(),"node_schema":node_schema()})
 }
 
 #[cfg(test)]

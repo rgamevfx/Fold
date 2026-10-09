@@ -22,6 +22,89 @@ document. Unknown documents stay opaque. Public Composition, scene and composito
 are described below; opening files remains an application action. Saving a copy
 is described below.
 
+## Parameter references
+
+Check `catalog.parameter_references`. The current M5c implementation supports
+references within one Motion graph definition, including nested instances of that
+definition. Cross-document expression references are not yet available. Project-wide
+inspection paths are a separate capability described below.
+
+Expose useful artist controls as container `input` declarations. Network displays
+them together on **Channel References**; its outputs follow input IDs, names and
+order. Connect directly to those inputs. Use inline `expr(...)` for arithmetic
+and inline `track(...)` bindings for animation instead of generating primitive
+nodes solely to carry parameter values.
+
+For a node with `width` and `height` distance parameters, this native source binding
+sets height to one quarter of its own width:
+
+```text
+"height" @EXISTING_PARAMETER_METADATA = expr(ch("width") * 0.25);
+```
+
+Retain the actual metadata from inspection in place of the placeholder. The real
+CLI/MCP regression `cli_and_mcp_author_relative_parameter_expressions_without_primitive_nodes`
+executes this edit through discovery, source inspection, proposal, candidate
+inspection, Apply and undo/redo. It reads 50 canvas units from a width of 200 and
+verifies that no nodes were added.
+
+Relative paths start at the owning node. Use `ch("../controller/width")` for a
+sibling node and `ch("../Width")` for a container input. The currently qualified
+absolute form is `/definition/node/parameter`, confined to that definition.
+Vector/color/quaternion components use `/x`, `/y`, `/z`, `/w` or color aliases
+`/r`, `/g`, `/b`, `/a`. Escape a name segment using `~0` for `~`, `~1` for `/`,
+and `~2` for `.`. Keep structural separators unescaped.
+
+Resolved references retain parameter identities. Inspect fresh canonical source
+after rename; it prints current target paths. Types and units are checked, and
+cycles or missing targets reject proposals. Reusable instances read their own
+inputs and local clock. Preserve protected parameters and connection identities.
+Do not substitute zero for a failed reference or build fallback primitive graphs.
+
+## Parameter discovery and sampling
+
+Use `inspect_parameters` with `epoch`, `revision`, `document` (a UUID or null for
+all supported documents), `offset: 0` and `limit: 256`. Poll the worker job.
+`result.parameters` contains stable `target` objects, unescaped `path` segments,
+`value_type` and `editable`. Continue at `result.next` until it is null. Keep the
+same revision for all pages. Native Motion occurrences, scene placement controls and
+object graphs, Compositor primitive controls/channels, Composition layer controls,
+and Timeline track/clip controls currently participate. Unused Motion definitions,
+reusable-effect placements and full structured parameters are not yet covered.
+`target.parameter` is either `{"kind":"native","id":UUID}` or
+`{"kind":"property","name":KEY}`. Property keys are fixed provider contracts,
+not artist labels or JSON paths. Preserve the complete target from inspection. A null `value_type` denotes a structured control; it cannot be
+sampled as one primitive.
+
+To resolve a path, call `resolve_parameter` with `epoch`, `revision`, `owner`
+(the unescaped path segments of the owning node/container) and `path` (an escaped
+relative or absolute string). Absolute discovery paths start with the project
+**document name**. Nested Composition layer and Timeline clip sources add their owner
+path and source document name. These are distinct from the definition-local `ch()`
+paths above. Clips currently have no authored name; their path segment contains the
+full stable clip ID.
+Duplicate names produce an ambiguity error. Use the returned stable target for
+sampling and retain it across renames; refresh display paths from inspection.
+
+Call `sample_parameter` with `epoch`, `revision`, the full inspected `target`
+and an exact rational `time`, for example `{"numerator": 1, "denominator": 2}`.
+The result contains `value`, `target`, `time` and `revision`. Without a placement,
+time is authored **target document time**, not output-relative frame time. With
+`target.placement`, time is authored **placement root time**. Preserve its root and
+ordered owner IDs; these distinguish repeated uses of one source. Composition and
+Timeline source mappings apply before the source canvas start and Motion object/
+instance clocks. Sampling inspects controls even outside a visible layer/clip range;
+it does not return a held or black video frame. Compositor and Composition use their
+native configuration and animation samplers.
+Missing targets, invalid components and stale revisions return errors.
+
+The CLI/MCP parameter-expression regression also performs discovery, relative
+lookup and sampling through these public methods, verifies 50 canvas units, and
+checks rejection of a stale revision. The layer/Timeline public regression verifies
+property targets and nested source discovery/sampling through both transports. These read tools do not authorize or implement
+cross-document expression links. Continue to edit through inspected native source
+and the existing proposal/Apply workflow.
+
 ## Jobs and inspection
 
 Preparation, inspection, observation and project saving may return

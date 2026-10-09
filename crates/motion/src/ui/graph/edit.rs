@@ -153,9 +153,23 @@ fn connect(
     }
     Ok(())
 }
-fn reference(wire: &WireView) -> Result<Reference, String> {
+fn reference(wire: &WireView, definition: &crate::model::Definition) -> Result<Reference, String> {
     let reference: Reference = serde_json::from_str(&wire.source.key).map_err(|e| e.to_string())?;
-    if source(reference).node != wire.source.node {
+    let owner = if let Reference::Parameter { parameter, .. } = reference {
+        if definition.inputs.iter().any(|p| p.id == parameter) {
+            definition.id
+        } else {
+            definition
+                .nodes
+                .iter()
+                .find(|n| n.parameters.values().any(|p| p.id == parameter))
+                .map(|n| n.id)
+                .ok_or("Missing parameter source")?
+        }
+    } else {
+        source(reference, definition.id).node
+    };
+    if owner != wire.source.node {
         return Err("Connection source identity mismatch".into());
     }
     Ok(reference)
@@ -169,9 +183,12 @@ pub(in crate::ui) fn apply(
     let mut after = value.clone();
     for change in changes {
         match change {
-            GraphChange::Connect(wire) => {
-                connect(&mut after, definition, &wire.target, Some(reference(wire)?))?
-            }
+            GraphChange::Connect(wire) => connect(
+                &mut after,
+                definition,
+                &wire.target,
+                Some(reference(wire, value.definition(definition)?)?),
+            )?,
             GraphChange::Disconnect(socket) => connect(&mut after, definition, socket, None)?,
             GraphChange::Rewire { remove, add } => {
                 for socket in remove
@@ -181,7 +198,12 @@ pub(in crate::ui) fn apply(
                     connect(&mut after, definition, socket, None)?;
                 }
                 for wire in add {
-                    connect(&mut after, definition, &wire.target, Some(reference(wire)?))?;
+                    connect(
+                        &mut after,
+                        definition,
+                        &wire.target,
+                        Some(reference(wire, value.definition(definition)?)?),
+                    )?;
                 }
             }
             GraphChange::Positions(positions) => {
@@ -202,6 +224,9 @@ pub(in crate::ui) fn apply(
                     .iter_mut()
                     .find(|d| d.id == definition)
                     .ok_or("Missing asset")?;
+                if ids.contains(&definition) {
+                    return Err("Channel References belongs to the container. Edit its parameters in the Inspector.".into());
+                }
                 let owned = crate::reconcile::identities(asset)?;
                 let visible = graph_ids(asset);
                 if ids.iter().any(|id| !visible.contains(id)) {
@@ -258,10 +283,7 @@ pub(in crate::ui) fn apply(
 }
 
 fn graph_ids(asset: &crate::model::Definition) -> std::collections::BTreeSet<ObjectId> {
-    asset
-        .inputs
-        .iter()
-        .map(|v| v.id)
+    std::iter::once(asset.id)
         .chain(asset.nodes.iter().map(|v| v.id))
         .chain(asset.instances.iter().map(|v| v.id))
         .chain(asset.outputs.iter().map(|v| v.id))

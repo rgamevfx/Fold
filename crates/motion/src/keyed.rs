@@ -4,8 +4,7 @@ use fold_foundation::ObjectId;
 use fold_platform::animation::{Channel, Target};
 use std::collections::BTreeSet;
 
-/// Convert a literal parameter to an editable native keyframes node. The target
-/// parameter retains its ID and metadata; the new connection is explicit.
+/// Animate a parameter in place. Its identity and metadata remain unchanged.
 pub fn animate(
     construction: &Construction,
     parameter: ObjectId,
@@ -22,42 +21,16 @@ pub fn animate(
         else {
             continue;
         };
-        let owner_name = node.name.clone();
-        let (port, target) = node
+        let target = node
             .parameters
-            .iter_mut()
-            .find(|(_, p)| p.id == parameter)
+            .values_mut()
+            .find(|p| p.id == parameter)
             .ok_or("Missing parameter")?;
         let Binding::Literal { value } = target.binding()? else {
             return Err("Only authored literal values can start a key track".into());
         };
-        if !value.ty().is_interpolatable() {
-            return Err("This value type does not support interpolated keys".into());
-        }
         let track = crate::binding::Track::constant(value, time)?;
-        let mut stem = format!("{owner_name} {port} keys");
-        while stem.len() > 240 {
-            stem.pop();
-        }
-        let mut animation = crate::registry::resolve("fold.motion.keyframes", 1, "value")?
-            .node(&stem, [("track".into(), Binding::Track { track })].into())?;
-        target.value = serde_json::to_value(Binding::Link {
-            reference: crate::model::Reference::Node { node: animation.id }.into(),
-        })
-        .map_err(|e| e.to_string())?;
-        let names: BTreeSet<_> = definition
-            .inputs
-            .iter()
-            .map(|i| i.name.as_str())
-            .chain(definition.nodes.iter().map(|n| n.name.as_str()))
-            .chain(definition.instances.iter().map(|i| i.name.as_str()))
-            .collect();
-        let mut suffix = 2;
-        while names.contains(animation.name.as_str()) {
-            animation.name = format!("{stem} {suffix}");
-            suffix += 1;
-        }
-        definition.nodes.push(animation);
+        target.value = serde_json::to_value(Binding::Track { track }).map_err(|e| e.to_string())?;
         found = true;
         break;
     }

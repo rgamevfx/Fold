@@ -39,6 +39,29 @@ fn import(snapshot: &Snapshot, args: &[u8], cancel: &Cancel) -> Result<EditBatch
 }
 struct Documents;
 impl DocumentProvider for Documents {
+    fn parameter_sources(
+        &self,
+        document: &Document,
+    ) -> Result<Vec<fold_platform::parameters::Source>, String> {
+        crate::parameters::sources(document)
+    }
+
+    fn parameters(
+        &self,
+        document: &Document,
+    ) -> Result<Vec<fold_platform::parameters::Descriptor>, String> {
+        crate::parameters::catalog(document)
+    }
+    fn sample_parameter(
+        &self,
+        document: &Document,
+        target: &fold_platform::parameters::Target,
+        time: fold_foundation::Time,
+        cancel: &fold_media::Cancel,
+    ) -> Result<fold_platform::parameters::Literal, String> {
+        crate::parameters::sample(document, target, time, cancel)
+    }
+
     fn settings(
         &self,
         document: &Document,

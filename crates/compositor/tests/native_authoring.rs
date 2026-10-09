@@ -373,3 +373,64 @@ fn animation_cannot_bypass_protected_static_controls_or_effect_mix() {
         assert_eq!(graph.source(Some(&[id])).unwrap(), expected);
     }
 }
+
+#[test]
+fn parameter_service_samples_the_render_configuration_and_keeps_native_identity() {
+    use fold_foundation::Time;
+    use fold_graph::types::Literal;
+    let mut graph = fixture();
+    let mut transform = Node::new(
+        C::Transform {
+            translate: [0.; 2],
+            scale: [1.; 2],
+            opacity: 1.,
+        },
+        vec![graph.nodes[1].id],
+    );
+    transform
+        .animation
+        .insert(
+            "opacity.0".into(),
+            fold_animation::Curve {
+                keys: vec![
+                    fold_animation::Key::new(Time::ZERO, 0.25),
+                    fold_animation::Key::new(Time::new(1, 1).unwrap(), 0.75),
+                ],
+            },
+        )
+        .unwrap();
+    let id = transform.parameters["opacity"].id;
+    graph.nodes[2].set_input(0, transform.id).unwrap();
+    graph.nodes.push(transform);
+    let document = graph.document(DocumentId::new()).unwrap();
+    let registry = registry();
+    let entries = registry.parameters(&document).unwrap();
+    let entry = entries
+        .iter()
+        .find(|e| e.target.parameter.native() == Some(id))
+        .unwrap();
+    assert_eq!(
+        registry
+            .sample_parameter(
+                &document,
+                &entry.target,
+                Time::new(1, 2).unwrap(),
+                &Default::default()
+            )
+            .unwrap(),
+        Literal::Scalar { value: 0.5 }
+    );
+    graph.nodes.last_mut().unwrap().name = "Moved / transform".into();
+    let renamed = graph.document(document.id).unwrap();
+    assert_eq!(
+        registry
+            .sample_parameter(
+                &renamed,
+                &entry.target,
+                Time::new(1, 1).unwrap(),
+                &Default::default()
+            )
+            .unwrap(),
+        Literal::Scalar { value: 0.75 }
+    );
+}

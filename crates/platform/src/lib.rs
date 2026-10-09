@@ -9,6 +9,7 @@ pub mod format;
 pub mod layer_graph;
 pub mod packages;
 pub mod panel_context;
+pub mod parameters;
 pub mod settings;
 pub mod workspace;
 

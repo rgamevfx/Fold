@@ -378,3 +378,73 @@ fn moving_effect_keys_follows_clip_and_split_has_independent_identity() {
         split.clips[1].effects[0].animation
     );
 }
+
+#[test]
+fn parameter_service_keeps_clip_identity_and_typed_controls_after_track_move() {
+    use fold_platform::{
+        packages::PackageRegistry,
+        parameters::{self, Literal, Unit},
+    };
+    let (project, document, clip) = setup();
+    let mut registry = PackageRegistry::default();
+    fold_timeline::package::register(&mut registry).unwrap();
+    let snapshot = project.snapshot();
+    let source = &snapshot.state().documents[&document];
+    let entries = registry.parameters(source).unwrap();
+    let find = |name: &str, component| {
+        entries
+            .iter()
+            .find(|e| {
+                e.target.object == Some(clip)
+                    && e.target.parameter.property() == Some(name)
+                    && e.target.component == component
+            })
+            .unwrap()
+    };
+    let entry = find("source_start", None);
+    assert_eq!(
+        registry
+            .sample_parameter(source, &entry.target, t(30), &Default::default())
+            .unwrap(),
+        Literal::Duration { value: t(20) }
+    );
+    let position = find("transform.position", Some(0));
+    assert_eq!(
+        registry
+            .sample_parameter(source, &position.target, t(30), &Default::default())
+            .unwrap(),
+        Literal::Distance {
+            value: 0.,
+            unit: Unit::Canvas
+        }
+    );
+    let mut changed = sequence(&snapshot, document);
+    changed
+        .tracks
+        .push(Track::new(TrackKind::Video, "Other / track"));
+    changed.clips[0].track = changed.tracks[1].id;
+    changed.tracks[1].locked = true;
+    let changed = changed.document(document).unwrap();
+    let entries = registry.parameters(&changed).unwrap();
+    let moved = entries.iter().find(|e| e.target == entry.target).unwrap();
+    assert!(!moved.editable);
+    assert_eq!(
+        parameters::resolve(&entries, &[], &parameters::absolute_path(moved)).unwrap(),
+        moved
+    );
+    assert_eq!(
+        registry
+            .sample_parameter(&changed, &entry.target, t(30), &Default::default())
+            .unwrap(),
+        Literal::Duration { value: t(20) }
+    );
+    let mut bad = entry.target.clone();
+    bad.parameter = parameters::Key::Property {
+        name: "extensions.future-clip".into(),
+    };
+    assert!(
+        registry
+            .sample_parameter(&changed, &bad, t(30), &Default::default())
+            .is_err()
+    );
+}

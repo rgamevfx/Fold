@@ -69,6 +69,8 @@ fn capture(kind: Capture) {
     let fonts = sdk::typography::Typography::install(&mut context);
     let mut network = Editor(Shared::default(), Default::default());
     network.initialize(&context, Some(&fonts));
+    let mut narrow_network = Editor(Shared::default(), Default::default());
+    narrow_network.initialize(&context, Some(&fonts));
     let mut host = if matches!(kind, Capture::Scene) {
         super::tests::scene_setup()
     } else {
@@ -307,6 +309,11 @@ fn capture(kind: Capture) {
                 .size([width, 780.], sdk::imgui::Condition::Always)
                 .build(|| {
                     if matches!(kind, Capture::Network) {
+                        let network = if title.starts_with("Narrow") {
+                            &mut narrow_network
+                        } else {
+                            &mut network
+                        };
                         network.draw_network(ExtensionUi {
                             ui,
                             host: &mut host,

@@ -11,6 +11,44 @@ use std::collections::{BTreeMap, BTreeSet};
 pub use fold_graph::validation::{Diagnostic, Kind};
 
 impl Construction {
+    /// Parameter types use the same checker as graph execution. Structured
+    /// controls have no single value type and are catalogued separately.
+    pub(crate) fn parameter_types(&self) -> Result<BTreeMap<ObjectId, Type>, String> {
+        self.validate_semantics()?;
+        let mut checker = Checker {
+            construction: self,
+            types: BTreeMap::new(),
+            instances: BTreeSet::new(),
+            active: Vec::new(),
+            diagnostic: None,
+        };
+        let mut result = BTreeMap::new();
+        for definition in &self.definitions {
+            for input in &definition.inputs {
+                result.insert(input.id, input.ty.clone());
+            }
+            for node in &definition.nodes {
+                for parameter in node.parameters.values() {
+                    if matches!(
+                        parameter.binding()?,
+                        Binding::List { .. } | Binding::Ramp { .. }
+                    ) {
+                        continue;
+                    }
+                    let ty = checker.reference(
+                        definition,
+                        Reference::Parameter {
+                            parameter: parameter.id,
+                            component: None,
+                        },
+                    )?;
+                    result.insert(parameter.id, ty);
+                }
+            }
+        }
+        Ok(result)
+    }
+
     /// Resolve every operation, reference and override, including disconnected work.
     /// An unresolved operation can be saved but cannot pass this execution gate.
     pub fn validate_semantics(&self) -> Result<(), String> {
@@ -174,6 +212,35 @@ impl Checker<'_> {
     }
     fn reference(&mut self, scope: &Definition, reference: Reference) -> Result<Type, String> {
         match reference {
+            Reference::Parameter {
+                parameter,
+                component,
+            } => {
+                if let Some(input) = scope.inputs.iter().find(|i| i.id == parameter) {
+                    if component.is_none() {
+                        return Err(
+                            "A whole container parameter requires an Input reference".into()
+                        );
+                    }
+                    return fold_graph::channel::component_type(&input.ty, component);
+                }
+                let target = scope
+                    .nodes
+                    .iter()
+                    .flat_map(|n| n.parameters.values())
+                    .find(|p| p.id == parameter)
+                    .ok_or("Parameter outside definition scope")?;
+                if let Some(ty) = self.types.get(&parameter) {
+                    return fold_graph::channel::component_type(ty, component);
+                }
+                self.enter(parameter)?;
+                let result =
+                    registry::binding_type(&target.binding()?, &mut |r| self.reference(scope, r));
+                self.active.pop();
+                let ty = result?;
+                self.types.insert(parameter, ty.clone());
+                fold_graph::channel::component_type(&ty, component)
+            }
             Reference::Input { input } => scope
                 .inputs
                 .iter()
