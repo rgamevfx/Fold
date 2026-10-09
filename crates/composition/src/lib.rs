@@ -15,3 +15,5 @@ pub const COMPOSITION: &str = "fold.composition.document";
 
 /// Persisted role: editable content inside a composition, not a standalone composition.
 pub const LAYER_GRAPH: &str = "fold.composition.layer_graph";
+
+pub mod proposals;

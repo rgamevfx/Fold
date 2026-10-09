@@ -196,7 +196,8 @@ fn response_memory_budget_evicts_oldest_and_tickets_cannot_cross_trackers() {
 #[test]
 fn retried_candidate_apply_commits_once_even_after_artist_undo() {
     use fold_foundation::DocumentId;
-    use fold_motion::{candidates::Store, editing, model::Construction};
+    use fold_motion::{editing, model::Construction};
+    use fold_project::proposals::Store;
     use fold_project::{EditBatch, Mutation, Project};
     let now = Instant::now();
     let id = DocumentId::new();

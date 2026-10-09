@@ -1,7 +1,7 @@
 # Fold Codebase Maintenance Plan
 
 **Date:** 9 October 2026
-**Status:** C0 baseline complete, with native measurement failures recorded. C1–C3 complete; desktop/native acceptance limitations remain recorded. C4–C9 not started.
+**Status:** C0 baseline complete, with native measurement failures recorded. C1–C4 complete; desktop/native acceptance limitations remain recorded. C5–C9 not started.
 **Audit baseline:** `6280fb6` — Implement M5c parameter references and scoped inspection.
 
 ## Purpose and authority
@@ -32,7 +32,7 @@ M3–M5 and M5a–M5c acceptance remain open. The desktop freeze remains unresol
 | C1 | One supported generation of documents and operations | C0 | Complete; see evidence and limitations |
 | C2 | Typed failures and explicit provider capabilities | C1 | Complete; see evidence and limitations |
 | C3 | Prepared Compositor representation | C2 | Complete; see evidence and limitations |
-| C4 | Provider-owned agent editing | C3 | Planned |
+| C4 | Provider-owned agent editing | C3 | Complete; see evidence and limitations |
 | C5 | Focused application coordinator | C4 | Planned |
 | C6 | Explicit desktop workspace and viewer state | C5 | Planned |
 | C7 | Simplified GPU execution and vector path | C6 | Planned |
@@ -127,6 +127,8 @@ Native desktop captures failed with SIGSEGV in release and debug; a control also
 **Gate:** Generic dispatch does not parse creative documents or import their concrete editing models. Public-tool tests cover create/edit/inspect/apply, stale conflicts, protected controls, rebasing, cancellation, save/reopen, and mixed-document atomicity.
 
 **Checkpoint:** Workspace check, full applicable tests, Clippy, dependency/ownership checks, and public artist-to-agent handoff evidence. Update corresponding M3/M5a/M5c evidence without claiming their remaining gates complete.
+
+**C4 implementation — 9 October 2026:** [Results and verification](maintenance/evidence/c4/result.md). Provider-owned preparation, cached bounded inspection, reconciliation, protection and diagnostics replace creative-model dispatch branches. App retains admission, retries, jobs, observation scheduling and mixed-document coordination; Project retains candidate lifetime and atomic publication. Public schemas, examples and the Fold skill follow provider discovery. Checkpoint passed: 772 workspace tests, 5 explicit native frame tests, 16 Python tests, workspace/headless checks, Clippy and dependency/ownership checks. Existing desktop failures and Motion acceptance gates remain open; C5 and M6 have not begun.
 
 ## C5 — Rewrite application coordination
 

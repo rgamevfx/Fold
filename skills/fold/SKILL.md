@@ -16,7 +16,7 @@ Use container inputs and inline expressions by default; do not create a separate
 primitive node for each control or simple arithmetic expression. Discover the
 running build's supported reference scope before proposing a link.
 
-1. Discover the current epoch, revision, supported documents, catalog and limits.
+1. Discover the current epoch, revision, supported documents, provider schemas and limits.
 2. Inspect the exact document revision and intended scope. Preserve stable IDs,
    protected controls, layout and unrelated source.
 3. Propose a scoped source edit or expected-value patch with a fresh request UUID.
@@ -40,8 +40,10 @@ capabilities; artwork work must not require reading Rust crates or editing proje
 payloads directly.
 
 M5a exposes public Composition/scene creation, hierarchy edits, object-scoped
-source edits and mixed-document candidates. Use discovery's `project_authoring`
-schema and inspect all changed documents before Apply. Current Composition writes
+source edits and mixed-document candidates. Use `project_authoring.schema` for
+project assembly and `scoped_proposals[].requests` for the owning provider's
+source/patch/edit schemas. Motion's operation catalog is under that provider's
+`requests.catalog`. Inspect all changed documents before Apply. Current Composition writes
 schema 3; use the discovered v2 Grade/Merge/Transform/Blur records. C1 retired
 the two-layer Timeline provider and older executable schemas. The new
 [Make it move workflow](../../demos/make-it-move.py) uses three independent scene

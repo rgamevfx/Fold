@@ -2817,7 +2817,7 @@ fn candidate_evaluation_retains_project_context_until_explicit_rebase() {
         retained.state().documents[&sibling],
         base.state().documents[&sibling]
     );
-    let mut store = fold_motion::candidates::Store::default();
+    let mut store = fold_project::proposals::Store::default();
     let now = std::time::Instant::now();
     let handle = store.insert(candidate, now).unwrap();
     let observation = store.shared(handle, now).unwrap();

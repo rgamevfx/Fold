@@ -44,7 +44,7 @@ edit(c,[{'op':'create','document':c,'type_id':'fold.composition.document','name'
 record=json.loads(inspect(c))
 edit(c,[{'op':'author','document':c,'expected':record,'edits':[{'op':'format','width':1920,'height':1080,'rate':[30,1],'frames':120}]},*[{'op':'add_layer','composition':c,'kind':'scene'} for _ in range(3)]])
 record=json.loads(inspect(c)); layers=record['native']['layers']
-catalog={(op['key'].split('.')[-1],op['mode']):op for op in discover()['result']['catalog']['operations']}
+catalog={(op['key'].split('.')[-1],op['mode']):op for op in next(p["requests"]["catalog"] for p in discover()['result']["scoped_proposals"] if p["type"] == "fold.motion.construction")['operations']}
 dump=lambda v:json.dumps(v,separators=(',',':'))
 def lit(kind,value,**kw):return {'kind':kind,'value':value,**kw}
 def val(v):return 'value(literal('+dump(v)+'))'

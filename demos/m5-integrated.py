@@ -114,7 +114,7 @@ ensure(original.endswith('extensions {};\n'), "Public construction prerequisite 
 asset_id = re.search(r'asset "Motion" @\{"id":"([^"]+)"\}', original)[1]
 root_id = re.search(r'root "Main" @\{"id":"([^"]+)"\}', original)[1]
 output_id = re.search(r'output "main" @\{"id":"([^"]+)"\}', original)[1]
-catalog = {(op["key"], op["mode"]): op for op in info["catalog"]["operations"]}
+catalog = {(op["key"], op["mode"]): op for op in next(p["requests"]["catalog"] for p in info["scoped_proposals"] if p["type"] == "fold.motion.construction")["operations"]}
 serial = 0
 
 def uid(name):

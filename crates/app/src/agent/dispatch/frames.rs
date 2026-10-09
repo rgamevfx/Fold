@@ -1,6 +1,6 @@
 //! Bounded frame worker. The application's Host owns GPU resources; this worker
 //! retains one renderer and immutable observation inputs, never artist state.
-use super::{Failure, encode, observe, workers};
+use super::{Failure, encode, workers};
 use crate::{
     agent::jobs,
     media_workflow::{self, SceneRequest},
@@ -203,30 +203,23 @@ fn run(
             "Frame time outside output half-open range",
         ));
     }
-    let mut provenance = if document_record.type_id == fold_motion::CONSTRUCTION {
-        let construction = fold_motion::model::Construction::from_document(document_record)
-            .map_err(Failure::invalid)?;
-        let scene_time = construction
-            .canvas
-            .start
-            .checked_add(time)
-            .map_err(|e| Failure::invalid(e.to_string()))?;
-        let measurements = observe::run(
-            epoch,
+    let mut provenance = if registry.has_capability(
+        document_record,
+        fold_platform::packages::Capability::Observations,
+    ) {
+        registry.observations(document_record)?.frame_provenance(
             document_record,
-            revision,
-            candidate,
-            serde_json::from_value(json!(output))
-                .map_err(|_| Failure::new("type", "Invalid construction output"))?,
-            &[scene_time],
+            &fold_platform::observations::Request {
+                epoch,
+                revision,
+                candidate,
+                output: output.clone(),
+                times: vec![time],
+                build: env!("FOLD_SOURCE_SHA256").into(),
+                target: env!("FOLD_BUILD_TARGET").into(),
+            },
             cancel,
-        )?;
-        let mut provenance = measurements["provenance"].clone();
-        provenance["camera"] = measurements["samples"][0]["value"]["camera"].clone();
-        provenance["cameras"] = measurements["samples"][0]["value"]["cameras"].clone();
-        provenance["scene_time"] = json!(scene_time);
-        provenance["asset_time"] = measurements["samples"][0]["asset_time"].clone();
-        provenance
+        )?
     } else {
         // Mixed outputs may contain several cameras and clocks. Fingerprint the
         // immutable project rather than inventing one scene's provenance.

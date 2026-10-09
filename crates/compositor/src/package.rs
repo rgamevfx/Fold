@@ -78,6 +78,11 @@ impl DocumentProvider for Documents {
     fn validate(&self, document: &Document) -> Result<(), String> {
         Composite::from_document(document).map(|_| ())
     }
+    fn scoped_proposals_capability(
+        &self,
+    ) -> Option<&dyn fold_platform::proposals::ScopedProposals> {
+        Some(&crate::proposals::Provider)
+    }
     fn parameters_capability(&self) -> Option<&dyn fold_platform::packages::Parameters> {
         Some(self)
     }

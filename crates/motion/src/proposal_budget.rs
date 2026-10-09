@@ -1,8 +1,9 @@
 //! Protocol budgets may be tighter than native opaque-document storage limits.
-use super::Failure;
-use fold_motion::model::Construction;
+use crate::model::Construction;
+use fold_platform::proposals::Failure;
+use fold_platform::proposals::FailureKind;
 use std::collections::{BTreeMap, VecDeque};
-pub(super) fn construction(value: &Construction) -> Result<(), Failure> {
+pub fn construction(value: &Construction) -> Result<(), Failure> {
     if value
         .definitions
         .iter()
@@ -11,7 +12,7 @@ pub(super) fn construction(value: &Construction) -> Result<(), Failure> {
         > 10000
     {
         return Err(Failure::new(
-            "budget",
+            FailureKind::Oversized,
             "Construction exceeds 10000 operations",
         ));
     }
@@ -20,9 +21,9 @@ pub(super) fn construction(value: &Construction) -> Result<(), Failure> {
     let mut depths: BTreeMap<_, usize> = definitions.keys().map(|id| (*id, 1)).collect();
     for definition in definitions.values() {
         for instance in &definition.instances {
-            *incoming
-                .get_mut(&instance.definition)
-                .ok_or_else(|| Failure::new("missing_resource", "Missing asset definition"))? += 1;
+            *incoming.get_mut(&instance.definition).ok_or_else(|| {
+                Failure::new(FailureKind::MissingResource, "Missing asset definition")
+            })? += 1;
         }
     }
     let mut ready: VecDeque<_> = incoming
@@ -35,7 +36,10 @@ pub(super) fn construction(value: &Construction) -> Result<(), Failure> {
         visited += 1;
         let depth = depths[&id];
         if depth > 64 {
-            return Err(Failure::new("budget", "Asset nesting exceeds 64"));
+            return Err(Failure::new(
+                FailureKind::Oversized,
+                "Asset nesting exceeds 64",
+            ));
         }
         for instance in &definitions[&id].instances {
             depths
@@ -51,7 +55,7 @@ pub(super) fn construction(value: &Construction) -> Result<(), Failure> {
         }
     }
     if visited != definitions.len() {
-        return Err(Failure::new("cycle", "Asset definition cycle"));
+        return Err(Failure::new(FailureKind::Cycle, "Asset definition cycle"));
     }
     Ok(())
 }
@@ -62,13 +66,12 @@ mod tests {
     #[test]
     fn admission_checks_longest_asset_path_without_expanding_instances() {
         let mut value =
-            Construction::from_document(&fold_motion::package::create(DocumentId::new()).unwrap())
+            Construction::from_document(&crate::package::create(DocumentId::new()).unwrap())
                 .unwrap();
         for count in 2..=65 {
-            let child = Construction::from_document(
-                &fold_motion::package::create(DocumentId::new()).unwrap(),
-            )
-            .unwrap();
+            let child =
+                Construction::from_document(&crate::package::create(DocumentId::new()).unwrap())
+                    .unwrap();
             value
                 .definitions
                 .last_mut()
@@ -80,7 +83,10 @@ mod tests {
                 assert!(construction(&value).is_ok());
             }
         }
-        assert_eq!(construction(&value).err().unwrap().code, "budget");
+        assert_eq!(
+            construction(&value).err().unwrap().kind,
+            FailureKind::Oversized
+        );
         value.definitions.pop();
         value.definitions.last_mut().unwrap().instances.clear();
         value
@@ -89,6 +95,6 @@ mod tests {
             .unwrap()
             .instances
             .push(value.root.clone());
-        assert_eq!(construction(&value).err().unwrap().code, "cycle");
+        assert_eq!(construction(&value).err().unwrap().kind, FailureKind::Cycle);
     }
 }

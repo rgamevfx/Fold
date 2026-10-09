@@ -16,7 +16,7 @@ Call `fold_request` with:
 {"version":2,"command":{"method":"discover"}}
 ```
 
-Use `epoch` from the response envelope and `revision`, `documents`, `catalog`,
+Use `epoch` from the response envelope and `revision`, `documents`, `scoped_proposals`,
 `request_schema` and `limits` from `result`. Select an existing supported native
 document. Unknown documents stay opaque. Public Composition, scene and compositor creation
 are described below; opening files remains an application action. Saving a copy
@@ -24,7 +24,8 @@ is described below.
 
 ## Parameter references
 
-Check `catalog.parameter_references`. The current M5c implementation supports
+Select the Motion entry in `scoped_proposals` by `type`, then check
+`requests.catalog.parameter_references`. The current M5c implementation supports
 references within one Motion graph definition, including nested instances of that
 definition. Cross-document expression references are not yet available. Project-wide
 inspection paths are a separate capability described below.
@@ -370,7 +371,31 @@ Closed contour inputs share the explicitly selected fill rule.
 
 ## Composition and object graphs (M5a)
 
-Discovery's `project_authoring.schema` describes `edit: {"kind":"project", "edits":[...]}`.
+Discovery's `project_authoring.schema` describes the host's `create`, `add_layer`
+and `connect_layers` operations inside `edit: {"kind":"project", "edits":[...]}`.
+Provider-owned operations are described by `scoped_proposals[].requests`, matched
+by the inspected document's `type`. The current provider request version is 1;
+the host binds it to wire version 2. The transport envelope and retry rules are
+unchanged. Motion's source/patch schema is `requests.graph`, scene operations are
+`requests.scene`, and Compositor/Composition operations are `requests.edits`.
+The Motion operation catalog is `requests.catalog` on its provider entry; there
+is no top-level creative catalog. Unknown operations and provider schemas fail.
+Compositor retains its provider source limit of 1 MiB; the total request limit
+still applies to expected and proposed text together. Motion source retains
+its 64 KiB limit.
+
+For example, after `discover`, select the Motion catalog without reading crates:
+
+```python
+motion = next(p for p in discovery["result"]["scoped_proposals"]
+              if p["type"] == "fold.motion.construction")
+operations = motion["requests"]["catalog"]["operations"]
+```
+
+C4 verifies this discovery path through both CLI and MCP handoff tests. Provider
+preparation retains immutable source/diff content. Changed dependencies reject
+rebasing; successful disjoint rebases require a fresh candidate inspection and
+receipt. A failed member of a mixed proposal publishes nothing.
 Use the ordinary guarded proposal, candidate inspection and Apply lifecycle.
 `create` takes a new document UUID, a discovered supported `type_id`, and a name.
 `add_layer` takes a Composition UUID and `kind: "scene"` or `"image"`.

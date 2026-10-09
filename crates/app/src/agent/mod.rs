@@ -9,3 +9,5 @@ pub mod local;
 
 #[cfg(target_os = "linux")]
 pub mod mcp;
+
+mod strict_json;

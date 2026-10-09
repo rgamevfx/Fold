@@ -6,18 +6,14 @@ use super::{
     wire::{self, Command, Scope},
 };
 use fold_foundation::ObjectId;
-use fold_motion::{model::Construction, source};
 use fold_project::proposals::{self as candidates, Proposal};
 pub mod native;
 use fold_project::{Project, Revision};
 use serde_json::{Value, json};
 use std::time::Instant;
-mod admission;
-use admission::construction as operation_budget;
 mod errors;
 #[cfg(feature = "gpu")]
 mod frames;
-mod observe;
 mod persistence;
 mod prepare;
 mod workers;
@@ -126,7 +122,8 @@ impl Dispatcher {
             None
         };
         // Parse original bytes so duplicate keys cannot disappear through Value.
-        let result = serde_json::from_slice::<wire::Request>(bytes)
+        let result = super::strict_json::validate(bytes)
+            .and_then(|()| serde_json::from_slice::<wire::Request>(bytes))
             .map_err(|error| Failure::new("unsupported", error.to_string()));
         if let Ok(wire::Request {
             command: Command::JobStatus { handle, wait_ms },
@@ -279,13 +276,13 @@ impl Dispatcher {
                 "documents":snapshot.state().documents.values().map(|document| json!({
                     "id":document.id,"package":document.package_id,"type":document.type_id,
                     "schema":document.schema_version,
-                    "native_inspection":(document.package_id == fold_motion::PACKAGE && document.type_id == fold_motion::CONSTRUCTION && document.schema_version == fold_motion::SCHEMA_VERSION) || (native::supported(&document.type_id) && crate::packages::builtins().supports(document))
+                    "native_inspection":crate::packages::builtins().has_capability(document, fold_platform::packages::Capability::ScopedProposals)
                 })).collect::<Vec<_>>(),
-                "catalog":fold_motion::registry::catalog(),
-                "project_authoring":{"schema":schemars::schema_for!(native::Edit),"providers":crate::packages::builtins().authoring_catalog().into_iter().filter(|p| p["type"].as_str().is_some_and(native::supported)).collect::<Vec<_>>(),"inspection":"Native provider records are under native; scenes include read-only object_sources. Project candidates inspect all changed documents before atomic Apply."},
+                "scoped_proposals":crate::packages::builtins().proposal_catalog(),
+                "project_authoring":{"schema":schemars::schema_for!(native::ProjectEdit),"providers":crate::packages::builtins().proposal_authoring_catalog(),"inspection":"Native provider records are under native; scenes include read-only object_sources. Project candidates inspect all changed documents before atomic Apply."},
                 "transport_support":{"linux_local_socket":cfg!(target_os = "linux"),"cli_protocol":cfg!(target_os = "linux"),"mcp_stdio":cfg!(target_os = "linux")},
                 "implemented":({ let mut methods = vec!["job_status","cancel_job","save_project_copy","observe","inspect_parameters","resolve_parameter","sample_parameter","inspect_document","inspect_candidate","propose","rebase","apply","cancel_candidate"]; if self.frames_available() { methods.push("observe_frame"); } methods }),
-                "parameter_inspection":{"methods":["inspect_parameters","resolve_parameter","sample_parameter"],"providers":[fold_motion::CONSTRUCTION,fold_motion::scene::TYPE,fold_compositor::COMPOSITE,fold_composition::COMPOSITION,fold_timeline::SEQUENCE],"path_scope":"project/document/object/occurrence/parameter as returned by inspection; names are escaped per segment","binding_scope":"Motion ch() expressions remain definition-local","time":"placement root authored time when placement is present; otherwise target document authored time; source clocks apply once","page_limit":256,"structured_values":"discoverable but not sampled as primitives"},
+                "parameter_inspection":{"methods":["inspect_parameters","resolve_parameter","sample_parameter"],"providers":crate::packages::builtins().parameter_provider_types(),"path_scope":"project/document/object/occurrence/parameter as returned by inspection; names are escaped per segment","binding_scope":"Motion ch() expressions remain definition-local","time":"placement root authored time when placement is present; otherwise target document authored time; source clocks apply once","page_limit":256,"structured_values":"discoverable but not sampled as primitives"},
                 "frame_observation":{"available":self.frames_available(),"method":"observe_frame","encoding":"rgba8_hex","max_pixels":2073600,"max_dimension":4096,"in_flight":2,"time_range":"registered output half-open duration","presentation":"shared_viewer_display","regions":true},
                 "unavailable":if self.frames_available() { json!({}) } else { json!({"frames":"No shared GPU host attached"}) },
                 "limits":{"job_wait_ms":jobs::MAX_LONG_POLL.as_millis(),"cpu_workers":2,"cpu_in_flight":workers::MAX_IN_FLIGHT,"jobs":jobs::MAX_JOBS,"job_lifetime_seconds":jobs::MAX_LIFETIME.as_secs(),"job_retention_seconds":jobs::RETENTION.as_secs(),"request_bytes":retry::MAX_REQUEST_BYTES,"response_bytes":retry::MAX_RESPONSE_BYTES,"observation_samples":64,"evaluation_steps":1000000,"evaluated_elements":1000000,"source_bytes":65536,"patches":128,"operations":10000,"asset_nesting":64,"live_candidates":candidates::MAX_LIVE,"candidate_idle_seconds":candidates::IDLE_LIFETIME.as_secs(),"request_ids":retry::MAX_REQUEST_IDS,"pending_requests":retry::MAX_PENDING,"cached_responses":retry::MAX_CACHED_RESPONSES,"cached_response_bytes":retry::MAX_CACHED_BYTES,"response_retention_seconds":retry::RESPONSE_LIFETIME.as_secs()}
@@ -445,10 +442,9 @@ impl Dispatcher {
                     },
                     now,
                     move |cancel| {
-                        observe::run(
-                            epoch, &document, revision, candidate, output, &times, cancel,
-                        )
-                        .map(workers::Output::Value)
+                        crate::packages::builtins().observations(&document)?.measure(
+                            &document, &fold_platform::observations::Request { epoch, revision, candidate, output: output.to_string(), times, build:env!("FOLD_SOURCE_SHA256").into(), target:env!("FOLD_BUILD_TARGET").into() }, cancel,
+                        ).map(workers::Output::Value).map_err(Failure::from)
                     },
                 )
             }
@@ -498,16 +494,7 @@ impl Dispatcher {
                     cancel.check().map_err(|e| Failure::new("cancelled", e))?;
                     let original = snapshot.state().documents.get(&scope.document)
                         .ok_or_else(|| Failure::new("missing_resource", "Missing document"))?;
-                    let text = if let Some(object) = scope.object {
-                        let scene = fold_motion::scene::Scene::from_document(original).map_err(Failure::invalid)?;
-                        projection(&scene.object(object).map_err(Failure::invalid)?.graph, scope)?
-                    } else if original.type_id == fold_motion::CONSTRUCTION {
-                        let value = Construction::from_document(original).map_err(Failure::invalid)?;
-                        projection(&value, scope)?
-                    } else {
-                        if scope.definition.is_some() { return Err(Failure::new("type", "This document uses document scope")); }
-                        serde_json::to_string_pretty(&native::inspect(original)?).map_err(|e| Failure::invalid(e.to_string()))?
-                    };
+                    let text = native::source(original, scope, cancel)?;
                     cancel.check().map_err(|e| Failure::new("cancelled", e))?;
                     Ok(workers::Output::Value(json!({"revision":snapshot.revision(),"scope":scope,"source":text,"rendering":false})))
                 })
@@ -550,9 +537,8 @@ impl Dispatcher {
                 let candidate = self.candidates.shared(handle, now)?;
                 self.submit(guard.scope, now, move |cancel| {
                     cancel.check().map_err(|e| Failure::new("cancelled", e))?;
-                    let rebased = candidate.rebase(&snapshot)?;
+                    let rebased = candidate.reconcile(&snapshot, cancel)?;
                     cancel.check().map_err(|e| Failure::new("cancelled", e))?;
-                    rebased.validate_budget()?;
                     rebased.validate_dependencies(cancel)?;
                     Ok(workers::Output::Candidate(Box::new(rebased)))
                 })
@@ -611,16 +597,6 @@ impl Dispatcher {
         Ok(())
     }
 }
-fn projection(value: &Construction, scope: Scope) -> Result<String, Failure> {
-    scope
-        .definition
-        .map_or_else(
-            || source::canonical(value),
-            |id| source::canonical_fragment(value, id),
-        )
-        .map_err(Failure::invalid)
-}
-
 fn encode(epoch: ObjectId, result: Result<Value, Failure>) -> Vec<u8> {
     let value = match result {
         Ok(result) => json!({"version":2,"epoch":epoch,"result":result}),
@@ -645,7 +621,7 @@ fn encode(epoch: ObjectId, result: Result<Value, Failure>) -> Vec<u8> {
 mod tests {
     use super::*;
     use fold_foundation::DocumentId;
-    use fold_motion::editing;
+    use fold_motion::{editing, model::Construction};
     use fold_project::{EditBatch, Mutation};
     use std::{sync::mpsc, time::Duration};
 
@@ -736,7 +712,17 @@ mod tests {
         construction.seed = 42;
         let candidate =
             editing::prepare(&snapshot, document, editing::Scope::Document, construction).unwrap();
-        let candidate = native::Candidate::Construction(Box::new(candidate));
+        let candidate = native::Candidate::from_document(
+            &snapshot,
+            Scope {
+                document,
+                definition: None,
+                object: None,
+            },
+            candidate.document(),
+            &fold_media::Cancel::default(),
+        )
+        .unwrap();
         let retained = candidate.clone();
         let (ready, started) = mpsc::channel();
         let (release, resume) = mpsc::channel();
@@ -807,7 +793,20 @@ mod tests {
         let now = Instant::now();
         let handle = dispatcher
             .candidates
-            .insert(native::Candidate::Construction(Box::new(candidate)), now)
+            .insert(
+                native::Candidate::from_document(
+                    &snapshot,
+                    Scope {
+                        document,
+                        definition: None,
+                        object: None,
+                    },
+                    candidate.document(),
+                    &fold_media::Cancel::default(),
+                )
+                .unwrap(),
+                now,
+            )
             .unwrap();
         let (inspection, proof) = dispatcher
             .candidates

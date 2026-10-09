@@ -1,0 +1,17 @@
+    Finished `test` profile [unoptimized] target(s) in 0.32s
+     Running tests/agent_frames.rs (target/debug/deps/agent_frames-c539cfcef294fcee)
+
+running 4 tests
+test mixed_compositor_fixture_matches_preview_after_public_source_edits ... ok
+test mixed_scene_first_frame_retains_static_spheres_when_title_is_transparent ... ok
+test public_frame_jobs_match_registered_pixels_and_retain_candidate_context ... ok
+test public_mixed_document_candidate_frames_match_committed_composition ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 70.96s
+
+     Running tests/agent_handoff.rs (target/debug/deps/agent_handoff-8b6a823f2930095c)
+
+running 1 test
+test cli_and_mcp_return_identical_revision_bound_frames ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 5.43s

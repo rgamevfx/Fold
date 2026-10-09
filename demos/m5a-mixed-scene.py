@@ -47,7 +47,7 @@ record=json.loads(inspect(c)); all_layers=record['native']['layers']
 scene_documents={d['id'] for d in discover()['result']['documents'] if d['type']=='fold.motion.native.scene'}
 layers=[layer for layer in all_layers if layer['source']['Output']['document'] in scene_documents]
 assert len(layers)==2 and len(all_layers)==3
-catalog={(op['key'].split('.')[-1],op['mode']):op for op in discover()['result']['catalog']['operations']}
+catalog={(op['key'].split('.')[-1],op['mode']):op for op in next(p["requests"]["catalog"] for p in discover()['result']["scoped_proposals"] if p["type"] == "fold.motion.construction")['operations']}
 dump=lambda v:json.dumps(v,separators=(',',':'))
 def lit(kind,value,**kw):return {'kind':kind,'value':value,**kw}
 def val(v):return 'value(literal('+dump(v)+'))'

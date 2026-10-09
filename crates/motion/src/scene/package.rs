@@ -244,6 +244,11 @@ impl DocumentProvider for Documents {
     fn validate(&self, d: &Document) -> Result<(), String> {
         Scene::from_document(d).map(|_| ())
     }
+    fn scoped_proposals_capability(
+        &self,
+    ) -> Option<&dyn fold_platform::proposals::ScopedProposals> {
+        Some(&crate::proposals::Provider::SCENE)
+    }
     fn parameters_capability(&self) -> Option<&dyn fold_platform::packages::Parameters> {
         Some(self)
     }

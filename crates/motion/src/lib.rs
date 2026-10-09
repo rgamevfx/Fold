@@ -5,7 +5,6 @@
 //! service; World passes require the spatial GPU build. Camera Plane and full
 //! rendering acceptance remain under qualification.
 pub use fold_graph::{binding, execution, expression, expression_source, ramp, types};
-pub mod candidates;
 pub mod connections;
 pub mod diff;
 pub mod editing;
@@ -31,3 +30,10 @@ mod video;
 pub const PACKAGE: &str = "fold.motion.native";
 pub const CONSTRUCTION: &str = "fold.motion.construction";
 pub const SCHEMA_VERSION: u32 = 1;
+
+pub mod observation;
+pub mod proposals;
+
+pub mod proposal_budget;
+
+mod proposal_errors;

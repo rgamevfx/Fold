@@ -1,6 +1,7 @@
 # Geometry attributes and Rhai Wrangle
 
-Discover the running catalog first. M5b builds expose `catalog.wrangle.functions`
+Discover the Motion provider in `scoped_proposals` by `type` and use its
+`requests.catalog` as `catalog` below. M5b builds expose `catalog.wrangle.functions`
 from the actual registered host functions. Older running builds do not acquire
 these capabilities when the repository changes. Use the guarded
 [public workflow](public-workflow.md) for proposals, inspection, Apply and saving.

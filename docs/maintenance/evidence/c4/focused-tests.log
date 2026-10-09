@@ -1,0 +1,128 @@
+   Compiling fold-app v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/app)
+    Finished `test` profile [unoptimized] target(s) in 15.89s
+     Running unittests src/lib.rs (target/debug/deps/fold_app-55a95f31c6f49fa7)
+
+running 31 tests
+test agent::dispatch::tests::cancelled_inspection_does_not_activate_its_receipt ... ok
+test agent::dispatch::tests::cancelled_preparation_cannot_publish_a_candidate ... ok
+test agent::dispatch::tests::local_waiters_finish_timeout_and_retire_without_blocking_the_owner ... ok
+test agent::dispatch::tests::save_job_cancellation_distinguishes_prepublication_and_published_results ... ok
+test agent::dispatch::workers::tests::bounded_workers_report_panics_and_acknowledge_cancellation ... ok
+test agent::local::tests::framing_rejects_unbounded_truncated_and_empty_input ... ok
+test agent::mcp::tests::lifecycle_schema_and_raw_arguments_share_the_wire_contract ... ok
+test agent::mcp::tests::malformed_and_oversized_messages_never_reach_fold ... ok
+test output::tests::cancellation_stops_export_retry_before_another_evaluation ... ok
+test output::tests::pressure_retries_independently_of_wording_but_permanent_failure_does_not ... ok
+test session::preview_metadata::tests::transient_roots_with_the_same_revision_and_undo_do_not_reuse_stale_queries ... ok
+test session::preview_worker::source_preparation::tests::lookahead_uses_exact_time_and_stops_or_wraps_at_the_review_boundary ... ok
+test session::preview_worker::source_preparation::tests::seek_range_edit_and_pause_cancel_old_work_and_bound_pending_snapshots ... ok
+test session::preview_worker::tests::advancing_viewers_and_background_ranges_receive_fair_service ... ok
+test session::preview_worker::tests::allocation_pressure_yields_and_retries_valid_demand_without_failure_publication ... ok
+test session::preview_worker::tests::ingress_and_result_retention_are_bounded ... ok
+test session::preview_worker::tests::joining_an_active_key_does_not_queue_duplicate_work_after_completion ... ok
+test session::preview_worker::tests::pressure_policy_rejects_permanent_errors_and_respects_timeout_and_cancellation ... ok
+test session::preview_worker::tests::range_and_current_frame_deduplicate_without_moving_the_viewer ... ok
+test session::preview_worker::tests::realtime_gets_capacity_without_starving_every_frame ... ok
+test session::preview_worker::tests::shared_work_survives_one_seek_but_cancels_when_all_owners_retire ... ok
+test session::preview_worker::tests::spatial_changes_cancel_only_the_viewer_that_moved ... ok
+test session::viewer_transport::tests::every_frame_last_frame_dwells_then_stops_and_stale_results_are_rejected ... ok
+test session::viewer_transport::tests::fractional_deadlines_and_loops_remain_exact_with_fast_frames ... ok
+test session::viewer_transport::tests::inclusive_out_and_fractional_rate ... ok
+test session::viewer_transport::tests::independent_clocks_pause_loop_and_device_mapping ... ok
+test session::viewer_transport::tests::realtime_accepts_late_frames_without_moving_playhead_or_regressing_picture ... ok
+test session::viewer_transport::tests::realtime_lookahead_waits_for_clock_and_rejects_retired_generation ... ok
+test session::viewer_transport::tests::slow_every_frame_advances_only_on_presentation_and_does_not_catch_up ... ok
+test session::viewer_transport::tests::subframe_origin_and_repeated_loops_do_not_accumulate_rounding_drift ... ok
+test timeline_transition::tests::default_transition_and_definition_are_one_undoable_edit ... ok
+
+test result: ok. 31 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.17s
+
+     Running tests/agent_dispatch.rs (target/debug/deps/agent_dispatch-c0d3ec469e714f7e)
+
+running 12 tests
+test dispatcher_preserves_locks_scopes_and_generation_inspection_guards ... ok
+test document_inspection_retains_the_requested_revision_while_artist_edits ... ok
+test expired_apply_captures_unchanged_frozen_construction ... ok
+test inspect_apply_retry_undo_and_cancel_use_one_guarded_dispatcher ... ok
+test native_validation_codes_and_identities_survive_source_and_patch_jobs ... ok
+test preparation_capacity_failure_retains_existing_generations ... ok
+test queued_proposal_keeps_its_base_and_retry_does_not_publish_a_second_generation ... ok
+test scoped_source_round_trip_keeps_identity_and_invalid_drafts_return_spans ... ok
+test source_preconditions_and_disjoint_rebase_preserve_artist_edits ... ok
+test source_structural_failure_retains_native_cause_and_source_span ... ok
+test structural_patch_failures_preserve_cycle_and_missing_definition_diagnostics ... ok
+test version_schema_and_closed_dispatch_reject_legacy_and_artist_unlock_routes ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.46s
+
+     Running tests/agent_handoff.rs (target/debug/deps/agent_handoff-352989fd4673144f)
+
+running 5 tests
+test cli_and_mcp_author_relative_parameter_expressions_without_primitive_nodes ... ok
+test cli_and_mcp_inspect_layer_and_timeline_properties_through_one_service ... ok
+test cli_and_mcp_preserve_native_handoff_through_undo_and_reopen ... ok
+test cli_and_mcp_save_committed_project_copies_with_exact_retry_and_reopen ... ok
+test integrated_ramp_key_lock_and_layout_survive_public_field_handoff ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 18.11s
+
+     Running tests/agent_jobs.rs (target/debug/deps/agent_jobs-0d8bd52895e47df1)
+
+running 4 tests
+test active_capacity_is_not_evicted_even_after_deadlines ... ok
+test bounded_result_storage_evicts_completed_results_but_not_active_jobs ... ok
+test cancellation_is_cooperative_and_cannot_relabel_a_commit ... ok
+test retention_deadlines_epoch_isolation_and_session_drop ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/agent_observe.rs (target/debug/deps/agent_observe-5f945f101cd409c2)
+
+running 19 tests
+test asynchronous_observation_retains_its_snapshot_across_artist_edits ... ok
+test box_observation_reports_mesh_uvs_and_transformed_bounds_without_text_provenance ... ok
+test camera_plane_observation_distinguishes_canvas_bounds_from_projection ... ok
+test candidate_observation_does_not_inspect_or_commit_the_proposal ... ok
+test cloner_observation_reports_shared_prototype_instances_and_world_bounds ... ok
+test committed_observations_keep_exact_time_ids_bounds_and_snapshot_provenance ... ok
+test grid_observation_exposes_metric_cells_and_stable_ids_after_count_change ... ok
+test job_cancellation_checks_scope_and_replays_its_original_outcome ... ok
+test native_extrude_candidate_reports_metric_meshes_regions_and_shared_glyph_provenance ... ok
+test native_outline_candidate_observations_retain_curves_and_source_font_provenance ... ok
+test native_ramp_source_candidate_observes_clamped_scalar_without_committing ... ok
+test native_text_observations_report_font_identity_logical_mappings_and_layout_bounds ... ok
+test nonfinite_transformed_bounds_fail_instead_of_serializing_null_measurements ... ok
+test observation_preparation_retains_native_failure_codes_and_ids ... ok
+test observations_keep_styling_per_placement_and_share_geometry_measurements ... ok
+test profile_mesh_observation_retains_source_curves_and_fonts_without_a_text_placement ... ok
+test runtime_failure_identifies_innermost_operation_and_exact_local_time ... ok
+test spatial_observations_publish_active_camera_and_directional_light_controls ... ok
+test word_animation_observation_reports_evaluated_positions_and_conservative_bounds ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.95s
+
+     Running tests/agent_project.rs (target/debug/deps/agent_project-40548e93db19575e)
+
+running 8 tests
+test explicit_layer_connections_use_discovered_ports_and_one_undo_entry ... ok
+test public_compositor_source_rebases_disjoint_controls_and_requires_fresh_inspection ... ok
+test public_mixed_creation_is_inspected_atomic_undoable_and_preserved_on_reopen ... ok
+test public_scene_hierarchy_rejects_stale_values_unlocks_and_partial_edits ... ok
+test rebase_rejects_cycles_introduced_by_concurrent_layer_connections ... ok
+test rebase_revalidates_named_outputs_after_an_artist_replaces_a_publication ... ok
+test replacing_a_scene_output_cannot_leave_existing_consumers_dangling ... ok
+test scoped_object_source_rebases_disjoint_artist_edits_and_honors_new_locks ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.86s
+
+     Running tests/agent_retry.rs (target/debug/deps/agent_retry-f230bd8f7c341438)
+
+running 6 tests
+test active_requests_are_not_evicted_and_capacity_rejections_stay_rejected ... ok
+test byte_budgets_and_session_tombstone_capacity_do_not_allow_uncertain_retries ... ok
+test identical_retries_share_one_execution_and_the_exact_response_bytes ... ok
+test response_eviction_retains_conflict_checks_and_never_reexecutes ... ok
+test response_memory_budget_evicts_oldest_and_tickets_cannot_cross_trackers ... ok
+test retried_candidate_apply_commits_once_even_after_artist_undo ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s

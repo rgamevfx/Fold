@@ -404,3 +404,7 @@ pub use fold_render::presentation;
 pub mod playback_cache;
 
 pub mod hierarchy;
+
+pub mod proposals;
+
+pub mod observations;

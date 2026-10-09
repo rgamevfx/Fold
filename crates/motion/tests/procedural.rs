@@ -386,7 +386,8 @@ fn radius_transfer_retains_unmatched_and_rejects_missing_or_categorical_blending
 
 #[test]
 fn wrangle_parameter_candidate_undo_and_project_reopen_preserve_exact_source() {
-    use fold_motion::{candidates::Store, editing};
+    use fold_motion::editing;
+    use fold_project::proposals::Store;
     use fold_project::{EditBatch, Mutation, Project};
     let id = DocumentId::new();
     let mut base = script(

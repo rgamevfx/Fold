@@ -283,7 +283,7 @@ pub(crate) fn validate_document(
     after.replace_document(original).map_err(Error::Invalid)
 }
 
-fn replace_definition(
+pub(crate) fn replace_definition(
     before: &Construction,
     definition: Definition,
 ) -> Result<Construction, Error> {
@@ -425,5 +425,36 @@ impl SourceBuffer {
             prepare_fragment(snapshot, document, target, &fragment, mapping)
         })();
         result.inspect_err(|error| self.edit_error = Some(error.clone()))
+    }
+}
+
+impl fold_project::proposals::Proposal for Candidate {
+    type Scope = Scope;
+    type Error = Error;
+    type Change = crate::diff::Change;
+    fn scope(&self) -> Self::Scope {
+        self.scope()
+    }
+    fn base_revision(&self) -> fold_project::Revision {
+        self.base_revision()
+    }
+    fn document(&self) -> &fold_project::Document {
+        self.document()
+    }
+    fn source(&self) -> Result<String, Self::Error> {
+        let value = Construction::from_document(self.document()).map_err(Error::Invalid)?;
+        source::canonical(&value).map_err(Error::Invalid)
+    }
+    fn diff(&self) -> Result<Vec<Self::Change>, Self::Error> {
+        self.diff()
+    }
+    fn rebase(&self, current: &fold_project::CommittedSnapshot) -> Result<Self, Self::Error> {
+        self.rebase(current)
+    }
+    fn apply(
+        self,
+        project: &mut fold_project::Project,
+    ) -> Result<fold_project::CommittedSnapshot, Self::Error> {
+        self.apply(project)
     }
 }

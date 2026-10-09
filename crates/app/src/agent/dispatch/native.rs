@@ -1,18 +1,20 @@
-//! Provider-owned project proposals share the same immutable candidate lifecycle.
-use super::{Failure, operation_budget};
+//! Atomic cross-document coordination. All creative policy belongs to providers.
+use super::Failure;
 use crate::agent::wire::Scope;
 use fold_foundation::{DocumentId, ObjectId};
 use fold_media::Cancel;
+use fold_platform::proposals::{InspectionRequest, PreparedProposal, ScopedRequest};
 use fold_project::{
     CommittedSnapshot, Document, EditBatch, Item, ItemId, Mutation, Project, Revision, Snapshot,
     proposals::Proposal,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+use std::{collections::BTreeSet, sync::Arc};
 
 #[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
-pub enum Edit {
+pub enum ProjectEdit {
     Create {
         document: DocumentId,
         type_id: String,
@@ -28,103 +30,203 @@ pub enum Edit {
         target: ObjectId,
         port: String,
     },
-    Author {
-        document: DocumentId,
-        expected: Value,
-        edits: Vec<Value>,
-    },
-    Hierarchy {
-        document: DocumentId,
-        expected: Value,
-        edits: Vec<fold_platform::hierarchy::Edit>,
-    },
-    CompositorSource {
-        document: DocumentId,
-        nodes: Option<Vec<ObjectId>>,
-        expected: String,
-        source: String,
-    },
-    ObjectSource {
-        document: DocumentId,
-        object: ObjectId,
-        expected: String,
-        source: String,
-    },
 }
 #[derive(Clone)]
-pub enum Candidate {
-    Construction(Box<fold_motion::editing::Candidate>),
-    Documents(Documents),
-}
-#[derive(Clone)]
-pub struct Documents {
-    pub(super) scope: Scope,
+pub struct Candidate {
+    scope: Scope,
     before: CommittedSnapshot,
     after: fold_project::Candidate,
+    prepared: Vec<Arc<dyn PreparedProposal>>,
+    direct: bool,
+}
+fn check(cancel: &Cancel) -> Result<(), Failure> {
+    cancel.check().map_err(|e| Failure::new("cancelled", e))
+}
+fn replacements(
+    prepared: &dyn PreparedProposal,
+    base: &Snapshot,
+    cancel: &Cancel,
+) -> Result<Vec<Mutation>, Failure> {
+    let changes = prepared
+        .publication(base, cancel)
+        .map_err(|e| e.context(&prepared.scope().package, prepared.scope().target))?;
+    if changes.base != base.revision()
+        || changes
+            .documents
+            .iter()
+            .any(|d| !prepared.scope().writes.contains(&d.id))
+    {
+        return Err(Failure::new(
+            "conflict",
+            "Provider publication exceeds scope or revision",
+        ));
+    }
+    let inspection = prepared.inspect(&InspectionRequest::all(prepared.scope().target), cancel)?;
+    if inspection.identity != changes.identity {
+        return Err(Failure::new(
+            "conflict",
+            "Provider publication differs from inspected content",
+        ));
+    }
+    Ok(changes
+        .documents
+        .into_iter()
+        .map(Mutation::PutDocument)
+        .collect())
 }
 impl Candidate {
     pub fn snapshot(&self) -> &Snapshot {
-        match self {
-            Self::Construction(value) => value.snapshot(),
-            Self::Documents(value) => value.after.snapshot(),
-        }
+        self.after.snapshot()
     }
-    pub fn validate_budget(&self) -> Result<(), Failure> {
+    #[cfg(test)]
+    pub(super) fn from_document(
+        base: &CommittedSnapshot,
+        scope: Scope,
+        document: &Document,
+        cancel: &Cancel,
+    ) -> Result<Self, Failure> {
         let registry = crate::packages::builtins();
-        for document in self.snapshot().state().documents.values() {
-            if !registry.supports(document) {
+        let prepared = registry
+            .scoped_proposals(document)?
+            .prepare_change(base, scope, document, cancel)?;
+        Self::from_prepared(base, scope, prepared, cancel)
+    }
+    fn from_prepared(
+        base: &CommittedSnapshot,
+        scope: Scope,
+        prepared: Box<dyn PreparedProposal>,
+        cancel: &Cancel,
+    ) -> Result<Self, Failure> {
+        let after = fold_project::Candidate::new(base.clone())
+            .apply(EditBatch {
+                base: base.revision(),
+                mutations: replacements(prepared.as_ref(), base, cancel)?,
+            })
+            .map_err(Failure::invalid)?;
+        Ok(Self {
+            scope,
+            before: base.clone(),
+            after,
+            prepared: vec![prepared.into()],
+            direct: true,
+        })
+    }
+    fn seal(
+        base: &CommittedSnapshot,
+        scope: Scope,
+        after: fold_project::Candidate,
+        cancel: &Cancel,
+    ) -> Result<Self, Failure> {
+        let registry = crate::packages::builtins();
+        let mut prepared = Vec::new();
+        for (id, document) in &after.snapshot().state().documents {
+            if base.state().documents.get(id) == Some(document) {
                 continue;
             }
-            if document.type_id == fold_motion::CONSTRUCTION {
-                operation_budget(
-                    &fold_motion::model::Construction::from_document(document)
-                        .map_err(Failure::invalid)?,
-                )?;
-            } else if document.type_id == fold_motion::scene::TYPE {
-                let scene =
-                    fold_motion::scene::Scene::from_document(document).map_err(Failure::invalid)?;
-                for object in scene.objects {
-                    operation_budget(&object.graph)?;
-                }
-            }
+            prepared.push(Arc::from(
+                registry.scoped_proposals(document)?.prepare_change(
+                    base,
+                    Scope {
+                        document: *id,
+                        definition: None,
+                        object: None,
+                    },
+                    document,
+                    cancel,
+                )?,
+            ));
         }
-        Ok(())
+        if !after
+            .snapshot()
+            .state()
+            .documents
+            .contains_key(&scope.document)
+        {
+            return Err(Failure::new(
+                "missing_resource",
+                "Candidate scope requires a resulting document",
+            ));
+        }
+        Ok(Self {
+            scope,
+            before: base.clone(),
+            after,
+            prepared,
+            direct: false,
+        })
     }
-    /// Changing a publication can invalidate an unchanged consumer. Validate
-    /// changed documents and their immediate consumers against the final snapshot;
-    /// the provider service traverses each selected output's full dependency graph.
     pub fn validate_dependencies(&self, cancel: &Cancel) -> Result<(), Failure> {
-        let changed: std::collections::BTreeSet<_> = match self {
-            Self::Construction(value) => [value.document().id].into_iter().collect(),
-            Self::Documents(value) => value
-                .after
-                .snapshot()
-                .state()
-                .documents
-                .iter()
-                .filter(|(id, document)| value.before.state().documents.get(id) != Some(document))
-                .map(|(id, _)| *id)
-                .collect(),
-        };
+        let changed: BTreeSet<_> = self
+            .prepared
+            .iter()
+            .flat_map(|p| p.scope().writes.iter().copied())
+            .collect();
         let registry = crate::packages::builtins();
         for document in self.snapshot().state().documents.values() {
-            cancel.check().map_err(|e| Failure::new("cancelled", e))?;
+            check(cancel)?;
             if !registry.supports(document)
                 || !(changed.contains(&document.id)
                     || document
                         .dependencies
                         .iter()
-                        .any(|source| changed.contains(&source.document)))
+                        .any(|d| changed.contains(&d.document)))
             {
                 continue;
             }
             for output in registry.document_outputs(document) {
                 registry
                     .validate_video_source(self.snapshot(), &output.reference, cancel)
-                    .map_err(|error| Failure::invalid(error.to_string()))?;
+                    .map_err(|e| Failure::invalid(e.to_string()))?;
             }
         }
         Ok(())
+    }
+    pub fn reconcile(&self, current: &CommittedSnapshot, cancel: &Cancel) -> Result<Self, Failure> {
+        check(cancel)?;
+        let mut prepared: Vec<Arc<dyn PreparedProposal>> = Vec::new();
+        let mut mutations = Vec::new();
+        for p in &self.prepared {
+            let next = p
+                .reconcile(current, cancel)
+                .map_err(|e| e.context(&p.scope().package, p.scope().target))?;
+            mutations.extend(replacements(next.as_ref(), current, cancel)?);
+            prepared.push(next.into());
+        }
+        for mutation in self.after.proposal().mutations {
+            if let Mutation::PutItem(item) = &mutation
+                && current
+                    .state()
+                    .organization
+                    .items
+                    .iter()
+                    .find(|i| i.id == item.id)
+                    != self
+                        .before
+                        .state()
+                        .organization
+                        .items
+                        .iter()
+                        .find(|i| i.id == item.id)
+            {
+                return Err(Failure::new("conflict", "An edited project item changed"));
+            }
+            if !matches!(mutation, Mutation::PutDocument(_)) {
+                mutations.push(mutation);
+            }
+        }
+        let after = fold_project::Candidate::new(current.clone())
+            .apply(EditBatch {
+                base: current.revision(),
+                mutations,
+            })
+            .map_err(Failure::invalid)?;
+        Ok(Self {
+            scope: self.scope,
+            before: current.clone(),
+            after,
+            prepared,
+            direct: self.direct,
+        })
     }
 }
 impl Proposal for Candidate {
@@ -132,233 +234,122 @@ impl Proposal for Candidate {
     type Error = Failure;
     type Change = Value;
     fn scope(&self) -> Scope {
-        match self {
-            Self::Construction(value) => Scope {
-                document: value.document().id,
-                object: None,
-                definition: match value.scope() {
-                    fold_motion::editing::Scope::Document => None,
-                    fold_motion::editing::Scope::Definition(id) => Some(id),
-                },
-            },
-            Self::Documents(value) => value.scope,
-        }
+        self.scope
     }
     fn base_revision(&self) -> Revision {
-        match self {
-            Self::Construction(value) => value.base_revision(),
-            Self::Documents(value) => value.before.revision(),
-        }
+        self.before.revision()
     }
     fn document(&self) -> &Document {
-        match self {
-            Self::Construction(value) => value.document(),
-            Self::Documents(value) => {
-                &value.after.snapshot().state().documents[&value.scope.document]
-            }
-        }
+        &self.after.snapshot().state().documents[&self.scope.document]
     }
     fn source(&self) -> Result<String, Failure> {
-        match self {
-            Self::Construction(value) => value.source().map_err(Into::into),
-            Self::Documents(value) => {
-                if let Some(object) = value.scope.object {
-                    let scene = fold_motion::scene::Scene::from_document(self.document())
-                        .map_err(Failure::invalid)?;
-                    return super::projection(
-                        &scene.object(object).map_err(Failure::invalid)?.graph,
-                        value.scope,
-                    );
-                }
-                let documents = value
-                    .after
-                    .snapshot()
-                    .state()
-                    .documents
-                    .iter()
-                    .filter(|(id, document)| {
-                        value.before.state().documents.get(id) != Some(document)
-                    })
-                    .map(|(_, document)| {
-                        Ok(json!({
-                            "document":document.id, "type":document.type_id,
-                            "inspection":inspect(document)?
-                        }))
-                    })
-                    .collect::<Result<Vec<_>, Failure>>()?;
-                serde_json::to_string_pretty(&json!({"documents":documents}))
-                    .map_err(|e| Failure::invalid(e.to_string()))
-            }
+        let cancel = Cancel::default();
+        if self.direct {
+            return Ok(self.prepared[0]
+                .inspect(&InspectionRequest::all(self.scope), &cancel)?
+                .source);
         }
+        let documents = self
+            .prepared
+            .iter()
+            .map(|p| {
+                let id = p.scope().target.document;
+                let document = &self.snapshot().state().documents[&id];
+                let inspection = p.inspect(&InspectionRequest::all(p.scope().target), &cancel)?;
+                let mut value = inspection
+                    .native
+                    .unwrap_or_else(|| json!({"source":inspection.source}));
+                decorate(&crate::packages::builtins(), document, &mut value)?;
+                Ok(json!({"document":id,"type":document.type_id,"inspection":value}))
+            })
+            .collect::<Result<Vec<_>, Failure>>()?;
+        serde_json::to_string_pretty(&json!({"documents":documents}))
+            .map_err(|e| Failure::invalid(e.to_string()))
     }
     fn diff(&self) -> Result<Vec<Value>, Failure> {
-        match self {
-            Self::Construction(value) => value
-                .diff()?
-                .into_iter()
-                .map(|change| {
-                    serde_json::to_value(change).map_err(|e| Failure::invalid(e.to_string()))
-                })
-                .collect(),
-            Self::Documents(value) => {
-                if let Some(object) = value.scope.object {
-                    let before = fold_motion::scene::Scene::from_document(
-                        &value.before.state().documents[&value.scope.document],
-                    )
-                    .map_err(Failure::invalid)?;
-                    let after = fold_motion::scene::Scene::from_document(self.document())
-                        .map_err(Failure::invalid)?;
-                    let changes = fold_motion::diff::construction(
-                        &before.object(object).map_err(Failure::invalid)?.graph,
-                        &after.object(object).map_err(Failure::invalid)?.graph,
-                    )
-                    .map_err(Failure::invalid)?;
-                    return Ok(vec![
-                        json!({"document":value.scope.document,"object":object,"changes":changes}),
-                    ]);
-                }
-                value.after.snapshot().state().documents.iter()
-                    .filter(|(id, document)| value.before.state().documents.get(id) != Some(document))
-                    .map(|(id, document)| Ok(json!({
-                        "document":id,
-                        "before":value.before.state().documents.get(id).map(|d| inspect(d)).transpose()?,
-                        "after":inspect(document)?
-                    }))).collect()
-            }
+        let mut changes = Vec::new();
+        for p in &self.prepared {
+            changes.extend(
+                p.inspect(
+                    &InspectionRequest::all(p.scope().target),
+                    &Cancel::default(),
+                )?
+                .changes,
+            );
         }
+        Ok(changes)
     }
     fn rebase(&self, current: &CommittedSnapshot) -> Result<Self, Failure> {
-        match self {
-            Self::Construction(value) => Ok(Self::Construction(Box::new(value.rebase(current)?))),
-            Self::Documents(value) => {
-                let mut proposal = value.after.proposal();
-                let mut documents = std::collections::BTreeSet::new();
-                proposal.mutations.reverse();
-                proposal.mutations.retain(|mutation| match mutation {
-                    Mutation::PutDocument(document) => documents.insert(document.id),
-                    _ => true,
-                });
-                proposal.mutations.reverse();
-                for mutation in &mut proposal.mutations {
-                    match mutation {
-                        Mutation::PutDocument(document)
-                            if current.state().documents.get(&document.id)
-                                != value.before.state().documents.get(&document.id) =>
-                        {
-                            let before = value
-                                .before
-                                .state()
-                                .documents
-                                .get(&document.id)
-                                .ok_or_else(|| {
-                                    Failure::new(
-                                        "conflict",
-                                        "Created document identity already exists",
-                                    )
-                                })?;
-                            let now =
-                                current.state().documents.get(&document.id).ok_or_else(|| {
-                                    Failure::new("conflict", "Edited document was removed")
-                                })?;
-                            if document.type_id == fold_compositor::COMPOSITE {
-                                let decode = |d: &Document| {
-                                    fold_compositor::Composite::from_document(d)
-                                        .map_err(Failure::invalid)
-                                };
-                                let merged = fold_compositor::Composite::rebase(
-                                    &decode(before)?,
-                                    &decode(document)?,
-                                    &decode(now)?,
-                                )
-                                .map_err(|e| Failure::new("conflict", e))?;
-                                let extensions = fold_graph::reconcile::map(
-                                    &before.extensions,
-                                    &document.extensions,
-                                    &now.extensions,
-                                )
-                                .map_err(|e| Failure::new("conflict", e))?;
-                                *document =
-                                    merged.document(document.id).map_err(Failure::invalid)?;
-                                document.extensions = extensions;
-                                continue;
-                            }
-                            if document.type_id != fold_motion::scene::TYPE {
-                                return Err(Failure::new("conflict", "Edited document changed"));
-                            }
-                            let decode = |d: &Document| {
-                                fold_motion::scene::Scene::from_document(d)
-                                    .map_err(Failure::invalid)
-                            };
-                            let merged = fold_motion::scene::reconcile::merge(
-                                &decode(before)?,
-                                &decode(document)?,
-                                &decode(now)?,
-                            )
-                            .map_err(|e| Failure::new("conflict", e))?;
-                            *document = merged
-                                .replace(now)
-                                .map_err(|e| Failure::new("conflict", e))?;
-                        }
-                        Mutation::PutItem(item)
-                            if current
-                                .state()
-                                .organization
-                                .items
-                                .iter()
-                                .find(|i| i.id == item.id)
-                                != value
-                                    .before
-                                    .state()
-                                    .organization
-                                    .items
-                                    .iter()
-                                    .find(|i| i.id == item.id) =>
-                        {
-                            return Err(Failure::new("conflict", "An edited project item changed"));
-                        }
-                        _ => {}
-                    }
-                }
-                let after = fold_project::Candidate::new(current.clone())
-                    .apply(EditBatch {
-                        base: current.revision(),
-                        mutations: proposal.mutations,
-                    })
-                    .map_err(Failure::invalid)?;
-                let result = Self::Documents(Documents {
-                    scope: value.scope,
-                    before: current.clone(),
-                    after,
-                });
-                result.validate_budget()?;
-                Ok(result)
-            }
-        }
+        self.reconcile(current, &Cancel::default())
     }
     fn apply(self, project: &mut Project) -> Result<CommittedSnapshot, Failure> {
-        match self {
-            Self::Construction(value) => value.apply(project).map_err(Into::into),
-            Self::Documents(value) => {
-                if project.snapshot().revision() != value.before.revision() {
-                    return Err(Failure::new("conflict", "Project changed"));
-                }
-                project
-                    .commit_named(
-                        value.after.proposal(),
-                        "Edit Composition and scene graphs".into(),
-                    )
-                    .map_err(|e| Failure::invalid(e.to_string()))
-            }
+        let current = project.snapshot();
+        let cancel = Cancel::default();
+        if current.revision() != self.before.revision() {
+            return Err(Failure::new("conflict", "Project changed"));
         }
+        let mut mutations = Vec::new();
+        for p in &self.prepared {
+            mutations.extend(replacements(p.as_ref(), &current, &cancel)?);
+        }
+        mutations.extend(
+            self.after
+                .proposal()
+                .mutations
+                .into_iter()
+                .filter(|m| !matches!(m, Mutation::PutDocument(_))),
+        );
+        self.validate_dependencies(&cancel)?;
+        project
+            .commit_named(
+                EditBatch {
+                    base: current.revision(),
+                    mutations,
+                },
+                if self.direct {
+                    self.prepared[0].undo_label()
+                } else {
+                    "Edit Composition and scene graphs"
+                }
+                .into(),
+            )
+            .map_err(|e| Failure::invalid(e.to_string()))
     }
 }
-pub fn inspect(document: &Document) -> Result<Value, Failure> {
+fn content(
+    document: &Document,
+    scope: Scope,
+    cancel: &Cancel,
+) -> Result<fold_platform::proposals::DocumentInspection, Failure> {
     let registry = crate::packages::builtins();
-    let outputs = registry
-        .document_outputs(document)
-        .into_iter()
-        .map(|output| json!({"reference":output.reference,"label":output.label,"info":output.info}))
-        .collect::<Vec<_>>();
+    let mut content = registry
+        .scoped_proposals(document)?
+        .inspect(document, scope, cancel)?;
+    if let fold_platform::proposals::DocumentInspection::Native(value) = &mut content {
+        decorate(&registry, document, value)?;
+    }
+    Ok(content)
+}
+pub fn source(document: &Document, scope: Scope, cancel: &Cancel) -> Result<String, Failure> {
+    match content(document, scope, cancel)? {
+        fold_platform::proposals::DocumentInspection::Native(value) => {
+            serde_json::to_string_pretty(&value).map_err(|e| Failure::invalid(e.to_string()))
+        }
+        fold_platform::proposals::DocumentInspection::Source(text) => Ok(text),
+    }
+}
+fn decorate(
+    registry: &fold_platform::packages::PackageRegistry,
+    document: &Document,
+    value: &mut Value,
+) -> Result<(), Failure> {
+    value["outputs"] = json!(
+        registry
+            .document_outputs(document)
+            .into_iter()
+            .map(|o| json!({"reference":o.reference,"label":o.label,"info":o.info}))
+            .collect::<Vec<_>>()
+    );
     let inputs =
         if registry.has_capability(document, fold_platform::packages::Capability::ImageInputs) {
             registry
@@ -366,51 +357,56 @@ pub fn inspect(document: &Document) -> Result<Value, Failure> {
                 .map_err(Failure::invalid)?
         } else {
             vec![]
-        }
-        .into_iter()
-        .map(|port| json!({"id":port.id,"label":port.label,"source":port.source}))
-        .collect::<Vec<_>>();
-    let mut result = json!({"native":registry.inspect(document).map_err(Failure::invalid)?,"outputs":outputs,"image_inputs":inputs});
-    if document.type_id == fold_compositor::COMPOSITE {
-        result["graph_source"] = json!(
-            fold_compositor::Composite::from_document(document)
-                .map_err(Failure::invalid)?
-                .source(None)
-                .map_err(Failure::invalid)?
-        );
-    }
-    if document.type_id == fold_motion::scene::TYPE {
-        let scene = fold_motion::scene::Scene::from_document(document).map_err(Failure::invalid)?;
-        result["object_sources"] = Value::Object(
-            scene
-                .objects
-                .iter()
-                .map(|object| {
-                    Ok((
-                        object.id.to_string(),
-                        json!(
-                            fold_motion::source::canonical(&object.graph)
-                                .map_err(Failure::invalid)?
-                        ),
-                    ))
-                })
-                .collect::<Result<_, Failure>>()?,
-        );
-    }
-    Ok(result)
+        };
+    value["image_inputs"] = json!(
+        inputs
+            .into_iter()
+            .map(|p| json!({"id":p.id,"label":p.label,"source":p.source}))
+            .collect::<Vec<_>>()
+    );
+    Ok(())
 }
-pub(super) fn supported(kind: &str) -> bool {
-    [
-        fold_composition::COMPOSITION,
-        fold_compositor::COMPOSITE,
-        fold_motion::scene::TYPE,
-    ]
-    .contains(&kind)
+pub fn inspect(document: &Document) -> Result<Value, Failure> {
+    match content(
+        document,
+        Scope {
+            document: document.id,
+            definition: None,
+            object: None,
+        },
+        &Cancel::default(),
+    )? {
+        fold_platform::proposals::DocumentInspection::Native(value) => Ok(value),
+        fold_platform::proposals::DocumentInspection::Source(text) => Ok(json!({"source":text})),
+    }
+}
+pub fn prepare_scoped(
+    base: &CommittedSnapshot,
+    scope: Scope,
+    body: Value,
+    cancel: &Cancel,
+) -> Result<Candidate, Failure> {
+    let registry = crate::packages::builtins();
+    let document = base
+        .state()
+        .documents
+        .get(&scope.document)
+        .ok_or_else(|| Failure::new("missing_resource", "Missing document"))?;
+    let prepared = registry.scoped_proposals(document)?.prepare(
+        base,
+        &ScopedRequest {
+            scope,
+            version: 1,
+            body,
+        },
+        cancel,
+    )?;
+    Candidate::from_prepared(base, scope, prepared, cancel)
 }
 pub fn prepare(
-    snapshot: &CommittedSnapshot,
+    base: &CommittedSnapshot,
     scope: Scope,
-    edits: &[Edit],
+    edits: &[Value],
     cancel: &Cancel,
 ) -> Result<Candidate, Failure> {
     if scope.definition.is_some() || scope.object.is_some() || edits.is_empty() || edits.len() > 128
@@ -421,174 +417,109 @@ pub fn prepare(
         ));
     }
     let registry = crate::packages::builtins();
-    let mut after = fold_project::Candidate::new(snapshot.clone());
+    let mut after = fold_project::Candidate::new(base.clone());
     for edit in edits {
-        cancel.check().map_err(|e| Failure::new("cancelled", e))?;
+        check(cancel)?;
         let current = after.snapshot();
-        let document = |id: &DocumentId| -> Result<&Document, Failure> {
-            let document = current
+        let mutations = if matches!(
+            edit["op"].as_str(),
+            Some("create" | "add_layer" | "connect_layers")
+        ) {
+            match serde_json::from_value::<ProjectEdit>(edit.clone())
+                .map_err(|e| Failure::invalid(e.to_string()))?
+            {
+                ProjectEdit::Create {
+                    document,
+                    type_id,
+                    name,
+                } => {
+                    if current.state().documents.contains_key(&document) {
+                        return Err(Failure::new("conflict", "Document already exists"));
+                    }
+                    if name.trim().is_empty() || name.len() > 256 {
+                        return Err(Failure::new("type", "Document name requires 1..256 bytes"));
+                    }
+                    let created = registry
+                        .create_with_defaults(current, &type_id, document)
+                        .map_err(Failure::invalid)?;
+                    registry.scoped_proposals(&created)?;
+                    vec![
+                        Mutation::PutDocument(created),
+                        Mutation::PutItem(Item {
+                            id: ItemId::Document(document),
+                            name,
+                            parent: Default::default(),
+                            order: current.state().organization.items.len() as u64,
+                            extensions: Default::default(),
+                        }),
+                    ]
+                }
+                ProjectEdit::AddLayer { composition, kind } => {
+                    crate::composition_layers::add(
+                        current,
+                        &serde_json::to_vec(&crate::composition_layers::AddArgs {
+                            document: composition,
+                            kind,
+                            layer: None,
+                        })
+                        .map_err(|e| Failure::invalid(e.to_string()))?,
+                        cancel,
+                    )
+                    .map_err(Failure::invalid)?
+                    .mutations
+                }
+                ProjectEdit::ConnectLayers {
+                    composition,
+                    source,
+                    target,
+                    port,
+                } => {
+                    crate::composition_layers::connect(
+                        current,
+                        &serde_json::to_vec(&crate::composition_layers::ConnectArgs {
+                            document: composition,
+                            source,
+                            target,
+                            port: Some(port),
+                        })
+                        .map_err(|e| Failure::invalid(e.to_string()))?,
+                        cancel,
+                    )
+                    .map_err(Failure::invalid)?
+                    .mutations
+                }
+            }
+        } else {
+            let id: DocumentId = serde_json::from_value(
+                edit.get("document")
+                    .cloned()
+                    .ok_or_else(|| Failure::new("type", "Provider edit requires document"))?,
+            )
+            .map_err(|e| Failure::invalid(e.to_string()))?;
+            let original = current
                 .state()
                 .documents
-                .get(id)
+                .get(&id)
                 .ok_or_else(|| Failure::new("missing_resource", "Missing document"))?;
-            if !supported(&document.type_id) {
-                return Err(Failure::new(
-                    "unsupported",
-                    "Unsupported project authoring provider",
-                ));
+            if let Some(expected) = edit.get("expected").filter(|v| v.is_object())
+                && inspect(original)? != *expected
+            {
+                return Err(Failure::new("conflict", "Expected document differs"));
             }
-            Ok(document)
-        };
-        let mutations = match edit {
-            Edit::Create {
-                document: id,
-                type_id,
-                name,
-            } => {
-                if !supported(type_id) || current.state().documents.contains_key(id) {
-                    return Err(Failure::new(
-                        "conflict",
-                        "Unsupported type or document identity already exists",
-                    ));
-                }
-                if name.trim().is_empty() || name.len() > 256 {
-                    return Err(Failure::new("type", "Document name requires 1..256 bytes"));
-                }
-                let created = registry
-                    .create_with_defaults(current, type_id, *id)
-                    .map_err(Failure::invalid)?;
-                vec![
-                    Mutation::PutDocument(created),
-                    Mutation::PutItem(Item {
-                        id: ItemId::Document(*id),
-                        name: name.clone(),
-                        parent: Default::default(),
-                        order: current.state().organization.items.len() as u64,
-                        extensions: Default::default(),
-                    }),
-                ]
-            }
-            Edit::AddLayer { composition, kind } => {
-                let arguments = serde_json::to_vec(&crate::composition_layers::AddArgs {
-                    document: *composition,
-                    kind: kind.clone(),
-                    layer: None,
-                })
-                .map_err(|e| Failure::invalid(e.to_string()))?;
-                crate::composition_layers::add(current, &arguments, cancel)
-                    .map_err(Failure::invalid)?
-                    .mutations
-            }
-            Edit::ConnectLayers {
-                composition,
-                source,
-                target,
-                port,
-            } => {
-                let arguments = serde_json::to_vec(&crate::composition_layers::ConnectArgs {
-                    document: *composition,
-                    source: *source,
-                    target: *target,
-                    port: Some(port.clone()),
-                })
-                .map_err(|e| Failure::invalid(e.to_string()))?;
-                crate::composition_layers::connect(current, &arguments, cancel)
-                    .map_err(Failure::invalid)?
-                    .mutations
-            }
-            Edit::Author {
-                document: id,
-                expected,
-                edits,
-            } => {
-                let original = document(id)?;
-                if inspect(original)? != *expected {
-                    return Err(Failure::new("conflict", "Expected document differs"));
-                }
-                if edits
-                    .iter()
-                    .any(|edit| edit["op"] == "lock" && edit["locked"] == false)
-                {
-                    return Err(Failure::new("locked", "Agent edits cannot unlock controls"));
-                }
-                vec![Mutation::PutDocument(
-                    registry
-                        .author_cancellable(original, edits, cancel)
-                        .map_err(Failure::invalid)?
-                        .0,
-                )]
-            }
-            Edit::Hierarchy {
-                document: id,
-                expected,
-                edits,
-            } => {
-                let original = document(id)?;
-                if inspect(original)? != *expected {
-                    return Err(Failure::new("conflict", "Expected scene differs"));
-                }
-                if edits.iter().any(|edit| {
-                    matches!(
-                        edit,
-                        fold_platform::hierarchy::Edit::Lock { value: false, .. }
-                    )
-                }) {
-                    return Err(Failure::new("locked", "Agent edits cannot unlock objects"));
-                }
-                vec![Mutation::PutDocument(
-                    registry
-                        .edit_hierarchy(original, edits)
-                        .map_err(Failure::invalid)?,
-                )]
-            }
-            Edit::CompositorSource {
-                document: id,
-                nodes,
-                expected,
-                source,
-            } => {
-                let original = document(id)?;
-                let mut graph = fold_compositor::Composite::from_document(original)
-                    .map_err(Failure::invalid)?;
-                if graph.source(nodes.as_deref()).map_err(Failure::invalid)? != *expected {
-                    return Err(Failure::new("conflict", "Compositor source changed"));
-                }
-                graph
-                    .replace_source(nodes.as_deref(), expected, source)
-                    .map_err(Failure::invalid)?;
-                let mut changed = graph.document(*id).map_err(Failure::invalid)?;
-                changed.extensions = original.extensions.clone();
-                vec![Mutation::PutDocument(changed)]
-            }
-            Edit::ObjectSource {
-                document: id,
-                object,
-                expected,
-                source,
-            } => {
-                if expected.len() > 65536 || source.len() > 65536 {
-                    return Err(Failure::new("budget", "Object source exceeds 64 KiB"));
-                }
-                let original = document(id)?;
-                let mut scene =
-                    fold_motion::scene::Scene::from_document(original).map_err(Failure::invalid)?;
-                let target = scene
-                    .objects
-                    .iter_mut()
-                    .find(|o| o.id == *object)
-                    .ok_or_else(|| Failure::new("missing_resource", "Missing scene object"))?;
-                if fold_motion::source::canonical(&target.graph).map_err(Failure::invalid)?
-                    != *expected
-                {
-                    return Err(Failure::new("conflict", "Object source changed"));
-                }
-                target.graph = fold_motion::source::parse(source)
-                    .map_err(|e| Failure::invalid(e.message))?
-                    .construction;
-                vec![Mutation::PutDocument(
-                    scene.replace(original).map_err(Failure::invalid)?,
-                )]
-            }
+            let prepared = registry.scoped_proposals(original)?.prepare(
+                current,
+                &ScopedRequest {
+                    scope: Scope {
+                        document: id,
+                        definition: None,
+                        object: None,
+                    },
+                    version: 1,
+                    body: edit.clone(),
+                },
+                cancel,
+            )?;
+            replacements(prepared.as_ref(), current, cancel)?
         };
         after = after
             .apply(EditBatch {
@@ -597,22 +528,5 @@ pub fn prepare(
             })
             .map_err(Failure::invalid)?;
     }
-    if !after
-        .snapshot()
-        .state()
-        .documents
-        .contains_key(&scope.document)
-    {
-        return Err(Failure::new(
-            "missing_resource",
-            "Candidate scope requires a resulting document",
-        ));
-    }
-    let candidate = Candidate::Documents(Documents {
-        scope,
-        before: snapshot.clone(),
-        after,
-    });
-    candidate.validate_budget()?;
-    Ok(candidate)
+    Candidate::seal(base, scope, after, cancel)
 }

@@ -197,6 +197,14 @@ impl DocumentProvider for Documents {
     fn validate(&self, document: &Document) -> Result<(), String> {
         Construction::from_document(document).map(|_| ())
     }
+    fn observations_capability(&self) -> Option<&dyn fold_platform::observations::Observations> {
+        Some(&crate::observation::Provider)
+    }
+    fn scoped_proposals_capability(
+        &self,
+    ) -> Option<&dyn fold_platform::proposals::ScopedProposals> {
+        Some(&crate::proposals::Provider::CONSTRUCTION)
+    }
     fn parameters_capability(&self) -> Option<&dyn fold_platform::packages::Parameters> {
         Some(self)
     }

@@ -1,5 +1,6 @@
 //! Versioned in-process contribution contracts. These Rust traits/function
 //! pointers are deliberately NOT a durable dynamic-library ABI.
+use crate::proposals::FailureKind;
 mod parameter_service;
 use crate::{VideoProvider, VideoRegistry};
 use fold_foundation::{DocumentId, Time};
@@ -60,6 +61,12 @@ pub trait DocumentProvider: Send + Sync {
         schema == self.schema()
     }
     fn validate(&self, document: &Document) -> Result<(), String>;
+    fn observations_capability(&self) -> Option<&dyn crate::observations::Observations> {
+        None
+    }
+    fn scoped_proposals_capability(&self) -> Option<&dyn crate::proposals::ScopedProposals> {
+        None
+    }
     fn parameters_capability(&self) -> Option<&dyn Parameters> {
         None
     }
@@ -273,6 +280,8 @@ pub struct PackageRegistry {
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Capability {
+    Observations,
+    ScopedProposals,
     Parameters,
     ParameterSources,
     Animation,
@@ -290,6 +299,65 @@ pub enum Capability {
     EvaluationIdentity,
 }
 impl PackageRegistry {
+    pub fn observations(
+        &self,
+        document: &Document,
+    ) -> Result<&dyn crate::observations::Observations, crate::proposals::Failure> {
+        self.documents
+            .iter()
+            .find(|p| {
+                p.package_id() == document.package_id
+                    && p.type_id() == document.type_id
+                    && p.supports_schema(document.schema_version)
+            })
+            .and_then(|p| p.observations_capability())
+            .ok_or_else(|| {
+                crate::proposals::Failure::new(
+                    FailureKind::Unsupported,
+                    "Document measurements unavailable",
+                )
+            })
+    }
+    pub fn parameter_provider_types(&self) -> Vec<&str> {
+        self.documents
+            .iter()
+            .filter(|p| p.parameters_capability().is_some())
+            .map(|p| p.type_id())
+            .collect()
+    }
+    pub fn scoped_proposals(
+        &self,
+        document: &Document,
+    ) -> Result<&dyn crate::proposals::ScopedProposals, crate::proposals::Failure> {
+        self.documents
+            .iter()
+            .find(|p| {
+                p.package_id() == document.package_id
+                    && p.type_id() == document.type_id
+                    && p.supports_schema(document.schema_version)
+            })
+            .and_then(|p| p.scoped_proposals_capability())
+            .ok_or_else(|| {
+                crate::proposals::Failure::new(
+                    FailureKind::Unsupported,
+                    "Scoped proposals unavailable for document",
+                )
+            })
+    }
+    pub fn proposal_authoring_catalog(&self) -> Vec<serde_json::Value> {
+        self.documents
+            .iter()
+            .filter(|p| p.scoped_proposals_capability().is_some())
+            .filter_map(|p| {
+                p.authoring_capability().map(
+                    |c| serde_json::json!({"type":p.type_id(),"catalog":c.authoring_catalog()}),
+                )
+            })
+            .collect()
+    }
+    pub fn proposal_catalog(&self) -> Vec<serde_json::Value> {
+        self.documents.iter().filter_map(|p| p.scoped_proposals_capability().map(|c| serde_json::json!({"type":p.type_id(),"schema":p.schema(),"requests":c.schema()}))).collect()
+    }
     pub fn has_capability(&self, document: &Document, capability: Capability) -> bool {
         self.documents
             .iter()
@@ -299,6 +367,8 @@ impl PackageRegistry {
                     && p.supports_schema(document.schema_version)
             })
             .is_some_and(|p| match capability {
+                Capability::Observations => p.observations_capability().is_some(),
+                Capability::ScopedProposals => p.scoped_proposals_capability().is_some(),
                 Capability::Parameters => p.parameters_capability().is_some(),
                 Capability::ParameterSources => p.parameter_sources_capability().is_some(),
                 Capability::Animation => p.animation_capability().is_some(),

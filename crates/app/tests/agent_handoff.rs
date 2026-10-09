@@ -1163,7 +1163,12 @@ fn cli_and_mcp_author_relative_parameter_expressions_without_primitive_nodes() {
         let path = session.enable_agent_transport(directory.path()).unwrap();
         let initial = call(&mut session, &path, transport, json!({"method":"discover"}));
         assert_eq!(
-            initial["result"]["catalog"]["parameter_references"]["container_node"],
+            initial["result"]["scoped_proposals"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|p| p["type"] == fold_motion::CONSTRUCTION)
+                .unwrap()["requests"]["catalog"]["parameter_references"]["container_node"],
             "Channel References"
         );
         let epoch = initial["epoch"].clone();
@@ -1416,6 +1421,106 @@ fn cli_and_mcp_inspect_layer_and_timeline_properties_through_one_service() {
                 value: 200.,
                 unit: fold_motion::types::Unit::Canvas
             })
+        );
+    }
+}
+
+#[test]
+fn cli_and_mcp_create_inspect_cancel_and_publish_mixed_provider_candidates() {
+    for transport in [Transport::Cli, Transport::Mcp] {
+        let mut session = Session::new(Project::new(16));
+        let directory = tempfile::tempdir().unwrap();
+        let socket = session.enable_agent_transport(directory.path()).unwrap();
+        let discovery = call(
+            &mut session,
+            &socket,
+            transport,
+            json!({"method":"discover"}),
+        );
+        let providers = discovery["result"]["scoped_proposals"].as_array().unwrap();
+        for kind in [
+            fold_motion::CONSTRUCTION,
+            fold_motion::scene::TYPE,
+            fold_compositor::COMPOSITE,
+            fold_composition::COMPOSITION,
+        ] {
+            assert!(providers.iter().any(|p| p["type"] == kind));
+        }
+        let epoch = discovery["epoch"].clone();
+        let id = DocumentId::new();
+        let scope = json!({"document":id,"definition":null});
+        let guard =
+            |base| json!({"epoch":epoch,"request_id":ObjectId::new(),"base":base,"scope":scope});
+        let edits = json!([
+            {"op":"create","document":id,"type_id":fold_composition::COMPOSITION,"name":"Public C4"},
+            {"op":"add_layer","composition":id,"kind":"scene"},
+            {"op":"add_layer","composition":id,"kind":"image"}
+        ]);
+        let rejected = terminal(
+            &mut session,
+            &socket,
+            transport,
+            json!({"method":"propose","guard":guard(0),"edit":{"kind":"project","edits":[edits[0],{"op":"unknown_provider_edit","document":id}]}}),
+        );
+        assert!(rejected.get("error").is_some());
+        assert!(session.snapshot().unwrap().state().documents.is_empty());
+        for cancel in [true, false] {
+            let proposed = call(
+                &mut session,
+                &socket,
+                transport,
+                json!({"method":"propose","guard":guard(0),"edit":{"kind":"project","edits":edits}}),
+            );
+            let handle = proposed["result"]["handle"].clone();
+            let inspection = call(
+                &mut session,
+                &socket,
+                transport,
+                json!({"method":"inspect_candidate","handle":handle}),
+            );
+            let source: Value =
+                serde_json::from_str(inspection["result"]["source"].as_str().unwrap()).unwrap();
+            assert_eq!(source["documents"].as_array().unwrap().len(), 3);
+            let receipt = inspection["result"]["receipt"].clone();
+            if cancel {
+                call(
+                    &mut session,
+                    &socket,
+                    transport,
+                    json!({"method":"cancel_candidate","guard":guard(0),"handle":handle}),
+                );
+                let rejected = terminal(
+                    &mut session,
+                    &socket,
+                    transport,
+                    json!({"method":"apply","guard":guard(0),"handle":handle,"receipt":receipt}),
+                );
+                assert_eq!(rejected["error"]["code"], "cancelled");
+                assert!(session.snapshot().unwrap().state().documents.is_empty());
+            } else {
+                call(
+                    &mut session,
+                    &socket,
+                    transport,
+                    json!({"method":"apply","guard":guard(0),"handle":handle,"receipt":receipt}),
+                );
+            }
+        }
+        let committed = session.snapshot().unwrap();
+        assert_eq!(committed.state().documents.len(), 3);
+        let destination = directory.path().join("c4.fold");
+        call(
+            &mut session,
+            &socket,
+            transport,
+            json!({"method":"save_project_copy","guard":{"epoch":epoch,"request_id":ObjectId::new(),"base":committed.revision()},"path":destination}),
+        );
+        assert_eq!(
+            fold_project::load(&destination, 8)
+                .unwrap()
+                .snapshot()
+                .state(),
+            committed.state()
         );
     }
 }

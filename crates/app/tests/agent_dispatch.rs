@@ -395,7 +395,7 @@ fn preparation_capacity_failure_retains_existing_generations() {
     let (mut dispatcher, mut project, id) = setup();
     let base = project.snapshot().revision();
     let mut handles = vec![];
-    for _ in 0..fold_motion::candidates::MAX_LIVE {
+    for _ in 0..fold_project::proposals::MAX_LIVE {
         handles.push(propose(&mut dispatcher, &mut project, id));
     }
     let request_guard = guard(&dispatcher, &project, id);
@@ -668,7 +668,7 @@ fn expired_apply_captures_unchanged_frozen_construction() {
     )
     .unwrap();
     let future =
-        Instant::now() + fold_motion::candidates::IDLE_LIFETIME + std::time::Duration::from_secs(1);
+        Instant::now() + fold_project::proposals::IDLE_LIFETIME + std::time::Duration::from_secs(1);
     let response: Value =
         serde_json::from_slice(&dispatcher.dispatch(&mut project, &request, future)).unwrap();
     assert_eq!(response["error"]["code"], "expired", "{response}");
@@ -691,4 +691,30 @@ fn expired_apply_captures_unchanged_frozen_construction() {
             "response":response,"retry":retry,
         })).unwrap()).unwrap();
     }
+}
+
+#[test]
+fn opaque_provider_bodies_reject_duplicate_keys_before_preparation() {
+    let mut dispatcher = Dispatcher::default();
+    let mut project = Project::new(4);
+    let bytes = format!(
+        r#"{{"version":2,"command":{{"method":"propose","guard":{{"epoch":"{}","request_id":"{}","base":0,"scope":{{"document":"{}","definition":null}}}},"edit":{{"kind":"project","edits":[{{"op":"author","op":"create"}}]}}}}}}"#,
+        dispatcher.epoch(),
+        ObjectId::new(),
+        DocumentId::new()
+    );
+    let response: Value = serde_json::from_slice(&dispatcher.dispatch(
+        &mut project,
+        bytes.as_bytes(),
+        Instant::now(),
+    ))
+    .unwrap();
+    assert_eq!(response["error"]["code"], "unsupported");
+    assert!(
+        response["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("Duplicate JSON object key")
+    );
+    assert!(project.snapshot().state().documents.is_empty());
 }

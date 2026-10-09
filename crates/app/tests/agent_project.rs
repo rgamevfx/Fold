@@ -341,7 +341,11 @@ fn rebase_rejects_cycles_introduced_by_concurrent_layer_connections() {
         rebased.get("error").is_some(),
         "Rebase accepted a dependency cycle: {rebased}"
     );
-    assert_eq!(rebased["error"]["message"], "Cycle", "{rebased}");
+    assert_eq!(rebased["error"]["code"], "conflict", "{rebased}");
+    assert_eq!(
+        rebased["error"]["message"], "Proposal dependency changed",
+        "{rebased}"
+    );
     assert_eq!(p.snapshot().state(), before.state());
     let retained = call(
         &mut d,
@@ -517,4 +521,49 @@ fn public_compositor_source_rebases_disjoint_controls_and_requires_fresh_inspect
             .unwrap(),
         merged
     );
+}
+
+#[test]
+fn compositor_source_retains_its_provider_budget_above_the_motion_text_limit() {
+    let mut dispatcher = Dispatcher::default();
+    let mut project = Project::new(8);
+    let document = DocumentId::new();
+    let g = guard(&dispatcher, &project, document);
+    let created = call(
+        &mut dispatcher,
+        &mut project,
+        json!({"method":"propose","guard":g,"edit":{"kind":"project","edits":[{"op":"create","document":document,"type_id":fold_compositor::COMPOSITE,"name":"Source budget"}]}}),
+    );
+    assert!(created.get("error").is_none(), "{created}");
+    apply(
+        &mut dispatcher,
+        &mut project,
+        document,
+        created["result"]["handle"].clone(),
+    );
+    let before = inspected(&mut dispatcher, &mut project, document);
+    let expected = before["graph_source"].as_str().unwrap();
+    let mut nodes: Value = serde_json::from_str(expected).unwrap();
+    nodes[0]["position"] = json!([7.0, 9.0]);
+    let source = format!(
+        "{}{}",
+        serde_json::to_string(&nodes).unwrap(),
+        " ".repeat(70_000)
+    );
+    let g = guard(&dispatcher, &project, document);
+    let proposed = call(
+        &mut dispatcher,
+        &mut project,
+        json!({"method":"propose","guard":g,"edit":{"kind":"project","edits":[{"op":"compositor_source","document":document,"nodes":null,"expected":expected,"source":source}]}}),
+    );
+    assert!(proposed.get("error").is_none(), "{proposed}");
+    apply(
+        &mut dispatcher,
+        &mut project,
+        document,
+        proposed["result"]["handle"].clone(),
+    );
+    let after = inspected(&mut dispatcher, &mut project, document);
+    let nodes: Value = serde_json::from_str(after["graph_source"].as_str().unwrap()).unwrap();
+    assert_eq!(nodes[0]["position"], json!([7.0, 9.0]));
 }

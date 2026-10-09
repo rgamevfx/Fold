@@ -1,13 +1,14 @@
 //! Exact CPU measurements. No raster, camera projection or artist state access.
-use super::{Failure, operation_budget};
-use fold_foundation::{ObjectId, Time};
-use fold_media::Cancel;
-use fold_motion::{
-    candidates::Handle,
+use crate::proposal_budget::construction as operation_budget;
+use crate::{
     evaluation::{self, Geometry, GeometryData, Placement, Prepared},
     model::Construction,
 };
-use fold_project::{Document, Revision};
+use fold_foundation::ObjectId;
+use fold_media::Cancel;
+use fold_platform::proposals::Failure;
+use fold_platform::proposals::FailureKind;
+use fold_project::Document;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
@@ -15,19 +16,25 @@ use std::collections::BTreeMap;
 fn digest(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
 }
-pub(super) fn run(
-    epoch: ObjectId,
+fn run(
     document: &Document,
-    revision: Revision,
-    candidate: Option<Handle>,
-    output: ObjectId,
-    times: &[Time],
+    request: &fold_platform::observations::Request,
     cancel: &Cancel,
 ) -> Result<Value, Failure> {
+    let output: ObjectId = serde_json::from_value(json!(request.output))
+        .map_err(|_| Failure::new(FailureKind::InvalidRequest, "Invalid construction output"))?;
+    let (epoch, revision, candidate) = (request.epoch, request.revision, request.candidate);
+    let times = &request.times;
+    let (build, target) = (&request.build, &request.target);
     if times.is_empty() || times.len() > 64 {
-        return Err(Failure::new("budget", "Observe requires 1..64 exact times"));
+        return Err(Failure::new(
+            FailureKind::Oversized,
+            "Observe requires 1..64 exact times",
+        ));
     }
-    cancel.check().map_err(|e| Failure::new("cancelled", e))?;
+    cancel
+        .check()
+        .map_err(|e| Failure::new(FailureKind::Cancelled, e))?;
     let value = Construction::from_document(document).map_err(Failure::invalid)?;
     operation_budget(&value)?;
     let root = value
@@ -35,7 +42,7 @@ pub(super) fn run(
         .map_err(Failure::invalid)?;
     if !root.outputs.iter().any(|o| o.id == output) {
         return Err(Failure::new(
-            "missing_resource",
+            FailureKind::MissingResource,
             "Output is not declared by the root asset",
         ));
     }
@@ -43,7 +50,7 @@ pub(super) fn run(
         steps: 1_000_000 / times.len(),
         elements: 1_000_000 / times.len(),
     };
-    let configuration = json!({"profile":"cpu_reference_exact","steps_per_sample":limits.steps,"elements_per_sample":limits.elements,"measurement_steps_per_sample":limits.elements,"samples":times.len(),"build":env!("FOLD_SOURCE_SHA256"),"target":env!("FOLD_BUILD_TARGET")});
+    let configuration = json!({"profile":"cpu_reference_exact","steps_per_sample":limits.steps,"elements_per_sample":limits.elements,"measurement_steps_per_sample":limits.elements,"samples":times.len(),"build":build,"target":target});
     let mut provenance = json!({
         "epoch":epoch,"document":document.id,"revision":revision,"candidate":candidate,"output":output,
         "seed":value.seed,"quality":"cpu_reference_exact","camera":null,"output_size":null,"frames_available":false,
@@ -55,7 +62,9 @@ pub(super) fn run(
     let mut samples = Vec::with_capacity(times.len());
     let mut fonts = BTreeMap::new();
     for &time in times {
-        cancel.check().map_err(|e| Failure::new("cancelled", e))?;
+        cancel
+            .check()
+            .map_err(|e| Failure::new(FailureKind::Cancelled, e))?;
         let result = prepared.evaluate_detailed(output, time, limits, &|| Ok(cancel.check()?))?;
         let mut measurement = Measurement {
             cancel,
@@ -95,11 +104,10 @@ impl Measurement<'_> {
     fn step(&mut self) -> Result<(), Failure> {
         self.cancel
             .check()
-            .map_err(|e| Failure::new("cancelled", e))?;
-        self.remaining = self
-            .remaining
-            .checked_sub(1)
-            .ok_or_else(|| Failure::new("budget", "CPU measurement budget exhausted"))?;
+            .map_err(|e| Failure::new(FailureKind::Cancelled, e))?;
+        self.remaining = self.remaining.checked_sub(1).ok_or_else(|| {
+            Failure::new(FailureKind::Oversized, "CPU measurement budget exhausted")
+        })?;
         Ok(())
     }
 
@@ -187,7 +195,7 @@ impl Measurement<'_> {
     fn placement(&mut self, placement: &Placement) -> Result<Value, Failure> {
         self.cancel
             .check()
-            .map_err(|e| Failure::new("cancelled", e))?;
+            .map_err(|e| Failure::new(FailureKind::Cancelled, e))?;
         self.geometry(&placement.geometry)?;
         let position = match &placement.transform {
             evaluation::placement::Transform::Screen { position } => *position,
@@ -493,60 +501,6 @@ fn include(bounds: &mut Option<[[f64; 2]; 2]>, point: [f64; 2]) -> Result<(), Fa
     Ok(())
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn cancellation_and_measurement_exhaustion_are_explicit() {
-        let id = fold_foundation::DocumentId::new();
-        let document = fold_motion::package::create(id).unwrap();
-        let construction = Construction::from_document(&document).unwrap();
-        let cancel = Cancel::default();
-        cancel.cancel();
-        let error = run(
-            ObjectId::new(),
-            &document,
-            Revision(0),
-            None,
-            construction.definitions[0].outputs[0].id,
-            &[Time::ZERO],
-            &cancel,
-        )
-        .expect_err("cancelled observation");
-        assert_eq!(error.code, "cancelled");
-        let cancel = Cancel::default();
-        let mut measurement = Measurement {
-            cancel: &cancel,
-            geometries: BTreeMap::new(),
-            points: 0,
-            placements: 0,
-            glyphs: 0,
-            fonts: BTreeMap::new(),
-            remaining: 0,
-        };
-        let geometry = Geometry {
-            attributes: Default::default(),
-            id: 1,
-            space: fold_motion::types::Space::Screen,
-            unit: fold_motion::types::Unit::Canvas,
-            data: GeometryData::Contours(std::sync::Arc::new(vec![evaluation::Contour {
-                id: 2,
-                closed: false,
-                points: vec![evaluation::Point {
-                    id: 3,
-                    position: [0., 0.],
-                }],
-            }])),
-            appearance: Default::default(),
-        };
-        assert_eq!(
-            measurement.geometry(&geometry).err().unwrap().code,
-            "budget"
-        );
-        assert!(measurement.geometries.is_empty());
-    }
-}
-
 fn solid_point(transform: [f64; 6], point: [f64; 3]) -> [f64; 3] {
     let [a, b, c, d, e, f] = transform;
     let [x, y, z] = point;
@@ -566,4 +520,113 @@ fn include3(bounds: &mut Option<[[f64; 3]; 2]>, p: [f64; 3]) -> Result<(), Failu
         }
     }
     Ok(())
+}
+
+pub struct Provider;
+impl fold_platform::observations::Observations for Provider {
+    fn measure(
+        &self,
+        document: &Document,
+        r: &fold_platform::observations::Request,
+        cancel: &Cancel,
+    ) -> Result<Value, Failure> {
+        run(document, r, cancel)
+    }
+    fn frame_provenance(
+        &self,
+        document: &Document,
+        r: &fold_platform::observations::Request,
+        cancel: &Cancel,
+    ) -> Result<Value, Failure> {
+        if r.times.len() != 1 {
+            return Err(Failure::new(
+                FailureKind::InvalidRequest,
+                "Frame provenance requires one time",
+            ));
+        }
+        let construction = Construction::from_document(document).map_err(Failure::invalid)?;
+        let scene_time = construction
+            .canvas
+            .start
+            .checked_add(r.times[0])
+            .map_err(|e| Failure::invalid(e.to_string()))?;
+        let measurements = self.measure(
+            document,
+            &fold_platform::observations::Request {
+                times: vec![scene_time],
+                epoch: r.epoch,
+                revision: r.revision,
+                candidate: r.candidate,
+                output: r.output.clone(),
+                build: r.build.clone(),
+                target: r.target.clone(),
+            },
+            cancel,
+        )?;
+        let mut provenance = measurements["provenance"].clone();
+        provenance["camera"] = measurements["samples"][0]["value"]["camera"].clone();
+        provenance["cameras"] = measurements["samples"][0]["value"]["cameras"].clone();
+        provenance["scene_time"] = json!(scene_time);
+        provenance["asset_time"] = measurements["samples"][0]["asset_time"].clone();
+        Ok(provenance)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use fold_foundation::Time;
+    #[test]
+    fn cancellation_and_measurement_exhaustion_are_explicit() {
+        let id = fold_foundation::DocumentId::new();
+        let document = crate::package::create(id).unwrap();
+        let construction = Construction::from_document(&document).unwrap();
+        let cancel = Cancel::default();
+        cancel.cancel();
+        let error = run(
+            &document,
+            &fold_platform::observations::Request {
+                epoch: ObjectId::new(),
+                revision: fold_project::Revision(0),
+                candidate: None,
+                output: construction.definitions[0].outputs[0].id.to_string(),
+                times: vec![Time::ZERO],
+                build: "test".into(),
+                target: "test".into(),
+            },
+            &cancel,
+        )
+        .expect_err("cancelled observation");
+        assert_eq!(error.kind, FailureKind::Cancelled);
+        let cancel = Cancel::default();
+        let mut measurement = Measurement {
+            cancel: &cancel,
+            geometries: BTreeMap::new(),
+            points: 0,
+            placements: 0,
+            glyphs: 0,
+            fonts: BTreeMap::new(),
+            remaining: 0,
+        };
+        let geometry = Geometry {
+            attributes: Default::default(),
+            id: 1,
+            space: crate::types::Space::Screen,
+            unit: crate::types::Unit::Canvas,
+            data: GeometryData::Contours(std::sync::Arc::new(vec![evaluation::Contour {
+                id: 2,
+                closed: false,
+                points: vec![evaluation::Point {
+                    id: 3,
+                    position: [0., 0.],
+                }],
+            }])),
+            appearance: Default::default(),
+        };
+        assert_eq!(
+            measurement.geometry(&geometry).err().unwrap().kind,
+            FailureKind::Oversized
+        );
+        assert!(measurement.geometries.is_empty());
+    }
 }

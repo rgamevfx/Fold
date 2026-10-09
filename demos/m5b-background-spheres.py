@@ -43,7 +43,7 @@ def inspect(document, object=None):
     return request({"method": "inspect_document", "epoch": current["epoch"], "revision": current["result"]["revision"], "scope": {"document": document, "object": object, "definition": None}})["result"]["source"]
 
 initial = discover()
-catalog = {(op["key"].split(".")[-1], op["mode"]): op for op in initial["result"]["catalog"]["operations"]}
+catalog = {(op["key"].split(".")[-1], op["mode"]): op for op in next(p["requests"]["catalog"] for p in initial["result"]["scoped_proposals"] if p["type"] == "fold.motion.construction")["operations"]}
 choices = []
 for document in initial["result"]["documents"]:
     if document["type"] == "fold.motion.native.scene":

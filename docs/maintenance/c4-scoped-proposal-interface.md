@@ -1,16 +1,20 @@
 # C4 provider-owned scoped proposal contract
 
-C2 specification, 9 October 2026. This is the interface C4 must implement after C3; it is not a registered capability or an implemented authoring path. Existing public envelopes and candidate dispatch remain authoritative until that change qualifies.
+C2 specification, implemented by C4 on 9 October 2026. The registered capability
+is in `fold-platform::proposals`; Motion, scene, Compositor and Composition own
+its implementations. [C4 results](evidence/c4/result.md) record qualification and
+remaining native acceptance limits. Wire version 2 remains the sole transport;
+provider schemas are now discovered under `scoped_proposals[].requests`.
 
 ## Boundary
 
-Platform will define an optional `ScopedProposals` capability beside the document capabilities. Static provider registration exposes it only when its complete implementation is available. The interface accepts immutable `Snapshot`/`Document` values, stable IDs, exact time, a cancellation token and bounded requests. It never receives a mutable `Project`, `Session`, candidate store, transport, or renderer. Provider types and downcasts do not cross this boundary.
+Platform defines an optional `ScopedProposals` capability beside the document capabilities. Static provider registration exposes it only when its complete implementation is available. The interface accepts immutable `Snapshot`/`Document` values, stable IDs, exact time, a cancellation token and bounded requests. It never receives a mutable `Project`, `Session`, candidate store, transport, or renderer. Provider types and downcasts do not cross this boundary.
 
 The app validates envelopes, request size, permission, retry identity, project epoch and revision, then resolves the provider by document identity/schema and capability. The provider validates and interprets the versioned provider-owned request body. Unknown kinds, schemas, scopes and operations fail explicitly; they do not select a fallback parser.
 
 ## Operations and values
 
-The Rust shape to implement in C4 is:
+The C2 core shape implemented in C4 is:
 
 ```rust,ignore
 trait ScopedProposals: Send + Sync {
@@ -46,3 +50,31 @@ Protection is enforced during preparation, reconciliation and publication, using
 The project coordinator retains candidate creation, retention/expiry, cancellation, retry cache, generations, epoch/revision guards, observation scheduling, undo/redo and atomic commit. The provider cannot publish or extend candidate lifetime. The app constructs cross-document orchestration explicitly and composes provider changes into one project transaction; if any provider fails, none publish. Final publication rechecks epoch, revision, proof, dependencies, scope and protection under the existing commit authority. Cancellation before publication leaves committed state untouched.
 
 C4 must delete the concrete Motion/Compositor parsing and reconciliation branches it replaces, with no aliases or parallel dispatch. Its gate must cover scoped create/edit/inspect/apply, exact retries, stale conflicts and successful disjoint rebases, protected controls, cancellation, save/reopen, inspection invalidation and mixed-document atomicity through public tools. This specification closes no Motion or native acceptance gate and authorizes no M6 work.
+
+## C4 implementation mapping
+
+- `ScopedProposals` includes direct inspection and `prepare_change` to seal the
+  results of App's explicit create/layer/connect orchestration through the same
+  validation and protection gate as provider edits. `ScopedRequest` has an
+  explicit version (currently 1), neutral scope and opaque provider body.
+- `Prepared<Records>` shares only immutable envelope, revision and dependency
+  guards. Its statically supplied provider records own decoding, scope validation,
+  source projection, stable-ID changes, protection and three-way reconciliation.
+  No downcasts, mutable project, candidate store or renderer crosses the interface.
+- Inspection selects all content, source, diff or diagnostics within an explicit
+  scope and byte budget. Source and diff are retained at preparation. Exact
+  inspection content and replacement-envelope bytes form the identity; partial
+  views are bound to their returned content. App always uses the full cached
+  inspection for publication.
+- Publication returns document replacements only. App checks declared writes and
+  inspection identity, validates combined dependencies, and publishes with the
+  existing project transaction/store. Revision, epoch and receipt authority,
+  retention, cancellation and retries remain in their existing owners.
+- Typed provider failures carry original native/source details plus provider and
+  document context. App only maps their categories to wire errors. Measurement
+  preparation and frame provenance use a separate optional observation capability;
+  App retains CPU/GPU worker admission and rendering/observation scheduling.
+- Changed declared dependencies conflict before creative reconciliation. Existing
+  cycle rejection is consequently tested as a dependency conflict when the
+  concurrent edit changes a declared input. Disjoint record edits still rebase;
+  newly protected targets remain conflicts and require a new inspected generation.

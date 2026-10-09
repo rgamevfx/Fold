@@ -1,9 +1,6 @@
 use fold_foundation::DocumentId;
-use fold_motion::{
-    candidates::{Cancellation, Error, IDLE_LIFETIME, MAX_LIVE, Store},
-    editing,
-    model::Construction,
-};
+use fold_motion::{editing, model::Construction};
+use fold_project::proposals::{Cancellation, Error, IDLE_LIFETIME, MAX_LIVE, Store};
 use fold_project::{EditBatch, Mutation, Project};
 use std::time::{Duration, Instant};
 
@@ -133,7 +130,10 @@ fn live_capacity_expiry_epochs_and_terminal_retention_are_bounded() {
         store.rebase(handles[0], &project.snapshot(), now),
         Err(Error::Capacity)
     );
-    assert_eq!(Store::default().cancel(handles[0], now), Err(Error::Epoch));
+    assert_eq!(
+        Store::<editing::Candidate>::default().cancel(handles[0], now),
+        Err(Error::Epoch)
+    );
     store
         .inspect(handles[0], now + Duration::from_secs(1))
         .unwrap();

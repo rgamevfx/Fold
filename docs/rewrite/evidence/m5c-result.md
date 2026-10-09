@@ -252,3 +252,19 @@ Final continuation checks:
 - Formatting, whitespace checks and package boundaries/headless isolation passed.
 - No live application restart, native UI edit, physical acceptance, full workspace
   test rerun or export qualification was performed in this continuation.
+
+## C4 ownership continuation — 9 October 2026
+
+[Maintenance C4](../../maintenance/evidence/c4/result.md) replaces App's concrete
+proposal parsing/reconciliation with the provider-owned capability. Source,
+protected controls, stable identities, parameter references and mixed-document
+publication retain their owning models and existing project transaction authority.
+Provider schemas/catalogs are discovered under `scoped_proposals[].requests`;
+public clients and the Fold skill follow that contract. The C4 record separates
+implementation, automated CLI/MCP verification and unperformed native acceptance.
+This continuation closes no remaining M3/M5a/M5c gate and does not begin M6.
+
+C4 automated checkpoint: 772 workspace tests, 5 explicit native frame/CLI/MCP
+checks and 16 Python tests passed, along with workspace/headless checks, Clippy
+and dependency/ownership checks. The ordinary suite ignored 117 tests; the five
+native checks were run separately. Physical artist acceptance remains open.

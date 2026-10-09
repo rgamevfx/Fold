@@ -131,6 +131,13 @@ fn document_registration_does_not_require_video_metadata() {
         document.payload
     );
 
+    assert!(!registry.has_capability(
+        document,
+        fold_platform::packages::Capability::ScopedProposals
+    ));
+    assert!(registry.scoped_proposals(document).is_err());
+    assert!(registry.observations(document).is_err());
+
     assert!(
         registry
             .output(&project.snapshot(), id)
