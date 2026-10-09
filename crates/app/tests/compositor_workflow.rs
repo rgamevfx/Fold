@@ -68,10 +68,11 @@ fn apply(project: &mut Project, request: CommandRequest) {
 fn registry_rejects_bad_types_cycles_ports_and_dependency_declarations() {
     let mut c = solid([1.0; 4]);
     let mask = Node::new(P::Mask { rect: [0, 0, 8, 8] }, vec![]);
-    c.nodes[1].inputs[0] = Some(mask.id);
+    c.nodes[1].set_input(0, mask.id).unwrap();
     c.nodes.insert(1, mask);
     assert!(c.validate().unwrap_err().contains("incompatible"));
-    c.nodes[2].inputs[0] = Some(c.nodes[2].id);
+    let self_id = c.nodes[2].id;
+    c.nodes[2].set_input(0, self_id).unwrap();
     assert!(c.validate().is_err());
     let source = DocumentId::new();
     let read = Node::new(
@@ -86,18 +87,11 @@ fn registry_rejects_bad_types_cycles_ports_and_dependency_declarations() {
         },
         vec![],
     );
-    c.nodes = vec![
-        read.clone(),
-        Node {
-            id: c.output,
-            parameters: P::Output,
-            animation: Default::default(),
-            inputs: vec![Some(read.id)],
-            effect: Default::default(),
-            position: None,
-            extensions: Default::default(),
-        },
-    ];
+    c.nodes = vec![read.clone(), {
+        let mut output = Node::new(P::Output, vec![read.id]);
+        output.id = c.output;
+        output
+    }];
     let mut document = c.document(DocumentId::new()).unwrap();
     document.dependencies.clear();
     assert!(Composite::from_document(&document).is_err());
@@ -300,7 +294,7 @@ fn unavailable_nested_provider_fails_even_in_an_inactive_read() {
         },
         vec![],
     );
-    c.nodes[1].inputs[0] = Some(read.id);
+    c.nodes[1].set_input(0, read.id).unwrap();
     c.nodes.insert(1, read);
     let id = DocumentId::new();
     commit(&mut project, vec![unknown, c.document(id).unwrap()]);

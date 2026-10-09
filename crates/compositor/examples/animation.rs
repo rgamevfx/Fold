@@ -44,7 +44,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             key.interpolation = Interpolation::Bezier;
             key.tangents = Tangents::Broken;
         }
-        transform.animation.insert(path.into(), curve);
+        transform.animation.insert(path.into(), curve)?;
     }
     let output = Node::new(P::Output, vec![transform.id]);
     let mut composite = Composite {

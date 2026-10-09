@@ -60,7 +60,7 @@ fn twenty_layers_survive_processing_and_shuffle_without_twenty_pixel_buffers() {
             })
             .collect(),
     });
-    layers.inputs[0] = Some(source.id);
+    layers.set_input(0, source.id).unwrap();
     let grade = Node::new(P::Grade { gain: [2.; 3] }, vec![layers.id]);
     let mut select = Node::disconnected(P::Shuffle {
         mappings: vec![ChannelMapping {
@@ -68,7 +68,7 @@ fn twenty_layers_survive_processing_and_shuffle_without_twenty_pixel_buffers() {
             source: ChannelSource::A(name("aov19.Z")),
         }],
     });
-    select.inputs[0] = Some(grade.id);
+    select.set_input(0, grade.id).unwrap();
     let composite = fixture(vec![source, layers, grade, select]);
     assert_eq!(composite.channel_names(composite.output).unwrap().len(), 24);
     let graph = compile(&composite).unwrap();
@@ -145,7 +145,7 @@ fn shuffle_swaps_simultaneously_and_requires_b_only_when_referenced() {
             },
         ],
     });
-    shuffle.inputs[0] = Some(source.id);
+    shuffle.set_input(0, source.id).unwrap();
     let mut composite = fixture(vec![source, shuffle]);
     assert_eq!(
         fold_render::render(compile(&composite).unwrap())
@@ -175,7 +175,7 @@ fn generated_shapes_connect_to_explicit_alpha_multiplication() {
         vec![],
     );
     let mut multiply = Node::disconnected(P::ApplyMask);
-    multiply.inputs[0] = Some(source.id);
+    multiply.set_input(0, source.id).unwrap();
     let shape_id = shape.id;
     let multiply_id = multiply.id;
     let mut composite = fixture(vec![source, shape, multiply]);
@@ -202,7 +202,7 @@ fn data_rgb_without_alpha_can_be_processed_without_being_zeroed() {
             })
             .into(),
     });
-    layers.inputs[0] = Some(source.id);
+    layers.set_input(0, source.id).unwrap();
     let settings = fold_render::operations::Grade {
         gain: [2.; 3],
         ..Default::default()
@@ -215,7 +215,7 @@ fn data_rgb_without_alpha_can_be_processed_without_being_zeroed() {
             source: ChannelSource::A(name("data.red")),
         }],
     });
-    select.inputs[0] = Some(grade.id);
+    select.set_input(0, grade.id).unwrap();
     let composite = fixture(vec![source, layers, grade, select]);
     assert_eq!(
         fold_render::render(compile(&composite).unwrap())
@@ -411,7 +411,7 @@ fn inserted_merge_passes_b_through_until_a_is_connected() {
         );
         let unused_mask = Node::disconnected(P::Grade { gain: [2.; 3] });
         let mut merge = Node::disconnected(parameters);
-        merge.inputs[1] = Some(background.id);
+        merge.set_input(1, background.id).unwrap();
         merge.effect.mask = Some(unused_mask.id);
         let id = merge.id;
         let mut composite = fixture(vec![background, unused_mask, merge]);

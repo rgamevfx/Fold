@@ -2136,6 +2136,7 @@ version = "0.1.0"
 dependencies = [
  "fold-animation",
  "fold-foundation",
+ "fold-graph",
  "fold-media",
  "fold-platform",
  "fold-project",
@@ -2153,6 +2154,18 @@ dependencies = [
  "schemars",
  "serde",
  "uuid",
+]
+
+[[package]]
+name = "fold-graph"
+version = "0.1.0"
+dependencies = [
+ "fold-animation",
+ "fold-foundation",
+ "fold-project",
+ "schemars",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -2176,6 +2189,7 @@ version = "0.1.0"
 dependencies = [
  "fold-animation",
  "fold-foundation",
+ "fold-graph",
  "fold-media",
  "fold-platform",
  "fold-project",

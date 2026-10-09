@@ -41,8 +41,8 @@ impl Preparation {
         let stroke = appearance.stroke.as_ref().map(|s| vector::Stroke {
             color: paint(s.color.value),
             width: s.width,
-            cap: vector::Cap::Butt,
-            join: vector::Join::Miter,
+            cap: s.mode.cap(),
+            join: s.mode.join(),
         });
         let paths = screen::geometry_paths(&placement.geometry.data, step)?;
         for (index, (path, transform)) in paths.into_iter().enumerate() {

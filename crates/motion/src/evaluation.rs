@@ -7,11 +7,13 @@ pub mod material;
 pub mod mesh;
 pub mod outlines;
 pub mod placement;
+mod profile;
 mod sampling;
 pub mod spatial;
 pub mod style;
 pub mod text;
 mod text_animator;
+mod transform;
 use crate::{
     binding::Binding,
     execution::{Budget, Context},
@@ -182,6 +184,28 @@ impl Prepared {
         limits: Limits,
         cancellation: &dyn Fn() -> Result<(), String>,
     ) -> Result<Value, Failure> {
+        self.evaluate_scoped(output, time, None, limits, cancellation)
+    }
+    /// Scene occurrence identity is evaluation context, never a document rewrite.
+    pub(crate) fn evaluate_in_object(
+        &self,
+        output: ObjectId,
+        time: Time,
+        object: ObjectId,
+        limits: Limits,
+        cancellation: &dyn Fn() -> Result<(), String>,
+    ) -> Result<Value, String> {
+        self.evaluate_scoped(output, time, Some(object), limits, cancellation)
+            .map_err(|e| e.message)
+    }
+    fn evaluate_scoped(
+        &self,
+        output: ObjectId,
+        time: Time,
+        object: Option<ObjectId>,
+        limits: Limits,
+        cancellation: &dyn Fn() -> Result<(), String>,
+    ) -> Result<Value, Failure> {
         let mut state = State {
             prepared: self,
             scene_time: time,
@@ -197,7 +221,13 @@ impl Prepared {
             element: None,
         };
         let result = (|| {
-            let root = state.instance(None, &self.construction.root)?;
+            let scene_scope = object.map(|object| Scope {
+                definition: self.construction.root.definition,
+                path: vec![object],
+                time,
+                inputs: Arc::new(BTreeMap::new()),
+            });
+            let root = state.instance(scene_scope.as_ref(), &self.construction.root)?;
             state.output(&root, output)
         })();
         result.map_err(|message| Failure {
@@ -530,6 +560,11 @@ impl State<'_> {
             Builtin::Cloner => self.cloner(scope, id, &args)?,
             Builtin::Grid => self.grid(scope, id, &args)?,
             Builtin::BoxMesh => self.box_mesh(scope, id, &args)?,
+            Builtin::TransformScreen | Builtin::TransformMesh | Builtin::TransformInstances => {
+                self.transform_geometry(scope, id, &args, operation.builtin)?
+            }
+            Builtin::Tessellate => self.profile_mesh(scope, id, &args, false)?,
+            Builtin::ExtrudeProfile => self.profile_mesh(scope, id, &args, true)?,
             Builtin::Extrude => self.extrude_text(scope, id, &args)?,
             Builtin::OutlineText => self.outline_text(scope, id, &args)?,
             Builtin::Text => self.text_geometry(scope, id, &args)?,
@@ -547,7 +582,11 @@ impl State<'_> {
                     &args,
                 )?))
             }
-            Builtin::Fill | Builtin::Stroke => {
+            Builtin::Fill
+            | Builtin::Stroke
+            | Builtin::StrokeButtRound
+            | Builtin::StrokeRoundMiter
+            | Builtin::StrokeRoundRound => {
                 let Some(Value::Geometry(geometry)) = args.get("geometry") else {
                     return Err("Expected geometry to style".into());
                 };

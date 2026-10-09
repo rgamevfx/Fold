@@ -104,7 +104,9 @@ inspection = request({"method": "inspect_document", "epoch": discovery["epoch"],
 original = inspection["result"]["source"]
 # Refuse existing artwork or extended starters: this workflow deliberately creates
 # a complete demo, not a scoped modification of somebody else's construction.
-ensure(re.findall(r'^  let "([^"]+)"', original, re.M) == ["Rectangle", "Placement", "Scene"], "Public construction prerequisite failed")
+starter_nodes = re.findall(r'^  let "([^"]+)"', original, re.M)
+ensure(starter_nodes == ["Rectangle", "Placement", "Scene", "Rectangle fill"],
+       "Demo requires the untouched filled-rectangle starter; discovered nodes: " + repr(starter_nodes))
 ensure(re.findall(r'^  input "([^"]+)"', original, re.M) == ["Width"], "Public construction prerequisite failed")
 ensure('seed 0;' in original and '"protected":true' not in original, "Public construction prerequisite failed")
 ensure('presentation {"positions":{},"groups":[],"annotations":{}};' in original, "Public construction prerequisite failed")
@@ -292,6 +294,12 @@ for sample in samples:
         phase = min(1, max(0, (seconds - index*.07)/.6))
         expected = 80 * (1-phase)**3
         ensure(abs(word["offset"][1]-expected) < 1e-10, "Word timing mismatch")
+        ensure(word["pivot_kind"] == "advance_center" and
+               all(abs(word["pivot"][axis] - word["layout_pivot"][axis] - word["offset"][axis]) < 1e-10 for axis in (0,1)),
+               "Word pivot did not follow its group translation")
+        members = [glyph for glyph in title["glyphs"] if glyph["id"] in word["glyphs"]]
+        ensure(len(members) == len(word["glyphs"]) and all(glyph["offset"] == word["offset"] for glyph in members),
+               "Word selection did not transform its complete glyph group")
     copies = next(g["instances"] for g in geometries if "instances" in g)
     ensure(len(copies) == 240, "Cloner count mismatch")
     rotations = {copy["id"]:copy["rotation_z"] for copy in copies}
@@ -347,6 +355,74 @@ def replace_control(text, name, item):
     return changed
 
 
+# Exercise the remaining M5 catalog modes through public Source proposals. Each
+# trial restores the original construction before the normal handoff variation.
+native_modes = []
+
+def trial_source(name, key, mode, target, **bindings):
+    count = len(nodes)
+    add(name, key, mode, **bindings)
+    declaration = nodes.pop()
+    node_names.pop()
+    ensure(len(nodes) == count, "Catalog trial changed the baseline node list")
+    if target == name:
+        pattern = r'^  let ' + re.escape(dump(name)) + r' .*?^  \);'
+        edited, matched = re.subn(pattern, lambda _: declaration, baseline_source, count=1, flags=re.M | re.S)
+        ensure(matched == 1, "Missing trial operation " + name)
+    else:
+        edited = baseline_source.replace('  output "main"', declaration + '\n  output "main"', 1)
+        target_name, old_input = target
+        pattern = r'(^  let ' + re.escape(dump(target_name)) + r' .*?)(^  \);)'
+        def rewire(match):
+            old = '$' + dump(old_input)
+            ensure(old in match[1], "Missing trial input")
+            return match[1].replace(old, '$' + dump(name), 1) + match[2]
+        edited, matched = re.subn(pattern, rewire, edited, count=1, flags=re.M | re.S)
+        ensure(matched == 1, "Missing trial consumer")
+        current_presentation = json.loads(re.search(r'^presentation (.*);$', edited, re.M)[1])
+        current_presentation["positions"][uid("node/" + name)] = [420, 3600]
+        edited = re.sub(r'^presentation .*;$', lambda _: 'presentation ' + dump(current_presentation) + ';', edited, flags=re.M)
+    return edited
+
+trials = []
+for mode in ["solid_centered_butt_round", "solid_centered_round_miter", "solid_centered_round_round"]:
+    trials.append((mode, baseline_source.replace('."solid_centered_butt_miter"', '.' + dump(mode))))
+trials.append(("transform_screen", trial_source("Screen pivot", "transform", "screen",
+    ("Title paint", "Word motion"), geometry=link("Title outlines"),
+    pivot=value(vector([400,100],"canvas","screen")), angle=value(literal("scalar",.1)),
+    scale=value(vector([1.1,.9],"unitless","screen")))))
+trials.append(("transform_mesh", trial_source("Mesh pivot", "transform", "world_mesh",
+    ("Cloner", "Box"), geometry=link("Box"), scale=value(vector([1,2,1],"unitless")))))
+trials.append(("transform_instances", trial_source("Copy pivot", "transform", "world_instances",
+    ("Copy material", "Rotate copies"), geometry=link("Rotate copies"),
+    pivot=value(vector([.2,0,0])), angle=value(literal("scalar",.2)))))
+for mode, key in [("planar", "tessellate"), ("closed_profile", "extrude")]:
+    bindings = {"profile":link("Hole outlines"), "canvas_unit":value(literal("distance",.003,unit="meters")),
+                "even_odd":value(literal("bool",True))}
+    if key == "extrude":
+        bindings["depth"] = link("Extrusion depth")
+    trials.append((key, trial_source("Hole solid",key,mode,"Hole solid",**bindings)))
+for name, edited in trials:
+    trial_revision, canonical = apply_source(baseline_source, edited, revision)
+    observation = request({"method":"observe", "target":{"kind":"committed", "epoch":discovery["epoch"],
+        "revision":trial_revision, "document":document}, "output":output_id,
+        "times":[{"numerator":1,"denominator":1}]})["result"]
+    ensure(observation["samples"][0]["counts"]["placements"] == 5, "Catalog trial lost scene placements")
+    if name in ("tessellate", "extrude"):
+        converted = next(g["mesh"] for g in observation["samples"][0]["geometries"].values()
+                         if g.get("mesh", {}).get("source_geometry") is not None)
+        ensure(len(converted["source_vertices"]) == len(converted["positions"]) == len(converted["uv"]),
+               "Profile attribute correspondence is incomplete")
+        ensure("front" in converted["regions"] and (("sides" in converted["regions"]) == (name == "extrude")),
+               "Profile regions do not match the operation")
+        source_profile = observation["samples"][0]["geometries"][str(converted["source_geometry"])]
+        ensure(source_profile["source_text"]["text"] == "O B 8" and bool(source_profile["outlined_glyphs"]),
+               "Profile conversion lost its retained curve/text provenance")
+    frame = frames_at(trial_revision, [(1,1)])[0] if frame_feedback["available"] else None
+    native_modes.append({"mode":name, "source":canonical, "observation":observation, "frame":frame})
+    revision, canonical = apply_source(canonical, baseline_source, trial_revision)
+    ensure(canonical == baseline_source, "Catalog trial changed baseline Source")
+
 variant = replace_control(baseline_source, "Wording", literal("text", "MAKE IT FLOW"))
 variant = replace_control(variant, "Columns", literal("integer", 21))
 green = color([.02, 1, .1, 1])
@@ -396,7 +472,7 @@ if frame_feedback["available"]:
            "Restored construction did not reproduce the public baseline pixels")
 saved = request({"method":"save_project_copy", "guard":{"epoch":discovery["epoch"],"request_id":str(uuid.uuid4()),"base":revision}, "path":project_path})["result"]
 ensure(saved["state"] == "saved" and saved["revision"] == revision, "Saved project revision differs")
-report = {"transport":transport,"document":document,"output":output_id,"revision":revision,"source":candidate["result"]["source"],"observations":observed["result"],"nodes":len(nodes),"presentation":canonical_presentation,"frames":frame_feedback,"discovery":discovery,"variation":{"revision":variant_revision,"source":variant_source,"observations":variation["result"]},"restored":True,"saved_project":saved}
+report = {"native_modes":native_modes,"transport":transport,"document":document,"output":output_id,"revision":revision,"source":candidate["result"]["source"],"observations":observed["result"],"nodes":len(nodes),"presentation":canonical_presentation,"frames":frame_feedback,"discovery":discovery,"variation":{"revision":variant_revision,"source":variant_source,"observations":variation["result"]},"restored":True,"saved_project":saved}
 with open(report_path, "x") as output:
     json.dump(report,output,indent=2)
-print(f"Authored via {transport}: {len(nodes)} native nodes at revision {revision}; baseline and control-variation observations complete; saved {project_path}")
+print(f"Authored via {transport}: {len(nodes)} native nodes at revision {revision}; baseline, eight catalog trials and control variations complete; saved {project_path}")

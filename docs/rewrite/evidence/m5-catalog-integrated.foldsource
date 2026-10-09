@@ -1,0 +1,205 @@
+motion 1;
+seed 20261008;
+canvas {"width":1920,"height":1080,"rate":[24,1],"start":{"numerator":0,"denominator":1},"end":{"numerator":4,"denominator":1}};
+asset "Motion" @{"id":"4429e371-1786-46f2-ba87-f7769aacec6f"} {
+  input "Wording" @{"id":"bc121d22-9c8e-5e58-ade1-a4958f9da1c3","protected":false} : {"kind":"text"} = "MAKE IT MOVE";
+  input "Entrance duration" @{"id":"1c0c3c49-35c2-5e43-bbe9-d12ada494845","protected":false} : {"kind":"duration"} = literal({"kind":"duration","value":{"numerator":3,"denominator":5}});
+  input "Word delay" @{"id":"d3eef2ce-6bc0-55ca-95db-5d061c1b3b4b","protected":false} : {"kind":"duration"} = literal({"kind":"duration","value":{"numerator":7,"denominator":100}});
+  input "Columns" @{"id":"26a8b42e-4c32-5f39-8382-4e3f58bd64e8","protected":false} : {"kind":"integer"} = 20i;
+  input "Rows" @{"id":"a8574677-5897-55fa-9a27-be48d651ec3a","protected":false} : {"kind":"integer"} = 12i;
+  input "Spacing" @{"id":"9ecda4f5-b78e-5fdc-ac4f-b91c2c166394","protected":false} : {"kind":"vector","dimensions":2,"unit":"meters","space":"world"} = literal({"kind":"vector","value":[0.12,0.12],"unit":"meters","space":"world"});
+  input "Field start" @{"id":"d9697eda-8106-527f-afdd-f4242bdc73d0","protected":false} : {"kind":"vector","dimensions":3,"unit":"meters","space":"world"} = literal({"kind":"vector","value":[-1.0,-0.5,0.0],"unit":"meters","space":"world"});
+  input "Field end" @{"id":"bad01e60-6acd-507b-9e9f-8bdfb5371f56","protected":false} : {"kind":"vector","dimensions":3,"unit":"meters","space":"world"} = literal({"kind":"vector","value":[1.0,0.5,0.0],"unit":"meters","space":"world"});
+  input "Field duration" @{"id":"b5ce6fbb-d570-50bf-b332-a169100126de","protected":false} : {"kind":"duration"} = literal({"kind":"duration","value":{"numerator":2,"denominator":1}});
+  input "Field radius" @{"id":"fdb3b1a6-1e0f-5bad-ad57-a9869598aaa9","protected":false} : {"kind":"distance","unit":"meters"} = 1m;
+  input "Extrusion depth" @{"id":"0c4e495a-b6c3-5ccf-abee-9d8d47d24d13","protected":false} : {"kind":"distance","unit":"meters"} = 0.15m;
+  input "Camera position" @{"id":"72f74b4d-9293-588b-97cd-c5af532136d0","protected":false} : {"kind":"vector","dimensions":3,"unit":"meters","space":"world"} = literal({"kind":"vector","value":[0.0,1.0,5.0],"unit":"meters","space":"world"});
+  input "Camera target" @{"id":"d20a415d-e800-553d-b67f-c344925add6a","protected":false} : {"kind":"vector","dimensions":3,"unit":"meters","space":"world"} = literal({"kind":"vector","value":[0.0,0.0,0.0],"unit":"meters","space":"world"});
+  input "Title color" @{"id":"370afdc0-5ac4-51ef-8d2f-13184224c34e","protected":false} : {"kind":"color","encoding":"linear_rec709","alpha":"straight"} = literal({"kind":"color","value":[1.0,0.10224173308810132,0.03688945040110004,1.0],"encoding":"linear_rec709","alpha":"straight"});
+  let "Clock" @{"id":"ea840d44-a157-5e7c-ab4a-7f5ac3d28dcc"} = "fold.motion.time"."asset" @1 (
+  );
+  let "Background" @{"id":"5fdef6d4-7a60-53fe-805c-3ad0bb677061"} = "fold.motion.shape"."rectangle" @1 (
+    "height" @{"id":"118c64e2-c7d2-5731-bed4-1d3e9d743be7","protected":false} = value(1080px);
+    "width" @{"id":"bc4aa105-39ba-53bd-befb-71f4b757d87f","protected":false} = value(1920px);
+  );
+  let "Background paint" @{"id":"5d27203d-9ec9-5a34-ac18-0f31b48acb69"} = "fold.motion.fill"."solid" @1 (
+    "color" @{"id":"604a072c-bb66-5ad6-af5c-fa6f508cde8e","protected":false} = value(literal({"kind":"color","value":[0.015,0.02,0.035,1.0],"encoding":"linear_rec709","alpha":"straight"}));
+    "even_odd" @{"id":"ee7c7750-8dd2-5208-864e-741f85705996","protected":false} = value(false);
+    "geometry" @{"id":"a38d16ea-d6a3-5b4c-931a-12fea5ad4db0","protected":false} = link($"Background" @{"id":"5031e9ac-63a2-5b4a-9242-6e90437e2ca2"});
+  );
+  let "Background screen" @{"id":"8994e7e6-3a4b-5934-9477-5a9ab9684b3a"} = "fold.motion.place"."screen" @1 (
+    "geometry" @{"id":"b37da45c-5cfc-596b-825f-a8e27d8fd84d","protected":false} = link($"Background paint" @{"id":"b3eff86c-9c28-5103-ae1c-cc0a89428bd2"});
+    "opacity" @{"id":"d1a6623a-5667-547d-b188-46abeb5b2fef","protected":false} = value(1);
+    "position" @{"id":"247165fb-95ec-5a8f-a757-46b6f8fcca7c","protected":false} = value(literal({"kind":"vector","value":[0.0,0.0],"unit":"canvas","space":"screen"}));
+  );
+  let "Title" @{"id":"53cd23e0-d24e-50a6-b050-2d1a1de3470a"} = "fold.motion.text"."packaged" @1 (
+    "font" @{"id":"a4de3bb7-87ca-5628-8cb3-d2d0932a99f0","protected":false} = value("Noto Sans Regular");
+    "size" @{"id":"f74a5e99-e802-50de-ad58-171829cadc78","protected":false} = value(140px);
+    "text" @{"id":"0f90e744-241f-5cf2-99d1-f5a27af84339","protected":false} = link($"Wording" @{"id":"8039fb71-637a-531c-9558-cc9373677f27"});
+    "width" @{"id":"c5a8a415-7bef-5a7f-86e6-0822fc4a3df3","protected":false} = value(1920px);
+    "wrap" @{"id":"1e16a640-b42f-56c1-834b-b1f384baf246","protected":false} = value(false);
+  );
+  let "Entrance" @{"id":"8fe1747b-6397-506d-8761-2a1fb3e9884d"} = "fold.motion.tween"."cubic_out" @1 (
+    "duration" @{"id":"bdac190b-b16d-54a9-9816-4186e3707053","protected":false} = link($"Entrance duration" @{"id":"cc4312fa-fe68-51b7-b409-489a77f0a395"});
+    "from" @{"id":"2e1aee17-d67c-5485-9c7d-0eb999480be5","protected":false} = value(literal({"kind":"vector","value":[0.0,80.0],"unit":"canvas","space":"screen"}));
+    "start" @{"id":"76b4b895-21ee-5db9-b1dc-0c932a406e0f","protected":false} = value(literal({"kind":"duration","value":{"numerator":0,"denominator":1}}));
+    "time" @{"id":"055fd88c-6b69-5a6a-9eda-b51fe16a5544","protected":false} = link($"Clock" @{"id":"dae94ed6-9712-523a-b319-20913bce03f1"});
+    "to" @{"id":"38f83bbb-74a4-5ab2-9c32-58342c408a87","protected":false} = value(literal({"kind":"vector","value":[0.0,0.0],"unit":"canvas","space":"screen"}));
+  );
+  let "Word motion" @{"id":"2821913c-a492-59bc-97f1-6cc56bbda36e"} = "fold.motion.text_animator"."word_position" @1 (
+    "position" @{"id":"5268bf93-021c-533b-b01a-e7c82473b71b","protected":false} = link($"Entrance" @{"id":"76388050-977e-5a48-999c-54bd4c1243cd"});
+    "stagger" @{"id":"2ca4983c-5065-5128-bfbe-4976b7744ad0","protected":false} = link($"Word delay" @{"id":"ebec7c5c-0770-5622-87c5-051e90b1a0cb"});
+    "text" @{"id":"e0c02510-d00e-554a-8402-8dd9c5371d69","protected":false} = link($"Title" @{"id":"5f410027-dbad-5ecd-80bf-5d73659386a9"});
+  );
+  let "Title paint" @{"id":"d7d21c68-7ab9-563a-87bf-52d60410f572"} = "fold.motion.fill"."solid" @1 (
+    "color" @{"id":"0cbd9d82-abb0-5ad1-adb0-4437b095e636","protected":false} = link($"Title color" @{"id":"4af75cd5-c5ae-598c-81f0-9f4208b656b1"});
+    "even_odd" @{"id":"295e1cf7-a264-5b7a-ad6e-c9646624fcf8","protected":false} = value(false);
+    "geometry" @{"id":"d39d55b7-6a11-564e-a10a-787b3ef53604","protected":false} = link($"Word motion" @{"id":"db38c8c6-d72d-50b5-a72c-3a5d902ef46e"});
+  );
+  let "Title stroke" @{"id":"fcb04a8e-7c48-53ea-afab-33aed7e62400"} = "fold.motion.stroke"."solid_centered_butt_miter" @1 (
+    "color" @{"id":"da9b15ed-8fbb-5e63-90d5-87240bfc5727","protected":false} = value(literal({"kind":"color","value":[1.0,1.0,1.0,1.0],"encoding":"linear_rec709","alpha":"straight"}));
+    "geometry" @{"id":"e71742b5-986e-5313-820b-1c6a91f4bb69","protected":false} = link($"Title paint" @{"id":"f9d9ef21-21d5-526f-ab11-72c058cb82fc"});
+    "width" @{"id":"d81dd947-566b-5c82-bf1b-8e245ed39c29","protected":false} = value(2px);
+  );
+  let "Title screen" @{"id":"88c13172-5504-51c2-bff3-e7776c5880a4"} = "fold.motion.place"."screen" @1 (
+    "geometry" @{"id":"e5071768-d678-55a3-a97d-4ad37e056ac6","protected":false} = link($"Title stroke" @{"id":"6ef4696c-4af3-5485-877f-43c24db2ec2a"});
+    "opacity" @{"id":"531ea7c1-77dd-52b8-b685-a64cd2029c30","protected":false} = value(1);
+    "position" @{"id":"20d649cc-69f7-5f18-bf76-801b1876eb62","protected":false} = value(literal({"kind":"vector","value":[100.0,100.0],"unit":"canvas","space":"screen"}));
+  );
+  let "Title outlines" @{"id":"232e2e66-193a-5087-a390-e14ecb1090ba"} = "fold.motion.outline_text"."curves" @1 (
+    "text" @{"id":"53b391ee-53ed-5574-a31d-ea493a0aef95","protected":false} = link($"Word motion" @{"id":"3f9bcf6c-6769-5bfd-a10f-85789337d88d"});
+  );
+  let "Title solid" @{"id":"f6ca32f5-b2b4-5efd-a7f2-7c5e619160ba"} = "fold.motion.extrude"."straight_text" @1 (
+    "canvas_unit" @{"id":"cb59245c-e88b-5f0c-b49a-f25cad780f73","protected":false} = value(0.003m);
+    "depth" @{"id":"1bb36416-c297-58a0-be47-af51ab4a5de4","protected":false} = link($"Extrusion depth" @{"id":"6c81001b-8135-57eb-99d0-91ad49dd2d30"});
+    "detail" @{"id":"760f61ee-6e25-5f30-b5fd-6feac90f18d1","protected":false} = value(1);
+    "profile" @{"id":"eaad18b8-8aa1-5af4-b1f7-742c473ae7fd","protected":false} = link($"Title outlines" @{"id":"67ab2c7e-cd2f-5134-ac66-18712bc9c721"});
+    "segments" @{"id":"5e23d2d6-04e9-5274-90a0-604c7776d37f","protected":false} = value(1i);
+  );
+  let "Title material" @{"id":"12359f77-1201-5046-970d-351aa91dc778"} = "fold.motion.material"."lit" @1 (
+    "color" @{"id":"95dc23e5-b678-5b19-8008-7bd0a409ec60","protected":false} = link($"Title color" @{"id":"b499e293-e4fd-5372-b2d4-baae4a098c9b"});
+    "geometry" @{"id":"e7c4e2d0-11c8-5fcf-b388-d46d34192a9c","protected":false} = link($"Title solid" @{"id":"0a8151ca-3b62-5cc4-a09e-61fe58a03049"});
+    "reflectance" @{"id":"6c69f5f3-e420-5249-bf96-705d6d3e7dee","protected":false} = value(0.5);
+    "roughness" @{"id":"5f9de182-9a7c-5758-aaad-fc5aacf3b509","protected":false} = value(0.5);
+  );
+  let "Title world" @{"id":"f0c224e4-d4fe-564c-86b5-9429a97dfecb"} = "fold.motion.place"."world" @1 (
+    "geometry" @{"id":"6118838a-ae29-5db5-8e9d-2d71886de711","protected":false} = link($"Title material" @{"id":"96373836-6c97-5738-b7a9-2dca34a577f7"});
+    "opacity" @{"id":"fd42d5c0-a3de-5756-bfa9-b8f64f7ec8cb","protected":false} = value(1);
+    "position" @{"id":"6b485992-e96b-588e-a71c-7f111bf03027","protected":false} = value(literal({"kind":"vector","value":[-1.5,1.2,0.0],"unit":"meters","space":"world"}));
+    "rotation" @{"id":"ba2266a6-325b-52b5-805b-88643595d509","protected":false} = value(literal({"kind":"rotation","value":[0.0,0.0,0.0,1.0],"space":"world"}));
+    "scale" @{"id":"7f413718-be98-5134-b4d4-fa682ddba6e8","protected":false} = value(literal({"kind":"vector","value":[1.0,1.0,1.0],"unit":"unitless","space":"world"}));
+  );
+  let "Hole fixture" @{"id":"4786eee9-a711-551a-acf8-eb3f22f50262"} = "fold.motion.text"."packaged" @1 (
+    "font" @{"id":"7bc4e535-141f-5a44-8ceb-5c4677cfb8b7","protected":false} = value("Noto Sans Regular");
+    "size" @{"id":"0bcea771-e078-5f9e-ab0a-becdb8c483dc","protected":false} = value(140px);
+    "text" @{"id":"dd47ad88-3593-5303-bd80-23f2ee7d6f8e","protected":false} = value("O B 8");
+    "width" @{"id":"33a3dbce-b633-5de8-86ab-d3a7b6e4fce5","protected":false} = value(1920px);
+    "wrap" @{"id":"e81dfa21-d415-504a-9acb-91439cb9c1e4","protected":false} = value(false);
+  );
+  let "Hole outlines" @{"id":"8738a434-6fcb-54aa-ae89-475c944f5196"} = "fold.motion.outline_text"."curves" @1 (
+    "text" @{"id":"4462a487-9613-58ae-a0ff-422f5deeec6c","protected":false} = link($"Hole fixture" @{"id":"316be375-7289-5232-8b9c-b159c6b425c3"});
+  );
+  let "Hole solid" @{"id":"479f69e7-452d-59fc-b991-c87a80ec432c"} = "fold.motion.extrude"."straight_text" @1 (
+    "canvas_unit" @{"id":"e432ba3b-8741-5614-b854-9b8d7e0958a2","protected":false} = value(0.003m);
+    "depth" @{"id":"053794cc-b51c-514a-ae28-328b46751ae6","protected":false} = link($"Extrusion depth" @{"id":"2ed6d8e5-2489-5c2b-aa8d-f20fb26fbd80"});
+    "detail" @{"id":"981a8100-ca4a-569e-82e9-3db51ce8b0fd","protected":false} = value(1);
+    "profile" @{"id":"cdf01da9-9bd9-50fa-b3d2-6bcc92b44a35","protected":false} = link($"Hole outlines" @{"id":"56c99a6a-75a2-509e-838b-2554bdd628c6"});
+    "segments" @{"id":"e37f7618-2087-5e2a-bf75-75071110c85d","protected":false} = value(1i);
+  );
+  let "Hole material" @{"id":"27b5ec5e-24a7-5db3-8d48-0da995b9c219"} = "fold.motion.material"."lit" @1 (
+    "color" @{"id":"6a6f50bf-1f70-57fb-8877-9057e448dbaa","protected":false} = value(literal({"kind":"color","value":[1.0,1.0,1.0,1.0],"encoding":"linear_rec709","alpha":"straight"}));
+    "geometry" @{"id":"278ecaa0-ced0-528c-ac89-eb089684f6b9","protected":false} = link($"Hole solid" @{"id":"56acfa55-00a5-59a9-ae16-bedd158c38f7"});
+    "reflectance" @{"id":"a02dceee-04ce-5608-9bd9-6affd529355c","protected":false} = value(0.5);
+    "roughness" @{"id":"ccb68dfb-1114-58d3-bb28-365da6c3f911","protected":false} = value(0.5);
+  );
+  let "Holes world" @{"id":"02442352-a205-5920-a853-0c2e4a3408d4"} = "fold.motion.place"."world" @1 (
+    "geometry" @{"id":"45cbc29e-c031-56f0-9abd-0b450cf89574","protected":false} = link($"Hole material" @{"id":"a0cb1ff4-d33f-5d61-8f9c-9eb985dff9ce"});
+    "opacity" @{"id":"3c42f3a1-6e6c-55c0-ad5c-448fcb15ef33","protected":false} = value(1);
+    "position" @{"id":"edb17373-bade-5885-b3a6-72387a56f167","protected":false} = value(literal({"kind":"vector","value":[-1.5,0.3,0.0],"unit":"meters","space":"world"}));
+    "rotation" @{"id":"df57ebdd-7dbf-5c02-b467-37c70ab12aec","protected":false} = value(literal({"kind":"rotation","value":[0.0,0.0,0.0,1.0],"space":"world"}));
+    "scale" @{"id":"852bafa9-f454-5d5a-b00c-687395298f16","protected":false} = value(literal({"kind":"vector","value":[1.0,1.0,1.0],"unit":"unitless","space":"world"}));
+  );
+  let "Box" @{"id":"929cf701-d539-58fe-9cc6-4378f4d36f4c"} = "fold.motion.mesh"."box" @1 (
+    "size" @{"id":"4acb4d6e-cc20-58b3-8a72-a04b90071f34","protected":false} = value(literal({"kind":"vector","value":[0.06,0.06,0.06],"unit":"meters","space":"world"}));
+  );
+  let "Grid" @{"id":"b6fea499-193b-520b-bc4d-58d0c29d426e"} = "fold.motion.distribute"."grid" @1 (
+    "center" @{"id":"737a7a5f-f545-5c6c-81c1-14c06fb4ac9e","protected":false} = value(literal({"kind":"vector","value":[0.0,0.0,0.0],"unit":"meters","space":"world"}));
+    "columns" @{"id":"a44ebc69-57cf-507d-9574-4d4b9688cf7f","protected":false} = link($"Columns" @{"id":"77721028-17e2-5a85-9f54-1cf137be585f"});
+    "rows" @{"id":"202b81f5-273b-58ba-90d7-21927673d7f2","protected":false} = link($"Rows" @{"id":"5fe948e5-ad0c-545c-9bd3-2d14ed234ca3"});
+    "spacing" @{"id":"1d354eb4-76dc-5138-80c3-560ce984a01f","protected":false} = link($"Spacing" @{"id":"6a1ce937-23d0-5c44-8193-72acf6f5a410"});
+  );
+  let "Cloner" @{"id":"67cef88b-0c2a-51eb-a57b-691206430295"} = "fold.motion.cloner"."points" @1 (
+    "points" @{"id":"c35ada94-c2f4-5540-aee0-4fd2e2e78a51","protected":false} = link($"Grid" @{"id":"4317dc41-05f8-59ad-ada9-0f0d3def924f"});
+    "prototype" @{"id":"9c0a8c74-26a1-5cfe-859e-46a1c6ec475d","protected":false} = link($"Box" @{"id":"feec4ffd-c5c4-5b27-8a98-8c91b84d3335"});
+  );
+  let "Field motion" @{"id":"419b3ba9-cfca-5d35-a7f0-7cfd57d2799e"} = "fold.motion.tween"."linear" @1 (
+    "duration" @{"id":"e2ddb59c-e28c-5847-af3f-21910c62525c","protected":false} = link($"Field duration" @{"id":"188ff25e-452d-5fd0-af25-2439cff491df"});
+    "from" @{"id":"3ac47abd-20e8-5b9c-b016-f7f2beb7537c","protected":false} = link($"Field start" @{"id":"6eac522d-dcb7-5487-a960-06ce2d2c90aa"});
+    "start" @{"id":"750e3aa7-e610-5e03-a6dc-da87e577c304","protected":false} = value(literal({"kind":"duration","value":{"numerator":0,"denominator":1}}));
+    "time" @{"id":"03e769cd-43d1-50ff-b3ae-b5efbc627706","protected":false} = link($"Clock" @{"id":"79578c8c-abc8-5119-9178-daefd0a411b2"});
+    "to" @{"id":"20f46c18-b659-506a-91ec-97d5215dd08e","protected":false} = link($"Field end" @{"id":"aa6882a7-a877-5e97-8a06-e52a204228c0"});
+  );
+  let "Field" @{"id":"234075d6-4744-54ef-be58-99d74c295321"} = "fold.motion.field"."radial" @1 (
+    "center" @{"id":"962572f9-1f56-59e3-ace2-27cf0d47ddaf","protected":false} = link($"Field motion" @{"id":"2541ca87-da02-5972-b3d0-e5d54edb8633"});
+    "radius" @{"id":"d01704f9-ed73-5d24-aef1-0e7c93d0f53c","protected":false} = link($"Field radius" @{"id":"1cddd12d-fc4c-569d-99c0-e1137c249447"});
+  );
+  let "Scale ramp" @{"id":"8aeb4ebc-e096-58a7-bfbe-edb88174b257"} = "fold.motion.ramp"."scalar_linear" @1 (
+    "position" @{"id":"c21cb7ab-1b9e-5117-9cb6-e1b553cd05bf","protected":false} = link($"Field" @{"id":"218a52f2-1aee-535c-984d-bf13a71eea28"});
+    "stops" @{"id":"ca3df466-4d8b-54b1-86d3-e079e0d398d3","protected":false} = ramp({"id":"44602963-bfdc-5d01-afb8-b4f4afb483ef","ty":{"kind":"scalar"},"stops":[{"id":"4862c431-e577-5a6b-8e5a-02f1e3313678","position":0.0,"value":{"kind":"scalar","value":0.2}},{"id":"4218533a-db09-54cf-a7ca-feaf345cc6c3","position":1.0,"value":{"kind":"scalar","value":1.0}}]});
+  );
+  let "Palette" @{"id":"191df677-72f0-5576-bf00-7732117cc14f"} = "fold.motion.ramp"."color_linear" @1 (
+    "position" @{"id":"f431527b-1b31-5a5c-8f2b-94fc2cad5b16","protected":false} = link($"Field" @{"id":"788a5d83-30f5-555c-a4f6-387a0713eb22"});
+    "stops" @{"id":"598ca275-2a88-5496-99fb-36c65c43f9b9","protected":false} = ramp({"id":"54bb7f34-eaa0-58b4-8311-1f469357a20b","ty":{"kind":"color","encoding":"linear_rec709","alpha":"straight"},"stops":[{"id":"9cbc963d-9838-5cfe-884a-72c5fcb8e4b0","position":0.0,"value":{"kind":"color","value":[1.0,0.10224173308810132,0.03688945040110004,1.0],"encoding":"linear_rec709","alpha":"straight"}},{"id":"b75032cf-786c-5b88-9e05-dc288e343470","position":1.0,"value":{"kind":"color","value":[0.02,0.1,1.0,1.0],"encoding":"linear_rec709","alpha":"straight"}}]});
+  );
+  let "Scale copies" @{"id":"e3037a22-9bae-581d-9012-d9f4921afc87"} = "fold.motion.animator"."scale_multiply" @1 (
+    "factor" @{"id":"51fa9069-fcaf-5c3a-b451-260d169ba6c0","protected":false} = link($"Scale ramp" @{"id":"714ffbc7-7ebf-5406-bdeb-d4c3602f276f"});
+    "geometry" @{"id":"1f724799-09a2-5de0-846e-6ff4ef2e1163","protected":false} = link($"Cloner" @{"id":"8707f760-b522-5b15-a158-725cfda65e6c"});
+  );
+  let "Color copies" @{"id":"ed38446a-2b44-567a-afdf-431ba1953386"} = "fold.motion.animator"."color_replace" @1 (
+    "color" @{"id":"7aae56b7-e92e-55e1-b180-884fe5555655","protected":false} = link($"Palette" @{"id":"b3373712-2559-5314-9a81-d72ab87061d0"});
+    "geometry" @{"id":"41faf1d4-b0a2-5d6e-9d8d-ca83f8fe1bac","protected":false} = link($"Scale copies" @{"id":"b89c1fd1-b06c-50a9-9a23-f6c0af232c17"});
+  );
+  let "Rotation variation" @{"id":"7a21f732-081d-5daf-8521-cefe76ad28d0"} = "fold.motion.random"."uniform" @1 (
+    "maximum" @{"id":"8b32658a-04b2-5dbf-8430-d605bdfc2afc","protected":false} = value(6.283185307179586);
+    "minimum" @{"id":"7bb6ba5a-f5d5-5299-aa06-d21e5bedfd99","protected":false} = value(0);
+    "stream" @{"id":"26bece1b-01c4-5dd6-baa2-eb17e80be7be","protected":false} = value("rotation");
+  );
+  let "Rotate copies" @{"id":"f26b82b0-71e1-51cb-a011-7ff021695128"} = "fold.motion.animator"."rotation_z_add" @1 (
+    "angle" @{"id":"ef99b793-6020-5ee6-8cc5-32d6c712b0e6","protected":false} = link($"Rotation variation" @{"id":"123ffcb4-2218-5267-ac56-6cec75fc73a2"});
+    "geometry" @{"id":"3eb287f1-c271-5fc0-a14a-c5a6f1077723","protected":false} = link($"Color copies" @{"id":"e4823334-e163-5f30-98b6-59cb80eb24d5"});
+  );
+  let "Copy material" @{"id":"d0277cb8-703e-5c29-a4cd-d4330b617770"} = "fold.motion.material"."unlit" @1 (
+    "color" @{"id":"abaea2d1-9933-5d1a-bad8-abe1e82f16a5","protected":false} = value(literal({"kind":"color","value":[1.0,1.0,1.0,1.0],"encoding":"linear_rec709","alpha":"straight"}));
+    "geometry" @{"id":"a8bfab56-a2b4-5645-933a-c98c77897b85","protected":false} = link($"Rotate copies" @{"id":"c706d8b9-a5b4-5d3b-9ff3-c4e6748e758b"});
+  );
+  let "Copies world" @{"id":"9e2e2f93-8b0a-5f12-8762-6ee244634b47"} = "fold.motion.place"."world" @1 (
+    "geometry" @{"id":"88e76875-8026-5d1b-ac1f-55dca1a1073e","protected":false} = link($"Copy material" @{"id":"dda3e421-20c4-5752-9e32-fb914239bc4f"});
+    "opacity" @{"id":"ba153971-e717-5715-b122-2b37bc3b22af","protected":false} = value(1);
+    "position" @{"id":"a65cf326-9810-5cdf-8c98-bc52605ebd80","protected":false} = value(literal({"kind":"vector","value":[0.0,-0.8,0.0],"unit":"meters","space":"world"}));
+    "rotation" @{"id":"8b0433df-b1f2-578b-8f05-af8ef3ecd859","protected":false} = value(literal({"kind":"rotation","value":[0.0,0.0,0.0,1.0],"space":"world"}));
+    "scale" @{"id":"4fddf75e-99f1-5cc9-9a72-91a578606969","protected":false} = value(literal({"kind":"vector","value":[1.0,1.0,1.0],"unit":"unitless","space":"world"}));
+  );
+  let "Camera" @{"id":"aa58234d-de57-56ec-89b4-50515a2279c9"} = "fold.motion.camera"."perspective" @1 (
+    "ev100" @{"id":"8f44ff32-0fa9-5080-8c42-c958903fb61e","protected":false} = value(8);
+    "far" @{"id":"91861328-2108-5c52-a6f6-d38d8fb78d75","protected":false} = value(100m);
+    "near" @{"id":"7a86d4a3-c661-51f0-ba90-ee267e8c6904","protected":false} = value(0.01m);
+    "position" @{"id":"2c712ade-4843-5953-8111-64ac3553bcff","protected":false} = link($"Camera position" @{"id":"3af7b32b-552c-5e8d-be4c-02d677b72d69"});
+    "target" @{"id":"67654097-6d21-5252-a1b0-d055f46be956","protected":false} = link($"Camera target" @{"id":"2901853c-9ab0-5305-8a15-beb0cf4d3192"});
+    "up" @{"id":"c5b7489f-5ec2-57fe-97b9-320e834de9b7","protected":false} = value(literal({"kind":"vector","value":[0.0,1.0,0.0],"unit":"unitless","space":"world"}));
+    "vertical_fov" @{"id":"8e697886-010c-59f3-93c8-13b4c333103a","protected":false} = value(0.7853981633974483);
+  );
+  let "Light" @{"id":"125fbaf0-205c-5a08-b7a5-b067e5d3b759"} = "fold.motion.light"."directional" @1 (
+    "color" @{"id":"cbb583f1-fe38-59d1-9290-8644e6f6d5a9","protected":false} = value(literal({"kind":"color","value":[1.0,1.0,1.0,1.0],"encoding":"linear_rec709","alpha":"straight"}));
+    "direction" @{"id":"4f6379a9-ffbf-515d-85f0-99b86d774669","protected":false} = value(literal({"kind":"vector","value":[0.0,-1.0,-1.0],"unit":"unitless","space":"world"}));
+    "illuminance" @{"id":"b81edd05-f73c-5481-9f1b-c0775949725f","protected":false} = value(1000);
+  );
+  let "Integrated scene" @{"id":"f0765d1a-8165-58e6-a402-4ae7fb6c2425"} = "fold.motion.scene"."spatial" @1 (
+    "camera" @{"id":"f2015c1c-113c-5e0c-a6ba-2de6893e785a","protected":false} = link($"Camera" @{"id":"36cdb17e-60fb-57c3-a0e9-df162cebf8d3"});
+    "children" @{"id":"62eb0d06-cad2-563f-85ca-2554ee7b24fc","protected":false} = list[link($"Background screen" @{"id":"433d787f-fb25-56c1-b445-722beb91322a"}), link($"Title world" @{"id":"8c6a2c3b-2316-5ba3-993b-cd720291dc48"}), link($"Holes world" @{"id":"1a4bdd5e-c61f-5e94-b1f0-98424b987c44"}), link($"Copies world" @{"id":"75f1bcda-25f9-5172-942b-af22f43e27f1"}), link($"Light" @{"id":"d34a381c-9e26-542c-87c5-25f1380d9016"}), link($"Title screen" @{"id":"46705c34-c28f-596c-b088-4295fc3041b7"})];
+  );
+  output "main" @{"id":"56e04196-5f87-4399-9596-c0ba8ee2634c"} : {"kind":"scene"} = $"Integrated scene" @{"id":"4f0ea2e6-9bbe-5e1d-b9b7-aafeaf41abad"};
+}
+root "Main" @{"id":"aaade985-219c-48ec-8548-e8cd8405369a"} = "Motion" clock {"offset":{"numerator":0,"denominator":1},"rate":{"numerator":1,"denominator":1}} {
+};
+presentation {"positions":{"02442352-a205-5920-a853-0c2e4a3408d4":[1680.0,1440.0],"12359f77-1201-5046-970d-351aa91dc778":[2100.0,1080.0],"125fbaf0-205c-5a08-b7a5-b067e5d3b759":[3360.0,1440.0],"191df677-72f0-5576-bf00-7732117cc14f":[1260.0,2160.0],"232e2e66-193a-5087-a390-e14ecb1090ba":[1260.0,1080.0],"234075d6-4744-54ef-be58-99d74c295321":[840.0,1800.0],"27b5ec5e-24a7-5db3-8d48-0da995b9c219":[1260.0,1440.0],"2821913c-a492-59bc-97f1-6cc56bbda36e":[840.0,720.0],"419b3ba9-cfca-5d35-a7f0-7cfd57d2799e":[420.0,1800.0],"4786eee9-a711-551a-acf8-eb3f22f50262":[0.0,1440.0],"479f69e7-452d-59fc-b991-c87a80ec432c":[840.0,1440.0],"53cd23e0-d24e-50a6-b050-2d1a1de3470a":[0.0,720.0],"5d27203d-9ec9-5a34-ac18-0f31b48acb69":[420.0,0.0],"5fdef6d4-7a60-53fe-805c-3ad0bb677061":[0.0,0.0],"67cef88b-0c2a-51eb-a57b-691206430295":[420.0,2520.0],"7a21f732-081d-5daf-8521-cefe76ad28d0":[2100.0,2160.0],"8738a434-6fcb-54aa-ae89-475c944f5196":[420.0,1440.0],"88c13172-5504-51c2-bff3-e7776c5880a4":[2100.0,720.0],"8994e7e6-3a4b-5934-9477-5a9ab9684b3a":[840.0,0.0],"8aeb4ebc-e096-58a7-bfbe-edb88174b257":[1260.0,1800.0],"8fe1747b-6397-506d-8761-2a1fb3e9884d":[420.0,360.0],"929cf701-d539-58fe-9cc6-4378f4d36f4c":[0.0,2520.0],"9e2e2f93-8b0a-5f12-8762-6ee244634b47":[3360.0,2520.0],"aa58234d-de57-56ec-89b4-50515a2279c9":[3360.0,720.0],"b6fea499-193b-520b-bc4d-58d0c29d426e":[0.0,2880.0],"d0277cb8-703e-5c29-a4cd-d4330b617770":[2940.0,2520.0],"d7d21c68-7ab9-563a-87bf-52d60410f572":[1260.0,720.0],"e3037a22-9bae-581d-9012-d9f4921afc87":[1680.0,2520.0],"ea840d44-a157-5e7c-ab4a-7f5ac3d28dcc":[0.0,360.0],"ed38446a-2b44-567a-afdf-431ba1953386":[2100.0,2520.0],"f0765d1a-8165-58e6-a402-4ae7fb6c2425":[4200.0,1440.0],"f0c224e4-d4fe-564c-86b5-9429a97dfecb":[2520.0,1080.0],"f26b82b0-71e1-51cb-a011-7ff021695128":[2520.0,2520.0],"f6ca32f5-b2b4-5efd-a7f2-7c5e619160ba":[1680.0,1080.0],"fcb04a8e-7c48-53ea-afab-33aed7e62400":[1680.0,720.0]},"groups":[],"annotations":{"419b3ba9-cfca-5d35-a7f0-7cfd57d2799e":"Driver: moving radial field","4786eee9-a711-551a-acf8-eb3f22f50262":"O / B / 8 hole fixture","53cd23e0-d24e-50a6-b050-2d1a1de3470a":"Shared title: animated Screen text and World extrusion","5fdef6d4-7a60-53fe-805c-3ad0bb677061":"Screen background","929cf701-d539-58fe-9cc6-4378f4d36f4c":"Copies: content, distribution, influence and response","f0765d1a-8165-58e6-a402-4ae7fb6c2425":"Ordered Screen / World / Screen output"}};
+extensions {};

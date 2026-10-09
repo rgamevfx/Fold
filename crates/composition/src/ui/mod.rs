@@ -1,6 +1,7 @@
 //! Shared hierarchy, layer timing and animation for all graph types.
 mod actions;
 mod channels;
+mod hierarchy;
 mod inspector;
 #[cfg(test)]
 mod render_tests;
@@ -59,14 +60,28 @@ impl Panel for Canvas {
     fn layer_for_graph(
         &self,
         document: fold_foundation::DocumentId,
-        _object: Option<fold_foundation::ObjectId>,
+        object: Option<fold_foundation::ObjectId>,
     ) -> Option<(fold_foundation::ObjectId, bool)> {
         let state = self.state.borrow();
         let composition = state.composition.as_ref()?;
-        let layer = composition.layers.iter().find(|l| {
-            matches!(&l.source, Some(fold_platform::image_source::Source::Output(source)) if source.document == document)
-        })?;
-        Some((layer.id, composition.locked(layer.id)))
+        let matches = |layer: &&crate::Layer| matches!(&layer.source,Some(fold_platform::image_source::Source::Output(source)) if source.document==document);
+        let selected_layer = state
+            .selected
+            .first()
+            .map(|id| state.hierarchy.rows.get(id).map_or(*id, |row| row.layer));
+        let layer = composition
+            .layers
+            .iter()
+            .filter(matches)
+            .find(|layer| Some(layer.id) == selected_layer)
+            .or_else(|| composition.layers.iter().find(matches))?;
+        let row = object.and_then(|object| state.hierarchy.view(layer.id, object));
+        Some((
+            row.unwrap_or(layer.id),
+            // Object locks belong to provider controls and projected tracks.
+            // Disabling the whole shared surface would also disable Outliner unlock.
+            composition.locked(layer.id),
+        ))
     }
     fn new_instance(&self) -> Option<sdk::EditorPanels> {
         let state = Shared::default();
@@ -94,7 +109,7 @@ impl Panel for Canvas {
             return;
         };
         let info = composition.info.clone();
-        let tracks: Vec<_> = composition
+        let mut tracks: Vec<_> = composition
             .layers
             .iter()
             .map(|l| Track {
@@ -104,12 +119,14 @@ impl Panel for Canvas {
                 locked: composition.locked(l.id),
                 range: Some((l.start, l.end)),
                 layer: Some(LayerControls {
-                    accepts_children: l.source.is_none(),
+                    accepts_children: l.source.is_none()
+                        || state.hierarchy.rows.values().any(|row| row.layer == l.id),
                     visible: l.visible,
                     icon: if l.source.is_none() { "G" } else { "L" },
                 }),
             })
             .collect();
+        tracks.extend(state.hierarchy.tracks());
         let mut channels =
             match channels::Channels::collect(composition, &state.graph_channels, &state.key_ids) {
                 Ok(channels) => channels,
@@ -118,6 +135,7 @@ impl Panel for Canvas {
                     return;
                 }
             };
+        channels.project_objects(&state.hierarchy);
         if !state.error.is_empty() {
             ui.text_wrapped(&state.error);
         }
@@ -161,6 +179,51 @@ impl Panel for Canvas {
                 (sdk::time_view::frame(time, info.rate).round() as u32)
                     .min(info.frames.saturating_sub(1)),
             )));
+        }
+        if let Some((id, value)) = response.visibility
+            && let Some(row) = state.hierarchy.rows.get(&id)
+        {
+            let object = row.object;
+            state.hierarchy_edit(
+                host,
+                id,
+                fold_platform::hierarchy::Edit::Visibility { object, value },
+            );
+            return;
+        }
+        if let Some((id, value)) = response.lock
+            && let Some(row) = state.hierarchy.rows.get(&id)
+        {
+            let object = row.object;
+            state.hierarchy_edit(
+                host,
+                id,
+                fold_platform::hierarchy::Edit::Lock { object, value },
+            );
+            return;
+        }
+        if let Some((id, parent)) = response.reparent
+            && let Some(row) = state.hierarchy.rows.get(&id)
+        {
+            let object = row.object;
+            let layer = row.layer;
+            let parent = match parent {
+                Some(id) if id == layer => None,
+                Some(id) => match state.hierarchy.rows.get(&id) {
+                    Some(row) if row.layer == layer => Some(row.object),
+                    _ => {
+                        state.error = "Objects must stay inside their scene".into();
+                        return;
+                    }
+                },
+                None => None,
+            };
+            state.hierarchy_edit(
+                host,
+                id,
+                fold_platform::hierarchy::Edit::Reparent { object, parent },
+            );
+            return;
         }
         if response.edit.cancelled {
             state.cancel(host);

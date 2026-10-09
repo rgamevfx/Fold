@@ -53,6 +53,7 @@ fn setup() -> (Dispatcher, Project, DocumentId, ObjectId) {
         panic!("native track")
     };
     track.keys.push(Key {
+        handles: Default::default(),
         id: ObjectId::new(),
         time: Time::new(1, 1).unwrap(),
         value: Literal::Distance {
@@ -1175,7 +1176,26 @@ fn box_observation_reports_mesh_uvs_and_transformed_bounds_without_text_provenan
     assert_eq!(geometry["mesh"]["vertex_ids"].as_array().unwrap().len(), 24);
     assert_eq!(geometry["mesh"]["face_ids"].as_array().unwrap().len(), 12);
     assert_eq!(geometry["mesh"]["uv"].as_array().unwrap().len(), 24);
-    assert_eq!(geometry["mesh"]["regions"].as_array().unwrap().len(), 6);
+    let regions = geometry["mesh"]["regions"].as_object().unwrap();
+    assert_eq!(regions.len(), 6);
+    for (index, name) in [
+        "positive_x",
+        "negative_x",
+        "positive_y",
+        "negative_y",
+        "positive_z",
+        "negative_z",
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        assert_eq!(
+            regions[name],
+            serde_json::json!({"start": index * 6, "end": (index + 1) * 6})
+        );
+    }
+    assert_eq!(geometry["mesh"]["source_vertices"], serde_json::json!([]));
+    assert!(geometry["mesh"]["source_geometry"].is_null());
     assert_eq!(geometry["precision"], "f32");
     assert!(geometry.get("source_text").is_none());
     let bounds = &sample["value"]["placement"]["bounds"];
@@ -1551,4 +1571,68 @@ fn camera_plane_observation_distinguishes_canvas_bounds_from_projection() {
         json!([0., 1., 5.])
     );
     assert_eq!(project.snapshot().revision(), before.revision());
+}
+
+#[test]
+fn profile_mesh_observation_retains_source_curves_and_fonts_without_a_text_placement() {
+    use fold_motion::{model::Reference, registry, types::Type};
+    for (key, mode) in [("tessellate", "planar"), ("extrude", "closed_profile")] {
+        let (mut dispatcher, mut project, document, output) = setup();
+        let mut c =
+            Construction::from_document(&project.snapshot().state().documents[&document]).unwrap();
+        let text = registry::resolve("fold.motion.text", 1, "packaged")
+            .unwrap()
+            .node("Text", Default::default())
+            .unwrap();
+        let link = |id| Binding::Link {
+            reference: Reference::Node { node: id }.into(),
+        };
+        let outlines = registry::resolve("fold.motion.outline_text", 1, "curves")
+            .unwrap()
+            .node("Outlines", [("text".into(), link(text.id))].into())
+            .unwrap();
+        let mesh = registry::resolve(&format!("fold.motion.{key}"), 1, mode)
+            .unwrap()
+            .node("Mesh", [("profile".into(), link(outlines.id))].into())
+            .unwrap();
+        c.definitions[0].outputs[0].ty = Type::Geometry;
+        c.definitions[0].outputs[0].value = Reference::Node { node: mesh.id }.into();
+        c.definitions[0].nodes = vec![text, outlines, mesh];
+        project
+            .commit(EditBatch {
+                base: project.snapshot().revision(),
+                mutations: vec![Mutation::PutDocument(c.document(document).unwrap())],
+            })
+            .unwrap();
+        let epoch = dispatcher.epoch();
+        let revision = project.snapshot().revision();
+        let response = call(
+            &mut dispatcher,
+            &mut project,
+            json!({"method":"observe","target":{"kind":"committed","epoch":epoch,"revision":revision.0,"document":document},"output":output,"times":[Time::ZERO]}),
+        );
+        assert!(response.get("error").is_none(), "{response}");
+        let fonts = response["result"]["provenance"]["resource_inputs"]["fonts"]
+            .as_array()
+            .unwrap();
+        assert_eq!(fonts.len(), 1);
+        assert_eq!(
+            fonts[0]["fingerprint"],
+            fold_motion::evaluation::text::FONT_FINGERPRINT
+        );
+        let geometries = response["result"]["samples"][0]["geometries"]
+            .as_object()
+            .unwrap();
+        let mesh = geometries
+            .values()
+            .find(|g| g.get("mesh").is_some())
+            .unwrap();
+        let source = &geometries[&mesh["mesh"]["source_geometry"]
+            .as_u64()
+            .unwrap()
+            .to_string()];
+        assert_eq!(source["source_text"]["text"], "MAKE IT MOVE");
+        assert!(!source["outlined_glyphs"].as_array().unwrap().is_empty());
+        assert_eq!(project.snapshot().revision(), revision);
+    }
 }

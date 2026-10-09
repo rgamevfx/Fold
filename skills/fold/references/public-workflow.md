@@ -232,3 +232,60 @@ through the actual MCP subprocess/socket. CLI/socket tests verify discovery pari
 wire-version rejection and exact-byte retry conflicts. Broader source/lock/rebase
 semantics have dispatcher tests; full handoff and physical native artist acceptance
 remain incomplete. Report these distinctions with any result.
+
+
+## M5a scene availability and starter update
+
+The current application can create native 3D scenes, expose their hierarchy through
+Outliner/Composition and edit object graphs in Network. The version-2 public
+candidate/inspection transport remains Construction-specific; those UI capabilities
+do not imply public scene creation or object-scoped candidate support. Discover
+capabilities and report this gap. Do not edit project payloads as a workaround.
+
+The current untouched Motion starter has `Rectangle`, `Placement`, `Scene` and
+`Rectangle fill` nodes. `demos/m5-integrated.py` now checks that inspected source
+before replacing its reserved starter. Its CLI and MCP CPU authoring tests pass
+with this starter (8 October 2026). That existing 35-node Motion demo is M5 evidence;
+it is not the required M5a public-authored mixed-scene/title demo.
+
+## M5 catalog trials and local demo
+
+Run `./demos/run-m5-demo.sh` from the checkout to build the desktop and open a
+fresh editable copy of the integrated project. The [demo guide](../../../demos/README.md)
+lists the controls to try. This is a repository launcher, not a public protocol method.
+
+The same `m5-integrated.py` invocation above now runs eight additional guarded
+Source trials before the wording/palette handoff. `report.native_modes` records
+canonical Source, CPU observations and, when available, a public GPU frame for
+each trial. Every trial restores baseline Source. Discovery supplies all ports,
+defaults and versions; the authoring script reads no implementation files.
+
+| Operation | Qualified mode and boundaries |
+| --- | --- |
+| Stroke | `solid_centered_butt_miter`, `solid_centered_butt_round`, `solid_centered_round_miter`, `solid_centered_round_round`; centered width in canvas units |
+| Transform | `screen`: contours/Outline Text, canvas translation/pivot, Z angle, positive XY scale; path coordinates change, Stroke width stays in canvas units |
+| Transform | `world_mesh`: metric mesh, translation/pivot, quaternion rotation and positive XYZ scale; inverse-transpose normals, preserved vertex/face IDs and UVs |
+| Transform | `world_instances`: shared instances, World translation/pivot, Z angle and positive uniform scale; prototype/instance identity retained |
+| Tessellate | `planar`: closed contours/Outline Text, explicit nonzero/even-odd choice, curve detail and meters per canvas unit; World mesh output |
+| Extrude | `closed_profile`: the same profile inputs plus positive metric depth and depth segments; front/back/sides regions |
+
+Profile conversions generate +Z cap normals and canvas-XY UVs. Extrusion transfers
+UVs through the reported output-vertex-to-cap-vertex map, duplicating vertices at
+hard normal boundaries. `source_geometry` records the input geometry identity.
+Appearance is not implicitly converted to a spatial Material. Assign Material
+and World Placement explicitly. Topology IDs change when connectivity changes;
+changing depth without changing segmentation preserves correspondence.
+
+Instance fields sample positions from the selected upstream geometry, including
+an earlier Transform. Original distribution identity is provenance, not a request
+to sample the original positions. Word observations expose complete glyph groups,
+advance-center pivots and staggered translation from one retained text layout.
+
+These checks qualify the documented modes and public workflow. Native pointer/
+keyboard handoff, full resource/cancellation bounds, picking and general spatial
+transparency remain open in the rewrite acceptance audit.
+
+Profile conversion retains source outlines and packaged font provenance in public
+observations even without a separate Text placement. Outlined glyphs remain
+separate profile partitions; overlapping glyphs are not implicitly Boolean-unioned.
+Closed contour inputs share the explicitly selected fill rule.

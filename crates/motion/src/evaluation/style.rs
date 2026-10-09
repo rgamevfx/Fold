@@ -23,6 +23,9 @@ pub struct Fill {
 #[serde(rename_all = "snake_case")]
 pub enum StrokeMode {
     SolidCenteredButtMiter,
+    SolidCenteredButtRound,
+    SolidCenteredRoundMiter,
+    SolidCenteredRoundRound,
 }
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct Stroke {
@@ -65,7 +68,10 @@ pub(super) fn apply(
                 even_odd: *even_odd,
             });
         }
-        Builtin::Stroke => {
+        Builtin::Stroke
+        | Builtin::StrokeButtRound
+        | Builtin::StrokeRoundMiter
+        | Builtin::StrokeRoundRound => {
             let Literal::Distance {
                 value: width,
                 unit: Unit::Canvas,
@@ -80,7 +86,12 @@ pub(super) fn apply(
                 color,
                 width: *width,
                 unit: Unit::Canvas,
-                mode: StrokeMode::SolidCenteredButtMiter,
+                mode: match builtin {
+                    Builtin::StrokeButtRound => StrokeMode::SolidCenteredButtRound,
+                    Builtin::StrokeRoundMiter => StrokeMode::SolidCenteredRoundMiter,
+                    Builtin::StrokeRoundRound => StrokeMode::SolidCenteredRoundRound,
+                    _ => StrokeMode::SolidCenteredButtMiter,
+                },
             });
         }
         _ => return Err("Expected Fill or Stroke".into()),
@@ -103,4 +114,21 @@ pub(super) fn color(authored_color: &Literal) -> Result<Color, String> {
         encoding: Encoding::LinearRec709,
         alpha: Alpha::Straight,
     })
+}
+
+impl StrokeMode {
+    pub fn cap(self) -> fold_render::vector::Cap {
+        use fold_render::vector::Cap;
+        match self {
+            Self::SolidCenteredButtMiter | Self::SolidCenteredButtRound => Cap::Butt,
+            Self::SolidCenteredRoundMiter | Self::SolidCenteredRoundRound => Cap::Round,
+        }
+    }
+    pub fn join(self) -> fold_render::vector::Join {
+        use fold_render::vector::Join;
+        match self {
+            Self::SolidCenteredButtMiter | Self::SolidCenteredRoundMiter => Join::Miter,
+            Self::SolidCenteredButtRound | Self::SolidCenteredRoundRound => Join::Round,
+        }
+    }
 }

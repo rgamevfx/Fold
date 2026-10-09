@@ -11,6 +11,8 @@ use std::collections::BTreeSet;
 )]
 pub enum Interpolation {
     Hold,
+    /// Holds the next value between keys; exact key times retain their own values.
+    HoldNext,
     #[default]
     Linear,
     Bezier,
@@ -39,6 +41,15 @@ impl Default for Handle {
         }
     }
 }
+/// Read-only quaternion context for a projected component curve. Key edits update
+/// the selected component; the owning typed track normalizes the coupled value.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct RotationSample {
+    pub quaternion: [f64; 4],
+    pub component: usize,
+    #[serde(default)]
+    pub reversed: bool,
+}
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct Key {
     pub id: ObjectId,
@@ -48,6 +59,8 @@ pub struct Key {
     pub tangents: Tangents,
     pub incoming: Handle,
     pub outgoing: Handle,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rotation: Option<RotationSample>,
 }
 impl Key {
     pub fn new(time: Time, value: f64) -> Self {
@@ -59,6 +72,7 @@ impl Key {
             tangents: Tangents::Auto,
             incoming: Handle::default(),
             outgoing: Handle::default(),
+            rotation: None,
         }
     }
 }
@@ -83,7 +97,29 @@ impl Curve {
             return Err("Animation channel requires 1..=18000 keys".into());
         }
         let mut ids = BTreeSet::new();
+        let component = self
+            .keys
+            .first()
+            .and_then(|k| k.rotation.map(|r| (r.component, r.reversed)));
         for key in &self.keys {
+            if key.rotation.map(|r| (r.component, r.reversed)) != component {
+                return Err("Mixed scalar and rotation key context".into());
+            }
+            if let Some(rotation) = key.rotation {
+                let norm = rotation.quaternion.iter().map(|v| v * v).sum::<f64>();
+                if rotation.component > 3
+                    || !norm.is_finite()
+                    || (norm - 1.).abs() > 1e-9
+                    || key.interpolation == Interpolation::Bezier
+                {
+                    return Err("Rotation curves require unit quaternions and spherical Linear or Hold interpolation".into());
+                }
+                let mut q = rotation.quaternion;
+                q[rotation.component] = key.value;
+                if q.iter().map(|v| v * v).sum::<f64>() < 1e-18 {
+                    return Err("Rotation cannot be zero".into());
+                }
+            }
             if !ids.insert(key.id) || !key.value.is_finite() {
                 return Err("Animation keys require unique IDs and finite values".into());
             }
@@ -118,7 +154,10 @@ impl Curve {
                 self.keys[i].id
             }
             Err(i) => {
-                let key = Key::new(time, value);
+                let mut key = Key::new(time, value);
+                if let Some(sample) = self.rotation_at(time) {
+                    key.rotation = Some(sample);
+                }
                 let id = key.id;
                 self.keys.insert(i, key);
                 id
@@ -133,6 +172,9 @@ impl Curve {
     }
     /// Call on a validated curve. Empty curves have no contribution.
     pub fn sample(&self, time: Time) -> Option<f64> {
+        if let Some(sample) = self.rotation_at(time) {
+            return Some(sample.quaternion[sample.component]);
+        }
         let end = self.keys.partition_point(|k| k.time <= time);
         if end == 0 {
             return self.keys.first().map(|k| k.value);
@@ -148,6 +190,7 @@ impl Curve {
         let ratio = interval(a.time, time) / interval(a.time, b.time);
         Some(match a.interpolation {
             Interpolation::Hold => a.value,
+            Interpolation::HoldNext => b.value,
             Interpolation::Linear => a.value * (1. - ratio) + b.value * ratio,
             Interpolation::Bezier => {
                 let outgoing = self.handle(end - 1, false);
@@ -170,6 +213,44 @@ impl Curve {
                     (lo + hi) * 0.5,
                 )
             }
+        })
+    }
+    fn rotation_at(&self, time: Time) -> Option<RotationSample> {
+        let context = self.keys.first()?.rotation?;
+        let component = context.component;
+        if component > 3 {
+            return None;
+        }
+        let q = |key: &Key| -> Option<[f64; 4]> {
+            let mut value = key.rotation?.quaternion;
+            value[component] = key.value;
+            Some(fold_foundation::rotation::normalize(value))
+        };
+        let end = self.keys.partition_point(|k| k.time <= time);
+        let quaternion = if end == 0 {
+            q(&self.keys[0])?
+        } else if end == self.keys.len() || self.keys[end - 1].time == time {
+            q(&self.keys[end - 1])?
+        } else {
+            let a = &self.keys[end - 1];
+            let b = &self.keys[end];
+            match a.interpolation {
+                Interpolation::Hold => q(a)?,
+                Interpolation::HoldNext => q(b)?,
+                _ => {
+                    let amount = interval(a.time, time) / interval(a.time, b.time);
+                    if context.reversed {
+                        fold_foundation::rotation::slerp(q(b)?, q(a)?, 1. - amount)
+                    } else {
+                        fold_foundation::rotation::slerp(q(a)?, q(b)?, amount)
+                    }
+                }
+            }
+        };
+        Some(RotationSample {
+            quaternion,
+            component,
+            reversed: context.reversed,
         })
     }
     pub fn handle(&self, index: usize, incoming: bool) -> Handle {

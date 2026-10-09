@@ -208,7 +208,7 @@ fn create_composition_keeps_linked_audio_and_exports_the_same_video() {
     let mut composite =
         Composite::from_document(&after.state().documents[&processing.document]).unwrap();
     let index = composite.nodes.len() - 1;
-    let previous = composite.nodes[index].inputs[0].unwrap();
+    let previous = composite.nodes[index].input_ids()[0].unwrap();
     let grade = Node::new(
         Parameters::Grade {
             gain: [0.65, 1.0, 0.8],
@@ -216,7 +216,7 @@ fn create_composition_keeps_linked_audio_and_exports_the_same_video() {
         vec![previous],
     );
     let blur = Node::new(Parameters::Blur { radius: 2 }, vec![grade.id]);
-    composite.nodes[index].inputs[0] = Some(blur.id);
+    composite.nodes[index].set_input(0, blur.id).unwrap();
     composite.nodes.splice(index..index, [grade, blur]);
     let request = package::request(
         &after,

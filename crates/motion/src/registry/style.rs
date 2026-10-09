@@ -65,6 +65,30 @@ pub(super) fn operations() -> Vec<Operation> {
             vec![Domain::Collection],
         ),
     ];
+    let stroke = operations[1].clone();
+    for (mode, title, builtin) in [
+        (
+            "solid_centered_butt_round",
+            "Stroke · Butt / Round",
+            Builtin::StrokeButtRound,
+        ),
+        (
+            "solid_centered_round_miter",
+            "Stroke · Round / Miter",
+            Builtin::StrokeRoundMiter,
+        ),
+        (
+            "solid_centered_round_round",
+            "Stroke · Round / Round",
+            Builtin::StrokeRoundRound,
+        ),
+    ] {
+        let mut choice = stroke.clone();
+        choice.mode = mode.into();
+        choice.title = title.into();
+        choice.builtin = builtin;
+        operations.push(choice);
+    }
     for (mode, title, builtin) in [
         ("lit", "Material", Builtin::LitMaterial),
         ("unlit", "Unlit Material", Builtin::UnlitMaterial),

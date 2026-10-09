@@ -1,4 +1,5 @@
 //! Language types and finite authored literals. Units and spaces are not coercions.
+use fold_foundation::rotation::normalize;
 use fold_foundation::{AssetId, ObjectId, Time};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -46,6 +47,10 @@ pub enum Domain {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Type {
+    /// Named-channel image data; color/alpha metadata belongs to the image resource.
+    Image,
+    /// Coverage data, distinct from authored color values.
+    Mask,
     Bool,
     Integer,
     Scalar,
@@ -286,7 +291,7 @@ impl Literal {
             },
             (Self::Rotation { value: a, space }, Self::Rotation { value: b, .. }) => {
                 Self::Rotation {
-                    value: slerp(*a, *b, amount),
+                    value: fold_foundation::rotation::slerp(*a, *b, amount),
                     space: *space,
                 }
             }
@@ -339,10 +344,6 @@ impl Literal {
 fn dot(a: [f64; 4], b: [f64; 4]) -> f64 {
     (0..4).map(|i| a[i] * b[i]).sum()
 }
-fn normalize(q: [f64; 4]) -> [f64; 4] {
-    let length = dot(q, q).sqrt();
-    q.map(|v| v / length)
-}
 fn multiply(a: [f64; 4], b: [f64; 4]) -> [f64; 4] {
     [
         a[3] * b[0] + a[0] * b[3] + a[1] * b[2] - a[2] * b[1],
@@ -351,23 +352,6 @@ fn multiply(a: [f64; 4], b: [f64; 4]) -> [f64; 4] {
         a[3] * b[3] - a[0] * b[0] - a[1] * b[1] - a[2] * b[2],
     ]
 }
-fn slerp(a: [f64; 4], mut b: [f64; 4], t: f64) -> [f64; 4] {
-    let mut cosine = dot(a, b);
-    if cosine < 0. {
-        b = b.map(|v| -v);
-        cosine = -cosine;
-    }
-    let cosine = cosine.clamp(-1., 1.);
-    if cosine > 0.9995 {
-        return normalize(std::array::from_fn(|i| a[i] * (1. - t) + b[i] * t));
-    }
-    let theta = cosine.acos();
-    let scale = theta.sin();
-    normalize(std::array::from_fn(|i| {
-        (a[i] * ((1. - t) * theta).sin() + b[i] * (t * theta).sin()) / scale
-    }))
-}
-
 /// Dimensionless exact ratio. Reuses the validated rational representation, not time units.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(transparent)]

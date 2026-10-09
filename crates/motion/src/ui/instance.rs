@@ -93,7 +93,7 @@ pub(super) fn draw(
             if ui.menu_item(if parent_time.is_some() {
                 "Animate at playhead"
             } else {
-                "Animate at scene start"
+                "Animate at local time zero"
             }) {
                 match animate(
                     instance,
@@ -130,11 +130,6 @@ pub(super) fn draw(
                     }
                 }
                 Some(Ok(Binding::Track { mut track })) => {
-                    ui.text_disabled(if parent_time.is_some() {
-                        "Keys · parent asset time"
-                    } else {
-                        "Keys · scene time"
-                    });
                     keyframes::draw(
                         ui,
                         &input.name,

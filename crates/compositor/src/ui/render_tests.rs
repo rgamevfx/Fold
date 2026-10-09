@@ -59,14 +59,14 @@ fn shuffle_inspector_normal_and_narrow() {
             .chain(mapping("rgba", "specular"))
             .collect(),
     });
-    layers.inputs[0] = Some(solid);
+    layers.set_input(0, solid).unwrap();
     let mut shuffle = Node::disconnected(Parameters::Shuffle {
         mappings: mapping("diffuse", "rgba")
             .into_iter()
             .chain(mapping("specular", "reflection"))
             .collect(),
     });
-    shuffle.inputs[0] = Some(layers.id);
+    shuffle.set_input(0, layers.id).unwrap();
     let selected = shuffle.id;
     graph.nodes.extend([layers, shuffle]);
     host.project

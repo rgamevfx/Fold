@@ -13,7 +13,7 @@ fn agent_creation_insertion_query_and_receipt() {
         vec![],
     );
     let mut output = Node::disconnected(Parameters::Output);
-    output.inputs[0] = Some(source.id);
+    output.set_input(0, source.id).unwrap();
     let sid = source.id;
     let oid = output.id;
     let c = Composite {
@@ -34,8 +34,8 @@ fn agent_creation_insertion_query_and_receipt() {
         json!({"op":"insert","node":oid,"input":"image","modifier":blur,"modifier_input":"image"})
     ],&Default::default()).unwrap();
     let c = Composite::from_document(&next).unwrap();
-    assert_eq!(c.node(blur).unwrap().inputs[0], Some(sid));
-    assert_eq!(c.node(oid).unwrap().inputs[0], Some(blur));
+    assert_eq!(c.node(blur).unwrap().input_ids()[0], Some(sid));
+    assert_eq!(c.node(oid).unwrap().input_ids()[0], Some(blur));
     assert_eq!(receipt["total_changed_nodes"], 2);
     let query = r
         .query(&next, &json!({"mode":"upstream","node":oid,"depth":2}))

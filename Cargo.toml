@@ -3,6 +3,7 @@ resolver = "3"
 members = [
     "crates/foundation",
     "crates/animation",
+    "crates/graph",
     "crates/color",
     "crates/native-video",
     "crates/project",
@@ -29,6 +30,7 @@ serde = { version = "1", features = ["derive", "rc"] }
 serde_json = "1"
 uuid = { version = "1", features = ["v4", "serde"] }
 tempfile = "3"
+fold-graph = { path = "crates/graph" }
 fold-animation = { path = "crates/animation" }
 fold-foundation = { path = "crates/foundation" }
 fold-color = { path = "crates/color" }

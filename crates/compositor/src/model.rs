@@ -4,22 +4,15 @@ use fold_project::{Document, DocumentRef, Metadata, Revision};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum PortType {
-    Image,
-    Mask,
-    Scalar,
-    Color,
-    Scene,
-}
-#[derive(Clone, Copy, Debug)]
+use fold_graph::types::Type;
+#[derive(Clone, Debug)]
 pub struct Operator {
     pub id: &'static str,
-    pub inputs: &'static [PortType],
-    pub output: PortType,
+    pub inputs: &'static [Type],
+    pub output: Type,
     pub version: u32,
 }
-use PortType::{Image, Mask};
+use Type::{Image, Mask};
 pub const OPERATORS: &[Operator] = &[
     Operator {
         id: "Read",
@@ -326,10 +319,10 @@ impl Parameters {
             _ => self.operator().input_key(slot),
         }
     }
-    pub fn input_type(&self, slot: usize) -> PortType {
+    pub fn input_type(&self, slot: usize) -> Type {
         match self {
-            Self::Shader { .. } | Self::Instance { .. } => PortType::Image,
-            _ => self.operator().inputs[slot],
+            Self::Shader { .. } | Self::Instance { .. } => Type::Image,
+            _ => self.operator().inputs[slot].clone(),
         }
     }
 
@@ -519,10 +512,10 @@ impl Parameters {
 pub struct Node {
     pub id: ObjectId,
     pub parameters: Parameters,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    #[serde(default, skip_serializing_if = "crate::animation::Channels::is_empty")]
     pub animation: crate::animation::Channels,
     /// Fixed, named operator ports; None is a deliberately disconnected socket.
-    pub inputs: Vec<Option<ObjectId>>,
+    pub inputs: Vec<Option<fold_graph::model::Edge>>,
     #[serde(default, skip_serializing_if = "crate::Effect::is_default")]
     pub effect: crate::Effect,
     #[serde(default)]
@@ -531,12 +524,36 @@ pub struct Node {
     pub extensions: Metadata,
 }
 impl Node {
+    pub fn input_ids(&self) -> Vec<Option<ObjectId>> {
+        self.inputs
+            .iter()
+            .map(|edge| {
+                edge.as_ref().and_then(|edge| match edge.target {
+                    fold_graph::model::Reference::Node { node } => Some(node),
+                    _ => None,
+                })
+            })
+            .collect()
+    }
+    pub fn set_input(&mut self, slot: usize, node: ObjectId) -> Result<(), String> {
+        let input = self.inputs.get_mut(slot).ok_or("Unknown input slot")?;
+        let target = fold_graph::model::Reference::Node { node };
+        if let Some(edge) = input {
+            edge.target = target;
+        } else {
+            *input = Some(target.into());
+        }
+        Ok(())
+    }
     pub fn new(parameters: Parameters, inputs: Vec<ObjectId>) -> Self {
         Self {
             id: ObjectId::new(),
             parameters,
             animation: Default::default(),
-            inputs: inputs.into_iter().map(Some).collect(),
+            inputs: inputs
+                .into_iter()
+                .map(|node| Some(fold_graph::model::Reference::Node { node }.into()))
+                .collect(),
             effect: Default::default(),
             position: None,
             extensions: Default::default(),
@@ -565,18 +582,23 @@ impl Composite {
         let mut ports = BTreeMap::new();
         for node in &self.nodes {
             if !matches!(node.parameters, Parameters::Output) {
-                ports.insert(node.id, node.parameters.operator().output);
+                ports.insert(node.id, node.parameters.operator().output.clone());
             }
         }
         let mut ids = BTreeSet::new();
         for node in &self.nodes {
+            for id in node.animation.identities()? {
+                if !ids.insert(id) {
+                    return Err("Duplicate authored identity".into());
+                }
+            }
             node.parameters.validate()?;
             node.effect.validate()?;
             if !node.parameters.operator().supports_effect() && !node.effect.is_default() {
                 return Err("This node does not support effect controls".into());
             }
             if let Some(mask) = node.effect.mask
-                && !matches!(ports.get(&mask), Some(PortType::Image | PortType::Mask))
+                && !matches!(ports.get(&mask), Some(Type::Image | Type::Mask))
             {
                 return Err("Mask input requires an image or mask output".into());
             }
@@ -593,11 +615,21 @@ impl Composite {
                     op.id
                 ));
             }
-            for (slot, input) in node.inputs.iter().enumerate() {
+            for edge in node.inputs.iter().flatten() {
+                edge.validate()?;
+                if !matches!(edge.target, fold_graph::model::Reference::Node { .. })
+                    || !ids.insert(edge.id)
+                {
+                    return Err(
+                        "Compositor inputs require unique node connection identities".into(),
+                    );
+                }
+            }
+            for (slot, input) in node.input_ids().iter().enumerate() {
                 let expected = node.parameters.input_type(slot);
                 if let Some(input) = input
                     && ports.get(input) != Some(&expected)
-                    && !(expected == PortType::Mask && ports.get(input) == Some(&PortType::Image))
+                    && !(expected == Type::Mask && ports.get(input) == Some(&Type::Image))
                 {
                     return Err(format!(
                         "{}: input requires {expected:?} (missing or incompatible connection)",
@@ -615,6 +647,18 @@ impl Composite {
         }
         self.evaluation_order()?;
         self.validate_reusable()?;
+        Ok(())
+    }
+    pub(crate) fn check_protection(&self, next: &Self) -> Result<(), String> {
+        for node in &self.nodes {
+            let animation = next
+                .nodes
+                .iter()
+                .find(|next| next.id == node.id)
+                .map(|node| &node.animation);
+            node.animation
+                .check_protection(animation.unwrap_or(&Default::default()))?;
+        }
         Ok(())
     }
     pub fn dependencies(&self) -> Vec<DocumentRef> {
@@ -662,7 +706,7 @@ impl Composite {
             id,
             package_id: crate::PACKAGE.into(),
             type_id: crate::COMPOSITE.into(),
-            schema_version: 6,
+            schema_version: 7,
             revision: Revision::default(),
             dependencies: self.dependencies(),
             assets: self.assets(),
@@ -673,7 +717,7 @@ impl Composite {
     pub fn from_document(document: &Document) -> Result<Self, String> {
         if document.package_id != crate::PACKAGE
             || document.type_id != crate::COMPOSITE
-            || ![1, 2, 3, 4, 5, 6].contains(&document.schema_version)
+            || document.schema_version != 7
             || document.payload.len() > 1024 * 1024
         {
             return Err("unsupported composite document".into());

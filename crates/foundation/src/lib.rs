@@ -1,5 +1,7 @@
 //! Shared stable IDs and exact time; no feature or UI models.
 
+pub mod affine;
+pub mod rotation;
 mod time;
 pub use time::{Rounding, Time, TimeError, TimeRange};
 

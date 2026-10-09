@@ -24,6 +24,9 @@ pub enum Binding {
 pub enum Interpolation {
     Linear,
     Hold,
+    /// Holds the next value between keys; exact key times retain their own values.
+    HoldNext,
+    Bezier,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -44,6 +47,12 @@ pub struct Track {
     #[serde(flatten)]
     pub extensions: Metadata,
 }
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub struct Handles {
+    pub tangents: fold_animation::Tangents,
+    pub incoming: fold_animation::Handle,
+    pub outgoing: fold_animation::Handle,
+}
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct Key {
     pub id: ObjectId,
@@ -51,6 +60,9 @@ pub struct Key {
     pub value: Literal,
     /// Segment beginning at this key. Endpoint extrapolation always holds.
     pub interpolation: Interpolation,
+    /// Component handles share this key's identity and exact time.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub handles: Vec<Handles>,
     #[serde(flatten)]
     pub extensions: Metadata,
 }
@@ -81,6 +93,7 @@ impl Track {
                 time,
                 value,
                 interpolation: Interpolation::Linear,
+                handles: Default::default(),
                 extensions: Metadata::default(),
             }],
         };
@@ -100,9 +113,23 @@ impl Track {
         for (i, key) in self.keys.iter().enumerate() {
             crate::model::extension_keys(
                 &key.extensions,
-                &["id", "time", "value", "interpolation"],
+                &["id", "time", "value", "interpolation", "handles"],
             )?;
             key.value.validate()?;
+            let components = crate::curves::components(&self.ty).len();
+            if (!key.handles.is_empty() && key.handles.len() != components)
+                || (key.interpolation == Interpolation::Bezier
+                    && (components == 0 || matches!(self.ty, Type::Rotation { .. })))
+            {
+                return Err("Bezier handles require one entry per supported component".into());
+            }
+            for shape in &key.handles {
+                for handle in [shape.incoming, shape.outgoing] {
+                    if !(0.0..=0.5).contains(&handle.fraction) || !handle.value.is_finite() {
+                        return Err("Invalid typed animation tangent".into());
+                    }
+                }
+            }
             if !ids.insert(key.id)
                 || key.value.ty() != self.ty
                 || i > 0 && self.keys[i - 1].time >= key.time
@@ -136,13 +163,32 @@ impl Track {
     /// Stateless sampling with endpoint hold and exact rational interval selection.
     pub fn sample(&self, time: Time) -> Result<Literal, String> {
         self.validate()?;
+        let bezier = self
+            .keys
+            .iter()
+            .any(|key| key.interpolation == Interpolation::Bezier);
         let upper = self.keys.partition_point(|key| key.time <= time);
-        let value = if upper == 0 {
+        let value = if bezier {
+            let mut value = self.keys[0].value.clone();
+            for (index, (_, curve)) in crate::curves::curves(self)?.iter().enumerate() {
+                crate::curves::set(
+                    &mut value,
+                    index,
+                    curve.sample(time).ok_or("Empty typed curve")?,
+                )?;
+            }
+            value.validate()?;
+            value
+        } else if upper == 0 {
             self.keys[0].value.clone()
         } else if upper == self.keys.len()
             || self.keys[upper - 1].interpolation == Interpolation::Hold
         {
             self.keys[upper - 1].value.clone()
+        } else if self.keys[upper - 1].interpolation == Interpolation::HoldNext
+            && time != self.keys[upper - 1].time
+        {
+            self.keys[upper].value.clone()
         } else {
             let left = &self.keys[upper - 1];
             let right = &self.keys[upper];
@@ -185,6 +231,7 @@ mod tests {
                     time: Time::new(time, 2).unwrap(),
                     value: Literal::Scalar { value },
                     interpolation: Interpolation::Linear,
+                    handles: Default::default(),
                     extensions: Metadata::new(),
                 })
                 .collect(),

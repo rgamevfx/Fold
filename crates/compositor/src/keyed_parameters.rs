@@ -11,7 +11,7 @@ pub(crate) fn channels(document: &Document, _: Option<ObjectId>) -> Result<Vec<C
         for property in node.animated_properties() {
             for (i, component) in property.channels.iter().enumerate() {
                 let path = crate::animation::path(&property.id, i);
-                if let Some(curve) = node.animation.get(&path) {
+                if let Some(curve) = node.animation.curve(&path)? {
                     result.push(Channel {
                         target: Target {
                             group: None,
@@ -42,11 +42,11 @@ pub(crate) fn edit(
         }
         let node = graph.node_mut(channel.target.object)?;
         if channel.curve.keys.is_empty() {
-            node.remove_animation_channel(&channel.target.path, time);
+            node.remove_animation_channel(&channel.target.path, time)?;
         } else {
             channel.curve.validate()?;
             node.animation
-                .insert(channel.target.path.clone(), channel.curve.clone());
+                .insert(channel.target.path.clone(), channel.curve.clone())?;
         }
     }
     let mut result = graph.document(document.id)?;

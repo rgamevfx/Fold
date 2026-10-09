@@ -15,6 +15,14 @@ pub(super) fn draw(ui: &Ui, host: &mut dyn DesktopClient, state: &mut State) {
             ));
         }
         if let Some(document) = state.document {
+            if ui.menu_item("Add Scene") {
+                state.command(
+                    host,
+                    "fold.app.add-layer-graph",
+                    serde_json::json!({"document":document,"kind":"scene"}),
+                );
+            }
+
             if ui.menu_item("Add Compositing layer") {
                 state.command(
                     host,
@@ -53,7 +61,14 @@ pub(super) fn draw(ui: &Ui, host: &mut dyn DesktopClient, state: &mut State) {
         ui.same_line();
         if let Some(_menu) = menu_button(ui, "Layer", "Selected layer actions") {
             let selected = state.selected.clone();
-            if !selected.is_empty() {
+            if !selected.is_empty()
+                && selected.iter().all(|id| {
+                    state
+                        .composition
+                        .as_ref()
+                        .is_some_and(|c| c.layer(*id).is_ok())
+                })
+            {
                 if ui.menu_item("Precompose selected layers") {
                     let document = state.document.unwrap();
                     state.command(host,package::NEST,serde_json::json!({"document":document,"child":DocumentId::new(),"name":"Nested composition","layers":selected}));
@@ -67,6 +82,9 @@ pub(super) fn draw(ui: &Ui, host: &mut dyn DesktopClient, state: &mut State) {
                     if let Err(e) = state.open(host, id) {
                         state.error = e;
                     }
+                }
+                if state.hierarchy.rows.contains_key(&id) {
+                    return;
                 }
                 let locked = state.composition.as_ref().unwrap().locked(id);
                 let _disabled = ui.begin_disabled_with_cond(locked);
@@ -87,6 +105,20 @@ pub(super) fn draw(ui: &Ui, host: &mut dyn DesktopClient, state: &mut State) {
 pub(super) fn delete_selected(host: &mut dyn DesktopClient, state: &mut State) {
     let selected = state.selected.clone();
     if selected.is_empty() {
+        return;
+    }
+    if let [id] = selected.as_slice()
+        && let Some(row) = state.hierarchy.rows.get(id)
+    {
+        let object = row.object;
+        state.hierarchy_edit(host, *id, fold_platform::hierarchy::Edit::Remove { object });
+        return;
+    }
+    if selected
+        .iter()
+        .any(|id| state.hierarchy.rows.contains_key(id))
+    {
+        state.error = "Select one scene object to delete its subtree".into();
         return;
     }
     let c = state.composition.as_mut().unwrap();

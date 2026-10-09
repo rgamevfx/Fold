@@ -86,8 +86,8 @@ pub(super) fn prepare(
         let stroke = appearance.stroke.as_ref().map(|stroke| vector::Stroke {
             color: paint(stroke.color.value),
             width: stroke.width,
-            cap: vector::Cap::Butt,
-            join: vector::Join::Miter,
+            cap: stroke.mode.cap(),
+            join: stroke.mode.join(),
         });
         for (path, transform) in &paths[&geometry.id] {
             step(budget)?;

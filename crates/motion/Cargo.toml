@@ -9,6 +9,7 @@ default = []
 ui = ["dep:fold-ui"]
 
 [dependencies]
+fold-graph.workspace = true
 fold-animation.workspace = true
 fold-platform.workspace = true
 fold-media.workspace = true

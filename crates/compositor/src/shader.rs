@@ -108,7 +108,7 @@ pub fn migrate(
     let target = |id: &String| renames.get(id).unwrap_or(id).clone();
     let mut used = std::collections::BTreeSet::new();
     let mut inputs = vec![None; next.images.len()];
-    let mut animation = node.animation.clone();
+    let mut animation_names = std::collections::BTreeMap::new();
     for (i, id) in old.images.iter().enumerate() {
         if remove.contains(id) {
             continue;
@@ -122,11 +122,18 @@ pub fn migrate(
         if !used.insert(name) {
             return Err("Migration collides with another port".into());
         }
-        inputs[slot] = node.inputs[i];
+        inputs[slot] = node.inputs[i].clone();
     }
     for control in &old.controls {
         let prefix = format!("{}.", control.id);
-        animation.retain(|path, _| !path.starts_with(&prefix));
+        for path in node
+            .animation
+            .bindings()
+            .keys()
+            .filter(|path| path.starts_with(&prefix))
+        {
+            animation_names.insert(path.clone(), None);
+        }
         if remove.contains(&control.id) {
             continue;
         }
@@ -143,12 +150,13 @@ pub fn migrate(
             );
         }
         replacement.default = control.default.clone();
-        for (path, curve) in &node.animation {
+        for path in node.animation.bindings().keys() {
             if let Some(component) = path.strip_prefix(&prefix) {
-                animation.insert(format!("{name}.{component}"), curve.clone());
+                animation_names.insert(path.clone(), Some(format!("{name}.{component}")));
             }
         }
     }
+    let animation = node.animation.remap(&animation_names)?;
     node.inputs = inputs;
     node.animation = animation;
     node.parameters = crate::Parameters::Shader { settings: next };

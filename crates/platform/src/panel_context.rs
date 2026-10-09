@@ -274,6 +274,12 @@ impl DesktopClient for PanelContext<'_> {
     fn supports_document(&self, document: &fold_project::Document) -> bool {
         self.host.supports_document(document)
     }
+    fn hierarchy(
+        &self,
+        document: fold_foundation::DocumentId,
+    ) -> Result<crate::hierarchy::Hierarchy, String> {
+        self.host.hierarchy(document)
+    }
     fn animation_channels(
         &self,
         document: fold_foundation::DocumentId,

@@ -126,6 +126,20 @@ impl Channels {
             bindings: graph_bindings,
         })
     }
+    pub fn project_objects(&mut self, hierarchy: &super::hierarchy::Projection) {
+        for (index, layer, _) in &self.bindings {
+            let channel = &mut self.rows[*index];
+            let Some(path) = channel.path.strip_prefix("graph:") else {
+                continue;
+            };
+            if let Ok(target) = serde_json::from_str::<fold_platform::animation::Target>(path)
+                && let Some(object) = target.group
+                && let Some(view) = hierarchy.view(*layer, object)
+            {
+                channel.object = view;
+            }
+        }
+    }
     pub fn apply(
         mut self,
         composition: &mut Composition,
@@ -134,19 +148,29 @@ impl Channels {
         ids: &KeyIds,
     ) -> Result<(), String> {
         // Build the whole proposal before publishing it, including exact-time failures.
-        for channel in &mut self.rows {
+        for (index, channel) in self.rows.iter_mut().enumerate() {
+            let owner = self
+                .bindings
+                .iter()
+                .find(|(i, _, _)| *i == index)
+                .map_or(channel.object, |(_, layer, _)| *layer);
             for key in &mut channel.curve.keys {
                 let ui_id = key.id;
                 key.id = self.provider_keys.get(&ui_id).copied().unwrap_or(ui_id);
                 ids.0
                     .borrow_mut()
-                    .insert((channel.object, channel.path.clone(), key.id), ui_id);
+                    .insert((owner, channel.path.clone(), key.id), ui_id);
             }
         }
         let mut proposal = composition.clone();
         let mut graphs = graph_channels.clone();
         for (index, channel) in self.rows.iter().enumerate() {
-            if proposal.locked(channel.object) {
+            let owner = self
+                .bindings
+                .iter()
+                .find(|(i, _, _)| *i == index)
+                .map_or(channel.object, |(_, layer, _)| *layer);
+            if proposal.locked(owner) {
                 continue;
             }
             if let Some((_, layer_id, graph_index)) =

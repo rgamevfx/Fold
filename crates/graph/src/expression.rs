@@ -215,7 +215,7 @@ fn numeric(ty: &Type) -> bool {
         Type::Integer | Type::Scalar | Type::Distance { .. } | Type::Duration | Type::Vector { .. }
     )
 }
-pub(crate) fn binary_type(op: Binary, a: &Type, b: &Type) -> Result<Type, String> {
+pub fn binary_type(op: Binary, a: &Type, b: &Type) -> Result<Type, String> {
     match op {
         Binary::Add | Binary::Subtract if a == b && numeric(a) => Ok(a.clone()),
         Binary::Multiply
@@ -266,7 +266,7 @@ pub(crate) fn binary_type(op: Binary, a: &Type, b: &Type) -> Result<Type, String
         )),
     }
 }
-pub(crate) fn function_type(function: Function, args: &[Type]) -> Result<Type, String> {
+pub fn function_type(function: Function, args: &[Type]) -> Result<Type, String> {
     match (function, args) {
         (Function::Sin | Function::Cos, [Type::Scalar]) => Ok(Type::Scalar),
         (Function::Abs, [a]) if numeric(a) => Ok(a.clone()),

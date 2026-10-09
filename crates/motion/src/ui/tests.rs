@@ -2,7 +2,7 @@ use super::*;
 use fold_foundation::DocumentId;
 use fold_platform::{desktop::*, packages::PackageRegistry};
 use fold_project::{CommittedSnapshot, EditBatch, Mutation, Project};
-struct Host {
+pub(super) struct Host {
     project: Project,
     state: DesktopState,
     registry: PackageRegistry,
@@ -10,6 +10,19 @@ struct Host {
     cancels: usize,
 }
 impl DesktopClient for Host {
+    fn hierarchy(
+        &self,
+        document: DocumentId,
+    ) -> Result<fold_platform::hierarchy::Hierarchy, String> {
+        self.registry.hierarchy(
+            self.project
+                .snapshot()
+                .state()
+                .documents
+                .get(&document)
+                .ok_or("Missing scene")?,
+        )
+    }
     fn state(&self) -> &DesktopState {
         &self.state
     }
@@ -22,6 +35,7 @@ impl DesktopClient for Host {
             DesktopCommand::Select(selection) => self.state.selection = selection,
             DesktopCommand::UnlockControls {
                 document,
+                object,
                 targets,
                 base,
             } => {
@@ -29,6 +43,7 @@ impl DesktopClient for Host {
                     &self.project.snapshot(),
                     base,
                     document,
+                    object,
                     &targets,
                 ) {
                     Ok(batch) => {
@@ -69,7 +84,7 @@ impl DesktopClient for Host {
         None
     }
 }
-fn setup() -> Host {
+pub(super) fn setup() -> Host {
     let mut registry = PackageRegistry::default();
     package::register(&mut registry).unwrap();
     let document = DocumentId::new();
@@ -96,6 +111,91 @@ fn setup() -> Host {
         cancels: 0,
     }
 }
+
+pub(super) fn scene_setup() -> Host {
+    let mut host = setup();
+    let id = DocumentId::new();
+    let document = host.registry.create(crate::scene::TYPE, id).unwrap();
+    let scene = crate::scene::Scene::from_document(&document).unwrap();
+    host.project
+        .commit(EditBatch {
+            base: host.project.snapshot().revision(),
+            mutations: vec![Mutation::PutDocument(document)],
+        })
+        .unwrap();
+    host.state.selection = Selection {
+        document: Some(id),
+        objects: vec![scene.objects[2].id],
+    };
+    host
+}
+
+#[test]
+fn scene_object_selection_source_drafts_edits_and_unlock_are_scoped() {
+    let mut host = scene_setup();
+    let mut state = state::State::default();
+    state.sync(&mut host);
+    let document = state.document.unwrap();
+    let first = state.object.unwrap();
+    let original =
+        crate::scene::Scene::from_document(&host.snapshot().unwrap().state().documents[&document])
+            .unwrap();
+    let draft = state.drafts.get_mut(&(document, Some(first))).unwrap();
+    draft.text = "unfinished source".into();
+    draft.dirty = true;
+    let camera = original.objects[0].id;
+    host.state.selection.objects = vec![camera];
+    state.sync(&mut host);
+    assert_eq!(state.object, Some(camera));
+    assert_ne!(
+        state.drafts[&(document, Some(camera))].text,
+        "unfinished source"
+    );
+    let mut graph = state.construction.clone().unwrap();
+    graph.definitions[0].nodes[0].name = "Render camera".into();
+    assert!(state.commit(&mut host, graph.clone()));
+    let committed =
+        crate::scene::Scene::from_document(&host.snapshot().unwrap().state().documents[&document])
+            .unwrap();
+    assert_eq!(committed.objects[2], original.objects[2]);
+    let node = graph.definitions[0].nodes[0].id;
+    state.select(&mut host, vec![node]);
+    assert_eq!(host.state.selection.objects, vec![camera, node]);
+    state.sync(&mut host);
+    assert_eq!(state.object, Some(camera));
+    let parameter = graph.definitions[0].nodes[0]
+        .parameters
+        .values_mut()
+        .next()
+        .unwrap();
+    parameter.protected = true;
+    let target = parameter.id;
+    assert!(state.commit(&mut host, graph));
+    protection::unlock(&mut host, &mut state, target);
+    assert!(state.error.is_empty(), "{}", state.error);
+    assert!(
+        !crate::protection::locked_ids(state.construction.as_ref().unwrap())
+            .unwrap()
+            .contains(&target)
+    );
+    host.state.selection.objects = vec![first];
+    state.sync(&mut host);
+    assert_eq!(
+        state.drafts[&(document, Some(first))].text,
+        "unfinished source"
+    );
+    host.state.selection.objects.clear();
+    state.sync(&mut host);
+    assert_eq!(state.object, None);
+    host.project.undo().unwrap();
+    host.project.undo().unwrap();
+    host.project.undo().unwrap();
+    assert_eq!(
+        crate::scene::Scene::from_document(&host.snapshot().unwrap().state().documents[&document])
+            .unwrap(),
+        original
+    );
+}
 #[test]
 fn gestures_commit_once_cancel_and_keep_source_drafts_across_revision_changes() {
     let mut host = setup();
@@ -103,7 +203,7 @@ fn gestures_commit_once_cancel_and_keep_source_drafts_across_revision_changes() 
     state.sync(&mut host);
     let document = state.document.unwrap();
     let before = state.construction.clone().unwrap();
-    let draft = state.drafts.get_mut(&document).unwrap();
+    let draft = state.drafts.get_mut(&(document, None)).unwrap();
     draft.text = "unfinished source".into();
     draft.dirty = true;
     let draft_base = draft.base;
@@ -119,8 +219,8 @@ fn gestures_commit_once_cancel_and_keep_source_drafts_across_revision_changes() 
     let changed = state.construction.clone().unwrap();
     assert!(state.commit(&mut host, changed.clone()));
     assert_eq!(state.construction.as_ref(), Some(&changed));
-    assert_eq!(state.drafts[&document].text, "unfinished source");
-    assert_eq!(state.drafts[&document].base, draft_base);
+    assert_eq!(state.drafts[&(document, None)].text, "unfinished source");
+    assert_eq!(state.drafts[&(document, None)].base, draft_base);
     host.project.undo().unwrap();
     state.sync(&mut host);
     assert_eq!(state.construction.as_ref(), Some(&before));
@@ -133,9 +233,9 @@ fn gestures_commit_once_cancel_and_keep_source_drafts_across_revision_changes() 
     assert_eq!(state.construction.as_ref(), Some(&before));
     assert!(host.cancels > 0);
     state.reload_source(&mut host);
-    assert!(!state.drafts[&document].dirty);
+    assert!(!state.drafts[&(document, None)].dirty);
     assert_eq!(
-        crate::source::parse(&state.drafts[&document].text)
+        crate::source::parse(&state.drafts[&(document, None)].text)
             .unwrap()
             .construction,
         before
@@ -159,7 +259,9 @@ fn native_panels_draw_at_normal_and_narrow_sizes_without_mutation() {
         .unwrap();
     let before = host.project.snapshot();
     let shared = Shared::default();
-    let mut editor = Editor(shared.clone(), Default::default(), Default::default());
+    let mut editor = Editor(shared.clone(), Default::default());
+    assert!(editor.supports_network());
+    assert!(editor.is_layer_graph());
     let mut inspector = Inspector(shared);
     let _guard = UI_TEST_LOCK.lock().unwrap();
     let mut context = sdk::imgui::Context::create();
@@ -180,7 +282,7 @@ fn native_panels_draw_at_normal_and_narrow_sizes_without_mutation() {
             vec![animated.root.id]
         };
         let ui = context.frame();
-        ui.window("Motion")
+        ui.window("Network")
             .position([0., 0.], sdk::imgui::Condition::Always)
             .size([width, 700.], sdk::imgui::Condition::Always)
             .build(|| {
@@ -189,10 +291,6 @@ fn native_panels_draw_at_normal_and_narrow_sizes_without_mutation() {
                     host: &mut host,
                 })
             });
-        ui.window("Keys")
-            .position([0., 320.], sdk::imgui::Condition::Always)
-            .size([width, 380.], sdk::imgui::Condition::Always)
-            .build(|| editor.1.draw(ui, &mut host, &mut editor.0.borrow_mut()));
         ui.window("Inspector")
             .position([width, 0.], sdk::imgui::Condition::Always)
             .size(
@@ -519,8 +617,8 @@ fn stale_source_rebase_preserves_disjoint_edits_and_requires_explicit_apply() {
     let mut proposed = original.clone();
     proposed.seed += 1;
     let text = crate::source::canonical(&proposed).unwrap();
-    state.drafts.get_mut(&document).unwrap().text = text;
-    state.drafts.get_mut(&document).unwrap().dirty = true;
+    state.drafts.get_mut(&(document, None)).unwrap().text = text;
+    state.drafts.get_mut(&(document, None)).unwrap().dirty = true;
     let mut artist = original.clone();
     let shape = artist.definitions[0].nodes[0].id;
     artist.presentation.positions.insert(shape, [120., 240.]);
@@ -530,7 +628,7 @@ fn stale_source_rebase_preserves_disjoint_edits_and_requires_explicit_apply() {
     assert!(state.error.is_empty(), "{}", state.error);
     assert_eq!(host.project.snapshot().revision(), revision);
     assert_eq!(state.construction.as_ref(), Some(&artist));
-    let draft = &state.drafts[&document];
+    let draft = &state.drafts[&(document, None)];
     assert!(draft.dirty);
     assert_eq!(draft.base, revision);
     let merged = crate::source::parse(&draft.text).unwrap().construction;
@@ -544,16 +642,16 @@ fn stale_source_rebase_preserves_disjoint_edits_and_requires_explicit_apply() {
     let mut proposed = artist.clone();
     proposed.seed += 2;
     let text = crate::source::canonical(&proposed).unwrap();
-    state.drafts.get_mut(&document).unwrap().text = text.clone();
-    state.drafts.get_mut(&document).unwrap().dirty = true;
-    let base = state.drafts[&document].base;
+    state.drafts.get_mut(&(document, None)).unwrap().text = text.clone();
+    state.drafts.get_mut(&(document, None)).unwrap().dirty = true;
+    let base = state.drafts[&(document, None)].base;
     artist.seed += 3;
     assert!(state.commit(&mut host, artist));
     let revision = host.project.snapshot().revision();
     state.rebase_source(&mut host);
     assert!(state.error.contains("conflict"));
-    assert_eq!(state.drafts[&document].text, text);
-    assert_eq!(state.drafts[&document].base, base);
+    assert_eq!(state.drafts[&(document, None)].text, text);
+    assert_eq!(state.drafts[&(document, None)].base, base);
     assert_eq!(host.project.snapshot().revision(), revision);
 }
 
@@ -586,6 +684,7 @@ fn artist_unlock_is_selective_revision_bound_and_not_an_authoring_command() {
     let revision = state.base;
     host.command(DesktopCommand::UnlockControls {
         document,
+        object: None,
         targets: vec![input],
         base: locked_revision,
     });
@@ -593,6 +692,7 @@ fn artist_unlock_is_selective_revision_bound_and_not_an_authoring_command() {
     assert!(host.state.status.contains("stale"));
     host.command(DesktopCommand::UnlockControls {
         document,
+        object: None,
         targets: vec![input, fold_foundation::ObjectId::new()],
         base: revision,
     });
@@ -1059,6 +1159,7 @@ fn override_key_edits_preview_cancel_undo_and_respect_input_locks() {
                 time: Time::ZERO,
                 value: input.default.clone(),
                 interpolation: Interpolation::Linear,
+                handles: Default::default(),
                 extensions: Default::default(),
             }],
             extensions: Default::default(),
@@ -1134,4 +1235,48 @@ fn ramp_controls_draw_at_normal_and_narrow_widths_without_mutation() {
     }
     assert_eq!(value, before);
     assert!(!controls.invalid);
+}
+
+#[test]
+fn auto_key_parameter_gesture_commits_once_and_cancel_discards_pending_keys() {
+    let mut host = scene_setup();
+    let mut state = state::State::default();
+    state.sync(&mut host);
+    let before = state.construction.clone().unwrap();
+    let parameter = before.definitions[0].nodes[0].parameters["size"].id;
+    let time = fold_foundation::Time::new(1, 2).unwrap();
+    for size in [2., 3., 4.] {
+        let graph = state.construction.as_mut().unwrap();
+        graph.definitions[0].nodes[0]
+            .parameters
+            .get_mut("size")
+            .unwrap()
+            .value = serde_json::to_value(Binding::Literal {
+            value: Literal::Vector {
+                value: vec![size; 3],
+                unit: crate::types::Unit::Meters,
+                space: crate::types::Space::World,
+            },
+        })
+        .unwrap();
+        state.auto_keys.insert(parameter, time);
+        state.preview(&mut host);
+    }
+    let draft = state.construction.clone().unwrap();
+    assert!(state.finish_parameters(&mut host, draft));
+    let channels = crate::keyed::channels(state.construction.as_ref().unwrap(), None).unwrap();
+    assert_eq!(channels.len(), 3);
+    assert!(
+        channels
+            .iter()
+            .all(|c| c.curve.keys[0].time == time && c.curve.keys[0].value == 4.)
+    );
+    host.project.undo().unwrap();
+    state.sync(&mut host);
+    assert_eq!(state.construction.as_ref(), Some(&before));
+    state.auto_keys.insert(parameter, time);
+    state.preview(&mut host);
+    state.cancel(&mut host);
+    assert!(state.auto_keys.is_empty());
+    assert_eq!(state.construction.as_ref(), Some(&before));
 }

@@ -29,7 +29,8 @@ impl Instance {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Instances {
     pub prototype: Arc<Geometry>,
-    /// Frozen sampling basis for downstream instance fields.
+    /// Original distribution provenance. Field consumers sample positions from
+    /// their explicit upstream geometry, including any preceding Transform.
     pub distribution: Arc<Points>,
     pub instances: Vec<Instance>,
 }

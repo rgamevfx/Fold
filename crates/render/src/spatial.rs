@@ -38,6 +38,8 @@ pub struct Material {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Transform {
+    /// Complete evaluated matrix when hierarchy introduces shear.
+    pub affine: Option<fold_foundation::affine::Affine>,
     pub translation: [f32; 3],
     /// Unit quaternion, xyzw.
     pub rotation: [f32; 4],
@@ -46,6 +48,7 @@ pub struct Transform {
 impl Default for Transform {
     fn default() -> Self {
         Self {
+            affine: None,
             translation: [0.; 3],
             rotation: [0., 0., 0., 1.],
             scale: [1.; 3],
@@ -219,6 +222,9 @@ impl Scene {
         let mut ids = std::collections::BTreeSet::new();
         for instance in &self.instances {
             let t = instance.transform;
+            if let Some(matrix) = t.affine {
+                matrix.validate()?;
+            }
             if !ids.insert(instance.id)
                 || !self.meshes.contains_key(&instance.mesh)
                 || !self.materials.contains_key(&instance.material)

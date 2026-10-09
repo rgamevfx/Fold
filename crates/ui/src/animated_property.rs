@@ -55,6 +55,7 @@ fn interpolation_menu(
         for (label, mode) in [
             ("Linear", fold_animation::Interpolation::Linear),
             ("Hold", fold_animation::Interpolation::Hold),
+            ("Hold next", fold_animation::Interpolation::HoldNext),
             ("Bezier", fold_animation::Interpolation::Bezier),
         ] {
             if ui.menu_item(label) {

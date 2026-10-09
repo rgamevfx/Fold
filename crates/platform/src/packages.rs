@@ -49,11 +49,23 @@ pub struct CommandRegistration {
     pub handler: CommandHandler,
 }
 pub trait DocumentProvider: Send + Sync {
+    fn hierarchy(&self, _document: &Document) -> Result<crate::hierarchy::Hierarchy, String> {
+        Ok(Default::default())
+    }
+    fn edit_hierarchy(
+        &self,
+        _document: &Document,
+        _edits: &[crate::hierarchy::Edit],
+    ) -> Result<Document, String> {
+        Err("Hierarchy edits unavailable".into())
+    }
+
     /// Trusted local artist action. Not part of the agent authoring catalog.
     /// Implementations may clear only the requested lock flags, never content.
     fn unlock_for_artist(
         &self,
         _document: &Document,
+        _object: Option<fold_foundation::ObjectId>,
         _targets: &[fold_foundation::ObjectId],
     ) -> Result<Document, String> {
         Err("This provider does not support artist unlocking".into())
@@ -211,6 +223,35 @@ pub struct PackageRegistry {
     audio: Vec<Box<dyn AudioProvider>>,
 }
 impl PackageRegistry {
+    pub fn hierarchy(&self, document: &Document) -> Result<crate::hierarchy::Hierarchy, String> {
+        self.documents
+            .iter()
+            .find(|p| p.package_id() == document.package_id && p.type_id() == document.type_id)
+            .ok_or("Unavailable hierarchy provider")?
+            .hierarchy(document)
+    }
+    pub fn edit_hierarchy(
+        &self,
+        document: &Document,
+        edits: &[crate::hierarchy::Edit],
+    ) -> Result<Document, String> {
+        let provider = self
+            .documents
+            .iter()
+            .find(|p| p.package_id() == document.package_id && p.type_id() == document.type_id)
+            .ok_or("Unavailable hierarchy provider")?;
+        let result = provider.edit_hierarchy(document, edits)?;
+        if result.id != document.id
+            || result.package_id != document.package_id
+            || result.type_id != document.type_id
+            || result.schema_version != document.schema_version
+        {
+            return Err("Hierarchy edit changed document identity".into());
+        }
+        provider.validate(&result)?;
+        Ok(result)
+    }
+
     pub fn animation_channels(
         &self,
         document: &Document,
@@ -577,6 +618,7 @@ impl PackageRegistry {
         snapshot: &Snapshot,
         base: Revision,
         document: DocumentId,
+        object: Option<fold_foundation::ObjectId>,
         targets: &[fold_foundation::ObjectId],
     ) -> Result<EditBatch, String> {
         if snapshot.revision() != base {
@@ -599,7 +641,7 @@ impl PackageRegistry {
                     && p.supports_schema(original.schema_version)
             })
             .ok_or("missing document provider")?;
-        let after = provider.unlock_for_artist(original, targets)?;
+        let after = provider.unlock_for_artist(original, object, targets)?;
         if after.id != original.id
             || after.package_id != original.package_id
             || after.type_id != original.type_id
@@ -709,6 +751,10 @@ impl PackageRegistry {
         let Some(document) = snapshot.state().documents.get(&id) else {
             return vec![];
         };
+        self.document_outputs(document)
+    }
+    /// Resolve outputs before an atomic create-and-place transaction is committed.
+    pub fn document_outputs(&self, document: &Document) -> Vec<crate::workspace::OutputDescriptor> {
         let mut outputs = self.video.outputs(document);
         let validation = self
             .documents

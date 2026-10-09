@@ -125,6 +125,9 @@ impl Measurement<'_> {
             }
             GeometryData::Solids(solids) => return self.solids(geometry, solids),
             GeometryData::Mesh(mesh) => {
+                if let Some(source) = &mesh.source {
+                    self.geometry(source)?;
+                }
                 let mut bounds = None;
                 for point in &mesh.prepared.mesh.positions {
                     self.step()?;
@@ -135,7 +138,7 @@ impl Measurement<'_> {
                 }
                 self.points += mesh.prepared.mesh.positions.len();
                 let bounds = json!(bounds);
-                self.geometries.insert(geometry.id, json!({"id":geometry.id,"unit":geometry.unit,"space":geometry.space,"bounds":bounds,"bounds_kind":"mesh","mesh":{"vertex_ids":mesh.vertex_ids,"face_ids":mesh.face_ids,"positions":mesh.prepared.mesh.positions,"normals":mesh.prepared.mesh.normals,"indices":mesh.prepared.mesh.indices,"uv":mesh.prepared.uv,"regions":mesh.prepared.faces},"precision":"f32"}));
+                self.geometries.insert(geometry.id, json!({"id":geometry.id,"unit":geometry.unit,"space":geometry.space,"bounds":bounds,"bounds_kind":"mesh","mesh":{"vertex_ids":mesh.vertex_ids,"face_ids":mesh.face_ids,"positions":mesh.prepared.mesh.positions,"normals":mesh.prepared.mesh.normals,"indices":mesh.prepared.mesh.indices,"uv":mesh.prepared.uv,"regions":mesh.prepared.regions,"source_vertices":mesh.prepared.source_vertices,"source_geometry":mesh.prepared.source_geometry},"precision":"f32"}));
                 return Ok(bounds);
             }
             GeometryData::Contours(contours) => contours,

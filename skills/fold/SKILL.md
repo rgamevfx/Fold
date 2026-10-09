@@ -7,7 +7,8 @@ Use the running build's public discovery before authoring. The replacement Linux
 build exposes MCP tool `fold_request` and `fold-cli protocol`; both use wire version
 2 and the same generated request schema. For connection, jobs, guarded edits,
 verified proposal/inspection/Apply examples and the integrated Motion demo,
-read [Public workflow](references/public-workflow.md).
+read [Public workflow](references/public-workflow.md). For a local hands-on demo,
+use the [demo launcher and edit guide](../../demos/README.md).
 
 1. Discover the current epoch, revision, supported documents, catalog and limits.
 2. Inspect the exact document revision and intended scope. Preserve stable IDs,
@@ -31,6 +32,12 @@ keep the gesture and submit a fresh request after it finishes. Agent operations
 cannot unlock protected controls. Use public discovery/errors to resolve missing
 capabilities; artwork work must not require reading Rust crates or editing project
 payloads directly.
+
+M5a adds native scene/Outliner editing in the application, but its public candidate
+transport is not yet qualified for scene/object documents. Use discovery's supported
+inspection scope; do not substitute direct project-payload edits for missing tools.
+The integrated Motion demo uses the current filled-rectangle starter, not a fixed
+three-node template. See the public workflow's qualification notes.
 
 For repository implementation status, consult the
 [Motion System Rewrite Plan](../../docs/Motion_System_Rewrite_Plan.md).

@@ -1,9 +1,5 @@
-//! Lossless scalar-track projection into the shared native curve editor.
-use crate::{
-    binding::{Binding, Interpolation},
-    model::Construction,
-    types::Literal,
-};
+//! Typed tracks and instance overrides projected into the shared curve editor.
+use crate::{binding::Binding, model::Construction};
 use fold_foundation::ObjectId;
 use fold_platform::animation::{Channel, Target};
 use std::collections::BTreeSet;
@@ -73,8 +69,8 @@ pub fn animate(
     Ok(result)
 }
 
-/// Only direct, resolved scalar/distance node tracks are qualified here. Other
-/// bindings remain native and available in source; they are never flattened.
+/// Typed tracks use the shared coupled-component projection.
+pub(crate) use fold_graph::curves as track;
 pub fn channels(
     construction: &Construction,
     object: Option<ObjectId>,
@@ -94,54 +90,63 @@ pub fn channels(
                 let Binding::Track { track } = parameter.binding()? else {
                     continue;
                 };
-                if !matches!(
-                    track.ty,
-                    crate::types::Type::Scalar | crate::types::Type::Distance { .. }
-                ) {
-                    continue;
+                for (component, curve) in track::curves(&track)? {
+                    result.push(Channel {
+                        target: Target {
+                            group: Some(definition.id),
+                            object: node.id,
+                            path: if component.is_empty() {
+                                track.id.to_string()
+                            } else {
+                                format!("{}:{component}", track.id)
+                            },
+                        },
+                        node_label: node.name.clone(),
+                        property: parameter.id.to_string(),
+                        property_label: operation
+                            .parameters
+                            .get(name)
+                            .map_or(name, |p| &p.title)
+                            .clone(),
+                        component,
+                        curve,
+                    });
                 }
-                track.validate()?;
-                let curve = fold_animation::Curve {
-                    keys: track
-                        .keys
-                        .iter()
-                        .map(|key| {
-                            let value = match key.value {
-                                Literal::Scalar { value } | Literal::Distance { value, .. } => {
-                                    value
-                                }
-                                _ => unreachable!("validated scalar track"),
-                            };
-                            fold_animation::Key {
-                                id: key.id,
-                                time: key.time,
-                                value,
-                                interpolation: match key.interpolation {
-                                    Interpolation::Linear => fold_animation::Interpolation::Linear,
-                                    Interpolation::Hold => fold_animation::Interpolation::Hold,
-                                },
-                                tangents: Default::default(),
-                                incoming: Default::default(),
-                                outgoing: Default::default(),
-                            }
-                        })
-                        .collect(),
-                };
-                curve.validate()?;
+            }
+        }
+    }
+    for (group, instance) in std::iter::once((construction.root.definition, &construction.root))
+        .chain(
+            construction
+                .definitions
+                .iter()
+                .flat_map(|d| d.instances.iter().map(move |i| (d.id, i))),
+        )
+    {
+        let definition = construction.definition(instance.definition)?;
+        for (input, parameter) in &instance.overrides {
+            if object.is_some_and(|id| ![group, instance.id, parameter.id].contains(&id)) {
+                continue;
+            }
+            let Binding::Track { track } = parameter.binding()? else {
+                continue;
+            };
+            let label = definition
+                .inputs
+                .iter()
+                .find(|i| i.id == *input)
+                .ok_or("Missing override input")?;
+            for (component, curve) in track::curves(&track)? {
                 result.push(Channel {
                     target: Target {
-                        group: Some(definition.id),
-                        object: node.id,
-                        path: track.id.to_string(),
+                        group: Some(group),
+                        object: instance.id,
+                        path: format!("{}:{component}", track.id),
                     },
-                    node_label: node.name.clone(),
+                    node_label: instance.name.clone(),
                     property: parameter.id.to_string(),
-                    property_label: operation
-                        .parameters
-                        .get(name)
-                        .map_or(name, |p| &p.title)
-                        .clone(),
-                    component: String::new(),
+                    property_label: label.name.clone(),
+                    component,
                     curve,
                 });
             }
@@ -150,104 +155,84 @@ pub fn channels(
     Ok(result)
 }
 
-/// Projection metadata is immutable routing data, not a retargeting API. Existing
-/// native keys retain their extensions; new keys receive new empty extension maps.
+/// Channel identity is immutable routing data. Protection applies to the entire
+/// proposal, including coupled vector/color keys and their opaque metadata.
 pub fn replace(construction: &Construction, edits: &[Channel]) -> Result<Construction, String> {
     let available = channels(construction, None)?;
-    let by_target: std::collections::BTreeMap<_, _> = available
-        .iter()
-        .map(|channel| (&channel.target, channel))
-        .collect();
-    let mut owners = std::collections::BTreeMap::new();
-    for channel in &available {
-        for key in &channel.curve.keys {
-            if owners.insert(key.id, &channel.target).is_some() {
-                return Err("Duplicate native key identity".into());
-            }
-        }
-    }
     let mut seen = BTreeSet::new();
-    let mut result = construction.clone();
+    let mut groups = std::collections::BTreeMap::<_, Vec<_>>::new();
+    let owners: std::collections::BTreeMap<_, _> = available
+        .iter()
+        .flat_map(|c| {
+            c.curve
+                .keys
+                .iter()
+                .map(move |k| (k.id, (c.target.object, c.property.clone())))
+        })
+        .collect();
     for edit in edits {
         if !seen.insert(edit.target.clone()) {
             return Err("Duplicate animation channel".into());
         }
-        let original = *by_target
-            .get(&edit.target)
+        let original = available
+            .iter()
+            .find(|c| c.target == edit.target)
             .ok_or("Unknown Motion animation channel")?;
         let mut identity = edit.clone();
         identity.curve = original.curve.clone();
         if &identity != original {
             return Err("Animation edit changed channel identity or metadata".into());
         }
-        if edit.curve == original.curve {
-            continue;
-        }
-        edit.curve.validate()?;
-        let node = result
-            .definitions
-            .iter_mut()
-            .flat_map(|d| &mut d.nodes)
-            .find(|n| n.id == edit.target.object)
-            .ok_or("Missing track owner")?;
-        let parameter = node
-            .parameters
-            .values_mut()
-            .find(|p| p.id.to_string() == edit.property)
-            .ok_or("Missing track parameter")?;
-        let Binding::Track { mut track } = parameter.binding()? else {
-            return Err("Track binding changed".into());
-        };
-        let mut keys = vec![];
         for key in &edit.curve.keys {
             if owners
                 .get(&key.id)
-                .is_some_and(|owner| **owner != edit.target)
+                .is_some_and(|owner| owner != &(edit.target.object, edit.property.clone()))
             {
                 return Err("Key identity belongs to another track".into());
             }
-            let interpolation = match key.interpolation {
-                fold_animation::Interpolation::Linear => Interpolation::Linear,
-                fold_animation::Interpolation::Hold => Interpolation::Hold,
-                _ => {
-                    return Err(
-                        "Motion tracks currently support Linear and Hold interpolation".into(),
-                    );
-                }
-            };
-            if key.tangents != fold_animation::Tangents::Auto
-                || key.incoming != Default::default()
-                || key.outgoing != Default::default()
-            {
-                return Err("Motion tracks do not support tangent edits".into());
-            }
-            let value = match track.ty {
-                crate::types::Type::Scalar => Literal::Scalar { value: key.value },
-                crate::types::Type::Distance { unit } => Literal::Distance {
-                    value: key.value,
-                    unit,
-                },
-                _ => return Err("This track requires typed native key editing".into()),
-            };
-            keys.push(crate::binding::Key {
-                id: key.id,
-                time: key.time,
-                value,
-                interpolation,
-                extensions: track
-                    .keys
-                    .iter()
-                    .find(|old| old.id == key.id)
-                    .map(|old| old.extensions.clone())
-                    .unwrap_or_default(),
-            });
         }
-        track.keys = keys;
-        track.validate()?;
-        parameter.value =
-            serde_json::to_value(Binding::Track { track }).map_err(|e| e.to_string())?;
+        if edit.curve != original.curve {
+            groups
+                .entry((edit.target.object, edit.property.clone()))
+                .or_default()
+                .push((edit.component.clone(), edit.curve.clone()));
+        }
     }
-    // The same protection and semantic gate applies even for non-UI callers.
+    let mut result = construction.clone();
+    for ((object, property), edits) in groups {
+        let parameter = if result.root.id == object {
+            result
+                .root
+                .overrides
+                .values_mut()
+                .find(|p| p.id.to_string() == property)
+        } else {
+            result.definitions.iter_mut().find_map(|d| {
+                if let Some(node) = d.nodes.iter_mut().find(|n| n.id == object) {
+                    node.parameters
+                        .values_mut()
+                        .find(|p| p.id.to_string() == property)
+                } else {
+                    d.instances
+                        .iter_mut()
+                        .find(|i| i.id == object)
+                        .and_then(|i| {
+                            i.overrides
+                                .values_mut()
+                                .find(|p| p.id.to_string() == property)
+                        })
+                }
+            })
+        }
+        .ok_or("Missing track parameter")?;
+        let Binding::Track { track } = parameter.binding()? else {
+            return Err("Track binding changed".into());
+        };
+        parameter.value = serde_json::to_value(Binding::Track {
+            track: track::replace(&track, &edits)?,
+        })
+        .map_err(|e| e.to_string())?;
+    }
     crate::protection::validate(construction, &result).map_err(|e| e.reason)?;
     result.validate_semantics()?;
     Ok(result)

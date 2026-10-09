@@ -152,7 +152,7 @@ pub fn author(d: &Document, edits: &[Value]) -> Result<Document, String> {
                 let slot = (0..n.parameters.input_count())
                     .find(|&i| n.parameters.input_key(i) == input)
                     .ok_or("missing input")?;
-                let previous = n.inputs[slot].ok_or("input is disconnected")?;
+                let previous = n.input_ids()[slot].ok_or("input is disconnected")?;
                 c.connect(previous, modifier, &modifier_input)?;
                 c.connect(modifier, node, &input)?;
             }
@@ -162,6 +162,10 @@ pub fn author(d: &Document, edits: &[Value]) -> Result<Document, String> {
                 }
                 let mut n = c.node(node)?.clone();
                 n.id = id;
+                n.animation = n.animation.duplicate()?;
+                for edge in n.inputs.iter_mut().flatten() {
+                    edge.id = ObjectId::new();
+                }
                 if let Some(p) = &mut n.position {
                     p[0] += 40.;
                     p[1] += 40.;
@@ -265,6 +269,7 @@ pub fn author(d: &Document, edits: &[Value]) -> Result<Document, String> {
             Edit::Layout => c.auto_layout()?,
         }
     }
+    Composite::from_document(d)?.check_protection(&c)?;
     let mut result = c.document(d.id)?;
     result.extensions = d.extensions.clone();
     Ok(result)
@@ -318,7 +323,7 @@ pub fn query(d: &Document, q: &Value) -> Result<Value, String> {
     let limit = q["limit"].as_u64().unwrap_or(50).clamp(1, 200) as usize;
     let nodes:Vec<_>=c.nodes.iter().filter(|n|ids.contains(&n.id)).skip(offset).take(limit).map(|n|{
         let op=n.parameters.operator();let consumers:Vec<_>=c.nodes.iter().filter(|o|o.dependencies().any(|id|id==n.id)).map(|o|o.id).collect();
-        json!({"node":n,"inputs":(0..n.parameters.input_count()).map(|i|json!({"id":n.parameters.input_key(i),"kind":format!("{:?}",n.parameters.input_type(i)),"source":n.inputs[i]})).collect::<Vec<_>>(),"output":{"id":op.output_key(),"kind":format!("{:?}",op.output)},"consumers":consumers})
+        json!({"node":n,"inputs":(0..n.parameters.input_count()).map(|i|json!({"id":n.parameters.input_key(i),"kind":format!("{:?}",n.parameters.input_type(i)),"source":n.input_ids()[i]})).collect::<Vec<_>>(),"output":{"id":op.output_key(),"kind":format!("{:?}",op.output)},"consumers":consumers})
     }).collect();
     Ok(json!({"nodes":nodes,"total":ids.len(),"offset":offset}))
 }

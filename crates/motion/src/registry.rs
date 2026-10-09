@@ -1,9 +1,11 @@
 //! Single contract authority for native operations. A declaration is not execution qualification.
 mod animator;
 mod distribution;
+mod profile;
 mod spatial;
 mod style;
 mod text;
+mod transform;
 use crate::{
     binding::Binding,
     expression::{ClockScope, Expr},
@@ -72,6 +74,9 @@ pub enum ResultType {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Builtin {
     Rectangle,
+    TransformScreen,
+    TransformMesh,
+    TransformInstances,
     BoxMesh,
     Grid,
     Cloner,
@@ -99,10 +104,15 @@ pub enum Builtin {
     DirectionalLight,
     Fill,
     Stroke,
+    StrokeButtRound,
+    StrokeRoundMiter,
+    StrokeRoundRound,
     Text,
     TextAnimatorWords,
     OutlineText,
     Extrude,
+    Tessellate,
+    ExtrudeProfile,
     LitMaterial,
     UnlitMaterial,
     Input,
@@ -325,6 +335,8 @@ pub fn operations() -> &'static [Operation] {
         entries.extend(spatial::operations());
         entries.extend(style::operations());
         entries.extend(text::operations());
+        entries.extend(profile::operations());
+        entries.extend(transform::operations());
         for (mode, title, builtin) in [
             ("linear", "Linear Tween", Builtin::TweenLinear),
             ("cubic_out", "Cubic-out Tween", Builtin::TweenCubicOut),

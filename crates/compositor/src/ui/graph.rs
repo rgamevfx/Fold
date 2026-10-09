@@ -1,7 +1,8 @@
 //! Composite semantics adapted to the shared editor; no native UI machinery.
 use super::state::State;
-use crate::{Composite, Node, Parameters as P, PortType, Source};
+use crate::{Composite, Node, Parameters as P, Source};
 use fold_foundation::{ObjectId, Time};
+use fold_graph::types::Type;
 use fold_platform::desktop::{DesktopClient, DesktopCommand, Selection};
 use fold_project::DocumentRef;
 use fold_ui::sdk::{GRAPH_COLORS, graph_canvas::*};
@@ -301,7 +302,7 @@ impl GraphContext for Context<'_> {
                         color: match n.parameters {
                             P::Read { .. } | P::Solid { .. } => GRAPH_COLORS.source,
                             P::Merge | P::Composite { .. } => GRAPH_COLORS.merge,
-                            _ => color(op.output),
+                            _ => color(op.output.clone()),
                         },
                         inputs: (0..n.parameters.input_count())
                             .map(|i| PortView {
@@ -326,7 +327,7 @@ impl GraphContext for Context<'_> {
                             vec![PortView {
                                 key: op.output_key().into(),
                                 label: op.output_key().into(),
-                                color: color(op.output),
+                                color: color(op.output.clone()),
                             }]
                         },
                     }
@@ -336,8 +337,8 @@ impl GraphContext for Context<'_> {
                 .nodes
                 .iter()
                 .flat_map(|n| {
-                    n.inputs
-                        .iter()
+                    n.input_ids()
+                        .into_iter()
                         .enumerate()
                         .filter_map(|(i, source)| {
                             source.map(|source| WireView {
@@ -440,9 +441,9 @@ impl GraphContext for Context<'_> {
         Ok(())
     }
 }
-fn color(kind: PortType) -> [f32; 4] {
+fn color(kind: Type) -> [f32; 4] {
     match kind {
-        PortType::Mask => GRAPH_COLORS.mask,
+        Type::Mask => GRAPH_COLORS.mask,
         _ => GRAPH_COLORS.image,
     }
 }

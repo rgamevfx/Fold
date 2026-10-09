@@ -5,18 +5,11 @@ use fold_compositor::{Composite, Node, Parameters as P, Source as ImageSource};
 use fold_foundation::{DocumentId, ObjectId, Time};
 use fold_media::Cancel;
 use fold_platform::image_source::Source;
-use fold_project::{DocumentRef, EditBatch, Item, ItemId, Mutation, Snapshot};
+use fold_project::{EditBatch, Item, ItemId, Mutation, Snapshot};
 use serde::{Deserialize, Serialize};
 
 pub const ADD: &str = "fold.app.add-layer-graph";
 pub const CONNECT: &str = "fold.app.composition-connect";
-fn reference(document: DocumentId) -> DocumentRef {
-    DocumentRef {
-        document,
-        output: "video".into(),
-        extensions: Default::default(),
-    }
-}
 fn item(snapshot: &Snapshot, parent: DocumentId, id: DocumentId, name: String) -> Mutation {
     Mutation::PutItem(Item {
         id: ItemId::Document(id),
@@ -90,6 +83,20 @@ pub fn add(snapshot: &Snapshot, bytes: &[u8], cancel: &Cancel) -> Result<EditBat
     let mut composition = Composition::from_document(original)?;
     let id = DocumentId::new();
     let (mut document, name, info) = match args.kind.as_str() {
+        "scene" => {
+            let document = fold_motion::scene::package::create(
+                id,
+                fold_motion::model::Canvas {
+                    width: composition.info.width,
+                    height: composition.info.height,
+                    rate: composition.info.rate,
+                    start: Time::ZERO,
+                    end: composition.info.time(composition.info.frames)?,
+                    extensions: Default::default(),
+                },
+            )?;
+            (document, "Scene", composition.info.clone())
+        }
         "image" => {
             let solid = Node::new(
                 P::Solid {
@@ -147,13 +154,19 @@ pub fn add(snapshot: &Snapshot, bytes: &[u8], cancel: &Cancel) -> Result<EditBat
     document
         .extensions
         .insert(fold_composition::LAYER_GRAPH.into(), true.into());
+    let output = crate::packages::builtins()
+        .document_outputs(&document)
+        .into_iter()
+        .next()
+        .ok_or("New layer graph has no published image output")?;
+    output.info?;
+    let output = output.reference;
     if args.kind == "process" {
         let layer = composition.layer_mut(args.layer.unwrap())?;
-        layer.source = Some(Source::Output(reference(id)));
+        layer.source = Some(Source::Output(output));
         layer.info = info;
     } else {
-        let graph = reference(id);
-        let layer = Layer::new(name, Some(Source::Output(graph)), info)?;
+        let layer = Layer::new(name, Some(Source::Output(output)), info)?;
         composition.layers.insert(0, layer);
     }
     let mut updated = composition.document(args.document)?;
@@ -226,7 +239,15 @@ pub fn edit(snapshot: &Snapshot, bytes: &[u8], cancel: &Cancel) -> Result<EditBa
         serde_json::from_slice(bytes).map_err(|e| e.to_string())?;
     let mut batch = fold_composition::package::edit(snapshot, bytes, cancel)?;
     let registry = crate::packages::builtins();
-    let mut edited_targets = std::collections::BTreeMap::new();
+    struct AnimationProposal {
+        time: Time,
+        bake_time: Option<Time>,
+        channels: std::collections::BTreeMap<
+            fold_platform::animation::Target,
+            fold_platform::animation::Channel,
+        >,
+    }
+    let mut proposals = std::collections::BTreeMap::<DocumentId, AnimationProposal>::new();
     for edit in &args.graph_animation {
         let layer = args.composition.layer(edit.layer)?;
         if args.composition.locked(edit.layer) {
@@ -244,31 +265,81 @@ pub fn edit(snapshot: &Snapshot, bytes: &[u8], cancel: &Cancel) -> Result<EditBa
             return Err("Open the nested composition to edit its keys".into());
         }
         let allowed = registry.animation_channels(original, None)?;
+        let time = layer.local_time(edit.time)?;
+        let proposal = proposals
+            .entry(source.document)
+            .or_insert_with(|| AnimationProposal {
+                time,
+                bake_time: None,
+                channels: Default::default(),
+            });
         for channel in &edit.channels {
-            if !allowed.iter().any(|c| c.target == channel.target) {
-                return Err("Animation channel does not belong to this layer".into());
+            let original = allowed
+                .iter()
+                .find(|c| c.target == channel.target)
+                .ok_or("Animation channel does not belong to this layer")?;
+            let mut identity = channel.clone();
+            identity.curve = original.curve.clone();
+            if &identity != original {
+                return Err("Animation channel metadata changed".into());
             }
-            let key = (source.document, channel.target.clone());
-            if let Some(previous) = edited_targets.insert(key, channel.curve.clone())
-                && previous != channel.curve
+            if channel.curve.keys.is_empty() {
+                if proposal.bake_time.is_some_and(|previous| previous != time) {
+                    return Err(
+                        "Shared graph animation removal has conflicting source times".into(),
+                    );
+                }
+                proposal.bake_time = Some(time);
+            }
+            if proposal
+                .channels
+                .insert(channel.target.clone(), channel.clone())
+                .is_some_and(|previous| previous != *channel)
             {
                 return Err("Shared graph channel received conflicting edits".into());
             }
         }
-        let current = batch
-            .mutations
-            .iter()
-            .find_map(|m| match m {
-                Mutation::PutDocument(d) if d.id == source.document => Some(d),
-                _ => None,
-            })
-            .unwrap_or(original);
-        let updated =
-            registry.edit_animation(current, &edit.channels, layer.local_time(edit.time)?)?;
-        batch
-            .mutations
-            .retain(|m| !matches!(m, Mutation::PutDocument(d) if d.id == source.document));
+    }
+    // Validate one complete proposal per source. In particular, vector components
+    // selected through different layer occurrences still share one typed key.
+    for (document, proposal) in proposals {
+        if proposal.channels.is_empty() {
+            continue;
+        }
+        let original = snapshot
+            .state()
+            .documents
+            .get(&document)
+            .ok_or("Missing animation graph")?;
+        let channels = proposal.channels.into_values().collect::<Vec<_>>();
+        let updated = registry.edit_animation(
+            original,
+            &channels,
+            proposal.bake_time.unwrap_or(proposal.time),
+        )?;
         batch.mutations.push(Mutation::PutDocument(updated));
     }
     Ok(batch)
+}
+
+/// Outliner and Composition use the provider's single hierarchy transaction.
+pub fn edit_hierarchy(
+    snapshot: &Snapshot,
+    bytes: &[u8],
+    cancel: &Cancel,
+) -> Result<EditBatch, String> {
+    cancel.check()?;
+    let args: fold_platform::hierarchy::EditArgs =
+        serde_json::from_slice(bytes).map_err(|e| e.to_string())?;
+    let original = snapshot
+        .state()
+        .documents
+        .get(&args.document)
+        .ok_or("Missing hierarchy document")?;
+    let document = crate::packages::builtins().edit_hierarchy(original, &args.edits)?;
+    cancel.check()?;
+    Ok(EditBatch {
+        base: snapshot.revision(),
+        mutations: vec![Mutation::PutDocument(document)],
+    })
 }

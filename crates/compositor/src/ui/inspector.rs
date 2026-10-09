@@ -75,7 +75,7 @@ impl Panel for Inspector {
                 .and_then(|g| {
                     g.node(id)
                         .ok()?
-                        .inputs
+                        .input_ids()
                         .get(slot)
                         .copied()
                         .flatten()
@@ -482,6 +482,9 @@ fn property_control(
 ) {
     let mut edit = Response::default();
     let mut promote = false;
+    let Ok(mut curves) = node.animation.project() else {
+        return;
+    };
     fold_ui::sdk::animated_property::AnimatedProperty {
         id: &property.id,
         label: &property.label,
@@ -493,7 +496,7 @@ fn property_control(
     .draw_with_menu(
         ui,
         &mut property.values,
-        &mut node.animation,
+        &mut curves,
         time,
         auto_key,
         &mut edit,
@@ -529,6 +532,10 @@ fn property_control(
         ));
     }
     if edit.changed {
+        if let Err(error) = node.animation.replace(&curves) {
+            ui.text_wrapped(error);
+            return;
+        }
         let _ = node.set_property(&property.id, &property.values);
     }
     response.began |= edit.began;

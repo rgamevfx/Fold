@@ -235,7 +235,7 @@ fn inspector_does_not_finish_an_animation_gesture() {
     state.selected = vec![node.id];
     let mut curve = fold_animation::Curve::default();
     curve.insert(fold_foundation::Time::ZERO, 0.5);
-    node.animation.insert("color.3".into(), curve);
+    node.animation.insert("color.3".into(), curve).unwrap();
     state.preview(&mut host);
     assert!(state.editing && !state.property_editing);
     let state = Rc::new(RefCell::new(state));
@@ -324,7 +324,9 @@ fn production_node_inspectors_fit_normal_and_narrow_panels_without_edits() {
         },
     ] {
         let mut node = Node::disconnected(parameters);
-        node.inputs.fill(Some(image));
+        for slot in 0..node.inputs.len() {
+            node.set_input(slot, image).unwrap();
+        }
         if node.parameters.operator().supports_effect() {
             node.effect.mask = Some(image);
         }
@@ -439,14 +441,17 @@ fn merge_insertion_uses_b_and_undo_restores_position_and_original_pipe() {
         .unwrap();
     context.event(GraphEvent::Commit(vec![pipe])).unwrap();
     let composite = context.state.graph.as_ref().unwrap();
-    assert_eq!(composite.node(merge).unwrap().inputs, [None, Some(source)]);
-    assert_eq!(composite.node(output).unwrap().inputs, [Some(merge)]);
+    assert_eq!(
+        composite.node(merge).unwrap().input_ids(),
+        [None, Some(source)]
+    );
+    assert_eq!(composite.node(output).unwrap().input_ids(), [Some(merge)]);
     assert_eq!(composite.node(merge).unwrap().position, Some([0., 80.]));
     let saved = Composite::from_document(
         &host.project.snapshot().state().documents[&state.document.unwrap()],
     )
     .unwrap();
-    assert_eq!(saved.node(merge).unwrap().inputs, [None, Some(source)]);
+    assert_eq!(saved.node(merge).unwrap().input_ids(), [None, Some(source)]);
     host.project.undo().unwrap();
     state.sync(&mut host);
     assert_eq!(

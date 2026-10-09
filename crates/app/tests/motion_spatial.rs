@@ -1593,7 +1593,10 @@ fn camera_plane_stroke_over_fill_matches_premultiplied_paint() {
         })
     };
     let mut failures = vec![];
-    for (fill_alpha, stroke_alpha) in [(1., 1.), (1., 0.5), (0.5, 1.), (0.5, 0.5)] {
+    for ((fill_alpha, stroke_alpha), round) in [(1., 1.), (1., 0.5), (0.5, 1.), (0.5, 0.5)]
+        .into_iter()
+        .flat_map(|alpha| [(alpha, false), (alpha, true)])
+    {
         let document = DocumentId::new();
         let mut c =
             Construction::from_document(&fold_motion::package::create(document).unwrap()).unwrap();
@@ -1622,7 +1625,11 @@ fn camera_plane_stroke_over_fill_matches_premultiplied_paint() {
         );
         let stroke = node(
             "stroke",
-            "solid_centered_butt_miter",
+            if round {
+                "solid_centered_round_round"
+            } else {
+                "solid_centered_butt_miter"
+            },
             "Stroke",
             vec![
                 ("geometry", link(fill.id)),
@@ -1690,7 +1697,18 @@ fn camera_plane_stroke_over_fill_matches_premultiplied_paint() {
                 } else {
                     0.
                 };
-                let stroke = if inside(35., 25., 125., 95.) && !inside(45., 35., 115., 85.) {
+                // Analytic round outer corners; omit only the new curved-edge
+                // half-pixel band. The original miter oracle still checks every pixel.
+                let distance = (px - px.clamp(40., 120.)).hypot(py - py.clamp(30., 90.));
+                if round && (distance - 5.).abs() < 0.5 {
+                    continue;
+                }
+                let outer = if round {
+                    distance < 5.
+                } else {
+                    inside(35., 25., 125., 95.)
+                };
+                let stroke = if outer && !inside(45., 35., 115., 85.) {
                     stroke_alpha
                 } else {
                     0.
@@ -1710,10 +1728,10 @@ fn camera_plane_stroke_over_fill_matches_premultiplied_paint() {
             }
         }
         eprintln!(
-            "fill={fill_alpha} stroke={stroke_alpha}: {mismatches} incorrect pixels; first={first:?}"
+            "round={round} fill={fill_alpha} stroke={stroke_alpha}: {mismatches} incorrect pixels; first={first:?}"
         );
         if mismatches != 0 {
-            failures.push((fill_alpha, stroke_alpha, mismatches, first));
+            failures.push((round, fill_alpha, stroke_alpha, mismatches, first));
         }
     }
     assert!(
@@ -1916,4 +1934,215 @@ fn camera_plane_text_and_outline_match_screen_interiors_and_retain_frames() {
             retained = Some((frame, prepared.binding, pixels.pixels().to_vec()));
         }
     }
+}
+
+#[test]
+#[ignore = "requires a native Vulkan adapter"]
+fn hierarchy_scene_outputs_composite_independently_and_preserve_depth() {
+    use fold_app::media_workflow::{SceneRequest, evaluate_scene_gpu};
+    use fold_motion::{
+        scene::{Scene, package},
+        types::{Alpha, Encoding},
+    };
+    use fold_platform::image_source::Source;
+    use fold_render::gpu::Renderer;
+    let ids = [
+        DocumentId::new(),
+        DocumentId::new(),
+        DocumentId::new(),
+        DocumentId::new(),
+    ];
+    let canvas = fold_motion::model::Canvas {
+        width: 160,
+        height: 90,
+        rate: [24, 1],
+        start: Time::ZERO,
+        end: Time::new(1, 1).unwrap(),
+        extensions: Default::default(),
+    };
+    let mut background =
+        Scene::from_document(&package::create(ids[0], canvas.clone()).unwrap()).unwrap();
+    let mut foreground = Scene::from_document(&package::create(ids[2], canvas).unwrap()).unwrap();
+    let paint = |object: &mut fold_motion::scene::Object, rgba| {
+        let old = object.graph.definitions[0].nodes.last().unwrap();
+        let geometry = old.parameters["geometry"].binding().unwrap();
+        let mut material = registry::resolve("fold.motion.material", 1, "unlit")
+            .unwrap()
+            .node(
+                "Color",
+                [
+                    ("geometry".into(), geometry),
+                    (
+                        "color".into(),
+                        Binding::Literal {
+                            value: Literal::Color {
+                                value: rgba,
+                                encoding: Encoding::LinearRec709,
+                                alpha: Alpha::Straight,
+                            },
+                        },
+                    ),
+                ]
+                .into(),
+            )
+            .unwrap();
+        material.id = old.id;
+        *object.graph.definitions[0].nodes.last_mut().unwrap() = material;
+    };
+    paint(&mut background.objects[2], [0., 0., 1., 1.]);
+    paint(&mut foreground.objects[2], [1., 0., 0., 1.]);
+    foreground.objects[2].position = position([0., 0., -3.]);
+    foreground.objects[2].scale = literal(Literal::Scalar { value: 0.6 });
+    let solid = fold_compositor::Node::new(
+        fold_compositor::Parameters::Solid {
+            rgba: [0., 0.25, 0., 0.25],
+        },
+        vec![],
+    );
+    let info = fold_media::VideoInfo {
+        width: 160,
+        height: 90,
+        rate: [24, 1],
+        frames: 24,
+    };
+    let read = fold_compositor::Node::new(
+        fold_compositor::Parameters::Read {
+            source: fold_compositor::Source::Document {
+                source: fold_project::DocumentRef {
+                    document: ids[0],
+                    output: background.output.to_string(),
+                    extensions: Default::default(),
+                },
+                info: info.clone(),
+            },
+            start: Time::ZERO,
+            source_start: Time::ZERO,
+            duration: Time::new(1, 1).unwrap(),
+        },
+        vec![],
+    );
+    let merge =
+        fold_compositor::Node::new(fold_compositor::Parameters::Merge, vec![solid.id, read.id]);
+    let output = fold_compositor::Node::new(fold_compositor::Parameters::Output, vec![merge.id]);
+    let composite = fold_compositor::Composite {
+        info: info.clone(),
+        nodes: vec![read, solid, merge, output.clone()],
+        output: output.id,
+        extensions: Default::default(),
+    };
+    let reference = |document, output: String| fold_project::DocumentRef {
+        document,
+        output,
+        extensions: Default::default(),
+    };
+    let refs = [
+        reference(ids[0], background.output.to_string()),
+        reference(ids[1], "video".into()),
+        reference(ids[2], foreground.output.to_string()),
+    ];
+    let composition = fold_composition::Composition {
+        info: info.clone(),
+        layers: refs
+            .iter()
+            .rev()
+            .enumerate()
+            .map(|(i, r)| {
+                fold_composition::Layer::new(
+                    format!("Layer {i}"),
+                    Some(Source::Output(r.clone())),
+                    info.clone(),
+                )
+                .unwrap()
+            })
+            .collect(),
+        extensions: Default::default(),
+    };
+    let mut project = Project::new(16);
+    project
+        .commit(EditBatch {
+            base: project.snapshot().revision(),
+            mutations: vec![
+                background.document(ids[0]).unwrap(),
+                composite.document(ids[1]).unwrap(),
+                foreground.document(ids[2]).unwrap(),
+                composition.document(ids[3]).unwrap(),
+            ]
+            .into_iter()
+            .map(Mutation::PutDocument)
+            .collect(),
+        })
+        .unwrap();
+    let (host, _) = pollster::block_on(Host::headless(64 * 1024 * 1024)).unwrap();
+    let mut renderer = Renderer::new(host).unwrap();
+    let mut decoder = fold_media::Decoder::default();
+    let cancel = fold_media::Cancel::default();
+    let mut render = |snapshot: &fold_project::CommittedSnapshot, source| {
+        evaluate_scene_gpu(
+            snapshot,
+            &SceneRequest {
+                source,
+                time: Time::ZERO,
+                dimensions: [160, 90],
+                region: None,
+                preview: None,
+            },
+            &mut renderer,
+            &mut decoder,
+            &cancel,
+        )
+        .unwrap()
+        .readback(&cancel)
+        .unwrap()
+        .pixels()
+        .to_vec()
+    };
+    let snapshot = project.snapshot();
+    let bg = render(&snapshot, refs[0].clone());
+    let middle = render(&snapshot, refs[1].clone());
+    let fg = render(&snapshot, refs[2].clone());
+    let mixed = render(&snapshot, reference(ids[3], "video".into()));
+    assert!(bg.iter().any(|p| p[3] > 0.99));
+    assert!(bg.iter().any(|p| p[3] == 0.));
+    assert!(fg.iter().any(|p| p[0] > 0.9 && p[3] > 0.99));
+    let mut maximum = 0_f32;
+    for (((bg, mid), fg), actual) in bg.iter().zip(&middle).zip(&fg).zip(&mixed) {
+        for i in 0..4 {
+            let expected = fg[i] + (1. - fg[3]) * (mid[i] + (1. - mid[3]) * bg[i]);
+            maximum = maximum.max((actual[i] - expected).abs());
+        }
+    }
+    assert!(
+        maximum < 0.02,
+        "Independent scene compositing error {maximum}"
+    );
+    // The foreground is farther from its camera but still sits above the other
+    // scene as an image. Within one scene, object order must not replace depth.
+    let mut near = package::object(&background.canvas, "box").unwrap();
+    paint(&mut near, [1., 0., 0., 1.]);
+    near.position = position([0., 0., 1.]);
+    background.objects.push(near);
+    project
+        .commit(EditBatch {
+            base: project.snapshot().revision(),
+            mutations: vec![Mutation::PutDocument(background.document(ids[0]).unwrap())],
+        })
+        .unwrap();
+    let a = render(&project.snapshot(), refs[0].clone());
+    background.objects.reverse();
+    project
+        .commit(EditBatch {
+            base: project.snapshot().revision(),
+            mutations: vec![Mutation::PutDocument(background.document(ids[0]).unwrap())],
+        })
+        .unwrap();
+    let b = render(&project.snapshot(), refs[0].clone());
+    let error = a
+        .iter()
+        .zip(&b)
+        .flat_map(|(a, b)| a.iter().zip(b).map(|(a, b)| (a - b).abs()))
+        .fold(0_f32, f32::max);
+    assert!(
+        error < 0.005,
+        "Scene depth changed with hierarchy order {error}"
+    );
 }

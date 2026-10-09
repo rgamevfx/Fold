@@ -883,3 +883,49 @@ fn orthographic_projected_bounds_depth_clipping_and_retained_frames() {
         }
     }
 }
+
+#[test]
+#[ignore = "requires a native Vulkan adapter"]
+fn affine_shear_matches_explicit_geometry_and_retains_meshes() {
+    use fold_foundation::affine::Affine;
+    let (host, _) = pollster::block_on(Host::headless(16 * 1024 * 1024)).unwrap();
+    let mut adapter = Adapter::new(host).unwrap();
+    let cancel = fold_media::Cancel::default();
+    let (mut scene, mut binding) = fixture();
+    let angle = std::f64::consts::FRAC_PI_8;
+    let matrix = Affine::trs([0.1, 0., 0.], [0., 0., 0., 1.], [1.2, 0.6, 1.]).compose(Affine::trs(
+        [0.; 3],
+        [0., 0., angle.sin(), angle.cos()],
+        [1.; 3],
+    ));
+    scene.instances[0].transform.affine = Some(matrix);
+    let mut rendered = adapter.render(&scene, binding.clone(), &cancel).unwrap();
+    let actual = rendered.readback(&binding, &cancel).unwrap();
+    assert!(actual.pixels().iter().filter(|p| p[3] > 0.5).count() > 200);
+    let source_mesh = scene.meshes.values().next().unwrap().clone();
+    binding.revision += 1;
+    let mut mesh = (*source_mesh).clone();
+    for position in &mut mesh.positions {
+        *position = matrix.point(position.map(f64::from)).map(|v| v as f32);
+    }
+    // This XY shear leaves the plane's Z normal unchanged.
+    scene.meshes.insert(scene.instances[0].mesh, Arc::new(mesh));
+    scene.instances[0].transform = Transform::default();
+    let expected = adapter
+        .render(&scene, binding.clone(), &cancel)
+        .unwrap()
+        .readback(&binding, &cancel)
+        .unwrap();
+    assert_eq!(actual.pixels(), expected.pixels());
+    // Matrix-only changes retain the source mesh allocation and update instances.
+    scene.meshes.insert(scene.instances[0].mesh, source_mesh);
+    binding.revision += 1;
+    scene.instances[0].transform.affine = Some(matrix);
+    adapter.render(&scene, binding.clone(), &cancel).unwrap();
+    binding.revision += 1;
+    scene.instances[0].transform.affine =
+        Some(Affine::trs([0.2, 0., 0.], [0., 0., 0., 1.], [1.; 3]).compose(matrix));
+    let updated = adapter.render(&scene, binding, &cancel).unwrap();
+    assert_eq!(updated.preparation.meshes, 0);
+    assert_eq!(updated.preparation.updated_instances, 1);
+}

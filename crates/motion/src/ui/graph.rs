@@ -5,7 +5,7 @@ use super::state::State;
 use crate::{model::Reference, registry};
 pub(super) use edit::apply;
 use fold_foundation::ObjectId;
-use fold_platform::desktop::{DesktopClient, DesktopCommand, Selection};
+use fold_platform::desktop::DesktopClient;
 use fold_ui::sdk::{GRAPH_COLORS, graph_canvas::*};
 use serde::{Deserialize, Serialize};
 pub(super) use view::view;
@@ -131,10 +131,7 @@ impl GraphContext for Context<'_> {
     }
     fn event(&mut self, event: GraphEvent) -> Result<(), String> {
         match event {
-            GraphEvent::Select(objects) => self.host.command(DesktopCommand::Select(Selection {
-                document: self.state.document,
-                objects,
-            })),
+            GraphEvent::Select(objects) => self.state.select(self.host, objects),
             GraphEvent::PreviewPositions(positions) => {
                 let after = apply(
                     self.state.construction.as_ref().ok_or("No construction")?,
@@ -165,10 +162,7 @@ impl GraphContext for Context<'_> {
                     return Err(self.state.error.clone());
                 }
                 if let Some(id) = selected {
-                    self.host.command(DesktopCommand::Select(Selection {
-                        document: self.state.document,
-                        objects: vec![id],
-                    }));
+                    self.state.select(self.host, vec![id]);
                 }
             }
             GraphEvent::Cancel => self.state.cancel(self.host),
@@ -191,10 +185,7 @@ impl GraphContext for Context<'_> {
                         .unwrap_or(value.root.definition)
                 };
                 self.state.graph_definition = Some(destination);
-                self.host.command(DesktopCommand::Select(Selection {
-                    document: self.state.document,
-                    objects: vec![],
-                }));
+                self.state.select(self.host, vec![]);
             }
         }
         Ok(())

@@ -1,6 +1,7 @@
 //! Compositor-owned property paths and sampled parameter values.
 use crate::{Node, Parameters};
-use fold_animation::Curve;
+mod bindings;
+pub use bindings::Channels;
 use fold_foundation::Time;
 use std::collections::BTreeMap;
 
@@ -334,16 +335,17 @@ impl Node {
     }
     pub fn evaluated_effect(&self, time: Time) -> Result<crate::Effect, String> {
         let mut effect = self.effect.clone();
-        if let Some(curve) = self.animation.get("mix.0") {
-            effect.mix = curve.sample(time).ok_or("Empty mix curve")? as f32;
+        if let Some(value) = self.animation.sample("mix.0", time)? {
+            effect.mix = value as f32;
         }
         effect.validate()?;
         Ok(effect)
     }
 
-    pub fn remove_animation_channel(&mut self, path: &str, time: Time) {
-        if let Some(curve) = self.animation.remove(path)
-            && let Some(value) = curve.sample(time)
+    pub fn remove_animation_channel(&mut self, path: &str, time: Time) -> Result<(), String> {
+        let value = self.animation.sample(path, time)?;
+        self.animation.remove(path)?;
+        if let Some(value) = value
             && let Some((property, component)) = path.rsplit_once('.')
             && let Ok(component) = component.parse::<usize>()
             && let Some(mut p) = self
@@ -353,8 +355,9 @@ impl Node {
             && let Some(v) = p.values.get_mut(component)
         {
             *v = value;
-            let _ = self.set_property(property, &p.values);
+            self.set_property(property, &p.values)?;
         }
+        Ok(())
     }
 
     pub fn evaluated_parameters(&self, time: Time) -> Result<Parameters, String> {
@@ -362,8 +365,8 @@ impl Node {
         for mut property in parameters.animated_properties() {
             let mut animated = false;
             for (i, value) in property.values.iter_mut().enumerate() {
-                if let Some(curve) = self.animation.get(&path(&property.id, i)) {
-                    *value = curve.sample(time).ok_or("Empty animation channel")?;
+                if let Some(sample) = self.animation.sample(&path(&property.id, i), time)? {
+                    *value = sample;
                     animated = true;
                 }
             }
@@ -380,13 +383,12 @@ impl Node {
             .into_iter()
             .flat_map(|p| (0..p.values.len()).map(move |i| (path(&p.id, i), p.range)))
             .collect();
-        for (path, curve) in &self.animation {
+        self.animation.validate()?;
+        for path in self.animation.bindings().keys() {
             if !available.contains_key(path) {
                 return Err(format!("Unknown animation channel {path}"));
             }
-            curve.validate()?;
         }
         Ok(())
     }
 }
-pub type Channels = BTreeMap<String, Curve>;

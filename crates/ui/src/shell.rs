@@ -1272,7 +1272,8 @@ impl Shell {
                     {
                         close_editor = self.workspace.composition_editor;
                     }
-                    if registered.descriptor.placement == PanelPlacement::Inspector
+                    if registered.descriptor.id == crate::sdk::outliner::PANEL_ID
+                        || registered.descriptor.placement == PanelPlacement::Inspector
                         || registered.descriptor.id == crate::sdk::composition::PANEL_ID
                         || registered.descriptor.id == crate::sdk::network::PANEL_ID
                     {
@@ -1513,6 +1514,7 @@ impl Shell {
                                     .is_some()
                                 && inspector_context.is_none()
                                 && registered.descriptor.id != crate::sdk::network::PANEL_ID
+                                && registered.descriptor.id != crate::sdk::outliner::PANEL_ID
                             {
                                 ui.text_wrapped(
                                     "Select a linked viewer to choose the animation edit time.",
@@ -1566,6 +1568,11 @@ impl Shell {
                                     self.workspace.focused_editor = Some(id);
                                 }
                                 editor.panels.editor.draw(ExtensionUi {
+                                    ui,
+                                    host: &mut context,
+                                });
+                            } else if registered.descriptor.id == crate::sdk::outliner::PANEL_ID {
+                                registered.panel.draw(ExtensionUi {
                                     ui,
                                     host: &mut context,
                                 });

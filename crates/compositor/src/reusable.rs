@@ -83,7 +83,7 @@ impl Composite {
             let node = self.node_mut(binding.node)?;
             // Promoted instance values replace definition animation for that property.
             let prefix = format!("{}.", binding.property);
-            node.animation.retain(|path, _| !path.starts_with(&prefix));
+            node.animation = node.animation.for_evaluation_without(&prefix);
             node.parameters
                 .set_property(&binding.property, &values[&binding.control])?;
         }

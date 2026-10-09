@@ -382,3 +382,5 @@ pub mod image_source;
 
 pub use fold_render::presentation;
 pub mod playback_cache;
+
+pub mod hierarchy;

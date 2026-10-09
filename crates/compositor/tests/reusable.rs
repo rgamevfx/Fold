@@ -97,7 +97,17 @@ fn definition() -> Composite {
 fn independent_instances_share_source_work_and_preserve_definition() {
     let id = DocumentId::new();
     let root = DocumentId::new();
-    let definition = definition().document(id).unwrap();
+    let mut authored = definition();
+    let mut curve = fold_animation::Curve::default();
+    curve.insert(Time::ZERO, 3.);
+    authored.nodes[1]
+        .animation
+        .insert("gain.0".into(), curve)
+        .unwrap();
+    let mut native = serde_json::to_value(&authored.nodes[1].animation).unwrap();
+    native["gain.0"]["protected"] = serde_json::json!(true);
+    authored.nodes[1].animation = serde_json::from_value(native).unwrap();
+    let definition = authored.document(id).unwrap();
     let source = Node::new(
         P::Solid {
             rgba: [0.1, 0.2, 0.3, 1.],
@@ -137,6 +147,7 @@ fn independent_instances_share_source_work_and_preserve_definition() {
         assert_eq!(*pixel, [0.1, 0.2, 0.3, 1.]);
     }
     let saved = Composite::from_document(&definition).unwrap();
+    assert_eq!(saved, authored);
     assert!(matches!(saved.nodes[1].parameters,P::Grade {gain} if gain == [1.;3]));
 }
 #[test]
@@ -223,11 +234,10 @@ fn shader_interface_rename_preserves_connections_values_and_key_identity() {
         },
         vec![source.id],
     );
-    let key = node
-        .animation
-        .entry("gain.0".into())
-        .or_default()
-        .insert(Time::ZERO, 0.25);
+    let mut curve = fold_animation::Curve::default();
+    let key = curve.insert(Time::ZERO, 0.25);
+    node.animation.insert("gain.0".into(), curve).unwrap();
+    let before_binding = node.animation.bindings()["gain.0"].clone();
     let mut next = settings.clone();
     next.images[0] = "image".into();
     next.controls[0].id = "amount".into();
@@ -242,8 +252,12 @@ fn shader_interface_rename_preserves_connections_values_and_key_identity() {
         &[],
     )
     .unwrap();
-    assert_eq!(node.inputs, vec![Some(source.id)]);
-    assert_eq!(node.animation["amount.0"].keys[0].id, key);
+    assert_eq!(node.input_ids(), vec![Some(source.id)]);
+    assert_eq!(node.animation.bindings()["amount.0"], before_binding);
+    assert_eq!(
+        node.animation.curve("amount.0").unwrap().unwrap().keys[0].id,
+        key
+    );
     let P::Shader { settings } = &node.parameters else {
         panic!()
     };

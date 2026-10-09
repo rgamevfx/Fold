@@ -195,18 +195,6 @@ fn prepare_spatial(
             return Err(Error::Budget);
         }
         for (copy_id, position, scale, rotation_z, instance_color) in copies {
-            if rotation_z != 0. && world.scale[0] != world.scale[1] {
-                return Err(Error::Invalid("Rotated instances require equal World X/Y scale; affine shear is not supported".into()));
-            }
-            let (sin, cos) = rotation_z.sin_cos();
-            let (half_sin, half_cos) = (rotation_z * 0.5).sin_cos();
-            let [x, y, z, w] = world.rotation;
-            let rotation = [
-                x * half_cos + y * half_sin,
-                y * half_cos - x * half_sin,
-                z * half_cos + w * half_sin,
-                w * half_cos - z * half_sin,
-            ];
             let material_id = match (copy_id, instance_color) {
                 (Some(copy), Some(_)) => {
                     copied_resource(b"fold.motion.render.material.v1", entry.id, copy, 0)
@@ -263,17 +251,7 @@ fn prepare_spatial(
                     },
                     mesh: mesh_id,
                     material: material_id,
-                    transform: render::Transform {
-                        translation: world
-                            .point([
-                                position[0] + (cos * translation[0] - sin * translation[1]) * scale,
-                                position[1] + (sin * translation[0] + cos * translation[1]) * scale,
-                                position[2] + translation[2] * scale,
-                            ])
-                            .map(|v| v as f32),
-                        rotation: rotation.map(|v| v as f32),
-                        scale: world.scale.map(|v| (v * scale) as f32),
-                    },
+                    transform: instance_transform(world, position, scale, rotation_z, translation),
                 });
             }
         }
@@ -286,6 +264,40 @@ fn prepare_spatial(
         scene,
         binding,
     })
+}
+fn instance_transform(
+    world: &evaluation::placement::World,
+    position: [f64; 3],
+    scale: f64,
+    angle: f64,
+    translation: [f64; 3],
+) -> render::Transform {
+    let (half_sin, half_cos) = (angle * 0.5).sin_cos();
+    let copy =
+        fold_foundation::affine::Affine::trs(position, [0., 0., half_sin, half_cos], [scale; 3]);
+    if world.affine.is_none() && (angle == 0. || world.scale[0] == world.scale[1]) {
+        // Keep the exact TRS representation when composition introduces no shear.
+        let [x, y, z, w] = world.rotation;
+        render::Transform {
+            affine: None,
+            translation: world.point(copy.point(translation)).map(|v| v as f32),
+            rotation: [
+                x * half_cos + y * half_sin,
+                y * half_cos - x * half_sin,
+                z * half_cos + w * half_sin,
+                w * half_cos - z * half_sin,
+            ]
+            .map(|v| v as f32),
+            scale: world.scale.map(|v| (v * scale) as f32),
+        }
+    } else {
+        render::Transform {
+            affine: Some(world.matrix().compose(copy).compose(
+                fold_foundation::affine::Affine::trs(translation, [0., 0., 0., 1.], [1.; 3]),
+            )),
+            ..Default::default()
+        }
+    }
 }
 fn camera_input(camera: &evaluation::spatial::Camera) -> render::Camera {
     render::Camera {
@@ -364,6 +376,23 @@ fn evaluate(
         .documents
         .get(&document)
         .ok_or_else(|| Error::Invalid("Missing motion document".into()))?;
+    if document_value.type_id == crate::scene::TYPE {
+        let scene = crate::scene::Scene::from_document(document_value).map_err(Error::Invalid)?;
+        if output != scene.output {
+            return Err(Error::Invalid("Missing scene output".into()));
+        }
+        let native = Arc::new(
+            scene
+                .evaluate(time, limits, cancellation)
+                .map_err(Error::Invalid)?,
+        );
+        return Ok(Evaluated {
+            native,
+            canvas: [scene.canvas.width, scene.canvas.height],
+            duration: Time::new(i64::from(scene.canvas.rate[1]), scene.canvas.rate[0])
+                .map_err(|e| Error::Invalid(e.to_string()))?,
+        });
+    }
     let construction = Construction::from_document(document_value).map_err(Error::Invalid)?;
     let duration = Time::new(
         i64::from(construction.canvas.rate[1]),

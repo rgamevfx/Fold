@@ -10,28 +10,31 @@ mod presentation;
 #[cfg(test)]
 mod presentation_render;
 mod protection;
+mod scene;
 mod state;
 #[cfg(test)]
 mod tests;
-mod timeline;
 #[cfg(test)]
 static UI_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 #[cfg(test)]
 use crate::types::Literal;
 use crate::{binding::Binding, package};
-use fold_platform::desktop::{DesktopCommand, Selection};
+use fold_platform::desktop::DesktopCommand;
 use fold_ui::sdk::{self, EditResponse, ExtensionUi, Panel, PanelRegistry, UiId};
 use state::Shared;
 
 pub fn register(registry: &mut PanelRegistry) -> Result<(), String> {
     let state = Shared::default();
+    registry.register(crate::PACKAGE, Editor(state.clone(), Default::default()))?;
+    registry.register_inspector(crate::PACKAGE, Inspector(state))?;
+    let state = Shared::default();
     registry.register(
         crate::PACKAGE,
-        Editor(state.clone(), Default::default(), Default::default()),
+        scene::Editor(Editor(state.clone(), Default::default())),
     )?;
-    registry.register_inspector(crate::PACKAGE, Inspector(state))
+    registry.register_inspector(crate::PACKAGE, scene::Inspector::new(state))
 }
-struct Editor(Shared, timeline::Timeline, sdk::graph_canvas::GraphCanvas);
+struct Editor(Shared, sdk::graph_canvas::GraphCanvas);
 struct Inspector(Shared);
 impl Panel for Editor {
     fn initialize(
@@ -39,10 +42,10 @@ impl Panel for Editor {
         context: &sdk::imgui::Context,
         typography: Option<&sdk::typography::Typography>,
     ) {
-        self.2.initialize(context, typography);
+        self.1.initialize(context, typography);
     }
     fn accepts_background_pan(&self, position: [f32; 2]) -> bool {
-        self.2.accepts_background_pan(position)
+        self.1.accepts_background_pan(position)
     }
     fn id(&self) -> &'static str {
         package::PANEL
@@ -53,11 +56,7 @@ impl Panel for Editor {
     fn new_instance(&self) -> Option<sdk::EditorPanels> {
         let state = Shared::default();
         Some(sdk::EditorPanels {
-            editor: Box::new(Editor(
-                state.clone(),
-                Default::default(),
-                Default::default(),
-            )),
+            editor: Box::new(Editor(state.clone(), Default::default())),
             inspector: Box::new(Inspector(state)),
         })
     }
@@ -67,16 +66,24 @@ impl Panel for Editor {
             self.0.borrow_mut().cancel(host);
         }
     }
+    fn supports_network(&self) -> bool {
+        true
+    }
+    fn is_layer_graph(&self) -> bool {
+        true
+    }
     fn draw(&mut self, context: ExtensionUi<'_>) {
+        self.draw_network(context);
+    }
+    fn draw_network(&mut self, context: ExtensionUi<'_>) {
         let ExtensionUi { ui, host } = context;
         let mut state = self.0.borrow_mut();
         state.sync(host);
         let Some(document) = state.document else {
-            ui.text_wrapped("Create Motion in Project, or open a Motion document.");
+            ui.text_wrapped("Select a scene object or an existing graph to edit.");
             return;
         };
-        // Honest, persistent capability status until M4 supplies a frame provider.
-        ui.text_disabled("Rendering unavailable");
+        let draft_key = (document, state.object);
         if let Some(_tabs) = ui.tab_bar("motion-views") {
             if let Some(_tab) = ui.tab_item("Graph")
                 && let Some(construction) = state.construction.as_ref()
@@ -104,14 +111,11 @@ impl Panel for Editor {
                         {
                             state.graph_definition = Some(*id);
                             state.graph_history.clear();
-                            host.command(DesktopCommand::Select(Selection {
-                                document: Some(document),
-                                objects: vec![],
-                            }));
+                            state.select(host, vec![]);
                         }
                     }
                 }
-                self.2.draw_inline(
+                self.1.draw_inline(
                     ui,
                     &mut graph::Context {
                         state: &mut state,
@@ -120,15 +124,12 @@ impl Panel for Editor {
                     },
                 );
             }
-            if let Some(_tab) = ui.tab_item("Keys") {
-                self.1.draw(ui, host, &mut state);
-            }
             if let Some(_tab) = ui.tab_item("Source") {
                 let stale = state
                     .drafts
-                    .get(&document)
+                    .get(&draft_key)
                     .is_some_and(|d| d.dirty && d.base != state.base);
-                let enabled = state.drafts.get(&document).is_some_and(|d| d.dirty) && !stale;
+                let enabled = state.drafts.get(&draft_key).is_some_and(|d| d.dirty) && !stale;
                 let apply = {
                     let _disabled = ui.begin_disabled_with_cond(!enabled);
                     ui.button("Apply")
@@ -155,7 +156,7 @@ impl Panel for Editor {
                 if apply {
                     let text = state
                         .drafts
-                        .get(&document)
+                        .get(&draft_key)
                         .map(|d| d.text.clone())
                         .unwrap_or_default();
                     match crate::source::parse(&text) {
@@ -172,7 +173,7 @@ impl Panel for Editor {
                         }
                     }
                 }
-                if let Some(draft) = state.drafts.get_mut(&document) {
+                if let Some(draft) = state.drafts.get_mut(&draft_key) {
                     let size = [
                         ui.content_region_avail()[0].max(1.),
                         (ui.content_region_avail()[1] - 48.).max(80.),
@@ -204,13 +205,24 @@ impl Panel for Inspector {
         state.sync(host);
         state.literal_controls.invalid = false;
         let Some(document) = state.document else {
-            ui.text_disabled("Select a Motion document.");
+            ui.text_disabled("Select an object or graph.");
             return;
         };
         if protection::menu(ui, host, &mut state) {
             return;
         }
-        let selected = host.state().selection.objects.clone();
+        let mut selected = host.state().selection.objects.clone();
+        if let Some(object) = state.object
+            && selected.as_slice() == [object]
+            && let Some(graph) = &state.construction
+        {
+            if let Ok(definition) = graph.definition(graph.root.definition)
+                && let Some(output) = definition.outputs.first()
+                && let crate::model::Reference::Node { node } = output.value.target
+            {
+                selected = vec![node];
+            }
+        }
         let Some(mut construction) = state.construction.clone() else {
             return;
         };
@@ -266,7 +278,7 @@ impl Panel for Inspector {
                 &mut construction.root,
                 &inputs,
                 &locked,
-                None,
+                state.object_time(host).ok(),
                 &mut response,
                 &mut state.literal_controls,
             );
@@ -292,12 +304,10 @@ impl Panel for Inspector {
                             instance,
                             inputs,
                             &locked,
-                            Some(
-                                state
-                                    .key_time
-                                    .filter(|(id, _)| *id == definition.id)
-                                    .map_or(fold_foundation::Time::ZERO, |(_, time)| time),
-                            ),
+                            state
+                                .key_time
+                                .filter(|(id, _)| *id == definition.id)
+                                .map(|(_, time)| time),
                             &mut response,
                             &mut state.literal_controls,
                         );
@@ -338,6 +348,7 @@ impl Panel for Inspector {
                             .unwrap_or(name);
                         match parameter.binding() {
                             Ok(Binding::Literal { mut value }) => {
+                                let previous = value.clone();
                                 literal(
                                     ui,
                                     label,
@@ -346,6 +357,14 @@ impl Panel for Inspector {
                                     &mut state.literal_controls,
                                 );
                                 if value.ty().is_interpolatable() {
+                                    if value != previous
+                                        && host.state().auto_key
+                                        && !state.literal_controls.invalid
+                                        && let Some((_, time)) =
+                                            state.key_time.filter(|(id, _)| *id == definition.id)
+                                    {
+                                        state.auto_keys.insert(parameter.id, time);
+                                    }
                                     ui.same_line();
                                     if let Some(_menu) = sdk::toolbar::icon_menu(
                                         ui,
@@ -380,12 +399,12 @@ impl Panel for Inspector {
                                 let time = state
                                     .key_time
                                     .filter(|(id, _)| *id == definition.id)
-                                    .map_or(fold_foundation::Time::ZERO, |(_, time)| time);
+                                    .map(|(_, time)| time);
                                 keyframes::draw(
                                     ui,
                                     label,
                                     &mut track,
-                                    Some(time),
+                                    time,
                                     &mut response,
                                     &mut state.literal_controls,
                                 );
@@ -435,7 +454,7 @@ impl Panel for Inspector {
                 state.preview(host);
             }
             if response.finished && state.editing {
-                state.commit(host, construction);
+                state.finish_parameters(host, construction);
             }
         }
         if !state.error.is_empty() {

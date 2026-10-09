@@ -9,6 +9,7 @@ default = []
 ui = ["dep:fold-ui"]
 
 [dependencies]
+fold-graph.workspace = true
 fold-animation.workspace = true
 serde.workspace = true
 serde_json.workspace = true

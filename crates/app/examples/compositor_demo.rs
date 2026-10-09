@@ -145,13 +145,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         },
         vec![grade.id],
     );
+    let mut rotation = fold_animation::Curve::default();
     for (second, degrees) in [(0, -3.), (2, 3.), (4, -3.)] {
-        transform
-            .animation
-            .entry("rotate.0".into())
-            .or_default()
-            .insert(Time::new(second, 1)?, degrees);
+        rotation.insert(Time::new(second, 1)?, degrees);
     }
+    transform.animation.insert("rotate.0".into(), rotation)?;
     let mut shuffle = Node::disconnected(P::Shuffle {
         mappings: ["red", "green", "blue"]
             .into_iter()
@@ -163,7 +161,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             })
             .collect::<Result<_, String>>()?,
     });
-    shuffle.inputs[0] = Some(transform.id);
+    shuffle.set_input(0, transform.id).unwrap();
     let output = Node::new(P::Output, vec![shuffle.id]);
     let background = Node::new(
         P::Solid {

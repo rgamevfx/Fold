@@ -1,9 +1,9 @@
 # Motion System Rewrite Plan
 
 **Date:** 8 October 2026  
-**Resume checkpoint:** [Next-agent handoff](rewrite/HANDOFF.md). Implementation is paused at the user's request; M0–M5 is not complete.
+**Resume checkpoint:** [Next-agent handoff](rewrite/HANDOFF.md). Implementation resumed at the user's request; M0–M5 is not complete.
 
-**Status:** Implementation paused; M0 specification gate passed; M1 removal gate passed with shared-test exceptions recorded; M2 document/language/reference gate passed; M3–M5 acceptance remains incomplete.
+**Status:** Implementation resumed; M0 specification gate passed; M1 removal gate passed with shared-test exceptions recorded; M2 document/language/reference gate passed; M3–M5 acceptance remains incomplete.
 **Direction:** [Motion architecture and node-set proposal](Fold_Motion_Architecture_and_Node_Set_Proposal.md).  
 **Replaces:** The motion and agent roadmap in [retired dev-plan.md](../dev-plan.md), earlier motion proposals, and their implementation/qualification instructions. [Retirement register](Retired_Documentation.md) defines the scope.
 
@@ -45,7 +45,7 @@ Automatic old-motion migration is excluded. Keep original user projects untouche
 
 ## 3. Delivery sequence and tracking
 
-Phases M0–M9 are ordered. M4 and M5 may prepare independent parts after M3, but M6 requires both. Finish each gate before claiming its dependent phase complete. This document is the status ledger; add evidence links here rather than resuming old numbered phases.
+Phases M0–M9 are ordered, with the M5a course correction below added before M6. M5a contract/design work starts during the still-open M0–M5 work; its acceptance requires the relevant M3–M5 behavior. M4 and M5 may prepare independent parts after M3, but M6 requires M5 and M5a acceptance. Finish each gate before claiming its dependent phase complete. This document is the status ledger; add evidence links here rather than resuming old numbered phases.
 
 | Phase | Deliverable | Proposal slice | Status |
 | --- | --- | --- | --- |
@@ -55,6 +55,7 @@ Phases M0–M9 are ordered. M4 and M5 may prepare independent parts after M3, bu
 | M3 | Native editing and new MCP/CLI round trip | A | In progress |
 | M4 | Qualified Parley/vector/Bevy rendering boundary | B | Screen/World rendering and desktop preview path; gate pending |
 | M5 | Integrated motion-design construction | B | Native typography, shared cloner preparation and Screen/World publication; integrated gate pending |
+| M5a | Shared typed graph framework, scene hierarchy and unified authoring UI | Course correction | Shared graph primitives and Network/Composition entry path implemented; scene/compositor replacement and acceptance pending |
 | M6 | Incremental execution, GPU fields and full observation loop | C | Pending |
 | M7 | Production operation modes, assets and images | D | Pending |
 | M8 | USD and production delivery | D | Pending |
@@ -63,9 +64,9 @@ Phases M0–M9 are ordered. M4 and M5 may prepare independent parts after M3, bu
 Each phase record must list the implementing commits, qualified operation modes, removed surfaces, commands/results, visual/runtime evidence and unresolved failures. “Implemented,” “automated checks passed,” and “artist/agent acceptance passed” are separate claims. Old acceptance results cannot qualify new code.
 
 The [M0–M5 completion audit](rewrite/m0-m5-completion-audit.md) maps current evidence
-to the phase requirements and frozen catalog. It identifies missing native
-Transform/pivot, round Stroke choices, public Tessellate and general-profile
-Extrude alongside rendering/resource and physical acceptance gaps. Passing the
+to the phase requirements and frozen catalog. Native Transform/pivot, round Stroke choices, public Tessellate and general-profile
+Extrude now have implementation and automated/public-frame evidence. Rendering/resource
+and physical acceptance gaps remain. Passing the
 integrated demo does not close those catalog obligations; later M6–M8 work is
 kept distinct without waiving any M0–M5 requirement.
 
@@ -371,6 +372,12 @@ kept distinct without waiving any M0–M5 requirement.
 
 #### M5 preparatory implementation record — 8 October 2026
 
+- Resumed from the handoff and implemented all four native centered Stroke cap/join combinations, three explicit Transform modes with pivots, public planar Tessellate and closed-profile Extrude. Generic mesh preparation now retains UVs, named regions and source-cap correspondence instead of a box-only prepared model. Screen and Camera Plane lower retained cap/join choices. Native Source/discovery/graph starters use the same contracts. [Catalog completion evidence](rewrite/evidence/m5-catalog-completion-result.md) records exact mode boundaries, tests, public trials, GPU review and remaining limitations; no broader Transform or M4 acceptance is inferred.
+- Extended the public demo authoring script with eight guarded catalog trials, complete word-group/pivot checks and explicit attribute-transfer observations. Each trial observes the one-second scene, optionally captures a public GPU frame, then restores canonical baseline Source. Added a [desktop launcher and hands-on guide](../demos/README.md) that opens an editable demo copy. This prepares the user's manual continuation; desktop automation again returned `runtime_unavailable`, so physical artist acceptance remains open.
+- Final profile review fixed a nonconforming extrusion cap for the default multiword title: outlined glyphs now retain separate tessellation partitions before mesh assembly. Converted meshes retain their source curves and font provenance; the standalone Tessellate/Extrude observation regression passes without an original Text placement.
+- Final continuation checks: 136 Motion tests pass (six captures ignored), all 19 application observation tests pass after correcting the box-region schema expectation and adding standalone profile/font-provenance coverage, the eight-case Camera Plane Stroke oracle passes, and both CLI/MCP GPU catalog workflows pass on NVIDIA GTX 1070 Vulkan. Desktop build, all-target workspace check, workspace Clippy, format and boundaries pass. The full workspace run reports 673 passed, four failed and 109 ignored: the introduced box-observation assertion was corrected and its whole target rerun; the three inherited media failures remain. No final all-green workspace or physical acceptance is claimed. The linked evidence record contains fresh artifact hashes and reviewed captures; `demos/m5-integrated.fold` is refreshed from the public-saved CLI artifact.
+
+
 - Integrated public frame feedback into `demos/m5-integrated.py`. GPU-enabled CLI and MCP workflows now author, observe seven baseline frames, vary wording/count/palette, observe the variation, restore exact baseline pixels, and publicly save/reopen. [Public-frame evidence](rewrite/evidence/m5-integrated-public-frames-result.txt) records two GPU and two CPU-only passes, exact revision/time provenance and reviewed one-second captures. The last public frame is explicitly 95/24 seconds because output time is half-open; exact four seconds remains CPU/native-endpoint evidence. Physical artist continuation, normal/narrow graph review and other full M3–M5 gates remain open.
 
 - Added explicit stable-ID positions for every operation in the integrated public-authoring demo, with separate content/driver/response branches and six branch annotations. CLI and MCP authoring both pass candidate presentation equality, control variations/restoration and public save/native reopen; the checked-in demo and canonical Source now use the verified layout. [Layout evidence](rewrite/evidence/m5-integrated-layout-result.txt) records both public runs and the saved-demo GPU regression at all seven required times. This resolves the empty presentation metadata in the demo, but native normal/narrow layout readability and physical artist continuation remain unverified; full M3–M5 gates stay open.
@@ -489,9 +496,76 @@ kept distinct without waiving any M0–M5 requirement.
 - Registered native Text/Fill/Stroke Screen output now passes GPU qualification through the application's shared `media_workflow::evaluate_scene_gpu` service on llvmpipe Vulkan. The test resolves the named Scene port from a committed snapshot, compares against `evaluate_scene` at 160×55, 640×220 and 1280×440, and checks exact request timestamp/frame duration. It uses an explicit RGBA16F conversion after the shared evaluator: this does not change the current viewer worker's default precision policy. No full-frame CPU adapter or pixel readback occurs during scene evaluation. Independently recompiling the snapshot reuses uploaded vector geometry; held revision-two GPU pixels and old snapshot evaluation remain intact after a revision-three paint edit.
 - The final test passes with maximum linear error 0.00048828125 (declared tolerance 0.002) and display error one byte after the single output conversion ([results](rewrite/evidence/m5-screen-gpu-result.txt), `/tmp/fold-m5-screen-gpu-workflow.log`). Three lossless GPU display captures were reviewed for intact O/B/8 holes and fill/stroke continuity: [quarter size](rewrite/evidence/m5-registered-screen-160.png), [native size](rewrite/evidence/m5-registered-screen-640.png), [double size](rewrite/evidence/m5-registered-screen-1280.png). Final shared-workflow captures exactly match those reviewed adapter captures. Focused GPU integration-test Clippy, format, boundaries and whitespace checks pass; existing YUV/source-preparation warnings remain. This qualifies the registered Screen scene-evaluation path and explicit half-float boundary, not physical viewer presentation, async stale-request routing, agent frame observation, ACES GPU publication, mixed/spatial publication or full M3–M5 acceptance.
 
+### M5a — Shared typed graphs, scene hierarchy and unified authoring
+
+**Status:** In progress. Shared graph foundation, native scene/object documents, Outliner, per-object Network editing and nested Composition rows are implemented. Scene acceptance is partial; compositor document replacement, public scene authoring and the full phase gate remain open. See the implementation records below.
+
+**Sequencing:** Freeze these contracts now, while M0–M5 remains open. Do not extend the standalone Motion editor as the target workflow. Preserve valid M0–M5 evaluator/rendering evidence, but qualify artist continuation against this corrected workflow. M5a acceptance follows the relevant M3–M5 behavior and blocks M6; remaining M0–M5 obligations are not waived.
+
+**Grounding:** Product architecture §§3, 12–14 already require one mixed Composition, direct access to each layer's graph, and shared Track/Curve editing. The current Motion editor instead registers Graph/Keys/Source tabs (`crates/motion/src/ui/mod.rs`). Motion now has native model, binding, registry, source and transaction services; Compositor retains a separate operator/document model (`crates/compositor/src/model.rs`). Composition already retains editable provider output references (`crates/composition/src/model.rs`). These are starting points, not proof of a shared framework or scene hierarchy. The existing image-oriented layer contract alone cannot represent shared-depth scene objects.
+
+**Decisions and work**
+
+- **One authoring framework.** Rewrite Compositing graph documents and node authoring onto a shared typed-document foundation with Motion: persistent identities, versioned operation contracts, typed sockets/bindings, parameter/animation identity, scoped source round trips, validation, transactions/undo, protection and public agent edits. Extract independently valid shared machinery from Motion; do not make Compositor depend on the Motion engine. Keep domain operations and image versus geometry/scene evaluation specialized, with one common authoring contract and Network surface.
+- **Explicit replacement scope.** Inventory every current compositor operation, version, channel/color/alpha contract, media/time behavior, effect/input integration and public authoring path before replacement. Record replacement tests and any explicitly approved deferrals. Retain independently useful image-processing implementations behind the new contracts; delete superseded graph models, authoring paths, protocol aliases and dependencies at cutover. Preserve unsupported payloads opaquely; do not introduce a legacy execution fallback or silently convert user projects.
+- **Composition stacks scene outputs and images.** A 3D scene is one image-producing Composition layer, with its own camera, objects and lights. Multiple scenes can surround compositing/footage layers. Objects within a scene share depth and lighting; separate scenes composite as images and do not implicitly share depth or shadows. Specify transparent scene output and explicit compositor inputs; stack position alone must not imply processing the layers below.
+- **Outliner owns the organization workflow.** Add a shared Outliner for scene objects, cameras, lights, parenting, visibility and selection. Store one authoritative scene hierarchy, exposed through capabilities to shared UI; Composition's expanded scene rows reference those same objects. Scene assembly is explicit document hierarchy, not a required artist-facing assembly nodegraph. Distinguish object parenting, procedural dependencies and image stacking, including cycle rules and transform ownership.
+- **Network constructs the selected object.** Each authored scene object has its own scoped procedural graph; selecting it opens that actual graph in the existing Network panel. Selecting a compositing layer opens its graph in the same panel. Scene settings, camera and light controls remain directly usable through Inspector. Internal operations and generated cloner instances do not automatically become outliner objects. Preserve reusable graph definitions and per-instance overrides without flattening all objects into one network.
+- **One animation workflow.** Expand a scene in Composition to expose its objects and their animated properties in the existing Track view and Curve Editor. Remove the standalone Motion panel and duplicate keyframe surface; retain scoped source editing within the unified authoring workflow. Outliner, Composition, Network, Inspector and Viewer share stable selection/target identities. Specify scene/layer/object/graph time and transform ownership; route cross-document changes through one undoable transaction without duplicate hierarchy or animation authority.
+- **Propagate the correction.** Update M0 contracts, ownership/catalog/removal records, M3–M5 acceptance fixtures, architecture/product guidance, public schemas, Fold skill examples and demos. M6 caches/observations must respect scene/object/graph scopes; M7 assets must preserve object graphs and instance overrides; M8 preview/export/headless integration must render the mixed stack; M9 must audit compositor replacement and duplicate UI removal as well as Motion. Existing historical evidence is retained with its original scope, not relabeled as new acceptance.
+
+**Gate:** A public-tool-authored Composition contains a background 3D scene, an intervening compositing layer with explicit inputs, and a transparent foreground title scene. Both scenes contain independently selectable objects, cameras and lights. Artist edits through Outliner, object Network, Inspector and Composition Track/Curve views preserve the same identities and rendered intent through scoped agent edits, conflict/lock checks, undo/redo and save/reopen. Verify parenting, selection routing, exact nested times, within-scene occlusion/lighting, between-scene image order/alpha, source/graph round trips and retained compositor channel/color/media behavior. Perform normal/narrow native UI review and preview/headless agreement; report automated and physical acceptance separately. No mandatory scene-assembly graph, standalone Motion animation panel, executable superseded compositor model or protocol shim remains. Run the workspace vertical-slice checkpoint before claiming this gate passed.
+
+#### M5a implementation record — shared foundation and Network/Composition entry
+
+- Extracted typed graph records, values/units/clocks, bindings/tracks/ramps, expression IR/source/CPU execution and diagnostics into `fold-graph`. Motion uses the same moved implementations; its former implementation files are removed. Compositor now uses the shared socket type system, removing its separate `PortType`. Document identities, provider operation catalogs and evaluators remain feature-owned. This does **not** yet replace compositor persistence, parameter/animation storage, source or agent edits; the [28-entry replacement inventory](rewrite/m5a-compositor-inventory.md) records those obligations before cutover.
+- Motion registers as a layer-graph provider in the existing Network surface. Removed its standalone Keys tab and timeline implementation, plus the stale unconditional rendering-unavailable label. Graph and Source remain available in Network; typed key controls in Inspector remain until full native track projection is qualified. This first foundation checkpoint did not yet include Outliner or scene hierarchy; the continuation below adds them.
+- The initial foundation checkpoint added atomic Motion layer creation with its graph and project item; that creation entry is removed by the 9 October continuation below. New artwork uses the Composition's dimensions, exact frame rate and duration, with explicit fill and centered placement. Both Motion and compositing insertion resolve validated provider output descriptors before committing; the app no longer fabricates `video` for new layer graphs. The shared Composition animation path edits native scalar/distance keys with preserved identities and undo/redo. This first checkpoint covered scalar/distance tracks only; the continuation adds vector/color projection and scene object rows. Rotation/instance projection and richer interpolation remain open.
+- [Evidence](rewrite/evidence/m5a-foundation-result.md) records focused tests, desktop compilation, Clippy, boundary checks and the [normal/narrow GPU Network capture](rewrite/evidence/m5a-network.png). Read-only offscreen visual review found readable controls and narrow overflow. Physical artist interaction is not verified; the user permits screenshots only, with no clicking, typing or dragging. Full M5a and M0–M5 gates remain open.
+
+#### M5a continuation — scene hierarchy and shared artist surfaces
+
+- Added `fold.motion.native.scene` schema 1. A scene owns its camera selection, exact canvas/time range and ordered authored object hierarchy. Every object owns a separate native Construction and output, local transform, clock, visibility and lock. Objects produce geometry/world placement, camera or light; no authored assembly graph is required. Parenting, procedural edges and Composition stacking remain separate authorities. Stable object identities qualify procedural evaluation; generated instances do not become Outliner rows.
+- Added provider-neutral hierarchy services and one shared Outliner, with transactional object creation, rename, reparent, visibility, subtree deletion and camera selection. Parent cycles and inherited locks are enforced in the document gate. Composition's scene rows are projections of those objects, qualified by layer occurrence; they do not add image layers or duplicate scene state. Object/graph selections retain the owning scene identity. Scoped source drafts, edits and local artist unlock preserve neighboring object graphs and undo history.
+- Registered scene image outputs and **Add 3D Scene** in Composition. Within-scene geometry shares depth/lights; separate scenes produce transparent images and compose independently. The shared GPU test verifies pixel-wise foreground-over-compositor-over-background output and invariance of depth under hierarchy order changes. Direct camera/light graph controls remain in Inspector.
+- Extended native track projection to coupled vector/color components and scene transform tracks, with exact inverse mapping through forward parent/object/root clocks and canvas start. Moving or deleting a component key moves/deletes the same typed key; conflicting component edits fail. Projection IDs distinguish repeated scene occurrences, while edits retain native key IDs and metadata. Scene/object and graph locks use the same transaction gate. Unlock stays on the trusted desktop capability, outside registered author commands.
+- Broad check/Clippy completed; the desktop workspace test run has remaining media/color and file-work timing failures. The introduced public-demo starter failures were fixed and both CLI/MCP reruns pass. See the evidence for exact counts and separate focused results; no green workspace checkpoint is claimed.
+- [Scene evidence and limits](rewrite/evidence/m5a-scene-result.md) and the [normal/narrow scene panel capture](rewrite/evidence/m5a-scene-panels.png) distinguish automated tests from physical acceptance. No live clicks, typing or dragging were performed.
+
+#### M5a continuation — unified creation, typed animation and affine parenting (9 October)
+
+- Removed **Add Motion layer**, its application creation command, and standalone Motion creation in Project. Composition and Project now create **Scene**; existing native Construction documents remain editable resources, using the same evaluator and Network. The existing flat demo has not been relabeled as the final scene acceptance demo.
+- Scene scale supports independent axes. Evaluated parent/child transforms retain affine shear through the Fold/Bevy boundary, including rotated cloner instances. GPU submission keeps prototype meshes shared; matrix-only edits retain meshes. Singular/ill-conditioned transforms remain explicit errors.
+- Moved coupled typed curve projection into `fold-graph`, including Bézier handles and spherical quaternion component sampling shared with evaluation. Exact reverse-clock projection preserves left/right hold semantics and quaternion branch choice. Paused clocks expose labeled constant samples; value edits key the frozen local sample while preserving other keys, and timing edits require resuming the clock.
+- Composition projects reusable graph occurrences and instance overrides with explicit occurrence paths and their actual clocks. Conflicting edits to shared tracks fail atomically. Inspector key tables are removed in favor of sampled controls and a compact animation menu. Object-transform auto-key and graph-parameter gesture auto-key use the existing preview/undo lifecycle; broader occurrence-specific Inspector navigation/auto-key still needs qualification.
+- [Continuation evidence](rewrite/evidence/m5a-animation-parenting-result.md) records focused tests, GPU regressions, screenshot review and outstanding work. This is not compositor or public-protocol cutover acceptance.
+
+**Still required for M5a completion (not approved deferrals):** replace compositor persistence/authoring/source/animation using the [28-entry inventory](rewrite/m5a-compositor-inventory.md); extend the version-2 public candidate/inspection protocol to scenes, object scopes and mixed-document transactions; author the final two-scene/title/compositor demo through that protocol; qualify the complete animation/instance Inspector workflow and normal/narrow Composition curve views; finish artist continuation, final removal audit and workspace checkpoint, including remaining media/test failures. Existing M0–M5 obligations remain open. M6 is still blocked.
+
+#### M5a continuation — compositor native tracks and connections (9 October)
+
+- Replaced persisted compositor scalar `Curve` maps with shared typed parameter/track/key records. Composition/Inspector curves are projections; evaluation uses the shared typed sampler. Native identities/extensions survive curve edits and shader-control renames. Protected records reject authored replacement/deletion; reusable instance values remain independent during evaluation.
+- Image inputs now store shared identity-bearing edges. Rewiring preserves edge identity/extensions, cycle rejection restores the old edge, shader interface migration retains edges, and duplication allocates independent native identities. Schema 7 replaces the executable schema 1–6 readers; unsupported documents remain opaque. The user explicitly reconfirmed that no legacy project shims are wanted; no migration or execution fallback is added. A save/reopen regression verifies byte-for-byte opaque payload retention.
+- [Evidence](rewrite/evidence/m5a-compositor-native-records-result.md): 36 compositor tests including offscreen capture, 15 app integration tests, protected-instance regression, workspace check and boundary checks. Normal/narrow Inspector captures were reviewed without live input.
+- This is not the full compositor cutover: static operation/parameter records, effect-mask and instance-control model audit, scoped source/protocol replacement, public scene/mixed-document candidates, final demo and remaining workflow/workspace acceptance are still required. M5a remains open and M6 blocked.
+
+#### Latest requested artist fixture and checkpoint (9 October)
+
+The user requested a new **Make it move** project with Composition/Outliner and
+three separate, simple layer graphs: backdrop; text reveal reading “Make it move”;
+and randomly colored spheres using Copy to Points. No exposed parameters or extra
+demonstration fixtures. The project is not created. Live v2 discovery confirms
+that public Composition/scene-object creation and the Sphere primitive are missing.
+Implement and qualify those capabilities, then author/save the fixture through
+public tools. Do not use direct project-payload edits, substitute boxes, or flatten
+the layers into one graph. This fixture does not waive the existing mixed-scene
+phase gate. The user requested a commit and resumable checkpoint;
+[HANDOFF.md](rewrite/HANDOFF.md#resume-here) records the exact state, next seams,
+verification limits and temporary launch sessions. M5a remains in progress.
+
 ### M6 — Incremental execution, performance and observation
 
-**Depends on:** M5.
+**Depends on:** M5 and M5a.
 
 **Work**
 
@@ -549,7 +623,7 @@ kept distinct without waiving any M0–M5 requirement.
 
 During each phase, format touched Rust files and check affected crates. Add focused behavioral tests for changed semantics; test the document/IR independently of UI and use image/runtime fixtures for rendering contracts. Compare CPU/GPU at declared tolerances rather than silently relaxing them. Exercise examples through real public tools.
 
-At M1, M3, M5 and M9 checkpoints, run applicable workspace boundary, format, check, test and Clippy checks documented in the repository, plus targeted native/headless workflows. A non-rendering phase cannot claim visual acceptance. Physical presentation, native interaction, headless output and automated unit results are distinct evidence. Record actual commands, dependency environment, failures and unverified cases.
+At M1, M3, M5, M5a and M9 checkpoints, run applicable workspace boundary, format, check, test and Clippy checks documented in the repository, plus targeted native/headless workflows. A non-rendering phase cannot claim visual acceptance. Physical presentation, native interaction, headless output and automated unit results are distinct evidence. Record actual commands, dependency environment, failures and unverified cases.
 
 For each acceptance run, retain source/project revision, protocol/operation versions, seed/font/assets, exact times, output settings, hardware and dependency versions beside the results. Performance evidence must separate parse/validate/compile/evaluate/prepare/submit/present/readback/encode costs.
 

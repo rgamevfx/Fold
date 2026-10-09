@@ -31,7 +31,8 @@ fn edit(snapshot: &Snapshot, args: &[u8], _: &Cancel) -> Result<EditBatch, Strin
     let args: EditArgs = serde_json::from_slice(args).map_err(|e| e.to_string())?;
     let mut document = args.composite.document(args.document)?;
     if let Some(previous) = snapshot.state().documents.get(&args.document) {
-        Composite::from_document(previous)?;
+        let before = Composite::from_document(previous)?;
+        before.check_protection(&args.composite)?;
         document.extensions = previous.extensions.clone();
     }
     Ok(EditBatch {
@@ -159,10 +160,10 @@ impl DocumentProvider for Documents {
         crate::COMPOSITE
     }
     fn schema(&self) -> u32 {
-        6
+        7
     }
     fn supports_schema(&self, schema: u32) -> bool {
-        [1, 2, 3, 4, 5, 6].contains(&schema)
+        schema == 7
     }
     fn validate(&self, document: &Document) -> Result<(), String> {
         Composite::from_document(document).map(|_| ())
@@ -224,7 +225,7 @@ pub fn register(registry: &mut PackageRegistry) -> Result<(), String> {
             host_api: HOST_API,
             dependencies: &[],
             panels: PANELS,
-            build: concat!(env!("CARGO_PKG_VERSION"), ":compositor-schema6-evaluator8"),
+            build: concat!(env!("CARGO_PKG_VERSION"), ":compositor-schema7-evaluator9"),
         },
         documents: vec![Box::new(Documents)],
         commands: vec![

@@ -24,7 +24,7 @@ pub struct Context {
     pub element: Option<ElementContext>,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum Stop {
+pub enum Stop {
     Exhausted,
     Cancelled,
 }
@@ -42,7 +42,7 @@ impl<'a> Budget<'a> {
             cancellation,
         }
     }
-    pub(crate) fn stop(&self) -> Option<Stop> {
+    pub fn stop(&self) -> Option<Stop> {
         self.stop
     }
     pub fn step(&mut self) -> Result<(), String> {
@@ -224,7 +224,7 @@ fn compare(a: &Literal, b: &Literal) -> Result<Ordering, String> {
     }
 }
 /// Checked primitive arithmetic, also used by channel composition.
-pub(crate) fn binary(op: Binary, a: Literal, b: Literal) -> Result<Literal, String> {
+pub fn binary(op: Binary, a: Literal, b: Literal) -> Result<Literal, String> {
     a.validate()?;
     b.validate()?;
     binary_type(op, &a.ty(), &b.ty())?;

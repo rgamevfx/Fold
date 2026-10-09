@@ -194,6 +194,7 @@ pub enum DesktopCommand {
     /// Trusted local UI action. Must never be accepted by an agent transport.
     UnlockControls {
         document: fold_foundation::DocumentId,
+        object: Option<fold_foundation::ObjectId>,
         targets: Vec<fold_foundation::ObjectId>,
         base: fold_project::Revision,
     },
@@ -268,6 +269,13 @@ pub struct GpuPreviewResult {
     pub consumers: Vec<(crate::workspace::PanelInstanceId, u64)>,
 }
 pub trait DesktopClient {
+    fn hierarchy(
+        &self,
+        _document: fold_foundation::DocumentId,
+    ) -> Result<crate::hierarchy::Hierarchy, String> {
+        Ok(Default::default())
+    }
+
     /// Retained presentation keys only; no render work or resource ownership.
     fn cached_previews(&self) -> &[PreviewKey] {
         &[]

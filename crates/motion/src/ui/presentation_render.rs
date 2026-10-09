@@ -1,6 +1,12 @@
 //! Native renderer captures for visual review of Inspector controls.
 use super::*;
+use fold_platform::desktop::DesktopClient;
 use sdk::render_backend::{FramebufferExtent, WgpuInitInfo, WgpuRenderer, wgpu};
+#[test]
+#[ignore = "requires GPU; writes /tmp/fold-motion-network.ppm"]
+fn shared_network_capture() {
+    capture(Capture::Network);
+}
 #[test]
 #[ignore = "requires GPU; writes /tmp/fold-motion-presentation.ppm"]
 fn presentation_inspector_capture() {
@@ -31,8 +37,15 @@ fn override_key_inspector_capture() {
 fn instance_menu_capture() {
     capture(Capture::InstanceMenu);
 }
+#[test]
+#[ignore = "requires GPU; writes /tmp/fold-motion-scene.ppm"]
+fn scene_panels_capture() {
+    capture(Capture::Scene);
+}
 #[derive(Clone, Copy)]
 enum Capture {
+    Scene,
+    Network,
     Presentation,
     Literals,
     Instances,
@@ -47,7 +60,20 @@ fn capture(kind: Capture) {
     let (device, queue) = pollster::block_on(adapter.request_device(&Default::default())).unwrap();
     let mut context = sdk::imgui::Context::create();
     context.set_ini_filename(None::<String>).unwrap();
-    let _fonts = sdk::typography::Typography::install(&mut context);
+    let fonts = sdk::typography::Typography::install(&mut context);
+    let mut network = Editor(Shared::default(), Default::default());
+    network.initialize(&context, Some(&fonts));
+    let mut host = if matches!(kind, Capture::Scene) {
+        super::tests::scene_setup()
+    } else {
+        super::tests::setup()
+    };
+    let scene_state = Shared::default();
+    let mut scene_network = scene::Editor(Editor(scene_state.clone(), Default::default()));
+    scene_network.initialize(&context, Some(&fonts));
+    let mut scene_inspector = scene::Inspector::new(scene_state);
+    let mut outliner = sdk::outliner::Surface::default();
+    let before = host.snapshot().unwrap();
     let mut renderer = WgpuRenderer::new(
         WgpuInitInfo::new(
             device.clone(),
@@ -58,7 +84,11 @@ fn capture(kind: Capture) {
     )
     .unwrap();
     let size = wgpu::Extent3d {
-        width: 720,
+        width: if matches!(kind, Capture::Network | Capture::Scene) {
+            1200
+        } else {
+            720
+        },
         height: 800,
         depth_or_array_layers: 1,
     };
@@ -146,6 +176,7 @@ fn capture(kind: Capture) {
             time,
             value: vector(y),
             interpolation: crate::binding::Interpolation::Linear,
+            handles: Default::default(),
             extensions: Default::default(),
         })
         .collect(),
@@ -170,7 +201,9 @@ fn capture(kind: Capture) {
     let unchanged_track = typed_track.clone();
     let unchanged = value.clone();
     context.io_mut().add_mouse_pos_event([-100., -100.]);
-    context.io_mut().set_display_size([720., 800.]);
+    context
+        .io_mut()
+        .set_display_size([size.width as f32, size.height as f32]);
     context.io_mut().set_delta_time(1. / 60.);
     let mut controls = vec![
         (
@@ -218,11 +251,55 @@ fn capture(kind: Capture) {
     literal_controls.assets = vec![(definition, "Title artwork".into())];
     for _ in 0..3 {
         let ui = context.frame();
-        for (title, x, width) in [("Inspector", 0., 400.), ("Narrow inspector", 420., 260.)] {
+        let panels = if matches!(kind, Capture::Network) {
+            [("Network", 0., 800.), ("Narrow Network", 820., 360.)]
+        } else {
+            [("Inspector", 0., 400.), ("Narrow inspector", 420., 260.)]
+        };
+        if matches!(kind, Capture::Scene) {
+            for (suffix, y, widths) in [
+                ("normal", 0., [240., 580., 340.]),
+                ("narrow", 400., [170., 360., 260.]),
+            ] {
+                let mut x = 0.;
+                for (index, (title, width)) in ["Outliner", "Network", "Inspector"]
+                    .into_iter()
+                    .zip(widths)
+                    .enumerate()
+                {
+                    ui.window(format!("{title} · {suffix}"))
+                        .position([x, y], sdk::imgui::Condition::Always)
+                        .size([width, 390.], sdk::imgui::Condition::Always)
+                        .build(|| {
+                            let context = ExtensionUi {
+                                ui,
+                                host: &mut host,
+                            };
+                            match index {
+                                0 => outliner.draw(context),
+                                1 => scene_network.draw_network(context),
+                                _ => scene_inspector.draw(context),
+                            }
+                        });
+                    x += width + 10.;
+                }
+            }
+        }
+        for (title, x, width) in panels {
+            if matches!(kind, Capture::Scene) {
+                break;
+            }
             ui.window(title)
                 .position([x, 0.], sdk::imgui::Condition::Always)
                 .size([width, 780.], sdk::imgui::Condition::Always)
                 .build(|| {
+                    if matches!(kind, Capture::Network) {
+                        network.draw_network(ExtensionUi {
+                            ui,
+                            host: &mut host,
+                        });
+                        return;
+                    }
                     let mut response = EditResponse::default();
                     let _width = ui.push_item_width((ui.content_region_avail()[0] * 0.43).max(60.));
                     if matches!(kind, Capture::Literals) {
@@ -255,7 +332,7 @@ fn capture(kind: Capture) {
                             &mut value.root,
                             &inputs,
                             &locked,
-                            None,
+                            Some(fold_foundation::Time::new(1, 3).unwrap()),
                             &mut response,
                             &mut literal_controls,
                         );
@@ -324,8 +401,11 @@ fn capture(kind: Capture) {
     assert_eq!(controls, original_controls);
     assert_eq!(value, unchanged);
     assert_eq!(typed_track, unchanged_track);
+    assert_eq!(host.snapshot().unwrap().revision(), before.revision());
     std::fs::write(
         match kind {
+            Capture::Scene => "/tmp/fold-motion-scene.ppm",
+            Capture::Network => "/tmp/fold-motion-network.ppm",
             Capture::Literals => "/tmp/fold-motion-literals.ppm",
             Capture::Presentation => "/tmp/fold-motion-presentation.ppm",
             Capture::Instances => "/tmp/fold-motion-instances.ppm",

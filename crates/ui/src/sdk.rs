@@ -29,6 +29,8 @@ pub(crate) mod composition;
 pub mod media_thumbnails;
 #[path = "network.rs"]
 pub mod network;
+#[path = "outliner.rs"]
+pub mod outliner;
 #[path = "project_drop.rs"]
 pub mod project_drop;
 #[path = "property_edit.rs"]
@@ -255,6 +257,19 @@ impl PanelRegistry {
                 key: imgui::WindowKey::new(descriptor.id, descriptor.title)
                     .map_err(|e| e.to_string())?,
                 panel: Box::new(self.inspector),
+            });
+        }
+        if self.entries.iter().any(|p| p.panel.supports_network()) {
+            let descriptor = PanelDescriptor {
+                id: outliner::PANEL_ID,
+                title: "Outliner",
+                placement: fold_platform::packages::PanelPlacement::Browser,
+            };
+            self.entries.push(RegisteredPanel {
+                descriptor,
+                key: imgui::WindowKey::new(descriptor.id, descriptor.title)
+                    .map_err(|e| e.to_string())?,
+                panel: Box::new(outliner::Surface::default()),
             });
         }
         if self.entries.iter().any(|p| p.panel.supports_network()) {

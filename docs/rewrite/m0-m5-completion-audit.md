@@ -43,23 +43,24 @@ missing modes assigned to M5 there.
 
 | Required behavior | Current source/evidence | Status |
 | --- | --- | --- |
-| Text, word grouping/stagger, Fill, Material, Cloner/distribution, Animator, Field/Ramp/Random, clocks, Place/Scene, cameras/light | Registry, retained text, integrated public/GPU evidence | Implemented bounded modes; group-pivot/selection semantics still need complete acceptance |
-| Transform with translation/rotation/scale and explicit pivot | Catalog M5 row; registry Builtin and operation modules lack Transform | Missing native operation; Place transforms do not satisfy it |
-| Stroke round/butt caps and round/miter joins | Catalog M5 row; registry/style.rs advertises only solid_centered_butt_miter; rendering hardcodes that style | Missing native round choices despite existing renderer support |
-| Public Tessellate, closed planar nonzero/even-odd profiles, explicit transfer | Catalog M5 row; registry lacks Tessellate | Shared tessellation is a cache service, not the required native operation |
-| Extrude closed profiles with holes, caps/sides | Only straight_text registered; native evaluation requires outlined text | Partial: text holes qualified, general supported planar profiles missing |
-| Stable random/instances, shared geometry, group pivots and explicit sampling basis | Integrated clone checks and retained word records; catalog assigns full Deform to M7 | Sharing/identity/stagger tested; finish explicit pivot and sampling-basis contracts without prematurely adding full deformation modes |
-| Exact integrated scene, exposed controls, multiple times and control variations | Public authoring script, saved demo, seven native GPU times and nine public frames per transport | Implemented and tested; public frame endpoint is half-open (95/24, not 4 seconds) |
+| Text, word grouping/stagger, Fill, Material, Cloner/distribution, Animator, Field/Ramp/Random, clocks, Place/Scene, cameras/light | Registry, retained text, integrated public/GPU evidence | Implemented bounded modes; automated group membership/pivot/stagger checks pass, physical acceptance remains open |
+| Transform with translation/rotation/scale and explicit pivot | Catalog M5 row; registry/transform.rs and evaluation/transform.rs | Implemented explicit Screen, metric-mesh and uniform/Z-instance modes; native and public-frame tests pass. Direct Text and straight_text-solids inputs are explicitly rejected; broader affine instance modes remain unqualified |
+| Stroke round/butt caps and round/miter joins | Catalog M5 row; registry/style.rs exposes four centered cap/join combinations | All four native combinations now retained in both render routes; Source, CPU pixel/mesh and public GPU trials pass |
+| Public Tessellate, closed planar nonzero/even-odd profiles, explicit transfer | Catalog M5 row; registry/profile.rs and evaluation/profile.rs | Native planar operation now implemented; explicit fill rule, conversion, normals/UVs and public Source/observation/frame trials pass |
+| Extrude closed profiles with holes, caps/sides | straight_text plus closed_profile; the latter uses the shared planar tessellator | Native closed_profile mode accepts closed contours and outlined text; holes, front/back/sides and cap-vertex UV transfer are tested |
+| Stable random/instances, shared geometry, group pivots and explicit sampling basis | Integrated clone checks and retained word records; catalog assigns full Deform to M7 | Sharing/identity/stagger tested; explicit Transform pivot and transformed-upstream field sampling tests added. Public word observations verify group membership and advance-center pivot translation |
+| Exact integrated scene, exposed controls, multiple times and control variations | Public authoring script, saved demo, seven native GPU times and seventeen public frames per transport | Implemented and tested; public frame endpoint is half-open (95/24, not 4 seconds) |
 | Ramp/key/lock/layout → agent field direction/timing → save/reopen/continue | m5-ramp-field-handoff record and saved construction | Native-service/public-transport proof exists; physical/rendered combined handoff still open |
 | Readable graph and verified Fold examples | 35 positioned nodes, six annotations; public layout/source/save checks | Data is verified; normal/narrow native graph review still open |
 
 ## Scope and next implementation
 
-Next native work: round Stroke choices, then Transform/pivot and public planar
-Tessellate/Extrude. Keep M4 resource bounds, transparency and presentation work
-visible alongside these; physical automation unavailability does not block this
-independent implementation. Finish with native artist acceptance and the full
-workspace checkpoint, reporting inherited failures separately.
+Native Stroke choices, Transform/pivot and public planar Tessellate/Extrude are
+implemented with the bounded contracts in the [new evidence record](evidence/m5-catalog-completion-result.md).
+Remaining work is M4 resource bounds, picking, general transparency and rapid
+presentation qualification, plus native artist acceptance and final checkpoint
+classification. Physical automation unavailability does not waive implementation
+requirements. The [demo launcher](../../demos/README.md) supports manual testing.
 
 Full Deform modes, broad production assets/images, contact sheets/clips and
 performance percentile targets belong to M6/M7; USD production import/export is

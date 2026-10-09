@@ -73,7 +73,7 @@ impl crate::Composite {
                 crate::Parameters::Merge | crate::Parameters::Composite { .. }
             ));
             let mut names = node
-                .inputs
+                .input_ids()
                 .get(primary)
                 .and_then(|id| *id)
                 .and_then(|id| outputs.get(&id))

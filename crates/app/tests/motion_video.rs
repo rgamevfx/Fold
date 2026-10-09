@@ -39,6 +39,7 @@ fn fixture() -> (Project, DocumentId, Construction) {
             unit: Unit::Canvas,
         },
         interpolation: Interpolation::Linear,
+        handles: Default::default(),
         extensions: Default::default(),
     });
     let keys = fold_motion::registry::resolve("fold.motion.keyframes", 1, "value")
@@ -71,11 +72,25 @@ fn fixture() -> (Project, DocumentId, Construction) {
             .into(),
         )
         .unwrap();
-    c.definitions[0]
+    let placement = c.definitions[0]
         .nodes
         .iter_mut()
         .find(|n| n.operation == "fold.motion.place")
-        .unwrap()
+        .unwrap();
+    // This pixel oracle deliberately uses an origin placement, independent of
+    // the centered artwork supplied by the interactive document starter.
+    placement.parameters.insert(
+        "position".into(),
+        Parameter::new(Binding::Literal {
+            value: Literal::Vector {
+                value: vec![0., 0.],
+                unit: Unit::Canvas,
+                space: fold_motion::types::Space::Screen,
+            },
+        })
+        .unwrap(),
+    );
+    placement
         .parameters
         .insert("geometry".into(), Parameter::new(link(fill.id)).unwrap());
     c.definitions[0].nodes.extend([fill, keys]);

@@ -165,6 +165,18 @@ pub(crate) fn unlock_document_for_artist(
     original: &Document,
     targets: &[ObjectId],
 ) -> Result<Document, Error> {
+    unlock_construction_for_artist(
+        &Construction::from_document(original).map_err(Error::Invalid)?,
+        targets,
+    )?
+    .replace_document(original)
+    .map_err(Error::Invalid)
+}
+
+pub(crate) fn unlock_construction_for_artist(
+    original: &Construction,
+    targets: &[ObjectId],
+) -> Result<Construction, Error> {
     if targets.is_empty() || targets.len() > crate::patch::MAX_PATCHES {
         return Err(Error::Invalid(
             "Select 1..128 controls or groups to unlock".into(),
@@ -174,7 +186,7 @@ pub(crate) fn unlock_document_for_artist(
     if remaining.len() != targets.len() {
         return Err(Error::Invalid("Duplicate unlock target".into()));
     }
-    let mut after = Construction::from_document(original).map_err(Error::Invalid)?;
+    let mut after = original.clone();
     let mut changed = false;
     let mut clear = |id: ObjectId, flag: &mut bool| {
         if remaining.remove(&id) {
@@ -212,7 +224,7 @@ pub(crate) fn unlock_document_for_artist(
         return Err(Error::NoChange);
     }
     // Flags do not change execution semantics. Preserve unresolved payloads too.
-    after.replace_document(original).map_err(Error::Invalid)
+    Ok(after)
 }
 
 pub fn prepare(

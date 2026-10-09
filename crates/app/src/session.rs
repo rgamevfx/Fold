@@ -546,6 +546,19 @@ impl DesktopClient for Session {
     fn take_imported_items(&mut self) -> Vec<fold_project::ItemId> {
         std::mem::take(&mut self.imported_items)
     }
+    fn hierarchy(
+        &self,
+        document: fold_foundation::DocumentId,
+    ) -> Result<fold_platform::hierarchy::Hierarchy, String> {
+        let snapshot = self.project.snapshot();
+        crate::packages::builtins().hierarchy(
+            snapshot
+                .state()
+                .documents
+                .get(&document)
+                .ok_or("Missing hierarchy document")?,
+        )
+    }
     fn animation_channels(
         &self,
         document: fold_foundation::DocumentId,
@@ -901,10 +914,11 @@ impl DesktopClient for Session {
             }
             DesktopCommand::UnlockControls {
                 document,
+                object,
                 targets,
                 base,
             } => crate::packages::builtins()
-                .unlock_for_artist(&self.project.snapshot(), base, document, &targets)
+                .unlock_for_artist(&self.project.snapshot(), base, document, object, &targets)
                 .and_then(|batch| {
                     self.project
                         .commit_named(batch, "Unlock controls".into())

@@ -84,6 +84,13 @@ fn author_integrated(transport: &str, gpu: bool) {
     let report: serde_json::Value =
         serde_json::from_slice(&std::fs::read(report).unwrap()).unwrap();
     assert_eq!(report["frames"]["available"], gpu);
+    let modes = report["native_modes"].as_array().unwrap();
+    assert_eq!(modes.len(), 8);
+    for mode in modes {
+        assert_eq!(mode["observation"]["samples"].as_array().unwrap().len(), 1);
+        assert_eq!(!mode["frame"].is_null(), gpu);
+    }
+
     if gpu {
         assert_eq!(report["frames"]["baseline"].as_array().unwrap().len(), 7);
         assert_eq!(report["frames"]["variation"].as_array().unwrap().len(), 1);

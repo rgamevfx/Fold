@@ -17,6 +17,7 @@ pub(super) struct State {
     pub selected: Vec<ObjectId>,
     pub editing: bool,
     pub key_ids: super::channels::KeyIds,
+    pub hierarchy: super::hierarchy::Projection,
     pub graph_channels:
         std::collections::BTreeMap<ObjectId, Vec<fold_platform::animation::Channel>>,
     original_channels: std::collections::BTreeMap<ObjectId, Vec<fold_platform::animation::Channel>>,
@@ -47,6 +48,7 @@ impl State {
                 .and_then(|id| Composition::from_document(&snapshot.state().documents[&id]).ok());
             self.original = self.composition.clone();
             self.graph_channels.clear();
+            self.hierarchy.clear();
             if let Some(composition) = &self.composition {
                 for layer in &composition.layers {
                     let Some(fold_platform::image_source::Source::Output(source)) = &layer.source
@@ -61,6 +63,15 @@ impl State {
                         .is_none_or(|d| d.type_id == crate::COMPOSITION)
                     {
                         continue;
+                    }
+                    match host.hierarchy(source.document) {
+                        Ok(hierarchy) => self.hierarchy.insert(
+                            layer,
+                            source.document,
+                            hierarchy,
+                            composition.locked(layer.id),
+                        ),
+                        Err(error) => self.error = error,
                     }
                     match host.animation_channels(source.document, None) {
                         Ok(channels) => {
@@ -80,7 +91,7 @@ impl State {
                 .objects
                 .iter()
                 .copied()
-                .filter(|id| composition.layer(*id).is_ok())
+                .filter(|id| composition.layer(*id).is_ok() || self.hierarchy.rows.contains_key(id))
                 .collect();
         }
     }
@@ -216,7 +227,8 @@ impl State {
             let [id] = self.selected.as_slice() else {
                 return None;
             };
-            let layer = self.composition.as_ref()?.layer(*id).ok()?;
+            let layer_id = self.hierarchy.rows.get(id).map_or(*id, |row| row.layer);
+            let layer = self.composition.as_ref()?.layer(layer_id).ok()?;
             let Some(fold_platform::image_source::Source::Output(source)) = &layer.source else {
                 return None;
             };
@@ -239,11 +251,16 @@ impl State {
         }
     }
     pub fn open(&mut self, host: &mut dyn DesktopClient, id: ObjectId) -> Result<(), String> {
+        let (layer_id, objects) = self
+            .hierarchy
+            .rows
+            .get(&id)
+            .map_or((id, vec![]), |row| (row.layer, vec![row.object]));
         let layer = self
             .composition
             .as_ref()
             .ok_or("No composition")?
-            .layer(id)?;
+            .layer(layer_id)?;
         let Some(fold_platform::image_source::Source::Output(source)) = &layer.source else {
             return Err("This layer has no editable source graph".into());
         };
@@ -266,14 +283,36 @@ impl State {
             })
         });
         if graph {
-            host.command(DesktopCommand::OpenLayerGraph {
-                location,
-                objects: vec![],
-            });
+            host.command(DesktopCommand::OpenLayerGraph { location, objects });
         } else {
             host.command(DesktopCommand::Navigate(location));
         }
         Ok(())
+    }
+    pub fn hierarchy_edit(
+        &mut self,
+        host: &mut dyn DesktopClient,
+        id: ObjectId,
+        edit: fold_platform::hierarchy::Edit,
+    ) {
+        let Some(row) = self.hierarchy.rows.get(&id) else {
+            return;
+        };
+        let Some(composition) = &self.composition else {
+            return;
+        };
+        if composition.locked(row.layer) {
+            self.error = "Unlock the scene layer first".into();
+            return;
+        }
+        let args = fold_platform::hierarchy::EditArgs {
+            document: row.document,
+            edits: vec![edit],
+        };
+        match serde_json::to_value(args) {
+            Ok(args) => self.command(host, fold_platform::hierarchy::EDIT, args),
+            Err(e) => self.error = e.to_string(),
+        }
     }
     pub fn command(&mut self, host: &mut dyn DesktopClient, id: &str, args: serde_json::Value) {
         let previous: Vec<_> = self

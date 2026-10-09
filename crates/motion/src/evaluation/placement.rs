@@ -107,26 +107,21 @@ pub(super) fn camera_plane(
 }
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct World {
+    /// Evaluated hierarchy matrix, including shear. Authored controls remain TRS.
+    pub affine: Option<fold_foundation::affine::Affine>,
     pub position: [f64; 3],
     /// Unit quaternion, xyzw; authored precision is retained.
     pub rotation: [f64; 4],
     pub scale: [f64; 3],
 }
 impl World {
+    pub fn matrix(&self) -> fold_foundation::affine::Affine {
+        self.affine.unwrap_or_else(|| {
+            fold_foundation::affine::Affine::trs(self.position, self.rotation, self.scale)
+        })
+    }
     pub fn point(&self, point: [f64; 3]) -> [f64; 3] {
-        let p: [f64; 3] = std::array::from_fn(|i| point[i] * self.scale[i]);
-        let [x, y, z, w] = self.rotation;
-        let t = [
-            2. * (y * p[2] - z * p[1]),
-            2. * (z * p[0] - x * p[2]),
-            2. * (x * p[1] - y * p[0]),
-        ];
-        let cross = [
-            y * t[2] - z * t[1],
-            z * t[0] - x * t[2],
-            x * t[1] - y * t[0],
-        ];
-        std::array::from_fn(|i| p[i] + w * t[i] + cross[i] + self.position[i])
+        self.matrix().point(point)
     }
 }
 pub(super) fn world(
@@ -178,6 +173,7 @@ pub(super) fn world(
     }
     Ok((
         World {
+            affine: None,
             position,
             rotation: *rotation,
             scale,

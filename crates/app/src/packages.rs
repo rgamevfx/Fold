@@ -37,6 +37,12 @@ pub fn builtins() -> Arc<PackageRegistry> {
                     audio: vec![],
                     commands: vec![
                         CommandRegistration {
+                            id: fold_platform::hierarchy::EDIT,
+                            title: "Edit hierarchy",
+                            execution: Execution::Immediate,
+                            handler: crate::composition_layers::edit_hierarchy,
+                        },
+                        CommandRegistration {
                             id: crate::timeline_transition::ADD,
                             title: "Add Transition",
                             execution: Execution::Immediate,

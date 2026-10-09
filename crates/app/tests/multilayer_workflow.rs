@@ -310,7 +310,7 @@ fn unchanged_exr_reuses_gpu_input_across_time_and_effect_edits() {
     assert_eq!(first.statistics.cpu_adapter_nodes, 1);
     let mut composite =
         Composite::from_document(&project.snapshot().state().documents[&source.document]).unwrap();
-    let input = composite.node(composite.output).unwrap().inputs[0].unwrap();
+    let input = composite.node(composite.output).unwrap().input_ids()[0].unwrap();
     let grade = Node::new(
         P::ColorGrade {
             settings: fold_render::operations::Grade {
@@ -320,7 +320,11 @@ fn unchanged_exr_reuses_gpu_input_across_time_and_effect_edits() {
         },
         vec![input],
     );
-    composite.node_mut(composite.output).unwrap().inputs[0] = Some(grade.id);
+    composite
+        .node_mut(composite.output)
+        .unwrap()
+        .set_input(0, grade.id)
+        .unwrap();
     composite.nodes.push(grade);
     project
         .commit(EditBatch {

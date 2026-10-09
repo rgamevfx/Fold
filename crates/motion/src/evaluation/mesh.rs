@@ -7,10 +7,24 @@ use std::{collections::BTreeMap, sync::Arc};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Mesh {
-    pub prepared: primitives::BoxMesh,
+    /// Retained conversion input, including curves and font/resource provenance.
+    pub source: Option<Arc<Geometry>>,
+    pub prepared: Prepared,
     pub vertex_ids: Vec<u64>,
-    /// Triangle slots; the prepared face regions retain the six authored box faces.
+    /// Triangle slots; named regions retain the primitive or conversion partitions.
     pub face_ids: Vec<u64>,
+}
+/// Prepared native mesh data and explicit attribute correspondence.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Prepared {
+    pub mesh: Arc<fold_render::spatial::Mesh>,
+    pub uv: Vec<[f32; 2]>,
+    /// Named index-buffer regions: six box faces, or front/back/sides.
+    pub regions: BTreeMap<String, std::ops::Range<usize>>,
+    /// Output vertex to planar cap vertex. Empty for primitive meshes.
+    pub source_vertices: Vec<u32>,
+    /// Retained input geometry identity for conversion provenance.
+    pub source_geometry: Option<u64>,
 }
 impl State<'_> {
     pub(super) fn box_mesh(
@@ -63,7 +77,25 @@ impl State<'_> {
             space: Space::World,
             unit: Unit::Meters,
             data: GeometryData::Mesh(Arc::new(Mesh {
-                prepared,
+                source: None,
+                prepared: Prepared {
+                    mesh: prepared.mesh,
+                    uv: prepared.uv,
+                    regions: [
+                        "positive_x",
+                        "negative_x",
+                        "positive_y",
+                        "negative_y",
+                        "positive_z",
+                        "negative_z",
+                    ]
+                    .into_iter()
+                    .zip(prepared.faces)
+                    .map(|(name, range)| (name.into(), range))
+                    .collect(),
+                    source_vertices: vec![],
+                    source_geometry: None,
+                },
                 vertex_ids,
                 face_ids,
             })),

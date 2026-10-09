@@ -40,6 +40,12 @@ fn fixture() -> Construction {
         vec![("geometry", link(fill.id))],
     );
     let definition = &mut c.definitions[0];
+    // This fixture supplies its own text paint and origin placement. Remove
+    // the interactive rectangle's starter paint so operation queries select
+    // the text branch being qualified.
+    definition
+        .nodes
+        .retain(|n| n.operation != "fold.motion.fill");
     let placement = definition
         .nodes
         .iter_mut()
@@ -47,6 +53,15 @@ fn fixture() -> Construction {
         .unwrap();
     placement.parameters.get_mut("geometry").unwrap().value =
         serde_json::to_value(link(stroke.id)).unwrap();
+    placement.parameters.get_mut("position").unwrap().value =
+        serde_json::to_value(Binding::Literal {
+            value: Literal::Vector {
+                value: vec![0., 0.],
+                unit: Unit::Canvas,
+                space: fold_motion::types::Space::Screen,
+            },
+        })
+        .unwrap();
     let scene = definition
         .nodes
         .iter_mut()
@@ -2454,4 +2469,95 @@ fn camera_plane_preparation_preserves_text_paths_paint_snapshot_and_pass_order()
         ),
         Err(rendering::Error::Cancelled)
     ));
+}
+
+#[test]
+fn native_stroke_round_joins_change_screen_pixels_and_shared_planar_meshes() {
+    use fold_motion::{rendering, types::Space};
+    let mut c =
+        Construction::from_document(&fold_motion::package::create(DocumentId::new()).unwrap())
+            .unwrap();
+    c.canvas.width = 160;
+    c.canvas.height = 160;
+    let shape = node("shape", "rectangle", "Rectangle", vec![]);
+    let stroke = node(
+        "stroke",
+        "solid_centered_butt_miter",
+        "Stroke",
+        vec![
+            ("geometry", link(shape.id)),
+            (
+                "width",
+                Binding::Literal {
+                    value: Literal::Distance {
+                        value: 20.,
+                        unit: Unit::Canvas,
+                    },
+                },
+            ),
+        ],
+    );
+    let place = node(
+        "place",
+        "screen",
+        "Place",
+        vec![
+            ("geometry", link(stroke.id)),
+            (
+                "position",
+                Binding::Literal {
+                    value: Literal::Vector {
+                        value: vec![30., 30.],
+                        unit: Unit::Canvas,
+                        space: Space::Screen,
+                    },
+                },
+            ),
+        ],
+    );
+    let scene = node(
+        "scene",
+        "ordered",
+        "Scene",
+        vec![(
+            "children",
+            Binding::List {
+                values: vec![link(place.id)],
+            },
+        )],
+    );
+    c.definitions[0].outputs[0].value = Reference::Node { node: scene.id }.into();
+    c.definitions[0].nodes = vec![shape, stroke, place, scene];
+    let mut pixels = vec![];
+    for mode in ["solid_centered_butt_miter", "solid_centered_round_round"] {
+        c.definitions[0].nodes[1].mode = mode.into();
+        let (project, id) = render_snapshot(&c);
+        let frame = rendering::screen(
+            &project.snapshot(),
+            id,
+            c.definitions[0].outputs[0].id,
+            Time::ZERO,
+            [160, 160],
+            Default::default(),
+            &|| Ok(()),
+        )
+        .unwrap();
+        let drawing = frame.drawings[0].clone();
+        let mesh = fold_render::spatial::planar::Cache::default()
+            .prepare_with(&drawing, 1., &mut || Ok(()))
+            .unwrap()
+            .stroke
+            .unwrap();
+        let frame = fold_render::render(fold_render::RenderGraph {
+            width: 160,
+            height: 160,
+            nodes: vec![fold_render::ImageOp::Vector(frame.drawings)],
+            output: 0,
+        })
+        .unwrap();
+        pixels.push((frame.pixels()[21 * 160 + 21][3], mesh.positions.len()));
+    }
+    assert_eq!(pixels[0].0, 1.);
+    assert_eq!(pixels[1].0, 0.);
+    assert_ne!(pixels[0].1, pixels[1].1);
 }

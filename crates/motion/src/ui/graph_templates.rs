@@ -42,7 +42,10 @@ pub(super) fn add(asset: &mut Definition, template: &str) -> Result<Vec<ObjectId
                 },
             );
         }
-        Builtin::InstanceScale | Builtin::InstanceColor | Builtin::InstanceRotationZ => {
+        Builtin::TransformInstances
+        | Builtin::InstanceScale
+        | Builtin::InstanceColor
+        | Builtin::InstanceRotationZ => {
             let template = serde_json::to_string(&("fold.motion.cloner", 1, "points"))
                 .map_err(|e| e.to_string())?;
             ids = add(asset, &template)?;
@@ -115,6 +118,7 @@ pub(super) fn add(asset: &mut Definition, template: &str) -> Result<Vec<ObjectId
                             time: Time::ZERO,
                             value: Literal::Scalar { value: 0. },
                             interpolation: Interpolation::Linear,
+                            handles: Default::default(),
                             extensions: Default::default(),
                         }],
                         combination: Combination::Replace,
@@ -144,9 +148,16 @@ pub(super) fn add(asset: &mut Definition, template: &str) -> Result<Vec<ObjectId
                 },
             );
         }
-        Builtin::Screen
+        Builtin::TransformScreen
+        | Builtin::TransformMesh
+        | Builtin::Tessellate
+        | Builtin::ExtrudeProfile
+        | Builtin::Screen
         | Builtin::Fill
         | Builtin::Stroke
+        | Builtin::StrokeButtRound
+        | Builtin::StrokeRoundMiter
+        | Builtin::StrokeRoundRound
         | Builtin::SpatialScene
         | Builtin::OutlineText
         | Builtin::TextAnimatorWords => {
@@ -155,8 +166,22 @@ pub(super) fn add(asset: &mut Definition, template: &str) -> Result<Vec<ObjectId
                 Builtin::OutlineText | Builtin::TextAnimatorWords
             ) {
                 ("fold.motion.text", "packaged", "Text", "text")
+            } else if operation.builtin == Builtin::TransformMesh {
+                ("fold.motion.mesh", "box", "Box", "geometry")
             } else if operation.builtin != Builtin::SpatialScene {
-                ("fold.motion.shape", "rectangle", "Rectangle", "geometry")
+                (
+                    "fold.motion.shape",
+                    "rectangle",
+                    "Rectangle",
+                    if matches!(
+                        operation.builtin,
+                        Builtin::Tessellate | Builtin::ExtrudeProfile
+                    ) {
+                        "profile"
+                    } else {
+                        "geometry"
+                    },
+                )
             } else {
                 (
                     "fold.motion.camera",
@@ -249,5 +274,43 @@ fn unique(asset: &Definition, node: &mut Node) {
     while names.contains(node.name.as_str()) {
         node.name = format!("{stem} {suffix}");
         suffix += 1;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn m5_geometry_starters_are_valid_native_constructions() {
+        for (key, mode) in [
+            ("stroke", "solid_centered_butt_round"),
+            ("stroke", "solid_centered_round_miter"),
+            ("stroke", "solid_centered_round_round"),
+            ("transform", "screen"),
+            ("transform", "world_mesh"),
+            ("transform", "world_instances"),
+            ("tessellate", "planar"),
+            ("extrude", "closed_profile"),
+        ] {
+            let document = crate::package::create(fold_foundation::DocumentId::new()).unwrap();
+            let mut construction = crate::model::Construction::from_document(&document).unwrap();
+            let asset = &mut construction.definitions[0];
+            let template = serde_json::to_string(&(format!("fold.motion.{key}"), 1, mode)).unwrap();
+            let ids = add(asset, &template).unwrap();
+            asset.outputs[0].ty = Type::Geometry;
+            asset.outputs[0].value = Reference::Node {
+                node: *ids.last().unwrap(),
+            }
+            .into();
+            let output = asset.outputs[0].id;
+            let prepared = crate::evaluation::Prepared::new(construction).unwrap();
+            assert!(matches!(
+                prepared
+                    .evaluate(output, Time::ZERO, Default::default(), &|| Ok(()))
+                    .unwrap(),
+                crate::evaluation::Value::Geometry(_)
+            ));
+        }
     }
 }

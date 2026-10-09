@@ -147,6 +147,7 @@ fn fixture() -> Construction {
                             time: Time::new(n, 2).unwrap(),
                             value: Literal::Scalar { value },
                             interpolation: Interpolation::Linear,
+                            handles: Default::default(),
                             extensions: Metadata::new(),
                         })
                         .collect(),
@@ -1571,6 +1572,7 @@ fn native_merge_orders_independent_insertions_and_keeps_unknown_payloads_atomic(
                 time,
                 value: Literal::Scalar { value },
                 interpolation: Interpolation::Linear,
+                handles: Default::default(),
                 extensions: Metadata::new(),
             },
         );
@@ -2277,7 +2279,7 @@ fn native_curve_projection_preserves_fractional_times_ids_units_and_extensions()
 }
 
 #[test]
-fn native_curve_edits_reject_retargeting_locks_and_unsupported_interpolation() {
+fn native_curve_edits_preserve_bezier_and_reject_retargeting_locks_and_invalid_tangents() {
     let mut before = fixture();
     before.definitions[0].nodes[1]
         .parameters
@@ -2291,6 +2293,12 @@ fn native_curve_edits_reject_retargeting_locks_and_unsupported_interpolation() {
     let channels = fold_motion::keyed::channels(&before, None).unwrap();
     let mut changed = channels.clone();
     changed[0].curve.keys[0].interpolation = fold_animation::Interpolation::Bezier;
+    let bezier = fold_motion::keyed::replace(&before, &changed).unwrap();
+    assert_eq!(
+        fold_motion::keyed::channels(&bezier, None).unwrap(),
+        changed
+    );
+    changed[0].curve.keys[0].outgoing.fraction = 0.75;
     assert!(fold_motion::keyed::replace(&before, &changed).is_err());
     changed = channels.clone();
     changed[0].property = "other".into();
@@ -2506,6 +2514,7 @@ fn override_tracks_sample_parent_time_before_child_clock() {
                     value: n as f64 * 100.,
                 },
                 interpolation: Interpolation::Linear,
+                handles: Default::default(),
                 extensions: Metadata::new(),
             })
             .collect(),

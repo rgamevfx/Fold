@@ -1,6 +1,7 @@
 //! Authoring operations independent of storage order, canvas position, or UI.
-use crate::{Composite, Node, Parameters, PortType};
+use crate::{Composite, Node, Parameters};
 use fold_foundation::ObjectId;
+use fold_graph::types::Type;
 use std::collections::{BTreeMap, BTreeSet};
 
 impl crate::Operator {
@@ -50,7 +51,7 @@ impl crate::Operator {
         }
     }
     pub fn output_key(&self) -> &'static str {
-        if self.output == PortType::Mask {
+        if self.output == Type::Mask {
             "mask"
         } else {
             "image"
@@ -69,7 +70,10 @@ impl Node {
         self.inputs
             .iter()
             .flatten()
-            .copied()
+            .filter_map(|edge| match edge.target {
+                fold_graph::model::Reference::Node { node } => Some(node),
+                _ => None,
+            })
             .chain(self.effect.mask)
     }
 
@@ -151,7 +155,7 @@ impl Composite {
                 {
                     needed.insert(mask);
                 }
-                for (slot, input) in n.inputs.iter().enumerate() {
+                for (slot, input) in n.input_ids().iter().enumerate() {
                     if input.is_none() && n.parameters.operator().optional_input(slot) {
                         continue;
                     }
@@ -178,11 +182,11 @@ impl Composite {
         if matches!(source_node.parameters, Parameters::Output) {
             return Err("Output is a terminal node, not a source socket".into());
         }
-        let source_type = source_node.parameters.operator().output;
+        let source_type = source_node.parameters.operator().output.clone();
         let target_node = self.node(target)?;
         let op = target_node.parameters.operator();
         if port == "mask" && op.supports_effect() {
-            if !matches!(source_type, PortType::Image | PortType::Mask) {
+            if !matches!(source_type, Type::Image | Type::Mask) {
                 return Err("Mask requires an image".into());
             }
             let previous = self.node_mut(target)?.effect.mask.replace(source);
@@ -197,7 +201,7 @@ impl Composite {
             .find(|i| parameters.input_key(*i) == port)
             .ok_or("unknown input port")?;
         if source_type != parameters.input_type(slot)
-            && !(parameters.input_type(slot) == PortType::Mask && source_type == PortType::Image)
+            && !(parameters.input_type(slot) == Type::Mask && source_type == Type::Image)
         {
             return Err(format!(
                 "{} requires {:?}, not {:?}",
@@ -206,7 +210,8 @@ impl Composite {
                 source_type
             ));
         }
-        let previous = self.node_mut(target)?.inputs[slot].replace(source);
+        let previous = self.node(target)?.inputs[slot].clone();
+        self.node_mut(target)?.set_input(slot, source)?;
         if let Err(error) = self.evaluation_order() {
             self.node_mut(target)?.inputs[slot] = previous;
             return Err(error);
@@ -235,7 +240,7 @@ impl Composite {
                 n.effect.mask = None;
             }
             for input in &mut n.inputs {
-                if input.is_some_and(|id| ids.contains(&id)) {
+                if input.as_ref().is_some_and(|edge| matches!(edge.target, fold_graph::model::Reference::Node { node } if ids.contains(&node))) {
                     *input = None;
                 }
             }
@@ -248,7 +253,7 @@ impl Composite {
         for id in self.evaluation_order()? {
             let n = self.node(id)?;
             let depth = n
-                .inputs
+                .input_ids()
                 .iter()
                 .flatten()
                 .map(|input| depths[input] + 1usize)

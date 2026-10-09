@@ -90,6 +90,7 @@ fn compile(request: VideoCompile<'_>) -> Result<ChannelGraph, String> {
     for id in composite.render_order()? {
         cancel.check()?;
         let node = composite.node(id)?;
+        let connections = node.input_ids();
         let parameters = node.evaluated_parameters(time)?;
         match &parameters {
             P::Input { id } => {
@@ -105,8 +106,7 @@ fn compile(request: VideoCompile<'_>) -> Result<ChannelGraph, String> {
             }
             P::Instance { instance, images } => {
                 if !instance.enabled {
-                    let source = node
-                        .inputs
+                    let source = connections
                         .first()
                         .and_then(|id| *id)
                         .ok_or("Bypass requires a source input")?;
@@ -114,7 +114,7 @@ fn compile(request: VideoCompile<'_>) -> Result<ChannelGraph, String> {
                     continue;
                 }
                 let mut bindings = BTreeMap::new();
-                for (port, input) in images.iter().zip(&node.inputs) {
+                for (port, input) in images.iter().zip(&connections) {
                     let image =
                         ids[&input.ok_or("Unconnected effect image")?].pack(&mut graph, RGBA)?;
                     bindings.insert(port.clone(), image);
@@ -241,15 +241,15 @@ fn compile(request: VideoCompile<'_>) -> Result<ChannelGraph, String> {
             continue;
         }
         if let P::Shuffle { mappings } = &parameters {
-            let mut channels = ids[&node.inputs[0].unwrap()].clone();
+            let mut channels = ids[&connections[0].unwrap()].clone();
             // All mappings read the original inputs, so swaps are simultaneous.
             for mapping in mappings {
                 let channel = match &mapping.source {
                     crate::ChannelSource::A(name) => {
-                        ids[&node.inputs[0].unwrap()].get(name.as_str())?
+                        ids[&connections[0].unwrap()].get(name.as_str())?
                     }
                     crate::ChannelSource::B(name) => ids
-                        [&node.inputs[1].ok_or("Shuffle: connect B for this mapping")?]
+                        [&connections[1].ok_or("Shuffle: connect B for this mapping")?]
                         .get(name.as_str())?,
                     crate::ChannelSource::Zero => Channel {
                         value: Value::Zero,
@@ -266,22 +266,27 @@ fn compile(request: VideoCompile<'_>) -> Result<ChannelGraph, String> {
             continue;
         }
         if let P::RemoveChannels { channels, keep } = &parameters {
-            let mut result = ids[&node.inputs[0].unwrap()].clone();
+            let mut result = ids[&connections[0].unwrap()].clone();
             result.retain(channels, *keep);
             ids.insert(id, result);
             continue;
         }
         if matches!(parameters, P::Output) {
-            ids.insert(id, ids[&node.inputs[0].unwrap()].clone());
+            ids.insert(id, ids[&connections[0].unwrap()].clone());
             continue;
         }
         if node.background_only_merge() {
-            let background = node.inputs[1].ok_or("Merge: connect 'background' input")?;
+            let background = connections[1].ok_or("Merge: connect 'background' input")?;
             ids.insert(id, ids[&background].clone());
             continue;
         }
         if parameters.operator().supports_effect() {
-            let inputs: Vec<_> = node.inputs.iter().flatten().map(|id| &ids[id]).collect();
+            let inputs: Vec<_> = node
+                .input_ids()
+                .iter()
+                .flatten()
+                .map(|id| &ids[id])
+                .collect();
             let mask = effect
                 .mask
                 .filter(|_| !effect.mask_disabled)
@@ -298,7 +303,7 @@ fn compile(request: VideoCompile<'_>) -> Result<ChannelGraph, String> {
             continue;
         }
         let mut packed = Vec::new();
-        for input in node.inputs.iter().flatten() {
+        for input in connections.iter().flatten() {
             packed.push(ids[input].pack(&mut graph, RGBA)?);
         }
         let input = |i: usize| packed[i];
@@ -460,8 +465,7 @@ fn compile(request: VideoCompile<'_>) -> Result<ChannelGraph, String> {
             };
         let result = graph.nodes.len();
         graph.nodes.push(op);
-        let mut channels = node
-            .inputs
+        let mut channels = connections
             .first()
             .and_then(|id| *id)
             .map(|id| ids[&id].clone())

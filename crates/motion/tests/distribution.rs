@@ -1469,7 +1469,44 @@ fn native_random_z_rotation_preserves_instances_and_reaches_render_transforms() 
             mutations: vec![Mutation::PutDocument(c.document(id).unwrap())],
         })
         .unwrap();
-    assert!(
-        matches!(rendering::spatial(&project.snapshot(), id, c.definitions[0].outputs[0].id, Time::ZERO, [640,360], Default::default(), &|| Ok(())), Err(rendering::Error::Invalid(message)) if message.contains("affine shear"))
-    );
+    let frame = rendering::spatial(
+        &project.snapshot(),
+        id,
+        c.definitions[0].outputs[0].id,
+        Time::ZERO,
+        [640, 360],
+        Default::default(),
+        &|| Ok(()),
+    )
+    .unwrap();
+    let fold_motion::evaluation::placement::Transform::World(world) =
+        &frame.native.entries[0].placement.transform
+    else {
+        panic!()
+    };
+    let GeometryData::Instances(collection) = &frame.native.entries[0].placement.geometry.data
+    else {
+        panic!()
+    };
+    assert_eq!(frame.scene.instances.len(), collection.instances.len());
+    for (rendered, native) in frame.scene.instances.iter().zip(&collection.instances) {
+        let matrix = rendered
+            .transform
+            .affine
+            .expect("nonuniform parent and rotated instance retain affine shear");
+        matrix.validate().unwrap();
+        let (sin, cos) = native.rotation_z.sin_cos();
+        let expected = world.point([
+            native.position[0] + cos * native.scale,
+            native.position[1] + sin * native.scale,
+            native.position[2],
+        ]);
+        assert!(
+            matrix
+                .point([1., 0., 0.])
+                .into_iter()
+                .zip(expected)
+                .all(|(a, b)| (a - b).abs() < 1e-10)
+        );
+    }
 }

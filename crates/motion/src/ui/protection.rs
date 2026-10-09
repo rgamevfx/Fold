@@ -104,6 +104,27 @@ pub(super) fn unlock(host: &mut dyn DesktopClient, state: &mut State, id: Object
     let Some(document) = state.document else {
         return;
     };
+    if let Some(object) = state.object {
+        let before = host.snapshot();
+        let expected = before
+            .as_ref()
+            .and_then(|s| s.state().documents.get(&document))
+            .and_then(|d| crate::scene::package::unlock_graph(d, object, &[id]).ok())
+            .and_then(|d| super::state::scoped_graph(&d, Some(object)).ok());
+        host.command(DesktopCommand::UnlockControls {
+            document,
+            object: Some(object),
+            targets: vec![id],
+            base: state.base,
+        });
+        state.sync(host);
+        if expected.is_some() && state.construction == expected {
+            state.error.clear();
+        } else {
+            state.error = format!("Control was not unlocked. {}", host.state().status);
+        }
+        return;
+    }
     let expected = host
         .snapshot()
         .filter(|s| s.revision() == state.base)
@@ -117,6 +138,7 @@ pub(super) fn unlock(host: &mut dyn DesktopClient, state: &mut State, id: Object
         .and_then(|document| Construction::from_document(&document).ok());
     host.command(DesktopCommand::UnlockControls {
         document,
+        object: None,
         targets: vec![id],
         base: state.base,
     });

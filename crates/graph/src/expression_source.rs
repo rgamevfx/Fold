@@ -60,7 +60,7 @@ pub fn parse(
     Ok(parsed)
 }
 /// Parse one expression within a larger native declaration, stopping at its delimiter.
-pub(crate) fn parse_prefix(
+pub fn parse_prefix(
     source: &str,
     resolve: &mut impl FnMut(&str) -> Result<Reference, String>,
 ) -> Result<(Parsed, usize), Diagnostic> {

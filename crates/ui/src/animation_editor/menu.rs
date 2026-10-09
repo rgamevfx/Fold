@@ -15,10 +15,19 @@ impl Editor {
         let _disabled = self.selected.is_empty().then(|| ui.begin_disabled());
         for (label, interpolation) in [
             ("Hold", Interpolation::Hold),
+            ("Hold next", Interpolation::HoldNext),
             ("Linear", Interpolation::Linear),
             ("Bézier", Interpolation::Bezier),
         ] {
-            if self.linear_only && interpolation == Interpolation::Bezier {
+            if interpolation == Interpolation::Bezier
+                && (self.linear_only
+                    || channels.iter().any(|c| {
+                        c.curve
+                            .keys
+                            .iter()
+                            .any(|k| k.rotation.is_some() && self.selected.contains(&k.id))
+                    }))
+            {
                 continue;
             }
             if ui.menu_item(label) {
@@ -33,7 +42,14 @@ impl Editor {
                 response.edit.finished = true;
             }
         }
-        if !self.linear_only {
+        if !self.linear_only
+            && !channels.iter().any(|c| {
+                c.curve
+                    .keys
+                    .iter()
+                    .any(|k| k.rotation.is_some() && self.selected.contains(&k.id))
+            })
+        {
             for (label, tangents) in [
                 ("Automatic tangents", Tangents::Auto),
                 ("Linked tangents", Tangents::Linked),

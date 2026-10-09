@@ -50,6 +50,17 @@ fn fixture() -> Construction {
         .find(|n| n.operation == "fold.motion.shape")
         .unwrap()
         .id;
+    // The style oracle compares an explicitly unpainted branch against styled
+    // branches; interactive starters now include their own visible fill.
+    definition
+        .nodes
+        .iter_mut()
+        .find(|n| n.operation == "fold.motion.place")
+        .unwrap()
+        .parameters
+        .get_mut("geometry")
+        .unwrap()
+        .value = serde_json::to_value(link(shape)).unwrap();
     let tween = node(
         "tween",
         "linear",
@@ -212,4 +223,107 @@ fn invalid_stroke_width_reports_native_operation_and_wrong_units_fail_types() {
         .unwrap(),
     );
     assert!(Prepared::new(invalid).is_err());
+}
+
+#[test]
+fn stroke_choices_survive_source_and_reach_vector_preparation() {
+    use fold_motion::evaluation::style::StrokeMode;
+    use fold_render::vector::{Cap, Join};
+    for (mode, retained, cap, join) in [
+        (
+            "solid_centered_butt_miter",
+            StrokeMode::SolidCenteredButtMiter,
+            Cap::Butt,
+            Join::Miter,
+        ),
+        (
+            "solid_centered_butt_round",
+            StrokeMode::SolidCenteredButtRound,
+            Cap::Butt,
+            Join::Round,
+        ),
+        (
+            "solid_centered_round_miter",
+            StrokeMode::SolidCenteredRoundMiter,
+            Cap::Round,
+            Join::Miter,
+        ),
+        (
+            "solid_centered_round_round",
+            StrokeMode::SolidCenteredRoundRound,
+            Cap::Round,
+            Join::Round,
+        ),
+    ] {
+        let mut c = fixture();
+        c.definitions[0]
+            .nodes
+            .iter_mut()
+            .find(|n| n.operation == "fold.motion.stroke")
+            .unwrap()
+            .mode = mode.into();
+        let restored = source::parse(&source::canonical(&c).unwrap())
+            .unwrap()
+            .construction;
+        assert_eq!(restored, c);
+        let Value::Scene(scene) = evaluate(&restored, Time::ZERO).unwrap() else {
+            panic!()
+        };
+        let stroke = scene.entries[2]
+            .placement
+            .geometry
+            .appearance
+            .stroke
+            .as_ref()
+            .unwrap();
+        assert_eq!(stroke.mode, retained);
+        assert_eq!(stroke.mode.cap(), cap);
+        assert_eq!(stroke.mode.join(), join);
+    }
+}
+
+#[test]
+fn native_cap_choice_changes_open_path_endpoint_coverage() {
+    use fold_render::vector::{Drawing, Segment, Stroke};
+    let mut alpha = vec![];
+    for mode in ["solid_centered_butt_miter", "solid_centered_round_miter"] {
+        let mut c = fixture();
+        c.definitions[0]
+            .nodes
+            .iter_mut()
+            .find(|n| n.operation == "fold.motion.stroke")
+            .unwrap()
+            .mode = mode.into();
+        let Value::Scene(scene) = evaluate(&c, Time::ZERO).unwrap() else {
+            panic!()
+        };
+        let s = scene.entries[2]
+            .placement
+            .geometry
+            .appearance
+            .stroke
+            .as_ref()
+            .unwrap();
+        let drawing = Drawing {
+            path: Arc::new(vec![Segment::Move([20., 20.]), Segment::Line([40., 20.])]),
+            transform: [1., 0., 0., 1., 0., 0.],
+            fill: None,
+            stroke: Some(Stroke {
+                width: 10.,
+                color: s.color.value,
+                cap: s.mode.cap(),
+                join: s.mode.join(),
+            }),
+            even_odd: false,
+        };
+        let image = fold_render::render(fold_render::RenderGraph {
+            width: 64,
+            height: 40,
+            nodes: vec![fold_render::ImageOp::Vector(Arc::new(vec![drawing]))],
+            output: 0,
+        })
+        .unwrap();
+        alpha.push(image.pixels()[20 * 64 + 17][3]);
+    }
+    assert_eq!(alpha, [0., 1.]);
 }

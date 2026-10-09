@@ -338,7 +338,10 @@ fn composition_exposes_compositor_keys_without_network_editor() {
     let mut curve = fold_animation::Curve::default();
     curve.insert(Time::ZERO, 0.2);
     curve.insert(Time::new(1, 1).unwrap(), 0.8);
-    graph.nodes[0].animation.insert("color.3".into(), curve);
+    graph.nodes[0]
+        .animation
+        .insert("color.3".into(), curve)
+        .unwrap();
     put(&mut project, vec![graph.document(source.document).unwrap()]);
     let mut channels = packages::builtins()
         .animation_channels(
@@ -357,7 +360,16 @@ fn composition_exposes_compositor_keys_without_network_editor() {
         &project.snapshot().state().documents[&source.document],
     )
     .unwrap();
-    assert_eq!(edited.nodes[0].animation["color.3"].keys[0].value, 0.4);
+    assert_eq!(
+        edited.nodes[0]
+            .animation
+            .curve("color.3")
+            .unwrap()
+            .unwrap()
+            .keys[0]
+            .value,
+        0.4
+    );
 }
 
 #[test]
@@ -390,4 +402,294 @@ fn composition_auto_key_is_shared_with_graph_inspector_contexts() {
     drop(scoped);
     let graph = PanelContext::new(&mut host, &mut editor);
     assert!(graph.state().auto_key);
+}
+
+#[test]
+fn scene_creation_is_atomic_and_rejects_the_retired_motion_layer_command() {
+    let kinds = packages::builtins().document_kinds();
+    assert!(
+        !kinds
+            .iter()
+            .any(|kind| kind.type_id == fold_motion::CONSTRUCTION)
+    );
+    assert!(
+        kinds
+            .iter()
+            .any(|kind| kind.type_id == fold_motion::scene::TYPE)
+    );
+    let mut project = Project::new(32);
+    let id = DocumentId::new();
+    let mut composition = Composition::default();
+    composition.info.width = 320;
+    composition.info.height = 180;
+    composition.info.rate = [24000, 1001];
+    composition.info.frames = 96;
+    put(&mut project, vec![composition.document(id).unwrap()]);
+    let before = project.snapshot();
+    assert!(
+        workflow::add(
+            &before,
+            &serde_json::to_vec(&serde_json::json!({"document":id,"kind":"motion"})).unwrap(),
+            &Default::default()
+        )
+        .is_err()
+    );
+    apply(
+        &mut project,
+        workflow::ADD,
+        serde_json::json!({"document":id,"kind":"scene"}),
+    );
+    let created = project.snapshot();
+    let current = Composition::from_document(&created.state().documents[&id]).unwrap();
+    assert_eq!(current.layers.len(), 1);
+    let Some(Source::Output(output)) = &current.layers[0].source else {
+        panic!()
+    };
+    let scene =
+        fold_motion::scene::Scene::from_document(&created.state().documents[&output.document])
+            .unwrap();
+    assert_eq!([scene.canvas.width, scene.canvas.height], [320, 180]);
+    assert_eq!(scene.canvas.rate, composition.info.rate);
+    assert_eq!(scene.canvas.end, composition.info.time(96).unwrap());
+    assert_eq!(
+        *output,
+        packages::builtins()
+            .default_output(&created, output.document)
+            .unwrap()
+    );
+    assert_eq!(scene.objects.len(), 3);
+    project.undo().unwrap();
+    assert_eq!(
+        project.snapshot().state().documents,
+        before.state().documents
+    );
+    assert_eq!(
+        project.snapshot().state().organization,
+        before.state().organization
+    );
+    project.redo().unwrap();
+    assert_eq!(
+        project.snapshot().state().documents,
+        created.state().documents
+    );
+}
+
+#[test]
+fn scene_layers_keep_object_graphs_and_animation_through_undo_and_save() {
+    use fold_motion::{
+        binding::{Binding, Track},
+        scene::{Scene, package as scene_package},
+        types::Literal,
+    };
+    let id = DocumentId::new();
+    let mut project = Project::new(32);
+    let mut composition = Composition::default();
+    composition.info.width = 160;
+    composition.info.height = 90;
+    composition.info.rate = [24000, 1001];
+    composition.info.frames = 48;
+    put(&mut project, vec![composition.document(id).unwrap()]);
+    for kind in ["scene", "image", "scene"] {
+        apply(
+            &mut project,
+            workflow::ADD,
+            serde_json::json!({"document":id,"kind":kind}),
+        );
+    }
+    let snapshot = project.snapshot();
+    let c = Composition::from_document(&snapshot.state().documents[&id]).unwrap();
+    assert_eq!(c.layers.len(), 3);
+    let Source::Output(foreground) = c.layers[0].source.as_ref().unwrap() else {
+        panic!()
+    };
+    let Source::Output(background) = c.layers[2].source.as_ref().unwrap() else {
+        panic!()
+    };
+    let mut scene =
+        Scene::from_document(&snapshot.state().documents[&foreground.document]).unwrap();
+    assert_ne!(foreground.document, background.document);
+    assert_eq!(scene.canvas.rate, [24000, 1001]);
+    scene.objects[2].scale = Binding::Track {
+        track: Track::constant(
+            Literal::Scalar { value: 1. },
+            Time::new(1001, 24000).unwrap(),
+        )
+        .unwrap(),
+    };
+    let object = scene.objects[2].id;
+    apply(
+        &mut project,
+        fold_motion::scene::EDIT,
+        serde_json::to_value(scene_package::EditArgs {
+            document: foreground.document,
+            scene: scene.clone(),
+        })
+        .unwrap(),
+    );
+    let mut channels = packages::builtins()
+        .animation_channels(
+            &project.snapshot().state().documents[&foreground.document],
+            Some(object),
+        )
+        .unwrap();
+    channels[0].curve.keys[0].value = 2.;
+    let before = project.snapshot();
+    apply(
+        &mut project,
+        fold_composition::package::EDIT,
+        serde_json::to_value(fold_composition::package::EditArgs {
+            document: id,
+            composition: c.clone(),
+            graph_animation: vec![fold_composition::package::GraphAnimationEdit {
+                layer: c.layers[0].id,
+                channels,
+                time: Time::ZERO,
+            }],
+        })
+        .unwrap(),
+    );
+    let after = project.snapshot();
+    let changed = Scene::from_document(&after.state().documents[&foreground.document]).unwrap();
+    assert_eq!(changed.objects[2].graph, scene.objects[2].graph);
+    assert_eq!(
+        after.state().documents[&background.document],
+        before.state().documents[&background.document]
+    );
+    assert_eq!(
+        packages::builtins()
+            .animation_channels(&after.state().documents[&foreground.document], Some(object))
+            .unwrap()[0]
+            .curve
+            .keys[0]
+            .value,
+        2.
+    );
+    project.undo().unwrap();
+    assert_eq!(
+        Scene::from_document(&project.snapshot().state().documents[&foreground.document]).unwrap(),
+        scene
+    );
+    project.redo().unwrap();
+    let folder = tempfile::tempdir().unwrap();
+    let path = folder.path().join("mixed-scene.fold");
+    fold_project::save(&project.snapshot(), &path).unwrap();
+    let loaded = fold_project::load(&path, 32).unwrap();
+    assert_eq!(
+        loaded.snapshot().state().documents,
+        project.snapshot().state().documents
+    );
+    apply(
+        &mut project,
+        fold_platform::hierarchy::EDIT,
+        serde_json::json!({"document":foreground.document,"edits":[{"op":"rename","object":object,"name":"Foreground title"}]}),
+    );
+    assert_eq!(
+        Scene::from_document(&project.snapshot().state().documents[&foreground.document])
+            .unwrap()
+            .object(object)
+            .unwrap()
+            .name,
+        "Foreground title"
+    );
+    assert_eq!(
+        Composition::from_document(&project.snapshot().state().documents[&id])
+            .unwrap()
+            .layers
+            .len(),
+        3
+    );
+}
+
+#[test]
+fn repeated_scene_occurrences_cannot_conflict_on_a_coupled_vector_key() {
+    use fold_motion::{
+        binding::{Binding, Track},
+        scene::{Scene, package},
+        types::{Literal, Space, Unit},
+    };
+    let id = DocumentId::new();
+    let source = DocumentId::new();
+    let mut composition = Composition::default();
+    let mut scene = Scene::from_document(
+        &package::create(
+            source,
+            fold_motion::model::Canvas {
+                width: 1920,
+                height: 1080,
+                rate: [24, 1],
+                start: Time::ZERO,
+                end: Time::new(5, 1).unwrap(),
+                extensions: Default::default(),
+            },
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    let object = scene.objects[2].id;
+    scene.objects[2].position = Binding::Track {
+        track: Track::constant(
+            Literal::Vector {
+                value: vec![0.; 3],
+                unit: Unit::Meters,
+                space: Space::World,
+            },
+            Time::ZERO,
+        )
+        .unwrap(),
+    };
+    for name in ["First", "Second"] {
+        composition.layers.push(
+            Layer::new(
+                name,
+                Some(Source::Output(DocumentRef {
+                    document: source,
+                    output: scene.output.to_string(),
+                    extensions: Default::default(),
+                })),
+                composition.info.clone(),
+            )
+            .unwrap(),
+        );
+    }
+    let mut project = Project::new(16);
+    put(
+        &mut project,
+        vec![
+            scene.document(source).unwrap(),
+            composition.document(id).unwrap(),
+        ],
+    );
+    let mut channels = packages::builtins()
+        .animation_channels(&project.snapshot().state().documents[&source], Some(object))
+        .unwrap();
+    channels[0].curve.keys[0].time = Time::new(1, 2).unwrap();
+    channels[1].curve.keys[0].time = Time::new(1, 3).unwrap();
+    let arguments = fold_composition::package::EditArgs {
+        document: id,
+        composition: composition.clone(),
+        graph_animation: vec![
+            fold_composition::package::GraphAnimationEdit {
+                layer: composition.layers[0].id,
+                channels: vec![channels[0].clone()],
+                time: Time::ZERO,
+            },
+            fold_composition::package::GraphAnimationEdit {
+                layer: composition.layers[1].id,
+                channels: vec![channels[1].clone()],
+                time: Time::ZERO,
+            },
+        ],
+    };
+    let before = project.snapshot();
+    let error = stage(
+        &project,
+        fold_composition::package::EDIT,
+        serde_json::to_value(arguments).unwrap(),
+    )
+    .unwrap_err();
+    assert!(error.contains("conflicting timing"), "{error}");
+    assert_eq!(
+        project.snapshot().state().documents,
+        before.state().documents
+    );
 }

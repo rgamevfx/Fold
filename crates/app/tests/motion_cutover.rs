@@ -129,13 +129,17 @@ fn compositor_remains_renderable_with_transaction_history() {
 #[test]
 fn native_motion_opens_for_editing_with_its_named_video_output() {
     use fold_platform::desktop::{DesktopClient, DesktopCommand, ViewLocation};
-    let mut session = fold_app::session::Session::default();
-    session.command(DesktopCommand::Browser(
-        fold_platform::browser::BrowserCommand::Create {
-            kind: fold_motion::CONSTRUCTION.into(),
-            parent: fold_project::Parent::Root,
-        },
-    ));
+    // Existing native graph files remain editable; the removed Motion creation
+    // affordance is not used to seed this document-provider regression.
+    let mut project = Project::new(16);
+    let graph = fold_motion::package::create(DocumentId::new()).unwrap();
+    project
+        .commit(EditBatch {
+            base: project.snapshot().revision(),
+            mutations: vec![Mutation::PutDocument(graph)],
+        })
+        .unwrap();
+    let mut session = fold_app::session::Session::new(project);
     let snapshot = session.snapshot().unwrap();
     let document = snapshot
         .state()
@@ -204,13 +208,17 @@ fn native_motion_opens_for_editing_with_its_named_video_output() {
 #[test]
 fn artist_unlock_uses_local_desktop_route_and_one_undo_entry() {
     use fold_platform::desktop::{DesktopClient, DesktopCommand};
-    let mut session = fold_app::session::Session::default();
-    session.command(DesktopCommand::Browser(
-        fold_platform::browser::BrowserCommand::Create {
-            kind: fold_motion::CONSTRUCTION.into(),
-            parent: fold_project::Parent::Root,
-        },
-    ));
+    // Existing native graph files remain editable; the removed Motion creation
+    // affordance is not used to seed this document-provider regression.
+    let mut project = Project::new(16);
+    let graph = fold_motion::package::create(DocumentId::new()).unwrap();
+    project
+        .commit(EditBatch {
+            base: project.snapshot().revision(),
+            mutations: vec![Mutation::PutDocument(graph)],
+        })
+        .unwrap();
+    let mut session = fold_app::session::Session::new(project);
     let snapshot = session.snapshot().unwrap();
     let document = snapshot
         .state()
@@ -235,6 +243,7 @@ fn artist_unlock_uses_local_desktop_route_and_one_undo_entry() {
     ));
     let base = session.snapshot().unwrap().revision();
     session.command(DesktopCommand::UnlockControls {
+        object: None,
         document: id,
         targets: vec![control],
         base,
@@ -258,6 +267,7 @@ fn artist_unlock_uses_local_desktop_route_and_one_undo_entry() {
     );
     let current = session.snapshot().unwrap().revision();
     session.command(DesktopCommand::UnlockControls {
+        object: None,
         document: id,
         targets: vec![control],
         base,

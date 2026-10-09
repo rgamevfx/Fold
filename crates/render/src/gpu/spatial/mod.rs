@@ -10,6 +10,7 @@
 mod depth;
 use super::{GpuFrame, Host, Statistics, host, precision, validation::Completion};
 pub use crate::spatial::*;
+use b::IntoScheduleConfigs;
 use bevy::{
     asset::RenderAssetUsages,
     camera::{Exposure, ManualTextureViewHandle, RenderTarget},
@@ -31,6 +32,15 @@ use bevy::{
     time::TimeUpdateStrategy,
 };
 pub use depth::Depth;
+#[derive(b::Component)]
+struct ExactTransform(b::Mat4);
+fn exact_transforms(
+    mut entities: b::Query<(&ExactTransform, &mut b::GlobalTransform), b::Changed<ExactTransform>>,
+) {
+    for (matrix, mut global) in &mut entities {
+        *global = b::GlobalTransform::from(matrix.0);
+    }
+}
 use fold_foundation::ObjectId;
 use std::{
     collections::BTreeMap,
@@ -152,6 +162,12 @@ impl Adapter {
             bevy::core_pipeline::CorePipelinePlugin,
             bevy::pbr::PbrPlugin::default(),
         ));
+        app.add_systems(
+            b::PostUpdate,
+            exact_transforms
+                .after(bevy::transform::TransformSystems::Propagate)
+                .before(bevy::camera::visibility::VisibilitySystems::CheckVisibility),
+        );
         app.insert_resource(TimeUpdateStrategy::ManualDuration(Duration::ZERO));
         app.finish();
         app.cleanup();
@@ -403,7 +419,15 @@ impl Adapter {
             {
                 continue;
             }
+            let matrix = instance.transform.affine.unwrap_or_else(|| {
+                fold_foundation::affine::Affine::trs(
+                    instance.transform.translation.map(f64::from),
+                    instance.transform.rotation.map(f64::from),
+                    instance.transform.scale.map(f64::from),
+                )
+            });
             let components = (
+                ExactTransform(b::Mat4::from_cols_array_2d(&matrix.matrix_f32())),
                 b::Mesh3d(self.meshes[&instance.mesh].1.clone()),
                 b::MeshMaterial3d(self.materials[&instance.material].1.clone()),
                 b::Transform {

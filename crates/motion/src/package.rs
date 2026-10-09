@@ -10,13 +10,23 @@ pub const PANEL: &str = "fold.motion.native.editor";
 pub const INSPECTOR: &str = "fold.motion.native.inspector";
 pub const PANELS: &[PanelDescriptor] = &[
     PanelDescriptor {
+        id: "fold.motion.native.scene.network",
+        title: "Scene Network",
+        placement: PanelPlacement::Editor,
+    },
+    PanelDescriptor {
+        id: "fold.motion.native.scene.inspector",
+        title: "Scene Inspector",
+        placement: PanelPlacement::Inspector,
+    },
+    PanelDescriptor {
         id: PANEL,
-        title: "Motion",
+        title: "Network",
         placement: PanelPlacement::Editor,
     },
     PanelDescriptor {
         id: INSPECTOR,
-        title: "Motion Inspector",
+        title: "Inspector",
         placement: PanelPlacement::Inspector,
     },
 ];
@@ -49,6 +59,19 @@ fn edit(
 
 /// A useful editable starting point, built from the qualified native registry.
 pub fn create(id: DocumentId) -> Result<Document, String> {
+    create_for_canvas(
+        id,
+        Canvas {
+            width: 1920,
+            height: 1080,
+            rate: [24, 1],
+            start: Time::ZERO,
+            end: Time::new(5, 1).map_err(|e| e.to_string())?,
+            extensions: Default::default(),
+        },
+    )
+}
+pub fn create_for_canvas(id: DocumentId, canvas: Canvas) -> Result<Document, String> {
     let size = Input {
         id: ObjectId::new(),
         name: "Width".into(),
@@ -81,14 +104,36 @@ pub fn create(id: DocumentId) -> Result<Document, String> {
         ]
         .into(),
     )?;
-    let place = crate::registry::resolve("fold.motion.place", 1, "screen")?.node(
-        "Placement",
+    let fill = crate::registry::resolve("fold.motion.fill", 1, "solid")?.node(
+        "Rectangle fill",
         [(
             "geometry".into(),
             Binding::Link {
                 reference: Reference::Node { node: shape.id }.into(),
             },
         )]
+        .into(),
+    )?;
+    let place = crate::registry::resolve("fold.motion.place", 1, "screen")?.node(
+        "Placement",
+        [
+            (
+                "geometry".into(),
+                Binding::Link {
+                    reference: Reference::Node { node: fill.id }.into(),
+                },
+            ),
+            (
+                "position".into(),
+                Binding::Literal {
+                    value: Literal::Vector {
+                        value: vec![f64::from(canvas.width) / 2., f64::from(canvas.height) / 2.],
+                        unit: Unit::Canvas,
+                        space: Space::Screen,
+                    },
+                },
+            ),
+        ]
         .into(),
     )?;
     let scene = crate::registry::resolve("fold.motion.scene", 1, "ordered")?.node(
@@ -114,21 +159,14 @@ pub fn create(id: DocumentId) -> Result<Document, String> {
         id: ObjectId::new(),
         name: "Motion".into(),
         inputs: vec![size],
-        nodes: vec![shape, place, scene],
+        nodes: vec![shape, place, scene, fill],
         instances: vec![],
         outputs: vec![output],
         extensions: Default::default(),
     };
     let value = Construction {
         seed: 0,
-        canvas: Canvas {
-            width: 1920,
-            height: 1080,
-            rate: [24, 1],
-            start: Time::ZERO,
-            end: Time::new(5, 1).map_err(|e| e.to_string())?,
-            extensions: Default::default(),
-        },
+        canvas,
         root: Instance {
             id: ObjectId::new(),
             name: "Main".into(),
@@ -150,8 +188,12 @@ impl DocumentProvider for Documents {
     fn unlock_for_artist(
         &self,
         document: &Document,
+        object: Option<ObjectId>,
         targets: &[ObjectId],
     ) -> Result<Document, String> {
+        if object.is_some() {
+            return Err("Standalone graph unlock has no object scope".into());
+        }
         editing::unlock_document_for_artist(document, targets).map_err(|error| format!("{error:?}"))
     }
 
@@ -184,12 +226,6 @@ impl DocumentProvider for Documents {
     }
     fn validate(&self, document: &Document) -> Result<(), String> {
         Construction::from_document(document).map(|_| ())
-    }
-    fn browser_kind(&self) -> Option<fold_platform::browser::DocumentKind> {
-        Some(fold_platform::browser::DocumentKind {
-            type_id: crate::CONSTRUCTION,
-            title: "Motion",
-        })
     }
     fn create(&self, id: DocumentId) -> Result<Document, String> {
         create(id)
@@ -242,14 +278,23 @@ pub fn register(registry: &mut PackageRegistry) -> Result<(), String> {
             panels: PANELS,
             build: "native-motion-schema1-cpu1",
         },
-        documents: vec![Box::new(Documents)],
+        documents: vec![
+            Box::new(Documents),
+            Box::new(crate::scene::package::Documents),
+        ],
         commands: vec![CommandRegistration {
             id: EDIT,
             title: "Edit Motion construction",
             execution: Execution::Immediate,
             handler: edit,
-        }],
-        video: vec![Box::new(crate::video::Provider)],
+        }]
+        .into_iter()
+        .chain(crate::scene::package::commands())
+        .collect(),
+        video: vec![
+            Box::new(crate::video::Provider),
+            Box::new(crate::scene::video::Provider),
+        ],
         audio: vec![],
     })
 }

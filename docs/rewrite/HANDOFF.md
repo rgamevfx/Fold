@@ -1,124 +1,232 @@
-# Motion rewrite checkpoint — 8 October 2026
+# Motion rewrite checkpoint — 9 October 2026
 
 ## Resume here
 
-The user requested completion of **M0–M5**, then explicitly paused implementation
-to continue in a new session. This commit preserves work in progress; it does not
-claim those phases complete. Resume implementation when the user authorizes it.
-No build/test process was left running at the checkpoint.
+This is an **incomplete M5a checkpoint**, committed at the user's request. M3–M5
+and M5a still have open acceptance gates; M6 must not start. The user asked to
+finish all six remaining M5a areas and has not approved deferrals. They also
+explicitly rejected legacy project shims: no old engine/protocol aliases,
+migrations or execution fallbacks. Keep unsupported payloads opaque.
 
-Read, in order:
+The latest requested deliverable is a **new Make it move project using a
+Composition and Outliner**, with three separately editable layers/graphs:
 
-1. [Rewrite plan](../Motion_System_Rewrite_Plan.md): phase authority and evidence ledger.
-2. [Completion audit](m0-m5-completion-audit.md): remaining requirements, including the
-   frozen catalog obligations that the working demo does not satisfy.
-3. [Catalog](catalog.md) and [acceptance specification](acceptance.md), then relevant
-   sections of the [proposal](../Fold_Motion_Architecture_and_Node_Set_Proposal.md).
-4. Root `AGENTS.md`; `.agents/skills/fold-ui/SKILL.md` before UI work. Public artwork
-   workflows use `skills/fold/SKILL.md` and must not depend on reading Rust crates.
+1. A backdrop.
+2. A text reveal reading exactly **Make it move**.
+3. An array of randomly colored **spheres using Copy to Points**.
 
-M0 specification, M1 removal and M2 automated gates are recorded passed. M3 native
-services/protocol and much of M4/M5 work, but their complete gates remain open.
-The checkpoint contains the entire rewrite since `66ebb2ece465189a2f8dd3e415b38f63a62bdd6a`.
-Legacy deletions are intentional: restore historical source through Git only,
-never compatibility engines, SDK aliases or hidden fallback paths.
+Keep each graph small and direct. Do not expose parameters, add demonstration
+fixtures, or flatten all three into one graph. Preserve the existing demo.
+This requested project **has not been created**. It is an additional immediate
+artist fixture, not a waiver of the plan's mixed two-scene/compositor acceptance.
 
-## First implementation task: native Stroke choices
+Live public discovery on 9 October confirmed two missing capabilities:
 
-Only inspection was performed before the pause; **no Stroke changes were started**.
-Current native mode is `solid_centered_butt_miter`. The shared renderer already
-supports and GPU-tests round/butt caps and round/miter joins. Reuse it.
+- Wire v2 can inspect/edit native Construction documents, but cannot create a
+  Composition or author scene/Outliner objects through guarded public candidates.
+- The catalog offers Grid, Cloner (points), Random and Box, but no Sphere primitive.
 
-Relevant seams:
+Implement and qualify these capabilities, update the public Fold skill/examples,
+then author the new demo through public discovery → proposal → inspection → Apply
+→ observation → save. Do not bypass the gap with raw `.fold` payload edits or
+an alternate legacy protocol. Repository implementation may inspect Rust;
+artwork authoring must use public tools. No artwork edit was applied during the
+failed demo attempt; only discovery was performed.
 
-- `crates/motion/src/registry/style.rs`: operation mode/parameter contracts.
-- `crates/motion/src/evaluation/style.rs`: retained `StrokeMode`/appearance;
-  `evaluation.rs` calls `style::apply` with the builtin and arguments.
-- `crates/motion/src/rendering/{screen,plane}.rs`: both currently hardcode Butt/Miter.
-- `crates/motion/src/ui/graph_templates.rs`: registry-driven Stroke creation.
-- `crates/motion/tests/style.rs`, `tests/text.rs`, shared `text_gpu.rs`, and app
-  `motion_spatial.rs`: existing behavior and pixel oracles.
+### Current implementation and next seams
 
-Choose one native contract and carry it consistently through Source, discovery,
-evaluation/observations, UI and both rendering routes. Keep existing authored
-butt/miter behavior valid; this is a current operation, not a legacy engine alias.
-Qualify actual cap/join differences and persistence rather than only catalog counts.
+- `crates/graph`: shared typed graph records, bindings, tracks, expressions and
+  curve projections; the superseded Motion copies and standalone timeline are removed.
+- `crates/motion/src/scene*`, `ui/scene.rs`, shared `platform/hierarchy.rs`,
+  `ui/outliner.rs`, and `composition/src/ui/hierarchy.rs`: native scene hierarchy,
+  object graphs, shared selection/animation and Outliner/Composition rows.
+- `crates/foundation/src/{affine,rotation}.rs`, Motion/render adapters: affine
+  parenting and shared quaternion sampling. See the animation/parenting evidence.
+- Compositor schema 7 stores shared native tracks and image-input edges. Schema
+  1–6 readers are removed and opaque save/reopen is verified. Static `Parameters`,
+  operation/document authoring, effect-mask and reusable instance-control storage,
+  scoped source and public authoring still need the full replacement. Follow the
+  [28-operation inventory](m5a-compositor-inventory.md); retain valid image kernels.
+- `crates/app/src/agent/{wire,dispatch}.rs` and `dispatch/prepare.rs` remain tied
+  to Construction candidates. Scene-provider authoring functions alone do not
+  qualify scene creation, scoped candidates or atomic mixed-document public edits.
+- Add and qualify Sphere through the native registry/evaluator and renderer for
+  the new requested fixture; do not substitute boxes or raster images.
 
-Then address Transform with explicit pivot, public Tessellate, and general-profile
-Extrude with attribute transfer. Finish group-pivot/sampling-basis acceptance.
-The audit also retains M4 picking, resource/recovery, general transparency,
-rapid-edit presentation and physical artist gates. Do not redefine M5 around
-only the already-working integrated demo or silently move catalog duties to M7.
+### Validation and known limits
 
-## Recent results and important limitations
+Evidence is split by implementation scope:
+[foundation](evidence/m5a-foundation-result.md),
+[scene hierarchy](evidence/m5a-scene-result.md),
+[animation/parenting](evidence/m5a-animation-parenting-result.md), and
+[compositor records](evidence/m5a-compositor-native-records-result.md).
+Latest compositor checks: 36 tests including an offscreen capture; 15 app
+integration tests; subsequent protected-instance and opaque-payload regressions
+passed. Workspace/all-target/all-feature checks and package boundaries passed;
+Clippy completed with existing warnings. These are not a full green workspace
+test gate or physical artist acceptance.
 
-- Camera Plane text double coverage is fixed for the tested fixture by replacing
-  triangle subtraction with pinned `i_overlay` 4.4.1 contour extraction followed
-  by the shared Lyon tessellator. Old subtraction/BVH code was removed.
-- Typography Text/Outline equality, retained GPU frames, rectangle paint, World
-  occlusion, translated cross-camera views and shared oblique/near-clipping tests
-  pass. Follow linked evidence for exact coverage and tolerances; oblique depth
-  uses a documented subpixel ray interval, not the constant-depth epsilon alone.
-- `i_overlay` lacks cooperative cancellation inside synchronous graph operations.
-  Input/output/cache caps and before/after checks do not prove intermediate-memory
-  or worst-case cancellation-latency bounds. This remains a real implementation gap.
-- Default Motion conversion budget is 2,000,000 checkpoints per frame, explicitly
-  raised with user authorization. Geometry-size limits were not raised. The new
-  library's internal work is not represented by those checkpoints.
-- `demos/m5-integrated.py` uses actual public CLI/MCP discovery, proposals,
-  inspection, Apply, CPU observations and public saving. All 35 operations now
-  have authored graph positions. GPU-enabled runs add seven baseline frames and
-  variation/restoration frames; exact restored pixels are asserted.
-- Public frame time is half-open: the last demo frame is explicitly **95/24**,
-  while CPU observations and native image tests retain exact time **4**. Do not
-  claim a public frame was obtained at the excluded endpoint.
-- Native service handoff tests cover artist ramp/key/lock/layout edits and public
-  field/timing rebase, conflict, undo/redo and save/reopen. Physical artist
-  interaction and normal/narrow graph review are not proved by those tests.
+At this commit checkpoint, `cargo fmt --all -- --check`, `git diff --check`,
+`python3 scripts/check_boundaries.py`, and the offline workspace/all-target/
+all-feature Cargo check passed again. Full test suites were not repeated for
+this documentation/commit-only step.
 
-Current saved demo: `demos/m5-integrated.fold`; canonical public Source:
-`docs/rewrite/evidence/m5-integrated.foldsource`. These have the new layout.
-Latest public-frame reports use fresh IDs and have their own reviewed PNGs:
-`m5-public-baseline.png` / `m5-public-variation.png` in the evidence directory.
-Older captures must not be assigned to a newer artifact without verification.
-Large raw reports/logs live under `/tmp` and may disappear in a new session;
-committed evidence summaries and executable fixtures describe how to regenerate.
+The earlier full workspace run had failures involving media dimensions, untagged
+video profile expectations and media process capacity. A handoff deadline failed
+in the broad run but passed alone. Reconcile those recorded failures at the final
+checkpoint; do not erase or relabel them as passing. No profiling proves interactive
+performance yet. Current desktop builds are unoptimized dev builds using shared
+Vulkan rendering on the NVIDIA GTX 1070, not CPU-only 3D rendering.
 
-## Validation and environment
+The user permits **screenshots only**, no computer-use clicks, typing or dragging.
+No subagents were authorized. Leave any existing live windows/unsaved work intact.
 
-Use this profile to avoid huge debug builds:
+### Last launched sessions (temporary, rediscover before use)
+
+- Latest built desktop opened an editable copy at
+  `/tmp/fold-m5a-review-yglgvbtu/Make It Move.fold`.
+- A separate authoring window opened the same saved copy with a private v2 endpoint
+  `/tmp/fold-simple-demo-protocol/fold-session-OeDoE2/protocol.sock`.
+- Discovery was saved to `/tmp/fold-simple-demo-discovery.json`; it reported only
+  the existing native Construction document. Epochs/revisions and socket paths are
+  session-specific and must never be reused without discovery.
+- The checked-in `demos/m5-integrated.fold` remains the older flat 35-node demo.
+  Neither launched window contains the newly requested three-layer artwork.
+- `target/debug/fold-desktop` and `fold-cli` were rebuilt from this checkout.
+  Build environment and launcher are below. `/tmp` artifacts are not durable evidence.
+
+**Course correction:** The user subsequently requested the shared typed Compositing
+rewrite and unified scene/object authoring workflow recorded in
+[M5a](../Motion_System_Rewrite_Plan.md#m5a--shared-typed-graphs-scene-hierarchy-and-unified-authoring).
+Freeze those contracts during current M0–M5 work. The standalone Motion panel and
+flat whole-scene graph are not the target artist workflow. M6 now requires M5a
+acceptance as well as M5; the demo instructions below describe the current build,
+not acceptance of the corrected workflow.
+
+The user resumed M0–M5 implementation and requested a demo to test personally.
+**M0–M2 retain their recorded gates; M3–M5 are still not fully accepted.** Do not
+mark them complete from the working demo or the new catalog tests.
+
+## M5a continuation
+
+Shared typed primitives live in `fold-graph`. Scene/object documents, Outliner,
+per-object Network/source scopes and nested Composition rows are implemented.
+**Add Motion layer** and its creation command are removed; Project/Composition
+create **Scene**. Existing native Construction resources remain editable. The
+flat M5 demo is still an earlier fixture, not the final M5a artwork.
+
+The 9 October continuation adds affine nonuniform parenting, shared typed
+Bézier/quaternion curve projection, reverse and paused clock views, reusable
+occurrence/override tracks, and compact Inspector key controls. See
+[evidence](evidence/m5a-animation-parenting-result.md) for verification and limits.
+The earlier [scene evidence](evidence/m5a-scene-result.md) records its original scope.
+
+The next 9 October continuation replaces compositor animation storage with shared
+native parameter/track/key records and image inputs with shared edges, using
+schema 7 (schema 1–6 readers removed). See [native compositor record evidence](evidence/m5a-compositor-native-records-result.md).
+The static Parameters/operation model, scoped source and public protocol are
+still pending. Do not claim a complete compositor rewrite from shared records.
+
+**The user requested ALL six remaining M5a work areas. That request is not yet
+fulfilled.** Full compositor document/authoring/source replacement, version-2
+public scene/object and mixed-document candidates, the public two-scene demo,
+complete Inspector/curve workflow acceptance and the workspace gate remain open.
+No deferrals were approved. Do not claim this continuation completed M5a, and do
+not advance M6. The [28-entry inventory](m5a-compositor-inventory.md) remains binding.
+
+The user permits **screenshots only**, no computer-use clicks, typing or drags.
+Offscreen GPU captures do not establish physical interaction acceptance. Existing desktop windows were left intact; later launches are recorded above.
+
+## Run the demo
+
+```sh
+./demos/run-m5-demo.sh
+```
+
+This builds the desktop with spatial rendering and opens a fresh editable copy
+of `demos/m5-integrated.fold`. The printed temporary path is the working project;
+Save As retains it elsewhere. [Demo guide](../../demos/README.md) lists controls,
+undo/redo, graph editing and save/reopen steps. Run in a graphical desktop terminal
+with Vulkan access. The launcher itself passes shell syntax validation; physical
+window interaction is not claimed.
+
+## Read before continuing
+
+1. [Rewrite plan](../Motion_System_Rewrite_Plan.md), which owns gates and scope.
+2. [Completion audit](m0-m5-completion-audit.md) and the new
+   [catalog continuation evidence](evidence/m5-catalog-completion-result.md).
+3. [Catalog](catalog.md), [acceptance specification](acceptance.md), relevant
+   proposal sections, root `AGENTS.md` and Fold UI skill before UI changes.
+
+The user did not authorize subagents. Artwork authoring must use public tools
+without reading Rust crates. Repository implementation follows root instructions.
+Legacy deletions remain intentional; restore historical source through Git only.
+
+## Work added in this continuation
+
+- Four native centered Stroke combinations, retained through observations and
+  Screen/Camera Plane rendering. The authored butt/miter mode remains valid.
+- Transform with explicit pivot: Screen contours/Outline Text, quaternion metric
+  meshes, and uniform-scale/Z-rotation shared instances. The registry and demo
+  guide state these boundaries. Screen path coordinates change while Stroke
+  width stays in canvas units. Mesh normals use inverse transpose.
+- Public Tessellate `planar` and Extrude `closed_profile`, reusing shared
+  tessellation/extrusion. Explicit fill rules, metric conversion, normals/UVs,
+  named regions and output-vertex-to-cap-vertex correspondence. Generic prepared
+  mesh records replace the native box-only wrapper. Converted meshes retain source
+  curves/font provenance. Outlined glyphs are separate profiles; this avoids the
+  nonconforming combined-glyph cap exposed by the new default-title regression.
+- Tests for holes, fill rules, topology/depth correspondence, pivots, upstream
+  field sampling, cap/join coverage, native graph starters and rejection/budgets.
+- Eight additional public demo catalog trials through actual Source proposals,
+  inspection, Apply, observations and optional GPU frames. All restore baseline
+  Source. Public word checks cover glyph membership and translated group pivots.
+- Current desktop launcher, hands-on guide and updated Fold public workflow.
+
+Primary seams:
+`crates/motion/src/{registry,evaluation}/{profile,transform,style}.rs`, native
+`evaluation/mesh.rs`, Screen/plane rendering, graph templates,
+`crates/app/src/agent/dispatch/observe.rs`, and `demos/m5-integrated.py`.
+
+## Remaining independent implementation and acceptance
+
+M4 still requires picking, aggregate Bevy allocation admission/accounting,
+general spatial transparency, rapid native edit presentation, and complete
+resource/recovery acceptance. `i_overlay` 4.4.1 still has no cooperative
+cancellation inside synchronous Boolean graph operations. Input/output/cache
+caps and surrounding checkpoints do not prove intermediate memory or worst-case
+cancellation latency. Do not waive that gap or silently move it to M6/M7.
+
+Physical artist continuation, one rendered native/public handoff, and normal/
+narrow graph review remain open. The prescribed desktop automation retry again
+returned `runtime_unavailable`, `runtime_open_timeout`, then
+`runtime_unavailable`. Continue independent implementation if that route remains
+unavailable; a host compositor alone does not establish usable automation.
+
+The original catalog continuation rejected direct retained Text and `straight_text`
+solids. Its original uniform-instance limitation is superseded by the later affine
+parenting/instance evidence; use that evidence for current transform support.
+
+Default Motion conversion budget remains 2,000,000 checkpoints per frame from
+prior user authorization. Geometry limits were not raised. Public frame time
+remains half-open: last demo frame **95/24**, separate exact-time CPU/native sample
+**4**. Never assign older captures to regenerated artifacts without checking.
+
+## Validation
+
+Use:
 
 ```sh
 export CARGO_BUILD_JOBS=2 CARGO_INCREMENTAL=0 CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0
 ```
 
-Focused checks that recently passed (run those affected by the next change):
+The [new evidence record](evidence/m5-catalog-completion-result.md) contains the
+fresh results, commands, hardware, final checkpoint classification and captures.
+Do not infer green workspace status from the earlier checkpoint's three shared
+media failures. Native Vulkan and private Unix sockets need access outside this
+session's sandbox. Hardware for public frame runs: NVIDIA GTX 1070, driver
+580.173.02, Vulkan. Sandbox-only runs may select llvmpipe.
 
-```sh
-cargo test -p fold-motion --test style --test text --test spatial_controls --locked
-cargo test -p fold-render --test planar_mesh --test spatial --locked
-cargo test -p fold-render --features spatial --test text_gpu --locked -- --ignored --nocapture
-cargo test -p fold-app --features spatial --test motion_spatial camera_plane --locked -- --ignored --nocapture
-cargo test -p fold-app --test agent_integrated --locked -- --nocapture
-cargo test -p fold-app --features spatial --test agent_integrated gpu_authoring --locked -- --ignored --nocapture
-```
-
-Consult individual evidence files for original executed combinations/results;
-these commands are a focused starting set, not a claim of one final combined run.
-Native Vulkan and private Unix sockets required sandbox escalation in this session.
-Hardware: NVIDIA GTX 1070, driver 580.173.02, Vulkan; sandbox-only GPU may be llvmpipe.
-Rust 1.95.0. Approximately 33 GiB disk space remained during recent checks.
-
-The last full desktop workspace run: **649 passed, 4 failed, 101 ignored**.
-One introduced stale cutover assertion was fixed and its five-test target passed
-afterward. Three prior shared failures remain: media sequence resize expectation,
-NLE export process capacity, and untagged MP4 profile expectation. See
-`evidence/workspace-checkpoint-result.txt`. The complete suite was not rerun after
-that correction or subsequent work. There is no final green workspace checkpoint.
-
-At the final gate, run the prescribed full checks and classify failures honestly.
-Do not claim phase completion from narrow tests. Update the plan with fresh evidence.
-Physical desktop automation previously returned `runtime_unavailable` even after
-the prescribed startup attempt; see `evidence/desktop-automation-recheck.txt`.
-Recheck the environment when needed, but continue independent implementation if
-that route remains unavailable. No subagents are authorized by default.
+Full raw logs/reports under `/tmp` may disappear; executable tests, the public
+authoring script, saved demo and committed evidence summaries remain reproducible.
+No phase-completion claim is made by this handoff.
