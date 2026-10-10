@@ -468,6 +468,10 @@ pub trait DesktopClient {
     fn document_kinds(&self) -> Vec<crate::browser::DocumentKind> {
         vec![]
     }
+    /// Whether this document has an editable Network surface, regardless of project visibility.
+    fn has_network(&self, _document: &fold_project::Document) -> bool {
+        false
+    }
     fn supports_document(&self, _document: &fold_project::Document) -> bool {
         false
     }

@@ -10,6 +10,7 @@ pub(super) struct Host {
     pub state: DesktopState,
     registry: PackageRegistry,
     pub previews: usize,
+    networks: Vec<DocumentId>,
 }
 impl DesktopClient for Host {
     fn state(&self) -> &DesktopState {
@@ -17,6 +18,9 @@ impl DesktopClient for Host {
     }
     fn snapshot(&self) -> Option<CommittedSnapshot> {
         Some(self.project.snapshot())
+    }
+    fn has_network(&self, document: &fold_project::Document) -> bool {
+        self.networks.contains(&document.id) || document.extensions.contains_key(crate::LAYER_GRAPH)
     }
     fn poll(&mut self) {}
     fn command(&mut self, command: DesktopCommand) {
@@ -112,6 +116,7 @@ pub(super) fn setup() -> (Host, Shared) {
         registry,
         state: DesktopState::default(),
         previews: 0,
+        networks: vec![],
     };
     host.state.selection = Selection {
         document: Some(id),
@@ -424,4 +429,47 @@ fn deleting_a_group_protects_locked_descendants_and_undo_restores_hierarchy() {
     assert!(state.composition.as_ref().unwrap().layers.is_empty());
     host.project.undo().unwrap();
     assert!(before.same_content(&host.project.snapshot()));
+}
+
+#[test]
+fn standalone_graph_selection_uses_network_capability_without_internal_marker() {
+    use fold_platform::{panel_context::PanelContext, workspace::EditorInstance};
+    let (mut host, shared) = setup();
+    let layer = host.state.selection.objects[0];
+    let source = match &shared
+        .borrow()
+        .composition
+        .as_ref()
+        .unwrap()
+        .layer(layer)
+        .unwrap()
+        .source
+    {
+        Some(Source::Output(source)) => source.document,
+        _ => unreachable!(),
+    };
+    assert!(
+        !host.project.snapshot().state().documents[&source]
+            .extensions
+            .contains_key(crate::LAYER_GRAPH)
+    );
+    host.networks.push(source);
+    let mut binding = EditorInstance {
+        group: fold_platform::workspace::LinkGroup::A,
+        contribution: package::PANEL.into(),
+        document_type: crate::COMPOSITION.into(),
+        navigation: host.state.navigation.clone(),
+        selection: host.state.selection.clone(),
+        mapped_navigation: false,
+    };
+    let navigation = binding.navigation.clone();
+    let mut scoped = PanelContext::new(&mut host, &mut binding);
+    let mut state = shared.borrow_mut();
+    state.sync(&mut scoped);
+    let target = state.selection_target(&scoped).unwrap().unwrap();
+    assert_eq!(target.location.document, source);
+    state.open(&mut scoped, layer).unwrap();
+    assert!(scoped.take_layer_graph().is_some());
+    drop(scoped);
+    assert_eq!(binding.navigation, navigation);
 }

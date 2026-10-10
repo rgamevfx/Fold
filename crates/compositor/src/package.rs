@@ -106,6 +106,9 @@ impl DocumentProvider for Documents {
     ) -> Option<&dyn fold_platform::packages::AuthoringReceipt> {
         Some(self)
     }
+    fn browser_kind_capability(&self) -> Option<&dyn fold_platform::packages::BrowserKind> {
+        Some(self)
+    }
     fn creation_capability(&self) -> Option<&dyn fold_platform::packages::Creation> {
         Some(self)
     }
@@ -338,4 +341,13 @@ pub fn register(registry: &mut PackageRegistry) -> Result<(), String> {
         video: vec![Box::new(crate::compile::Provider)],
         audio: vec![],
     })
+}
+
+impl fold_platform::packages::BrowserKind for Documents {
+    fn browser_kind(&self) -> Option<fold_platform::browser::DocumentKind> {
+        Some(fold_platform::browser::DocumentKind {
+            type_id: crate::COMPOSITE,
+            title: "Compositing graph",
+        })
+    }
 }

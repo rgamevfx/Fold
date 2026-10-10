@@ -271,6 +271,9 @@ impl DesktopClient for PanelContext<'_> {
     fn preview_state(&self, output: &DocumentRef, time: Time) -> DesktopState {
         self.host.preview_state(output, time)
     }
+    fn has_network(&self, document: &fold_project::Document) -> bool {
+        self.host.has_network(document)
+    }
     fn supports_document(&self, document: &fold_project::Document) -> bool {
         self.host.supports_document(document)
     }

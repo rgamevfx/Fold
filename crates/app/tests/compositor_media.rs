@@ -75,6 +75,22 @@ fn create_composition_keeps_linked_audio_and_exports_the_same_video() {
                 .unwrap(),
         )
         .unwrap();
+    // Exercise nonzero occurrence and source clocks, not only untrimmed footage.
+    let imported = project.snapshot();
+    let (timeline, mut trimmed) = fold_timeline::active(&imported).unwrap();
+    for clip in &mut trimmed.clips {
+        clip.start = fold_foundation::Time::new(1, 4).unwrap();
+        clip.source_start = fold_foundation::Time::new(1, 2).unwrap();
+        clip.duration = fold_foundation::Time::new(2, 1).unwrap();
+    }
+    project
+        .commit(fold_project::EditBatch {
+            base: imported.revision(),
+            mutations: vec![fold_project::Mutation::PutDocument(
+                trimmed.document(timeline.document).unwrap(),
+            )],
+        })
+        .unwrap();
     let before = project.snapshot();
     let (reference, sequence) = fold_timeline::active(&before).unwrap();
     let selected: Vec<_> = sequence
@@ -183,6 +199,15 @@ fn create_composition_keeps_linked_audio_and_exports_the_same_video() {
     let composition =
         fold_composition::Composition::from_document(&after.state().documents[&source.document])
             .unwrap();
+    let Some(fold_platform::image_source::Source::Output(graph)) = &composition.layers[0].source
+    else {
+        panic!("New composition footage must already have a compositing graph");
+    };
+    let graph = Composite::from_document(&after.state().documents[&graph.document]).unwrap();
+    assert!(graph.nodes.iter().any(|node| matches!(
+        node.prepare().unwrap().config(),
+        OperationConfig::Read { .. }
+    )));
     let layer = composition.layers[0].id;
     let request = fold_platform::packages::CommandRequest {
         id: fold_app::composition_layers::ADD.into(),

@@ -165,7 +165,7 @@ impl fold_platform::packages::BrowserKind for Documents {
     fn browser_kind(&self) -> Option<fold_platform::browser::DocumentKind> {
         Some(fold_platform::browser::DocumentKind {
             type_id: SEQUENCE,
-            title: "Sequence",
+            title: "Timeline",
         })
     }
 }

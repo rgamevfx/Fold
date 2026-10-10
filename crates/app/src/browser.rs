@@ -117,5 +117,31 @@ fn place(
             }
         }
     }
-    crate::packages::builtins().place(snapshot, request)
+    let mut batch = crate::packages::builtins().place(snapshot, request)?;
+    let original = &snapshot.state().documents[&request.target];
+    if original.type_id == fold_composition::COMPOSITION {
+        let before = fold_composition::Composition::from_document(original)?;
+        let mut graphs = vec![];
+        for mutation in &mut batch.mutations {
+            if let Mutation::PutDocument(document) = mutation
+                && document.id == request.target
+            {
+                let mut composition = fold_composition::Composition::from_document(document)?;
+                for layer in &mut composition.layers {
+                    if !before.layers.iter().any(|old| old.id == layer.id) {
+                        graphs.extend(crate::composition_layers::wrap_footage(
+                            snapshot,
+                            request.target,
+                            layer,
+                        )?);
+                    }
+                }
+                let extensions = document.extensions.clone();
+                *document = composition.document(request.target)?;
+                document.extensions = extensions;
+            }
+        }
+        batch.mutations.extend(graphs);
+    }
+    Ok(batch)
 }

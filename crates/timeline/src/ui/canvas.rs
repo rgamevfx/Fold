@@ -40,6 +40,7 @@ pub enum Action {
         at: Time,
     },
     Open(ObjectId),
+    NewComposition(Vec<ObjectId>),
     AddTransition(ObjectId),
     Select(Vec<ObjectId>),
     Seek(u32),
@@ -513,6 +514,15 @@ impl Canvas {
                 } else {
                     vec![id]
                 };
+                if sequence.clips.iter().any(|clip| {
+                    ids.contains(&clip.id)
+                        && sequence
+                            .track(clip.track)
+                            .is_ok_and(|track| track.kind == TrackKind::Video)
+                }) && ui.menu_item("New composition")
+                {
+                    actions.push(Action::NewComposition(ids.clone()));
+                }
                 if let Some(edit) = super::controls::edit_items(
                     ui,
                     self,

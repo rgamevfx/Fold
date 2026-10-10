@@ -105,6 +105,8 @@ pub fn create(snapshot: &Snapshot, args: &[u8], _: &Cancel) -> Result<EditBatch,
             .map_err(|e| e.to_string())?,
     )
     .map_err(|e| e.to_string())?;
+    let id = DocumentId::new();
+    let mut mutations = vec![];
     let mut layers = vec![];
     for clip in selected.iter().rev() {
         let source = match &clip.info {
@@ -119,7 +121,12 @@ pub fn create(snapshot: &Snapshot, args: &[u8], _: &Cancel) -> Result<EditBatch,
             | SourceMedia::Document { info, .. } => info.clone(),
             _ => unreachable!(),
         };
-        let mut layer = Layer::new("Clip", Some(source), source_info)?;
+        let item = match &source {
+            Source::Asset(asset) => fold_project::ItemId::Asset(*asset),
+            Source::Output(reference) => fold_project::ItemId::Document(reference.document),
+        };
+        let name = fold_platform::browser::item_name(snapshot, item, "Clip");
+        let mut layer = Layer::new(name, Some(source), source_info)?;
         layer.state.id = clip.id;
         layer.state.start = clip.start.checked_sub(start).map_err(|e| e.to_string())?;
         layer.state.end = layer
@@ -137,6 +144,11 @@ pub fn create(snapshot: &Snapshot, args: &[u8], _: &Cancel) -> Result<EditBatch,
         }
         layer.origin = layer.start;
         layer.source_start = clip.source_start;
+        mutations.extend(crate::composition_layers::wrap_footage(
+            snapshot,
+            args.document,
+            &mut layer,
+        )?);
         layers.push(layer);
     }
     let composite = Composition {
@@ -144,7 +156,6 @@ pub fn create(snapshot: &Snapshot, args: &[u8], _: &Cancel) -> Result<EditBatch,
         layers,
         extensions: Default::default(),
     };
-    let id = DocumentId::new();
     let links: Vec<_> = selected.iter().filter_map(|c| c.link).collect();
     sequence
         .clips
@@ -176,11 +187,26 @@ pub fn create(snapshot: &Snapshot, args: &[u8], _: &Cancel) -> Result<EditBatch,
     });
     let mut document = sequence.document(args.document)?;
     document.extensions = original.extensions.clone();
+    mutations.extend([
+        Mutation::PutDocument(composite.document(id)?),
+        Mutation::PutDocument(document),
+        Mutation::PutItem(fold_project::Item {
+            id: fold_project::ItemId::Document(id),
+            name: "Composition".into(),
+            parent: snapshot
+                .state()
+                .organization
+                .items
+                .iter()
+                .find(|item| item.id == fold_project::ItemId::Document(args.document))
+                .map(|item| item.parent)
+                .unwrap_or_default(),
+            order: snapshot.state().organization.items.len() as u64,
+            extensions: Default::default(),
+        }),
+    ]);
     Ok(EditBatch {
         base: snapshot.revision(),
-        mutations: vec![
-            Mutation::PutDocument(composite.document(id)?),
-            Mutation::PutDocument(document),
-        ],
+        mutations,
     })
 }

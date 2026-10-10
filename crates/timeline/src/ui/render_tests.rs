@@ -9,18 +9,6 @@ fn timeline_normal_and_narrow() {
     let adapter = pollster::block_on(instance.request_adapter(&Default::default())).unwrap();
     eprintln!("Timeline capture adapter: {:?}", adapter.get_info());
     let (device, queue) = pollster::block_on(adapter.request_device(&Default::default())).unwrap();
-    let mut context = imgui::Context::create();
-    context.set_ini_filename(None::<String>).unwrap();
-    let _fonts = Typography::install(&mut context);
-    let mut renderer = WgpuRenderer::new(
-        WgpuInitInfo::new(
-            device.clone(),
-            queue.clone(),
-            wgpu::TextureFormat::Rgba8Unorm,
-        ),
-        &mut context,
-    )
-    .unwrap();
     let size = wgpu::Extent3d {
         width: 1024,
         height: 480,
@@ -155,18 +143,32 @@ fn timeline_normal_and_narrow() {
         .map(|f| (f, fold_ui::sdk::cache_indicator::Coverage::Ready))
         .chain((120..160).map(|f| (f, fold_ui::sdk::cache_indicator::Coverage::Partial)))
         .collect();
-    context.io_mut().set_display_size([1024., 480.]);
-    context.io_mut().set_delta_time(1. / 60.);
-    context.io_mut().add_mouse_pos_event([1000., 479.]);
     std::fs::create_dir_all("/tmp/fold-timeline-ui").unwrap();
     for (name, width) in [
         ("normal", 1024.),
         ("narrow", 320.),
+        ("menu-normal", 1024.),
+        ("menu-narrow", 320.),
         ("clip-normal", 520.),
         ("clip-narrow", 280.),
         ("transition-normal", 520.),
         ("transition-narrow", 280.),
     ] {
+        let mut context = imgui::Context::create();
+        context.set_ini_filename(None::<String>).unwrap();
+        let _fonts = Typography::install(&mut context);
+        let mut renderer = WgpuRenderer::new(
+            WgpuInitInfo::new(
+                device.clone(),
+                queue.clone(),
+                wgpu::TextureFormat::Rgba8Unorm,
+            ),
+            &mut context,
+        )
+        .unwrap();
+        context.io_mut().set_display_size([1024., 480.]);
+        context.io_mut().set_delta_time(1. / 60.);
+        context.io_mut().add_mouse_pos_event([1000., 479.]);
         canvas.fit = true;
         host.state.selection = fold_platform::desktop::Selection {
             document: Some(document),
@@ -176,7 +178,15 @@ fn timeline_normal_and_narrow() {
                 inspected.clips[0].id
             }],
         };
-        for frame_index in 0..5 {
+        for frame_index in 0..8 {
+            if name.starts_with("menu") {
+                context
+                    .io_mut()
+                    .add_mouse_pos_event([if width < 400. { 180. } else { 220. }, 220.]);
+                context
+                    .io_mut()
+                    .add_mouse_button_event(imgui::MouseButton::Right, frame_index == 3);
+            }
             let ui = context.frame();
             ui.window("Timeline")
                 .position([0., 0.], imgui::Condition::Always)

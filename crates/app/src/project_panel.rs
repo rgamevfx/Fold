@@ -419,7 +419,10 @@ impl ProjectPanel {
                     }
                 }
                 Entry::Item(ItemId::Document(_)) => match kind {
-                    "Sequence" => "S",
+                    "Timeline" => "T",
+                    "Motion graph" => "M",
+                    "Compositing graph" => "G",
+                    "Scene" => "S",
                     "Composition" => "C",
                     _ => "?",
                 },

@@ -599,6 +599,13 @@ impl DesktopClient for Session {
     fn document_kinds(&self) -> Vec<fold_platform::browser::DocumentKind> {
         crate::packages::builtins().document_kinds()
     }
+    fn has_network(&self, document: &fold_project::Document) -> bool {
+        self.supports_document(document)
+            && matches!(
+                document.type_id.as_str(),
+                fold_compositor::COMPOSITE | fold_motion::CONSTRUCTION | fold_motion::scene::TYPE
+            )
+    }
     fn supports_document(&self, document: &fold_project::Document) -> bool {
         crate::packages::builtins().supports(document)
     }

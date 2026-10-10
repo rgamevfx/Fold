@@ -244,12 +244,10 @@ impl State {
             return Ok(None);
         };
         let graph = host.snapshot().is_some_and(|s| {
-            s.state().documents.get(&source.document).is_some_and(|d| {
-                d.extensions
-                    .get(crate::LAYER_GRAPH)
-                    .and_then(|v| v.as_bool())
-                    == Some(true)
-            })
+            s.state()
+                .documents
+                .get(&source.document)
+                .is_some_and(|d| host.has_network(d))
         });
         Ok(Some((
             fold_ui::sdk::SelectionTarget {
@@ -265,9 +263,9 @@ impl State {
         )))
     }
     pub fn open(&mut self, host: &mut dyn DesktopClient, id: ObjectId) -> Result<(), String> {
-        let (target, graph) = self
-            .content_target(host, id)?
-            .ok_or("This layer has no editable source graph")?;
+        let (target, graph) = self.content_target(host, id)?.ok_or(
+            "This layer has no editable graph. Use Layer > Add image processing graph for footage.",
+        )?;
         let location = target.location;
         let objects = target.objects;
         // Source navigation requires a playable frame; selection linking does not.

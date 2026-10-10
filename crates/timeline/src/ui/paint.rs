@@ -140,7 +140,7 @@ impl Canvas {
                         },
                     );
                 }
-                if rect.contains(ui.mouse_pos()) {
+                if ui.is_window_hovered() && rect.contains(ui.mouse_pos()) {
                     ui.tooltip_text(match control {
                         0 => {
                             if track.kind == TrackKind::Video {
@@ -221,7 +221,7 @@ impl Canvas {
                             colors.text,
                             "! Preview unavailable",
                         );
-                        if rect.contains(ui.mouse_pos()) {
+                        if ui.is_window_hovered() && rect.contains(ui.mouse_pos()) {
                             ui.tooltip_text(error);
                         }
                     }
@@ -244,7 +244,10 @@ impl Canvas {
                             [1.; 4],
                         );
                     }
-                    if rect.contains(ui.mouse_pos()) && self.drag.is_none() {
+                    if ui.is_window_hovered()
+                        && rect.contains(ui.mouse_pos())
+                        && self.drag.is_none()
+                    {
                         ui.tooltip_text(format!(
                             "{} · {}{}",
                             visual.name,

@@ -344,6 +344,16 @@ impl Panel for TimelinePanel {
                 Action::AddTransition(outgoing) => {
                     transitions::add(host, *document, sequence, outgoing, *revision)
                 }
+                Action::NewComposition(clips) => {
+                    host.command(DesktopCommand::Extension(CommandRequest {
+                        id: "fold.app.create-composition".into(),
+                        base: *revision,
+                        arguments: serde_json::to_vec(
+                            &serde_json::json!({"document": document, "clips": clips}),
+                        )
+                        .unwrap(),
+                    }));
+                }
                 Action::Open(id) => {
                     if let Some(clip) = sequence.clips.iter().find(|c| c.id == id)
                         && let crate::SourceMedia::Document { source, .. } = &clip.info

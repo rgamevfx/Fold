@@ -15,6 +15,7 @@ struct Harness {
     playhead: u32,
     layout: Option<Layout>,
     commits: usize,
+    compositions: Vec<Vec<ObjectId>>,
 }
 impl Harness {
     fn new() -> Self {
@@ -100,6 +101,7 @@ impl Harness {
             playhead: 0,
             layout: None,
             commits: 0,
+            compositions: vec![],
         }
     }
     fn sequence(&self) -> Sequence {
@@ -160,6 +162,7 @@ impl Harness {
                 Action::Select(ids) => self.selected = ids,
                 Action::Seek(frame) => self.playhead = frame,
                 Action::Pause | Action::Preview { .. } | Action::CancelPreview => {}
+                Action::NewComposition(ids) => self.compositions.push(ids),
                 Action::Open(_) | Action::AddTransition(_) => {}
                 Action::Place { .. } => panic!("unexpected Project placement in clip gesture test"),
             }
@@ -423,4 +426,30 @@ fn transition_strip_selects_its_own_id_and_drags_one_undo_step() {
         .edited(&drag.proposal(10000.).unwrap())
         .unwrap();
     assert_eq!(extended.transitions[0].end().unwrap(), t(4));
+}
+
+#[test]
+fn clip_context_menu_creates_composition_from_the_clicked_video() {
+    let mut h = Harness::new();
+    h.tick([0., 0.], None);
+    h.tick([0., 0.], None);
+    let point = h.point(12., 1);
+    h.tick(point, None);
+    h.context
+        .io_mut()
+        .add_mouse_button_event(MouseButton::Right, true);
+    h.tick(point, None);
+    h.context
+        .io_mut()
+        .add_mouse_button_event(MouseButton::Right, false);
+    h.tick(point, None);
+    assert_eq!(h.canvas.context_clip, Some(h.sequence().clips[0].id));
+    // New composition is the first action for a footage clip.
+    let item = [point[0] + 55., point[1] + 12.];
+    h.tick(item, None);
+    h.tick(item, Some(true));
+    h.tick(item, Some(false));
+    assert_eq!(h.compositions.len(), 1);
+    assert!(h.compositions[0].contains(&h.sequence().clips[0].id));
+    assert_eq!(h.commits, 0);
 }

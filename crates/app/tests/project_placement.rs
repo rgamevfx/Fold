@@ -10,19 +10,6 @@ fn edit(project: &mut Project, command: Command) {
     project.commit(batch).unwrap();
 }
 fn create(project: &mut Project, kind: &str) -> DocumentId {
-    // Graph providers are layer content, no longer standalone Project creation kinds.
-    if kind == fold_compositor::COMPOSITE {
-        let id = DocumentId::new();
-        project
-            .commit(fold_project::EditBatch {
-                base: project.snapshot().revision(),
-                mutations: vec![fold_project::Mutation::PutDocument(
-                    packages::builtins().create(kind, id).unwrap(),
-                )],
-            })
-            .unwrap();
-        return id;
-    }
     let before = project.snapshot();
     edit(
         project,
@@ -423,6 +410,18 @@ fn common_composition_accepts_still_assets_as_full_duration_layers() {
         composition.info.time(composition.info.frames).unwrap()
     );
     assert_eq!(composition.layers[0].name, "background.ppm");
+    let Some(fold_platform::image_source::Source::Output(source)) = &composition.layers[0].source
+    else {
+        panic!("Dropped footage must have an editable compositing graph");
+    };
+    let graph =
+        fold_compositor::Composite::from_document(&snapshot.state().documents[&source.document])
+            .unwrap();
+    assert!(graph.nodes.iter().any(|node| matches!(
+        node.prepare().unwrap().config(),
+        fold_compositor::OperationConfig::Read { .. }
+    )));
+
     let layer = composition.layers[0].id;
     let request = fold_platform::packages::CommandRequest {
         id: fold_app::composition_layers::ADD.into(),

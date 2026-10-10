@@ -124,30 +124,7 @@ pub fn add(snapshot: &Snapshot, bytes: &[u8], cancel: &Cancel) -> Result<EditBat
                 .as_ref()
                 .ok_or("Precompose the group before image processing")?;
             let info = source_info(snapshot, input, &layer.info)?;
-            let read = Node::new(
-                P::Read {
-                    options: Default::default(),
-                    source: source(snapshot, input, info.clone())?,
-                    start: Time::ZERO,
-                    source_start: Time::ZERO,
-                    duration: info.time(info.frames)?,
-                },
-                vec![],
-            );
-            // Neutral processing preserves pixels until the artist edits the graph.
-            let grade = Node::new(
-                P::ColorGrade {
-                    settings: Default::default(),
-                },
-                vec![read.id],
-            );
-            let output = Node::new(P::Output, vec![grade.id]);
-            let graph = Composite {
-                info: info.clone(),
-                output: output.id,
-                nodes: vec![read, grade, output],
-                extensions: Default::default(),
-            };
+            let graph = processing_graph(snapshot, input, info.clone())?;
             (graph.document(id)?, "Image processing", info)
         }
         _ => return Err("Unknown graph kind".into()),
@@ -343,4 +320,64 @@ pub fn edit_hierarchy(
         base: snapshot.revision(),
         mutations: vec![Mutation::PutDocument(document)],
     })
+}
+
+fn processing_graph(
+    snapshot: &Snapshot,
+    input: &Source,
+    info: fold_media::VideoInfo,
+) -> Result<Composite, String> {
+    let read = Node::new(
+        P::Read {
+            options: Default::default(),
+            source: source(snapshot, input, info.clone())?,
+            start: Time::ZERO,
+            source_start: Time::ZERO,
+            duration: info.time(info.frames)?,
+        },
+        vec![],
+    );
+    // Neutral processing preserves pixels until the artist edits the graph.
+    let grade = Node::new(
+        P::ColorGrade {
+            settings: Default::default(),
+        },
+        vec![read.id],
+    );
+    let output = Node::new(P::Output, vec![grade.id]);
+    let graph = Composite {
+        info: info.clone(),
+        output: output.id,
+        nodes: vec![read, grade, output],
+        extensions: Default::default(),
+    };
+    Ok(graph)
+}
+
+/// Footage enters a Composition through an editable graph in the same transaction.
+/// Layer timing remains authoritative; the Read retains the full source clock.
+pub(crate) fn wrap_footage(
+    snapshot: &Snapshot,
+    parent: DocumentId,
+    layer: &mut Layer,
+) -> Result<Vec<Mutation>, String> {
+    let Some(input @ Source::Asset(_)) = &layer.source else {
+        return Ok(vec![]);
+    };
+    let id = DocumentId::new();
+    let mut graph = processing_graph(snapshot, input, layer.info.clone())?;
+    graph.auto_layout()?;
+    let mut document = graph.document(id)?;
+    document
+        .extensions
+        .insert(fold_composition::LAYER_GRAPH.into(), true.into());
+    layer.source = Some(Source::Output(fold_project::DocumentRef {
+        document: id,
+        output: "video".into(),
+        extensions: Default::default(),
+    }));
+    Ok(vec![
+        Mutation::PutDocument(document),
+        item(snapshot, parent, id, layer.name.clone()),
+    ])
 }

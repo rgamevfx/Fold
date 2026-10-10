@@ -241,6 +241,8 @@ Long-loop drift, monitor handover, failure/shutdown and mixed-viewer behavior re
 
 Timeline owns sequences, video/audio tracks, clips, source mapping and editing operations. Linked A/V survives appropriate clip edits and placement. The current editor provides multi-selection, snapping, split/lift, insert/overwrite, ripple delete, ripple/roll trim, track creation, thumbnails and waveforms through transactional commands.
 
+The clip context menu offers **New composition**. Selected video clips become layers of one common Composition; footage layers receive editable Compositing graphs, while existing document sources keep their references. Source offsets, exact timing, effects and opacity are retained. Linked audio remains on the original timeline. Graph creation and clip replacement are one undoable transaction.
+
 A compact toolbar and track headers leave the edit surface dominant. Placement previews identify destination/time and invalid drops; Escape cancels. Opening a nested clip navigates to its source at mapped time and supports return navigation. Timeline output duration may follow content or use an explicit boundary without trimming authored clips.
 
 ## Compositor authoring
@@ -339,6 +341,8 @@ Fold uses one native window with internal docking and multiple editor/viewer ins
 Editors have explicit document targets. The default workspace places Viewer above tabbed Timeline/Composition on the left, tabbed Inspector/Project/Delivery above Network on the right, with primary contexts in group A. A group has at most one editor of each type. Opening a document or explicitly clicking an authoring tab carries linked viewers and the appropriate Network context to that source; merely changing keyboard focus does not. Nested navigation opens the matching peer surface in the same group without replacing the source panel, and Back retains exact parent time and selection. Unlinked viewers retain their chosen output. Inspectors follow group selection independently and may lock their target.
 
 Each viewer owns its transport, review range, loop, mode, resolution and displayed-frame context. Two viewers can show the same document at different times. Shared caches do not imply shared clocks. Navigation through a nested graph preserves parent stack, selection and exact source time.
+
+Project **New** offers Timeline, Composition, Motion graph and Compositing graph (alongside Scene). Standalone graphs are visible project items. Dropping footage into a Composition creates its layer and an internal Compositing graph in one transaction. Internal graphs remain accessible through their layers without duplicating top-level project items. Selecting either an internal or standalone graph layer links Network through the document's editor capability, independent of project visibility.
 
 Project Settings controls new-item defaults, project color and the reserved Cache folder. A common item-settings window targets a specific document; Apply is one undoable edit and Cancel changes nothing. The same document opened through Composition and Network retains the same settings.
 
