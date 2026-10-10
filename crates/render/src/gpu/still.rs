@@ -8,6 +8,7 @@ use std::{collections::VecDeque, sync::Arc};
 
 #[derive(Clone, PartialEq, Eq)]
 pub(super) struct Key {
+    alpha: crate::operations::SourceAlpha,
     fingerprint: String,
     info: Option<fold_media::exr::Info>,
     rgb_dimensions: Option<[u32; 2]>,
@@ -26,6 +27,7 @@ impl Key {
         if let ImageOp::Media(image) = op {
             if let Some(identity) = image.rgb_identity() {
                 return Ok(Some(Self {
+                    alpha: Default::default(),
                     fingerprint: identity.into(),
                     info: None,
                     rgb_dimensions: Some(image.dimensions()),
@@ -43,11 +45,13 @@ impl Key {
             source,
             channels,
             space,
+            alpha,
         } = op
         else {
             return Ok(None);
         };
         Ok(Some(Self {
+            alpha: *alpha,
             fingerprint: source.fingerprint.clone(),
             info: Some(source.info.clone()),
             rgb_dimensions: None,

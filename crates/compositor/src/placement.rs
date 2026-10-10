@@ -78,6 +78,7 @@ pub fn place(
     let duration = timing.range(source.info().time(source.info().frames)?)?;
     let mut node = Node::new(
         OperationConfig::Read {
+            options: Default::default(),
             source,
             start: timing.at,
             source_start: timing.source_start,

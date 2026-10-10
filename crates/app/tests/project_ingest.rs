@@ -279,6 +279,7 @@ fn referenced_relink_validates_providers_invalidates_content_and_preserves_pinne
     let doc_id = document.id;
     let read = fold_compositor::Node::new(
         fold_compositor::OperationConfig::Read {
+            options: Default::default(),
             source: fold_compositor::Source::Asset {
                 asset: id,
                 info: info.clone(),

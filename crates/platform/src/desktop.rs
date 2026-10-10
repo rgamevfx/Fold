@@ -246,6 +246,10 @@ pub enum DesktopCommand {
     },
     Undo,
     Redo,
+    ExportFrames {
+        source: fold_project::DocumentRef,
+        settings: crate::delivery::Settings,
+    },
     Export {
         path: PathBuf,
         start: u32,

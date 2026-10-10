@@ -314,10 +314,11 @@ fn production_node_inspectors_fit_normal_and_narrow_panels_without_edits() {
         },
         OperationConfig::Composite {
             mode: Default::default(),
+            channels: Default::default(),
         },
         OperationConfig::Shuffle { mappings: vec![] },
-        OperationConfig::RemoveChannels {
-            channels: vec![],
+        OperationConfig::CullChannels {
+            channels: Default::default(),
             keep: false,
         },
         OperationConfig::Unary {
@@ -328,6 +329,7 @@ fn production_node_inspectors_fit_normal_and_narrow_panels_without_edits() {
             bounds: [0., 0., 16., 16.],
         },
         OperationConfig::Read {
+            options: Default::default(),
             source: crate::Source::Unassigned {
                 info: composite.info.clone(),
             },

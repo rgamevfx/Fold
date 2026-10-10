@@ -210,6 +210,7 @@ fn returning_to_timeline_restores_transport_and_evaluates_nested_frames() {
     // A real temporal change in a nested graph: black until 0.5s, then red.
     let read = Node::new(
         P::Read {
+            options: Default::default(),
             source: Source::Document {
                 source: reference(source),
                 info: solid.info.clone(),

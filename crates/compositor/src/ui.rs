@@ -15,6 +15,7 @@ mod source;
 mod state;
 #[cfg(test)]
 mod tests;
+mod write;
 #[cfg(test)]
 static IMGUI_TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 use fold_ui::sdk::PanelRegistry;

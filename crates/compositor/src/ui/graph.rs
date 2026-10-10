@@ -83,6 +83,7 @@ impl Context<'_> {
                             category: "Image references".into(),
                         },
                         P::Read {
+                            options: Default::default(),
                             source: Source::Document {
                                 source: DocumentRef {
                                     document: d.id,
@@ -410,9 +411,9 @@ fn summary(p: &P) -> String {
         }
         P::TransformImage { .. } => "2D transform".into(),
         P::ColorGrade { .. } => "Color grade".into(),
-        P::Composite { mode } => mode.label().into(),
+        P::Composite { mode, .. } => mode.label().into(),
         P::Shuffle { mappings } => format!("{} channel mappings", mappings.len()),
-        P::RemoveChannels { keep, .. } => {
+        P::CullChannels { keep, .. } => {
             if *keep {
                 "Keep selected channels".into()
             } else {
@@ -425,9 +426,9 @@ fn summary(p: &P) -> String {
             Source::Exr { image, .. } => format!("OpenEXR • {} channels", image.channels.len()),
             Source::Document { .. } => "Nested document".into(),
         },
+        P::Write { settings } => settings.destination.rsplit('/').next().unwrap_or("").into(),
         P::Output => "Document video output".into(),
         P::Mask { .. } => "Rectangle • mask".into(),
-        P::ApplyMask => "Premultiplied alpha".into(),
         P::Crop { .. } => "Transparent outside bounds".into(),
         P::Solid { .. } => "Linear RGBA".into(),
     }

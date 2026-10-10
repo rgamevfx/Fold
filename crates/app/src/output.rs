@@ -2,6 +2,9 @@
 //! One evaluator owns backend selection and retained resources for a pinned job.
 #[path = "output_export.rs"]
 mod export;
+#[path = "output_frames.rs"]
+mod frames;
+pub use frames::export_frames;
 #[path = "output_identity.rs"]
 mod identity;
 #[path = "output_scene.rs"]
@@ -69,28 +72,23 @@ impl OutputRenderer {
         }
         "cpu"
     }
-    /// Alpha delivery reads scene precision, never opaque/quantized presentation.
-    pub fn evaluate_rgba16(
+    /// Scene-linear floating point pixels, before any display/output conversion.
+    pub fn evaluate_linear(
         &mut self,
         snapshot: &CommittedSnapshot,
         request: &SceneRequest,
         cancel: &Cancel,
-    ) -> Result<fold_render::Rgba16Output, fold_foundation::Failure> {
+    ) -> Result<fold_render::Frame, fold_foundation::Failure> {
         self.with_budget_retry(cancel, |renderer| {
-            renderer.evaluate_rgba16_once(snapshot, request, cancel)
-        })
-        .map_err(|error| {
-            error
-                .context(request.source.document)
-                .context(&request.source.output)
+            renderer.evaluate_linear_once(snapshot, request, cancel)
         })
     }
-    fn evaluate_rgba16_once(
+    fn evaluate_linear_once(
         &mut self,
         snapshot: &CommittedSnapshot,
         request: &SceneRequest,
         cancel: &Cancel,
-    ) -> Result<fold_render::Rgba16Output, fold_foundation::Failure> {
+    ) -> Result<fold_render::Frame, fold_foundation::Failure> {
         cancel.check()?;
         #[cfg(feature = "gpu")]
         let scene = if let Some(renderer) = self.gpu.as_mut() {
@@ -114,6 +112,31 @@ impl OutputRenderer {
                 .enter(fold_render::scheduling::Class::Export, cancel)?;
             evaluate_scene(snapshot, request, &mut self.decoder, cancel)?
         };
+        Ok(scene)
+    }
+    /// Alpha delivery reads scene precision, never opaque/quantized presentation.
+    pub fn evaluate_rgba16(
+        &mut self,
+        snapshot: &CommittedSnapshot,
+        request: &SceneRequest,
+        cancel: &Cancel,
+    ) -> Result<fold_render::Rgba16Output, fold_foundation::Failure> {
+        self.with_budget_retry(cancel, |renderer| {
+            renderer.evaluate_rgba16_once(snapshot, request, cancel)
+        })
+        .map_err(|error| {
+            error
+                .context(request.source.document)
+                .context(&request.source.output)
+        })
+    }
+    fn evaluate_rgba16_once(
+        &mut self,
+        snapshot: &CommittedSnapshot,
+        request: &SceneRequest,
+        cancel: &Cancel,
+    ) -> Result<fold_render::Rgba16Output, fold_foundation::Failure> {
+        let scene = self.evaluate_linear_once(snapshot, request, cancel)?;
         crate::color::with_config(snapshot, |config| {
             let processor = config
                 .map(|config| {

@@ -72,6 +72,7 @@ pub(crate) fn bind(
         } => *current = source,
         OperationConfig::Solid { .. } if node.animation.is_empty() => {
             config = OperationConfig::Read {
+                options: Default::default(),
                 source,
                 start: Time::ZERO,
                 source_start: Time::ZERO,

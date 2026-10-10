@@ -28,6 +28,7 @@ fn sized_fixture(path: &std::path::Path, value: f32, dimensions: [u32; 2]) -> Re
         height: dimensions[1],
         output: 0,
         nodes: vec![ImageOp::Exr {
+            alpha: Default::default(),
             source,
             channels: ["R", "G", "B", "A"].map(|c| Some(c.into())),
             space: None,
@@ -102,6 +103,24 @@ fn shared_gpu_inputs_and_reused_uploads_preserve_held_frames_and_source_changes(
         .unwrap();
     assert_eq!(shared.statistics.resident_still_nodes, 1);
     assert_eq!(shared.statistics.upload_bytes, 0);
+    for alpha in [
+        fold_render::operations::SourceAlpha::Straight,
+        fold_render::operations::SourceAlpha::Ignore,
+        fold_render::operations::SourceAlpha::Premultiplied,
+    ] {
+        let mut graph = first.clone();
+        let ImageOp::Exr { alpha: value, .. } = &mut graph.nodes[0] else {
+            unreachable!()
+        };
+        *value = alpha;
+        let expected = fold_render::render(graph.clone()).unwrap();
+        let actual = renderer
+            .evaluate(graph, None, &mut decoder, &cancel)
+            .unwrap()
+            .readback(&cancel)
+            .unwrap();
+        assert_eq!(actual.pixels(), expected.pixels());
+    }
     for index in 0..12 {
         let graph = fixture(&dir.path().join(format!("{index}.exr")), index as f32 / 64.);
         let expected = fold_render::render(graph.clone()).unwrap();

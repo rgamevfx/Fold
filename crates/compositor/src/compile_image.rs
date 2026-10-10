@@ -38,7 +38,7 @@ fn operation(
             input: inputs[0],
             settings: settings.clone(),
         },
-        P::Composite { mode } => Op::Merge {
+        P::Composite { mode, .. } => Op::Merge {
             first: inputs[0],
             second: inputs[1],
             mode: *mode,
@@ -72,7 +72,23 @@ pub(super) fn effect(
         return Ok(result);
     }
     let mut groups = BTreeMap::<(String, bool), Vec<(channels::ChannelName, u8)>>::new();
-    for name in &effect.channels {
+    let routing = match parameters {
+        P::Composite { channels, .. } => Some(channels),
+        _ => None,
+    };
+    let mut selected_channels = effect.channels.clone();
+    if routing.is_some_and(|channels| channels.other) {
+        selected_channels.extend(
+            inputs
+                .iter()
+                .flat_map(|input| input.iter())
+                .map(|(name, _)| name.clone())
+                .filter(|name| !name.as_str().starts_with("rgba.")),
+        );
+        selected_channels.sort();
+        selected_channels.dedup();
+    }
+    for name in &selected_channels {
         let (layer, component) = name.as_str().rsplit_once('.').unwrap();
         let index = match component {
             "red" => Some(0),
@@ -110,23 +126,50 @@ pub(super) fn effect(
             return Err("Composite exceeds 4096 render operations".into());
         }
         let mut packed = Vec::new();
-        for input in inputs {
+        for (slot, input) in inputs.iter().enumerate() {
+            let included = |name: &str| {
+                routing.is_none_or(|channels| {
+                    (channels.other && !name.starts_with("rgba."))
+                        || (if slot == 0 { &channels.a } else { &channels.b })
+                            .iter()
+                            .any(|selected| selected.as_str() == name)
+                })
+            };
             let values = if scalar {
-                let value = input
-                    .get(selected[0].0.as_str())
-                    .map(|c| c.value)
-                    .unwrap_or(Value::Zero);
-                [value, Value::Zero, Value::Zero, Value::One]
+                let name = selected[0].0.as_str();
+                let value = if included(name) {
+                    input.get(name).map(|c| c.value).unwrap_or(Value::Zero)
+                } else {
+                    Value::Zero
+                };
+                [
+                    value,
+                    Value::Zero,
+                    Value::Zero,
+                    if routing.is_some() && (!included(name) || input.get(name).is_err()) {
+                        Value::Zero
+                    } else {
+                        Value::One
+                    },
+                ]
             } else {
                 ["red", "green", "blue", "alpha"].map(|component| {
-                    input
-                        .get(&format!("{group}.{component}"))
-                        .map(|c| c.value)
-                        .unwrap_or(if component == "alpha" {
+                    let name = format!("{group}.{component}");
+                    if !included(&name) {
+                        return Value::Zero;
+                    }
+                    input.get(&name).map(|c| c.value).unwrap_or(
+                        if component == "alpha"
+                            && (routing.is_none()
+                                || ["red", "green", "blue"]
+                                    .iter()
+                                    .any(|c| input.get(&format!("{group}.{c}")).is_ok()))
+                        {
                             Value::One
                         } else {
                             Value::Zero
-                        })
+                        },
+                    )
                 })
             };
             packed.push(channels::pack(graph, values)?);
@@ -147,9 +190,33 @@ pub(super) fn effect(
             processed = id;
         }
         if mask.is_some() || effect.mix != 1. {
+            let original = if routing.is_some() {
+                let input = inputs[original_slot];
+                let values = if scalar {
+                    [
+                        input
+                            .get(selected[0].0.as_str())
+                            .map(|c| c.value)
+                            .unwrap_or(Value::Zero),
+                        Value::Zero,
+                        Value::Zero,
+                        Value::One,
+                    ]
+                } else {
+                    ["red", "green", "blue", "alpha"].map(|component| {
+                        input
+                            .get(&format!("{group}.{component}"))
+                            .map(|c| c.value)
+                            .unwrap_or(Value::Zero)
+                    })
+                };
+                channels::pack(graph, values)?
+            } else {
+                packed[original_slot]
+            };
             let id = graph.nodes.len();
             graph.nodes.push(Op::Mix {
-                original: packed[original_slot],
+                original,
                 processed,
                 mask,
                 mask_channel: 0,

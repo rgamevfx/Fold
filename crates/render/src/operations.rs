@@ -501,3 +501,31 @@ mod node_tests {
         assert_eq!(result, source);
     }
 }
+
+/// Interpretation of source RGBA before input color conversion.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum SourceAlpha {
+    #[default]
+    Premultiplied,
+    Straight,
+    Ignore,
+}
+impl SourceAlpha {
+    pub fn apply(self, pixels: &mut [[f32; 4]]) {
+        match self {
+            Self::Premultiplied => {}
+            Self::Straight => {
+                for p in pixels {
+                    for c in 0..3 {
+                        p[c] *= p[3];
+                    }
+                }
+            }
+            Self::Ignore => {
+                for p in pixels {
+                    p[3] = 1.;
+                }
+            }
+        }
+    }
+}

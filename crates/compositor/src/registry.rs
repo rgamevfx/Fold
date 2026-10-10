@@ -15,7 +15,7 @@ pub const OPERATORS: &[Operator] = &[
         id: "Read",
         inputs: &[],
         output: Image,
-        version: 1,
+        version: 2,
     },
     Operator {
         kernel: "Solid",
@@ -39,13 +39,6 @@ pub const OPERATORS: &[Operator] = &[
         version: 1,
     },
     Operator {
-        kernel: "ApplyMask",
-        id: "ApplyMask",
-        inputs: &[Image, Mask],
-        output: Image,
-        version: 1,
-    },
-    Operator {
         kernel: "Output",
         id: "Output",
         inputs: &[Image],
@@ -57,11 +50,11 @@ pub const OPERATORS: &[Operator] = &[
         id: "Shuffle",
         inputs: &[Image, Image],
         output: Image,
-        version: 1,
+        version: 2,
     },
     Operator {
-        kernel: "RemoveChannels",
-        id: "RemoveChannels",
+        kernel: "CullChannels",
+        id: "Cull Channels",
         inputs: &[Image],
         output: Image,
         version: 1,
@@ -78,7 +71,7 @@ pub const OPERATORS: &[Operator] = &[
         id: "Merge",
         inputs: &[Image, Image],
         output: Image,
-        version: 2,
+        version: 3,
     },
     Operator {
         kernel: "TransformImage",
@@ -178,6 +171,13 @@ pub const OPERATORS: &[Operator] = &[
         output: Image,
         version: 1,
     },
+    Operator {
+        kernel: "Write",
+        id: "Write",
+        inputs: &[Image],
+        output: Image,
+        version: 1,
+    },
 ];
 
 impl Operator {
@@ -187,7 +187,18 @@ impl Operator {
         use fold_render::operations::Unary;
         let rect = [0, 0, info.width, info.height];
         Ok(match (self.id, self.version) {
-            ("Read", 1) => C::Read {
+            ("Write", 1) => C::Write {
+                settings: fold_platform::delivery::Settings {
+                    last: info.frames - 1,
+                    ..Default::default()
+                },
+            },
+            ("Read", 2) => C::Read {
+                options: crate::read::ReadOptions {
+                    before: fold_media::exr_sequence::Policy::Hold,
+                    after: fold_media::exr_sequence::Policy::Hold,
+                    ..Default::default()
+                },
                 source: crate::Source::Unassigned { info: info.clone() },
                 start: fold_foundation::Time::ZERO,
                 source_start: fold_foundation::Time::ZERO,
@@ -198,18 +209,18 @@ impl Operator {
             },
             ("Crop", 1) => C::Crop { rect },
             ("Mask", 1) => C::Mask { rect },
-            ("ApplyMask", 1) => C::ApplyMask,
             ("Output", 1) => C::Output,
-            ("Shuffle", 1) => C::Shuffle { mappings: vec![] },
-            ("RemoveChannels", 1) => C::RemoveChannels {
-                channels: vec![],
+            ("Shuffle", 2) => C::Shuffle { mappings: vec![] },
+            ("Cull Channels", 1) => C::CullChannels {
+                channels: Default::default(),
                 keep: false,
             },
             ("Grade", 3) => C::ColorGrade {
                 settings: Default::default(),
             },
-            ("Merge", 2) => C::Composite {
+            ("Merge", 3) => C::Composite {
                 mode: Default::default(),
+                channels: Default::default(),
             },
             ("Transform", 3) => C::TransformImage {
                 settings: crate::Transform {

@@ -466,7 +466,13 @@ to the held frame. See the [pixel audit](../../../docs/rewrite/evidence/m5a-comp
 
 Compositor inspection returns `graph_source` alongside its `native` record and
 named `image_inputs`. Provider discovery lists the 24 current operation/version entries
-and their native `record` examples. Grade, Transform and Blur use version 3; Merge uses version 2.
+and their native `record` examples. Grade, Transform, Blur and Merge use version 3.
+Read and Shuffle use version 2. Shuffle's required image input is B; A is optional.
+Read exposes separate before/after policies and explicit proxy selection. Write v1
+exports its own connected branch to EXR from the desktop Render action; Output
+remains the internal Fold endpoint. Public branch references use `write/<node-id>`.
+Discover the current catalog before constructing settings; public agent export
+commands and a persistent render queue are not yet qualified.
 Blur provides Gaussian and Box filters. Grade provides explicit clamps/inversion;
 Transform provides ordered XY skews, reconstruction boundary controls and exact
 shutter sampling of its own animation. Upstream images remain at the requested

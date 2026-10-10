@@ -81,7 +81,7 @@ fn compositor_catalog_exposes_only_current_operation_generations() {
             .filter(|op| op.id == name)
             .map(|op| op.version)
             .collect();
-        assert_eq!(versions, [if name == "Merge" { 2 } else { 3 }]);
+        assert_eq!(versions, [3]);
     }
 }
 

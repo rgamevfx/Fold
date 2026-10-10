@@ -16,18 +16,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         },
         vec![],
     );
-    let mask = Node::new(
-        P::Mask {
+    let cropped = Node::new(
+        P::Crop {
             rect: [40, 40, 200, 200],
         },
-        vec![],
+        vec![solid.id],
     );
-    let masked = Node::new(P::ApplyMask, vec![solid.id, mask.id]);
     let mut transform = Node::new(
         P::TransformImage {
             settings: Default::default(),
         },
-        vec![masked.id],
+        vec![cropped.id],
     );
     for (path, values) in [
         ("position.0", [0., 200., 0.]),
@@ -52,7 +51,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             frames: 120,
         },
         output: output.id,
-        nodes: vec![solid, mask, masked, transform, output],
+        nodes: vec![solid, cropped, transform, output],
         extensions: Default::default(),
     };
     composite.auto_layout()?;

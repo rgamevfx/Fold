@@ -8,8 +8,6 @@ impl crate::Operator {
     pub fn label(&self) -> &'static str {
         match self.id {
             "Solid" => "Constant",
-            "ApplyMask" => "Multiply Alpha",
-            "RemoveChannels" => "Remove / Keep Channels",
             _ => self.id,
         }
     }
@@ -41,11 +39,10 @@ impl crate::Operator {
     /// Stable socket names within the versioned operator schema, never UI labels.
     pub fn input_key(&self, slot: usize) -> &'static str {
         match (self.id, slot) {
-            ("Shuffle", 0) => "A",
-            ("Shuffle", 1) => "B",
+            ("Shuffle", 0) => "B",
+            ("Shuffle", 1) => "A",
             ("Merge", 0) => "foreground",
             ("Merge", 1) => "background",
-            ("ApplyMask", 1) => "mask",
             _ => "image",
         }
     }

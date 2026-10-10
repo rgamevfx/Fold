@@ -32,7 +32,7 @@ impl Kind {
             DesktopCommand::ChooseSave | DesktopCommand::Save(_) => Self::Save,
             DesktopCommand::Browser(_) => Self::Ingest,
             DesktopCommand::Extension(request) => Self::Extension(request.clone()),
-            DesktopCommand::Export { .. } => Self::Export,
+            DesktopCommand::Export { .. } | DesktopCommand::ExportFrames { .. } => Self::Export,
             _ => return Err("command is not a background operation".into()),
         })
     }
@@ -248,6 +248,15 @@ fn execute(
                         path.to_string_lossy().into_owned(),
                     ))
                 }),
+            DesktopCommand::ExportFrames { source, settings } => workflow::export_frames(
+                snapshot,
+                &source,
+                &settings,
+                token,
+                #[cfg(feature = "gpu")]
+                render_host,
+            )
+            .map(|_| Completed::Exported(format!("Write complete: {}", settings.destination))),
             DesktopCommand::Export { path, start, end } => {
                 #[cfg(feature = "gpu")]
                 let result =

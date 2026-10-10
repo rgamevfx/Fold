@@ -77,6 +77,7 @@ pub enum ImageOp {
     /// byte count across all source nodes is separately capped at 64 MiB.
     Media(fold_media::RgbImage),
     Exr {
+        alpha: crate::operations::SourceAlpha,
         source: fold_media::exr::Source,
         channels: [Option<String>; 4],
         /// None denotes data. Color tuples carry an explicit input assignment.
@@ -415,6 +416,7 @@ pub(crate) fn validate(graph: &RenderGraph, aces: bool) -> Result<usize, String>
                 ref source,
                 ref channels,
                 ref space,
+                alpha: _,
             } => {
                 source.info.validate()?;
                 if space.is_some() && !aces {
@@ -672,6 +674,7 @@ pub(crate) fn evaluate(
                 ref source,
                 ref channels,
                 ref space,
+                alpha,
             } => {
                 let decoded = fold_media::exr::cache::request(
                     fold_media::exr::cache::Request {
@@ -684,6 +687,7 @@ pub(crate) fn evaluate(
                 )?
                 .wait(cancel)?;
                 pixels.extend_from_slice(&decoded.pixels);
+                alpha.apply(&mut pixels);
                 if let Some(space) = space {
                     processors[space].apply(&mut pixels)?;
                 }

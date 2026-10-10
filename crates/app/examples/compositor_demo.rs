@@ -105,6 +105,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     let read = Node::new(
         P::Read {
+            options: Default::default(),
             source: Source::Unassigned { info: info.clone() },
             start: Time::ZERO,
             source_start: Time::ZERO,
@@ -159,7 +160,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .map(|component| {
                 Ok(ChannelMapping {
                     destination: format!("inspection.{component}").try_into()?,
-                    source: ChannelSource::A(format!("aov07.{component}").try_into()?),
+                    source: ChannelSource::B(format!("aov07.{component}").try_into()?),
                 })
             })
             .collect::<Result<_, String>>()?,
@@ -175,6 +176,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let merge = Node::new(
         P::Composite {
             mode: MergeMode::Over,
+            channels: Default::default(),
         },
         vec![shuffle.id, background.id],
     );

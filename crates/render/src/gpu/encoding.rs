@@ -542,10 +542,16 @@ impl Renderer {
                     let mut native_planes = None;
                     let exr_pixels;
                     let pixels: std::borrow::Cow<'_, [[f32; 4]]> =
-                        if let ImageOp::Exr { space, .. } = op {
+                        if let ImageOp::Exr { space, alpha, .. } = op {
                             exr_pixels = exr.take(id, cancel)?;
                             input_space = space.as_deref();
-                            std::borrow::Cow::Borrowed(&exr_pixels.pixels)
+                            if *alpha == crate::operations::SourceAlpha::Premultiplied {
+                                std::borrow::Cow::Borrowed(&exr_pixels.pixels)
+                            } else {
+                                let mut pixels = exr_pixels.pixels.to_vec();
+                                alpha.apply(&mut pixels);
+                                std::borrow::Cow::Owned(pixels)
+                            }
                         } else if aces {
                             let decoded;
                             let source = match op {

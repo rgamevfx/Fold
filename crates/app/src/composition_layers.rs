@@ -126,6 +126,7 @@ pub fn add(snapshot: &Snapshot, bytes: &[u8], cancel: &Cancel) -> Result<EditBat
             let info = source_info(snapshot, input, &layer.info)?;
             let read = Node::new(
                 P::Read {
+                    options: Default::default(),
                     source: source(snapshot, input, info.clone())?,
                     start: Time::ZERO,
                     source_start: Time::ZERO,

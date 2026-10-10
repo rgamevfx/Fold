@@ -24,6 +24,7 @@ pub enum OperationConfig {
         curve: fold_animation::timing::Curve,
     },
     Read {
+        options: crate::read::ReadOptions,
         source: Source,
         start: Time,
         source_start: Time,
@@ -58,14 +59,17 @@ pub enum OperationConfig {
     },
     Composite {
         mode: fold_render::operations::MergeMode,
+        channels: crate::MergeChannels,
     },
-    ApplyMask,
     Shuffle {
         mappings: Vec<crate::ChannelMapping>,
     },
-    RemoveChannels {
-        channels: Vec<fold_render::channels::ChannelName>,
+    CullChannels {
+        channels: [Vec<fold_render::channels::ChannelName>; 4],
         keep: bool,
+    },
+    Write {
+        settings: fold_platform::delivery::Settings,
     },
     Output,
 }
@@ -100,25 +104,25 @@ impl OperationConfig {
 
     pub fn operator(&self) -> &'static Operator {
         &OPERATORS[match self {
-            Self::Shader { .. } => 23,
-            Self::RelativeTransform { .. } => 22,
-            Self::Input { .. } => 19,
-            Self::Instance { .. } => 20,
-            Self::Dissolve { .. } => 21,
+            Self::Write { .. } => 23,
+            Self::Shader { .. } => 22,
+            Self::RelativeTransform { .. } => 21,
+            Self::Input { .. } => 18,
+            Self::Instance { .. } => 19,
+            Self::Dissolve { .. } => 20,
             Self::Read { .. } => 0,
             Self::Solid { .. } => 1,
             Self::Crop { .. } => 2,
             Self::Mask { .. } => 3,
-            Self::ApplyMask => 4,
-            Self::Output => 5,
-            Self::Shuffle { .. } => 6,
-            Self::RemoveChannels { .. } => 7,
-            Self::ColorGrade { .. } => 8,
-            Self::Composite { .. } => 9,
-            Self::TransformImage { .. } => 10,
-            Self::Blur { .. } => 11,
+            Self::Output => 4,
+            Self::Shuffle { .. } => 5,
+            Self::CullChannels { .. } => 6,
+            Self::ColorGrade { .. } => 7,
+            Self::Composite { .. } => 8,
+            Self::TransformImage { .. } => 9,
+            Self::Blur { .. } => 10,
             Self::Unary { operation } => {
-                12 + match operation {
+                11 + match operation {
                     fold_render::operations::Unary::Exposure { .. } => 0,
                     fold_render::operations::Unary::Invert => 1,
                     fold_render::operations::Unary::Clamp { .. } => 2,
@@ -128,15 +132,16 @@ impl OperationConfig {
             }
             Self::Shape { shape, .. } => {
                 if *shape == crate::Shape::Rectangle {
-                    17
+                    16
                 } else {
-                    18
+                    17
                 }
             }
         }]
     }
     pub(crate) fn validate(&self) -> Result<(), String> {
         match self {
+            Self::Write { settings } => settings.validate()?,
             Self::Shader { settings } => settings.validate()?,
             Self::RelativeTransform { settings } => {
                 settings.matrix(
@@ -169,6 +174,11 @@ impl OperationConfig {
                 settings.matrix([1.; 2])?;
             }
             Self::ColorGrade { settings } => settings.validate()?,
+            Self::Composite { channels, .. }
+                if channels.a.len() > 256 || channels.b.len() > 256 =>
+            {
+                return Err("Select at most 256 channels per Merge input".into());
+            }
             Self::Shuffle { mappings } => {
                 let unique: BTreeSet<_> = mappings.iter().map(|m| &m.destination).collect();
                 if mappings.len() > 256 || unique.len() != mappings.len() {
@@ -177,7 +187,9 @@ impl OperationConfig {
                     );
                 }
             }
-            Self::RemoveChannels { channels, .. } if channels.len() > 256 => {
+            Self::CullChannels { channels, .. }
+                if channels.iter().map(Vec::len).sum::<usize>() > 256 =>
+            {
                 return Err("Select at most 256 channels".into());
             }
             Self::Read {
@@ -185,7 +197,47 @@ impl OperationConfig {
                 start,
                 source_start,
                 duration,
+                options,
             } => {
+                if options.use_proxy && options.proxy.is_none() {
+                    return Err("Choose a proxy source before enabling it".into());
+                }
+                if let Some(proxy) = &options.proxy {
+                    if !matches!(proxy, Source::Asset { .. } | Source::Exr { .. })
+                        || proxy.info().rate != source.info().rate
+                    {
+                        return Err(
+                            "Proxy requires an image/video asset with the source frame rate".into(),
+                        );
+                    }
+                    if let (
+                        Source::Exr {
+                            image: original, ..
+                        },
+                        Source::Exr { image: proxy, .. },
+                    ) = (source, proxy)
+                    {
+                        if original
+                            .channels
+                            .iter()
+                            .map(|c| &c.name)
+                            .ne(proxy.channels.iter().map(|c| &c.name))
+                        {
+                            return Err("Proxy channels must match the source".into());
+                        }
+                    }
+                    let mut plain = options.clone();
+                    plain.proxy = None;
+                    plain.use_proxy = false;
+                    Self::Read {
+                        source: proxy.clone(),
+                        start: *start,
+                        source_start: *source_start,
+                        duration: *duration,
+                        options: plain,
+                    }
+                    .validate()?;
+                }
                 let info = source.info();
                 info.validate()?;
                 if let Source::Exr {

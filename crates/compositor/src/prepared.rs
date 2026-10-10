@@ -283,8 +283,12 @@ impl<'a> PreparedComposite<'a> {
         Ok(())
     }
     pub fn render_order(&self) -> Result<Vec<ObjectId>, String> {
+        self.render_order_from(self.output)
+    }
+    pub fn render_order_from(&self, output: ObjectId) -> Result<Vec<ObjectId>, String> {
+        self.node(output)?;
         let order = self.evaluation_order();
-        let mut needed = BTreeSet::from([self.output]);
+        let mut needed = BTreeSet::from([output]);
         for id in order.iter().rev() {
             if needed.contains(id) {
                 let n = self.node(*id)?;

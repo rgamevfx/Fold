@@ -77,6 +77,7 @@ fn registry_rejects_bad_types_cycles_ports_and_dependency_declarations() {
     let source = DocumentId::new();
     let read = Node::new(
         P::Read {
+            options: Default::default(),
             source: Source::Document {
                 source: reference(source),
                 info: info(),
@@ -295,6 +296,7 @@ fn unavailable_nested_provider_fails_even_in_an_inactive_read() {
     let mut c = solid([1.0; 4]);
     let read = Node::new(
         P::Read {
+            options: Default::default(),
             source: Source::Document {
                 source: reference(missing),
                 info: info(),
@@ -401,6 +403,7 @@ fn nested_read_offsets_compose_exactly_with_half_open_fractional_boundaries() {
     let make = |source, start, source_start| {
         let read = Node::new(
             P::Read {
+                options: Default::default(),
                 source: Source::Document {
                     source: reference(source),
                     info: info(),

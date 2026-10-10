@@ -9,6 +9,8 @@ struct Args {
     document: DocumentId,
     node: ObjectId,
     #[serde(default)]
+    proxy: bool,
+    #[serde(default)]
     path: Option<std::path::PathBuf>,
 }
 pub fn replace(
@@ -84,6 +86,20 @@ pub fn replace(
     )
     .map_err(|e| e.to_string())?;
     let source = fold_compositor::source_from_profile(asset_id, metadata.profile, &composite.info)?;
+    if args.proxy {
+        let node = composite.node_mut(args.node)?;
+        let mut config = node.prepare()?.config().clone();
+        let fold_compositor::OperationConfig::Read { options, .. } = &mut config else {
+            unreachable!()
+        };
+        options.proxy = Some(source);
+        node.set_configuration(config)?;
+        let mut document = composite.document(args.document)?;
+        document.extensions = previous.extensions.clone();
+        batch.mutations.push(Mutation::PutDocument(document));
+        cancel.check()?;
+        return Ok(batch);
+    }
     let sequence_first = match &source {
         fold_compositor::Source::Exr { sequence, .. } => sequence.as_ref().map(|s| s.first),
         _ => None,

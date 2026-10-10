@@ -8,7 +8,7 @@ mod transform;
 pub use shapes::Shape;
 pub use transform::{RelativeTransform, SizeReference, Transform};
 mod source_channels;
-pub use channels::{ChannelMapping, ChannelSource, Effect};
+pub use channels::{ChannelMapping, ChannelSource, Effect, MergeChannels};
 mod graph;
 mod model;
 pub mod package;
@@ -33,6 +33,7 @@ mod operation;
 mod parameters;
 mod references;
 
+pub mod read;
 mod source;
 
 mod kernel;

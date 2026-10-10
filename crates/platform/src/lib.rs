@@ -3,6 +3,7 @@ pub mod animation;
 pub mod application;
 pub mod browser;
 pub mod color;
+pub mod delivery;
 pub mod desktop;
 pub mod effects;
 pub mod format;

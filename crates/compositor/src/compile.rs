@@ -28,6 +28,38 @@ impl VideoProvider for Provider {
     ) -> Result<fold_media::VideoInfo, String> {
         Ok(Composite::from_document(document)?.info)
     }
+    fn outputs(
+        &self,
+        document: &fold_project::Document,
+    ) -> Vec<fold_platform::workspace::OutputDescriptor> {
+        let mut outputs = vec![fold_platform::workspace::OutputDescriptor {
+            reference: fold_project::DocumentRef {
+                document: document.id,
+                output: "video".into(),
+                extensions: Default::default(),
+            },
+            label: "Video".into(),
+            info: self.video_info(document),
+            playback_mode: self.playback_mode(),
+        }];
+        if let Ok(composite) = Composite::from_document(document) {
+            for node in &composite.nodes {
+                if node.operation.operation == "Write" {
+                    outputs.push(fold_platform::workspace::OutputDescriptor {
+                        reference: fold_project::DocumentRef {
+                            document: document.id,
+                            output: format!("write/{}", node.id),
+                            extensions: Default::default(),
+                        },
+                        label: node.name.clone(),
+                        info: Ok(composite.info.clone()),
+                        playback_mode: self.playback_mode(),
+                    });
+                }
+            }
+        }
+        outputs
+    }
     fn channels(
         &self,
         document: &fold_project::Document,
@@ -66,9 +98,23 @@ fn compile(request: VideoCompile<'_>) -> Result<ChannelGraph, fold_foundation::F
     if let Some(invocation) = request.invocation {
         prepared = prepared.with_invocation(invocation)?;
     }
-    if output != "video"
-        || (request.context.is_none()
-            && (time < Time::ZERO || time >= composite.info.time(composite.info.frames)?))
+    let render_output = if output == "video" {
+        composite.output
+    } else {
+        let id = serde_json::from_value(serde_json::Value::String(
+            output
+                .strip_prefix("write/")
+                .ok_or("Unsupported composite output")?
+                .into(),
+        ))
+        .map_err(|_| "Invalid Write output identity")?;
+        if !matches!(prepared.node(id)?.config(), P::Write { .. }) {
+            return Err("Output is not a Write node".into());
+        }
+        id
+    };
+    if request.context.is_none()
+        && (time < Time::ZERO || time >= composite.info.time(composite.info.frames)?)
     {
         return Err("unsupported composite output or time outside duration".into());
     }
@@ -93,11 +139,21 @@ fn compile(request: VideoCompile<'_>) -> Result<ChannelGraph, fold_foundation::F
             (f64::from(r[3]) * sy).round() as u32,
         ]
     };
-    for id in composite.render_order()? {
+    for id in composite.render_order_from(render_output)? {
         cancel.check()?;
         let node = composite.node(id)?;
         let connections = node.input_ids();
-        let parameters = composite.evaluated_parameters(node.id, time)?;
+        let mut parameters = composite.evaluated_parameters(node.id, time)?;
+        if let P::Read {
+            source, options, ..
+        } = &mut parameters
+        {
+            if options.use_proxy
+                && let Some(proxy) = &options.proxy
+            {
+                *source = proxy.clone();
+            }
+        }
         match &parameters {
             P::Input { id } => {
                 let invocation = request
@@ -171,6 +227,7 @@ fn compile(request: VideoCompile<'_>) -> Result<ChannelGraph, fold_foundation::F
             start,
             source_start,
             duration,
+            options: read,
         } = &parameters
         {
             let asset = snapshot
@@ -178,7 +235,7 @@ fn compile(request: VideoCompile<'_>) -> Result<ChannelGraph, fold_foundation::F
                 .assets
                 .get(asset)
                 .ok_or("Missing EXR asset")?;
-            let space = if fold_platform::color::project(snapshot)?.is_some() {
+            let space = if !read.raw && fold_platform::color::project(snapshot)?.is_some() {
                 Some(
                     fold_platform::color::input(&node.extensions)?
                         .or(fold_platform::color::input(&asset.extensions)?)
@@ -187,26 +244,11 @@ fn compile(request: VideoCompile<'_>) -> Result<ChannelGraph, fold_foundation::F
             } else {
                 None
             };
-            let local = time
-                .checked_sub(*start)
-                .and_then(|t| t.checked_add(*source_start))
-                .map_err(|e| e.to_string())?;
-            let outside =
-                time < *start || time >= start.checked_add(*duration).map_err(|e| e.to_string())?;
-            let mut frame = local
+            let local = read.mapped_time(time, *start, *source_start, *duration, info.rate)?;
+            let frame = local
+                .unwrap_or(*source_start)
                 .to_ticks(info.rate[0], info.rate[1], fold_foundation::Rounding::Floor)
                 .map_err(|e| e.to_string())?;
-            if outside && options.outside == fold_media::exr_sequence::Policy::Hold {
-                let first = source_start
-                    .to_ticks(info.rate[0], info.rate[1], fold_foundation::Rounding::Floor)
-                    .map_err(|e| e.to_string())?;
-                let end = source_start
-                    .checked_add(*duration)
-                    .map_err(|e| e.to_string())?
-                    .to_ticks(info.rate[0], info.rate[1], fold_foundation::Rounding::Ceil)
-                    .map_err(|e| e.to_string())?;
-                frame = frame.clamp(first, end - 1);
-            }
             let mut current_image = image.clone();
             if let Some(value) = asset.extensions.get(fold_media::ingest::METADATA_KEY) {
                 let metadata: fold_media::ingest::SourceMetadata =
@@ -234,14 +276,35 @@ fn compile(request: VideoCompile<'_>) -> Result<ChannelGraph, fold_foundation::F
                 fingerprint: asset.fingerprint.clone(),
                 info: current_image,
             };
-            let selected = fold_media::exr_sequence::resolve(&original, frame, options, outside)?;
+            let selected = if local.is_some() {
+                fold_media::exr_sequence::resolve(
+                    &original,
+                    frame,
+                    &fold_media::exr_sequence::Options {
+                        still: options.still,
+                        missing: options.missing,
+                        outside: if sequence
+                            .as_ref()
+                            .is_some_and(|s| frame < i64::from(s.first))
+                        {
+                            read.before
+                        } else {
+                            read.after
+                        },
+                    },
+                    false,
+                )?
+            } else {
+                None
+            };
             let active = selected.is_some();
             let channels = crate::source_channels::exr(
                 &mut graph,
                 selected.unwrap_or(original),
                 space,
-                color_layers,
+                if read.raw { &[] } else { color_layers },
                 active,
+                read.alpha,
             )?;
             ids.insert(id, channels);
             continue;
@@ -251,11 +314,11 @@ fn compile(request: VideoCompile<'_>) -> Result<ChannelGraph, fold_foundation::F
             // All mappings read the original inputs, so swaps are simultaneous.
             for mapping in mappings {
                 let channel = match &mapping.source {
-                    crate::ChannelSource::A(name) => {
+                    crate::ChannelSource::B(name) => {
                         ids[&connections[0].unwrap()].get(name.as_str())?
                     }
-                    crate::ChannelSource::B(name) => ids
-                        [&connections[1].ok_or("Shuffle: connect B for this mapping")?]
+                    crate::ChannelSource::A(name) => ids
+                        [&connections[1].ok_or("Shuffle: connect A for this mapping")?]
                         .get(name.as_str())?,
                     crate::ChannelSource::Zero => Channel {
                         value: Value::Zero,
@@ -271,13 +334,16 @@ fn compile(request: VideoCompile<'_>) -> Result<ChannelGraph, fold_foundation::F
             ids.insert(id, channels);
             continue;
         }
-        if let P::RemoveChannels { channels, keep } = &parameters {
+        if let P::CullChannels { channels, keep } = &parameters {
             let mut result = ids[&connections[0].unwrap()].clone();
-            result.retain(channels, *keep);
+            result.retain(
+                &channels.iter().flatten().cloned().collect::<Vec<_>>(),
+                *keep,
+            );
             ids.insert(id, result);
             continue;
         }
-        if matches!(parameters, P::Output) {
+        if matches!(parameters, P::Output | P::Write { .. }) {
             ids.insert(id, ids[&connections[0].unwrap()].clone());
             continue;
         }
@@ -404,9 +470,16 @@ fn compile(request: VideoCompile<'_>) -> Result<ChannelGraph, fold_foundation::F
                     start,
                     source_start,
                     duration,
+                    options,
                 } => {
-                    let end = start.checked_add(*duration).map_err(|e| e.to_string())?;
-                    if time < *start || time >= end {
+                    let local = options.mapped_time(
+                        time,
+                        *start,
+                        *source_start,
+                        *duration,
+                        source.info().rate,
+                    )?;
+                    if local.is_none() {
                         if let Source::Document { source, .. } = source {
                             let mut channels = Channels::default();
                             for name in describe_channels(source)? {
@@ -425,10 +498,7 @@ fn compile(request: VideoCompile<'_>) -> Result<ChannelGraph, fold_foundation::F
                         }
                         Op::Solid { rgba: [0.0; 4] }
                     } else {
-                        let local = time
-                            .checked_sub(*start)
-                            .and_then(|t| t.checked_add(*source_start))
-                            .map_err(|e| e.to_string())?;
+                        let local = local.unwrap();
                         match source {
                             Source::Unassigned { .. } => {
                                 return Err("Read: choose a source file".into());
@@ -448,7 +518,11 @@ fn compile(request: VideoCompile<'_>) -> Result<ChannelGraph, fold_foundation::F
                                         info: info.clone(),
                                         time: local,
                                         outside: fold_platform::image_source::Outside::Black,
-                                        color_space: fold_platform::color::input(&node.extensions)?,
+                                        color_space: if options.raw {
+                                            Some("ACEScg".into())
+                                        } else {
+                                            fold_platform::color::input(&node.extensions)?
+                                        },
                                     },
                                     &request,
                                 )?;
@@ -467,10 +541,6 @@ fn compile(request: VideoCompile<'_>) -> Result<ChannelGraph, fold_foundation::F
                         rect: rect(*r),
                     }
                 }
-                P::ApplyMask => Op::Mask {
-                    input: input(0),
-                    mask: input(1),
-                },
                 P::Unary { .. }
                 | P::Blur { .. }
                 | P::TransformImage { .. }
@@ -478,8 +548,9 @@ fn compile(request: VideoCompile<'_>) -> Result<ChannelGraph, fold_foundation::F
                 | P::ColorGrade { .. }
                 | P::Composite { .. }
                 | P::Output
+                | P::Write { .. }
                 | P::Shuffle { .. }
-                | P::RemoveChannels { .. } => unreachable!("handled channel routing/effects"),
+                | P::CullChannels { .. } => unreachable!("handled channel routing/effects"),
             };
         let result = graph.nodes.len();
         graph.nodes.push(op);
@@ -498,6 +569,6 @@ fn compile(request: VideoCompile<'_>) -> Result<ChannelGraph, fold_foundation::F
     }
     Ok(ChannelGraph {
         graph,
-        channels: ids.remove(&composite.output).unwrap(),
+        channels: ids.remove(&render_output).unwrap(),
     })
 }

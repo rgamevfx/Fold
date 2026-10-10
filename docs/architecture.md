@@ -99,7 +99,7 @@ physical artist continuation or complete export acceptance.
 
 Timeline owns Sequence 5; Composition owns layer schema 3; Compositor owns native
 schema 8; native Motion Construction and Scene use their distinct schema-1 types.
-Grade/Transform/Blur use version 3; Merge uses version 2.
+Grade/Transform/Blur/Merge use version 3; Read/Shuffle use version 2. Write v1 exports its connected branch through background EXR delivery; Output remains the internal endpoint. Cull Channels replaces Remove/Keep Channels; Multiply Alpha is retired.
 The [first curated node set](rewrite/evidence/compositor-nodes-first-set/result.md)
 replaces their temporary inspectors and Gaussian-only Blur contract. Old Motion, two-layer Timeline and retired
 schema generations are not executable. Unsupported records remain opaque.

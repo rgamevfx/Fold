@@ -3,6 +3,7 @@
 //! is distinct from retained decoded planes and the viewer playback cache.
 mod blocks;
 pub mod cache;
+pub mod write;
 
 use crate::{Cancel, budget};
 use ::exr::prelude::*;

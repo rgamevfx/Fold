@@ -217,7 +217,10 @@ fn project_workflow_reuses_assets_and_outputs_and_preserves_history_and_content(
         &project.snapshot().state().documents[&composite],
     )
     .unwrap();
-    assert!(graph.nodes.iter().any(|n| matches!(n.prepare().unwrap().config().clone(), fold_compositor::OperationConfig::Read { source: fold_compositor::Source::Asset { asset: id, .. }, .. } if id == asset)));
+    assert!(graph.nodes.iter().any(
+        |n| matches!(n.prepare().unwrap().config().clone(), fold_compositor::OperationConfig::Read {
+            source: fold_compositor::Source::Asset { asset: id, .. }, .. } if id == asset)
+    ));
     let mut nested = placement(output(image), sequence);
     nested.at = Time::new(1, 1).unwrap();
     edit(&mut project, Command::Place(nested));

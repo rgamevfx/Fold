@@ -11,6 +11,7 @@ pub(super) fn exr(
     space: Option<String>,
     color_layers: &[String],
     active: bool,
+    alpha: fold_render::operations::SourceAlpha,
 ) -> Result<Channels, String> {
     let mut result = Channels::default();
     let mut assigned = std::collections::BTreeSet::new();
@@ -47,6 +48,7 @@ pub(super) fn exr(
             let id = graph.nodes.len();
             if active {
                 graph.nodes.push(ImageOp::Exr {
+                    alpha,
                     source: source.clone(),
                     channels: selected,
                     space: if color_layers.iter().any(|name| name == layer) {
@@ -85,6 +87,7 @@ pub(super) fn exr(
             let id = graph.nodes.len();
             if active {
                 graph.nodes.push(ImageOp::Exr {
+                    alpha: Default::default(),
                     source: source.clone(),
                     channels: [Some(channel.source.clone()), None, None, None],
                     space: None,

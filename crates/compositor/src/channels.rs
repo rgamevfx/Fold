@@ -3,6 +3,28 @@ use fold_foundation::ObjectId;
 use fold_render::channels::{ChannelName, RGBA};
 use serde::{Deserialize, Serialize};
 
+/// Merge input coverage is independent of the output channel selection.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MergeChannels {
+    pub a: Vec<ChannelName>,
+    pub b: Vec<ChannelName>,
+    pub other: bool,
+}
+impl Default for MergeChannels {
+    fn default() -> Self {
+        let rgba = || {
+            RGBA.map(|n| ChannelName::try_from(n.to_owned()).unwrap())
+                .into()
+        };
+        Self {
+            a: rgba(),
+            b: rgba(),
+            other: false,
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Effect {
@@ -168,11 +190,30 @@ impl crate::PreparedComposite<'_> {
                     }
                 }
 
+                crate::OperationConfig::Composite { channels, .. }
+                    if !node.background_only_merge() =>
+                {
+                    names.extend(node.effect.channels.iter().cloned());
+                    if channels.other {
+                        for input in node.input_ids().iter().flatten() {
+                            if let Some(input_names) = outputs.get(input) {
+                                names.extend(
+                                    input_names
+                                        .iter()
+                                        .filter(|name| !name.as_str().starts_with("rgba."))
+                                        .cloned(),
+                                );
+                            }
+                        }
+                    }
+                }
                 crate::OperationConfig::Shuffle { mappings } => {
                     names.extend(mappings.iter().map(|mapping| mapping.destination.clone()));
                 }
-                crate::OperationConfig::RemoveChannels { channels, keep } => {
-                    names.retain(|name| channels.contains(name) == *keep);
+                crate::OperationConfig::CullChannels { channels, keep } => {
+                    names.retain(|name| {
+                        channels.iter().flatten().any(|selected| selected == name) == *keep
+                    });
                 }
                 _ => {}
             }

@@ -452,6 +452,7 @@ mod color_tests {
         };
         let mut read = Node::new(
             OperationConfig::Read {
+                options: Default::default(),
                 source: crate::Source::Unassigned { info: info.clone() },
                 start: Time::ZERO,
                 source_start: Time::ZERO,

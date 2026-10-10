@@ -39,6 +39,7 @@ fn project(path: &std::path::Path) -> (Project, DocumentRef) {
     };
     let source = Node::new(
         P::Read {
+            options: Default::default(),
             source: Source::Unassigned { info: info.clone() },
             start: Time::ZERO,
             source_start: Time::ZERO,
@@ -197,6 +198,7 @@ fn nested_composites_preserve_channel_catalogs_values_and_inactive_frames() {
         .info;
     let read = Node::new(
         P::Read {
+            options: Default::default(),
             source: Source::Document {
                 source: child.clone(),
                 info: info.clone(),

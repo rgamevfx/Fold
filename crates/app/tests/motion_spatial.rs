@@ -2010,6 +2010,7 @@ fn hierarchy_scene_outputs_composite_independently_and_preserve_depth() {
     };
     let read = fold_compositor::Node::new(
         fold_compositor::OperationConfig::Read {
+            options: Default::default(),
             source: fold_compositor::Source::Document {
                 source: fold_project::DocumentRef {
                     document: ids[0],
@@ -2027,6 +2028,7 @@ fn hierarchy_scene_outputs_composite_independently_and_preserve_depth() {
     let merge = fold_compositor::Node::new(
         fold_compositor::OperationConfig::Composite {
             mode: Default::default(),
+            channels: Default::default(),
         },
         vec![solid.id, read.id],
     );

@@ -285,6 +285,7 @@ fn native_signal_input_overrides_read_nodes_export_and_external_configs() {
     let asset = fold_foundation::AssetId::new();
     let read = Node::new(
         P::Read {
+            options: Default::default(),
             source: Source::Asset {
                 asset,
                 info: source.info.clone(),

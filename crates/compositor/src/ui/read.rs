@@ -1,15 +1,19 @@
-//! Read source, exact frame mapping and input-color controls.
-use crate::{Node, OperationConfig, Source};
+//! Compact Read controls over the same exact-time mapping used by rendering.
+use super::controls::{check, combo, row};
+use crate::{
+    Node, OperationConfig, Source,
+    read::{Alpha, FrameMode},
+};
 use fold_foundation::Time;
 use fold_platform::desktop::{DesktopClient, ViewLocation};
 use fold_ui::sdk::{
     EditResponse as Response,
     imgui::{Drag, Ui},
 };
-
 #[derive(Default)]
 pub(super) struct Actions {
     pub choose_source: bool,
+    pub choose_proxy: bool,
     pub navigate: Option<ViewLocation>,
 }
 pub(super) fn draw(
@@ -30,210 +34,328 @@ pub(super) fn draw(
         start,
         source_start,
         duration,
+        options,
     } = &mut config
     else {
         return actions;
     };
-    if !matches!(source, Source::Document { .. }) && ui.button("Choose file…") {
-        actions.choose_source = true;
-    }
-    if let Source::Exr {
-        sequence,
-        info,
-        options,
-        ..
-    } = source
-    {
-        if let Some(sequence) = sequence {
-            ui.text(format!(
-                "Sequence • {}–{} • {} files",
-                sequence.first, sequence.last, sequence.count
-            ));
-            if ui.checkbox("Read selected file as still", &mut options.still) {
-                let first = if options.still { 0 } else { sequence.first };
-                *source_start = info.time(first).unwrap();
-                *start = *source_start;
-                *duration = info.time(info.frames - first).unwrap();
-                response.changed = true;
-                response.finished = true;
-            }
-            if !options.still
-                && let Some(_advanced) = ui.tree_node("Sequence options")
-            {
-                for (label, value) in [
-                    ("Missing frames", &mut options.missing),
-                    ("Outside range", &mut options.outside),
-                ] {
-                    use fold_media::exr_sequence::Policy;
-                    let label_of = |p: Policy| match p {
-                        Policy::Error => "Error",
-                        Policy::Black => "Black",
-                        Policy::Hold => "Hold",
-                    };
-                    if let Some(_combo) = ui.begin_combo(label, label_of(*value)) {
-                        for policy in [Policy::Error, Policy::Black, Policy::Hold] {
-                            if ui
-                                .selectable_config(label_of(policy))
-                                .selected(*value == policy)
-                                .build()
-                            {
-                                *value = policy;
-                                response.changed = true;
-                                response.finished = true;
-                            }
-                        }
-                    }
-                }
-                let old = info.rate;
-                let mut rate = [old[0] as i32, old[1] as i32];
-                let numerator = ui.input_int("FPS numerator", &mut rate[0]);
-                let denominator = ui.input_int("FPS denominator", &mut rate[1]);
-                if (numerator || denominator) && rate.iter().all(|v| *v > 0) {
-                    let new_rate = [rate[0] as u32, rate[1] as u32];
-                    let remap = |time: Time| {
-                        time.to_ticks(old[0], old[1], fold_foundation::Rounding::Floor)
-                            .ok()
-                            .and_then(|frame| frame.checked_mul(i64::from(new_rate[1])))
-                            .and_then(|n| Time::new(n, new_rate[0]).ok())
-                    };
-                    if let (Some(at), Some(first), Some(length)) =
-                        (remap(*start), remap(*source_start), remap(*duration))
-                    {
-                        *start = at;
-                        *source_start = first;
-                        *duration = length;
-                        info.rate = new_rate;
-                        response.changed = true;
-                        response.finished = true;
-                    }
-                }
-            }
-        }
-    }
-    frame_range(
-        ui,
-        source.info().rate,
-        start,
-        source_start,
-        duration,
-        response,
-    );
-    ui.separator();
-    if let Source::Exr {
-        image,
-        color_layers,
-        ..
-    } = source
-        && let Some(_advanced) = ui.tree_node("Color layers")
-    {
-        let layers: std::collections::BTreeSet<_> = image
-            .channels
-            .iter()
-            .filter(|c| c.color)
-            .filter_map(|c| c.name.rsplit_once('.').map(|(layer, _)| layer))
-            .collect();
-        for layer in layers {
-            if !["red", "green", "blue"].iter().all(|component| {
-                image
-                    .channels
-                    .iter()
-                    .any(|c| c.name == format!("{layer}.{component}"))
-            }) {
-                continue;
-            }
-            let mut enabled = color_layers.iter().any(|name| name == layer);
-            if ui.checkbox(layer, &mut enabled) {
-                color_layers.retain(|name| name != layer);
-                if enabled {
-                    color_layers.push(layer.to_owned());
-                }
-                response.changed = true;
-                response.finished = true;
-            }
-        }
-    }
-    let exr = matches!(source, Source::Exr { .. });
-    match source {
-        Source::Unassigned { .. } => ui.text_disabled("No source file selected"),
-        Source::Document { source, .. } => {
-            ui.text("Nested source");
+    let mut path = match source {
+        Source::Asset { asset, .. } | Source::Exr { asset, .. } => host
+            .snapshot()
+            .and_then(|s| s.state().assets.get(asset).map(|a| a.location.clone()))
+            .unwrap_or_default(),
+        Source::Document { .. } => "Document output".into(),
+        Source::Unassigned { .. } => String::new(),
+    };
+    let width = row(ui, "Source");
+    let button = ui.frame_height();
+    ui.set_next_item_width((width - button - ui.clone_style().item_spacing()[0]).max(30.));
+    ui.input_text("##source", &mut path)
+        .read_only(true)
+        .hint("Choose a file")
+        .build();
+    ui.same_line();
+    if matches!(source, Source::Document { .. }) {
+        if ui.button_with_size("↗##source", [button, button]) {
             let time = host
                 .state()
                 .navigation
                 .last()
-                .map(|v| v.time)
-                .unwrap_or_else(|| {
-                    Time::new(
-                        i64::from(host.state().frame) * i64::from(host.state().rate[1]),
-                        host.state().rate[0],
-                    )
-                    .unwrap()
-                });
-            let local = source_time(time, *start, *source_start, *duration);
-            if let Some(local) = local {
-                ui.text(format!(
-                    "Source time: {}/{} s",
-                    local.numerator(),
-                    local.denominator()
-                ));
-                if ui.button("Open Source") {
-                    actions.navigate = Some(ViewLocation {
-                        document: source.document,
-                        time: local,
-                        label: "Source document".into(),
-                    });
+                .map_or(Time::ZERO, |v| v.time);
+            if let Source::Document {
+                source: reference,
+                info,
+            } = source
+            {
+                match options.mapped_time(time, *start, *source_start, *duration, info.rate) {
+                    Ok(Some(time)) => {
+                        actions.navigate = Some(ViewLocation {
+                            document: reference.document,
+                            time,
+                            label: "Source".into(),
+                        })
+                    }
+                    Ok(None) => {}
+                    Err(error) => ui.text_wrapped(error),
                 }
-            } else {
-                ui.text_disabled("Read is inactive at this time");
             }
         }
-        Source::Asset { asset, info } | Source::Exr { asset, info, .. } => {
-            if aces {
-                let assignment = (|| {
-                    if let Some(space) = fold_platform::color::input(&node.extensions)? {
-                        return Ok(Some(space));
-                    }
-                    let snapshot = host.snapshot().ok_or("Missing project")?;
-                    let asset = snapshot
-                        .state()
+    } else {
+        actions.choose_source = ui.button_with_size("…##source", [button, button]);
+    }
+    let rate = source.info().rate;
+    let frame = |t: Time| {
+        t.to_ticks(rate[0], rate[1], fold_foundation::Rounding::Floor)
+            .unwrap_or(0)
+    };
+    let time = |f: i64| {
+        f.checked_mul(i64::from(rate[1]))
+            .and_then(|n| Time::new(n, rate[0]).ok())
+    };
+    let mut first = frame(*source_start);
+    let mut last = first + frame(*duration) - 1;
+    let max = i64::from(source.info().frames) - 1;
+    let width = row(ui, "Range");
+    let spacing = ui.clone_style().item_spacing()[0];
+    let label = ui.calc_text_size("OUT")[0];
+    let field = ((width - 2. * label - 3. * spacing) * 0.5).max(25.);
+    ui.align_text_to_frame_padding();
+    ui.text("IN");
+    ui.same_line();
+    ui.set_next_item_width(field);
+    let a = Drag::new("##first").range(0, last).build(ui, &mut first);
+    response.item(ui, a);
+    ui.same_line();
+    ui.align_text_to_frame_padding();
+    ui.text("OUT");
+    ui.same_line();
+    ui.set_next_item_width(field);
+    let b = Drag::new("##last").range(first, max).build(ui, &mut last);
+    response.item(ui, b);
+    if (a || b) && first >= 0 && last >= first && last <= max {
+        if let (Some(first), Some(length)) = (time(first), time(last - first + 1)) {
+            *source_start = first;
+            *duration = length;
+        }
+    }
+    combo(
+        ui,
+        "Frame mode",
+        &mut options.frame_mode,
+        &[
+            (FrameMode::StartAt, "Start at"),
+            (FrameMode::Offset, "Offset"),
+        ],
+        response,
+    );
+    let mut at = frame(*start)
+        - if options.frame_mode == FrameMode::Offset {
+            first
+        } else {
+            0
+        };
+    row(ui, "Frame");
+    let edited = Drag::new("##frame").speed(1.).build(ui, &mut at);
+    response.item(ui, edited);
+    if edited
+        && let Some(value) = at
+            .checked_add(if options.frame_mode == FrameMode::Offset {
+                first
+            } else {
+                0
+            })
+            .and_then(time)
+    {
+        *start = value;
+    }
+    use fold_media::exr_sequence::Policy;
+    let choices = [
+        (Policy::Hold, "Hold"),
+        (Policy::Black, "Black"),
+        (Policy::Error, "Error"),
+    ];
+    let width = row(ui, "Before / after");
+    let each = (width - spacing) * 0.5;
+    for (index, value) in [&mut options.before, &mut options.after]
+        .into_iter()
+        .enumerate()
+    {
+        let _id = ui.push_id(index as i32);
+        if index > 0 {
+            ui.same_line();
+        }
+        ui.set_next_item_width(each);
+        if let Some(_combo) = ui.begin_combo(
+            "##outside",
+            choices.iter().find(|(p, _)| p == value).unwrap().1,
+        ) {
+            for (policy, label) in choices {
+                if ui
+                    .selectable_config(label)
+                    .selected(*value == policy)
+                    .build()
+                {
+                    *value = policy;
+                    response.changed = true;
+                    response.finished = true;
+                }
+            }
+        }
+    }
+    if let Source::Exr {
+        options: sequence_options,
+        sequence: Some(_),
+        ..
+    } = source
+    {
+        combo(
+            ui,
+            "Missing",
+            &mut sequence_options.missing,
+            &choices,
+            response,
+        );
+    }
+    if !matches!(source, Source::Document { .. }) {
+        let exr = matches!(source, Source::Exr { .. });
+        let mut space = fold_platform::color::input(&node.extensions)
+            .ok()
+            .flatten()
+            .or_else(|| {
+                let asset = match source {
+                    Source::Asset { asset, .. } | Source::Exr { asset, .. } => asset,
+                    _ => return None,
+                };
+                host.snapshot().and_then(|s| {
+                    s.state()
                         .assets
                         .get(asset)
-                        .ok_or("Missing input asset")?;
-                    fold_platform::color::input(&asset.extensions)
-                })();
-                let mut space = match assignment {
-                    Ok(space) => space.unwrap_or_else(|| {
-                        if exr {
-                            "ACEScg".into()
-                        } else {
-                            fold_platform::color::VIDEO_INPUT.into()
-                        }
-                    }),
-                    Err(error) => {
-                        ui.text_wrapped(error);
-                        "Invalid input".into()
+                        .and_then(|a| fold_platform::color::input(&a.extensions).ok().flatten())
+                })
+            })
+            .unwrap_or_else(|| {
+                if aces {
+                    if exr {
+                        "ACEScg"
+                    } else {
+                        fold_platform::color::VIDEO_INPUT
                     }
-                };
-                if fold_ui::sdk::color_controls::input(ui, &host.state().color_choices, &mut space)
-                {
+                } else {
+                    "Linear Rec.709 (sRGB)"
+                }
+                .into()
+            });
+        row(ui, "Color space");
+        let _disabled = ui.begin_disabled_with_cond(options.raw || !aces);
+        if let Some(_combo) = ui.begin_combo("##color-space", &space) {
+            for name in &host.state().color_choices.inputs {
+                if ui.selectable_config(name).selected(*name == space).build() {
+                    space = name.clone();
                     node.extensions.insert(
                         fold_platform::color::INPUT_KEY.into(),
-                        serde_json::Value::String(space),
+                        serde_json::Value::String(space.clone()),
                     );
                     response.changed = true;
                     response.finished = true;
                 }
-            } else {
-                ui.text_disabled("Legacy linear-sRGB");
             }
-            ui.text(format!(
-                "{} x {} • {}/{} fps",
-                info.width, info.height, info.rate[0], info.rate[1]
-            ));
-            if let Some(snapshot) = host.snapshot()
-                && let Some(asset) = snapshot.state().assets.get(asset)
-            {
-                ui.text_wrapped(&asset.location);
+        }
+        drop(_disabled);
+        if exr || matches!(source, Source::Unassigned { .. }) {
+            combo(
+                ui,
+                "Alpha",
+                &mut options.alpha,
+                &[
+                    (Alpha::Premultiplied, "Premultiplied"),
+                    (Alpha::Straight, "Straight"),
+                    (Alpha::Ignore, "Ignore"),
+                ],
+                response,
+            );
+        }
+        check(ui, "Raw data", &mut options.raw, response);
+    }
+    if !matches!(source, Source::Document { .. })
+        && let Some(_proxy) = ui.tree_node("Proxy")
+    {
+        let mut path = options
+            .proxy
+            .as_ref()
+            .and_then(|proxy| match proxy {
+                Source::Asset { asset, .. } | Source::Exr { asset, .. } => host
+                    .snapshot()
+                    .and_then(|s| s.state().assets.get(asset).map(|a| a.location.clone())),
+                _ => None,
+            })
+            .unwrap_or_default();
+        let width = row(ui, "Source");
+        ui.set_next_item_width((width - button - spacing).max(30.));
+        ui.input_text("##proxy", &mut path)
+            .read_only(true)
+            .hint("none")
+            .build();
+        ui.same_line();
+        actions.choose_proxy = ui.button_with_size("…##proxy", [button, button]);
+        let _disabled = ui.begin_disabled_with_cond(options.proxy.is_none());
+        check(ui, "Use proxy", &mut options.use_proxy, response);
+        if options.proxy.is_some() && ui.small_button("Clear") {
+            options.proxy = None;
+            options.use_proxy = false;
+            response.changed = true;
+            response.finished = true;
+        }
+    }
+    if let Some(_details) = ui.tree_node("Source settings") {
+        let info = source.info();
+        ui.text(format!(
+            "{} × {} · {}/{} fps",
+            info.width, info.height, info.rate[0], info.rate[1]
+        ));
+        if let Source::Exr { info, .. } = source {
+            let old = info.rate;
+            let mut rate = old.map(|v| v as i32);
+            let width = row(ui, "Frame rate");
+            ui.set_next_item_width((width - spacing) * 0.5);
+            let a = ui.input_int("##rate-n", &mut rate[0]);
+            response.item(ui, a);
+            ui.same_line();
+            ui.set_next_item_width((width - spacing) * 0.5);
+            let b = ui.input_int("##rate-d", &mut rate[1]);
+            response.item(ui, b);
+            if (a || b) && rate.iter().all(|v| *v > 0) {
+                let remap = |time: Time| {
+                    time.to_ticks(old[0], old[1], fold_foundation::Rounding::Floor)
+                        .ok()
+                        .and_then(|f| f.checked_mul(i64::from(rate[1])))
+                        .and_then(|n| Time::new(n, rate[0] as u32).ok())
+                };
+                if let (Some(at), Some(first), Some(length)) =
+                    (remap(*start), remap(*source_start), remap(*duration))
+                {
+                    *start = at;
+                    *source_start = first;
+                    *duration = length;
+                    info.rate = rate.map(|v| v as u32);
+                    if let Some(Source::Exr { info: proxy, .. }) = &mut options.proxy {
+                        proxy.rate = info.rate;
+                    }
+                }
+            }
+        }
+        if let Source::Exr { options, .. } = source {
+            check(ui, "Read as still", &mut options.still, response);
+        }
+        if let Source::Exr {
+            image,
+            color_layers,
+            ..
+        } = source
+        {
+            let layers: std::collections::BTreeSet<_> = image
+                .channels
+                .iter()
+                .filter(|c| c.color)
+                .filter_map(|c| c.name.rsplit_once('.').map(|(layer, _)| layer))
+                .collect();
+            for layer in layers {
+                if !["red", "green", "blue"].iter().all(|c| {
+                    image
+                        .channels
+                        .iter()
+                        .any(|n| n.name == format!("{layer}.{c}"))
+                }) {
+                    continue;
+                }
+                let mut enabled = color_layers.iter().any(|n| n == layer);
+                if ui.checkbox(layer, &mut enabled) {
+                    color_layers.retain(|n| n != layer);
+                    if enabled {
+                        color_layers.push(layer.into());
+                    }
+                    response.changed = true;
+                    response.finished = true;
+                }
             }
         }
     }
@@ -242,78 +364,24 @@ pub(super) fn draw(
     }
     actions
 }
-fn frame_range(
-    ui: &Ui,
-    rate: [u32; 2],
-    start: &mut Time,
-    source_start: &mut Time,
-    duration: &mut Time,
-    response: &mut Response,
-) {
-    let frame = |time: Time| {
-        time.to_ticks(rate[0], rate[1], fold_foundation::Rounding::Floor)
-            .unwrap_or(0)
-    };
-    let time = |frame: i64| {
-        Time::new(
-            frame
-                .checked_mul(i64::from(rate[1]))
-                .ok_or("Frame time overflow")?,
-            rate[0],
-        )
-        .map_err(|_| "Invalid frame time")
-    };
-    let mut first = frame(*source_start);
-    let mut last = first + frame(*duration) - 1;
-    let mut offset = frame(*start) - first;
-    let first_changed = Drag::new("First frame")
-        .speed(1.)
-        .range(0, i32::MAX as i64)
-        .build(ui, &mut first);
-    response.item(ui, first_changed);
-    let last_changed = Drag::new("Last frame")
-        .speed(1.)
-        .range(first, i32::MAX as i64)
-        .build(ui, &mut last);
-    response.item(ui, last_changed);
-    let offset_changed = Drag::new("Offset").speed(1.).build(ui, &mut offset);
-    response.item(ui, offset_changed);
-    if (first_changed || last_changed || offset_changed)
-        && last >= first
-        && let (Ok(first_time), Ok(length), Some(at)) = (
-            time(first),
-            time(last - first + 1),
-            first.checked_add(offset),
-        )
-        && let Ok(at) = time(at)
-    {
-        *source_start = first_time;
-        *duration = length;
-        *start = at;
-    }
-}
-
-/// The same exact-time navigation is used by Inspector and Network.
 pub(super) fn source_location(node: &Node, time: Time) -> Option<ViewLocation> {
+    let prepared = node.prepare().ok()?;
     let OperationConfig::Read {
-        source: Source::Document { source, .. },
+        source: Source::Document { source, info },
         start,
         source_start,
         duration,
-    } = &node.prepare().ok()?.config().clone()
+        options,
+    } = prepared.config()
     else {
         return None;
     };
-    let local = source_time(time, *start, *source_start, *duration)?;
+    let time = options
+        .mapped_time(time, *start, *source_start, *duration, info.rate)
+        .ok()??;
     Some(ViewLocation {
         document: source.document,
-        time: local,
+        time,
         label: "Source document".into(),
     })
-}
-fn source_time(time: Time, start: Time, source_start: Time, duration: Time) -> Option<Time> {
-    if time < start || time >= start.checked_add(duration).ok()? {
-        return None;
-    }
-    time.checked_sub(start).ok()?.checked_add(source_start).ok()
 }

@@ -211,6 +211,7 @@ fn named_image_inputs_bind_independently_without_changing_other_sources() {
     let read = || {
         Node::new(
             P::Read {
+                options: Default::default(),
                 source: S::Unassigned {
                     info: image.info.clone(),
                 },
@@ -226,6 +227,7 @@ fn named_image_inputs_bind_independently_without_changing_other_sources() {
     let merge = Node::new(
         P::Composite {
             mode: Default::default(),
+            channels: Default::default(),
         },
         vec![a.id, b.id],
     );

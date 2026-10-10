@@ -92,6 +92,7 @@ pub fn create(preset: Preset, id: DocumentId) -> Result<fold_project::Document, 
             let merge = Node::new(
                 P::Composite {
                     mode: fold_render::operations::MergeMode::Plus,
+                    channels: Default::default(),
                 },
                 vec![blur.id, nodes[0].id],
             );

@@ -78,6 +78,7 @@ fn build(path: &Path) -> (Project, DocumentRef, fold_foundation::ObjectId) {
     };
     let read = Node::new(
         P::Read {
+            options: Default::default(),
             source: Source::Unassigned { info: info.clone() },
             start: Time::ZERO,
             source_start: Time::ZERO,
@@ -93,7 +94,7 @@ fn build(path: &Path) -> (Project, DocumentRef, fold_foundation::ObjectId) {
                 .into_iter()
                 .map(|c| ChannelMapping {
                     destination: format!("rgba.{c}").try_into().unwrap(),
-                    source: ChannelSource::A(format!("diffuse.{c}").try_into().unwrap()),
+                    source: ChannelSource::B(format!("diffuse.{c}").try_into().unwrap()),
                 })
                 .collect(),
         },
@@ -344,11 +345,13 @@ fn sequence_offset_gap_policies_still_mode_and_relink_use_exact_frames() {
         .edit_configuration(|config| {
             if let P::Read {
                 source: Source::Exr { options, .. },
+                options: read,
                 ..
             } = config
             {
                 options.missing = Policy::Hold;
-                options.outside = Policy::Hold;
+                read.before = Policy::Hold;
+                read.after = Policy::Hold;
             }
         })
         .unwrap();

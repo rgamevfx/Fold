@@ -56,7 +56,7 @@ fn twenty_layers_survive_processing_and_shuffle_without_twenty_pixel_buffers() {
         mappings: (0..20)
             .map(|i| ChannelMapping {
                 destination: name(&format!("aov{i}.Z")),
-                source: ChannelSource::A(name("rgba.blue")),
+                source: ChannelSource::B(name("rgba.blue")),
             })
             .collect(),
     });
@@ -73,7 +73,7 @@ fn twenty_layers_survive_processing_and_shuffle_without_twenty_pixel_buffers() {
     let mut select = Node::disconnected(P::Shuffle {
         mappings: vec![ChannelMapping {
             destination: name("rgba.red"),
-            source: ChannelSource::A(name("aov19.Z")),
+            source: ChannelSource::B(name("aov19.Z")),
         }],
     });
     select.set_input(0, grade.id).unwrap();
@@ -145,7 +145,7 @@ fn arbitrary_image_channel_masks_are_optional_and_cycles_rollback() {
     );
 }
 #[test]
-fn shuffle_swaps_simultaneously_and_requires_b_only_when_referenced() {
+fn shuffle_swaps_simultaneously_and_requires_a_only_when_referenced() {
     let source = Node::new(
         P::Solid {
             rgba: [0.1, 0.2, 0.3, 1.],
@@ -156,11 +156,11 @@ fn shuffle_swaps_simultaneously_and_requires_b_only_when_referenced() {
         mappings: vec![
             ChannelMapping {
                 destination: name("rgba.red"),
-                source: ChannelSource::A(name("rgba.blue")),
+                source: ChannelSource::B(name("rgba.blue")),
             },
             ChannelMapping {
                 destination: name("rgba.blue"),
-                source: ChannelSource::A(name("rgba.red")),
+                source: ChannelSource::B(name("rgba.red")),
             },
         ],
     });
@@ -174,37 +174,10 @@ fn shuffle_swaps_simultaneously_and_requires_b_only_when_referenced() {
     );
     let mut config = composite.nodes[1].prepare().unwrap().config().clone();
     if let P::Shuffle { mappings } = &mut config {
-        mappings[0].source = ChannelSource::B(name("rgba.red"));
+        mappings[0].source = ChannelSource::A(name("rgba.red"));
     }
     composite.nodes[1].set_configuration(config).unwrap();
-    assert!(compile(&composite).unwrap_err().contains("connect B"));
-}
-
-#[test]
-fn generated_shapes_connect_to_explicit_alpha_multiplication() {
-    let source = Node::new(
-        P::Solid {
-            rgba: [0.2, 0.4, 0.6, 1.],
-        },
-        vec![],
-    );
-    let shape = Node::new(
-        P::Shape {
-            shape: fold_compositor::Shape::Rectangle,
-            bounds: [0., 0., 1., 2.],
-        },
-        vec![],
-    );
-    let mut multiply = Node::disconnected(P::ApplyMask);
-    multiply.set_input(0, source.id).unwrap();
-    let shape_id = shape.id;
-    let multiply_id = multiply.id;
-    let mut composite = fixture(vec![source, shape, multiply]);
-    composite.connect(shape_id, multiply_id, "mask").unwrap();
-    composite.validate().unwrap();
-    let result = fold_render::render(compile(&composite).unwrap()).unwrap();
-    assert_eq!(result.pixels()[0], [0.2, 0.4, 0.6, 1.]);
-    assert_eq!(result.pixels()[2], [0.; 4]);
+    assert!(compile(&composite).unwrap_err().contains("connect A"));
 }
 
 #[test]
@@ -219,7 +192,7 @@ fn data_rgb_without_alpha_can_be_processed_without_being_zeroed() {
         mappings: ["red", "green", "blue"]
             .map(|component| ChannelMapping {
                 destination: name(&format!("data.{component}")),
-                source: ChannelSource::A(name(&format!("rgba.{component}"))),
+                source: ChannelSource::B(name(&format!("rgba.{component}"))),
             })
             .into(),
     });
@@ -233,7 +206,7 @@ fn data_rgb_without_alpha_can_be_processed_without_being_zeroed() {
     let mut select = Node::disconnected(P::Shuffle {
         mappings: vec![ChannelMapping {
             destination: name("rgba.red"),
-            source: ChannelSource::A(name("data.red")),
+            source: ChannelSource::B(name("data.red")),
         }],
     });
     select.set_input(0, grade.id).unwrap();
@@ -380,9 +353,11 @@ fn merge_a_is_foreground_b_is_background_and_mask_preserves_b() {
     for parameters in [
         P::Composite {
             mode: Default::default(),
+            channels: Default::default(),
         },
         P::Composite {
             mode: Default::default(),
+            channels: Default::default(),
         },
     ] {
         let a = Node::new(
@@ -458,9 +433,11 @@ fn inserted_merge_passes_b_through_until_a_is_connected() {
     for parameters in [
         P::Composite {
             mode: Default::default(),
+            channels: Default::default(),
         },
         P::Composite {
             mode: fold_render::operations::MergeMode::Multiply,
+            channels: Default::default(),
         },
     ] {
         let background = Node::new(
@@ -488,4 +465,137 @@ fn inserted_merge_passes_b_through_until_a_is_connected() {
         composite.disconnect(id, "background").unwrap();
         assert!(compile(&composite).is_err(), "B remains required");
     }
+}
+
+#[test]
+fn merge_input_coverage_keeps_unfiltered_background_for_mix() {
+    let a = Node::new(
+        P::Solid {
+            rgba: [0.5, 0., 0., 0.5],
+        },
+        vec![],
+    );
+    let b = Node::new(
+        P::Solid {
+            rgba: [0., 0., 1., 1.],
+        },
+        vec![],
+    );
+    let mut merge = Node::new(
+        P::Composite {
+            mode: Default::default(),
+            channels: fold_compositor::MergeChannels {
+                a: vec![name("rgba.alpha")],
+                b: vec![],
+                other: false,
+            },
+        },
+        vec![a.id, b.id],
+    );
+    merge.effect.mix = 0.5;
+    let graph = fixture(vec![a, b, merge]);
+    let image = fold_render::render(compile(&graph).unwrap()).unwrap();
+    assert_eq!(image.pixels(), &[[0., 0., 0.5, 0.75]; 6]);
+}
+
+#[test]
+fn cull_combines_four_selections_for_remove_and_keep() {
+    for keep in [false, true] {
+        let input = Node::new(
+            P::Solid {
+                rgba: [0.2, 0.3, 0.4, 1.],
+            },
+            vec![],
+        );
+        let cull = Node::new(
+            P::CullChannels {
+                channels: [
+                    vec![name("rgba.red")],
+                    vec![name("rgba.green")],
+                    vec![],
+                    vec![],
+                ],
+                keep,
+            },
+            vec![input.id],
+        );
+        let id = cull.id;
+        // Reconstruct display RGBA explicitly: culled channels really are absent.
+        let mut restored = Node::disconnected(P::Shuffle {
+            mappings: fold_render::channels::RGBA
+                .iter()
+                .filter(|n| matches!(**n, "rgba.red" | "rgba.green") != keep)
+                .map(|n| ChannelMapping {
+                    destination: name(n),
+                    source: ChannelSource::Zero,
+                })
+                .collect(),
+        });
+        restored.set_input(0, id).unwrap();
+        let graph = fixture(vec![input, cull, restored]);
+        let reopened: Composite =
+            serde_json::from_slice(&serde_json::to_vec(&graph).unwrap()).unwrap();
+        let names = reopened.channel_names(id).unwrap();
+        assert_eq!(names.contains(&name("rgba.red")), keep);
+        assert_eq!(names.contains(&name("rgba.green")), keep);
+        assert_eq!(names.contains(&name("rgba.blue")), !keep);
+        assert_eq!(names.contains(&name("rgba.alpha")), !keep);
+        let image = fold_render::render(compile(&reopened).unwrap()).unwrap();
+        assert_eq!(image.pixels()[0][0], if keep { 0.2 } else { 0. });
+        assert_eq!(image.pixels()[0][2], if keep { 0. } else { 0.4 });
+    }
+}
+
+#[test]
+fn merge_other_channels_handles_layers_present_on_only_one_input() {
+    let a = Node::new(
+        P::Solid {
+            rgba: [0.5, 0., 0., 0.5],
+        },
+        vec![],
+    );
+    let b = Node::new(
+        P::Solid {
+            rgba: [0., 0., 1., 1.],
+        },
+        vec![],
+    );
+    let mut layer = Node::disconnected(P::Shuffle {
+        mappings: ["red", "green", "blue", "alpha"]
+            .map(|c| ChannelMapping {
+                destination: name(&format!("extra.{c}")),
+                source: ChannelSource::B(name(&format!("rgba.{c}"))),
+            })
+            .into(),
+    });
+    layer.set_input(0, b.id).unwrap();
+    let merge = Node::new(
+        P::Composite {
+            mode: Default::default(),
+            channels: fold_compositor::MergeChannels {
+                other: true,
+                ..Default::default()
+            },
+        },
+        vec![a.id, layer.id],
+    );
+    let id = merge.id;
+    let mut display = Node::disconnected(P::Shuffle {
+        mappings: ["red", "green", "blue", "alpha"]
+            .map(|c| ChannelMapping {
+                destination: name(&format!("rgba.{c}")),
+                source: ChannelSource::B(name(&format!("extra.{c}"))),
+            })
+            .into(),
+    });
+    display.set_input(0, id).unwrap();
+    let graph = fixture(vec![a, b, layer, merge, display]);
+    assert!(
+        graph
+            .channel_names(id)
+            .unwrap()
+            .contains(&name("extra.blue"))
+    );
+    let image = fold_render::render(compile(&graph).unwrap()).unwrap();
+    assert_eq!(image.pixels(), &[[0., 0., 1., 1.]; 6]);
 }

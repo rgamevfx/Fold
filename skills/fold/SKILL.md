@@ -44,7 +44,7 @@ source edits and mixed-document candidates. Use `project_authoring.schema` for
 project assembly and `scoped_proposals[].requests` for the owning provider's
 source/patch/edit schemas. Motion's operation catalog is under that provider's
 `requests.catalog`. Inspect all changed documents before Apply. Current Composition writes
-schema 3; use the discovered Grade/Transform/Blur v3 and Merge v2 records. C1 retired
+schema 3; use discovered records (Grade/Transform/Blur/Merge v3, Read/Shuffle v2, Write v1). C1 retired
 the two-layer Timeline provider and older executable schemas. The new
 [Make it move workflow](../../demos/make-it-move.py) uses three independent scene
 layers with shared Composition keys and no exposed controls. The separate

@@ -73,6 +73,12 @@ pub fn builtins() -> Arc<PackageRegistry> {
                             handler: crate::composition_layers::connect,
                         },
                         CommandRegistration {
+                            id: "fold.app.write-destination",
+                            title: "Choose Write destination",
+                            execution: Execution::Worker,
+                            handler: crate::write_destination::choose,
+                        },
+                        CommandRegistration {
                             id: crate::read_source::REPLACE,
                             title: "Choose Read source",
                             execution: Execution::Worker,

@@ -70,6 +70,7 @@ impl Panel for Inspector {
             .map(|v| v.time)
             .unwrap_or(Time::ZERO);
         let mut output_change = None;
+        let mut write_actions = (false, false);
         let names = |slot: usize| {
             state
                 .graph
@@ -143,6 +144,7 @@ impl Panel for Inspector {
         let super::read::Actions {
             mut navigate,
             choose_source,
+            choose_proxy,
         } = super::read::draw(ui, node, host, aces, &mut response);
         let properties = match node.prepare() {
             Ok(prepared) => prepared.animated_properties(),
@@ -269,28 +271,54 @@ impl Panel for Inspector {
             P::TransformImage { settings } => {
                 super::controls::transform(ui, settings, &mut response)
             }
-            P::Composite { mode } => {
-                if let Some(_combo) = ui.begin_combo("Operation", mode.label()) {
-                    for choice in fold_render::operations::MergeMode::ALL {
-                        if ui.selectable(choice.label()) {
-                            *mode = choice;
-                            response.changed = true;
-                            response.finished = true;
-                        }
-                    }
-                }
+            P::Composite { mode, channels } => {
+                let choices: Vec<_> = fold_render::operations::MergeMode::ALL
+                    .iter()
+                    .map(|choice| (*choice, choice.label()))
+                    .collect();
+                super::controls::combo(ui, "Operation", mode, &choices, &mut response);
+                super::channels::selector(
+                    ui,
+                    "A channels",
+                    &mut channels.a,
+                    &input_a,
+                    &mut response,
+                );
+                super::channels::selector(
+                    ui,
+                    "B channels",
+                    &mut channels.b,
+                    &input_b,
+                    &mut response,
+                );
+                let available: Vec<_> = input_a.iter().chain(&input_b).cloned().collect();
+                super::channels::selector(
+                    ui,
+                    "Output",
+                    &mut node.effect.channels,
+                    &available,
+                    &mut response,
+                );
+                super::controls::row(ui, "Bounds");
+                ui.text_disabled("Frame");
+                super::controls::check(
+                    ui,
+                    "Also merge other channels",
+                    &mut channels.other,
+                    &mut response,
+                );
             }
             P::ColorGrade { settings } => super::controls::grade(ui, settings, &mut response),
             P::Shuffle { mappings } => super::channels::shuffle(
                 ui,
                 mappings,
-                &input_a,
                 &input_b,
+                &input_a,
                 &mut self.1,
                 &mut response,
             ),
-            P::RemoveChannels { channels, keep } => {
-                super::channels::remove(ui, channels, keep, &input_a, &mut response)
+            P::CullChannels { channels, keep } => {
+                super::channels::cull(ui, channels, keep, &input_a, &mut response)
             }
             P::Input { id } => {
                 ui.text(format!("Input: {id}"));
@@ -317,7 +345,9 @@ impl Panel for Inspector {
             P::Read { .. } => {}
             P::Solid { .. } | P::Crop { .. } | P::Mask { .. } => {}
 
-            P::ApplyMask => ui.text_wrapped("Multiply image RGBA by the connected image’s alpha."),
+            P::Write { settings } => {
+                write_actions = super::write::draw(ui, settings, &choices, &mut response);
+            }
             P::Output => {
                 if aces {
                     if let (Some(snapshot), Some(document)) = (host.snapshot(), document) {
@@ -344,17 +374,8 @@ impl Panel for Inspector {
         }
         if config.operator().supports_effect() {
             ui.separator();
-            if !curated {
-                super::channels::selection(
-                    ui,
-                    &mut node.effect,
-                    if matches!(config, P::Composite { .. }) {
-                        &input_b
-                    } else {
-                        &input_a
-                    },
-                    &mut response,
-                );
+            if !curated && !matches!(config, P::Composite { .. }) {
+                super::channels::selection(ui, &mut node.effect, &input_a, &mut response);
             }
             super::channels::effect(ui, &mut node.effect, &mask_channels, &mut response);
             if let Some(property) = node
@@ -432,14 +453,16 @@ impl Panel for Inspector {
                 response.finished = true;
             }
         }
-        if choose_source && let (Some(document), Some(snapshot)) = (document, host.snapshot()) {
+        if (choose_source || choose_proxy)
+            && let (Some(document), Some(snapshot)) = (document, host.snapshot())
+        {
             state.cancel(host);
             host.command(DesktopCommand::Extension(
                 fold_platform::packages::CommandRequest {
                     id: "fold.app.read-source".into(),
                     base: snapshot.revision(),
                     arguments: serde_json::to_vec(
-                        &serde_json::json!({"document":document,"node":id}),
+                        &serde_json::json!({"document":document,"node":id,"proxy":choose_proxy}),
                     )
                     .unwrap(),
                 },
@@ -478,6 +501,32 @@ impl Panel for Inspector {
             {
                 state.commit(host);
             }
+        }
+        if write_actions.0
+            && let (Some(document), Some(snapshot)) = (document, host.snapshot())
+        {
+            host.command(DesktopCommand::Extension(
+                fold_platform::packages::CommandRequest {
+                    id: "fold.app.write-destination".into(),
+                    base: snapshot.revision(),
+                    arguments: serde_json::to_vec(
+                        &serde_json::json!({"document":document,"node":id}),
+                    )
+                    .unwrap(),
+                },
+            ));
+        }
+        if write_actions.1
+            && let (Some(document), P::Write { settings }) = (document, config)
+        {
+            host.command(DesktopCommand::ExportFrames {
+                source: fold_project::DocumentRef {
+                    document,
+                    output: format!("write/{id}"),
+                    extensions: Default::default(),
+                },
+                settings,
+            });
         }
         if !state.error.is_empty() {
             ui.separator();

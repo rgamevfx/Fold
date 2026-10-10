@@ -50,7 +50,7 @@ fn shuffle_inspector_normal_and_narrow() {
             .into_iter()
             .map(|c| ChannelMapping {
                 destination: format!("{to}.{c}").try_into().unwrap(),
-                source: ChannelSource::A(format!("{from}.{c}").try_into().unwrap()),
+                source: ChannelSource::B(format!("{from}.{c}").try_into().unwrap()),
             })
             .collect::<Vec<_>>()
     };
@@ -101,6 +101,14 @@ fn shuffle_inspector_normal_and_narrow() {
         ("transform-narrow", 280.),
         ("transform-shutter-normal", 420.),
         ("transform-shutter-narrow", 280.),
+        ("read-normal", 420.),
+        ("read-narrow", 280.),
+        ("write-normal", 420.),
+        ("write-narrow", 280.),
+        ("merge-normal", 420.),
+        ("merge-narrow", 280.),
+        ("cull-normal", 420.),
+        ("cull-narrow", 280.),
         ("blur-normal", 420.),
         ("blur-narrow", 280.),
         ("source-normal", 420.),
@@ -114,6 +122,14 @@ fn shuffle_inspector_normal_and_narrow() {
         ("shader-interface-normal", 420.),
         ("shader-interface-narrow", 280.),
     ] {
+        if std::env::var_os("FOLD_IO_CAPTURE").is_some()
+            && !(name.starts_with("read")
+                || name.starts_with("write")
+                || name == "normal"
+                || name == "narrow")
+        {
+            continue;
+        }
         if std::env::var_os("FOLD_NODE_CAPTURE").is_some()
             && (name.starts_with("source")
                 || name.starts_with("relative")
@@ -121,7 +137,11 @@ fn shuffle_inspector_normal_and_narrow() {
         {
             continue;
         }
-        if name.starts_with("grade")
+        if name.starts_with("read")
+            || name.starts_with("write")
+            || name.starts_with("merge")
+            || name.starts_with("cull")
+            || name.starts_with("grade")
             || name.starts_with("transform")
             || name.starts_with("blur")
             || name.starts_with("relative")
@@ -131,7 +151,32 @@ fn shuffle_inspector_normal_and_narrow() {
                 &host.project.snapshot().state().documents[&document],
             )
             .unwrap();
-            let parameters = if name.starts_with("grade") {
+            let parameters = if name.starts_with("read") {
+                crate::OPERATORS
+                    .iter()
+                    .find(|op| op.id == "Read")
+                    .unwrap()
+                    .defaults(&graph.info)
+                    .unwrap()
+            } else if name.starts_with("write") {
+                OperationConfig::Write {
+                    settings: fold_platform::delivery::Settings {
+                        destination: "/tmp/render/comp.####.exr".into(),
+                        last: 99,
+                        ..Default::default()
+                    },
+                }
+            } else if name.starts_with("merge") {
+                OperationConfig::Composite {
+                    mode: Default::default(),
+                    channels: Default::default(),
+                }
+            } else if name.starts_with("cull") {
+                OperationConfig::CullChannels {
+                    channels: Default::default(),
+                    keep: false,
+                }
+            } else if name.starts_with("grade") {
                 OperationConfig::ColorGrade {
                     settings: Default::default(),
                 }
@@ -157,7 +202,8 @@ fn shuffle_inspector_normal_and_narrow() {
                     settings: Default::default(),
                 }
             };
-            let node = Node::new(parameters, vec![solid]);
+            let inputs = vec![solid; parameters.input_count()];
+            let node = Node::new(parameters, inputs);
             let id = node.id;
             if name.starts_with("grade-split") {
                 for property in ["gain", "gamma"] {

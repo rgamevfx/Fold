@@ -267,6 +267,7 @@ fn compositor_read_preserves_motion_output_time_mapping_alpha_and_channels() {
     let info = registry.output_ref(&project.snapshot(), &source).unwrap();
     let read = Node::new(
         OperationConfig::Read {
+            options: Default::default(),
             source: Source::Document {
                 source: source.clone(),
                 info: info.clone(),

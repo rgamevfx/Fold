@@ -198,6 +198,7 @@ pub fn compile(
             }
             let aces = crate::color::project(context.snapshot)?.is_some();
             ImageOp::Exr {
+                alpha: Default::default(),
                 source,
                 channels,
                 space: if aces {

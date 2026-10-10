@@ -29,6 +29,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     let read = Node::new(
         P::Read {
+            options: Default::default(),
             source: Source::Unassigned { info: info.clone() },
             start: Time::ZERO,
             source_start: Time::ZERO,

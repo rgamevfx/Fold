@@ -14,47 +14,86 @@ pub(super) fn selection(
     available: &[ChannelName],
     response: &mut EditResponse,
 ) {
-    super::controls::row(ui, "Channels");
-    let selected: Vec<_> = effect.channels.iter().map(|c| c.as_str()).collect();
-    let summary = if selected == ["rgba.red", "rgba.green", "rgba.blue"] {
-        "rgb".into()
-    } else if selected == fold_render::channels::RGBA {
+    selector(ui, "Channels", &mut effect.channels, available, response);
+}
+
+pub(super) fn selector(
+    ui: &Ui,
+    label: &str,
+    selected: &mut Vec<ChannelName>,
+    available: &[ChannelName],
+    response: &mut EditResponse,
+) {
+    let _id = ui.push_id(label);
+    super::controls::row(ui, label);
+    let rgba = fold_render::channels::RGBA;
+    let names: Vec<_> = selected.iter().map(|n| n.as_str()).collect();
+    let summary = if names.is_empty() {
+        "none".to_owned()
+    } else if names == rgba {
         "rgba".into()
-    } else if selected.is_empty() {
-        "none".into()
-    } else if selected.len() == 1 {
-        selected[0].to_owned()
+    } else if names == rgba[..3] {
+        "rgb".into()
+    } else if names == rgba[3..] {
+        "alpha".into()
+    } else if names.len() == 1 {
+        names[0].to_owned()
+    } else if layer(&selected[0]) != "rgba"
+        && selected.iter().all(|n| layer(n) == layer(&selected[0]))
+        && available
+            .iter()
+            .filter(|n| layer(n) == layer(&selected[0]))
+            .all(|n| selected.contains(n))
+    {
+        layer(&selected[0]).to_owned()
     } else {
-        format!("{} channels", selected.len())
+        format!("{} channels", names.len())
     };
     if let Some(_menu) = ui.begin_combo("##channels", summary) {
         for (label, components) in [
-            ("rgb", &fold_render::channels::RGBA[..3]),
-            ("rgba", &fold_render::channels::RGBA[..]),
-            ("alpha", &fold_render::channels::RGBA[3..]),
             ("none", &[][..]),
+            ("rgba", &rgba[..]),
+            ("rgb", &rgba[..3]),
+            ("alpha", &rgba[3..]),
         ] {
             if ui.selectable(label) {
-                effect.channels = components
+                *selected = components
                     .iter()
                     .map(|n| n.to_string().try_into().unwrap())
                     .collect();
                 changed(response);
             }
         }
+        for name in layers(available).into_iter().filter(|name| *name != "rgba") {
+            if ui.selectable(name) {
+                *selected = available
+                    .iter()
+                    .filter(|n| layer(n) == name)
+                    .cloned()
+                    .collect();
+                changed(response);
+            }
+        }
         ui.separator();
-        for name in available {
-            let mut enabled = effect.channels.contains(name);
+        let choices: std::collections::BTreeSet<_> = available
+            .iter()
+            .cloned()
+            .chain(rgba.map(|n| n.to_owned().try_into().unwrap()))
+            .chain(selected.iter().cloned())
+            .collect();
+        for name in choices {
+            let mut enabled = selected.contains(&name);
             if ui.checkbox(name.as_str(), &mut enabled) {
-                effect.channels.retain(|c| c != name);
+                selected.retain(|c| c != &name);
                 if enabled {
-                    effect.channels.push(name.clone());
+                    selected.push(name);
                 }
                 changed(response);
             }
         }
     }
 }
+
 pub(super) fn effect(
     ui: &Ui,
     effect: &mut Effect,
@@ -98,8 +137,7 @@ pub(super) fn effect(
 pub(super) struct ShuffleDraft {
     new_layer: String,
     channel: String,
-    second: bool,
-    pending_input: Option<(bool, String)>,
+    pending_input: [Option<(bool, String)>; 2],
     picked: Option<ChannelSource>,
     selection: Option<(fold_foundation::DocumentId, fold_foundation::ObjectId)>,
 }
@@ -176,19 +214,32 @@ pub(super) fn shuffle(
     draft: &mut ShuffleDraft,
     response: &mut EditResponse,
 ) {
+    // Unconnected inputs still expose the standard channel layout for authoring.
+    let rgba: Vec<ChannelName> = fold_render::channels::RGBA
+        .iter()
+        .map(|n| (*n).to_owned().try_into().unwrap())
+        .collect();
+    let a = if a.is_empty() { &rgba } else { a };
+    let b = if b.is_empty() { &rgba } else { b };
     let mut seen = std::collections::BTreeSet::new();
     let destinations: Vec<String> = mappings
         .iter()
         .map(|m| layer(&m.destination).to_owned())
         .filter(|name| seen.insert(name.clone()))
         .collect();
-    let second_visible = destinations.len() > 1 || draft.second;
-    for row in 0..if second_visible { 2 } else { 1 } {
-        let _id = ui.push_id(&row.to_string());
+    let spacing = ui.clone_style().item_spacing()[0];
+    let width = ((ui.content_region_avail()[0] - spacing) * 0.5).max(40.);
+    let left = ui.cursor_pos()[0];
+    ui.text("Input");
+    ui.same_line_with_pos(left + width + spacing);
+    ui.text("Output");
+    let mut displayed = Vec::new();
+    for index in 0..2 {
+        let _id = ui.push_id(index as i32);
         let old_output = destinations
-            .get(row)
+            .get(index)
             .map(String::as_str)
-            .unwrap_or(if row == 0 { "rgba" } else { "" });
+            .unwrap_or(if index == 0 { "rgba" } else { "" });
         let first = mappings.iter().find(|m| {
             layer(&m.destination) == old_output
                 && matches!(m.source, ChannelSource::A(_) | ChannelSource::B(_))
@@ -196,124 +247,84 @@ pub(super) fn shuffle(
         let (mut second, mut input) = match first.map(|m| &m.source) {
             Some(ChannelSource::A(name)) => (false, layer(name).to_owned()),
             Some(ChannelSource::B(name)) => (true, layer(name).to_owned()),
-            _ => (
-                false,
-                layers(a)
-                    .into_iter()
-                    .find(|l| *l == "rgba")
-                    .or_else(|| layers(a).into_iter().next())
-                    .unwrap_or("")
-                    .to_owned(),
-            ),
+            _ => draft.pending_input[index]
+                .clone()
+                .unwrap_or((true, if index == 0 { "rgba" } else { "" }.into())),
         };
-        if row == 1
-            && old_output.is_empty()
-            && let Some(pending) = &draft.pending_input
-        {
-            (second, input) = pending.clone();
-        }
         let mut output = old_output.to_owned();
-        let spacing = ui.clone_style().item_spacing()[0];
-        let width = ((ui.content_region_avail()[0] - spacing) * 0.5).max(40.);
-        let left = ui.cursor_pos()[0];
-        if row == 0 {
-            ui.text("Input");
-            ui.same_line_with_pos(left + width + spacing);
-            ui.text("Output");
-        }
         let mut edited = false;
-        let mut create_layer = false;
-        let mut remove_route = false;
-        {
-            let _width = ui.push_item_width(width);
-            let custom = mappings
-                .iter()
-                .filter(|m| layer(&m.destination) == old_output)
-                .any(|m| match &m.source {
-                    ChannelSource::A(name) => second || layer(name) != input,
-                    ChannelSource::B(name) => !second || layer(name) != input,
-                    _ => true,
-                });
-            let label = if custom {
-                "Custom".into()
-            } else if second {
-                format!("B: {input}")
-            } else {
-                input.clone()
-            };
-            if let Some(_combo) = ui.begin_combo(
-                "##input",
-                if label.is_empty() {
-                    "Select layer"
-                } else {
-                    &label
-                },
-            ) {
-                for (is_b, names) in [(false, a), (true, b)] {
-                    for name in layers(names) {
-                        let label = if is_b {
-                            format!("B: {name}")
-                        } else {
-                            name.to_owned()
-                        };
-                        if ui
-                            .selectable_config(&label)
-                            .selected(is_b == second && name == input)
-                            .build()
-                        {
-                            second = is_b;
-                            input = name.to_owned();
-                            edited = true;
-                            if row == 1 && old_output.is_empty() {
-                                draft.pending_input = Some((second, input.clone()));
-                            }
-                        }
-                    }
-                }
-            }
-            ui.same_line();
-            if let Some(_combo) = ui.begin_combo(
-                "##output",
-                if output.is_empty() {
-                    "Select layer"
-                } else {
-                    &output
-                },
-            ) {
-                let outputs: std::collections::BTreeSet<_> = layers(a)
-                    .into_iter()
-                    .chain(destinations.iter().map(String::as_str))
-                    .chain(["rgba"])
-                    .collect();
-                for name in outputs {
-                    if destinations
-                        .iter()
-                        .enumerate()
-                        .any(|(i, n)| i != row && n == name)
-                    {
-                        continue;
-                    }
-                    if ui.selectable_config(name).selected(name == output).build() {
-                        output = name.to_owned();
-                        edited = true;
-                    }
-                }
-                if row == 1 && ui.selectable("Remove route") {
-                    remove_route = true;
-                }
-                if ui.selectable("New layer…") {
-                    draft.new_layer.clear();
-                    create_layer = true;
+        ui.set_next_item_width(42.);
+        if let Some(_combo) = ui.begin_combo("##branch", if second { "B" } else { "A" }) {
+            for (value, label) in [(true, "B"), (false, "A")] {
+                if ui
+                    .selectable_config(label)
+                    .selected(second == value)
+                    .build()
+                {
+                    second = value;
+                    edited = true;
                 }
             }
         }
-        if create_layer {
+        ui.same_line();
+        ui.set_next_item_width((width - 42. - spacing).max(25.));
+        if let Some(_combo) =
+            ui.begin_combo("##input", if input.is_empty() { "none" } else { &input })
+        {
+            if index == 1 && ui.selectable("none") {
+                input.clear();
+                output.clear();
+                edited = true;
+            }
+            for name in layers(if second { b } else { a }) {
+                if ui.selectable_config(name).selected(name == input).build() {
+                    input = name.into();
+                    edited = true;
+                }
+            }
+        }
+        ui.same_line();
+        ui.set_next_item_width(width);
+        let mut new_layer = false;
+        if let Some(_combo) =
+            ui.begin_combo("##output", if output.is_empty() { "none" } else { &output })
+        {
+            if index == 1 && ui.selectable("none") {
+                output.clear();
+                edited = true;
+            }
+            let outputs: std::collections::BTreeSet<_> = layers(b)
+                .into_iter()
+                .chain(layers(a))
+                .chain(destinations.iter().map(String::as_str))
+                .chain(["rgba"])
+                .collect();
+            for name in outputs {
+                if destinations
+                    .iter()
+                    .enumerate()
+                    .any(|(i, n)| i != index && n == name)
+                    || (index == 1 && destinations.is_empty() && name == "rgba")
+                {
+                    continue;
+                }
+                if ui.selectable_config(name).selected(name == output).build() {
+                    output = name.into();
+                    edited = true;
+                }
+            }
+            if ui.selectable("New layer…") {
+                draft.new_layer.clear();
+                new_layer = true;
+            }
+        }
+        if new_layer {
             ui.open_popup("New layer");
         }
         if let Some(_popup) = ui.begin_popup("New layer") {
             ui.input_text("Name", &mut draft.new_layer).build();
-            let valid = ChannelName::try_from(format!("{}.red", draft.new_layer)).is_ok()
-                && !draft.new_layer.is_empty()
+            let valid = !draft.new_layer.is_empty()
+                && ChannelName::try_from(format!("{}.red", draft.new_layer)).is_ok()
                 && !destinations.contains(&draft.new_layer);
             let _disabled = ui.begin_disabled_with_cond(!valid || input.is_empty());
             if ui.button("Create") {
@@ -322,57 +333,43 @@ pub(super) fn shuffle(
                 ui.close_current_popup();
             }
         }
-        if edited && !output.is_empty() {
-            match route(
-                mappings,
-                if second { b } else { a },
-                second,
-                &input,
-                old_output,
-                &output,
-            ) {
-                Ok(()) => changed(response),
-                Err(error) => ui.text_wrapped(error),
-            }
-        }
-        if remove_route {
-            mappings.retain(|m| layer(&m.destination) != old_output);
-            draft.second = false;
-            changed(response);
-            continue;
-        }
-        routing(ui, mappings, a, b, &output, draft, response);
-        if row == 0 && second_visible {
-            ui.separator();
-        }
-    }
-    if !second_visible {
-        let _disabled = ui.begin_disabled_with_cond(a.is_empty());
-        if ui.small_button("+##add-route") {
-            if mappings.is_empty() {
-                let names = layers(a);
-                let input = names
-                    .get("rgba")
-                    .copied()
-                    .or_else(|| names.first().copied())
-                    .unwrap_or("");
-                if route(mappings, a, false, input, "", "rgba").is_ok() {
-                    changed(response);
+        if edited {
+            draft.pending_input[index] = Some((second, input.clone()));
+            if output.is_empty() {
+                mappings.retain(|m| layer(&m.destination) != old_output);
+                changed(response);
+            } else if !input.is_empty() {
+                // Materialize the primary route before adding a second layer.
+                if index == 1 && mappings.is_empty() {
+                    let _ = route(mappings, b, true, "rgba", "", "rgba");
+                }
+                match route(
+                    mappings,
+                    if second { b } else { a },
+                    second,
+                    &input,
+                    old_output,
+                    &output,
+                ) {
+                    Ok(()) => changed(response),
+                    Err(error) => ui.text_wrapped(error),
                 }
             }
-            draft.second = true;
+        }
+        if !output.is_empty() {
+            displayed.push(output);
         }
     }
+    ui.spacing();
+    for output in &displayed {
+        let _id = ui.push_id(output);
+        if displayed.len() > 1 {
+            ui.text_disabled(output);
+        }
+        routing(ui, mappings, a, b, output, draft, response);
+    }
     if let Some(_channels) = ui.tree_node("Other channels") {
-        channel_routes(
-            ui,
-            mappings,
-            a,
-            b,
-            draft,
-            response,
-            &destinations[..destinations.len().min(2)],
-        );
+        channel_routes(ui, mappings, a, b, draft, response, &displayed);
     }
 }
 /// Click or drag a source to an output. Wires expose channel swaps at a glance.
@@ -397,8 +394,9 @@ fn routing(
     let start = ui.cursor_screen_pos();
     let width = ui.content_region_avail()[0];
     let step = ui.frame_height_with_spacing();
-    let field = (width * 0.32).min(110.);
-    let mut sources: Vec<_> = components
+    let field = (width * 0.24).min(90.);
+    let constants = ui.frame_height() * 2. + 4.;
+    let sources: Vec<_> = components
         .iter()
         .filter_map(|c| {
             let route = mappings.iter().find(|m| {
@@ -408,7 +406,7 @@ fn routing(
             let (names, second, from) = match route.map(|r| &r.source) {
                 Some(ChannelSource::B(n)) => (b, true, layer(n)),
                 Some(ChannelSource::A(n)) => (a, false, layer(n)),
-                _ => (a, false, "rgba"),
+                _ => (b, true, "rgba"),
             };
             names
                 .iter()
@@ -425,24 +423,11 @@ fn routing(
                 })
         })
         .collect();
-    let color_count = sources.len();
-    sources.extend([
-        ("0".into(), ChannelSource::Zero),
-        ("1".into(), ChannelSource::One),
-    ]);
     let wire_start = start[0] + field + 5.;
-    let wire_end = start[0] + width - field - 5.;
+    let wire_end = start[0] + width - field - constants - 9.;
     for (i, (label, source)) in sources.iter().enumerate() {
         let _id = ui.push_id(&format!("source-{i}"));
-        let (x, y, item_width) = if i < color_count {
-            (start[0], start[1] + i as f32 * step, field)
-        } else {
-            (
-                start[0] + (i - color_count) as f32 * (field + 4.) * 0.5,
-                start[1] + color_count as f32 * step,
-                (field - 4.) * 0.5,
-            )
-        };
+        let (x, y, item_width) = (start[0], start[1] + i as f32 * step, field);
         ui.set_cursor_screen_pos([x, y]);
         let _selected = (draft.picked.as_ref() == Some(source))
             .then(|| ui.push_style_color(StyleColor::Button, colors.selected));
@@ -460,12 +445,12 @@ fn routing(
             .iter()
             .find(|m| m.destination == name)
             .map(|m| m.source.clone())
-            .unwrap_or_else(|| ChannelSource::A(name.clone()));
+            .unwrap_or_else(|| ChannelSource::B(name.clone()));
         let y = start[1] + i as f32 * step;
         if let Some(index) = sources.iter().position(|(_, s)| *s == source) {
             let from = [
                 wire_start,
-                start[1] + index.min(color_count) as f32 * step + ui.frame_height() * 0.5,
+                start[1] + index as f32 * step + ui.frame_height() * 0.5,
             ];
             let to = [wire_end, y + ui.frame_height() * 0.5];
             ui.get_window_draw_list()
@@ -479,6 +464,24 @@ fn routing(
                 .thickness(1.5)
                 .build();
         }
+        ui.set_cursor_screen_pos([start[0] + width - field - constants - 4., y]);
+        for (label, value) in [("0", ChannelSource::Zero), ("1", ChannelSource::One)] {
+            let _id = ui.push_id(&format!("constant-{i}-{label}"));
+            let _selected =
+                (source == value).then(|| ui.push_style_color(StyleColor::Button, colors.selected));
+            if ui.button_with_size(label, [ui.frame_height(), ui.frame_height()]) {
+                if let Some(mapping) = mappings.iter_mut().find(|m| m.destination == name) {
+                    mapping.source = value;
+                } else {
+                    mappings.push(ChannelMapping {
+                        destination: name.clone(),
+                        source: value,
+                    });
+                }
+                changed(response);
+            }
+            ui.same_line_with_spacing(0., 4.);
+        }
         ui.set_cursor_screen_pos([start[0] + width - field, y]);
         let _id = ui.push_id(&format!("dest-{i}"));
         let _text = ui.push_style_color(StyleColor::Text, fold_ui::sdk::CHANNEL_COLORS[i]);
@@ -490,7 +493,7 @@ fn routing(
                 mapping.source = source;
             } else {
                 mappings.push(ChannelMapping {
-                    destination: name,
+                    destination: name.clone(),
                     source,
                 });
             }
@@ -526,7 +529,7 @@ fn routing(
             }
         }
     }
-    ui.set_cursor_screen_pos([start[0], start[1] + (color_count + 1).max(4) as f32 * step]);
+    ui.set_cursor_screen_pos([start[0], start[1] + 4. * step]);
 }
 
 fn channel_routes(
@@ -606,25 +609,26 @@ fn channel_routes(
     }
 }
 
-pub(super) fn remove(
+pub(super) fn cull(
     ui: &Ui,
-    channels: &mut Vec<ChannelName>,
+    channels: &mut [Vec<ChannelName>; 4],
     keep: &mut bool,
     available: &[ChannelName],
     response: &mut EditResponse,
 ) {
-    if ui.checkbox("Keep selected channels", keep) {
-        changed(response);
-    }
-    for name in available {
-        let mut enabled = channels.contains(name);
-        if ui.checkbox(name.as_str(), &mut enabled) {
-            channels.retain(|c| c != name);
-            if enabled {
-                channels.push(name.clone());
-            }
-            changed(response);
-        }
+    super::controls::combo(
+        ui,
+        "Operation",
+        keep,
+        &[(false, "Remove"), (true, "Keep")],
+        response,
+    );
+    for (selected, label) in
+        channels
+            .iter_mut()
+            .zip(["Channels", "Channels 2", "Channels 3", "Channels 4"])
+    {
+        selector(ui, label, selected, available, response);
     }
 }
 

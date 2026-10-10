@@ -16,7 +16,7 @@ pub enum Source {
         info: VideoInfo,
         image: fold_media::exr::Info,
         #[serde(default)]
-        options: fold_media::exr_sequence::Options,
+        options: crate::read::SequenceOptions,
         #[serde(default)]
         sequence: Option<fold_media::exr_sequence::Summary>,
         #[serde(default)]
@@ -247,12 +247,17 @@ impl crate::PreparedComposite<'_> {
     fn assets(&self) -> Vec<AssetId> {
         self.nodes
             .iter()
-            .filter_map(|n| match n.config() {
+            .flat_map(|n| match n.config() {
                 OperationConfig::Read {
-                    source: Source::Asset { asset, .. } | Source::Exr { asset, .. },
-                    ..
-                } => Some(*asset),
-                _ => None,
+                    source, options, ..
+                } => std::iter::once(source)
+                    .chain(options.proxy.iter())
+                    .filter_map(|source| match source {
+                        Source::Asset { asset, .. } | Source::Exr { asset, .. } => Some(*asset),
+                        _ => None,
+                    })
+                    .collect::<Vec<_>>(),
+                _ => vec![],
             })
             .collect::<BTreeSet<_>>()
             .into_iter()

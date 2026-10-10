@@ -111,7 +111,7 @@ pub(crate) fn decode(
         native = Some(instance);
     }
     let kernel = OPERATORS[index].kernel;
-    let value = if matches!(kernel, "ApplyMask" | "Output") {
+    let value = if kernel == "Output" {
         if !fields.is_empty() {
             return Err("Operation has no parameters".into());
         }
