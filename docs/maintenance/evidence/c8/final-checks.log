@@ -1,0 +1,6 @@
+rustfmt --edition 2024 --check crates/compositor/src/animation.rs crates/app/examples/maintenance_profile.rs crates/app/src/preview_metadata.rs
+exit: 0
+git diff --check
+exit: 0
+Original fixture hashes unchanged.
+Reviewed production, benchmark, resource regression and evidence diff; no unrelated runtime changes.

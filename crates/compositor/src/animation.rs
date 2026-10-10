@@ -343,6 +343,11 @@ impl crate::PreparedNode<'_> {
         Ok(parameters)
     }
     pub fn validate_animation(&self) -> Result<(), String> {
+        // Track decoding/identity validation already ran during preparation.
+        // Without tracks there are no paths to check against the property schema.
+        if self.tracks().len() == 0 {
+            return Ok(());
+        }
         let available: BTreeMap<_, _> = self
             .animated_properties()
             .into_iter()

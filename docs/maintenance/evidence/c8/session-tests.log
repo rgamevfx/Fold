@@ -1,0 +1,18 @@
+   Compiling fold-app v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/app)
+    Finished `test` profile [unoptimized] target(s) in 7.24s
+     Running tests/compositor_session.rs (target/debug/deps/compositor_session-83513f782ccc0d0b)
+
+running 10 tests
+test stale_preview_cannot_replace_newer_committed_state ... ok
+test canvas_positions_and_storage_order_do_not_invalidate_render_content ... ok
+test missing_input_is_a_render_diagnostic_not_a_silent_bypass ... ok
+test scoped_inspector_can_discover_published_effect_interfaces ... ok
+test navigation_preserves_exact_local_time_and_returns_to_parent_time ... ok
+test returning_to_timeline_restores_transport_and_evaluates_nested_frames ... ok
+test shader_publication_validates_on_worker_and_cancel_never_publishes ... ok
+test gesture_updates_preview_only_cancel_restores_and_release_is_one_undo_entry ... ok
+test opening_during_a_transient_edit_preserves_the_gesture ... ok
+test project_can_open_directly_into_its_compositor_workspace ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.50s
+

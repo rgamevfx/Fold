@@ -1,0 +1,65 @@
+{"event":"begin","stage":"motion_decode_structure","unix_ms":1791593985741}
+{"event":"end","stage":"motion_decode_structure","unix_ms":1791593985749}
+{"event":"begin","stage":"motion_clone_validate_prepare","unix_ms":1791593985749}
+{"event":"end","stage":"motion_clone_validate_prepare","unix_ms":1791593985765}
+{"event":"begin","stage":"motion_evaluate_Time { numerator: 0, denominator: 1 }","unix_ms":1791593985765}
+{"event":"end","stage":"motion_evaluate_Time { numerator: 0, denominator: 1 }","unix_ms":1791593986177}
+{"event":"begin","stage":"motion_evaluate_Time { numerator: 1, denominator: 2 }","unix_ms":1791593986177}
+{"event":"end","stage":"motion_evaluate_Time { numerator: 1, denominator: 2 }","unix_ms":1791593986606}
+{"event":"begin","stage":"motion_evaluate_Time { numerator: 2, denominator: 1 }","unix_ms":1791593986606}
+{"event":"end","stage":"motion_evaluate_Time { numerator: 2, denominator: 1 }","unix_ms":1791593987019}
+{"event":"begin","stage":"motion_precancelled_evaluation","unix_ms":1791593987019}
+{"event":"end","stage":"motion_precancelled_evaluation","unix_ms":1791593987019}
+{"event":"begin","stage":"compositor_decode_validate_16","unix_ms":1791593987020}
+{"event":"end","stage":"compositor_decode_validate_16","unix_ms":1791593987027}
+{"event":"begin","stage":"compositor_prepare_16","unix_ms":1791593987027}
+{"event":"end","stage":"compositor_prepare_16","unix_ms":1791593987030}
+{"event":"begin","stage":"compositor_animation_validation_16","unix_ms":1791593987030}
+{"event":"end","stage":"compositor_animation_validation_16","unix_ms":1791593987032}
+{"event":"begin","stage":"compositor_node_prepare_16","unix_ms":1791593987032}
+{"event":"end","stage":"compositor_node_prepare_16","unix_ms":1791593987035}
+{"event":"begin","stage":"compositor_decode_validate_64","unix_ms":1791593987036}
+{"event":"end","stage":"compositor_decode_validate_64","unix_ms":1791593987063}
+{"event":"begin","stage":"compositor_prepare_64","unix_ms":1791593987063}
+{"event":"end","stage":"compositor_prepare_64","unix_ms":1791593987077}
+{"event":"begin","stage":"compositor_animation_validation_64","unix_ms":1791593987077}
+{"event":"end","stage":"compositor_animation_validation_64","unix_ms":1791593987086}
+{"event":"begin","stage":"compositor_node_prepare_64","unix_ms":1791593987086}
+{"event":"end","stage":"compositor_node_prepare_64","unix_ms":1791593987098}
+{"event":"begin","stage":"compositor_decode_validate_256","unix_ms":1791593987102}
+{"event":"end","stage":"compositor_decode_validate_256","unix_ms":1791593987204}
+{"event":"begin","stage":"compositor_prepare_256","unix_ms":1791593987204}
+{"event":"end","stage":"compositor_prepare_256","unix_ms":1791593987266}
+{"event":"begin","stage":"compositor_animation_validation_256","unix_ms":1791593987268}
+{"event":"end","stage":"compositor_animation_validation_256","unix_ms":1791593987296}
+{"event":"begin","stage":"compositor_node_prepare_256","unix_ms":1791593987296}
+{"event":"end","stage":"compositor_node_prepare_256","unix_ms":1791593987346}
+{"event":"begin","stage":"session_undo_redo_with_refresh","unix_ms":1791593987348}
+{"event":"end","stage":"session_undo_redo_with_refresh","unix_ms":1791593987384}
+{"event":"begin","stage":"offscreen_shell_frame_1600","unix_ms":1791593987385}
+{"event":"end","stage":"offscreen_shell_frame_1600","unix_ms":1791593987409}
+{"event":"begin","stage":"offscreen_shell_frame_580","unix_ms":1791593987409}
+{"event":"end","stage":"offscreen_shell_frame_580","unix_ms":1791593987432}
+	Command being timed: "/home/rgame/.codex/worktrees/efc8/Fold/target/release/examples/maintenance_profile"
+	User time (seconds): 1.68
+	System time (seconds): 0.01
+	Percent of CPU this job got: 100%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:01.69
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 45656
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 2983
+	Voluntary context switches: 10
+	Involuntary context switches: 9
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 32
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

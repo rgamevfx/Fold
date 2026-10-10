@@ -65,6 +65,49 @@ mod tests {
     use super::*;
     use fold_project::{EditBatch, Mutation, Project};
     #[test]
+    fn root_eviction_and_session_project_replacement_release_retained_documents() {
+        let projects = [Project::new(0), Project::new(0), Project::new(0)];
+        let mut cache = Metadata::default();
+        for project in &projects {
+            cache.root(&project.snapshot());
+        }
+        assert_eq!(cache.roots.len(), 2);
+        assert_eq!(projects[0].retention().external_handles, 0);
+        assert_eq!(projects[1].retention().external_handles, 1);
+        assert_eq!(projects[2].retention().external_handles, 1);
+        drop(cache);
+        assert!(projects.iter().all(|p| p.retention().external_handles == 0));
+
+        let mut project = Project::new(0);
+        let id = DocumentId::new();
+        project
+            .commit(EditBatch {
+                base: project.snapshot().revision(),
+                mutations: vec![Mutation::PutDocument(fold_project::Document {
+                    id,
+                    package_id: "unknown".into(),
+                    type_id: "unknown.document".into(),
+                    schema_version: 1,
+                    revision: Default::default(),
+                    dependencies: vec![],
+                    assets: vec![],
+                    payload: vec![0; 1024 * 1024],
+                    extensions: Default::default(),
+                })],
+            })
+            .unwrap();
+        let snapshot = project.snapshot();
+        let retired = std::sync::Arc::downgrade(&snapshot.state().documents[&id]);
+        let mut session = super::super::Session::new(project);
+        session.metadata.borrow_mut().root(&snapshot);
+        drop(snapshot);
+        assert!(retired.upgrade().is_some());
+        session.replace_project(Project::new(0));
+        assert!(session.metadata.borrow().roots.is_empty());
+        assert!(retired.upgrade().is_none());
+    }
+
+    #[test]
     fn transient_roots_with_the_same_revision_and_undo_do_not_reuse_stale_queries() {
         let mut project = Project::new(8);
         let id = DocumentId::new();

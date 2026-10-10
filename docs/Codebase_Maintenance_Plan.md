@@ -1,7 +1,7 @@
 # Fold Codebase Maintenance Plan
 
 **Date:** 9 October 2026
-**Status:** C0 baseline complete, with native measurement failures recorded. C1–C5 complete; desktop/native acceptance limitations remain recorded. C6 implemented; checkpoint and native acceptance recorded below. C7 complete by user acceptance, with the inherited spatial-depth failure recorded as an exception. C8–C9 not started.
+**Status:** C0 baseline complete, with native measurement failures recorded. C1–C5 complete; desktop/native acceptance limitations remain recorded. C6 implemented; checkpoint and native acceptance recorded below. C7 complete by user acceptance, with the inherited spatial-depth failure recorded as an exception. C8 complete for measured local preparation; C9 not started.
 **Audit baseline:** `6280fb6` — Implement M5c parameter references and scoped inspection.
 
 ## Purpose and authority
@@ -36,7 +36,7 @@ M3–M5 and M5a–M5c acceptance remain open. The desktop freeze remains unresol
 | C5 | Focused application coordinator | C4 | Complete; see evidence and limitations |
 | C6 | Explicit desktop workspace and viewer state | C5 | Implemented; native acceptance remains open |
 | C7 | Simplified GPU execution and vector path | C6 | Complete; accepted spatial-depth exception |
-| C8 | Measured preparation and refresh optimization | C7; M6 gate for incremental Motion work | Planned |
+| C8 | Measured preparation and refresh optimization | C7; M6 gate for incremental Motion work | Complete for measured local preparation; M6 remains gated |
 | C9 | Integrated qualification and current architecture reference | C8 | Planned |
 
 Use this as the default execution order. A phase may contain several small commits, but its gate must pass before dependent work is called complete. Planning this sequence does not authorize claiming unfinished rewrite behavior as implemented.
@@ -191,6 +191,8 @@ Native desktop captures failed with SIGSEGV in release and debug; a control also
 6. Track full incremental Motion dependency compilation and field execution in M6. Do not implement a competing evaluator or begin that work before M5/M5a/M5b/M5c acceptance. Record this dependency explicitly if it limits C8 scope.
 
 **Gate:** Recorded workloads improve against the baseline without violating frozen correctness tolerances, cancellation, or memory limits. Each optimization has before/after evidence; no blanket performance claim is inferred from code structure. C8 can close for measured local preparation improvements while separately identified M6 expansion remains governed by the rewrite plan.
+
+**C8 completion — 9 October 2026:** [Measured preparation results](maintenance/evidence/c8/result.md) rank the current costs and retain three comparable before/after release runs. Compositor nodes without tracks skip empty animation-path table construction after track/identity validation. The 256-node decode/validation median improves 27–35% and preparation 53–55%; no refresh or native edit-latency gain is claimed. Shell p95 variation was investigated with three identical-binary repeat runs; the two-of-three threshold did not recur. Affected all-target checks and 55 focused tests pass, including same-revision transient isolation, metadata eviction and project-replacement release. No cache, worker, UI or public contract was added. C4/C5/C6 ownership and C7 GPU safety remain intact. The inherited spatial-depth failure, original freeze, separate C0 unbound shutdown SIGSEGV and physical artist acceptance remain open. Full Motion incremental execution remains M6 work gated by M5/M5a/M5b/M5c; C9 has not begun.
 
 ## C9 — Qualify and publish the maintained foundation
 

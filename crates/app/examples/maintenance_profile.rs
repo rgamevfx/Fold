@@ -131,6 +131,25 @@ fn main() -> Result<(), String> {
             black_box(graph.prepare()?);
             Ok(())
         })?);
+        let prepared_graph = graph.prepare()?;
+        measurements.push(measure(
+            &format!("compositor_animation_validation_{count}"),
+            || {
+                for node in prepared_graph.nodes() {
+                    node.validate_animation()?;
+                }
+                Ok(())
+            },
+        )?);
+        measurements.push(measure(
+            &format!("compositor_node_prepare_{count}"),
+            || {
+                for node in &graph.nodes {
+                    black_box(node.prepare()?);
+                }
+                Ok(())
+            },
+        )?);
     }
     let mut scene_project = fold_project::load(root.join("demos/m5b-background-spheres.fold"), 32)
         .map_err(|e| e.to_string())?;
