@@ -1,0 +1,16 @@
+
+running 1 test
+test receipt_is_allocation_bound_and_submit_retains_early_dropped_buffer ... native qualification adapter AdapterInfo { name: "NVIDIA GeForce GTX 1070", vendor: 4318, device: 7137, device_type: DiscreteGpu, driver: "NVIDIA", driver_info: "580.173.02", backend: Vulkan }
+
+thread 'receipt_is_allocation_bound_and_submit_retains_early_dropped_buffer' (3597643) panicked at crates/media/tests/native_gpu.rs:278:44:
+called `Result::unwrap()` on an `Err` value: Failure { kind: Execution, message: "native NVDEC helper missing: /home/rgame/.codex/worktrees/efc8/Fold/target/debug/deps/fold-video-helper", context: [] }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    receipt_is_allocation_bound_and_submit_retains_early_dropped_buffer
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 4 filtered out; finished in 3.51s
+

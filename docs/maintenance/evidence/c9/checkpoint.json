@@ -1,0 +1,124 @@
+[
+  {
+    "name": "format",
+    "command": [
+      "cargo",
+      "fmt",
+      "--all",
+      "--check"
+    ],
+    "status": 0,
+    "seconds": 2.37
+  },
+  {
+    "name": "boundaries",
+    "command": [
+      "python3",
+      "scripts/check_boundaries.py"
+    ],
+    "status": 0,
+    "seconds": 0.74
+  },
+  {
+    "name": "ownership",
+    "command": [
+      "python3",
+      "scripts/check_proposal_ownership.py"
+    ],
+    "status": 0,
+    "seconds": 0.06
+  },
+  {
+    "name": "python",
+    "command": [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "scripts",
+      "-p",
+      "test_*.py"
+    ],
+    "status": 0,
+    "seconds": 0.83
+  },
+  {
+    "name": "workspace-check",
+    "command": [
+      "cargo",
+      "check",
+      "--offline",
+      "--locked",
+      "--workspace",
+      "--all-targets",
+      "--features",
+      "fold-app/native-probe"
+    ],
+    "status": 0,
+    "seconds": 25.93
+  },
+  {
+    "name": "workspace-tests",
+    "command": [
+      "cargo",
+      "test",
+      "--offline",
+      "--locked",
+      "--workspace",
+      "--features",
+      "fold-app/native-probe",
+      "--no-fail-fast",
+      "--",
+      "--test-threads=1"
+    ],
+    "status": 101,
+    "seconds": 954.72
+  },
+  {
+    "name": "clippy",
+    "command": [
+      "cargo",
+      "clippy",
+      "--offline",
+      "--locked",
+      "--workspace",
+      "--all-targets",
+      "--features",
+      "fold-app/native-probe"
+    ],
+    "status": 0,
+    "seconds": 34.31
+  },
+  {
+    "name": "headless-check",
+    "command": [
+      "cargo",
+      "check",
+      "--offline",
+      "--locked",
+      "-p",
+      "fold-app",
+      "--no-default-features",
+      "--all-targets"
+    ],
+    "status": 0,
+    "seconds": 9.89
+  },
+  {
+    "name": "final-build",
+    "command": [
+      "cargo",
+      "build",
+      "--offline",
+      "--locked",
+      "-p",
+      "fold-app",
+      "--features",
+      "native-probe",
+      "--bins"
+    ],
+    "status": 0,
+    "seconds": 15.31
+  }
+]

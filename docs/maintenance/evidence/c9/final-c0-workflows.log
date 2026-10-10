@@ -1,0 +1,163 @@
+   Compiling fold-app v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/app)
+    Finished `test` profile [unoptimized] target(s) in 1m 47s
+     Running tests/agent_frames.rs (target/debug/deps/agent_frames-3f0b93a13d90f20f)
+
+running 4 tests
+test mixed_compositor_fixture_matches_preview_after_public_source_edits ... ignored, requires a native Vulkan adapter
+test mixed_scene_first_frame_retains_static_spheres_when_title_is_transparent ... ignored, requires native Vulkan and the packaged color runtime
+test public_frame_jobs_match_registered_pixels_and_retain_candidate_context ... ignored, requires a native Vulkan adapter
+test public_mixed_document_candidate_frames_match_committed_composition ... ignored, requires a native Vulkan adapter
+
+test result: ok. 0 passed; 0 failed; 4 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/agent_handoff.rs (target/debug/deps/agent_handoff-58e420d8a187fc7e)
+
+running 7 tests
+test cli_and_mcp_author_relative_parameter_expressions_without_primitive_nodes ... ok
+test cli_and_mcp_create_inspect_cancel_and_publish_mixed_provider_candidates ... ok
+test cli_and_mcp_inspect_layer_and_timeline_properties_through_one_service ... ok
+test cli_and_mcp_preserve_native_handoff_through_undo_and_reopen ... ok
+test cli_and_mcp_return_identical_revision_bound_frames ... ignored, requires a native Vulkan adapter and private local sockets
+test cli_and_mcp_save_committed_project_copies_with_exact_retry_and_reopen ... ok
+test integrated_ramp_key_lock_and_layout_survive_public_field_handoff ... ok
+
+test result: ok. 6 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 21.73s
+
+     Running tests/agent_integrated.rs (target/debug/deps/agent_integrated-3578f5a45e630eb8)
+
+running 4 tests
+test integrated_motion_mcp_authoring ... Authored via mcp: 35 native nodes at revision 20; baseline, eight catalog trials and control variations complete; saved /tmp/.tmp4Eff8X/report.json.fold
+ok
+test integrated_motion_mcp_gpu_authoring ... ignored, requires a native Vulkan adapter and private local sockets
+test integrated_motion_public_authoring ... Authored via cli: 35 native nodes at revision 20; baseline, eight catalog trials and control variations complete; saved /tmp/.tmpTFjYp0/report.json.fold
+ok
+test integrated_motion_public_gpu_authoring ... ignored, requires a native Vulkan adapter and private local sockets
+
+test result: ok. 2 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 48.26s
+
+     Running tests/agent_project.rs (target/debug/deps/agent_project-5c4599d9d65d431d)
+
+running 9 tests
+test compositor_source_retains_its_provider_budget_above_the_motion_text_limit ... ok
+test explicit_layer_connections_use_discovered_ports_and_one_undo_entry ... ok
+test public_compositor_source_rebases_disjoint_controls_and_requires_fresh_inspection ... ok
+test public_mixed_creation_is_inspected_atomic_undoable_and_preserved_on_reopen ... ok
+test public_scene_hierarchy_rejects_stale_values_unlocks_and_partial_edits ... ok
+test rebase_rejects_cycles_introduced_by_concurrent_layer_connections ... ok
+test rebase_revalidates_named_outputs_after_an_artist_replaces_a_publication ... ok
+test replacing_a_scene_output_cannot_leave_existing_consumers_dangling ... ok
+test scoped_object_source_rebases_disjoint_artist_edits_and_honors_new_locks ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.81s
+
+     Running tests/common_composition.rs (target/debug/deps/common_composition-aa91fbf8b1367e11)
+
+running 9 tests
+test composition_auto_key_is_shared_with_graph_inspector_contexts ... ok
+test composition_exposes_compositor_keys_without_network_editor ... ok
+test deleting_the_only_graph_layer_is_undoable ... ok
+test mixed_layers_processing_connections_visibility_animation_and_cycle_rejection ... ok
+test named_image_inputs_bind_independently_without_changing_other_sources ... ok
+test nesting_preserves_mixed_pixels_and_exact_trim_origin ... ok
+test repeated_scene_occurrences_cannot_conflict_on_a_coupled_vector_key ... ok
+test scene_creation_is_atomic_and_rejects_the_retired_motion_layer_command ... ok
+test scene_layers_keep_object_graphs_and_animation_through_undo_and_save ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s
+
+     Running tests/current_contracts.rs (target/debug/deps/current_contracts-144181900f08c211)
+
+running 4 tests
+test compositor_catalog_exposes_only_current_operation_generations ... ok
+test retired_operation_records_roundtrip_without_execution ... ok
+test retired_providers_and_schemas_are_opaque_and_non_executable ... ok
+test shipped_fixtures_use_current_contracts_and_save_reopen ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.73s
+
+     Running tests/motion_integrated.rs (target/debug/deps/motion_integrated-41240d5001dd35d8)
+
+running 2 tests
+test saved_control_variation_changes_rendered_text_and_palette_without_mutating_held_frames ... ignored, requires a native Vulkan adapter
+test saved_integrated_motion_renders_required_times_and_retains_frames ... ignored, requires a native Vulkan adapter
+
+test result: ok. 0 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/motion_spatial.rs (target/debug/deps/motion_spatial-451a71816d2d626c)
+
+running 11 tests
+test animated_cloner_gpu_matches_field_scale_palette_and_registered_output ... ignored, requires a native Vulkan adapter
+test camera_plane_stroke_over_fill_matches_premultiplied_paint ... ignored, requires a native Vulkan adapter
+test camera_plane_text_and_outline_match_screen_interiors_and_retain_frames ... ignored, requires a native Vulkan adapter
+test cloner_gpu_shares_mesh_preserves_cells_and_matches_registered_output ... ignored, requires a native Vulkan adapter
+test hierarchy_scene_outputs_composite_independently_and_preserve_depth ... ignored, requires a native Vulkan adapter
+test motion_document_spatial_frames_match_ray_oracle_and_retain_snapshot_binding ... ignored, requires a native Vulkan adapter
+test motion_spatial_preview_worker_matches_direct_output_and_keeps_named_routing ... ignored, requires a native Vulkan adapter
+test native_box_gpu_matches_analytic_slabs_and_retains_shared_prototype_frames ... ignored, requires a native Vulkan adapter
+test native_camera_planes_and_world_box_match_analytic_pixels_and_depth ... ignored, requires a native Vulkan adapter
+test registered_mixed_motion_aces_preserves_screen_world_order ... ignored, requires native Vulkan and the private OCIO package (FOLD_COLOR_ROOT)
+test registered_mixed_motion_output_preserves_screen_world_order_and_snapshot_frames ... ignored, requires a native Vulkan adapter
+
+test result: ok. 0 passed; 0 failed; 11 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/nle_workflow.rs (target/debug/deps/nle_workflow-dc4c6ae997cd4367)
+
+running 1 test
+test multitrack_nle_edit_mix_render_save_reopen_and_export ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.52s
+
+     Running tests/panel_linking.rs (target/debug/deps/panel_linking-ed05e70c3f2fd9c6)
+
+running 2 tests
+test native_grouped_selection_is_stable_and_routes_inspector_network_and_occurrences ... ok
+test native_linking_normal_and_narrow ... ignored, native GPU capture; writes /tmp/fold-selection-diagnosis/*.ppm
+
+test result: ok. 1 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 4.58s
+
+     Running tests/project_ingest.rs (target/debug/deps/project_ingest-33bb38af8550b03c)
+
+running 5 tests
+test asset_only_worker_import_duplicates_history_and_persistence ... ok
+test cancellation_stale_errors_and_delete_publish_no_partial_state ... ok
+test referenced_relink_validates_providers_invalidates_content_and_preserves_pinned_source ... ok
+test unavailable_provider_prevents_destructive_changes_and_override_survives_relink ... ok
+test wave_stream_metadata_and_timeline_relink_are_verified ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.29s
+
+     Running tests/project_lifecycle.rs (target/debug/deps/project_lifecycle-397663e94e27e92b)
+
+running 4 tests
+test cancelled_open_keeps_the_current_project ... ok
+test opening_does_not_discard_edits_published_while_io_runs ... ok
+test replacement_while_file_io_runs_never_publishes_its_path_or_saved_root ... ok
+test save_tracks_the_written_snapshot_and_undo_returns_to_clean_content ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+
+     Running tests/project_placement.rs (target/debug/deps/project_placement-5b7609baf0871b05)
+
+running 9 tests
+test common_composition_accepts_still_assets_as_full_duration_layers ... ok
+test desktop_ingest_completion_keeps_the_proposal_live_and_import_is_asset_only ... ok
+test folder_import_preserves_bins_skips_sidecars_and_undoes_together ... ok
+test invalid_targets_ranges_locked_tracks_cycles_and_unavailable_providers_are_atomic ... ok
+test multiple_native_images_are_sequential_on_one_new_timeline_track ... ok
+test native_drop_imports_and_places_all_targets_in_one_undo ... ok
+test project_workflow_reuses_assets_and_outputs_and_preserves_history_and_content ... ok
+test rejected_native_drop_leaves_no_import_or_partial_placement ... ok
+test timeline_new_track_placement_and_collision_modes_share_atomic_history ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.92s
+
+     Running tests/viewer_transport.rs (target/debug/deps/viewer_transport-fda126a94ad89202)
+
+running 4 tests
+test instance_play_seek_retarget_and_close_never_change_another_clock_or_project ... ok
+test nested_motion_and_compositor_play_their_own_marked_range_then_hold_out ... ok
+test one_transport_controls_each_view_and_keeps_review_marks_out_of_project_data ... ok
+test playback_defaults_and_presentation_generations_preserve_exact_edit_context ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.00s
+

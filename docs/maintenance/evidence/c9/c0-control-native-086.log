@@ -1,0 +1,16 @@
+
+running 1 test
+test registered_mixed_motion_output_preserves_screen_world_order_and_snapshot_frames ... Registered mixed Motion: AdapterInfo { name: "NVIDIA GeForce GTX 1070", vendor: 4318, device: 7137, device_type: DiscreteGpu, driver: "NVIDIA", driver_info: "580.173.02", backend: Vulkan }; ACES=false
+
+thread 'registered_mixed_motion_output_preserves_screen_world_order_and_snapshot_frames' (3655131) panicked at crates/app/tests/motion_spatial.rs:552:9:
+Mixed paint order mismatch at 1911: [0.0, 0.24999498, 0.7499899, 0.9999849] != [0.0, 0.25, 0.75, 1.0]
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    registered_mixed_motion_output_preserves_screen_world_order_and_snapshot_frames
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 10 filtered out; finished in 2.18s
+

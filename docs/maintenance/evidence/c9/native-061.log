@@ -1,0 +1,27 @@
+
+running 1 test
+test sdk::graph_canvas::tests::rendering::graph_typography_renders_across_zoom_dpi_and_ui_scale ... Node typography adapter: AdapterInfo { name: "NVIDIA GeForce GTX 1070", vendor: 4318, device: 7137, device_type: DiscreteGpu, driver: "NVIDIA", driver_info: "580.173.02", backend: Vulkan }
+normal: zoom 1.903, UI scale 1, DPI 1
+composite-normal: zoom 1.000, UI scale 1, DPI 1
+composite-narrow: zoom 0.707, UI scale 1, DPI 1
+composite-large-ui: zoom 1.000, UI scale 1.5, DPI 1
+composite-dpi-2: zoom 0.940, UI scale 1, DPI 2
+zoom-in: zoom 4.182, UI scale 1, DPI 1
+overview: zoom 0.513, UI scale 1, DPI 1
+narrow: zoom 0.704, UI scale 1, DPI 1
+large-ui: zoom 1.345, UI scale 1.5, DPI 1
+dpi-2: zoom 0.936, UI scale 1, DPI 2
+eight-nodes: zoom 0.806, UI scale 1, DPI 1
+settings: zoom 0.000, UI scale 1, DPI 1
+settings-narrow: zoom 0.000, UI scale 1, DPI 1
+settings-application: zoom 0.000, UI scale 1, DPI 1
+settings-application-narrow: zoom 0.000, UI scale 1, DPI 1
+menu-file: zoom 0.000, UI scale 1, DPI 1
+menu-file-narrow: zoom 0.000, UI scale 1, DPI 1
+menu-edit: zoom 0.000, UI scale 1, DPI 1
+menu-workspace: zoom 0.000, UI scale 1, DPI 1
+menu-unsaved: zoom 0.000, UI scale 1, DPI 1
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 127 filtered out; finished in 5.39s
+

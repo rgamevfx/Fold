@@ -1,0 +1,14 @@
+
+running 1 test
+test nvdec_matches_software_seeks_and_source_pin ... native qualification adapter AdapterInfo { name: "NVIDIA GeForce GTX 1070", vendor: 4318, device: 7137, device_type: DiscreteGpu, driver: "NVIDIA", driver_info: "580.173.02", backend: Vulkan }
+frame 0: max native/SW sample difference 0
+frame 1: max native/SW sample difference 0
+frame 5: max native/SW sample difference 0
+frame 449: max native/SW sample difference 0
+frame 2: max native/SW sample difference 0
+frame 225: max native/SW sample difference 0
+frame 0: max native/SW sample difference 0
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 11.28s
+

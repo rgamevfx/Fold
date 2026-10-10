@@ -1,0 +1,6 @@
+
+running 1 test
+test gpu_grade_merge_modes_and_data_visualization_match_cpu ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.76s
+

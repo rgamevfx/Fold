@@ -1,0 +1,16 @@
+
+running 1 test
+test two_same_source_ranges_and_two_distinct_sources_retain_cursors ... native qualification adapter AdapterInfo { name: "NVIDIA GeForce GTX 1070", vendor: 4318, device: 7137, device_type: DiscreteGpu, driver: "NVIDIA", driver_info: "580.173.02", backend: Vulkan }
+
+thread 'two_same_source_ranges_and_two_distinct_sources_retain_cursors' (3598510) panicked at crates/media/tests/native_gpu.rs:178:44:
+called `Result::unwrap()` on an `Err` value: Failure { kind: Execution, message: "native NVDEC helper missing: /home/rgame/.codex/worktrees/efc8/Fold/target/debug/deps/fold-video-helper", context: [] }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    two_same_source_ranges_and_two_distinct_sources_retain_cursors
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 4 filtered out; finished in 3.39s
+

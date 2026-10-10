@@ -1,0 +1,6 @@
+
+running 1 test
+test gpu::vector::tests::native_repeated_geometry_exceeds_old_triangle_limit_without_repeated_uploads ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 65 filtered out; finished in 0.67s
+

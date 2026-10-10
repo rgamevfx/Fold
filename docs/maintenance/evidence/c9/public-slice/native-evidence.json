@@ -1,0 +1,3934 @@
+{
+  "capture_scope": "native evaluation and persistence only",
+  "document_type": "fold.motion.construction",
+  "fixture": "animated-shape-v1",
+  "invalid_source_buffer": "motion 1;\nseed 20261008;\ncanvas {\"width\":1920,\"height\":1080,\"rate\":[24,1],\"start\":{\"numerator\":0,\"denominator\":1},\"end\":{\"numerator\":4,\"denominator\":1}};\nasset \"Animated shape\" @{\"id\":\"493de4e4-2a6f-4004-8d09-b9be1b4dcbf4\"} {\n  input \"size\" @{\"id\":\"db504cae-deff-4196-b654-2e6834096a87\",\"protected\":false} : {\"kind\":\"distance\",\"unit\":\"canvas\"} = 100px;\n  input \"accent\" @{\"id\":\"963fc839-5ec4-4b13-b290-5095dd314c14\",\"protected\":false} : {\"kind\":\"color\",\"encoding\":\"linear_rec709\",\"alpha\":\"straight\"} = literal({\"kind\":\"color\",\"value\":[1.0,0.0,0.0,1.0],\"encoding\":\"linear_rec709\",\"alpha\":\"straight\"});\n  input \"count\" @{\"id\":\"4e0a21b5-a5a4-43a0-be82-c98ee6b10ca6\",\"protected\":true} : {\"kind\":\"integer\"} = 1i;\n  let \"width\" @{\"id\":\"8108125a-84b2-475a-b5b1-39b498d73301\"} = \"fold.motion.expression\".\"value\" @1 (\n    \"value\" @{\"id\":\"a30a56b6-9719-489c-818e-47975e9adb58\",\"protected\":false} = expr(($\"size\" @{\"id\":\"cd86d9da-35c7-4b99-bc24-c75e1667d82e\"} * 2));\n  );\n  let \"profile\" @{\"id\":\"1eb0c431-07d7-4489-9735-7781fe0665c2\"} = \"fold.motion.shape\".\"rectangle\" @1 (\n    \"height\" @{\"id\":\"dcc51b41-41c8-4729-a04f-6cdde92f5477\",\"protected\":false} = link($\"size\" @{\"id\":\"5010aa02-e771-4db1-8945-401f162d37ad\"});\n    \"width\" @{\"id\":\"df824fef-2a61-4c4a-930a-bbffe33eb199\",\"protected\":false} = link($\"width\" @{\"id\":\"5e9b65f2-31a2-4451-9b15-55a6d795876f\"});\n  );\n  let \"entrance\" @{\"id\":\"41d0a4a6-2930-4a3d-a409-6f5117ba1657\"} = \"fold.motion.tween\".\"linear\" @1 (\n    \"duration\" @{\"id\":\"aca3e7cf-559e-4d59-84af-098faeb1f407\",\"protected\":false} = value(literal({\"kind\":\"duration\",\"value\":{\"numerator\":3,\"denominator\":5}}));\n    \"from\" @{\"id\":\"43eb45b1-44b6-46a4-b601-967bbe70755a\",\"protected\":false} = value(literal({\"kind\":\"vector\",\"value\":[0.0,80.0],\"unit\":\"canvas\",\"space\":\"screen\"}));\n    \"start\" @{\"id\":\"2cfa4570-0ab6-4629-a332-dc392212a7c8\",\"protected\":false} = value(literal({\"kind\":\"duration\",\"value\":{\"numerator\":0,\"denominator\":1}}));\n    \"time\" @{\"id\":\"3628152d-50b6-49a7-b98c-ce67013e4a69\",\"protected\":false} = expr(time.asset);\n    \"to\" @{\"id\":\"40ebf2d0-2b8f-47d6-acd2-57c3bcaf61dd\",\"protected\":false} = value(literal({\"kind\":\"vector\",\"value\":[0.0,0.0],\"unit\":\"canvas\",\"space\":\"screen\"}));\n  );\n  let \"opacity\" @{\"id\":\"66f9c66f-48b7-4bc9-a8e8-acdae3f417e1\"} = \"fold.motion.keyframes\".\"value\" @1 (\n    \"time\" @{\"id\":\"7dab0f1a-d4c4-4a97-8755-ee33f617067e\",\"protected\":false} = expr(time.asset);\n    \"track\" @{\"id\":\"367d7ebc-7a48-41bd-9c91-1eeb0f606aa1\",\"protected\":false} = track({\"id\":\"6d2e88ba-9699-4747-be4b-407587d30a6c\",\"ty\":{\"kind\":\"scalar\"},\"keys\":[{\"id\":\"9435867a-901e-44ee-85bc-3cbc4d9289e0\",\"time\":{\"numerator\":0,\"denominator\":1},\"value\":{\"kind\":\"scalar\",\"value\":0.0},\"interpolation\":\"linear\"},{\"id\":\"836e9c85-a23f-4e39-a03e-b1bd4c33f47b\",\"time\":{\"numerator\":1,\"denominator\":2},\"value\":{\"kind\":\"scalar\",\"value\":1.0},\"interpolation\":\"linear\"},{\"id\":\"9a383934-356d-410a-af32-3cb5d93c3ae8\",\"time\":{\"numerator\":1,\"denominator\":1},\"value\":{\"kind\":\"scalar\",\"value\":0.5},\"interpolation\":\"linear\"}],\"combination\":\"replace\"});\n  );\n  let \"placement\" @{\"id\":\"b3dad16e-6dbb-4db0-8c41-b642a760c9ed\"} = \"fold.motion.place\".\"screen\" @1 (\n    \"geometry\" @{\"id\":\"9bfdb09b-cc5b-4d74-9574-a8fcf794feb2\",\"protected\":false} = link($\"profile\" @{\"id\":\"abd321ff-9cc1-401b-96d8-241267b4ea2d\"});\n    \"opacity\" @{\"id\":\"62932a05-ff7d-4d95-844e-fa3aee7ae0e1\",\"protected\":false} = link($\"opacity\" @{\"id\":\"c61aec47-d097-41ae-baf7-ce88f89f7ef9\"});\n    \"position\" @{\"id\":\"78c514f7-946c-4da5-845c-5fb013bffaf0\",\"protected\":false} = link($\"entrance\" @{\"id\":\"66cd27c2-8c3d-47ca-a76e-6e2b66f75328\"});\n  );\n  let \"scene\" @{\"id\":\"2a603d04-09aa-4f6a-9c30-92adf97c846c\"} = \"fold.motion.scene\".\"ordered\" @1 (\n    \"children\" @{\"id\":\"d017d102-133a-42f3-bbef-9cf54285c39a\",\"protected\":false} = list[link($\"placement\" @{\"id\":\"9555b12a-e411-43f5-938c-84b70e0e0cc1\"})];\n  );\n  output \"main\" @{\"id\":\"1272ba76-435d-434d-b053-aa89273f3338\"} : {\"kind\":\"scene\"} = $\"scene\" @{\"id\":\"7c0c3af9-c74b-4544-83e3-93b3c8003051\"};\n}\nroot \"main\" @{\"id\":\"339fcddb-b4f3-4eb2-8e5d-9d0152d44125\"} = \"Animated shape\" clock {\"offset\":{\"numerator\":0,\"denominator\":1},\"rate\":{\"numerator\":1,\"denominator\":1}} {\n  \"accent\" @{\"id\":\"6c7f77f0-93ee-496b-aa92-ede1bf988ea8\",\"protected\":false} = value(literal({\"kind\":\"color\",\"value\":[0.0,0.0,1.0,1.0],\"encoding\":\"linear_rec709\",\"alpha\":\"straight\"}));\n};\npresentation {\"positions\":{\"1eb0c431-07d7-4489-9735-7781fe0665c2\":[320.0,180.0]},\"groups\":[],\"annotations\":{\"1eb0c431-07d7-4489-9735-7781fe0665c2\":\"Retain authored layout\"}};\nextensions {\"vendor_capture\":{\"opaque\":[1,{\"future\":true}]}};\n\ninvalid trailing source",
+  "protocol": 2,
+  "seek_runs": [
+    [
+      {
+        "element_ids": {
+          "contours": [
+            {
+              "id": 3919773217524316638,
+              "points": [
+                14837350615909650294,
+                14837351715421278505,
+                14837348416886393872,
+                14837349516398022083
+              ]
+            }
+          ],
+          "entry": 4948143750012241241,
+          "geometry": 6341542412502604339,
+          "placement": 2099849098316259515
+        },
+        "opacity": 0.0,
+        "position": [
+          0.0,
+          80.0
+        ],
+        "size": [
+          200.0,
+          100.0
+        ],
+        "time": [
+          -1,
+          1
+        ]
+      },
+      {
+        "element_ids": {
+          "contours": [
+            {
+              "id": 3919773217524316638,
+              "points": [
+                14837350615909650294,
+                14837351715421278505,
+                14837348416886393872,
+                14837349516398022083
+              ]
+            }
+          ],
+          "entry": 4948143750012241241,
+          "geometry": 6341542412502604339,
+          "placement": 2099849098316259515
+        },
+        "opacity": 0.0,
+        "position": [
+          0.0,
+          80.0
+        ],
+        "size": [
+          200.0,
+          100.0
+        ],
+        "time": [
+          0,
+          1
+        ]
+      },
+      {
+        "element_ids": {
+          "contours": [
+            {
+              "id": 3919773217524316638,
+              "points": [
+                14837350615909650294,
+                14837351715421278505,
+                14837348416886393872,
+                14837349516398022083
+              ]
+            }
+          ],
+          "entry": 4948143750012241241,
+          "geometry": 6341542412502604339,
+          "placement": 2099849098316259515
+        },
+        "opacity": 0.5,
+        "position": [
+          0.0,
+          46.66666666666666
+        ],
+        "size": [
+          200.0,
+          100.0
+        ],
+        "time": [
+          1,
+          4
+        ]
+      },
+      {
+        "element_ids": {
+          "contours": [
+            {
+              "id": 3919773217524316638,
+              "points": [
+                14837350615909650294,
+                14837351715421278505,
+                14837348416886393872,
+                14837349516398022083
+              ]
+            }
+          ],
+          "entry": 4948143750012241241,
+          "geometry": 6341542412502604339,
+          "placement": 2099849098316259515
+        },
+        "opacity": 1.0,
+        "position": [
+          0.0,
+          13.33333333333333
+        ],
+        "size": [
+          200.0,
+          100.0
+        ],
+        "time": [
+          1,
+          2
+        ]
+      },
+      {
+        "element_ids": {
+          "contours": [
+            {
+              "id": 3919773217524316638,
+              "points": [
+                14837350615909650294,
+                14837351715421278505,
+                14837348416886393872,
+                14837349516398022083
+              ]
+            }
+          ],
+          "entry": 4948143750012241241,
+          "geometry": 6341542412502604339,
+          "placement": 2099849098316259515
+        },
+        "opacity": 0.9,
+        "position": [
+          0.0,
+          0.0
+        ],
+        "size": [
+          200.0,
+          100.0
+        ],
+        "time": [
+          3,
+          5
+        ]
+      },
+      {
+        "element_ids": {
+          "contours": [
+            {
+              "id": 3919773217524316638,
+              "points": [
+                14837350615909650294,
+                14837351715421278505,
+                14837348416886393872,
+                14837349516398022083
+              ]
+            }
+          ],
+          "entry": 4948143750012241241,
+          "geometry": 6341542412502604339,
+          "placement": 2099849098316259515
+        },
+        "opacity": 0.5,
+        "position": [
+          0.0,
+          0.0
+        ],
+        "size": [
+          200.0,
+          100.0
+        ],
+        "time": [
+          1,
+          1
+        ]
+      },
+      {
+        "element_ids": {
+          "contours": [
+            {
+              "id": 3919773217524316638,
+              "points": [
+                14837350615909650294,
+                14837351715421278505,
+                14837348416886393872,
+                14837349516398022083
+              ]
+            }
+          ],
+          "entry": 4948143750012241241,
+          "geometry": 6341542412502604339,
+          "placement": 2099849098316259515
+        },
+        "opacity": 0.5,
+        "position": [
+          0.0,
+          0.0
+        ],
+        "size": [
+          200.0,
+          100.0
+        ],
+        "time": [
+          2,
+          1
+        ]
+      }
+    ],
+    [
+      {
+        "element_ids": {
+          "contours": [
+            {
+              "id": 3919773217524316638,
+              "points": [
+                14837350615909650294,
+                14837351715421278505,
+                14837348416886393872,
+                14837349516398022083
+              ]
+            }
+          ],
+          "entry": 4948143750012241241,
+          "geometry": 6341542412502604339,
+          "placement": 2099849098316259515
+        },
+        "opacity": 0.5,
+        "position": [
+          0.0,
+          0.0
+        ],
+        "size": [
+          200.0,
+          100.0
+        ],
+        "time": [
+          2,
+          1
+        ]
+      },
+      {
+        "element_ids": {
+          "contours": [
+            {
+              "id": 3919773217524316638,
+              "points": [
+                14837350615909650294,
+                14837351715421278505,
+                14837348416886393872,
+                14837349516398022083
+              ]
+            }
+          ],
+          "entry": 4948143750012241241,
+          "geometry": 6341542412502604339,
+          "placement": 2099849098316259515
+        },
+        "opacity": 0.5,
+        "position": [
+          0.0,
+          0.0
+        ],
+        "size": [
+          200.0,
+          100.0
+        ],
+        "time": [
+          1,
+          1
+        ]
+      },
+      {
+        "element_ids": {
+          "contours": [
+            {
+              "id": 3919773217524316638,
+              "points": [
+                14837350615909650294,
+                14837351715421278505,
+                14837348416886393872,
+                14837349516398022083
+              ]
+            }
+          ],
+          "entry": 4948143750012241241,
+          "geometry": 6341542412502604339,
+          "placement": 2099849098316259515
+        },
+        "opacity": 0.9,
+        "position": [
+          0.0,
+          0.0
+        ],
+        "size": [
+          200.0,
+          100.0
+        ],
+        "time": [
+          3,
+          5
+        ]
+      },
+      {
+        "element_ids": {
+          "contours": [
+            {
+              "id": 3919773217524316638,
+              "points": [
+                14837350615909650294,
+                14837351715421278505,
+                14837348416886393872,
+                14837349516398022083
+              ]
+            }
+          ],
+          "entry": 4948143750012241241,
+          "geometry": 6341542412502604339,
+          "placement": 2099849098316259515
+        },
+        "opacity": 1.0,
+        "position": [
+          0.0,
+          13.33333333333333
+        ],
+        "size": [
+          200.0,
+          100.0
+        ],
+        "time": [
+          1,
+          2
+        ]
+      },
+      {
+        "element_ids": {
+          "contours": [
+            {
+              "id": 3919773217524316638,
+              "points": [
+                14837350615909650294,
+                14837351715421278505,
+                14837348416886393872,
+                14837349516398022083
+              ]
+            }
+          ],
+          "entry": 4948143750012241241,
+          "geometry": 6341542412502604339,
+          "placement": 2099849098316259515
+        },
+        "opacity": 0.5,
+        "position": [
+          0.0,
+          46.66666666666666
+        ],
+        "size": [
+          200.0,
+          100.0
+        ],
+        "time": [
+          1,
+          4
+        ]
+      },
+      {
+        "element_ids": {
+          "contours": [
+            {
+              "id": 3919773217524316638,
+              "points": [
+                14837350615909650294,
+                14837351715421278505,
+                14837348416886393872,
+                14837349516398022083
+              ]
+            }
+          ],
+          "entry": 4948143750012241241,
+          "geometry": 6341542412502604339,
+          "placement": 2099849098316259515
+        },
+        "opacity": 0.0,
+        "position": [
+          0.0,
+          80.0
+        ],
+        "size": [
+          200.0,
+          100.0
+        ],
+        "time": [
+          0,
+          1
+        ]
+      },
+      {
+        "element_ids": {
+          "contours": [
+            {
+              "id": 3919773217524316638,
+              "points": [
+                14837350615909650294,
+                14837351715421278505,
+                14837348416886393872,
+                14837349516398022083
+              ]
+            }
+          ],
+          "entry": 4948143750012241241,
+          "geometry": 6341542412502604339,
+          "placement": 2099849098316259515
+        },
+        "opacity": 0.0,
+        "position": [
+          0.0,
+          80.0
+        ],
+        "size": [
+          200.0,
+          100.0
+        ],
+        "time": [
+          -1,
+          1
+        ]
+      }
+    ],
+    [
+      {
+        "element_ids": {
+          "contours": [
+            {
+              "id": 3919773217524316638,
+              "points": [
+                14837350615909650294,
+                14837351715421278505,
+                14837348416886393872,
+                14837349516398022083
+              ]
+            }
+          ],
+          "entry": 4948143750012241241,
+          "geometry": 6341542412502604339,
+          "placement": 2099849098316259515
+        },
+        "opacity": 0.9,
+        "position": [
+          0.0,
+          0.0
+        ],
+        "size": [
+          200.0,
+          100.0
+        ],
+        "time": [
+          3,
+          5
+        ]
+      },
+      {
+        "element_ids": {
+          "contours": [
+            {
+              "id": 3919773217524316638,
+              "points": [
+                14837350615909650294,
+                14837351715421278505,
+                14837348416886393872,
+                14837349516398022083
+              ]
+            }
+          ],
+          "entry": 4948143750012241241,
+          "geometry": 6341542412502604339,
+          "placement": 2099849098316259515
+        },
+        "opacity": 0.0,
+        "position": [
+          0.0,
+          80.0
+        ],
+        "size": [
+          200.0,
+          100.0
+        ],
+        "time": [
+          -1,
+          1
+        ]
+      },
+      {
+        "element_ids": {
+          "contours": [
+            {
+              "id": 3919773217524316638,
+              "points": [
+                14837350615909650294,
+                14837351715421278505,
+                14837348416886393872,
+                14837349516398022083
+              ]
+            }
+          ],
+          "entry": 4948143750012241241,
+          "geometry": 6341542412502604339,
+          "placement": 2099849098316259515
+        },
+        "opacity": 0.5,
+        "position": [
+          0.0,
+          0.0
+        ],
+        "size": [
+          200.0,
+          100.0
+        ],
+        "time": [
+          2,
+          1
+        ]
+      },
+      {
+        "element_ids": {
+          "contours": [
+            {
+              "id": 3919773217524316638,
+              "points": [
+                14837350615909650294,
+                14837351715421278505,
+                14837348416886393872,
+                14837349516398022083
+              ]
+            }
+          ],
+          "entry": 4948143750012241241,
+          "geometry": 6341542412502604339,
+          "placement": 2099849098316259515
+        },
+        "opacity": 0.5,
+        "position": [
+          0.0,
+          46.66666666666666
+        ],
+        "size": [
+          200.0,
+          100.0
+        ],
+        "time": [
+          1,
+          4
+        ]
+      },
+      {
+        "element_ids": {
+          "contours": [
+            {
+              "id": 3919773217524316638,
+              "points": [
+                14837350615909650294,
+                14837351715421278505,
+                14837348416886393872,
+                14837349516398022083
+              ]
+            }
+          ],
+          "entry": 4948143750012241241,
+          "geometry": 6341542412502604339,
+          "placement": 2099849098316259515
+        },
+        "opacity": 0.5,
+        "position": [
+          0.0,
+          0.0
+        ],
+        "size": [
+          200.0,
+          100.0
+        ],
+        "time": [
+          1,
+          1
+        ]
+      },
+      {
+        "element_ids": {
+          "contours": [
+            {
+              "id": 3919773217524316638,
+              "points": [
+                14837350615909650294,
+                14837351715421278505,
+                14837348416886393872,
+                14837349516398022083
+              ]
+            }
+          ],
+          "entry": 4948143750012241241,
+          "geometry": 6341542412502604339,
+          "placement": 2099849098316259515
+        },
+        "opacity": 0.0,
+        "position": [
+          0.0,
+          80.0
+        ],
+        "size": [
+          200.0,
+          100.0
+        ],
+        "time": [
+          0,
+          1
+        ]
+      },
+      {
+        "element_ids": {
+          "contours": [
+            {
+              "id": 3919773217524316638,
+              "points": [
+                14837350615909650294,
+                14837351715421278505,
+                14837348416886393872,
+                14837349516398022083
+              ]
+            }
+          ],
+          "entry": 4948143750012241241,
+          "geometry": 6341542412502604339,
+          "placement": 2099849098316259515
+        },
+        "opacity": 1.0,
+        "position": [
+          0.0,
+          13.33333333333333
+        ],
+        "size": [
+          200.0,
+          100.0
+        ],
+        "time": [
+          1,
+          2
+        ]
+      }
+    ]
+  ],
+  "snapshots": {
+    "authored": {
+      "canvas": {
+        "end": {
+          "denominator": 1,
+          "numerator": 4
+        },
+        "height": 1080,
+        "rate": [
+          24,
+          1
+        ],
+        "start": {
+          "denominator": 1,
+          "numerator": 0
+        },
+        "width": 1920
+      },
+      "definitions": [
+        {
+          "id": "493de4e4-2a6f-4004-8d09-b9be1b4dcbf4",
+          "inputs": [
+            {
+              "default": {
+                "kind": "distance",
+                "unit": "canvas",
+                "value": 100.0
+              },
+              "id": "db504cae-deff-4196-b654-2e6834096a87",
+              "name": "size",
+              "protected": false,
+              "ty": {
+                "kind": "distance",
+                "unit": "canvas"
+              }
+            },
+            {
+              "default": {
+                "alpha": "straight",
+                "encoding": "linear_rec709",
+                "kind": "color",
+                "value": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  1.0
+                ]
+              },
+              "id": "963fc839-5ec4-4b13-b290-5095dd314c14",
+              "name": "accent",
+              "protected": false,
+              "ty": {
+                "alpha": "straight",
+                "encoding": "linear_rec709",
+                "kind": "color"
+              }
+            },
+            {
+              "default": {
+                "kind": "integer",
+                "value": 1
+              },
+              "id": "4e0a21b5-a5a4-43a0-be82-c98ee6b10ca6",
+              "name": "count",
+              "protected": true,
+              "ty": {
+                "kind": "integer"
+              }
+            }
+          ],
+          "instances": [],
+          "name": "Animated shape",
+          "nodes": [
+            {
+              "id": "8108125a-84b2-475a-b5b1-39b498d73301",
+              "mode": "value",
+              "name": "width",
+              "operation": "fold.motion.expression",
+              "parameters": {
+                "value": {
+                  "id": "a30a56b6-9719-489c-818e-47975e9adb58",
+                  "protected": false,
+                  "value": {
+                    "expression": {
+                      "kind": "binary",
+                      "left": {
+                        "kind": "reference",
+                        "reference": {
+                          "id": "cd86d9da-35c7-4b99-bc24-c75e1667d82e",
+                          "target": {
+                            "input": "db504cae-deff-4196-b654-2e6834096a87",
+                            "kind": "input"
+                          }
+                        }
+                      },
+                      "op": "multiply",
+                      "right": {
+                        "kind": "literal",
+                        "value": {
+                          "kind": "scalar",
+                          "value": 2.0
+                        }
+                      }
+                    },
+                    "kind": "expression"
+                  }
+                }
+              },
+              "version": 1
+            },
+            {
+              "id": "1eb0c431-07d7-4489-9735-7781fe0665c2",
+              "mode": "rectangle",
+              "name": "profile",
+              "operation": "fold.motion.shape",
+              "parameters": {
+                "height": {
+                  "id": "dcc51b41-41c8-4729-a04f-6cdde92f5477",
+                  "protected": false,
+                  "value": {
+                    "kind": "link",
+                    "reference": {
+                      "id": "5010aa02-e771-4db1-8945-401f162d37ad",
+                      "target": {
+                        "input": "db504cae-deff-4196-b654-2e6834096a87",
+                        "kind": "input"
+                      }
+                    }
+                  }
+                },
+                "width": {
+                  "id": "df824fef-2a61-4c4a-930a-bbffe33eb199",
+                  "protected": false,
+                  "value": {
+                    "kind": "link",
+                    "reference": {
+                      "id": "5e9b65f2-31a2-4451-9b15-55a6d795876f",
+                      "target": {
+                        "kind": "node",
+                        "node": "8108125a-84b2-475a-b5b1-39b498d73301"
+                      }
+                    }
+                  }
+                }
+              },
+              "version": 1
+            },
+            {
+              "id": "41d0a4a6-2930-4a3d-a409-6f5117ba1657",
+              "mode": "linear",
+              "name": "entrance",
+              "operation": "fold.motion.tween",
+              "parameters": {
+                "duration": {
+                  "id": "aca3e7cf-559e-4d59-84af-098faeb1f407",
+                  "protected": false,
+                  "value": {
+                    "kind": "literal",
+                    "value": {
+                      "kind": "duration",
+                      "value": {
+                        "denominator": 5,
+                        "numerator": 3
+                      }
+                    }
+                  }
+                },
+                "from": {
+                  "id": "43eb45b1-44b6-46a4-b601-967bbe70755a",
+                  "protected": false,
+                  "value": {
+                    "kind": "literal",
+                    "value": {
+                      "kind": "vector",
+                      "space": "screen",
+                      "unit": "canvas",
+                      "value": [
+                        0.0,
+                        80.0
+                      ]
+                    }
+                  }
+                },
+                "start": {
+                  "id": "2cfa4570-0ab6-4629-a332-dc392212a7c8",
+                  "protected": false,
+                  "value": {
+                    "kind": "literal",
+                    "value": {
+                      "kind": "duration",
+                      "value": {
+                        "denominator": 1,
+                        "numerator": 0
+                      }
+                    }
+                  }
+                },
+                "time": {
+                  "id": "3628152d-50b6-49a7-b98c-ce67013e4a69",
+                  "protected": false,
+                  "value": {
+                    "expression": {
+                      "kind": "time",
+                      "scope": "asset"
+                    },
+                    "kind": "expression"
+                  }
+                },
+                "to": {
+                  "id": "40ebf2d0-2b8f-47d6-acd2-57c3bcaf61dd",
+                  "protected": false,
+                  "value": {
+                    "kind": "literal",
+                    "value": {
+                      "kind": "vector",
+                      "space": "screen",
+                      "unit": "canvas",
+                      "value": [
+                        0.0,
+                        0.0
+                      ]
+                    }
+                  }
+                }
+              },
+              "version": 1
+            },
+            {
+              "id": "66f9c66f-48b7-4bc9-a8e8-acdae3f417e1",
+              "mode": "value",
+              "name": "opacity",
+              "operation": "fold.motion.keyframes",
+              "parameters": {
+                "time": {
+                  "id": "7dab0f1a-d4c4-4a97-8755-ee33f617067e",
+                  "protected": false,
+                  "value": {
+                    "expression": {
+                      "kind": "time",
+                      "scope": "asset"
+                    },
+                    "kind": "expression"
+                  }
+                },
+                "track": {
+                  "id": "367d7ebc-7a48-41bd-9c91-1eeb0f606aa1",
+                  "protected": false,
+                  "value": {
+                    "kind": "track",
+                    "track": {
+                      "combination": "replace",
+                      "id": "6d2e88ba-9699-4747-be4b-407587d30a6c",
+                      "keys": [
+                        {
+                          "id": "9435867a-901e-44ee-85bc-3cbc4d9289e0",
+                          "interpolation": "linear",
+                          "time": {
+                            "denominator": 1,
+                            "numerator": 0
+                          },
+                          "value": {
+                            "kind": "scalar",
+                            "value": 0.0
+                          }
+                        },
+                        {
+                          "id": "836e9c85-a23f-4e39-a03e-b1bd4c33f47b",
+                          "interpolation": "linear",
+                          "time": {
+                            "denominator": 2,
+                            "numerator": 1
+                          },
+                          "value": {
+                            "kind": "scalar",
+                            "value": 1.0
+                          }
+                        },
+                        {
+                          "id": "9a383934-356d-410a-af32-3cb5d93c3ae8",
+                          "interpolation": "linear",
+                          "time": {
+                            "denominator": 1,
+                            "numerator": 1
+                          },
+                          "value": {
+                            "kind": "scalar",
+                            "value": 0.5
+                          }
+                        }
+                      ],
+                      "ty": {
+                        "kind": "scalar"
+                      }
+                    }
+                  }
+                }
+              },
+              "version": 1
+            },
+            {
+              "id": "b3dad16e-6dbb-4db0-8c41-b642a760c9ed",
+              "mode": "screen",
+              "name": "placement",
+              "operation": "fold.motion.place",
+              "parameters": {
+                "geometry": {
+                  "id": "9bfdb09b-cc5b-4d74-9574-a8fcf794feb2",
+                  "protected": false,
+                  "value": {
+                    "kind": "link",
+                    "reference": {
+                      "id": "abd321ff-9cc1-401b-96d8-241267b4ea2d",
+                      "target": {
+                        "kind": "node",
+                        "node": "1eb0c431-07d7-4489-9735-7781fe0665c2"
+                      }
+                    }
+                  }
+                },
+                "opacity": {
+                  "id": "62932a05-ff7d-4d95-844e-fa3aee7ae0e1",
+                  "protected": false,
+                  "value": {
+                    "kind": "link",
+                    "reference": {
+                      "id": "c61aec47-d097-41ae-baf7-ce88f89f7ef9",
+                      "target": {
+                        "kind": "node",
+                        "node": "66f9c66f-48b7-4bc9-a8e8-acdae3f417e1"
+                      }
+                    }
+                  }
+                },
+                "position": {
+                  "id": "78c514f7-946c-4da5-845c-5fb013bffaf0",
+                  "protected": false,
+                  "value": {
+                    "kind": "link",
+                    "reference": {
+                      "id": "66cd27c2-8c3d-47ca-a76e-6e2b66f75328",
+                      "target": {
+                        "kind": "node",
+                        "node": "41d0a4a6-2930-4a3d-a409-6f5117ba1657"
+                      }
+                    }
+                  }
+                }
+              },
+              "version": 1
+            },
+            {
+              "id": "2a603d04-09aa-4f6a-9c30-92adf97c846c",
+              "mode": "ordered",
+              "name": "scene",
+              "operation": "fold.motion.scene",
+              "parameters": {
+                "children": {
+                  "id": "d017d102-133a-42f3-bbef-9cf54285c39a",
+                  "protected": false,
+                  "value": {
+                    "kind": "list",
+                    "values": [
+                      {
+                        "kind": "link",
+                        "reference": {
+                          "id": "9555b12a-e411-43f5-938c-84b70e0e0cc1",
+                          "target": {
+                            "kind": "node",
+                            "node": "b3dad16e-6dbb-4db0-8c41-b642a760c9ed"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              "version": 1
+            }
+          ],
+          "outputs": [
+            {
+              "id": "1272ba76-435d-434d-b053-aa89273f3338",
+              "name": "main",
+              "ty": {
+                "kind": "scene"
+              },
+              "value": {
+                "id": "7c0c3af9-c74b-4544-83e3-93b3c8003051",
+                "target": {
+                  "kind": "node",
+                  "node": "2a603d04-09aa-4f6a-9c30-92adf97c846c"
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "presentation": {
+        "annotations": {
+          "1eb0c431-07d7-4489-9735-7781fe0665c2": "Retain authored layout"
+        },
+        "groups": [],
+        "positions": {
+          "1eb0c431-07d7-4489-9735-7781fe0665c2": [
+            320.0,
+            180.0
+          ]
+        }
+      },
+      "root": {
+        "clock": {
+          "offset": {
+            "denominator": 1,
+            "numerator": 0
+          },
+          "rate": {
+            "denominator": 1,
+            "numerator": 1
+          }
+        },
+        "definition": "493de4e4-2a6f-4004-8d09-b9be1b4dcbf4",
+        "id": "339fcddb-b4f3-4eb2-8e5d-9d0152d44125",
+        "name": "main",
+        "overrides": {
+          "963fc839-5ec4-4b13-b290-5095dd314c14": {
+            "id": "6c7f77f0-93ee-496b-aa92-ede1bf988ea8",
+            "protected": false,
+            "value": {
+              "kind": "literal",
+              "value": {
+                "alpha": "straight",
+                "encoding": "linear_rec709",
+                "kind": "color",
+                "value": [
+                  0.0,
+                  0.0,
+                  1.0,
+                  1.0
+                ]
+              }
+            }
+          }
+        }
+      },
+      "seed": 20261008,
+      "vendor_capture": {
+        "opaque": [
+          1,
+          {
+            "future": true
+          }
+        ]
+      }
+    },
+    "before_edit": {
+      "canvas": {
+        "end": {
+          "denominator": 1,
+          "numerator": 4
+        },
+        "height": 1080,
+        "rate": [
+          24,
+          1
+        ],
+        "start": {
+          "denominator": 1,
+          "numerator": 0
+        },
+        "width": 1920
+      },
+      "definitions": [
+        {
+          "id": "493de4e4-2a6f-4004-8d09-b9be1b4dcbf4",
+          "inputs": [
+            {
+              "default": {
+                "kind": "distance",
+                "unit": "canvas",
+                "value": 100.0
+              },
+              "id": "db504cae-deff-4196-b654-2e6834096a87",
+              "name": "size",
+              "protected": false,
+              "ty": {
+                "kind": "distance",
+                "unit": "canvas"
+              }
+            },
+            {
+              "default": {
+                "alpha": "straight",
+                "encoding": "linear_rec709",
+                "kind": "color",
+                "value": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  1.0
+                ]
+              },
+              "id": "963fc839-5ec4-4b13-b290-5095dd314c14",
+              "name": "accent",
+              "protected": false,
+              "ty": {
+                "alpha": "straight",
+                "encoding": "linear_rec709",
+                "kind": "color"
+              }
+            },
+            {
+              "default": {
+                "kind": "integer",
+                "value": 1
+              },
+              "id": "4e0a21b5-a5a4-43a0-be82-c98ee6b10ca6",
+              "name": "count",
+              "protected": true,
+              "ty": {
+                "kind": "integer"
+              }
+            }
+          ],
+          "instances": [],
+          "name": "Animated shape",
+          "nodes": [
+            {
+              "id": "8108125a-84b2-475a-b5b1-39b498d73301",
+              "mode": "value",
+              "name": "width",
+              "operation": "fold.motion.expression",
+              "parameters": {
+                "value": {
+                  "id": "a30a56b6-9719-489c-818e-47975e9adb58",
+                  "protected": false,
+                  "value": {
+                    "expression": {
+                      "kind": "binary",
+                      "left": {
+                        "kind": "reference",
+                        "reference": {
+                          "id": "cd86d9da-35c7-4b99-bc24-c75e1667d82e",
+                          "target": {
+                            "input": "db504cae-deff-4196-b654-2e6834096a87",
+                            "kind": "input"
+                          }
+                        }
+                      },
+                      "op": "multiply",
+                      "right": {
+                        "kind": "literal",
+                        "value": {
+                          "kind": "scalar",
+                          "value": 2.0
+                        }
+                      }
+                    },
+                    "kind": "expression"
+                  }
+                }
+              },
+              "version": 1
+            },
+            {
+              "id": "1eb0c431-07d7-4489-9735-7781fe0665c2",
+              "mode": "rectangle",
+              "name": "Before edit",
+              "operation": "fold.motion.shape",
+              "parameters": {
+                "height": {
+                  "id": "dcc51b41-41c8-4729-a04f-6cdde92f5477",
+                  "protected": false,
+                  "value": {
+                    "kind": "link",
+                    "reference": {
+                      "id": "5010aa02-e771-4db1-8945-401f162d37ad",
+                      "target": {
+                        "input": "db504cae-deff-4196-b654-2e6834096a87",
+                        "kind": "input"
+                      }
+                    }
+                  }
+                },
+                "width": {
+                  "id": "df824fef-2a61-4c4a-930a-bbffe33eb199",
+                  "protected": false,
+                  "value": {
+                    "kind": "link",
+                    "reference": {
+                      "id": "5e9b65f2-31a2-4451-9b15-55a6d795876f",
+                      "target": {
+                        "kind": "node",
+                        "node": "8108125a-84b2-475a-b5b1-39b498d73301"
+                      }
+                    }
+                  }
+                }
+              },
+              "version": 1
+            },
+            {
+              "id": "41d0a4a6-2930-4a3d-a409-6f5117ba1657",
+              "mode": "linear",
+              "name": "entrance",
+              "operation": "fold.motion.tween",
+              "parameters": {
+                "duration": {
+                  "id": "aca3e7cf-559e-4d59-84af-098faeb1f407",
+                  "protected": false,
+                  "value": {
+                    "kind": "literal",
+                    "value": {
+                      "kind": "duration",
+                      "value": {
+                        "denominator": 5,
+                        "numerator": 3
+                      }
+                    }
+                  }
+                },
+                "from": {
+                  "id": "43eb45b1-44b6-46a4-b601-967bbe70755a",
+                  "protected": false,
+                  "value": {
+                    "kind": "literal",
+                    "value": {
+                      "kind": "vector",
+                      "space": "screen",
+                      "unit": "canvas",
+                      "value": [
+                        0.0,
+                        80.0
+                      ]
+                    }
+                  }
+                },
+                "start": {
+                  "id": "2cfa4570-0ab6-4629-a332-dc392212a7c8",
+                  "protected": false,
+                  "value": {
+                    "kind": "literal",
+                    "value": {
+                      "kind": "duration",
+                      "value": {
+                        "denominator": 1,
+                        "numerator": 0
+                      }
+                    }
+                  }
+                },
+                "time": {
+                  "id": "3628152d-50b6-49a7-b98c-ce67013e4a69",
+                  "protected": false,
+                  "value": {
+                    "expression": {
+                      "kind": "time",
+                      "scope": "asset"
+                    },
+                    "kind": "expression"
+                  }
+                },
+                "to": {
+                  "id": "40ebf2d0-2b8f-47d6-acd2-57c3bcaf61dd",
+                  "protected": false,
+                  "value": {
+                    "kind": "literal",
+                    "value": {
+                      "kind": "vector",
+                      "space": "screen",
+                      "unit": "canvas",
+                      "value": [
+                        0.0,
+                        0.0
+                      ]
+                    }
+                  }
+                }
+              },
+              "version": 1
+            },
+            {
+              "id": "66f9c66f-48b7-4bc9-a8e8-acdae3f417e1",
+              "mode": "value",
+              "name": "opacity",
+              "operation": "fold.motion.keyframes",
+              "parameters": {
+                "time": {
+                  "id": "7dab0f1a-d4c4-4a97-8755-ee33f617067e",
+                  "protected": false,
+                  "value": {
+                    "expression": {
+                      "kind": "time",
+                      "scope": "asset"
+                    },
+                    "kind": "expression"
+                  }
+                },
+                "track": {
+                  "id": "367d7ebc-7a48-41bd-9c91-1eeb0f606aa1",
+                  "protected": false,
+                  "value": {
+                    "kind": "track",
+                    "track": {
+                      "combination": "replace",
+                      "id": "6d2e88ba-9699-4747-be4b-407587d30a6c",
+                      "keys": [
+                        {
+                          "id": "9435867a-901e-44ee-85bc-3cbc4d9289e0",
+                          "interpolation": "linear",
+                          "time": {
+                            "denominator": 1,
+                            "numerator": 0
+                          },
+                          "value": {
+                            "kind": "scalar",
+                            "value": 0.0
+                          }
+                        },
+                        {
+                          "id": "836e9c85-a23f-4e39-a03e-b1bd4c33f47b",
+                          "interpolation": "linear",
+                          "time": {
+                            "denominator": 2,
+                            "numerator": 1
+                          },
+                          "value": {
+                            "kind": "scalar",
+                            "value": 1.0
+                          }
+                        },
+                        {
+                          "id": "9a383934-356d-410a-af32-3cb5d93c3ae8",
+                          "interpolation": "linear",
+                          "time": {
+                            "denominator": 1,
+                            "numerator": 1
+                          },
+                          "value": {
+                            "kind": "scalar",
+                            "value": 0.5
+                          }
+                        }
+                      ],
+                      "ty": {
+                        "kind": "scalar"
+                      }
+                    }
+                  }
+                }
+              },
+              "version": 1
+            },
+            {
+              "id": "b3dad16e-6dbb-4db0-8c41-b642a760c9ed",
+              "mode": "screen",
+              "name": "placement",
+              "operation": "fold.motion.place",
+              "parameters": {
+                "geometry": {
+                  "id": "9bfdb09b-cc5b-4d74-9574-a8fcf794feb2",
+                  "protected": false,
+                  "value": {
+                    "kind": "link",
+                    "reference": {
+                      "id": "abd321ff-9cc1-401b-96d8-241267b4ea2d",
+                      "target": {
+                        "kind": "node",
+                        "node": "1eb0c431-07d7-4489-9735-7781fe0665c2"
+                      }
+                    }
+                  }
+                },
+                "opacity": {
+                  "id": "62932a05-ff7d-4d95-844e-fa3aee7ae0e1",
+                  "protected": false,
+                  "value": {
+                    "kind": "link",
+                    "reference": {
+                      "id": "c61aec47-d097-41ae-baf7-ce88f89f7ef9",
+                      "target": {
+                        "kind": "node",
+                        "node": "66f9c66f-48b7-4bc9-a8e8-acdae3f417e1"
+                      }
+                    }
+                  }
+                },
+                "position": {
+                  "id": "78c514f7-946c-4da5-845c-5fb013bffaf0",
+                  "protected": false,
+                  "value": {
+                    "kind": "link",
+                    "reference": {
+                      "id": "66cd27c2-8c3d-47ca-a76e-6e2b66f75328",
+                      "target": {
+                        "kind": "node",
+                        "node": "41d0a4a6-2930-4a3d-a409-6f5117ba1657"
+                      }
+                    }
+                  }
+                }
+              },
+              "version": 1
+            },
+            {
+              "id": "2a603d04-09aa-4f6a-9c30-92adf97c846c",
+              "mode": "ordered",
+              "name": "scene",
+              "operation": "fold.motion.scene",
+              "parameters": {
+                "children": {
+                  "id": "d017d102-133a-42f3-bbef-9cf54285c39a",
+                  "protected": false,
+                  "value": {
+                    "kind": "list",
+                    "values": [
+                      {
+                        "kind": "link",
+                        "reference": {
+                          "id": "9555b12a-e411-43f5-938c-84b70e0e0cc1",
+                          "target": {
+                            "kind": "node",
+                            "node": "b3dad16e-6dbb-4db0-8c41-b642a760c9ed"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              "version": 1
+            }
+          ],
+          "outputs": [
+            {
+              "id": "1272ba76-435d-434d-b053-aa89273f3338",
+              "name": "main",
+              "ty": {
+                "kind": "scene"
+              },
+              "value": {
+                "id": "7c0c3af9-c74b-4544-83e3-93b3c8003051",
+                "target": {
+                  "kind": "node",
+                  "node": "2a603d04-09aa-4f6a-9c30-92adf97c846c"
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "presentation": {
+        "annotations": {
+          "1eb0c431-07d7-4489-9735-7781fe0665c2": "Retain authored layout"
+        },
+        "groups": [],
+        "positions": {
+          "1eb0c431-07d7-4489-9735-7781fe0665c2": [
+            320.0,
+            180.0
+          ]
+        }
+      },
+      "root": {
+        "clock": {
+          "offset": {
+            "denominator": 1,
+            "numerator": 0
+          },
+          "rate": {
+            "denominator": 1,
+            "numerator": 1
+          }
+        },
+        "definition": "493de4e4-2a6f-4004-8d09-b9be1b4dcbf4",
+        "id": "339fcddb-b4f3-4eb2-8e5d-9d0152d44125",
+        "name": "main",
+        "overrides": {
+          "963fc839-5ec4-4b13-b290-5095dd314c14": {
+            "id": "6c7f77f0-93ee-496b-aa92-ede1bf988ea8",
+            "protected": false,
+            "value": {
+              "kind": "literal",
+              "value": {
+                "alpha": "straight",
+                "encoding": "linear_rec709",
+                "kind": "color",
+                "value": [
+                  0.0,
+                  0.0,
+                  1.0,
+                  1.0
+                ]
+              }
+            }
+          }
+        }
+      },
+      "seed": 20261008,
+      "vendor_capture": {
+        "opaque": [
+          1,
+          {
+            "future": true
+          }
+        ]
+      }
+    },
+    "canonical_reparse": {
+      "canvas": {
+        "end": {
+          "denominator": 1,
+          "numerator": 4
+        },
+        "height": 1080,
+        "rate": [
+          24,
+          1
+        ],
+        "start": {
+          "denominator": 1,
+          "numerator": 0
+        },
+        "width": 1920
+      },
+      "definitions": [
+        {
+          "id": "493de4e4-2a6f-4004-8d09-b9be1b4dcbf4",
+          "inputs": [
+            {
+              "default": {
+                "kind": "distance",
+                "unit": "canvas",
+                "value": 100.0
+              },
+              "id": "db504cae-deff-4196-b654-2e6834096a87",
+              "name": "size",
+              "protected": false,
+              "ty": {
+                "kind": "distance",
+                "unit": "canvas"
+              }
+            },
+            {
+              "default": {
+                "alpha": "straight",
+                "encoding": "linear_rec709",
+                "kind": "color",
+                "value": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  1.0
+                ]
+              },
+              "id": "963fc839-5ec4-4b13-b290-5095dd314c14",
+              "name": "accent",
+              "protected": false,
+              "ty": {
+                "alpha": "straight",
+                "encoding": "linear_rec709",
+                "kind": "color"
+              }
+            },
+            {
+              "default": {
+                "kind": "integer",
+                "value": 1
+              },
+              "id": "4e0a21b5-a5a4-43a0-be82-c98ee6b10ca6",
+              "name": "count",
+              "protected": true,
+              "ty": {
+                "kind": "integer"
+              }
+            }
+          ],
+          "instances": [],
+          "name": "Animated shape",
+          "nodes": [
+            {
+              "id": "8108125a-84b2-475a-b5b1-39b498d73301",
+              "mode": "value",
+              "name": "width",
+              "operation": "fold.motion.expression",
+              "parameters": {
+                "value": {
+                  "id": "a30a56b6-9719-489c-818e-47975e9adb58",
+                  "protected": false,
+                  "value": {
+                    "expression": {
+                      "kind": "binary",
+                      "left": {
+                        "kind": "reference",
+                        "reference": {
+                          "id": "cd86d9da-35c7-4b99-bc24-c75e1667d82e",
+                          "target": {
+                            "input": "db504cae-deff-4196-b654-2e6834096a87",
+                            "kind": "input"
+                          }
+                        }
+                      },
+                      "op": "multiply",
+                      "right": {
+                        "kind": "literal",
+                        "value": {
+                          "kind": "scalar",
+                          "value": 2.0
+                        }
+                      }
+                    },
+                    "kind": "expression"
+                  }
+                }
+              },
+              "version": 1
+            },
+            {
+              "id": "1eb0c431-07d7-4489-9735-7781fe0665c2",
+              "mode": "rectangle",
+              "name": "profile",
+              "operation": "fold.motion.shape",
+              "parameters": {
+                "height": {
+                  "id": "dcc51b41-41c8-4729-a04f-6cdde92f5477",
+                  "protected": false,
+                  "value": {
+                    "kind": "link",
+                    "reference": {
+                      "id": "5010aa02-e771-4db1-8945-401f162d37ad",
+                      "target": {
+                        "input": "db504cae-deff-4196-b654-2e6834096a87",
+                        "kind": "input"
+                      }
+                    }
+                  }
+                },
+                "width": {
+                  "id": "df824fef-2a61-4c4a-930a-bbffe33eb199",
+                  "protected": false,
+                  "value": {
+                    "kind": "link",
+                    "reference": {
+                      "id": "5e9b65f2-31a2-4451-9b15-55a6d795876f",
+                      "target": {
+                        "kind": "node",
+                        "node": "8108125a-84b2-475a-b5b1-39b498d73301"
+                      }
+                    }
+                  }
+                }
+              },
+              "version": 1
+            },
+            {
+              "id": "41d0a4a6-2930-4a3d-a409-6f5117ba1657",
+              "mode": "linear",
+              "name": "entrance",
+              "operation": "fold.motion.tween",
+              "parameters": {
+                "duration": {
+                  "id": "aca3e7cf-559e-4d59-84af-098faeb1f407",
+                  "protected": false,
+                  "value": {
+                    "kind": "literal",
+                    "value": {
+                      "kind": "duration",
+                      "value": {
+                        "denominator": 5,
+                        "numerator": 3
+                      }
+                    }
+                  }
+                },
+                "from": {
+                  "id": "43eb45b1-44b6-46a4-b601-967bbe70755a",
+                  "protected": false,
+                  "value": {
+                    "kind": "literal",
+                    "value": {
+                      "kind": "vector",
+                      "space": "screen",
+                      "unit": "canvas",
+                      "value": [
+                        0.0,
+                        80.0
+                      ]
+                    }
+                  }
+                },
+                "start": {
+                  "id": "2cfa4570-0ab6-4629-a332-dc392212a7c8",
+                  "protected": false,
+                  "value": {
+                    "kind": "literal",
+                    "value": {
+                      "kind": "duration",
+                      "value": {
+                        "denominator": 1,
+                        "numerator": 0
+                      }
+                    }
+                  }
+                },
+                "time": {
+                  "id": "3628152d-50b6-49a7-b98c-ce67013e4a69",
+                  "protected": false,
+                  "value": {
+                    "expression": {
+                      "kind": "time",
+                      "scope": "asset"
+                    },
+                    "kind": "expression"
+                  }
+                },
+                "to": {
+                  "id": "40ebf2d0-2b8f-47d6-acd2-57c3bcaf61dd",
+                  "protected": false,
+                  "value": {
+                    "kind": "literal",
+                    "value": {
+                      "kind": "vector",
+                      "space": "screen",
+                      "unit": "canvas",
+                      "value": [
+                        0.0,
+                        0.0
+                      ]
+                    }
+                  }
+                }
+              },
+              "version": 1
+            },
+            {
+              "id": "66f9c66f-48b7-4bc9-a8e8-acdae3f417e1",
+              "mode": "value",
+              "name": "opacity",
+              "operation": "fold.motion.keyframes",
+              "parameters": {
+                "time": {
+                  "id": "7dab0f1a-d4c4-4a97-8755-ee33f617067e",
+                  "protected": false,
+                  "value": {
+                    "expression": {
+                      "kind": "time",
+                      "scope": "asset"
+                    },
+                    "kind": "expression"
+                  }
+                },
+                "track": {
+                  "id": "367d7ebc-7a48-41bd-9c91-1eeb0f606aa1",
+                  "protected": false,
+                  "value": {
+                    "kind": "track",
+                    "track": {
+                      "combination": "replace",
+                      "id": "6d2e88ba-9699-4747-be4b-407587d30a6c",
+                      "keys": [
+                        {
+                          "id": "9435867a-901e-44ee-85bc-3cbc4d9289e0",
+                          "interpolation": "linear",
+                          "time": {
+                            "denominator": 1,
+                            "numerator": 0
+                          },
+                          "value": {
+                            "kind": "scalar",
+                            "value": 0.0
+                          }
+                        },
+                        {
+                          "id": "836e9c85-a23f-4e39-a03e-b1bd4c33f47b",
+                          "interpolation": "linear",
+                          "time": {
+                            "denominator": 2,
+                            "numerator": 1
+                          },
+                          "value": {
+                            "kind": "scalar",
+                            "value": 1.0
+                          }
+                        },
+                        {
+                          "id": "9a383934-356d-410a-af32-3cb5d93c3ae8",
+                          "interpolation": "linear",
+                          "time": {
+                            "denominator": 1,
+                            "numerator": 1
+                          },
+                          "value": {
+                            "kind": "scalar",
+                            "value": 0.5
+                          }
+                        }
+                      ],
+                      "ty": {
+                        "kind": "scalar"
+                      }
+                    }
+                  }
+                }
+              },
+              "version": 1
+            },
+            {
+              "id": "b3dad16e-6dbb-4db0-8c41-b642a760c9ed",
+              "mode": "screen",
+              "name": "placement",
+              "operation": "fold.motion.place",
+              "parameters": {
+                "geometry": {
+                  "id": "9bfdb09b-cc5b-4d74-9574-a8fcf794feb2",
+                  "protected": false,
+                  "value": {
+                    "kind": "link",
+                    "reference": {
+                      "id": "abd321ff-9cc1-401b-96d8-241267b4ea2d",
+                      "target": {
+                        "kind": "node",
+                        "node": "1eb0c431-07d7-4489-9735-7781fe0665c2"
+                      }
+                    }
+                  }
+                },
+                "opacity": {
+                  "id": "62932a05-ff7d-4d95-844e-fa3aee7ae0e1",
+                  "protected": false,
+                  "value": {
+                    "kind": "link",
+                    "reference": {
+                      "id": "c61aec47-d097-41ae-baf7-ce88f89f7ef9",
+                      "target": {
+                        "kind": "node",
+                        "node": "66f9c66f-48b7-4bc9-a8e8-acdae3f417e1"
+                      }
+                    }
+                  }
+                },
+                "position": {
+                  "id": "78c514f7-946c-4da5-845c-5fb013bffaf0",
+                  "protected": false,
+                  "value": {
+                    "kind": "link",
+                    "reference": {
+                      "id": "66cd27c2-8c3d-47ca-a76e-6e2b66f75328",
+                      "target": {
+                        "kind": "node",
+                        "node": "41d0a4a6-2930-4a3d-a409-6f5117ba1657"
+                      }
+                    }
+                  }
+                }
+              },
+              "version": 1
+            },
+            {
+              "id": "2a603d04-09aa-4f6a-9c30-92adf97c846c",
+              "mode": "ordered",
+              "name": "scene",
+              "operation": "fold.motion.scene",
+              "parameters": {
+                "children": {
+                  "id": "d017d102-133a-42f3-bbef-9cf54285c39a",
+                  "protected": false,
+                  "value": {
+                    "kind": "list",
+                    "values": [
+                      {
+                        "kind": "link",
+                        "reference": {
+                          "id": "9555b12a-e411-43f5-938c-84b70e0e0cc1",
+                          "target": {
+                            "kind": "node",
+                            "node": "b3dad16e-6dbb-4db0-8c41-b642a760c9ed"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              "version": 1
+            }
+          ],
+          "outputs": [
+            {
+              "id": "1272ba76-435d-434d-b053-aa89273f3338",
+              "name": "main",
+              "ty": {
+                "kind": "scene"
+              },
+              "value": {
+                "id": "7c0c3af9-c74b-4544-83e3-93b3c8003051",
+                "target": {
+                  "kind": "node",
+                  "node": "2a603d04-09aa-4f6a-9c30-92adf97c846c"
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "presentation": {
+        "annotations": {
+          "1eb0c431-07d7-4489-9735-7781fe0665c2": "Retain authored layout"
+        },
+        "groups": [],
+        "positions": {
+          "1eb0c431-07d7-4489-9735-7781fe0665c2": [
+            320.0,
+            180.0
+          ]
+        }
+      },
+      "root": {
+        "clock": {
+          "offset": {
+            "denominator": 1,
+            "numerator": 0
+          },
+          "rate": {
+            "denominator": 1,
+            "numerator": 1
+          }
+        },
+        "definition": "493de4e4-2a6f-4004-8d09-b9be1b4dcbf4",
+        "id": "339fcddb-b4f3-4eb2-8e5d-9d0152d44125",
+        "name": "main",
+        "overrides": {
+          "963fc839-5ec4-4b13-b290-5095dd314c14": {
+            "id": "6c7f77f0-93ee-496b-aa92-ede1bf988ea8",
+            "protected": false,
+            "value": {
+              "kind": "literal",
+              "value": {
+                "alpha": "straight",
+                "encoding": "linear_rec709",
+                "kind": "color",
+                "value": [
+                  0.0,
+                  0.0,
+                  1.0,
+                  1.0
+                ]
+              }
+            }
+          }
+        }
+      },
+      "seed": 20261008,
+      "vendor_capture": {
+        "opaque": [
+          1,
+          {
+            "future": true
+          }
+        ]
+      }
+    },
+    "invalid_source": {
+      "canvas": {
+        "end": {
+          "denominator": 1,
+          "numerator": 4
+        },
+        "height": 1080,
+        "rate": [
+          24,
+          1
+        ],
+        "start": {
+          "denominator": 1,
+          "numerator": 0
+        },
+        "width": 1920
+      },
+      "definitions": [
+        {
+          "id": "493de4e4-2a6f-4004-8d09-b9be1b4dcbf4",
+          "inputs": [
+            {
+              "default": {
+                "kind": "distance",
+                "unit": "canvas",
+                "value": 100.0
+              },
+              "id": "db504cae-deff-4196-b654-2e6834096a87",
+              "name": "size",
+              "protected": false,
+              "ty": {
+                "kind": "distance",
+                "unit": "canvas"
+              }
+            },
+            {
+              "default": {
+                "alpha": "straight",
+                "encoding": "linear_rec709",
+                "kind": "color",
+                "value": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  1.0
+                ]
+              },
+              "id": "963fc839-5ec4-4b13-b290-5095dd314c14",
+              "name": "accent",
+              "protected": false,
+              "ty": {
+                "alpha": "straight",
+                "encoding": "linear_rec709",
+                "kind": "color"
+              }
+            },
+            {
+              "default": {
+                "kind": "integer",
+                "value": 1
+              },
+              "id": "4e0a21b5-a5a4-43a0-be82-c98ee6b10ca6",
+              "name": "count",
+              "protected": true,
+              "ty": {
+                "kind": "integer"
+              }
+            }
+          ],
+          "instances": [],
+          "name": "Animated shape",
+          "nodes": [
+            {
+              "id": "8108125a-84b2-475a-b5b1-39b498d73301",
+              "mode": "value",
+              "name": "width",
+              "operation": "fold.motion.expression",
+              "parameters": {
+                "value": {
+                  "id": "a30a56b6-9719-489c-818e-47975e9adb58",
+                  "protected": false,
+                  "value": {
+                    "expression": {
+                      "kind": "binary",
+                      "left": {
+                        "kind": "reference",
+                        "reference": {
+                          "id": "cd86d9da-35c7-4b99-bc24-c75e1667d82e",
+                          "target": {
+                            "input": "db504cae-deff-4196-b654-2e6834096a87",
+                            "kind": "input"
+                          }
+                        }
+                      },
+                      "op": "multiply",
+                      "right": {
+                        "kind": "literal",
+                        "value": {
+                          "kind": "scalar",
+                          "value": 2.0
+                        }
+                      }
+                    },
+                    "kind": "expression"
+                  }
+                }
+              },
+              "version": 1
+            },
+            {
+              "id": "1eb0c431-07d7-4489-9735-7781fe0665c2",
+              "mode": "rectangle",
+              "name": "profile",
+              "operation": "fold.motion.shape",
+              "parameters": {
+                "height": {
+                  "id": "dcc51b41-41c8-4729-a04f-6cdde92f5477",
+                  "protected": false,
+                  "value": {
+                    "kind": "link",
+                    "reference": {
+                      "id": "5010aa02-e771-4db1-8945-401f162d37ad",
+                      "target": {
+                        "input": "db504cae-deff-4196-b654-2e6834096a87",
+                        "kind": "input"
+                      }
+                    }
+                  }
+                },
+                "width": {
+                  "id": "df824fef-2a61-4c4a-930a-bbffe33eb199",
+                  "protected": false,
+                  "value": {
+                    "kind": "link",
+                    "reference": {
+                      "id": "5e9b65f2-31a2-4451-9b15-55a6d795876f",
+                      "target": {
+                        "kind": "node",
+                        "node": "8108125a-84b2-475a-b5b1-39b498d73301"
+                      }
+                    }
+                  }
+                }
+              },
+              "version": 1
+            },
+            {
+              "id": "41d0a4a6-2930-4a3d-a409-6f5117ba1657",
+              "mode": "linear",
+              "name": "entrance",
+              "operation": "fold.motion.tween",
+              "parameters": {
+                "duration": {
+                  "id": "aca3e7cf-559e-4d59-84af-098faeb1f407",
+                  "protected": false,
+                  "value": {
+                    "kind": "literal",
+                    "value": {
+                      "kind": "duration",
+                      "value": {
+                        "denominator": 5,
+                        "numerator": 3
+                      }
+                    }
+                  }
+                },
+                "from": {
+                  "id": "43eb45b1-44b6-46a4-b601-967bbe70755a",
+                  "protected": false,
+                  "value": {
+                    "kind": "literal",
+                    "value": {
+                      "kind": "vector",
+                      "space": "screen",
+                      "unit": "canvas",
+                      "value": [
+                        0.0,
+                        80.0
+                      ]
+                    }
+                  }
+                },
+                "start": {
+                  "id": "2cfa4570-0ab6-4629-a332-dc392212a7c8",
+                  "protected": false,
+                  "value": {
+                    "kind": "literal",
+                    "value": {
+                      "kind": "duration",
+                      "value": {
+                        "denominator": 1,
+                        "numerator": 0
+                      }
+                    }
+                  }
+                },
+                "time": {
+                  "id": "3628152d-50b6-49a7-b98c-ce67013e4a69",
+                  "protected": false,
+                  "value": {
+                    "expression": {
+                      "kind": "time",
+                      "scope": "asset"
+                    },
+                    "kind": "expression"
+                  }
+                },
+                "to": {
+                  "id": "40ebf2d0-2b8f-47d6-acd2-57c3bcaf61dd",
+                  "protected": false,
+                  "value": {
+                    "kind": "literal",
+                    "value": {
+                      "kind": "vector",
+                      "space": "screen",
+                      "unit": "canvas",
+                      "value": [
+                        0.0,
+                        0.0
+                      ]
+                    }
+                  }
+                }
+              },
+              "version": 1
+            },
+            {
+              "id": "66f9c66f-48b7-4bc9-a8e8-acdae3f417e1",
+              "mode": "value",
+              "name": "opacity",
+              "operation": "fold.motion.keyframes",
+              "parameters": {
+                "time": {
+                  "id": "7dab0f1a-d4c4-4a97-8755-ee33f617067e",
+                  "protected": false,
+                  "value": {
+                    "expression": {
+                      "kind": "time",
+                      "scope": "asset"
+                    },
+                    "kind": "expression"
+                  }
+                },
+                "track": {
+                  "id": "367d7ebc-7a48-41bd-9c91-1eeb0f606aa1",
+                  "protected": false,
+                  "value": {
+                    "kind": "track",
+                    "track": {
+                      "combination": "replace",
+                      "id": "6d2e88ba-9699-4747-be4b-407587d30a6c",
+                      "keys": [
+                        {
+                          "id": "9435867a-901e-44ee-85bc-3cbc4d9289e0",
+                          "interpolation": "linear",
+                          "time": {
+                            "denominator": 1,
+                            "numerator": 0
+                          },
+                          "value": {
+                            "kind": "scalar",
+                            "value": 0.0
+                          }
+                        },
+                        {
+                          "id": "836e9c85-a23f-4e39-a03e-b1bd4c33f47b",
+                          "interpolation": "linear",
+                          "time": {
+                            "denominator": 2,
+                            "numerator": 1
+                          },
+                          "value": {
+                            "kind": "scalar",
+                            "value": 1.0
+                          }
+                        },
+                        {
+                          "id": "9a383934-356d-410a-af32-3cb5d93c3ae8",
+                          "interpolation": "linear",
+                          "time": {
+                            "denominator": 1,
+                            "numerator": 1
+                          },
+                          "value": {
+                            "kind": "scalar",
+                            "value": 0.5
+                          }
+                        }
+                      ],
+                      "ty": {
+                        "kind": "scalar"
+                      }
+                    }
+                  }
+                }
+              },
+              "version": 1
+            },
+            {
+              "id": "b3dad16e-6dbb-4db0-8c41-b642a760c9ed",
+              "mode": "screen",
+              "name": "placement",
+              "operation": "fold.motion.place",
+              "parameters": {
+                "geometry": {
+                  "id": "9bfdb09b-cc5b-4d74-9574-a8fcf794feb2",
+                  "protected": false,
+                  "value": {
+                    "kind": "link",
+                    "reference": {
+                      "id": "abd321ff-9cc1-401b-96d8-241267b4ea2d",
+                      "target": {
+                        "kind": "node",
+                        "node": "1eb0c431-07d7-4489-9735-7781fe0665c2"
+                      }
+                    }
+                  }
+                },
+                "opacity": {
+                  "id": "62932a05-ff7d-4d95-844e-fa3aee7ae0e1",
+                  "protected": false,
+                  "value": {
+                    "kind": "link",
+                    "reference": {
+                      "id": "c61aec47-d097-41ae-baf7-ce88f89f7ef9",
+                      "target": {
+                        "kind": "node",
+                        "node": "66f9c66f-48b7-4bc9-a8e8-acdae3f417e1"
+                      }
+                    }
+                  }
+                },
+                "position": {
+                  "id": "78c514f7-946c-4da5-845c-5fb013bffaf0",
+                  "protected": false,
+                  "value": {
+                    "kind": "link",
+                    "reference": {
+                      "id": "66cd27c2-8c3d-47ca-a76e-6e2b66f75328",
+                      "target": {
+                        "kind": "node",
+                        "node": "41d0a4a6-2930-4a3d-a409-6f5117ba1657"
+                      }
+                    }
+                  }
+                }
+              },
+              "version": 1
+            },
+            {
+              "id": "2a603d04-09aa-4f6a-9c30-92adf97c846c",
+              "mode": "ordered",
+              "name": "scene",
+              "operation": "fold.motion.scene",
+              "parameters": {
+                "children": {
+                  "id": "d017d102-133a-42f3-bbef-9cf54285c39a",
+                  "protected": false,
+                  "value": {
+                    "kind": "list",
+                    "values": [
+                      {
+                        "kind": "link",
+                        "reference": {
+                          "id": "9555b12a-e411-43f5-938c-84b70e0e0cc1",
+                          "target": {
+                            "kind": "node",
+                            "node": "b3dad16e-6dbb-4db0-8c41-b642a760c9ed"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              "version": 1
+            }
+          ],
+          "outputs": [
+            {
+              "id": "1272ba76-435d-434d-b053-aa89273f3338",
+              "name": "main",
+              "ty": {
+                "kind": "scene"
+              },
+              "value": {
+                "id": "7c0c3af9-c74b-4544-83e3-93b3c8003051",
+                "target": {
+                  "kind": "node",
+                  "node": "2a603d04-09aa-4f6a-9c30-92adf97c846c"
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "presentation": {
+        "annotations": {
+          "1eb0c431-07d7-4489-9735-7781fe0665c2": "Retain authored layout"
+        },
+        "groups": [],
+        "positions": {
+          "1eb0c431-07d7-4489-9735-7781fe0665c2": [
+            320.0,
+            180.0
+          ]
+        }
+      },
+      "root": {
+        "clock": {
+          "offset": {
+            "denominator": 1,
+            "numerator": 0
+          },
+          "rate": {
+            "denominator": 1,
+            "numerator": 1
+          }
+        },
+        "definition": "493de4e4-2a6f-4004-8d09-b9be1b4dcbf4",
+        "id": "339fcddb-b4f3-4eb2-8e5d-9d0152d44125",
+        "name": "main",
+        "overrides": {
+          "963fc839-5ec4-4b13-b290-5095dd314c14": {
+            "id": "6c7f77f0-93ee-496b-aa92-ede1bf988ea8",
+            "protected": false,
+            "value": {
+              "kind": "literal",
+              "value": {
+                "alpha": "straight",
+                "encoding": "linear_rec709",
+                "kind": "color",
+                "value": [
+                  0.0,
+                  0.0,
+                  1.0,
+                  1.0
+                ]
+              }
+            }
+          }
+        }
+      },
+      "seed": 20261008,
+      "vendor_capture": {
+        "opaque": [
+          1,
+          {
+            "future": true
+          }
+        ]
+      }
+    },
+    "redo": {
+      "canvas": {
+        "end": {
+          "denominator": 1,
+          "numerator": 4
+        },
+        "height": 1080,
+        "rate": [
+          24,
+          1
+        ],
+        "start": {
+          "denominator": 1,
+          "numerator": 0
+        },
+        "width": 1920
+      },
+      "definitions": [
+        {
+          "id": "493de4e4-2a6f-4004-8d09-b9be1b4dcbf4",
+          "inputs": [
+            {
+              "default": {
+                "kind": "distance",
+                "unit": "canvas",
+                "value": 100.0
+              },
+              "id": "db504cae-deff-4196-b654-2e6834096a87",
+              "name": "size",
+              "protected": false,
+              "ty": {
+                "kind": "distance",
+                "unit": "canvas"
+              }
+            },
+            {
+              "default": {
+                "alpha": "straight",
+                "encoding": "linear_rec709",
+                "kind": "color",
+                "value": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  1.0
+                ]
+              },
+              "id": "963fc839-5ec4-4b13-b290-5095dd314c14",
+              "name": "accent",
+              "protected": false,
+              "ty": {
+                "alpha": "straight",
+                "encoding": "linear_rec709",
+                "kind": "color"
+              }
+            },
+            {
+              "default": {
+                "kind": "integer",
+                "value": 1
+              },
+              "id": "4e0a21b5-a5a4-43a0-be82-c98ee6b10ca6",
+              "name": "count",
+              "protected": true,
+              "ty": {
+                "kind": "integer"
+              }
+            }
+          ],
+          "instances": [],
+          "name": "Animated shape",
+          "nodes": [
+            {
+              "id": "8108125a-84b2-475a-b5b1-39b498d73301",
+              "mode": "value",
+              "name": "width",
+              "operation": "fold.motion.expression",
+              "parameters": {
+                "value": {
+                  "id": "a30a56b6-9719-489c-818e-47975e9adb58",
+                  "protected": false,
+                  "value": {
+                    "expression": {
+                      "kind": "binary",
+                      "left": {
+                        "kind": "reference",
+                        "reference": {
+                          "id": "cd86d9da-35c7-4b99-bc24-c75e1667d82e",
+                          "target": {
+                            "input": "db504cae-deff-4196-b654-2e6834096a87",
+                            "kind": "input"
+                          }
+                        }
+                      },
+                      "op": "multiply",
+                      "right": {
+                        "kind": "literal",
+                        "value": {
+                          "kind": "scalar",
+                          "value": 2.0
+                        }
+                      }
+                    },
+                    "kind": "expression"
+                  }
+                }
+              },
+              "version": 1
+            },
+            {
+              "id": "1eb0c431-07d7-4489-9735-7781fe0665c2",
+              "mode": "rectangle",
+              "name": "profile",
+              "operation": "fold.motion.shape",
+              "parameters": {
+                "height": {
+                  "id": "dcc51b41-41c8-4729-a04f-6cdde92f5477",
+                  "protected": false,
+                  "value": {
+                    "kind": "link",
+                    "reference": {
+                      "id": "5010aa02-e771-4db1-8945-401f162d37ad",
+                      "target": {
+                        "input": "db504cae-deff-4196-b654-2e6834096a87",
+                        "kind": "input"
+                      }
+                    }
+                  }
+                },
+                "width": {
+                  "id": "df824fef-2a61-4c4a-930a-bbffe33eb199",
+                  "protected": false,
+                  "value": {
+                    "kind": "link",
+                    "reference": {
+                      "id": "5e9b65f2-31a2-4451-9b15-55a6d795876f",
+                      "target": {
+                        "kind": "node",
+                        "node": "8108125a-84b2-475a-b5b1-39b498d73301"
+                      }
+                    }
+                  }
+                }
+              },
+              "version": 1
+            },
+            {
+              "id": "41d0a4a6-2930-4a3d-a409-6f5117ba1657",
+              "mode": "linear",
+              "name": "entrance",
+              "operation": "fold.motion.tween",
+              "parameters": {
+                "duration": {
+                  "id": "aca3e7cf-559e-4d59-84af-098faeb1f407",
+                  "protected": false,
+                  "value": {
+                    "kind": "literal",
+                    "value": {
+                      "kind": "duration",
+                      "value": {
+                        "denominator": 5,
+                        "numerator": 3
+                      }
+                    }
+                  }
+                },
+                "from": {
+                  "id": "43eb45b1-44b6-46a4-b601-967bbe70755a",
+                  "protected": false,
+                  "value": {
+                    "kind": "literal",
+                    "value": {
+                      "kind": "vector",
+                      "space": "screen",
+                      "unit": "canvas",
+                      "value": [
+                        0.0,
+                        80.0
+                      ]
+                    }
+                  }
+                },
+                "start": {
+                  "id": "2cfa4570-0ab6-4629-a332-dc392212a7c8",
+                  "protected": false,
+                  "value": {
+                    "kind": "literal",
+                    "value": {
+                      "kind": "duration",
+                      "value": {
+                        "denominator": 1,
+                        "numerator": 0
+                      }
+                    }
+                  }
+                },
+                "time": {
+                  "id": "3628152d-50b6-49a7-b98c-ce67013e4a69",
+                  "protected": false,
+                  "value": {
+                    "expression": {
+                      "kind": "time",
+                      "scope": "asset"
+                    },
+                    "kind": "expression"
+                  }
+                },
+                "to": {
+                  "id": "40ebf2d0-2b8f-47d6-acd2-57c3bcaf61dd",
+                  "protected": false,
+                  "value": {
+                    "kind": "literal",
+                    "value": {
+                      "kind": "vector",
+                      "space": "screen",
+                      "unit": "canvas",
+                      "value": [
+                        0.0,
+                        0.0
+                      ]
+                    }
+                  }
+                }
+              },
+              "version": 1
+            },
+            {
+              "id": "66f9c66f-48b7-4bc9-a8e8-acdae3f417e1",
+              "mode": "value",
+              "name": "opacity",
+              "operation": "fold.motion.keyframes",
+              "parameters": {
+                "time": {
+                  "id": "7dab0f1a-d4c4-4a97-8755-ee33f617067e",
+                  "protected": false,
+                  "value": {
+                    "expression": {
+                      "kind": "time",
+                      "scope": "asset"
+                    },
+                    "kind": "expression"
+                  }
+                },
+                "track": {
+                  "id": "367d7ebc-7a48-41bd-9c91-1eeb0f606aa1",
+                  "protected": false,
+                  "value": {
+                    "kind": "track",
+                    "track": {
+                      "combination": "replace",
+                      "id": "6d2e88ba-9699-4747-be4b-407587d30a6c",
+                      "keys": [
+                        {
+                          "id": "9435867a-901e-44ee-85bc-3cbc4d9289e0",
+                          "interpolation": "linear",
+                          "time": {
+                            "denominator": 1,
+                            "numerator": 0
+                          },
+                          "value": {
+                            "kind": "scalar",
+                            "value": 0.0
+                          }
+                        },
+                        {
+                          "id": "836e9c85-a23f-4e39-a03e-b1bd4c33f47b",
+                          "interpolation": "linear",
+                          "time": {
+                            "denominator": 2,
+                            "numerator": 1
+                          },
+                          "value": {
+                            "kind": "scalar",
+                            "value": 1.0
+                          }
+                        },
+                        {
+                          "id": "9a383934-356d-410a-af32-3cb5d93c3ae8",
+                          "interpolation": "linear",
+                          "time": {
+                            "denominator": 1,
+                            "numerator": 1
+                          },
+                          "value": {
+                            "kind": "scalar",
+                            "value": 0.5
+                          }
+                        }
+                      ],
+                      "ty": {
+                        "kind": "scalar"
+                      }
+                    }
+                  }
+                }
+              },
+              "version": 1
+            },
+            {
+              "id": "b3dad16e-6dbb-4db0-8c41-b642a760c9ed",
+              "mode": "screen",
+              "name": "placement",
+              "operation": "fold.motion.place",
+              "parameters": {
+                "geometry": {
+                  "id": "9bfdb09b-cc5b-4d74-9574-a8fcf794feb2",
+                  "protected": false,
+                  "value": {
+                    "kind": "link",
+                    "reference": {
+                      "id": "abd321ff-9cc1-401b-96d8-241267b4ea2d",
+                      "target": {
+                        "kind": "node",
+                        "node": "1eb0c431-07d7-4489-9735-7781fe0665c2"
+                      }
+                    }
+                  }
+                },
+                "opacity": {
+                  "id": "62932a05-ff7d-4d95-844e-fa3aee7ae0e1",
+                  "protected": false,
+                  "value": {
+                    "kind": "link",
+                    "reference": {
+                      "id": "c61aec47-d097-41ae-baf7-ce88f89f7ef9",
+                      "target": {
+                        "kind": "node",
+                        "node": "66f9c66f-48b7-4bc9-a8e8-acdae3f417e1"
+                      }
+                    }
+                  }
+                },
+                "position": {
+                  "id": "78c514f7-946c-4da5-845c-5fb013bffaf0",
+                  "protected": false,
+                  "value": {
+                    "kind": "link",
+                    "reference": {
+                      "id": "66cd27c2-8c3d-47ca-a76e-6e2b66f75328",
+                      "target": {
+                        "kind": "node",
+                        "node": "41d0a4a6-2930-4a3d-a409-6f5117ba1657"
+                      }
+                    }
+                  }
+                }
+              },
+              "version": 1
+            },
+            {
+              "id": "2a603d04-09aa-4f6a-9c30-92adf97c846c",
+              "mode": "ordered",
+              "name": "scene",
+              "operation": "fold.motion.scene",
+              "parameters": {
+                "children": {
+                  "id": "d017d102-133a-42f3-bbef-9cf54285c39a",
+                  "protected": false,
+                  "value": {
+                    "kind": "list",
+                    "values": [
+                      {
+                        "kind": "link",
+                        "reference": {
+                          "id": "9555b12a-e411-43f5-938c-84b70e0e0cc1",
+                          "target": {
+                            "kind": "node",
+                            "node": "b3dad16e-6dbb-4db0-8c41-b642a760c9ed"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              "version": 1
+            }
+          ],
+          "outputs": [
+            {
+              "id": "1272ba76-435d-434d-b053-aa89273f3338",
+              "name": "main",
+              "ty": {
+                "kind": "scene"
+              },
+              "value": {
+                "id": "7c0c3af9-c74b-4544-83e3-93b3c8003051",
+                "target": {
+                  "kind": "node",
+                  "node": "2a603d04-09aa-4f6a-9c30-92adf97c846c"
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "presentation": {
+        "annotations": {
+          "1eb0c431-07d7-4489-9735-7781fe0665c2": "Retain authored layout"
+        },
+        "groups": [],
+        "positions": {
+          "1eb0c431-07d7-4489-9735-7781fe0665c2": [
+            320.0,
+            180.0
+          ]
+        }
+      },
+      "root": {
+        "clock": {
+          "offset": {
+            "denominator": 1,
+            "numerator": 0
+          },
+          "rate": {
+            "denominator": 1,
+            "numerator": 1
+          }
+        },
+        "definition": "493de4e4-2a6f-4004-8d09-b9be1b4dcbf4",
+        "id": "339fcddb-b4f3-4eb2-8e5d-9d0152d44125",
+        "name": "main",
+        "overrides": {
+          "963fc839-5ec4-4b13-b290-5095dd314c14": {
+            "id": "6c7f77f0-93ee-496b-aa92-ede1bf988ea8",
+            "protected": false,
+            "value": {
+              "kind": "literal",
+              "value": {
+                "alpha": "straight",
+                "encoding": "linear_rec709",
+                "kind": "color",
+                "value": [
+                  0.0,
+                  0.0,
+                  1.0,
+                  1.0
+                ]
+              }
+            }
+          }
+        }
+      },
+      "seed": 20261008,
+      "vendor_capture": {
+        "opaque": [
+          1,
+          {
+            "future": true
+          }
+        ]
+      }
+    },
+    "reopened": {
+      "canvas": {
+        "end": {
+          "denominator": 1,
+          "numerator": 4
+        },
+        "height": 1080,
+        "rate": [
+          24,
+          1
+        ],
+        "start": {
+          "denominator": 1,
+          "numerator": 0
+        },
+        "width": 1920
+      },
+      "definitions": [
+        {
+          "id": "493de4e4-2a6f-4004-8d09-b9be1b4dcbf4",
+          "inputs": [
+            {
+              "default": {
+                "kind": "distance",
+                "unit": "canvas",
+                "value": 100.0
+              },
+              "id": "db504cae-deff-4196-b654-2e6834096a87",
+              "name": "size",
+              "protected": false,
+              "ty": {
+                "kind": "distance",
+                "unit": "canvas"
+              }
+            },
+            {
+              "default": {
+                "alpha": "straight",
+                "encoding": "linear_rec709",
+                "kind": "color",
+                "value": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  1.0
+                ]
+              },
+              "id": "963fc839-5ec4-4b13-b290-5095dd314c14",
+              "name": "accent",
+              "protected": false,
+              "ty": {
+                "alpha": "straight",
+                "encoding": "linear_rec709",
+                "kind": "color"
+              }
+            },
+            {
+              "default": {
+                "kind": "integer",
+                "value": 1
+              },
+              "id": "4e0a21b5-a5a4-43a0-be82-c98ee6b10ca6",
+              "name": "count",
+              "protected": true,
+              "ty": {
+                "kind": "integer"
+              }
+            }
+          ],
+          "instances": [],
+          "name": "Animated shape",
+          "nodes": [
+            {
+              "id": "8108125a-84b2-475a-b5b1-39b498d73301",
+              "mode": "value",
+              "name": "width",
+              "operation": "fold.motion.expression",
+              "parameters": {
+                "value": {
+                  "id": "a30a56b6-9719-489c-818e-47975e9adb58",
+                  "protected": false,
+                  "value": {
+                    "expression": {
+                      "kind": "binary",
+                      "left": {
+                        "kind": "reference",
+                        "reference": {
+                          "id": "cd86d9da-35c7-4b99-bc24-c75e1667d82e",
+                          "target": {
+                            "input": "db504cae-deff-4196-b654-2e6834096a87",
+                            "kind": "input"
+                          }
+                        }
+                      },
+                      "op": "multiply",
+                      "right": {
+                        "kind": "literal",
+                        "value": {
+                          "kind": "scalar",
+                          "value": 2.0
+                        }
+                      }
+                    },
+                    "kind": "expression"
+                  }
+                }
+              },
+              "version": 1
+            },
+            {
+              "id": "1eb0c431-07d7-4489-9735-7781fe0665c2",
+              "mode": "rectangle",
+              "name": "profile",
+              "operation": "fold.motion.shape",
+              "parameters": {
+                "height": {
+                  "id": "dcc51b41-41c8-4729-a04f-6cdde92f5477",
+                  "protected": false,
+                  "value": {
+                    "kind": "link",
+                    "reference": {
+                      "id": "5010aa02-e771-4db1-8945-401f162d37ad",
+                      "target": {
+                        "input": "db504cae-deff-4196-b654-2e6834096a87",
+                        "kind": "input"
+                      }
+                    }
+                  }
+                },
+                "width": {
+                  "id": "df824fef-2a61-4c4a-930a-bbffe33eb199",
+                  "protected": false,
+                  "value": {
+                    "kind": "link",
+                    "reference": {
+                      "id": "5e9b65f2-31a2-4451-9b15-55a6d795876f",
+                      "target": {
+                        "kind": "node",
+                        "node": "8108125a-84b2-475a-b5b1-39b498d73301"
+                      }
+                    }
+                  }
+                }
+              },
+              "version": 1
+            },
+            {
+              "id": "41d0a4a6-2930-4a3d-a409-6f5117ba1657",
+              "mode": "linear",
+              "name": "entrance",
+              "operation": "fold.motion.tween",
+              "parameters": {
+                "duration": {
+                  "id": "aca3e7cf-559e-4d59-84af-098faeb1f407",
+                  "protected": false,
+                  "value": {
+                    "kind": "literal",
+                    "value": {
+                      "kind": "duration",
+                      "value": {
+                        "denominator": 5,
+                        "numerator": 3
+                      }
+                    }
+                  }
+                },
+                "from": {
+                  "id": "43eb45b1-44b6-46a4-b601-967bbe70755a",
+                  "protected": false,
+                  "value": {
+                    "kind": "literal",
+                    "value": {
+                      "kind": "vector",
+                      "space": "screen",
+                      "unit": "canvas",
+                      "value": [
+                        0.0,
+                        80.0
+                      ]
+                    }
+                  }
+                },
+                "start": {
+                  "id": "2cfa4570-0ab6-4629-a332-dc392212a7c8",
+                  "protected": false,
+                  "value": {
+                    "kind": "literal",
+                    "value": {
+                      "kind": "duration",
+                      "value": {
+                        "denominator": 1,
+                        "numerator": 0
+                      }
+                    }
+                  }
+                },
+                "time": {
+                  "id": "3628152d-50b6-49a7-b98c-ce67013e4a69",
+                  "protected": false,
+                  "value": {
+                    "expression": {
+                      "kind": "time",
+                      "scope": "asset"
+                    },
+                    "kind": "expression"
+                  }
+                },
+                "to": {
+                  "id": "40ebf2d0-2b8f-47d6-acd2-57c3bcaf61dd",
+                  "protected": false,
+                  "value": {
+                    "kind": "literal",
+                    "value": {
+                      "kind": "vector",
+                      "space": "screen",
+                      "unit": "canvas",
+                      "value": [
+                        0.0,
+                        0.0
+                      ]
+                    }
+                  }
+                }
+              },
+              "version": 1
+            },
+            {
+              "id": "66f9c66f-48b7-4bc9-a8e8-acdae3f417e1",
+              "mode": "value",
+              "name": "opacity",
+              "operation": "fold.motion.keyframes",
+              "parameters": {
+                "time": {
+                  "id": "7dab0f1a-d4c4-4a97-8755-ee33f617067e",
+                  "protected": false,
+                  "value": {
+                    "expression": {
+                      "kind": "time",
+                      "scope": "asset"
+                    },
+                    "kind": "expression"
+                  }
+                },
+                "track": {
+                  "id": "367d7ebc-7a48-41bd-9c91-1eeb0f606aa1",
+                  "protected": false,
+                  "value": {
+                    "kind": "track",
+                    "track": {
+                      "combination": "replace",
+                      "id": "6d2e88ba-9699-4747-be4b-407587d30a6c",
+                      "keys": [
+                        {
+                          "id": "9435867a-901e-44ee-85bc-3cbc4d9289e0",
+                          "interpolation": "linear",
+                          "time": {
+                            "denominator": 1,
+                            "numerator": 0
+                          },
+                          "value": {
+                            "kind": "scalar",
+                            "value": 0.0
+                          }
+                        },
+                        {
+                          "id": "836e9c85-a23f-4e39-a03e-b1bd4c33f47b",
+                          "interpolation": "linear",
+                          "time": {
+                            "denominator": 2,
+                            "numerator": 1
+                          },
+                          "value": {
+                            "kind": "scalar",
+                            "value": 1.0
+                          }
+                        },
+                        {
+                          "id": "9a383934-356d-410a-af32-3cb5d93c3ae8",
+                          "interpolation": "linear",
+                          "time": {
+                            "denominator": 1,
+                            "numerator": 1
+                          },
+                          "value": {
+                            "kind": "scalar",
+                            "value": 0.5
+                          }
+                        }
+                      ],
+                      "ty": {
+                        "kind": "scalar"
+                      }
+                    }
+                  }
+                }
+              },
+              "version": 1
+            },
+            {
+              "id": "b3dad16e-6dbb-4db0-8c41-b642a760c9ed",
+              "mode": "screen",
+              "name": "placement",
+              "operation": "fold.motion.place",
+              "parameters": {
+                "geometry": {
+                  "id": "9bfdb09b-cc5b-4d74-9574-a8fcf794feb2",
+                  "protected": false,
+                  "value": {
+                    "kind": "link",
+                    "reference": {
+                      "id": "abd321ff-9cc1-401b-96d8-241267b4ea2d",
+                      "target": {
+                        "kind": "node",
+                        "node": "1eb0c431-07d7-4489-9735-7781fe0665c2"
+                      }
+                    }
+                  }
+                },
+                "opacity": {
+                  "id": "62932a05-ff7d-4d95-844e-fa3aee7ae0e1",
+                  "protected": false,
+                  "value": {
+                    "kind": "link",
+                    "reference": {
+                      "id": "c61aec47-d097-41ae-baf7-ce88f89f7ef9",
+                      "target": {
+                        "kind": "node",
+                        "node": "66f9c66f-48b7-4bc9-a8e8-acdae3f417e1"
+                      }
+                    }
+                  }
+                },
+                "position": {
+                  "id": "78c514f7-946c-4da5-845c-5fb013bffaf0",
+                  "protected": false,
+                  "value": {
+                    "kind": "link",
+                    "reference": {
+                      "id": "66cd27c2-8c3d-47ca-a76e-6e2b66f75328",
+                      "target": {
+                        "kind": "node",
+                        "node": "41d0a4a6-2930-4a3d-a409-6f5117ba1657"
+                      }
+                    }
+                  }
+                }
+              },
+              "version": 1
+            },
+            {
+              "id": "2a603d04-09aa-4f6a-9c30-92adf97c846c",
+              "mode": "ordered",
+              "name": "scene",
+              "operation": "fold.motion.scene",
+              "parameters": {
+                "children": {
+                  "id": "d017d102-133a-42f3-bbef-9cf54285c39a",
+                  "protected": false,
+                  "value": {
+                    "kind": "list",
+                    "values": [
+                      {
+                        "kind": "link",
+                        "reference": {
+                          "id": "9555b12a-e411-43f5-938c-84b70e0e0cc1",
+                          "target": {
+                            "kind": "node",
+                            "node": "b3dad16e-6dbb-4db0-8c41-b642a760c9ed"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              "version": 1
+            }
+          ],
+          "outputs": [
+            {
+              "id": "1272ba76-435d-434d-b053-aa89273f3338",
+              "name": "main",
+              "ty": {
+                "kind": "scene"
+              },
+              "value": {
+                "id": "7c0c3af9-c74b-4544-83e3-93b3c8003051",
+                "target": {
+                  "kind": "node",
+                  "node": "2a603d04-09aa-4f6a-9c30-92adf97c846c"
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "presentation": {
+        "annotations": {
+          "1eb0c431-07d7-4489-9735-7781fe0665c2": "Retain authored layout"
+        },
+        "groups": [],
+        "positions": {
+          "1eb0c431-07d7-4489-9735-7781fe0665c2": [
+            320.0,
+            180.0
+          ]
+        }
+      },
+      "root": {
+        "clock": {
+          "offset": {
+            "denominator": 1,
+            "numerator": 0
+          },
+          "rate": {
+            "denominator": 1,
+            "numerator": 1
+          }
+        },
+        "definition": "493de4e4-2a6f-4004-8d09-b9be1b4dcbf4",
+        "id": "339fcddb-b4f3-4eb2-8e5d-9d0152d44125",
+        "name": "main",
+        "overrides": {
+          "963fc839-5ec4-4b13-b290-5095dd314c14": {
+            "id": "6c7f77f0-93ee-496b-aa92-ede1bf988ea8",
+            "protected": false,
+            "value": {
+              "kind": "literal",
+              "value": {
+                "alpha": "straight",
+                "encoding": "linear_rec709",
+                "kind": "color",
+                "value": [
+                  0.0,
+                  0.0,
+                  1.0,
+                  1.0
+                ]
+              }
+            }
+          }
+        }
+      },
+      "seed": 20261008,
+      "vendor_capture": {
+        "opaque": [
+          1,
+          {
+            "future": true
+          }
+        ]
+      }
+    },
+    "undo": {
+      "canvas": {
+        "end": {
+          "denominator": 1,
+          "numerator": 4
+        },
+        "height": 1080,
+        "rate": [
+          24,
+          1
+        ],
+        "start": {
+          "denominator": 1,
+          "numerator": 0
+        },
+        "width": 1920
+      },
+      "definitions": [
+        {
+          "id": "493de4e4-2a6f-4004-8d09-b9be1b4dcbf4",
+          "inputs": [
+            {
+              "default": {
+                "kind": "distance",
+                "unit": "canvas",
+                "value": 100.0
+              },
+              "id": "db504cae-deff-4196-b654-2e6834096a87",
+              "name": "size",
+              "protected": false,
+              "ty": {
+                "kind": "distance",
+                "unit": "canvas"
+              }
+            },
+            {
+              "default": {
+                "alpha": "straight",
+                "encoding": "linear_rec709",
+                "kind": "color",
+                "value": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  1.0
+                ]
+              },
+              "id": "963fc839-5ec4-4b13-b290-5095dd314c14",
+              "name": "accent",
+              "protected": false,
+              "ty": {
+                "alpha": "straight",
+                "encoding": "linear_rec709",
+                "kind": "color"
+              }
+            },
+            {
+              "default": {
+                "kind": "integer",
+                "value": 1
+              },
+              "id": "4e0a21b5-a5a4-43a0-be82-c98ee6b10ca6",
+              "name": "count",
+              "protected": true,
+              "ty": {
+                "kind": "integer"
+              }
+            }
+          ],
+          "instances": [],
+          "name": "Animated shape",
+          "nodes": [
+            {
+              "id": "8108125a-84b2-475a-b5b1-39b498d73301",
+              "mode": "value",
+              "name": "width",
+              "operation": "fold.motion.expression",
+              "parameters": {
+                "value": {
+                  "id": "a30a56b6-9719-489c-818e-47975e9adb58",
+                  "protected": false,
+                  "value": {
+                    "expression": {
+                      "kind": "binary",
+                      "left": {
+                        "kind": "reference",
+                        "reference": {
+                          "id": "cd86d9da-35c7-4b99-bc24-c75e1667d82e",
+                          "target": {
+                            "input": "db504cae-deff-4196-b654-2e6834096a87",
+                            "kind": "input"
+                          }
+                        }
+                      },
+                      "op": "multiply",
+                      "right": {
+                        "kind": "literal",
+                        "value": {
+                          "kind": "scalar",
+                          "value": 2.0
+                        }
+                      }
+                    },
+                    "kind": "expression"
+                  }
+                }
+              },
+              "version": 1
+            },
+            {
+              "id": "1eb0c431-07d7-4489-9735-7781fe0665c2",
+              "mode": "rectangle",
+              "name": "Before edit",
+              "operation": "fold.motion.shape",
+              "parameters": {
+                "height": {
+                  "id": "dcc51b41-41c8-4729-a04f-6cdde92f5477",
+                  "protected": false,
+                  "value": {
+                    "kind": "link",
+                    "reference": {
+                      "id": "5010aa02-e771-4db1-8945-401f162d37ad",
+                      "target": {
+                        "input": "db504cae-deff-4196-b654-2e6834096a87",
+                        "kind": "input"
+                      }
+                    }
+                  }
+                },
+                "width": {
+                  "id": "df824fef-2a61-4c4a-930a-bbffe33eb199",
+                  "protected": false,
+                  "value": {
+                    "kind": "link",
+                    "reference": {
+                      "id": "5e9b65f2-31a2-4451-9b15-55a6d795876f",
+                      "target": {
+                        "kind": "node",
+                        "node": "8108125a-84b2-475a-b5b1-39b498d73301"
+                      }
+                    }
+                  }
+                }
+              },
+              "version": 1
+            },
+            {
+              "id": "41d0a4a6-2930-4a3d-a409-6f5117ba1657",
+              "mode": "linear",
+              "name": "entrance",
+              "operation": "fold.motion.tween",
+              "parameters": {
+                "duration": {
+                  "id": "aca3e7cf-559e-4d59-84af-098faeb1f407",
+                  "protected": false,
+                  "value": {
+                    "kind": "literal",
+                    "value": {
+                      "kind": "duration",
+                      "value": {
+                        "denominator": 5,
+                        "numerator": 3
+                      }
+                    }
+                  }
+                },
+                "from": {
+                  "id": "43eb45b1-44b6-46a4-b601-967bbe70755a",
+                  "protected": false,
+                  "value": {
+                    "kind": "literal",
+                    "value": {
+                      "kind": "vector",
+                      "space": "screen",
+                      "unit": "canvas",
+                      "value": [
+                        0.0,
+                        80.0
+                      ]
+                    }
+                  }
+                },
+                "start": {
+                  "id": "2cfa4570-0ab6-4629-a332-dc392212a7c8",
+                  "protected": false,
+                  "value": {
+                    "kind": "literal",
+                    "value": {
+                      "kind": "duration",
+                      "value": {
+                        "denominator": 1,
+                        "numerator": 0
+                      }
+                    }
+                  }
+                },
+                "time": {
+                  "id": "3628152d-50b6-49a7-b98c-ce67013e4a69",
+                  "protected": false,
+                  "value": {
+                    "expression": {
+                      "kind": "time",
+                      "scope": "asset"
+                    },
+                    "kind": "expression"
+                  }
+                },
+                "to": {
+                  "id": "40ebf2d0-2b8f-47d6-acd2-57c3bcaf61dd",
+                  "protected": false,
+                  "value": {
+                    "kind": "literal",
+                    "value": {
+                      "kind": "vector",
+                      "space": "screen",
+                      "unit": "canvas",
+                      "value": [
+                        0.0,
+                        0.0
+                      ]
+                    }
+                  }
+                }
+              },
+              "version": 1
+            },
+            {
+              "id": "66f9c66f-48b7-4bc9-a8e8-acdae3f417e1",
+              "mode": "value",
+              "name": "opacity",
+              "operation": "fold.motion.keyframes",
+              "parameters": {
+                "time": {
+                  "id": "7dab0f1a-d4c4-4a97-8755-ee33f617067e",
+                  "protected": false,
+                  "value": {
+                    "expression": {
+                      "kind": "time",
+                      "scope": "asset"
+                    },
+                    "kind": "expression"
+                  }
+                },
+                "track": {
+                  "id": "367d7ebc-7a48-41bd-9c91-1eeb0f606aa1",
+                  "protected": false,
+                  "value": {
+                    "kind": "track",
+                    "track": {
+                      "combination": "replace",
+                      "id": "6d2e88ba-9699-4747-be4b-407587d30a6c",
+                      "keys": [
+                        {
+                          "id": "9435867a-901e-44ee-85bc-3cbc4d9289e0",
+                          "interpolation": "linear",
+                          "time": {
+                            "denominator": 1,
+                            "numerator": 0
+                          },
+                          "value": {
+                            "kind": "scalar",
+                            "value": 0.0
+                          }
+                        },
+                        {
+                          "id": "836e9c85-a23f-4e39-a03e-b1bd4c33f47b",
+                          "interpolation": "linear",
+                          "time": {
+                            "denominator": 2,
+                            "numerator": 1
+                          },
+                          "value": {
+                            "kind": "scalar",
+                            "value": 1.0
+                          }
+                        },
+                        {
+                          "id": "9a383934-356d-410a-af32-3cb5d93c3ae8",
+                          "interpolation": "linear",
+                          "time": {
+                            "denominator": 1,
+                            "numerator": 1
+                          },
+                          "value": {
+                            "kind": "scalar",
+                            "value": 0.5
+                          }
+                        }
+                      ],
+                      "ty": {
+                        "kind": "scalar"
+                      }
+                    }
+                  }
+                }
+              },
+              "version": 1
+            },
+            {
+              "id": "b3dad16e-6dbb-4db0-8c41-b642a760c9ed",
+              "mode": "screen",
+              "name": "placement",
+              "operation": "fold.motion.place",
+              "parameters": {
+                "geometry": {
+                  "id": "9bfdb09b-cc5b-4d74-9574-a8fcf794feb2",
+                  "protected": false,
+                  "value": {
+                    "kind": "link",
+                    "reference": {
+                      "id": "abd321ff-9cc1-401b-96d8-241267b4ea2d",
+                      "target": {
+                        "kind": "node",
+                        "node": "1eb0c431-07d7-4489-9735-7781fe0665c2"
+                      }
+                    }
+                  }
+                },
+                "opacity": {
+                  "id": "62932a05-ff7d-4d95-844e-fa3aee7ae0e1",
+                  "protected": false,
+                  "value": {
+                    "kind": "link",
+                    "reference": {
+                      "id": "c61aec47-d097-41ae-baf7-ce88f89f7ef9",
+                      "target": {
+                        "kind": "node",
+                        "node": "66f9c66f-48b7-4bc9-a8e8-acdae3f417e1"
+                      }
+                    }
+                  }
+                },
+                "position": {
+                  "id": "78c514f7-946c-4da5-845c-5fb013bffaf0",
+                  "protected": false,
+                  "value": {
+                    "kind": "link",
+                    "reference": {
+                      "id": "66cd27c2-8c3d-47ca-a76e-6e2b66f75328",
+                      "target": {
+                        "kind": "node",
+                        "node": "41d0a4a6-2930-4a3d-a409-6f5117ba1657"
+                      }
+                    }
+                  }
+                }
+              },
+              "version": 1
+            },
+            {
+              "id": "2a603d04-09aa-4f6a-9c30-92adf97c846c",
+              "mode": "ordered",
+              "name": "scene",
+              "operation": "fold.motion.scene",
+              "parameters": {
+                "children": {
+                  "id": "d017d102-133a-42f3-bbef-9cf54285c39a",
+                  "protected": false,
+                  "value": {
+                    "kind": "list",
+                    "values": [
+                      {
+                        "kind": "link",
+                        "reference": {
+                          "id": "9555b12a-e411-43f5-938c-84b70e0e0cc1",
+                          "target": {
+                            "kind": "node",
+                            "node": "b3dad16e-6dbb-4db0-8c41-b642a760c9ed"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              "version": 1
+            }
+          ],
+          "outputs": [
+            {
+              "id": "1272ba76-435d-434d-b053-aa89273f3338",
+              "name": "main",
+              "ty": {
+                "kind": "scene"
+              },
+              "value": {
+                "id": "7c0c3af9-c74b-4544-83e3-93b3c8003051",
+                "target": {
+                  "kind": "node",
+                  "node": "2a603d04-09aa-4f6a-9c30-92adf97c846c"
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "presentation": {
+        "annotations": {
+          "1eb0c431-07d7-4489-9735-7781fe0665c2": "Retain authored layout"
+        },
+        "groups": [],
+        "positions": {
+          "1eb0c431-07d7-4489-9735-7781fe0665c2": [
+            320.0,
+            180.0
+          ]
+        }
+      },
+      "root": {
+        "clock": {
+          "offset": {
+            "denominator": 1,
+            "numerator": 0
+          },
+          "rate": {
+            "denominator": 1,
+            "numerator": 1
+          }
+        },
+        "definition": "493de4e4-2a6f-4004-8d09-b9be1b4dcbf4",
+        "id": "339fcddb-b4f3-4eb2-8e5d-9d0152d44125",
+        "name": "main",
+        "overrides": {
+          "963fc839-5ec4-4b13-b290-5095dd314c14": {
+            "id": "6c7f77f0-93ee-496b-aa92-ede1bf988ea8",
+            "protected": false,
+            "value": {
+              "kind": "literal",
+              "value": {
+                "alpha": "straight",
+                "encoding": "linear_rec709",
+                "kind": "color",
+                "value": [
+                  0.0,
+                  0.0,
+                  1.0,
+                  1.0
+                ]
+              }
+            }
+          }
+        }
+      },
+      "seed": 20261008,
+      "vendor_capture": {
+        "opaque": [
+          1,
+          {
+            "future": true
+          }
+        ]
+      }
+    }
+  },
+  "unknown_extensions_before": {
+    "vendor_capture": {
+      "opaque": [
+        1,
+        {
+          "future": true
+        }
+      ]
+    }
+  },
+  "unknown_extensions_reopened": {
+    "vendor_capture": {
+      "opaque": [
+        1,
+        {
+          "future": true
+        }
+      ]
+    }
+  },
+  "unknown_record_before": {
+    "id": "8108125a-84b2-475a-b5b1-39b498d73301",
+    "mode": "value",
+    "name": "width",
+    "operation": "vendor.future",
+    "parameters": {
+      "value": {
+        "id": "a30a56b6-9719-489c-818e-47975e9adb58",
+        "protected": false,
+        "value": {
+          "expression": {
+            "kind": "binary",
+            "left": {
+              "kind": "reference",
+              "reference": {
+                "id": "cd86d9da-35c7-4b99-bc24-c75e1667d82e",
+                "target": {
+                  "input": "db504cae-deff-4196-b654-2e6834096a87",
+                  "kind": "input"
+                }
+              }
+            },
+            "op": "multiply",
+            "right": {
+              "kind": "literal",
+              "value": {
+                "kind": "scalar",
+                "value": 2.0
+              }
+            }
+          },
+          "kind": "expression"
+        }
+      }
+    },
+    "version": 99
+  },
+  "unknown_record_reopened": {
+    "id": "8108125a-84b2-475a-b5b1-39b498d73301",
+    "mode": "value",
+    "name": "width",
+    "operation": "vendor.future",
+    "parameters": {
+      "value": {
+        "id": "a30a56b6-9719-489c-818e-47975e9adb58",
+        "protected": false,
+        "value": {
+          "expression": {
+            "kind": "binary",
+            "left": {
+              "kind": "reference",
+              "reference": {
+                "id": "cd86d9da-35c7-4b99-bc24-c75e1667d82e",
+                "target": {
+                  "input": "db504cae-deff-4196-b654-2e6834096a87",
+                  "kind": "input"
+                }
+              }
+            },
+            "op": "multiply",
+            "right": {
+              "kind": "literal",
+              "value": {
+                "kind": "scalar",
+                "value": 2.0
+              }
+            }
+          },
+          "kind": "expression"
+        }
+      }
+    },
+    "version": 99
+  },
+  "valid_source": "motion 1;\nseed 20261008;\ncanvas {\"width\":1920,\"height\":1080,\"rate\":[24,1],\"start\":{\"numerator\":0,\"denominator\":1},\"end\":{\"numerator\":4,\"denominator\":1}};\nasset \"Animated shape\" @{\"id\":\"493de4e4-2a6f-4004-8d09-b9be1b4dcbf4\"} {\n  input \"size\" @{\"id\":\"db504cae-deff-4196-b654-2e6834096a87\",\"protected\":false} : {\"kind\":\"distance\",\"unit\":\"canvas\"} = 100px;\n  input \"accent\" @{\"id\":\"963fc839-5ec4-4b13-b290-5095dd314c14\",\"protected\":false} : {\"kind\":\"color\",\"encoding\":\"linear_rec709\",\"alpha\":\"straight\"} = literal({\"kind\":\"color\",\"value\":[1.0,0.0,0.0,1.0],\"encoding\":\"linear_rec709\",\"alpha\":\"straight\"});\n  input \"count\" @{\"id\":\"4e0a21b5-a5a4-43a0-be82-c98ee6b10ca6\",\"protected\":true} : {\"kind\":\"integer\"} = 1i;\n  let \"width\" @{\"id\":\"8108125a-84b2-475a-b5b1-39b498d73301\"} = \"fold.motion.expression\".\"value\" @1 (\n    \"value\" @{\"id\":\"a30a56b6-9719-489c-818e-47975e9adb58\",\"protected\":false} = expr(($\"size\" @{\"id\":\"cd86d9da-35c7-4b99-bc24-c75e1667d82e\"} * 2));\n  );\n  let \"profile\" @{\"id\":\"1eb0c431-07d7-4489-9735-7781fe0665c2\"} = \"fold.motion.shape\".\"rectangle\" @1 (\n    \"height\" @{\"id\":\"dcc51b41-41c8-4729-a04f-6cdde92f5477\",\"protected\":false} = link($\"size\" @{\"id\":\"5010aa02-e771-4db1-8945-401f162d37ad\"});\n    \"width\" @{\"id\":\"df824fef-2a61-4c4a-930a-bbffe33eb199\",\"protected\":false} = link($\"width\" @{\"id\":\"5e9b65f2-31a2-4451-9b15-55a6d795876f\"});\n  );\n  let \"entrance\" @{\"id\":\"41d0a4a6-2930-4a3d-a409-6f5117ba1657\"} = \"fold.motion.tween\".\"linear\" @1 (\n    \"duration\" @{\"id\":\"aca3e7cf-559e-4d59-84af-098faeb1f407\",\"protected\":false} = value(literal({\"kind\":\"duration\",\"value\":{\"numerator\":3,\"denominator\":5}}));\n    \"from\" @{\"id\":\"43eb45b1-44b6-46a4-b601-967bbe70755a\",\"protected\":false} = value(literal({\"kind\":\"vector\",\"value\":[0.0,80.0],\"unit\":\"canvas\",\"space\":\"screen\"}));\n    \"start\" @{\"id\":\"2cfa4570-0ab6-4629-a332-dc392212a7c8\",\"protected\":false} = value(literal({\"kind\":\"duration\",\"value\":{\"numerator\":0,\"denominator\":1}}));\n    \"time\" @{\"id\":\"3628152d-50b6-49a7-b98c-ce67013e4a69\",\"protected\":false} = expr(time.asset);\n    \"to\" @{\"id\":\"40ebf2d0-2b8f-47d6-acd2-57c3bcaf61dd\",\"protected\":false} = value(literal({\"kind\":\"vector\",\"value\":[0.0,0.0],\"unit\":\"canvas\",\"space\":\"screen\"}));\n  );\n  let \"opacity\" @{\"id\":\"66f9c66f-48b7-4bc9-a8e8-acdae3f417e1\"} = \"fold.motion.keyframes\".\"value\" @1 (\n    \"time\" @{\"id\":\"7dab0f1a-d4c4-4a97-8755-ee33f617067e\",\"protected\":false} = expr(time.asset);\n    \"track\" @{\"id\":\"367d7ebc-7a48-41bd-9c91-1eeb0f606aa1\",\"protected\":false} = track({\"id\":\"6d2e88ba-9699-4747-be4b-407587d30a6c\",\"ty\":{\"kind\":\"scalar\"},\"keys\":[{\"id\":\"9435867a-901e-44ee-85bc-3cbc4d9289e0\",\"time\":{\"numerator\":0,\"denominator\":1},\"value\":{\"kind\":\"scalar\",\"value\":0.0},\"interpolation\":\"linear\"},{\"id\":\"836e9c85-a23f-4e39-a03e-b1bd4c33f47b\",\"time\":{\"numerator\":1,\"denominator\":2},\"value\":{\"kind\":\"scalar\",\"value\":1.0},\"interpolation\":\"linear\"},{\"id\":\"9a383934-356d-410a-af32-3cb5d93c3ae8\",\"time\":{\"numerator\":1,\"denominator\":1},\"value\":{\"kind\":\"scalar\",\"value\":0.5},\"interpolation\":\"linear\"}],\"combination\":\"replace\"});\n  );\n  let \"placement\" @{\"id\":\"b3dad16e-6dbb-4db0-8c41-b642a760c9ed\"} = \"fold.motion.place\".\"screen\" @1 (\n    \"geometry\" @{\"id\":\"9bfdb09b-cc5b-4d74-9574-a8fcf794feb2\",\"protected\":false} = link($\"profile\" @{\"id\":\"abd321ff-9cc1-401b-96d8-241267b4ea2d\"});\n    \"opacity\" @{\"id\":\"62932a05-ff7d-4d95-844e-fa3aee7ae0e1\",\"protected\":false} = link($\"opacity\" @{\"id\":\"c61aec47-d097-41ae-baf7-ce88f89f7ef9\"});\n    \"position\" @{\"id\":\"78c514f7-946c-4da5-845c-5fb013bffaf0\",\"protected\":false} = link($\"entrance\" @{\"id\":\"66cd27c2-8c3d-47ca-a76e-6e2b66f75328\"});\n  );\n  let \"scene\" @{\"id\":\"2a603d04-09aa-4f6a-9c30-92adf97c846c\"} = \"fold.motion.scene\".\"ordered\" @1 (\n    \"children\" @{\"id\":\"d017d102-133a-42f3-bbef-9cf54285c39a\",\"protected\":false} = list[link($\"placement\" @{\"id\":\"9555b12a-e411-43f5-938c-84b70e0e0cc1\"})];\n  );\n  output \"main\" @{\"id\":\"1272ba76-435d-434d-b053-aa89273f3338\"} : {\"kind\":\"scene\"} = $\"scene\" @{\"id\":\"7c0c3af9-c74b-4544-83e3-93b3c8003051\"};\n}\nroot \"main\" @{\"id\":\"339fcddb-b4f3-4eb2-8e5d-9d0152d44125\"} = \"Animated shape\" clock {\"offset\":{\"numerator\":0,\"denominator\":1},\"rate\":{\"numerator\":1,\"denominator\":1}} {\n  \"accent\" @{\"id\":\"6c7f77f0-93ee-496b-aa92-ede1bf988ea8\",\"protected\":false} = value(literal({\"kind\":\"color\",\"value\":[0.0,0.0,1.0,1.0],\"encoding\":\"linear_rec709\",\"alpha\":\"straight\"}));\n};\npresentation {\"positions\":{\"1eb0c431-07d7-4489-9735-7781fe0665c2\":[320.0,180.0]},\"groups\":[],\"annotations\":{\"1eb0c431-07d7-4489-9735-7781fe0665c2\":\"Retain authored layout\"}};\nextensions {\"vendor_capture\":{\"opaque\":[1,{\"future\":true}]}};\n"
+}

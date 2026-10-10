@@ -1,0 +1,16 @@
+
+running 1 test
+test animated_cloner_gpu_matches_field_scale_palette_and_registered_output ... Cloner GPU qualification: AdapterInfo { name: "NVIDIA GeForce GTX 1070", vendor: 4318, device: 7137, device_type: DiscreteGpu, driver: "NVIDIA", driver_info: "580.173.02", backend: Vulkan }
+
+thread 'animated_cloner_gpu_matches_field_scale_palette_and_registered_output' (3651748) panicked at crates/app/tests/motion_spatial.rs:1212:33:
+rotated depth 16,5 at 741,229
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    animated_cloner_gpu_matches_field_scale_palette_and_registered_output
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 10 filtered out; finished in 2.31s
+

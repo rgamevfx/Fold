@@ -1,0 +1,16 @@
+
+running 1 test
+test nvdec_matches_software_seeks_and_source_pin ... native qualification adapter AdapterInfo { name: "NVIDIA GeForce GTX 1070", vendor: 4318, device: 7137, device_type: DiscreteGpu, driver: "NVIDIA", driver_info: "580.173.02", backend: Vulkan }
+
+thread 'nvdec_matches_software_seeks_and_source_pin' (3641750) panicked at crates/media/tests/native_gpu.rs:49:90:
+called `Result::unwrap()` on an `Err` value: "native helper stopped: codec exited with exit status: 1: native video: native helper requires private socket/source/profile/UUID arguments\n"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    nvdec_matches_software_seeks_and_source_pin
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 4 filtered out; finished in 7.70s
+

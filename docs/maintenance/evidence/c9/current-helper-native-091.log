@@ -1,0 +1,15 @@
+
+running 1 test
+test nvdec_matches_software_seeks_and_source_pin ... 
+thread 'nvdec_matches_software_seeks_and_source_pin' (3690748) panicked at crates/media/tests/native_gpu.rs:22:6:
+called `Result::unwrap()` on an `Err` value: Failure { kind: Execution, message: "codec exited with exit status: 127: ffprobe: symbol lookup error: /lib/x86_64-linux-gnu/libavfilter.so.9: undefined symbol: avpriv_elbg_do, version LIBAVCODEC_60\n", context: [] }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    nvdec_matches_software_seeks_and_source_pin
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 4 filtered out; finished in 1.64s
+

@@ -1,0 +1,6 @@
+
+running 1 test
+test gpu::precision::tests::rgba16_signed_hdr_range_and_overflow ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 65 filtered out; finished in 0.48s
+

@@ -1,0 +1,16 @@
+
+running 1 test
+test native_box_gpu_matches_analytic_slabs_and_retains_shared_prototype_frames ... Native box GPU analytic qualification: AdapterInfo { name: "NVIDIA GeForce GTX 1070", vendor: 4318, device: 7137, device_type: DiscreteGpu, driver: "NVIDIA", driver_info: "580.173.02", backend: Vulkan }
+
+thread 'native_box_gpu_matches_analytic_slabs_and_retains_shared_prototype_frames' (3589598) panicked at crates/app/tests/motion_spatial.rs:838:21:
+depth 328,74: 0.3124898374080658 vs 0.31242762084356834
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    native_box_gpu_matches_analytic_slabs_and_retains_shared_prototype_frames
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 10 filtered out; finished in 1.95s
+

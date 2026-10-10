@@ -1,0 +1,11 @@
+
+running 1 test
+test registered_motion_text_matches_gpu_across_output_sizes_and_retained_revisions ... Registered Motion Screen adapter: AdapterInfo { name: "NVIDIA GeForce GTX 1070", vendor: 4318, device: 7137, device_type: DiscreteGpu, driver: "NVIDIA", driver_info: "580.173.02", backend: Vulkan }; output=59f69381-bb58-4bba-a85e-7d723a4063d2; revision=Revision(2)
+Registered text [160, 55]: max linear error=0.00048828125; display byte error=1; recompiled geometry upload=0
+Registered text [640, 220]: max linear error=0.00048828125; display byte error=1; recompiled geometry upload=0
+Registered text [1280, 440]: max linear error=0.00048828125; display byte error=1; recompiled geometry upload=0
+Registered Screen retained revision Revision(2) after paint edit to Revision(3)
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 5.52s
+

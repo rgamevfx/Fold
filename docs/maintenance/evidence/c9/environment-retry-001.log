@@ -1,0 +1,8 @@
+
+running 1 test
+test integrated_motion_mcp_authoring ... Authored via mcp: 35 native nodes at revision 20; baseline, eight catalog trials and control variations complete; saved /tmp/.tmpvCbVp3/report.json.fold
+Integrated evidence: /home/rgame/.codex/worktrees/efc8/Fold/docs/maintenance/evidence/c9/integrated-public/f7f4a761-645b-4054-b199-c19df8528313
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 25.67s
+

@@ -1,0 +1,29 @@
+{
+  "base": "f8e7abb52430d4a2abffccb30c343a26953a5be3",
+  "initial_worktree": "clean",
+  "platform": "Linux-7.1.5-76070105-generic-x86_64-with-glibc2.39",
+  "configuration": {
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_PROFILE_TEST_DEBUG": "0",
+    "FOLD_COLOR_ROOT": "/home/rgame/Documents/fold-native-pipeline/release-package",
+    "FOLD_TEST_COLOR_ROOT": "/home/rgame/Documents/fold-native-pipeline/release-package",
+    "FOLD_VIDEO_ROOT": "/home/rgame/Documents/fold-native-pipeline/release-package",
+    "FOLD_SLICE_CAPTURE_DIR": "/home/rgame/.codex/worktrees/efc8/Fold/docs/maintenance/evidence/c9/public-slice",
+    "FOLD_M5_HANDOFF_DIR": "/home/rgame/.codex/worktrees/efc8/Fold/docs/maintenance/evidence/c9/public-handoff"
+  },
+  "runtime_hashes": {
+    "lib/fold/libfold_ocio.so": "4495983228378ed1b70f75fa43be2370f6700f1fe46ec2e4c65e6298462feb08",
+    "lib/fold/libOpenColorIO.so.2.4": "ebf7d0f9fd317cb6009e13dd06711d9378a403fb4c82b9c0290abda5b679af58",
+    "share/fold/color/config.ocio": "d8b361f76750ebfbedf0ded0b5e4315b283eed5e095814486b9d7c416cfbbb4c",
+    "share/fold/color/manifest.json": "2114cbc24adc26d029d5ca5880b8fda1bc40bb0e4402dcb20ce34e0387cbee36",
+    "share/fold-video/runtime.json": "4c26c76ad7c32699a6809723224d610e57df5c6ac5a87b086452d0fd837cd486",
+    "bin/fold-video-helper": "55e90bf7105100cf980ed2c7c8916fb47f54cff61a873b85529685c0471c2719"
+  },
+  "disk_free_bytes": 4964143104,
+  "runtime_matches_c0": true,
+  "rustc": "rustc 1.95.0 (59807616e 2026-04-14)\nbinary: rustc\ncommit-hash: 59807616e1fa2540724bfbac14d7976d7e4a3860\ncommit-date: 2026-04-14\nhost: x86_64-unknown-linux-gnu\nrelease: 1.95.0\nLLVM version: 22.1.2\n",
+  "cargo": "cargo 1.95.0 (f2d3ce0bd 2026-03-21)\n",
+  "ffmpeg": "ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers\nbuilt with gcc 13 (Ubuntu 13.2.0-23ubuntu3)\nconfiguration: --prefix=/usr --extra-version=3ubuntu5 --toolchain=hardened --libdir=/usr/lib/x86_64-linux-gnu --incdir=/usr/include/x86_64-linux-gnu --arch=amd64 --enable-gpl --disable-stripping --disable-omx --enable-gnutls --enable-libaom --enable-libass --enable-libbs2b --enable-libcaca --enable-libcdio --enable-libcodec2 --enable-libdav1d --enable-libflite --enable-libfontconfig --enable-libfreetype --enable-libfribidi --enable-libglslang --enable-libgme --enable-libgsm --enable-libharfbuzz --enable-libmp3lame --enable-libmysofa --enable-libopenjpeg --enable-libopenmpt --enable-libopus --enable-librubberband --enable-libshine --enable-libsnappy --enable-libsoxr --enable-libspeex --enable-libtheora --enable-libtwolame --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx265 --enable-libxml2 --enable-libxvid --enable-libzimg --enable-openal --enable-opencl --enable-opengl --disable-sndio --enable-libvpl --disable-libmfx --enable-libdc1394 --enable-libdrm --enable-libiec61883 --enable-chromaprint --enable-frei0r --enable-ladspa --enable-libbluray --enable-libjack --enable-libpulse --enable-librabbitmq --enable-librist --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libx264 --enable-libzmq --enable-libzvbi --enable-lv2 --enable-sdl2 --enable-libplacebo --enable-librav1e --enable-pocketsphinx --enable-librsvg --enable-libjxl --enable-shared\nlibavutil      58. 29.100 / 58. 29.100\nlibavcodec     60. 31.102 / 60. 31.102\nlibavformat    60. 16.100 / 60. 16.100\nlibavdevice    60.  3.100 / 60.  3.100\nlibavfilter     9. 12.100 /  9. 12.100\nlibswscale      7.  5.100 /  7.  5.100\nlibswresample   4. 12.100 /  4. 12.100\nlibpostproc    57.  3.100 / 57.  3.100\n"
+}

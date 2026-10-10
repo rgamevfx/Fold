@@ -17,8 +17,8 @@ Retirement keeps original paths and historical bodies intact so links, source in
 | [fframes authoring research](fframes-authoring-research.md), [agent-first research](research/fframes-agent-first-unified-motion.md), [programmable nodes research](research/programmable-motion-nodes.md) | Research retained; old implementation/retention recommendations retired |
 | `docs/consolidation*.md`, historical motion performance/UI plans and other earlier research | Background only wherever they prescribe motion or agent architecture. Revalidate useful observations before adopting them |
 | [Product specification](Fold_Application_Product_Architecture.md) | Shared non-motion rules remain active. Conflicting motion/agent/render integration and roadmap sections are superseded by the new plan/proposal |
-| [Architecture inventory](architecture.md) | Pre-rewrite source map and shared ownership reference. Motion/protocol inventory is removal context until updated with new evidence |
-| [Fold skill](../skills/fold/SKILL.md), `skills/fold/references/**`, existing motion demo guides and protocol scripts | Old-build instructions/examples; no authority over the rewrite. Replace and execute new examples during M3–M7; delete obsolete shipped artifacts under M1/M9 |
+| [Architecture inventory](architecture.md) | Current C9 ownership map, linked to dated maintenance/rewrite evidence; implementation does not imply acceptance |
+| [Fold skill](../skills/fold/SKILL.md), `skills/fold/references/**`, existing motion demo guides and protocol scripts | Current version-2 public workflow and provider discovery guidance, updated through C4/M5c; capability and physical acceptance remain governed by the rewrite plan |
 
 The Fold UI skill remains applicable to new UI work. Historical visual references may inform new artwork, but executable demos and protocol examples must be rebuilt and qualified through the new public surface. The eight later geometry candidates remain separate from initial rewrite acceptance.
 

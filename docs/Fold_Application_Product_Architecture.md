@@ -4,6 +4,8 @@
 
 > **Persistence update — 9 October 2026.** [C1](maintenance/evidence/c1/result.md) supports archive v3 and workspace v4 only. Retired provider schemas and unknown extensions remain opaque in supported archives; unsupported containers fail without rewriting artwork.
 
+> **Implementation update — 9 October 2026 (C9).** [Current ownership](architecture.md) replaces the old source inventory below. The shipped authoring surface uses native Motion Construction/Scene, Sequence 5, Composition 3 and Compositor 8 with version-2 CLI/MCP discovery and provider-owned proposals. Retired Rust assets, WASM builders and Solver are absent; the replacement's bounded Rhai Wrangle is separately recorded under M5b. [C9 qualification](maintenance/evidence/c9/result.md) does not close the desktop-freeze, spatial-depth or physical artist gates. Current public examples live in the [Fold skill](../skills/fold/SKILL.md); discover schemas from the running build.
+
 *Product and architecture specification*
 
 Current design | 7 October 2026
@@ -38,7 +40,7 @@ The quality of that handoff matters as much as the rendered image. A finished-lo
 
 Sections 2–5 define product scope and ownership. Sections 6–13 describe execution and creative systems. Sections 14–16 define interaction and extension contracts. Sections 17–20 define the roadmap, acceptance, decisions, and source traceability. This preserves the original proposal's progression while replacing its initial-build assumptions.
 
-This document is the **product specification and design rules**. [Current architecture](architecture.md) maps those rules to implementation and identifies discrepancies. [The development plan](../dev-plan.md) owns work status, priorities, and links to phase evidence. Explicit later user decisions recorded there take precedence until incorporated here. Historical phase notes explain decisions and measurements; their old descriptions are not current architecture.
+This document is the **product specification and design rules**. [Current architecture](architecture.md) maps those rules to implementation and identifies discrepancies. [The Motion rewrite plan](Motion_System_Rewrite_Plan.md) and [maintenance plan](Codebase_Maintenance_Plan.md) own current work status and gates. The old development plan is historical evidence only. Historical phase notes explain decisions and measurements; their old descriptions are not current architecture.
 
 Statements of required behavior are design contracts, not proof that every release gate passes. Current capabilities below are grounded in source inspection; limitations and proposed work are identified separately. This revision adds no new runtime or performance certification. The original `media/image*.png` illustrations are historical; the inline diagrams here replace them as current architectural guidance.
 
@@ -471,6 +473,6 @@ This revision is grounded in repository source and the active plan as inspected 
 | Color and GPU/native media | [Color runtime](../crates/color/src/lib.rs), [GPU renderer](../crates/render/src/gpu/mod.rs), [Phase 18A](phase-18A.md) |
 | Playback, ownership and performance | [Workspace contracts](../crates/platform/src/workspace.rs), [preview worker](../crates/app/src/preview_worker.rs), [Phase 19A](phase-19A.md), [Phase 19B](phase-19B.md) |
 | UI and workflows | [Fold UI skill](../.agents/skills/fold-ui/SKILL.md), [Timeline phase](phase-52-timeline.md), [development plan](../dev-plan.md) |
-| Live Rust and agent reliability | [Rust asset implementation](../crates/motion/src/program/mod.rs), [Phase 56](phase-56-live-rust-assets.md), [Phase 47 benchmark](phase-47-reference-benchmark.md) |
+| Live Rust and agent reliability | Retired Rust asset implementation (historical source in Git; see [retirement register](Retired_Documentation.md)), [Phase 56](phase-56-live-rust-assets.md), [Phase 47 benchmark](phase-47-reference-benchmark.md) |
 
 When changing a product rule, update the relevant section and its implementation/roadmap references together. Preserve historical phase results as dated evidence. When code contradicts a rule, record the discrepancy rather than silently treating either a stale document or an implementation accident as a new design decision.

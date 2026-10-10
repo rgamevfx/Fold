@@ -16,12 +16,17 @@ fn retired_providers_and_schemas_are_opaque_and_non_executable() {
         (
             fold_timeline::PACKAGE,
             fold_timeline::SEQUENCE,
-            vec![2, 3, 4],
+            vec![1, 2, 3, 4],
         ),
         (
             fold_composition::PACKAGE,
             fold_composition::COMPOSITION,
             vec![1, 2],
+        ),
+        (
+            fold_compositor::PACKAGE,
+            fold_compositor::COMPOSITE,
+            (1..8).collect(),
         ),
     ] {
         for schema_version in versions {
@@ -37,6 +42,13 @@ fn retired_providers_and_schemas_are_opaque_and_non_executable() {
                 extensions: [("unknown".into(), serde_json::json!({"keep":true}))].into(),
             };
             assert!(!packages.supports(&document));
+            assert!(packages.validate_document(&document).is_err());
+            assert!(
+                packages
+                    .document_outputs(&document)
+                    .iter()
+                    .all(|output| output.info.is_err())
+            );
             documents.push(document);
         }
     }

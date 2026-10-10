@@ -1,0 +1,94 @@
+{
+  "fixture_sha256": "ed899803347d4739a6464e8b9eed9d9f86b54ea125e427b94f28adffa7988218",
+  "events": [
+    {
+      "method": "discover",
+      "unix_ms": 1791597003194.2827,
+      "state": null,
+      "error": null
+    },
+    {
+      "method": "discover",
+      "unix_ms": 1791597003603.6445,
+      "state": null,
+      "error": null
+    },
+    {
+      "method": "discover",
+      "unix_ms": 1791597003878.0989,
+      "state": null,
+      "error": null
+    },
+    {
+      "method": "inspect_document",
+      "unix_ms": 1791597003964.4844,
+      "state": "running",
+      "error": null
+    },
+    {
+      "method": "job_status",
+      "unix_ms": 1791597003981.601,
+      "state": null,
+      "error": null
+    },
+    {
+      "method": "discover",
+      "unix_ms": 1791597006204.0588,
+      "state": null,
+      "error": null
+    },
+    {
+      "method": "propose",
+      "unix_ms": 1791597006245.038,
+      "state": "running",
+      "error": null
+    },
+    {
+      "method": "job_status",
+      "unix_ms": 1791597006310.9438,
+      "state": null,
+      "error": null
+    },
+    {
+      "method": "inspect_candidate",
+      "unix_ms": 1791597006327.72,
+      "state": "running",
+      "error": null
+    },
+    {
+      "method": "job_status",
+      "unix_ms": 1791597006361.3596,
+      "state": null,
+      "error": null
+    },
+    {
+      "method": "discover",
+      "unix_ms": 1791597006597.9453,
+      "state": null,
+      "error": null
+    },
+    {
+      "method": "apply",
+      "unix_ms": 1791597006651.7422,
+      "state": null,
+      "error": null
+    }
+  ],
+  "desktop": "/home/rgame/.codex/worktrees/efc8/Fold/target/debug/fold-desktop",
+  "desktop_sha256": "b7064deba8f4cbb0825cd80a9aa2a79b2e5bba3f2400dcd92eb42717c26e1342",
+  "apply_start_unix_ms": 1791597006599.711,
+  "apply_done_unix_ms": 1791597006651.7493,
+  "applied": {
+    "epoch": "19e420fb-76dd-4574-ac38-4ba804b90f03",
+    "result": {
+      "handle": {
+        "epoch": "19e420fb-76dd-4574-ac38-4ba804b90f03",
+        "generation": "941d8fa4-dd46-4357-a873-7cd19b95d152"
+      },
+      "revision": 6
+    },
+    "version": 2
+  },
+  "exit_code": 0,
+  "original_unchanged": true
+}

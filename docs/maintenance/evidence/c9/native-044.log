@@ -1,0 +1,6 @@
+
+running 1 test
+test gpu::vector::tests::native_abandoned_encoder_and_budget_failure_leave_reusable_pipeline ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 65 filtered out; finished in 0.41s
+

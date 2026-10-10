@@ -1,0 +1,33 @@
+   Compiling num-traits v0.2.19
+   Compiling zerocopy v0.8.59
+   Compiling bytemuck v1.25.2
+   Compiling gpu-alloc-types v0.3.1
+   Compiling spirv v0.3.0+sdk-1.3.268.0
+   Compiling gpu-descriptor-types v0.2.0
+   Compiling gpu-descriptor v0.3.2
+   Compiling gpu-alloc v0.6.2
+   Compiling wgpu-types v27.0.1
+   Compiling half v2.7.1
+   Compiling naga v27.0.3
+   Compiling ordered-float v5.5.0
+   Compiling wgpu-hal v27.0.4
+   Compiling wgpu-core-deps-windows-linux-android v27.0.0
+   Compiling wgpu-core v27.0.3
+   Compiling wgpu v27.0.1
+   Compiling fold-native-video v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/native-video)
+    Finished `test` profile [unoptimized] target(s) in 22.11s
+     Running unittests src/lib.rs (target/debug/deps/fold_native_video-34e3b108bc86c0fd)
+
+running 3 tests
+test ranges::tests::alternating_positions_reuse_and_a_third_range_evicts_the_oldest ... ok
+test tests::descriptor_transport_duplicates_ownership ... ok
+test readiness::tests::receipt_requires_exact_socket_response_and_is_one_shot ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/helper.rs (target/debug/deps/fold_video_helper-aff2b72177148afe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

@@ -1,0 +1,716 @@
+[
+  {
+    "index": 0,
+    "test": "aces_working_values_input_and_explicit_output",
+    "passed": true,
+    "log": "native-000.log"
+  },
+  {
+    "index": 1,
+    "test": "mixed_compositor_fixture_matches_preview_after_public_source_edits",
+    "passed": true,
+    "log": "native-001.log"
+  },
+  {
+    "index": 2,
+    "test": "mixed_scene_first_frame_retains_static_spheres_when_title_is_transparent",
+    "passed": true,
+    "log": "native-002.log"
+  },
+  {
+    "index": 3,
+    "test": "public_frame_jobs_match_registered_pixels_and_retain_candidate_context",
+    "passed": true,
+    "log": "native-003.log"
+  },
+  {
+    "index": 4,
+    "test": "public_mixed_document_candidate_frames_match_committed_composition",
+    "passed": true,
+    "log": "native-004.log"
+  },
+  {
+    "index": 5,
+    "test": "cli_and_mcp_return_identical_revision_bound_frames",
+    "passed": true,
+    "log": "native-005.log"
+  },
+  {
+    "index": 6,
+    "test": "integrated_motion_mcp_gpu_authoring",
+    "passed": true,
+    "log": "native-006.log"
+  },
+  {
+    "index": 7,
+    "test": "integrated_motion_public_gpu_authoring",
+    "passed": true,
+    "log": "native-007.log"
+  },
+  {
+    "index": 8,
+    "test": "baked_image_sampling_matches_cpu_at_multiple_sizes_and_reuses_uploads",
+    "passed": true,
+    "log": "native-008.log"
+  },
+  {
+    "index": 9,
+    "test": "camera_plane_oblique_views_match_ray_plane_coverage_and_clipping",
+    "passed": true,
+    "log": "native-009.log"
+  },
+  {
+    "index": 10,
+    "test": "camera_planes_match_declared_pixel_bounds_and_share_world_depth",
+    "passed": true,
+    "log": "native-010.log"
+  },
+  {
+    "index": 11,
+    "test": "gpu_channel_gather_and_mask_match_cpu_with_shared_inputs",
+    "passed": true,
+    "log": "native-011.log"
+  },
+  {
+    "index": 12,
+    "test": "gpu_fractional_sampling_and_gaussian_match_reference",
+    "passed": true,
+    "log": "native-012.log"
+  },
+  {
+    "index": 13,
+    "test": "gpu_gaussian_stripes_match_cpu_for_borders_large_kernels_and_partial_groups",
+    "passed": true,
+    "log": "native-013.log"
+  },
+  {
+    "index": 14,
+    "test": "gpu_grade_merge_modes_and_data_visualization_match_cpu",
+    "passed": true,
+    "log": "native-014.log"
+  },
+  {
+    "index": 15,
+    "test": "gpu_unary_operations_match_reference",
+    "passed": true,
+    "log": "native-015.log"
+  },
+  {
+    "index": 16,
+    "test": "native_signal_input_overrides_read_nodes_export_and_external_configs",
+    "passed": true,
+    "log": "native-016.log"
+  },
+  {
+    "index": 17,
+    "test": "persisted_color_undo_legacy_and_matched_cli_preview_output",
+    "passed": false,
+    "log": "native-017.log"
+  },
+  {
+    "index": 18,
+    "test": "gpu_source_byte_budget_evicts_without_reusing_held_images",
+    "passed": true,
+    "log": "native-018.log"
+  },
+  {
+    "index": 19,
+    "test": "shared_gpu_inputs_and_reused_uploads_preserve_held_frames_and_source_changes",
+    "passed": true,
+    "log": "native-019.log"
+  },
+  {
+    "index": 20,
+    "test": "aces_output_transform_preserves_straight_alpha_before_and_after_encoding",
+    "passed": true,
+    "log": "native-020.log"
+  },
+  {
+    "index": 21,
+    "test": "ui::render_tests::common_composition_normal_and_narrow",
+    "passed": true,
+    "log": "native-021.log"
+  },
+  {
+    "index": 22,
+    "test": "ui::render_tests::shuffle_inspector_normal_and_narrow",
+    "passed": true,
+    "log": "native-022.log"
+  },
+  {
+    "index": 23,
+    "test": "native::tests::completed_telemetry_accumulates_and_saturates",
+    "passed": true,
+    "log": "native-023.log"
+  },
+  {
+    "index": 24,
+    "test": "native::tests::timeout_crash_and_inflight_cancel_reap_helpers",
+    "passed": true,
+    "log": "small-fixture-native-024.log"
+  },
+  {
+    "index": 25,
+    "test": "ui::presentation_render::instance_inspector_capture",
+    "passed": true,
+    "log": "native-025.log"
+  },
+  {
+    "index": 26,
+    "test": "ui::presentation_render::instance_menu_capture",
+    "passed": true,
+    "log": "native-026.log"
+  },
+  {
+    "index": 27,
+    "test": "ui::presentation_render::literal_inspector_capture",
+    "passed": true,
+    "log": "native-027.log"
+  },
+  {
+    "index": 28,
+    "test": "ui::presentation_render::override_key_inspector_capture",
+    "passed": true,
+    "log": "native-028.log"
+  },
+  {
+    "index": 29,
+    "test": "ui::presentation_render::presentation_inspector_capture",
+    "passed": true,
+    "log": "native-029.log"
+  },
+  {
+    "index": 30,
+    "test": "ui::presentation_render::scene_panels_capture",
+    "passed": true,
+    "log": "native-030.log"
+  },
+  {
+    "index": 31,
+    "test": "ui::presentation_render::shared_network_capture",
+    "passed": true,
+    "log": "native-031.log"
+  },
+  {
+    "index": 32,
+    "test": "ui::presentation_render::typed_key_inspector_capture",
+    "passed": true,
+    "log": "native-032.log"
+  },
+  {
+    "index": 33,
+    "test": "ui::presentation_render::wrangle_inspector_capture",
+    "passed": true,
+    "log": "native-033.log"
+  },
+  {
+    "index": 34,
+    "test": "gpu::cache::tests::native_bc7_padding_sampling_and_lifetimes",
+    "passed": true,
+    "log": "native-034.log"
+  },
+  {
+    "index": 35,
+    "test": "gpu::cache::tests::native_bc7_unavailable_features_and_allocation_pressure_leave_host_usable",
+    "passed": true,
+    "log": "native-035.log"
+  },
+  {
+    "index": 36,
+    "test": "gpu::native_video::tests::acquire_retains_cache_ineligible_and_cleared_inputs_until_completion",
+    "passed": true,
+    "log": "packaged-helper-native-036.log"
+  },
+  {
+    "index": 37,
+    "test": "gpu::native_video::tests::destroyed_parent_device_is_rejected_before_native_launch",
+    "passed": true,
+    "log": "native-037.log"
+  },
+  {
+    "index": 38,
+    "test": "gpu::native_video::tests::gpu_cache_hit_does_not_recount_native_telemetry",
+    "passed": true,
+    "log": "packaged-helper-native-038.log"
+  },
+  {
+    "index": 39,
+    "test": "gpu::precision::tests::rgba16_signed_hdr_range_and_overflow",
+    "passed": true,
+    "log": "native-039.log"
+  },
+  {
+    "index": 40,
+    "test": "gpu::presentation::tests::native_presentation_roundtrip_reuses_staging_and_preserves_bc7",
+    "passed": true,
+    "log": "native-040.log"
+  },
+  {
+    "index": 41,
+    "test": "gpu::submission::tests::cancellation_before_submission_releases_encoded_leases",
+    "passed": true,
+    "log": "native-041.log"
+  },
+  {
+    "index": 42,
+    "test": "gpu::submission::tests::inflight_cancellation_and_device_failure_release_completion_owned_leases",
+    "passed": true,
+    "log": "native-042.log"
+  },
+  {
+    "index": 43,
+    "test": "gpu::submission::tests::preview_export_contention_cancellation_and_device_failure_release_admission",
+    "passed": true,
+    "log": "native-043.log"
+  },
+  {
+    "index": 44,
+    "test": "gpu::vector::tests::native_abandoned_encoder_and_budget_failure_leave_reusable_pipeline",
+    "passed": true,
+    "log": "native-044.log"
+  },
+  {
+    "index": 45,
+    "test": "gpu::vector::tests::native_extreme_coordinates_use_clipped_preparation_and_remain_equivalent",
+    "passed": true,
+    "log": "native-045.log"
+  },
+  {
+    "index": 46,
+    "test": "gpu::vector::tests::native_extreme_curves_holes_and_invisible_paints_use_retained_coverage",
+    "passed": true,
+    "log": "native-046.log"
+  },
+  {
+    "index": 47,
+    "test": "gpu::vector::tests::native_float_coverage_matches_reference_without_full_image_upload",
+    "passed": true,
+    "log": "native-047.log"
+  },
+  {
+    "index": 48,
+    "test": "gpu::vector::tests::native_instances_keep_order_across_tile_words_and_reuse_only_static_geometry",
+    "passed": true,
+    "log": "native-048.log"
+  },
+  {
+    "index": 49,
+    "test": "gpu::vector::tests::native_repeated_geometry_exceeds_old_triangle_limit_without_repeated_uploads",
+    "passed": true,
+    "log": "native-049.log"
+  },
+  {
+    "index": 50,
+    "test": "gpu::vector::tests::native_retained_gpu_atlas_does_not_pin_evicted_cpu_geometry",
+    "passed": true,
+    "log": "native-050.log"
+  },
+  {
+    "index": 51,
+    "test": "gpu::vector::tests::unconfigured_vectors_stay_on_gpu_with_float_coverage",
+    "passed": true,
+    "log": "native-051.log"
+  },
+  {
+    "index": 52,
+    "test": "gpu::yuv::layout_tests::p010_preserves_low_ten_bit_samples",
+    "passed": true,
+    "log": "native-052.log"
+  },
+  {
+    "index": 53,
+    "test": "gpu::yuv::layout_tests::padded_nv12_is_equivalent_to_planar_and_rejects_out_of_bounds_layout",
+    "passed": true,
+    "log": "native-053.log"
+  },
+  {
+    "index": 54,
+    "test": "gpu::yuv::tests::high_precision_chroma_and_alpha_match_cpu",
+    "passed": true,
+    "log": "native-054.log"
+  },
+  {
+    "index": 55,
+    "test": "gpu::yuv::tests::native_yuv_reconstruction_matches_float_reference",
+    "passed": true,
+    "log": "native-055.log"
+  },
+  {
+    "index": 56,
+    "test": "ui::render_tests::timeline_normal_and_narrow",
+    "passed": true,
+    "log": "native-056.log"
+  },
+  {
+    "index": 57,
+    "test": "document_settings::tests::settings_native_normal_and_narrow",
+    "passed": true,
+    "log": "native-057.log"
+  },
+  {
+    "index": 58,
+    "test": "preview::gpu_tests::native_range_spills_beyond_gpu_and_replays_without_render_demands",
+    "passed": true,
+    "log": "native-058.log"
+  },
+  {
+    "index": 59,
+    "test": "preview::gpu_tests::real_textures_hold_until_replacement_and_remain_protected_under_pressure",
+    "passed": true,
+    "log": "native-059.log"
+  },
+  {
+    "index": 60,
+    "test": "preview::retention::tests::native_bc7_ram_disk_restart_clear_and_gpu_only_transfers",
+    "passed": true,
+    "log": "native-060.log"
+  },
+  {
+    "index": 61,
+    "test": "sdk::graph_canvas::tests::rendering::graph_typography_renders_across_zoom_dpi_and_ui_scale",
+    "passed": true,
+    "log": "native-061.log"
+  },
+  {
+    "index": 62,
+    "test": "settings::tests::playback_settings_native_normal_and_narrow",
+    "passed": true,
+    "log": "native-062.log"
+  },
+  {
+    "index": 63,
+    "test": "headless_cli_checkpoint_and_rerender",
+    "passed": true,
+    "log": "native-063.log"
+  },
+  {
+    "index": 64,
+    "test": "agent_presentation_capture_matches_rgba_and_decodes_compressed_cache",
+    "passed": true,
+    "log": "native-064.log"
+  },
+  {
+    "index": 65,
+    "test": "native_aces_signed_hdr_and_alpha",
+    "passed": true,
+    "log": "native-065.log"
+  },
+  {
+    "index": 66,
+    "test": "native_operators_lifetimes_and_budgets",
+    "passed": true,
+    "log": "native-066.log"
+  },
+  {
+    "index": 67,
+    "test": "native_nested_sources_vectors_and_scratch_upload_order",
+    "passed": true,
+    "log": "native-067.log"
+  },
+  {
+    "index": 68,
+    "test": "native_ocio_display_luts_alpha_and_output_identity",
+    "passed": true,
+    "log": "native-068.log"
+  },
+  {
+    "index": 69,
+    "test": "prores_xq_alpha_matches_cpu_through_aces_and_over",
+    "passed": true,
+    "log": "native-069.log"
+  },
+  {
+    "index": 70,
+    "test": "opacity_over_preserves_pixels_branches_and_validation",
+    "passed": true,
+    "log": "native-070.log"
+  },
+  {
+    "index": 71,
+    "test": "video_prepares_while_graphics_is_busy_and_cancels_its_wait",
+    "passed": true,
+    "log": "native-071.log"
+  },
+  {
+    "index": 72,
+    "test": "concurrent_gpu_host_creation",
+    "passed": true,
+    "log": "native-072.log"
+  },
+  {
+    "index": 73,
+    "test": "cli_import_and_exact_time_export",
+    "passed": true,
+    "log": "native-073.log"
+  },
+  {
+    "index": 74,
+    "test": "saved_control_variation_changes_rendered_text_and_palette_without_mutating_held_frames",
+    "passed": true,
+    "log": "native-074.log"
+  },
+  {
+    "index": 75,
+    "test": "saved_integrated_motion_renders_required_times_and_retains_frames",
+    "passed": true,
+    "log": "native-075.log"
+  },
+  {
+    "index": 76,
+    "test": "animated_cloner_gpu_matches_field_scale_palette_and_registered_output",
+    "passed": false,
+    "log": "native-076.log"
+  },
+  {
+    "index": 77,
+    "test": "camera_plane_stroke_over_fill_matches_premultiplied_paint",
+    "passed": true,
+    "log": "native-077.log"
+  },
+  {
+    "index": 78,
+    "test": "camera_plane_text_and_outline_match_screen_interiors_and_retain_frames",
+    "passed": true,
+    "log": "native-078.log"
+  },
+  {
+    "index": 79,
+    "test": "cloner_gpu_shares_mesh_preserves_cells_and_matches_registered_output",
+    "passed": true,
+    "log": "native-079.log"
+  },
+  {
+    "index": 80,
+    "test": "hierarchy_scene_outputs_composite_independently_and_preserve_depth",
+    "passed": true,
+    "log": "native-080.log"
+  },
+  {
+    "index": 81,
+    "test": "motion_document_spatial_frames_match_ray_oracle_and_retain_snapshot_binding",
+    "passed": false,
+    "log": "native-081.log"
+  },
+  {
+    "index": 82,
+    "test": "motion_spatial_preview_worker_matches_direct_output_and_keeps_named_routing",
+    "passed": true,
+    "log": "native-082.log"
+  },
+  {
+    "index": 83,
+    "test": "native_box_gpu_matches_analytic_slabs_and_retains_shared_prototype_frames",
+    "passed": false,
+    "log": "native-083.log"
+  },
+  {
+    "index": 84,
+    "test": "native_camera_planes_and_world_box_match_analytic_pixels_and_depth",
+    "passed": true,
+    "log": "native-084.log"
+  },
+  {
+    "index": 85,
+    "test": "registered_mixed_motion_aces_preserves_screen_world_order",
+    "passed": false,
+    "log": "native-085.log"
+  },
+  {
+    "index": 86,
+    "test": "registered_mixed_motion_output_preserves_screen_world_order_and_snapshot_frames",
+    "passed": false,
+    "log": "native-086.log"
+  },
+  {
+    "index": 87,
+    "test": "registered_motion_text_matches_gpu_across_output_sizes_and_retained_revisions",
+    "passed": true,
+    "log": "native-087.log"
+  },
+  {
+    "index": 88,
+    "test": "word_animated_motion_matches_gpu_for_reordered_samples_and_retained_frames",
+    "passed": true,
+    "log": "native-088.log"
+  },
+  {
+    "index": 89,
+    "test": "twenty_aovs_decode_only_the_selected_source_tuple_and_cache_one_display_image",
+    "passed": true,
+    "log": "native-089.log"
+  },
+  {
+    "index": 90,
+    "test": "unchanged_exr_reuses_gpu_input_across_time_and_effect_edits",
+    "passed": true,
+    "log": "native-090.log"
+  },
+  {
+    "index": 91,
+    "test": "nvdec_matches_software_seeks_and_source_pin",
+    "passed": true,
+    "log": "packaged-helper-native-091.log"
+  },
+  {
+    "index": 92,
+    "test": "receipt_is_allocation_bound_and_submit_retains_early_dropped_buffer",
+    "passed": true,
+    "log": "packaged-helper-native-092.log"
+  },
+  {
+    "index": 93,
+    "test": "two_same_source_ranges_and_two_distinct_sources_retain_cursors",
+    "passed": true,
+    "log": "packaged-helper-native-093.log"
+  },
+  {
+    "index": 94,
+    "test": "wrong_device_is_rejected_without_fallback",
+    "passed": true,
+    "log": "packaged-helper-native-094.log"
+  },
+  {
+    "index": 95,
+    "test": "still_cli_honors_native_backend_and_matches_software_delivery",
+    "passed": true,
+    "log": "packaged-helper-native-095.log"
+  },
+  {
+    "index": 96,
+    "test": "bundled_cpu_reference_hdr_alpha_and_catalog",
+    "passed": true,
+    "log": "native-096.log"
+  },
+  {
+    "index": 97,
+    "test": "external_resources_are_pinned_content_identified_and_fail_closed",
+    "passed": true,
+    "log": "native-097.log"
+  },
+  {
+    "index": 98,
+    "test": "native_linking_normal_and_narrow",
+    "passed": true,
+    "log": "native-098.log"
+  },
+  {
+    "index": 99,
+    "test": "rgba16_preserves_scene_metadata_pixels_and_ownership",
+    "passed": true,
+    "log": "native-099.log"
+  },
+  {
+    "index": 100,
+    "test": "gpu_region_reduces_working_memory_without_source_supersampling",
+    "passed": true,
+    "log": "native-100.log"
+  },
+  {
+    "index": 101,
+    "test": "gpu_regions_match_full_frame_and_keep_display_cropped",
+    "passed": true,
+    "log": "native-101.log"
+  },
+  {
+    "index": 102,
+    "test": "retained_nvdec_matches_software",
+    "passed": true,
+    "log": "native-102.log"
+  },
+  {
+    "index": 103,
+    "test": "circular_wipe_is_aspect_correct_across_independent_formats",
+    "passed": true,
+    "log": "native-103.log"
+  },
+  {
+    "index": 104,
+    "test": "aces_video_filtering_precedes_display_and_matches_cpu",
+    "passed": true,
+    "log": "native-104.log"
+  },
+  {
+    "index": 105,
+    "test": "downsampling_preserves_stripe_energy_in_linear_light",
+    "passed": true,
+    "log": "native-105.log"
+  },
+  {
+    "index": 106,
+    "test": "gpu_reconstruction_matches_cpu_for_odd_sizes_enlargement_and_regions",
+    "passed": true,
+    "log": "native-106.log"
+  },
+  {
+    "index": 107,
+    "test": "project_color_configuration_validates_on_worker_and_is_undoable",
+    "passed": true,
+    "log": "native-107.log"
+  },
+  {
+    "index": 108,
+    "test": "native_shader_parameters_errors_and_recovery",
+    "passed": true,
+    "log": "native-108.log"
+  },
+  {
+    "index": 109,
+    "test": "affine_shear_matches_explicit_geometry_and_retains_meshes",
+    "passed": true,
+    "log": "native-109.log"
+  },
+  {
+    "index": 110,
+    "test": "orthographic_projected_bounds_depth_clipping_and_retained_frames",
+    "passed": true,
+    "log": "native-110.log"
+  },
+  {
+    "index": 111,
+    "test": "retained_text_mesh_and_extrusion_match_vector_interiors_and_depth",
+    "passed": false,
+    "log": "native-111.log"
+  },
+  {
+    "index": 112,
+    "test": "spatial_aces_conversion_matches_cpu_processor_and_preserves_alpha",
+    "passed": true,
+    "log": "native-112.log"
+  },
+  {
+    "index": 113,
+    "test": "spatial_depth_follows_camera_updates",
+    "passed": true,
+    "log": "native-113.log"
+  },
+  {
+    "index": 114,
+    "test": "spatial_depth_is_bound_immutable_and_uses_declared_reverse_z",
+    "passed": true,
+    "log": "native-114.log"
+  },
+  {
+    "index": 115,
+    "test": "spatial_image_source_composites_without_readback_and_retains_source_precision",
+    "passed": true,
+    "log": "native-115.log"
+  },
+  {
+    "index": 116,
+    "test": "spatial_retains_resources_and_immutable_revision_bound_frames",
+    "passed": true,
+    "log": "native-116.log"
+  },
+  {
+    "index": 117,
+    "test": "retained_text_outlines_match_cpu_across_zoom_alpha_and_paint_order",
+    "passed": true,
+    "log": "native-117.log"
+  },
+  {
+    "index": 118,
+    "test": "vector_fill_rules_strokes_and_rectangular_clip_match_reference",
+    "passed": true,
+    "log": "native-118.log"
+  }
+]

@@ -1,0 +1,15 @@
+
+running 1 test
+test wrong_device_is_rejected_without_fallback ... 
+thread 'wrong_device_is_rejected_without_fallback' (3599561) panicked at crates/media/tests/native_gpu.rs:162:10:
+called `Result::unwrap()` on an `Err` value: Failure { kind: Execution, message: "native NVDEC helper missing: /home/rgame/.codex/worktrees/efc8/Fold/target/debug/deps/fold-video-helper", context: [] }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    wrong_device_is_rejected_without_fallback
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 4 filtered out; finished in 3.00s
+

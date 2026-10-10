@@ -1,0 +1,13 @@
+
+running 1 test
+test word_animated_motion_matches_gpu_for_reordered_samples_and_retained_frames ... Word animation GPU: AdapterInfo { name: "NVIDIA GeForce GTX 1070", vendor: 4318, device: 7137, device_type: DiscreteGpu, driver: "NVIDIA", driver_info: "580.173.02", backend: Vulkan }
+Word animation Time { numerator: 1, denominator: 4 }: CPU/GPU max error 0.00024414063
+Word animation Time { numerator: 0, denominator: 1 }: CPU/GPU max error 0.00024414063
+Word animation Time { numerator: 1, denominator: 2 }: CPU/GPU max error 0.00024414063
+Word animation Time { numerator: 3, denominator: 4 }: CPU/GPU max error 0.00024414063
+Word animation Time { numerator: 1, denominator: 4 }: CPU/GPU max error 0.00024414063
+Word animation: reordered samples, RGBA16F, exact timing, native paths and held frames passed
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 1.53s
+

@@ -1,0 +1,15 @@
+
+running 1 test
+test persisted_color_undo_legacy_and_matched_cli_preview_output ... 
+thread 'persisted_color_undo_legacy_and_matched_cli_preview_output' (3626971) panicked at crates/app/tests/color_workflow.rs:188:13:
+GPU worker publication timeout
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    persisted_color_undo_legacy_and_matched_cli_preview_output
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 2 filtered out; finished in 18.27s
+

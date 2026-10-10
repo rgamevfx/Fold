@@ -1,0 +1,11 @@
+
+running 1 test
+test cloner_gpu_shares_mesh_preserves_cells_and_matches_registered_output ... Cloner GPU qualification: AdapterInfo { name: "NVIDIA GeForce GTX 1070", vendor: 4318, device: 7137, device_type: DiscreteGpu, driver: "NVIDIA", driver_info: "580.173.02", backend: Vulkan }
+Cloner animated=false time=Time { numerator: 0, denominator: 1 } columns=20: 240 centers and adjacent gaps checked; max color error=0, max depth error=0.000000028610229296788248; rotated interior/exterior/edge=[0, 0, 0]; direct/registered pixels match; mesh and instance reuse verified
+Cloner animated=false time=Time { numerator: 1, denominator: 24 } columns=21: 252 centers and adjacent gaps checked; max color error=0, max depth error=0.000000028610229296788248; rotated interior/exterior/edge=[0, 0, 0]; direct/registered pixels match; mesh and instance reuse verified
+Cloner animated=false time=Time { numerator: 1, denominator: 12 } columns=20: 240 centers and adjacent gaps checked; max color error=0, max depth error=0.000000028610229296788248; rotated interior/exterior/edge=[0, 0, 0]; direct/registered pixels match; mesh and instance reuse verified
+Cloner animated=false time=Time { numerator: 1, denominator: 8 } columns=0: 0 centers and adjacent gaps checked; max color error=0, max depth error=0; rotated interior/exterior/edge=[0, 0, 0]; direct/registered pixels match; mesh and instance reuse verified
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 4.72s
+

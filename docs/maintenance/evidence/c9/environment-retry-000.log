@@ -1,0 +1,6 @@
+
+running 1 test
+test agent::dispatch::tests::local_waiters_finish_timeout_and_retire_without_blocking_the_owner ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 45 filtered out; finished in 0.00s
+

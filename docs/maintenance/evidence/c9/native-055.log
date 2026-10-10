@@ -1,0 +1,12 @@
+
+running 1 test
+test gpu::yuv::tests::native_yuv_reconstruction_matches_float_reference ... [64, 32] native YUV max error 0.00000011920929
+[32, 16] native YUV max error 0.00000011920929
+[31, 17] native YUV max error 0.00000011920929
+[30, 14] native YUV max error 0.00000017881393
+[126, 66] native YUV max error 0.00000011920929
+[1, 1] native YUV max error 0.000000059604645
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 65 filtered out; finished in 0.71s
+

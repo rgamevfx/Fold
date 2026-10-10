@@ -1,0 +1,6 @@
+{
+  "package": "/tmp/fold-c9-native-package-nq33bpgq",
+  "lib": "/home/rgame/Documents/fold-native-pipeline/native-worker/runtime/lib",
+  "helper_sha256": "8dc81f8641bc7bc640e47f8d63a2e5730129c622dafab3620349dc77b8868b87",
+  "loader": "package-local $ORIGIN/../lib RPATH; LD_LIBRARY_PATH unset"
+}

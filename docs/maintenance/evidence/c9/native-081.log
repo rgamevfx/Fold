@@ -1,0 +1,16 @@
+
+running 1 test
+test motion_document_spatial_frames_match_ray_oracle_and_retain_snapshot_binding ... Motion document spatial acceptance: AdapterInfo { name: "NVIDIA GeForce GTX 1070", vendor: 4318, device: 7137, device_type: DiscreteGpu, driver: "NVIDIA", driver_info: "580.173.02", backend: Vulkan }; revision=1; time=0/1
+
+thread 'motion_document_spatial_frames_match_ray_oracle_and_retain_snapshot_binding' (3587844) panicked at crates/app/tests/../../render/tests/support/spatial_rays.rs:150:17:
+ray depth at 71,50: 4.015864372253418 vs 4.01612493807738
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    motion_document_spatial_frames_match_ray_oracle_and_retain_snapshot_binding
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 10 filtered out; finished in 2.48s
+

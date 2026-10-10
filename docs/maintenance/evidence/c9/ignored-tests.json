@@ -1,0 +1,856 @@
+[
+  {
+    "path": "crates/app/tests/agent_frames.rs",
+    "line": 42,
+    "test": "public_frame_jobs_match_registered_pixels_and_retain_candidate_context",
+    "prerequisite": "requires a native Vulkan adapter",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/app/tests/agent_frames.rs",
+    "line": 287,
+    "test": "public_mixed_document_candidate_frames_match_committed_composition",
+    "prerequisite": "requires a native Vulkan adapter",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/app/tests/agent_frames.rs",
+    "line": 362,
+    "test": "mixed_scene_first_frame_retains_static_spheres_when_title_is_transparent",
+    "prerequisite": "requires native Vulkan and the packaged color runtime",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/app/tests/agent_frames.rs",
+    "line": 367,
+    "test": "mixed_compositor_fixture_matches_preview_after_public_source_edits",
+    "prerequisite": "requires a native Vulkan adapter",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/app/tests/agent_handoff.rs",
+    "line": 947,
+    "test": "cli_and_mcp_return_identical_revision_bound_frames",
+    "prerequisite": "requires a native Vulkan adapter and private local sockets",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/app/tests/agent_integrated.rs",
+    "line": 24,
+    "test": "integrated_motion_public_gpu_authoring",
+    "prerequisite": "requires a native Vulkan adapter and private local sockets",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/app/tests/agent_integrated.rs",
+    "line": 31,
+    "test": "integrated_motion_mcp_gpu_authoring",
+    "prerequisite": "requires a native Vulkan adapter and private local sockets",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/app/tests/color_workflow.rs",
+    "line": 48,
+    "test": "persisted_color_undo_legacy_and_matched_cli_preview_output",
+    "prerequisite": "requires packaged OCIO runtime; set FOLD_COLOR_ROOT",
+    "group": "packaged-color-runtime"
+  },
+  {
+    "path": "crates/app/tests/color_workflow.rs",
+    "line": 230,
+    "test": "native_signal_input_overrides_read_nodes_export_and_external_configs",
+    "prerequisite": "requires packaged OCIO runtime and FFmpeg; set FOLD_COLOR_ROOT",
+    "group": "packaged-color-runtime"
+  },
+  {
+    "path": "crates/app/tests/exr_execution.rs",
+    "line": 86,
+    "test": "shared_gpu_inputs_and_reused_uploads_preserve_held_frames_and_source_changes",
+    "prerequisite": "requires native Vulkan",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/app/tests/exr_execution.rs",
+    "line": 161,
+    "test": "gpu_source_byte_budget_evicts_without_reusing_held_images",
+    "prerequisite": "requires native Vulkan",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/app/tests/exr_sequence_delivery.rs",
+    "line": 396,
+    "test": "aces_output_transform_preserves_straight_alpha_before_and_after_encoding",
+    "prerequisite": "requires packaged OCIO runtime; set FOLD_COLOR_ROOT",
+    "group": "packaged-color-runtime"
+  },
+  {
+    "path": "crates/app/tests/foundation_checkpoint.rs",
+    "line": 2,
+    "test": "headless_cli_checkpoint_and_rerender",
+    "prerequisite": "requires the packaged OCIO runtime; set FOLD_COLOR_ROOT",
+    "group": "packaged-color-runtime"
+  },
+  {
+    "path": "crates/app/tests/media_sequence.rs",
+    "line": 170,
+    "test": "cli_import_and_exact_time_export",
+    "prerequisite": "requires packaged OCIO runtime; set FOLD_COLOR_ROOT",
+    "group": "packaged-color-runtime"
+  },
+  {
+    "path": "crates/app/tests/motion_integrated.rs",
+    "line": 8,
+    "test": "saved_integrated_motion_renders_required_times_and_retains_frames",
+    "prerequisite": "requires a native Vulkan adapter",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/app/tests/motion_integrated.rs",
+    "line": 137,
+    "test": "saved_control_variation_changes_rendered_text_and_palette_without_mutating_held_frames",
+    "prerequisite": "requires a native Vulkan adapter",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/app/tests/motion_spatial.rs",
+    "line": 138,
+    "test": "motion_document_spatial_frames_match_ray_oracle_and_retain_snapshot_binding",
+    "prerequisite": "requires a native Vulkan adapter",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/app/tests/motion_spatial.rs",
+    "line": 380,
+    "test": "registered_mixed_motion_output_preserves_screen_world_order_and_snapshot_frames",
+    "prerequisite": "requires a native Vulkan adapter",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/app/tests/motion_spatial.rs",
+    "line": 385,
+    "test": "registered_mixed_motion_aces_preserves_screen_world_order",
+    "prerequisite": "requires native Vulkan and the private OCIO package (FOLD_COLOR_ROOT)",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/app/tests/motion_spatial.rs",
+    "line": 576,
+    "test": "motion_spatial_preview_worker_matches_direct_output_and_keeps_named_routing",
+    "prerequisite": "requires a native Vulkan adapter",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/app/tests/motion_spatial.rs",
+    "line": 673,
+    "test": "native_box_gpu_matches_analytic_slabs_and_retains_shared_prototype_frames",
+    "prerequisite": "requires a native Vulkan adapter",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/app/tests/motion_spatial.rs",
+    "line": 865,
+    "test": "cloner_gpu_shares_mesh_preserves_cells_and_matches_registered_output",
+    "prerequisite": "requires a native Vulkan adapter",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/app/tests/motion_spatial.rs",
+    "line": 871,
+    "test": "animated_cloner_gpu_matches_field_scale_palette_and_registered_output",
+    "prerequisite": "requires a native Vulkan adapter",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/app/tests/motion_spatial.rs",
+    "line": 1285,
+    "test": "native_camera_planes_and_world_box_match_analytic_pixels_and_depth",
+    "prerequisite": "requires a native Vulkan adapter",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/app/tests/motion_spatial.rs",
+    "line": 1578,
+    "test": "camera_plane_stroke_over_fill_matches_premultiplied_paint",
+    "prerequisite": "requires a native Vulkan adapter",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/app/tests/motion_spatial.rs",
+    "line": 1747,
+    "test": "camera_plane_text_and_outline_match_screen_interiors_and_retain_frames",
+    "prerequisite": "requires a native Vulkan adapter",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/app/tests/motion_spatial.rs",
+    "line": 1943,
+    "test": "hierarchy_scene_outputs_composite_independently_and_preserve_depth",
+    "prerequisite": "requires a native Vulkan adapter",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/app/tests/motion_video.rs",
+    "line": 365,
+    "test": "registered_motion_text_matches_gpu_across_output_sizes_and_retained_revisions",
+    "prerequisite": "requires a native Vulkan adapter",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/app/tests/motion_video.rs",
+    "line": 570,
+    "test": "word_animated_motion_matches_gpu_for_reordered_samples_and_retained_frames",
+    "prerequisite": "requires a native Vulkan adapter",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/app/tests/multilayer_workflow.rs",
+    "line": 144,
+    "test": "twenty_aovs_decode_only_the_selected_source_tuple_and_cache_one_display_image",
+    "prerequisite": "requires native GPU",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/app/tests/multilayer_workflow.rs",
+    "line": 291,
+    "test": "unchanged_exr_reuses_gpu_input_across_time_and_effect_edits",
+    "prerequisite": "requires native GPU",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/app/tests/native_output.rs",
+    "line": 6,
+    "test": "still_cli_honors_native_backend_and_matches_software_delivery",
+    "prerequisite": "requires Vulkan/NVDEC, packaged OCIO/helper and FOLD_NATIVE_FIXTURE",
+    "group": "native-helper-or-external-fixture"
+  },
+  {
+    "path": "crates/app/tests/native_playback.rs",
+    "line": 15,
+    "test": "native_device_clock_seek_and_drift",
+    "prerequisite": "requires a native stereo 48 kHz float output device; plays a quiet test tone",
+    "group": "physical-audio-output"
+  },
+  {
+    "path": "crates/app/tests/panel_linking.rs",
+    "line": 259,
+    "test": "native_linking_normal_and_narrow",
+    "prerequisite": "native GPU capture; writes /tmp/fold-selection-diagnosis/*.ppm",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/app/tests/reusable_effects.rs",
+    "line": 411,
+    "test": "circular_wipe_is_aspect_correct_across_independent_formats",
+    "prerequisite": "requires native GPU; format and pipeline reuse qualification",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/app/tests/settings.rs",
+    "line": 377,
+    "test": "project_color_configuration_validates_on_worker_and_is_undoable",
+    "prerequisite": "requires packaged OCIO runtime; set FOLD_COLOR_ROOT",
+    "group": "packaged-color-runtime"
+  },
+  {
+    "path": "crates/color/tests/ocio.rs",
+    "line": 23,
+    "test": "bundled_cpu_reference_hdr_alpha_and_catalog",
+    "prerequisite": "requires the privately built OCIO package; set FOLD_TEST_COLOR_ROOT",
+    "group": "packaged-color-runtime"
+  },
+  {
+    "path": "crates/color/tests/ocio.rs",
+    "line": 83,
+    "test": "external_resources_are_pinned_content_identified_and_fail_closed",
+    "prerequisite": "requires the privately built OCIO package; set FOLD_TEST_COLOR_ROOT",
+    "group": "packaged-color-runtime"
+  },
+  {
+    "path": "crates/composition/src/ui/render_tests.rs",
+    "line": 6,
+    "test": "common_composition_normal_and_narrow",
+    "prerequisite": "native capture; writes /tmp/fold-common-composition-ui",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/compositor/src/ui/render_tests.rs",
+    "line": 8,
+    "test": "shuffle_inspector_normal_and_narrow",
+    "prerequisite": "native UI capture; writes /tmp/fold-shuffle-ui",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/media/src/native_tests.rs",
+    "line": 53,
+    "test": "timeout_crash_and_inflight_cancel_reap_helpers",
+    "prerequisite": "requires verified source fixture; fake helper tests supervision, not NVDEC",
+    "group": "native-helper-or-external-fixture"
+  },
+  {
+    "path": "crates/media/src/native_tests.rs",
+    "line": 119,
+    "test": "completed_telemetry_accumulates_and_saturates",
+    "prerequisite": "requires verified fixture; deterministic fake-helper telemetry",
+    "group": "native-helper-or-external-fixture"
+  },
+  {
+    "path": "crates/media/tests/native_gpu.rs",
+    "line": 104,
+    "test": "nvdec_matches_software_seeks_and_source_pin",
+    "prerequisite": "requires NVIDIA Vulkan/CUDA, pinned LGPL helper and source fixture",
+    "group": "native-helper-or-external-fixture"
+  },
+  {
+    "path": "crates/media/tests/native_gpu.rs",
+    "line": 156,
+    "test": "wrong_device_is_rejected_without_fallback",
+    "prerequisite": "requires native helper and source fixture",
+    "group": "native-helper-or-external-fixture"
+  },
+  {
+    "path": "crates/media/tests/native_gpu.rs",
+    "line": 173,
+    "test": "two_same_source_ranges_and_two_distinct_sources_retain_cursors",
+    "prerequisite": "requires >=62 frame fixture and native GPU helper",
+    "group": "native-helper-or-external-fixture"
+  },
+  {
+    "path": "crates/media/tests/native_gpu.rs",
+    "line": 236,
+    "test": "alternating_viewers_preserve_two_source_decode_locality",
+    "prerequisite": "reference GPU performance regression; two >=270-frame native fixtures",
+    "group": "native-helper-or-external-fixture"
+  },
+  {
+    "path": "crates/media/tests/native_gpu.rs",
+    "line": 274,
+    "test": "receipt_is_allocation_bound_and_submit_retains_early_dropped_buffer",
+    "prerequisite": "requires native GPU helper; receipt mismatch and immediate drop regression",
+    "group": "native-helper-or-external-fixture"
+  },
+  {
+    "path": "crates/media/tests/retained_decode.rs",
+    "line": 206,
+    "test": "retained_nvdec_matches_software",
+    "prerequisite": "requires NVIDIA CUDA/NVDEC and FFmpeg CUDA support",
+    "group": "native-helper-or-external-fixture"
+  },
+  {
+    "path": "crates/motion/src/ui/presentation_render.rs",
+    "line": 6,
+    "test": "shared_network_capture",
+    "prerequisite": "requires GPU; writes /tmp/fold-motion-network.ppm",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/motion/src/ui/presentation_render.rs",
+    "line": 11,
+    "test": "presentation_inspector_capture",
+    "prerequisite": "requires GPU; writes /tmp/fold-motion-presentation.ppm",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/motion/src/ui/presentation_render.rs",
+    "line": 16,
+    "test": "literal_inspector_capture",
+    "prerequisite": "requires GPU; writes /tmp/fold-motion-literals.ppm",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/motion/src/ui/presentation_render.rs",
+    "line": 21,
+    "test": "instance_inspector_capture",
+    "prerequisite": "requires GPU; writes /tmp/fold-motion-instances.ppm",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/motion/src/ui/presentation_render.rs",
+    "line": 26,
+    "test": "typed_key_inspector_capture",
+    "prerequisite": "requires GPU; writes /tmp/fold-motion-typed-keys.ppm",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/motion/src/ui/presentation_render.rs",
+    "line": 31,
+    "test": "override_key_inspector_capture",
+    "prerequisite": "requires GPU; writes /tmp/fold-motion-override-keys.ppm",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/motion/src/ui/presentation_render.rs",
+    "line": 36,
+    "test": "instance_menu_capture",
+    "prerequisite": "requires GPU; writes /tmp/fold-motion-instance-menu.ppm",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/motion/src/ui/presentation_render.rs",
+    "line": 41,
+    "test": "scene_panels_capture",
+    "prerequisite": "requires GPU; writes /tmp/fold-motion-scene.ppm",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/motion/src/ui/presentation_render.rs",
+    "line": 46,
+    "test": "wrangle_inspector_capture",
+    "prerequisite": "requires GPU; writes /tmp/fold-motion-wrangle.ppm",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/src/gpu/cache_tests.rs",
+    "line": 6,
+    "test": "native_bc7_unavailable_features_and_allocation_pressure_leave_host_usable",
+    "prerequisite": "requires native Vulkan",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/src/gpu/cache_tests.rs",
+    "line": 37,
+    "test": "native_bc7_padding_sampling_and_lifetimes",
+    "prerequisite": "requires native Vulkan BC7 support",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/src/gpu/native_video.rs",
+    "line": 147,
+    "test": "acquire_retains_cache_ineligible_and_cleared_inputs_until_completion",
+    "prerequisite": "requires NVIDIA GPU and native helper",
+    "group": "native-helper-or-external-fixture"
+  },
+  {
+    "path": "crates/render/src/gpu/native_video.rs",
+    "line": 187,
+    "test": "gpu_cache_hit_does_not_recount_native_telemetry",
+    "prerequisite": "requires native helper; retained inputs must not recount helper work",
+    "group": "native-helper-or-external-fixture"
+  },
+  {
+    "path": "crates/render/src/gpu/native_video.rs",
+    "line": 231,
+    "test": "destroyed_parent_device_is_rejected_before_native_launch",
+    "prerequisite": "requires Vulkan; explicitly destroys parent device, not driver fault injection",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/src/gpu/precision.rs",
+    "line": 188,
+    "test": "rgba16_signed_hdr_range_and_overflow",
+    "prerequisite": "requires a native Vulkan adapter",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/src/gpu/presentation.rs",
+    "line": 173,
+    "test": "native_presentation_roundtrip_reuses_staging_and_preserves_bc7",
+    "prerequisite": "requires native Vulkan BC7 support",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/src/gpu/submission.rs",
+    "line": 108,
+    "test": "cancellation_before_submission_releases_encoded_leases",
+    "prerequisite": "requires native Vulkan",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/src/gpu/submission.rs",
+    "line": 126,
+    "test": "inflight_cancellation_and_device_failure_release_completion_owned_leases",
+    "prerequisite": "requires native Vulkan",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/src/gpu/submission.rs",
+    "line": 159,
+    "test": "preview_export_contention_cancellation_and_device_failure_release_admission",
+    "prerequisite": "requires native Vulkan",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/src/gpu/vector_tests.rs",
+    "line": 8,
+    "test": "native_float_coverage_matches_reference_without_full_image_upload",
+    "prerequisite": "requires native Vulkan",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/src/gpu/vector_tests.rs",
+    "line": 99,
+    "test": "unconfigured_vectors_stay_on_gpu_with_float_coverage",
+    "prerequisite": "requires native Vulkan",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/src/gpu/vector_tests.rs",
+    "line": 202,
+    "test": "native_instances_keep_order_across_tile_words_and_reuse_only_static_geometry",
+    "prerequisite": "requires native Vulkan",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/src/gpu/vector_tests.rs",
+    "line": 242,
+    "test": "native_repeated_geometry_exceeds_old_triangle_limit_without_repeated_uploads",
+    "prerequisite": "requires native Vulkan",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/src/gpu/vector_tests.rs",
+    "line": 277,
+    "test": "native_abandoned_encoder_and_budget_failure_leave_reusable_pipeline",
+    "prerequisite": "requires native Vulkan",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/src/gpu/vector_tests.rs",
+    "line": 315,
+    "test": "native_extreme_coordinates_use_clipped_preparation_and_remain_equivalent",
+    "prerequisite": "requires native Vulkan",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/src/gpu/vector_tests.rs",
+    "line": 369,
+    "test": "native_extreme_curves_holes_and_invisible_paints_use_retained_coverage",
+    "prerequisite": "requires native Vulkan",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/src/gpu/vector_tests.rs",
+    "line": 415,
+    "test": "native_retained_gpu_atlas_does_not_pin_evicted_cpu_geometry",
+    "prerequisite": "requires native Vulkan",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/src/gpu/yuv_layout_tests.rs",
+    "line": 4,
+    "test": "padded_nv12_is_equivalent_to_planar_and_rejects_out_of_bounds_layout",
+    "prerequisite": "requires native Vulkan",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/src/gpu/yuv_layout_tests.rs",
+    "line": 102,
+    "test": "p010_preserves_low_ten_bit_samples",
+    "prerequisite": "requires Vulkan",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/src/gpu/yuv_tests.rs",
+    "line": 4,
+    "test": "native_yuv_reconstruction_matches_float_reference",
+    "prerequisite": "requires native Vulkan and FFmpeg",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/src/gpu/yuv_tests.rs",
+    "line": 86,
+    "test": "high_precision_chroma_and_alpha_match_cpu",
+    "prerequisite": "requires Vulkan",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/tests/aces.rs",
+    "line": 4,
+    "test": "aces_working_values_input_and_explicit_output",
+    "prerequisite": "requires the privately built OCIO package; set FOLD_TEST_COLOR_ROOT",
+    "group": "packaged-color-runtime"
+  },
+  {
+    "path": "crates/render/tests/baked.rs",
+    "line": 77,
+    "test": "baked_image_sampling_matches_cpu_at_multiple_sizes_and_reuses_uploads",
+    "prerequisite": "requires Vulkan, including software Vulkan",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/tests/camera_plane_gpu.rs",
+    "line": 12,
+    "test": "camera_planes_match_declared_pixel_bounds_and_share_world_depth",
+    "prerequisite": "requires a native Vulkan adapter",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/tests/camera_plane_gpu.rs",
+    "line": 161,
+    "test": "camera_plane_oblique_views_match_ray_plane_coverage_and_clipping",
+    "prerequisite": "requires a native Vulkan adapter",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/tests/channels.rs",
+    "line": 92,
+    "test": "gpu_channel_gather_and_mask_match_cpu_with_shared_inputs",
+    "prerequisite": "requires a native GPU",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/tests/channels.rs",
+    "line": 192,
+    "test": "gpu_grade_merge_modes_and_data_visualization_match_cpu",
+    "prerequisite": "requires a native GPU",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/tests/channels.rs",
+    "line": 296,
+    "test": "gpu_fractional_sampling_and_gaussian_match_reference",
+    "prerequisite": "requires native GPU",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/tests/channels.rs",
+    "line": 396,
+    "test": "gpu_unary_operations_match_reference",
+    "prerequisite": "requires native GPU",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/tests/channels.rs",
+    "line": 440,
+    "test": "gpu_gaussian_stripes_match_cpu_for_borders_large_kernels_and_partial_groups",
+    "prerequisite": "requires native GPU",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/tests/efficiency.rs",
+    "line": 89,
+    "test": "render_efficiency_profile",
+    "prerequisite": "release native GTX 1070 profile, pinned OCIO and two video fixtures",
+    "group": "native-helper-or-external-fixture"
+  },
+  {
+    "path": "crates/render/tests/gpu.rs",
+    "line": 67,
+    "test": "native_operators_lifetimes_and_budgets",
+    "prerequisite": "requires a native Vulkan adapter",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/tests/gpu.rs",
+    "line": 189,
+    "test": "native_aces_signed_hdr_and_alpha",
+    "prerequisite": "requires native Vulkan and FOLD_TEST_COLOR_ROOT",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/tests/gpu.rs",
+    "line": 262,
+    "test": "agent_presentation_capture_matches_rgba_and_decodes_compressed_cache",
+    "prerequisite": "requires a native Vulkan adapter",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/tests/gpu_adapters.rs",
+    "line": 9,
+    "test": "native_nested_sources_vectors_and_scratch_upload_order",
+    "prerequisite": "requires a native Vulkan adapter",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/tests/gpu_color.rs",
+    "line": 8,
+    "test": "native_ocio_display_luts_alpha_and_output_identity",
+    "prerequisite": "requires native Vulkan and the private GPU OCIO package",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/tests/gpu_color.rs",
+    "line": 149,
+    "test": "prores_xq_alpha_matches_cpu_through_aces_and_over",
+    "prerequisite": "requires Vulkan, FFmpeg and FOLD_TEST_COLOR_ROOT",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/tests/gpu_fusion.rs",
+    "line": 8,
+    "test": "opacity_over_preserves_pixels_branches_and_validation",
+    "prerequisite": "requires native Vulkan and pinned OCIO runtime",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/tests/gpu_scheduling.rs",
+    "line": 11,
+    "test": "video_prepares_while_graphics_is_busy_and_cancels_its_wait",
+    "prerequisite": "requires native GPU/helper, source fixture and pinned OCIO runtime",
+    "group": "native-helper-or-external-fixture"
+  },
+  {
+    "path": "crates/render/tests/host_gpu.rs",
+    "line": 6,
+    "test": "concurrent_gpu_host_creation",
+    "prerequisite": "requires a native Vulkan adapter",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/tests/precision_gpu.rs",
+    "line": 19,
+    "test": "rgba16_preserves_scene_metadata_pixels_and_ownership",
+    "prerequisite": "requires a native Vulkan adapter",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/tests/regions.rs",
+    "line": 182,
+    "test": "gpu_regions_match_full_frame_and_keep_display_cropped",
+    "prerequisite": "requires a native Vulkan adapter",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/tests/regions.rs",
+    "line": 233,
+    "test": "gpu_region_reduces_working_memory_without_source_supersampling",
+    "prerequisite": "requires Vulkan",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/tests/sampling.rs",
+    "line": 36,
+    "test": "downsampling_preserves_stripe_energy_in_linear_light",
+    "prerequisite": "requires FFmpeg",
+    "group": "ffmpeg"
+  },
+  {
+    "path": "crates/render/tests/sampling.rs",
+    "line": 99,
+    "test": "gpu_reconstruction_matches_cpu_for_odd_sizes_enlargement_and_regions",
+    "prerequisite": "requires Vulkan",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/tests/sampling.rs",
+    "line": 149,
+    "test": "aces_video_filtering_precedes_display_and_matches_cpu",
+    "prerequisite": "requires Vulkan, FFmpeg and FOLD_TEST_COLOR_ROOT",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/tests/shader.rs",
+    "line": 30,
+    "test": "native_shader_parameters_errors_and_recovery",
+    "prerequisite": "requires a native Vulkan adapter",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/tests/spatial_gpu.rs",
+    "line": 11,
+    "test": "retained_text_mesh_and_extrusion_match_vector_interiors_and_depth",
+    "prerequisite": "requires a native Vulkan adapter",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/tests/spatial_gpu.rs",
+    "line": 167,
+    "test": "spatial_retains_resources_and_immutable_revision_bound_frames",
+    "prerequisite": "requires a native Vulkan adapter",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/tests/spatial_gpu.rs",
+    "line": 392,
+    "test": "spatial_depth_is_bound_immutable_and_uses_declared_reverse_z",
+    "prerequisite": "requires a native Vulkan adapter",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/tests/spatial_gpu.rs",
+    "line": 489,
+    "test": "spatial_depth_follows_camera_updates",
+    "prerequisite": "requires a native Vulkan adapter",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/tests/spatial_gpu.rs",
+    "line": 522,
+    "test": "spatial_image_source_composites_without_readback_and_retains_source_precision",
+    "prerequisite": "requires a native Vulkan adapter",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/tests/spatial_gpu.rs",
+    "line": 693,
+    "test": "spatial_aces_conversion_matches_cpu_processor_and_preserves_alpha",
+    "prerequisite": "requires native Vulkan and the private OCIO package",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/tests/spatial_gpu.rs",
+    "line": 803,
+    "test": "orthographic_projected_bounds_depth_clipping_and_retained_frames",
+    "prerequisite": "requires a native Vulkan adapter",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/tests/spatial_gpu.rs",
+    "line": 893,
+    "test": "affine_shear_matches_explicit_geometry_and_retains_meshes",
+    "prerequisite": "requires a native Vulkan adapter",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/tests/text_gpu.rs",
+    "line": 13,
+    "test": "retained_text_outlines_match_cpu_across_zoom_alpha_and_paint_order",
+    "prerequisite": "requires a native Vulkan adapter",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/render/tests/text_gpu.rs",
+    "line": 146,
+    "test": "vector_fill_rules_strokes_and_rectangular_clip_match_reference",
+    "prerequisite": "requires a native Vulkan adapter",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/timeline/src/ui/render_tests.rs",
+    "line": 6,
+    "test": "timeline_normal_and_narrow",
+    "prerequisite": "native UI capture to /tmp/fold-timeline-ui",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/ui/src/document_settings_tests.rs",
+    "line": 126,
+    "test": "settings_native_normal_and_narrow",
+    "prerequisite": "native capture; writes /tmp/fold-settings-ui",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/ui/src/graph_canvas/render_tests.rs",
+    "line": 7,
+    "test": "graph_typography_renders_across_zoom_dpi_and_ui_scale",
+    "prerequisite": "requires native GPU; writes review captures to /tmp/fold-node-ui",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/ui/src/preview_gpu_tests.rs",
+    "line": 61,
+    "test": "real_textures_hold_until_replacement_and_remain_protected_under_pressure",
+    "prerequisite": "requires native GPU; run explicitly with --ignored --test-threads=1",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/ui/src/preview_gpu_tests.rs",
+    "line": 297,
+    "test": "native_range_spills_beyond_gpu_and_replays_without_render_demands",
+    "prerequisite": "requires native GPU; tiered preparation and graph-free replay",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/ui/src/preview_retention.rs",
+    "line": 537,
+    "test": "native_bc7_ram_disk_restart_clear_and_gpu_only_transfers",
+    "prerequisite": "requires native Vulkan BC7 support",
+    "group": "native-gpu-or-offscreen-ui"
+  },
+  {
+    "path": "crates/ui/src/settings_tests.rs",
+    "line": 77,
+    "test": "playback_settings_native_normal_and_narrow",
+    "prerequisite": "native capture; writes /tmp/fold58-settings-ui",
+    "group": "native-gpu-or-offscreen-ui"
+  }
+]

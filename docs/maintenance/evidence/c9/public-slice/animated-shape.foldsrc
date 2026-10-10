@@ -1,0 +1,40 @@
+motion 1;
+seed 20261008;
+canvas {"width":1920,"height":1080,"rate":[24,1],"start":{"numerator":0,"denominator":1},"end":{"numerator":4,"denominator":1}};
+asset "Animated shape" @{"id":"493de4e4-2a6f-4004-8d09-b9be1b4dcbf4"} {
+  input "size" @{"id":"db504cae-deff-4196-b654-2e6834096a87","protected":false} : {"kind":"distance","unit":"canvas"} = 100px;
+  input "accent" @{"id":"963fc839-5ec4-4b13-b290-5095dd314c14","protected":false} : {"kind":"color","encoding":"linear_rec709","alpha":"straight"} = literal({"kind":"color","value":[1.0,0.0,0.0,1.0],"encoding":"linear_rec709","alpha":"straight"});
+  input "count" @{"id":"4e0a21b5-a5a4-43a0-be82-c98ee6b10ca6","protected":true} : {"kind":"integer"} = 1i;
+  let "width" @{"id":"8108125a-84b2-475a-b5b1-39b498d73301"} = "fold.motion.expression"."value" @1 (
+    "value" @{"id":"a30a56b6-9719-489c-818e-47975e9adb58","protected":false} = expr(($"size" @{"id":"cd86d9da-35c7-4b99-bc24-c75e1667d82e"} * 2));
+  );
+  let "profile" @{"id":"1eb0c431-07d7-4489-9735-7781fe0665c2"} = "fold.motion.shape"."rectangle" @1 (
+    "height" @{"id":"dcc51b41-41c8-4729-a04f-6cdde92f5477","protected":false} = link($"size" @{"id":"5010aa02-e771-4db1-8945-401f162d37ad"});
+    "width" @{"id":"df824fef-2a61-4c4a-930a-bbffe33eb199","protected":false} = link($"width" @{"id":"5e9b65f2-31a2-4451-9b15-55a6d795876f"});
+  );
+  let "entrance" @{"id":"41d0a4a6-2930-4a3d-a409-6f5117ba1657"} = "fold.motion.tween"."linear" @1 (
+    "duration" @{"id":"aca3e7cf-559e-4d59-84af-098faeb1f407","protected":false} = value(literal({"kind":"duration","value":{"numerator":3,"denominator":5}}));
+    "from" @{"id":"43eb45b1-44b6-46a4-b601-967bbe70755a","protected":false} = value(literal({"kind":"vector","value":[0.0,80.0],"unit":"canvas","space":"screen"}));
+    "start" @{"id":"2cfa4570-0ab6-4629-a332-dc392212a7c8","protected":false} = value(literal({"kind":"duration","value":{"numerator":0,"denominator":1}}));
+    "time" @{"id":"3628152d-50b6-49a7-b98c-ce67013e4a69","protected":false} = expr(time.asset);
+    "to" @{"id":"40ebf2d0-2b8f-47d6-acd2-57c3bcaf61dd","protected":false} = value(literal({"kind":"vector","value":[0.0,0.0],"unit":"canvas","space":"screen"}));
+  );
+  let "opacity" @{"id":"66f9c66f-48b7-4bc9-a8e8-acdae3f417e1"} = "fold.motion.keyframes"."value" @1 (
+    "time" @{"id":"7dab0f1a-d4c4-4a97-8755-ee33f617067e","protected":false} = expr(time.asset);
+    "track" @{"id":"367d7ebc-7a48-41bd-9c91-1eeb0f606aa1","protected":false} = track({"id":"6d2e88ba-9699-4747-be4b-407587d30a6c","ty":{"kind":"scalar"},"keys":[{"id":"9435867a-901e-44ee-85bc-3cbc4d9289e0","time":{"numerator":0,"denominator":1},"value":{"kind":"scalar","value":0.0},"interpolation":"linear"},{"id":"836e9c85-a23f-4e39-a03e-b1bd4c33f47b","time":{"numerator":1,"denominator":2},"value":{"kind":"scalar","value":1.0},"interpolation":"linear"},{"id":"9a383934-356d-410a-af32-3cb5d93c3ae8","time":{"numerator":1,"denominator":1},"value":{"kind":"scalar","value":0.5},"interpolation":"linear"}],"combination":"replace"});
+  );
+  let "placement" @{"id":"b3dad16e-6dbb-4db0-8c41-b642a760c9ed"} = "fold.motion.place"."screen" @1 (
+    "geometry" @{"id":"9bfdb09b-cc5b-4d74-9574-a8fcf794feb2","protected":false} = link($"profile" @{"id":"abd321ff-9cc1-401b-96d8-241267b4ea2d"});
+    "opacity" @{"id":"62932a05-ff7d-4d95-844e-fa3aee7ae0e1","protected":false} = link($"opacity" @{"id":"c61aec47-d097-41ae-baf7-ce88f89f7ef9"});
+    "position" @{"id":"78c514f7-946c-4da5-845c-5fb013bffaf0","protected":false} = link($"entrance" @{"id":"66cd27c2-8c3d-47ca-a76e-6e2b66f75328"});
+  );
+  let "scene" @{"id":"2a603d04-09aa-4f6a-9c30-92adf97c846c"} = "fold.motion.scene"."ordered" @1 (
+    "children" @{"id":"d017d102-133a-42f3-bbef-9cf54285c39a","protected":false} = list[link($"placement" @{"id":"9555b12a-e411-43f5-938c-84b70e0e0cc1"})];
+  );
+  output "main" @{"id":"1272ba76-435d-434d-b053-aa89273f3338"} : {"kind":"scene"} = $"scene" @{"id":"7c0c3af9-c74b-4544-83e3-93b3c8003051"};
+}
+root "main" @{"id":"339fcddb-b4f3-4eb2-8e5d-9d0152d44125"} = "Animated shape" clock {"offset":{"numerator":0,"denominator":1},"rate":{"numerator":1,"denominator":1}} {
+  "accent" @{"id":"6c7f77f0-93ee-496b-aa92-ede1bf988ea8","protected":false} = value(literal({"kind":"color","value":[0.0,0.0,1.0,1.0],"encoding":"linear_rec709","alpha":"straight"}));
+};
+presentation {"positions":{"1eb0c431-07d7-4489-9735-7781fe0665c2":[320.0,180.0]},"groups":[],"annotations":{"1eb0c431-07d7-4489-9735-7781fe0665c2":"Retain authored layout"}};
+extensions {"vendor_capture":{"opaque":[1,{"future":true}]}};

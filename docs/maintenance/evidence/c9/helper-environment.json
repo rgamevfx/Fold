@@ -1,0 +1,15 @@
+{
+  "root": "/home/rgame/Documents/fold-native-pipeline/native-worker/runtime",
+  "helper": "/home/rgame/.codex/worktrees/efc8/Fold/target/debug/fold-video-helper",
+  "ld_library_path": "/home/rgame/Documents/fold-native-pipeline/native-worker/runtime/lib",
+  "hashes": {
+    "/home/rgame/Documents/fold-native-pipeline/native-worker/runtime/share/fold-video/runtime.json": "80a5dacc87d291e7eb11fe7ebdb9e6f39b28410affc1c154f7428562337a4b1c",
+    "/home/rgame/Documents/fold-native-pipeline/native-worker/runtime/lib/libavcodec.so.60": "fc3281d0925cacdd27fdc93abae0a3df20fa0a68ed4f8d38c7d73d4e9736d025",
+    "/home/rgame/Documents/fold-native-pipeline/native-worker/runtime/lib/libavcodec.so.60.31.102": "fc3281d0925cacdd27fdc93abae0a3df20fa0a68ed4f8d38c7d73d4e9736d025",
+    "/home/rgame/Documents/fold-native-pipeline/native-worker/runtime/lib/libavformat.so.60": "f5ee38ef16261e914cbe8b171943c5539b243497863bcf4a920e4beb1805e326",
+    "/home/rgame/Documents/fold-native-pipeline/native-worker/runtime/lib/libavformat.so.60.16.100": "f5ee38ef16261e914cbe8b171943c5539b243497863bcf4a920e4beb1805e326",
+    "/home/rgame/Documents/fold-native-pipeline/native-worker/runtime/lib/libavutil.so.58": "9f211667100730891c51f019c6bfa623703db118ee6265fcfb88bd5ab5515f8d",
+    "/home/rgame/Documents/fold-native-pipeline/native-worker/runtime/lib/libavutil.so.58.29.100": "9f211667100730891c51f019c6bfa623703db118ee6265fcfb88bd5ab5515f8d",
+    "/home/rgame/.codex/worktrees/efc8/Fold/target/debug/fold-video-helper": "8dc81f8641bc7bc640e47f8d63a2e5730129c622dafab3620349dc77b8868b87"
+  }
+}
