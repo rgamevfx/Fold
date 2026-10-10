@@ -696,9 +696,20 @@ owner-ID chain and map exact root time through source clocks and canvas starts. 
 and sampling run on workers through CLI/MCP. These read operations do not enable
 cross-document expression bindings. The universal phase is not complete. Shared
 cross-provider expression/dependency bindings, complete feature binding storage and
-reusable-effect occurrence support, full Compositor binding support, complete component/instance Inspector editing, and full
+reusable-effect occurrence support, nonnumeric Compositor binding support, complete component/instance Inspector editing, and full
 artist/export acceptance remain required. No deferral
 of that scope is approved. See [M5c continuation evidence](rewrite/evidence/m5c-result.md).
+
+**Compositor numeric binding slice — 10 October 2026:** Same-document numeric
+components, Mix and shader controls now accept shared `Binding::Link` and
+`Binding::Expression` records alongside tracks. Public author edits, parameter
+sampling and render compilation use the same graph resolver and bounded shared
+expression evaluator, including transform shutter sampling. Component context
+menus expose copy/reference/expression/source/removal actions; invalid drafts stay
+local. Parameter and node hover tooltips were removed at the artist's direction.
+[Implementation, focused checks and native captures](rewrite/evidence/compositor-parameter-links/result.md)
+record this slice. This does not close M5c: cross-provider bindings, enum/boolean
+configuration expressions and the remaining universal acceptance are still open.
 
 ### M6 — Incremental execution, performance and observation
 
@@ -755,6 +766,21 @@ of that scope is approved. See [M5c continuation evidence](rewrite/evidence/m5c-
 - Run the workspace checkpoint and supported platform/package checks. Separate new regressions from inherited failures; a relevant unresolved failure blocks release acceptance.
 
 **Gate:** One implementation and protocol serve all supported motion workflows; zero executable legacy motion paths or shims remain. Every claimed capability links to fresh acceptance evidence, and every limitation is explicit. The app is artist-editable and agent-authorable after save/reopen, with consistent preview/export behavior.
+
+### User-directed compositor node overhaul — first set (10 October)
+
+- Grade, Transform and Blur now expose only v3 contracts; Shuffle's inspector is
+  replaced around its existing named-channel contract. Compact component controls,
+  Grade clamps/inversion, two-axis skew/shutter sampling and Gaussian/Box filtering
+  use the shared authoring and CPU/GPU evaluation paths. Superseded UI and the
+  Gaussian-only compositor configuration are removed; no legacy shim was added.
+- [First-set evidence](rewrite/evidence/compositor-nodes-first-set/result.md)
+  records focused checks, native normal/narrow captures, public-tool demo rebuilds
+  and removal scope. Three affected shipped fixtures use the new Grade record.
+- The fixed composition raster still bounds processing; prototype data-window
+  expansion is not implemented. Shutter sampling is transform-local. Automated
+  evidence is distinct from physical artist acceptance. Existing Motion phase
+  statuses and gates remain open as recorded above.
 
 ## 4. Validation discipline
 

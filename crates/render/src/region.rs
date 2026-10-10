@@ -96,8 +96,8 @@ impl Plan {
                     height: dimensions[1],
                 },
                 ImageOp::Blur { radius, .. } => output.expand([*radius; 2], dimensions),
-                ImageOp::Gaussian { size, .. } => output.expand(
-                    size.map(|s| (crate::operations::gaussian_weights(s).len() / 2) as u32),
+                ImageOp::FilteredBlur { size, filter, .. } => output.expand(
+                    size.map(|s| (filter.weights(s).len() / 2) as u32),
                     dimensions,
                 ),
                 ImageOp::Transform { transform, .. } | ImageOp::Resample { transform, .. } => {

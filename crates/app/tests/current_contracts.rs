@@ -81,7 +81,7 @@ fn compositor_catalog_exposes_only_current_operation_generations() {
             .filter(|op| op.id == name)
             .map(|op| op.version)
             .collect();
-        assert_eq!(versions, [2]);
+        assert_eq!(versions, [if name == "Merge" { 2 } else { 3 }]);
     }
 }
 
@@ -99,7 +99,7 @@ fn retired_operation_records_roundtrip_without_execution() {
             .find(|op| op.id == name)
             .unwrap();
         let mut node = fold_compositor::Node::disconnected(operator.defaults(&info).unwrap());
-        node.operation.version = 1;
+        node.operation.version = if name == "Merge" { 1 } else { 2 };
         assert!(node.prepare().is_err());
         let encoded = serde_json::to_vec(&node).unwrap();
         let decoded: fold_compositor::Node = serde_json::from_slice(&encoded).unwrap();

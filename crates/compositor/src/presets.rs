@@ -74,7 +74,8 @@ pub fn create(preset: Preset, id: DocumentId) -> Result<fold_project::Document, 
                 controls.push(c);
             }
             let blur = Node::new(
-                P::GaussianBlur {
+                P::Blur {
+                    filter: Default::default(),
                     size: [16.; 2],
                     edges: fold_render::operations::Edges::Transparent,
                 },

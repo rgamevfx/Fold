@@ -100,7 +100,7 @@ impl OperationConfig {
                 )],
                 _ => vec![],
             },
-            Self::GaussianBlur { size, .. } => vec![property(
+            Self::Blur { size, .. } => vec![property(
                 "size",
                 "Size",
                 "px",
@@ -111,7 +111,7 @@ impl OperationConfig {
             Self::TransformImage { settings } => vec![
                 property(
                     "position",
-                    "Position",
+                    "Translate",
                     "px",
                     &["X", "Y"],
                     settings.translate.into(),
@@ -134,23 +134,38 @@ impl OperationConfig {
                     None,
                 ),
                 property(
+                    "skew_x",
+                    "Skew X",
+                    "°",
+                    &["Value"],
+                    vec![settings.skew[0]],
+                    Some([-89., 89.]),
+                ),
+                property(
+                    "skew_y",
+                    "Skew Y",
+                    "°",
+                    &["Value"],
+                    vec![settings.skew[1]],
+                    Some([-89., 89.]),
+                ),
+                property(
                     "pivot",
-                    "Pivot",
+                    "Center",
                     "px",
                     &["X", "Y"],
                     settings.pivot.into(),
                     None,
                 ),
-                property("skew", "Skew", "", &["Value"], vec![settings.skew], None),
             ],
             Self::ColorGrade { settings } => [
                 ("black", "Black point", settings.black),
                 ("white", "White point", settings.white),
-                ("gain", "Gain", settings.gain),
-                ("gamma", "Gamma", settings.gamma),
-                ("offset", "Offset", settings.offset),
                 ("lift", "Lift", settings.lift),
+                ("gain", "Gain", settings.gain),
                 ("multiply", "Multiply", settings.multiply),
+                ("offset", "Offset", settings.offset),
+                ("gamma", "Gamma", settings.gamma),
             ]
             .into_iter()
             .map(|(id, label, values)| {
@@ -232,14 +247,15 @@ impl OperationConfig {
                 *minimum = *a as f32;
                 *maximum = *b as f32;
             }
-            (Self::GaussianBlur { size, .. }, "size", [x, y]) => *size = [*x as f32, *y as f32],
+            (Self::Blur { size, .. }, "size", [x, y]) => *size = [*x as f32, *y as f32],
             (Self::TransformImage { settings }, "position", [x, y]) => {
                 settings.translate = [*x, *y]
             }
             (Self::TransformImage { settings }, "scale", [x, y]) => settings.scale = [*x, *y],
             (Self::TransformImage { settings }, "pivot", [x, y]) => settings.pivot = [*x, *y],
             (Self::TransformImage { settings }, "rotate", [value]) => settings.rotate = *value,
-            (Self::TransformImage { settings }, "skew", [value]) => settings.skew = *value,
+            (Self::TransformImage { settings }, "skew_x", [value]) => settings.skew[0] = *value,
+            (Self::TransformImage { settings }, "skew_y", [value]) => settings.skew[1] = *value,
             (Self::ColorGrade { settings }, id, [r, g, b]) => {
                 let target = match id {
                     "black" => &mut settings.black,
@@ -302,15 +318,6 @@ impl Node {
     }
 }
 impl crate::PreparedNode<'_> {
-    pub fn evaluated_effect(&self, time: Time) -> Result<crate::Effect, String> {
-        let mut effect = self.effect.clone();
-        if let Some(value) = self.tracks().sample("mix.0", time)? {
-            effect.mix = value as f32;
-        }
-        effect.validate()?;
-        Ok(effect)
-    }
-
     pub fn animated_properties(&self) -> Vec<Property> {
         let mut properties = self.config().animated_properties();
         if self.config().operator().supports_effect() {
@@ -325,27 +332,10 @@ impl crate::PreparedNode<'_> {
         }
         properties
     }
-    pub fn evaluated_parameters(&self, time: Time) -> Result<OperationConfig, String> {
-        let mut parameters = self.config().clone();
-        for mut property in parameters.animated_properties() {
-            let mut animated = false;
-            for (i, value) in property.values.iter_mut().enumerate() {
-                if let Some(sample) = self.tracks().sample(&path(&property.id, i), time)? {
-                    *value = sample;
-                    animated = true;
-                }
-            }
-            if animated {
-                parameters.set_property(&property.id, &property.values)?;
-            }
-        }
-        parameters.validate()?;
-        Ok(parameters)
-    }
     pub fn validate_animation(&self) -> Result<(), String> {
         // Track decoding/identity validation already ran during preparation.
         // Without tracks there are no paths to check against the property schema.
-        if self.tracks().len() == 0 {
+        if self.channels().len() == 0 {
             return Ok(());
         }
         let available: BTreeMap<_, _> = self
@@ -353,7 +343,7 @@ impl crate::PreparedNode<'_> {
             .into_iter()
             .flat_map(|p| (0..p.values.len()).map(move |i| (path(&p.id, i), p.range)))
             .collect();
-        for path in self.tracks().paths() {
+        for path in self.channels().paths() {
             if !available.contains_key(path) {
                 return Err(format!("Unknown animation channel {path}"));
             }

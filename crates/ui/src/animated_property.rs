@@ -3,7 +3,6 @@
 use crate::sdk::{
     EditResponse,
     imgui::{Drag, DragFlags, Key, MouseButton, Ui},
-    toolbar::tooltip,
 };
 use fold_animation::Curve;
 use fold_foundation::Time;
@@ -96,14 +95,73 @@ impl AnimatedProperty<'_> {
         response: &mut EditResponse,
         menu: &mut dyn FnMut(&Ui),
     ) {
+        self.draw_controls(
+            ui,
+            base,
+            channels,
+            time,
+            auto_key,
+            response,
+            &mut |ui, _| menu(ui),
+            None,
+            false,
+            &[],
+        );
+    }
+
+    /// Render immutable driven samples beside editable component controls.
+    pub fn draw_compact(
+        &self,
+        ui: &Ui,
+        base: &mut [f64],
+        channels: &mut BTreeMap<String, Curve>,
+        time: Time,
+        auto_key: bool,
+        response: &mut EditResponse,
+        menu: &mut dyn FnMut(&Ui, Option<usize>),
+        split: Option<&mut bool>,
+        bound: &[Option<f64>],
+    ) {
+        self.draw_controls(
+            ui, base, channels, time, auto_key, response, menu, split, true, bound,
+        );
+    }
+
+    fn draw_controls(
+        &self,
+        ui: &Ui,
+        base: &mut [f64],
+        channels: &mut BTreeMap<String, Curve>,
+        time: Time,
+        auto_key: bool,
+        response: &mut EditResponse,
+        menu: &mut dyn FnMut(&Ui, Option<usize>),
+        mut split: Option<&mut bool>,
+        compact: bool,
+        bound: &[Option<f64>],
+    ) {
         let _id = ui.push_id(self.id);
+        if bound.iter().any(Option::is_some) {
+            if let Some(split) = split.as_mut() {
+                **split = true;
+            }
+        }
+        let combined = split.as_ref().is_some_and(|split| !**split);
         let paths: Vec<_> = (0..base.len())
             .map(|i| format!("{}.{i}", self.id))
             .collect();
         let values: Vec<_> = paths
             .iter()
             .zip(base.iter())
-            .map(|(p, b)| channels.get(p).and_then(|c| c.sample(time)).unwrap_or(*b))
+            .enumerate()
+            .map(|(i, (p, b))| {
+                bound
+                    .get(i)
+                    .copied()
+                    .flatten()
+                    .or_else(|| channels.get(p).and_then(|c| c.sample(time)))
+                    .unwrap_or(*b)
+            })
             .collect();
         let animated = paths.iter().any(|p| channels.contains_key(p));
         let keyed = paths
@@ -113,7 +171,17 @@ impl AnimatedProperty<'_> {
         let start = ui.cursor_screen_pos();
         let height = ui.frame_height();
         let width = ui.content_region_avail()[0];
-        let label_width = (width * 0.36).clamp(height, 120.);
+        let label_width = if compact {
+            (width * 0.30).clamp(height, 96.)
+        } else {
+            (width * 0.36).clamp(height, 120.)
+        };
+        let toggle_width = if split.is_some() {
+            height + ui.clone_style().item_spacing()[0]
+        } else {
+            0.
+        };
+        let width = width - toggle_width;
         ui.invisible_button_flags(
             "label",
             [label_width, height],
@@ -139,10 +207,11 @@ impl AnimatedProperty<'_> {
                 if let Some(aces) = self.color
                     && let Ok(mut color) = <[f64; 4]>::try_from(values.as_slice())
                 {
-                    let locked = paths
-                        .iter()
-                        .any(|p| channels.get(p).is_some_and(|c| c.at(time).is_none()))
-                        && !auto_key;
+                    let locked = bound.iter().any(Option::is_some)
+                        || paths
+                            .iter()
+                            .any(|p| channels.get(p).is_some_and(|c| c.at(time).is_none()))
+                            && !auto_key;
                     let _disabled = locked.then(|| ui.begin_disabled());
                     let before = color;
                     let mut edit = EditResponse::default();
@@ -166,7 +235,7 @@ impl AnimatedProperty<'_> {
         if let Some(_popup) = ui.begin_popup_context_item() {
             group = menu_items(ui, keyed, animated).or(group);
             interpolation_menu(ui, &paths, channels, response);
-            menu(ui);
+            menu(ui, None);
             if self.color.is_some()
                 && let Some(_picker) = ui.begin_menu("Color picker")
             {
@@ -176,23 +245,7 @@ impl AnimatedProperty<'_> {
         if let Some(_picker) = ui.begin_popup("color-picker") {
             edit_color(ui, channels, response);
         }
-        tooltip(
-            ui,
-            &format!(
-                "{}{} — Alt-click to key all components; right-click for animation{}",
-                self.label,
-                if self.unit.is_empty() {
-                    String::new()
-                } else {
-                    format!(" ({})", self.unit)
-                },
-                if self.color.is_some() {
-                    "; click label or swatch for color"
-                } else {
-                    ""
-                }
-            ),
-        );
+
         let draw = ui.get_window_draw_list();
         let colors = crate::sdk::EditorColors::from_ui(ui);
         if label_focused {
@@ -268,37 +321,83 @@ impl AnimatedProperty<'_> {
             .iter()
             .map(|name| ui.calc_text_size(format!("{name} 0.000"))[0] + 12.)
             .fold(0., f32::max);
+        let count = if combined { 1 } else { base.len() };
         let mut columns =
-            (((width - label_width) / (minimum + spacing)).floor() as usize).clamp(1, base.len());
+            (((width - label_width) / (minimum + spacing)).floor() as usize).clamp(1, count);
+        let below = split.is_some()
+            && !combined
+            && count > 1
+            && (width - label_width - spacing * count as f32) / (count as f32) < minimum;
+        if split.is_some() && !combined && count <= 3 {
+            columns = count;
+        }
         if base.len() == 4 && columns == 3 {
             columns = 2;
         }
-        let component_width =
-            ((width - label_width - spacing * columns as f32) / columns as f32).max(18.);
-        for (i, path) in paths.iter().enumerate() {
+        let component_width = if below {
+            (ui.content_region_avail()[0] - spacing * (count - 1) as f32) / count as f32
+        } else {
+            ((width - label_width - spacing * columns as f32) / columns as f32).max(18.)
+        };
+        for (i, path) in paths.iter().take(count).enumerate() {
             if i > 0 && i % columns == 0 {
                 ui.dummy([label_width, height]);
             }
-            ui.same_line();
+            if below && i == 0 {
+                ui.set_cursor_screen_pos([
+                    start[0],
+                    start[1] + height + ui.clone_style().item_spacing()[1],
+                ]);
+            } else {
+                ui.same_line();
+            }
             let _component = ui.push_id(i as i32);
             ui.set_next_item_width(component_width);
             let mut value = values[i];
-            let is_animated = channels.contains_key(path);
-            let is_keyed = channels.get(path).is_some_and(|c| c.at(time).is_some());
-            let locked = is_animated && !is_keyed && !auto_key;
+            let targets = if combined {
+                paths.as_slice()
+            } else {
+                std::slice::from_ref(path)
+            };
+            let is_animated = targets.iter().any(|p| channels.contains_key(p));
+            let is_keyed = targets
+                .iter()
+                .any(|p| channels.get(p).is_some_and(|c| c.at(time).is_some()));
+            let driven = bound.get(i).is_some_and(Option::is_some);
+            let locked = driven
+                || !auto_key
+                    && targets
+                        .iter()
+                        .any(|p| channels.get(p).is_some_and(|c| c.at(time).is_none()));
             // Alt-click is consumed before Drag can enter a value-edit gesture.
             let alt = ui.io().key_alt();
             let disabled = (locked || alt).then(|| ui.begin_disabled());
             let integer = self.unit == "integer";
-            let format = if integer {
+            let format = if driven {
+                if self.components.len() > 1 {
+                    format!("{} %.3f =", self.components[i])
+                } else {
+                    "%.3f =".into()
+                }
+            } else if integer {
                 "%.0f".into()
-            } else if self.components.len() > 1 {
+            } else if combined && values.iter().any(|v| *v != values[0]) {
+                "%.3f *".into()
+            } else if self.components.len() > 1 && !combined {
                 format!("{} %.3f", self.components[i])
             } else {
                 "%.3f".into()
             };
             let mut drag = Drag::new("##value")
-                .speed(if integer { 1. } else { 0.1 })
+                .speed(if !compact {
+                    if integer { 1. } else { 0.1 }
+                } else if integer || self.unit == "px" {
+                    1.
+                } else if self.unit == "°" {
+                    0.1
+                } else {
+                    0.01
+                })
                 .try_display_format(format)
                 .expect("component numeric format");
             if let Some([min, max]) = self.range {
@@ -319,7 +418,7 @@ impl AnimatedProperty<'_> {
                 && mouse[1] < max[1]
                 && ui.is_window_hovered();
             let mut action = group;
-            if hovered && alt && ui.is_mouse_clicked(MouseButton::Left) {
+            if !driven && hovered && alt && ui.is_mouse_clicked(MouseButton::Left) {
                 action = Some(Action::Insert);
             }
             // Explicit popup also works on disabled, between-key values.
@@ -327,41 +426,30 @@ impl AnimatedProperty<'_> {
                 ui.open_popup("channel");
             }
             if let Some(_popup) = ui.begin_popup("channel") {
-                interpolation_menu(ui, std::slice::from_ref(path), channels, response);
-                menu(ui);
-                if ui.menu_item(if is_keyed {
-                    "Update keyframe"
-                } else {
-                    "Add keyframe"
-                }) {
-                    action = Some(Action::Insert);
-                }
-                if ui.menu_item_enabled_selected_no_shortcut("Remove keyframe", false, is_keyed) {
-                    action = Some(Action::Remove);
-                }
-                if ui.menu_item_enabled_selected_no_shortcut("Remove animation", false, is_animated)
-                {
-                    action = Some(Action::Clear);
-                }
-            }
-            if hovered {
-                ui.tooltip_text(format!(
-                    "{} {}{}{}\nAlt-click: add keyframe · Right-click: animation",
-                    self.label,
-                    self.components[i],
-                    if self.unit.is_empty() {
-                        String::new()
+                menu(ui, if combined { None } else { Some(i) });
+                if !driven {
+                    interpolation_menu(ui, targets, channels, response);
+                    if ui.menu_item(if is_keyed {
+                        "Update keyframe"
                     } else {
-                        format!(" ({})", self.unit)
-                    },
-                    if locked {
-                        "\nAdd a key or enable Auto Key to edit between keys."
-                    } else {
-                        ""
+                        "Add keyframe"
+                    }) {
+                        action = Some(Action::Insert);
                     }
-                ));
+                    if ui.menu_item_enabled_selected_no_shortcut("Remove keyframe", false, is_keyed)
+                    {
+                        action = Some(Action::Remove);
+                    }
+                    if ui.menu_item_enabled_selected_no_shortcut(
+                        "Remove animation",
+                        false,
+                        is_animated,
+                    ) {
+                        action = Some(Action::Clear);
+                    }
+                }
             }
-            if is_animated {
+            if is_animated || driven {
                 draw.add_line(
                     [min[0] + 2., max[1] - 2.],
                     [max[0] - 2., max[1] - 2.],
@@ -370,40 +458,58 @@ impl AnimatedProperty<'_> {
                 .thickness(if is_keyed { 2. } else { 1. })
                 .build();
             }
-            if changed {
-                if is_keyed || auto_key {
-                    channels
-                        .entry(path.clone())
-                        .or_default()
-                        .insert(time, value);
-                } else {
-                    base[i] = value;
+            for (index, target) in paths
+                .iter()
+                .enumerate()
+                .filter(|(index, _)| combined || *index == i)
+            {
+                let sampled = values[index];
+                if bound.get(index).is_some_and(Option::is_some) {
+                    continue;
                 }
-            }
-            if let Some(action) = action {
-                match action {
-                    Action::Insert => {
+                if changed {
+                    let mut next = if combined {
+                        sampled + value - values[0]
+                    } else {
+                        value
+                    };
+                    if let Some([low, high]) = self.range {
+                        next = next.clamp(low, high);
+                    }
+                    if channels.get(target).is_some_and(|c| c.at(time).is_some()) || auto_key {
                         channels
-                            .entry(path.clone())
+                            .entry(target.clone())
                             .or_default()
-                            .insert(time, values[i]);
-                    }
-                    Action::Remove => {
-                        if let Some(curve) = channels.get_mut(path) {
-                            curve.keys.retain(|k| k.time != time);
-                        }
-                        if channels.get(path).is_some_and(|c| c.keys.is_empty()) {
-                            channels.remove(path);
-                            base[i] = values[i];
-                        }
-                    }
-                    Action::Clear => {
-                        channels.remove(path);
-                        base[i] = values[i];
+                            .insert(time, next);
+                    } else {
+                        base[index] = next;
                     }
                 }
-                response.changed = true;
-                response.finished = true;
+                if let Some(action) = action {
+                    match action {
+                        Action::Insert => {
+                            channels
+                                .entry(target.clone())
+                                .or_default()
+                                .insert(time, sampled);
+                        }
+                        Action::Remove => {
+                            if let Some(curve) = channels.get_mut(target) {
+                                curve.keys.retain(|k| k.time != time);
+                            }
+                            if channels.get(target).is_some_and(|c| c.keys.is_empty()) {
+                                channels.remove(target);
+                                base[index] = sampled;
+                            }
+                        }
+                        Action::Clear => {
+                            channels.remove(target);
+                            base[index] = sampled;
+                        }
+                    }
+                    response.changed = true;
+                    response.finished = true;
+                }
             }
             if integer
                 && (changed || matches!(action, Some(Action::Insert)))
@@ -414,6 +520,22 @@ impl AnimatedProperty<'_> {
                 key.value = key.value.round();
             }
         }
+        if let Some(split) = split.as_mut() {
+            let end = ui.cursor_screen_pos();
+            ui.set_cursor_screen_pos([
+                start[0] + width + ui.clone_style().item_spacing()[0],
+                start[1],
+            ]);
+            if ui.button_with_size(
+                if **split { "-##split" } else { "+##split" },
+                [height, height],
+            ) {
+                **split = !**split;
+            }
+
+            ui.set_cursor_screen_pos([end[0], end[1] - ui.clone_style().item_spacing()[1]]);
+            ui.dummy([0., 0.]);
+        }
     }
 }
 
@@ -421,6 +543,86 @@ impl AnimatedProperty<'_> {
 mod tests {
     use super::*;
     use crate::sdk::imgui::{Condition, Context};
+    #[test]
+    fn combined_drag_keeps_component_offsets_and_split_is_presentation_only() {
+        let _guard = crate::IMGUI_TEST_LOCK.lock().unwrap();
+        let mut context = Context::create();
+        context.set_ini_filename(None::<String>).unwrap();
+        context
+            .font_atlas()
+            .try_claim_legacy_renderer()
+            .unwrap()
+            .build();
+        context.io_mut().set_display_size([500., 250.]);
+        context.io_mut().set_delta_time(1. / 60.);
+        let mut base = [0.2, 0.5, 0.8];
+        let mut channels = BTreeMap::new();
+        let mut split = false;
+        let mut field = [200., 35.];
+        let mut toggle = [375., 35.];
+        let mut committed = 0;
+        let mut after_drag = base;
+        for frame in 0..8 {
+            let mouse = if frame >= 6 {
+                toggle
+            } else {
+                [field[0] + if frame >= 4 { 20. } else { 0. }, field[1]]
+            };
+            context.io_mut().add_mouse_pos_event(mouse);
+            context
+                .io_mut()
+                .add_mouse_button_event(MouseButton::Left, matches!(frame, 3 | 4 | 6));
+            let ui = context.frame();
+            ui.window("Inspector")
+                .position([0.; 2], Condition::Always)
+                .size([400., 220.], Condition::Always)
+                .build(|| {
+                    let start = ui.cursor_screen_pos();
+                    field = [start[0] + 180., start[1] + ui.frame_height() * 0.5];
+                    toggle = [
+                        start[0] + ui.content_region_avail()[0] - ui.frame_height() * 0.5,
+                        field[1],
+                    ];
+                    let mut response = EditResponse::default();
+                    AnimatedProperty {
+                        id: "gain",
+                        label: "Gain",
+                        components: &["R", "G", "B"],
+                        unit: "",
+                        range: None,
+                        color: None,
+                    }
+                    .draw_compact(
+                        ui,
+                        &mut base,
+                        &mut channels,
+                        Time::ZERO,
+                        false,
+                        &mut response,
+                        &mut |_, _| {},
+                        Some(&mut split),
+                        &[],
+                    );
+                    if response.finished {
+                        committed += 1;
+                    }
+                    if frame == 5 {
+                        after_drag = base;
+                    }
+                    if frame >= 6 {
+                        assert!(!response.changed);
+                    }
+                });
+            drop(context.render_legacy());
+        }
+        assert!(split);
+        assert_eq!(committed, 1);
+        assert_ne!(base, [0.2, 0.5, 0.8]);
+        assert_eq!(base, after_drag);
+        assert!((base[1] - base[0] - 0.3).abs() < 1e-9);
+        assert!((base[2] - base[1] - 0.3).abs() < 1e-9);
+        assert!(channels.is_empty());
+    }
     #[test]
     fn integer_property_keys_interpolate_between_counts() {
         let _guard = crate::IMGUI_TEST_LOCK.lock().unwrap();

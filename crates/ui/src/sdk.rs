@@ -339,6 +339,14 @@ pub const GRAPH_COLORS: GraphColors = GraphColors {
     invalid: [0.95, 0.35, 0.25, 1.0],
 };
 
+/// Subdued channel accents; component letters remain visible alongside color.
+pub const CHANNEL_COLORS: [[f32; 4]; 4] = [
+    [0.78, 0.51, 0.51, 1.],
+    [0.53, 0.70, 0.58, 1.],
+    [0.54, 0.62, 0.78, 1.],
+    [0.70, 0.70, 0.73, 1.],
+];
+
 /// Semantic colors shared by custom editors. Base colors follow the active
 /// ImGui style; media-kind and error colors have a single application definition.
 pub struct EditorColors {

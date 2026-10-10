@@ -405,7 +405,9 @@ fn summary(p: &P) -> String {
         P::Dissolve { .. } => "Duration-driven mix".into(),
         P::Unary { operation } => operation.label().into(),
         P::Shape { shape, .. } => shape.label().into(),
-        P::GaussianBlur { size, .. } => format!("Gaussian {:.1} × {:.1} px", size[0], size[1]),
+        P::Blur { size, filter, .. } => {
+            format!("{} {:.1} × {:.1} px", filter.label(), size[0], size[1])
+        }
         P::TransformImage { .. } => "2D transform".into(),
         P::ColorGrade { .. } => "Color grade".into(),
         P::Composite { mode } => mode.label().into(),

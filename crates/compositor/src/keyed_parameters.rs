@@ -39,7 +39,7 @@ pub(crate) fn channels(document: &Document, _: Option<ObjectId>) -> Result<Vec<C
         for property in node.animated_properties() {
             for (i, component) in property.channels.iter().enumerate() {
                 let path = crate::animation::path(&property.id, i);
-                if let Some(curve) = node.tracks().curve(&path)? {
+                if let Some(curve) = node.channels().curve(&path)? {
                     result.push(Channel {
                         target: Target {
                             group: None,

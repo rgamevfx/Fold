@@ -47,14 +47,7 @@ pub(crate) fn draw_choices(
             ui.frame_height(),
         );
     }
-    crate::sdk::toolbar::tooltip(
-        ui,
-        if unlinked {
-            "Unlinked"
-        } else {
-            "Panel link group"
-        },
-    );
+
     selected
 }
 

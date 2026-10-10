@@ -2,9 +2,11 @@
 //! share UI-only gesture state; all persistent changes are host transactions.
 mod canvas;
 mod channels;
+mod controls;
 mod graph;
 mod inspector;
 mod read;
+mod references;
 #[cfg(test)]
 mod render_tests;
 mod reusable;
@@ -22,6 +24,12 @@ pub fn register(registry: &mut PanelRegistry) -> Result<(), String> {
     registry.register(crate::PACKAGE, canvas::Canvas::new(state.clone()))?;
     registry.register_inspector(
         crate::PACKAGE,
-        inspector::Inspector(state, Default::default(), Default::default()),
+        inspector::Inspector(
+            state,
+            Default::default(),
+            Default::default(),
+            Default::default(),
+            Default::default(),
+        ),
     )
 }

@@ -2,7 +2,6 @@
 use crate::sdk::{
     EditResponse, EditorColors,
     imgui::{Drag, MouseButton, Ui},
-    toolbar::tooltip,
 };
 pub fn draw(
     ui: &Ui,
@@ -55,14 +54,7 @@ pub fn draw(
         }
     }
     ui.invisible_button("cycle", size);
-    tooltip(
-        ui,
-        if preview.is_none() {
-            "Normalized curve. Double-click to add a point; drag points or right-click for numeric controls."
-        } else {
-            "One normalized cycle. The marker shows the current phase of the first channel."
-        },
-    );
+
     if preview.is_none() {
         if ui.is_item_hovered()
             && ui.is_mouse_double_clicked(MouseButton::Left)
@@ -137,10 +129,6 @@ pub fn draw(
         ]);
         let changed = ui.checkbox("Smooth curve", &mut curve.smooth);
         response.item(ui, changed);
-        tooltip(
-            ui,
-            "Smooth interpolation between points; disable for straight segments.",
-        );
     }
     response.changed |= before != *curve;
 }

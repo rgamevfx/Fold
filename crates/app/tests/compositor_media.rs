@@ -219,7 +219,8 @@ fn create_composition_keeps_linked_audio_and_exports_the_same_video() {
         vec![previous],
     );
     let blur = Node::new(
-        OperationConfig::GaussianBlur {
+        OperationConfig::Blur {
+            filter: Default::default(),
             size: [2.; 2],
             edges: Default::default(),
         },

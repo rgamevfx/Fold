@@ -71,7 +71,7 @@ pub const OPERATORS: &[Operator] = &[
         id: "Grade",
         inputs: &[Image],
         output: Image,
-        version: 2,
+        version: 3,
     },
     Operator {
         kernel: "Composite",
@@ -85,14 +85,14 @@ pub const OPERATORS: &[Operator] = &[
         id: "Transform",
         inputs: &[Image],
         output: Image,
-        version: 2,
+        version: 3,
     },
     Operator {
-        kernel: "GaussianBlur",
+        kernel: "Blur",
         id: "Blur",
         inputs: &[Image],
         output: Image,
-        version: 2,
+        version: 3,
     },
     Operator {
         kernel: "Unary",
@@ -205,20 +205,21 @@ impl Operator {
                 channels: vec![],
                 keep: false,
             },
-            ("Grade", 2) => C::ColorGrade {
+            ("Grade", 3) => C::ColorGrade {
                 settings: Default::default(),
             },
             ("Merge", 2) => C::Composite {
                 mode: Default::default(),
             },
-            ("Transform", 2) => C::TransformImage {
+            ("Transform", 3) => C::TransformImage {
                 settings: crate::Transform {
                     pivot: [info.width as f64 / 2., info.height as f64 / 2.],
                     ..Default::default()
                 },
             },
-            ("Blur", 2) => C::GaussianBlur {
-                size: [3.; 2],
+            ("Blur", 3) => C::Blur {
+                filter: Default::default(),
+                size: [0.; 2],
                 edges: Default::default(),
             },
             ("Exposure", 1) => C::Unary {

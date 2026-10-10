@@ -17,12 +17,19 @@ fn operation(
             input: inputs[0],
             operation: operation.clone(),
         },
-        P::GaussianBlur { size, edges } => Op::Gaussian {
+        P::Blur {
+            size,
+            edges,
+            filter,
+        } => Op::FilteredBlur {
+            filter: *filter,
             input: inputs[0],
             size: [size[0] * scale[0] as f32, size[1] * scale[1] as f32],
             edges: *edges,
         },
         P::TransformImage { settings } => Op::Resample {
+            edges: settings.edges,
+            clamp: settings.clamp,
             input: inputs[0],
             transform: settings.matrix(scale)?,
             filter: settings.filter,
@@ -52,12 +59,13 @@ fn operation(
 /// use the red component of the operation's controls and carry no color transform.
 pub(super) fn effect(
     graph: &mut RenderGraph,
-    parameters: &P,
+    samples: &[P],
     effect: &Effect,
     inputs: &[&Channels],
     mask: Option<&Channels>,
     scale: [f64; 2],
 ) -> Result<Channels, String> {
+    let parameters = &samples[0];
     let original_slot = usize::from(matches!(parameters, P::Composite { .. }));
     let mut result = inputs[original_slot].clone();
     if effect.mix == 0. {
@@ -73,9 +81,14 @@ pub(super) fn effect(
             "alpha" => Some(3),
             _ => None,
         };
-        if matches!(parameters, P::Unary { .. } | P::ColorGrade { .. }) && index == Some(3) {
+        if matches!(parameters, P::Unary { .. }) && index == Some(3) {
             continue;
         }
+        let index = if matches!(parameters, P::ColorGrade { .. }) && index == Some(3) {
+            None
+        } else {
+            index
+        };
         let key = if index.is_some() {
             layer.to_owned()
         } else {
@@ -119,6 +132,20 @@ pub(super) fn effect(
             packed.push(channels::pack(graph, values)?);
         }
         let mut processed = operation(graph, parameters, &packed, scale)?;
+        for (index, sample) in samples.iter().enumerate().skip(1) {
+            let next = operation(graph, sample, &packed, scale)?;
+            let id = graph.nodes.len();
+            graph.nodes.push(Op::Mix {
+                original: processed,
+                processed: next,
+                mask: None,
+                mask_channel: 0,
+                invert: false,
+                amount: 1. / (index + 1) as f32,
+                channels: [true; 4],
+            });
+            processed = id;
+        }
         if mask.is_some() || effect.mix != 1. {
             let id = graph.nodes.len();
             graph.nodes.push(Op::Mix {

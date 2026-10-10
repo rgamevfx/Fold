@@ -38,7 +38,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     let read_id = read.id;
     let softened = Node::new(
-        P::GaussianBlur {
+        P::Blur {
+            filter: Default::default(),
             size: [blur; 2],
             edges: Edges::Transparent,
         },

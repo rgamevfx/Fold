@@ -118,6 +118,7 @@ fn retired_schema_is_rejected_and_component_curves_do_not_change_other_values() 
         })
         .unwrap();
     let id = DocumentId::new();
+    graph.nodes[1].effect = Default::default(); // Transform has no channel/mask controls.
     let mut legacy = graph.document(id).unwrap();
     legacy.schema_version = 2;
     assert!(Composite::from_document(&legacy).is_err());
@@ -128,10 +129,10 @@ fn retired_schema_is_rejected_and_component_curves_do_not_change_other_values() 
         .animation
         .insert("position.0".into(), curve.clone())
         .unwrap();
-    let P::TransformImage { settings } = graph.nodes[1]
+    let P::TransformImage { settings } = graph
         .prepare()
         .unwrap()
-        .evaluated_parameters(Time::new(1, 2).unwrap())
+        .evaluated_parameters(graph.nodes[1].id, Time::new(1, 2).unwrap())
         .unwrap()
     else {
         panic!()
@@ -151,10 +152,7 @@ fn removing_the_last_channel_holds_its_current_value_and_static_parameters_are_e
         rect: [0, 0, 100_000, 100_000],
     });
     assert_eq!(
-        node.prepare()
-            .unwrap()
-            .evaluated_parameters(Time::ZERO)
-            .unwrap(),
+        sample_node(&node, Time::ZERO),
         node.prepare().unwrap().config().clone()
     );
     let mut curve = Curve::default();
@@ -162,7 +160,7 @@ fn removing_the_last_channel_holds_its_current_value_and_static_parameters_are_e
     curve.insert(Time::new(1, 1).unwrap(), 100.);
     node.animation.insert("bounds.0".into(), curve).unwrap();
     let time = Time::new(1, 2).unwrap();
-    let value = node.prepare().unwrap().evaluated_parameters(time).unwrap();
+    let value = sample_node(&node, time);
     assert_eq!(
         value,
         P::Crop {
@@ -206,10 +204,10 @@ fn native_tracks_preserve_metadata_and_use_shared_combination_and_bezier_samplin
     native["gain.0"]["value"] = serde_json::to_value(Binding::Track { track }).unwrap();
     graph.nodes[1].animation = serde_json::from_value(native).unwrap();
     let time = Time::new(1, 1).unwrap();
-    let P::ColorGrade { settings } = graph.nodes[1]
+    let P::ColorGrade { settings } = graph
         .prepare()
         .unwrap()
-        .evaluated_parameters(time)
+        .evaluated_parameters(graph.nodes[1].id, time)
         .unwrap()
     else {
         panic!()
@@ -343,4 +341,85 @@ fn retired_compositor_payload_is_preserved_opaquely_by_project_save_and_reopen()
     assert_eq!(retained.schema_version, 6);
     assert!(!registry.supports(retained));
     assert!(Composite::from_document(retained).is_err());
+}
+
+#[test]
+fn transform_shutter_averages_animated_positions_at_exact_subframes() {
+    let source = Node::new(
+        P::Solid {
+            rgba: [1., 0., 0., 1.],
+        },
+        vec![],
+    );
+    let crop = Node::new(P::Crop { rect: [0, 0, 1, 1] }, vec![source.id]);
+    let mut transform = Node::new(
+        P::TransformImage {
+            settings: fold_compositor::Transform {
+                motion_samples: 2,
+                shutter: Time::new(1, 1).unwrap(),
+                filter: fold_render::operations::Filter::Nearest,
+                ..Default::default()
+            },
+        },
+        vec![crop.id],
+    );
+    let mut curve = Curve::default();
+    curve.insert(Time::ZERO, 0.);
+    curve.insert(Time::new(1, 24).unwrap(), 4.);
+    transform
+        .animation
+        .insert("position.0".into(), curve)
+        .unwrap();
+    let output = Node::new(P::Output, vec![transform.id]);
+    let graph = Composite {
+        info: fold_media::VideoInfo {
+            width: 4,
+            height: 1,
+            rate: [24, 1],
+            frames: 24,
+        },
+        output: output.id,
+        nodes: vec![source, crop, transform, output],
+        extensions: Default::default(),
+    };
+    let mut project = Project::new(8);
+    let id = DocumentId::new();
+    project
+        .commit(EditBatch {
+            base: project.snapshot().revision(),
+            mutations: vec![Mutation::PutDocument(graph.document(id).unwrap())],
+        })
+        .unwrap();
+    let mut registry = PackageRegistry::default();
+    fold_compositor::package::register(&mut registry).unwrap();
+    let reference = DocumentRef {
+        document: id,
+        output: "video".into(),
+        extensions: Default::default(),
+    };
+    let frame = fold_render::render(
+        registry
+            .video(&project.snapshot(), &reference, Time::ZERO, 4, 1)
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        frame.pixels(),
+        &[[0.; 4], [0.5, 0., 0., 0.5], [0.; 4], [0.5, 0., 0., 0.5]]
+    );
+}
+
+fn sample_node(node: &Node, time: Time) -> P {
+    let output = Node::new(P::Output, vec![node.id]);
+    let graph = Composite {
+        info: fixture().info,
+        output: output.id,
+        nodes: vec![node.clone(), output],
+        extensions: Default::default(),
+    };
+    graph
+        .prepare()
+        .unwrap()
+        .evaluated_parameters(node.id, time)
+        .unwrap()
 }

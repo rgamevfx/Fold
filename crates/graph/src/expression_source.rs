@@ -104,15 +104,24 @@ pub fn canonical(
     name: &mut impl FnMut(Reference) -> Result<String, String>,
 ) -> Result<String, String> {
     expression.references()?;
-    let result = print(expression, name)?;
+    let result = print(expression, name, true)?;
     if result.len() > MAX_SOURCE_BYTES {
         return Err("Canonical expression exceeds 64 KiB".into());
     }
     Ok(result)
 }
+/// Artist-facing expression text. Native source uses `canonical` to retain edge metadata.
+pub fn display(
+    expression: &Expr,
+    name: &mut impl FnMut(Reference) -> Result<String, String>,
+) -> Result<String, String> {
+    expression.references()?;
+    print(expression, name, false)
+}
 fn print(
     expression: &Expr,
     name: &mut impl FnMut(Reference) -> Result<String, String>,
+    identities: bool,
 ) -> Result<String, String> {
     let result: Result<String, String> = match expression {
         Expr::Literal { value } => Ok(match value {
@@ -146,6 +155,9 @@ fn print(
             } else {
                 format!("${target}")
             };
+            if !identities {
+                return Ok(target);
+            }
             Ok(format!(
                 "{target} @{}",
                 serde_json::to_string(&metadata).map_err(|e| e.to_string())?
@@ -175,11 +187,11 @@ fn print(
                 Unary::Negate => "-",
                 Unary::Not => "!",
             },
-            print(value, name)?
+            print(value, name, identities)?
         )),
         Expr::Binary { op, left, right } => Ok(format!(
             "({} {} {})",
-            print(left, name)?,
+            print(left, name, identities)?,
             match op {
                 Binary::Add => "+",
                 Binary::Subtract => "-",
@@ -190,7 +202,7 @@ fn print(
                 Binary::And => "&&",
                 Binary::Or => "||",
             },
-            print(right, name)?
+            print(right, name, identities)?
         )),
         Expr::Call {
             function,
@@ -208,7 +220,7 @@ fn print(
             };
             let arguments = arguments
                 .iter()
-                .map(|a| print(a, name))
+                .map(|a| print(a, name, identities))
                 .collect::<Result<Vec<_>, _>>()?;
             Ok(format!("{function}({})", arguments.join(", ")))
         }
@@ -224,7 +236,7 @@ fn print(
             args.extend(
                 components
                     .iter()
-                    .map(|a| print(a, name))
+                    .map(|a| print(a, name, identities))
                     .collect::<Result<Vec<_>, _>>()?,
             );
             Ok(format!("vector({})", args.join(", ")))
@@ -742,6 +754,16 @@ mod tests {
         assert_eq!(
             parse(&source, &mut |_| Ok(edge.target)).unwrap().expression,
             expression
+        );
+        let display = display(&expression, &mut |_| Ok("size".into())).unwrap();
+        assert!(!display.contains('@'));
+        assert_eq!(
+            parse(&display, &mut |_| Ok(edge.target))
+                .unwrap()
+                .expression
+                .references()
+                .unwrap(),
+            expression.references().unwrap()
         );
         let repeated = format!("{source} + {source}");
         assert_eq!(

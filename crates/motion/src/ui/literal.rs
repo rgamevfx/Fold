@@ -347,9 +347,6 @@ pub(super) fn draw(
                     }
                 }
             }
-            if ui.is_item_hovered() {
-                ui.tooltip_text(current);
-            }
         }
     }
 }

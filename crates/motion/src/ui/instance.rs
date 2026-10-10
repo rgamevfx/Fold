@@ -155,9 +155,6 @@ pub(super) fn draw(
     }
     let _locked = ui.begin_disabled_with_cond(locked.contains(&instance.id));
     let open = ui.collapsing_header("Local timing", sdk::imgui::TreeNodeFlags::DEFAULT_OPEN);
-    if ui.is_item_hovered() {
-        ui.tooltip_text("Local time = (parent time − offset) × speed. Zero speed freezes at local time zero; negative speed plays in reverse.");
-    }
     if open {
         {
             let _offset = ui.push_id("offset");

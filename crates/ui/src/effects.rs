@@ -47,9 +47,6 @@ pub fn stack(
             response.changed = true;
             response.finished = true;
         }
-        if ui.is_item_hovered() {
-            ui.tooltip_text("Enable effect");
-        }
         ui.same_line();
         if let Some(_tree) = ui.tree_node(name(host, &effect.definition)) {
             parameters(ui, host, effect, time, response);

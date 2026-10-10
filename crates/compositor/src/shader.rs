@@ -175,6 +175,25 @@ impl crate::Composite {
     ) -> Result<(), String> {
         let mut candidate = self.clone();
         migrate(candidate.node_mut(node)?, settings, renames, remove)?;
+        let before = self.node(node)?.prepare()?;
+        let after = candidate.node(node)?.prepare()?;
+        let mut remap = std::collections::BTreeMap::new();
+        for property in before.animated_properties() {
+            for i in 0..property.values.len() {
+                let source = before.property_reference(&property.id, i)?;
+                let target = if remove.contains(&property.id) {
+                    None
+                } else {
+                    after
+                        .property_reference(renames.get(&property.id).unwrap_or(&property.id), i)
+                        .ok()
+                };
+                remap.insert(source, target);
+            }
+        }
+        for node in &mut candidate.nodes {
+            node.animation.remap_references(&remap)?;
+        }
         if candidate.extensions.contains_key(crate::reusable::KEY) {
             let mut definition = candidate.reusable()?;
             for binding in definition.bindings.iter_mut().filter(|b| b.node == node) {

@@ -30,7 +30,7 @@ fn agent_creation_insertion_query_and_receipt() {
     let d = c.document(Default::default()).unwrap();
     let blur = ObjectId::new();
     let (next,receipt)=r.author_cancellable(&d,&[
-        json!({"op":"create_node","id":blur,"record":Node::disconnected(OperationConfig::GaussianBlur { size:[2.,2.], edges:fold_render::operations::Edges::Clamp }).operation}),
+        json!({"op":"create_node","id":blur,"record":Node::disconnected(OperationConfig::Blur { filter: Default::default(), size:[2.,2.], edges:fold_render::operations::Edges::Clamp }).operation}),
         json!({"op":"insert","node":oid,"input":"image","modifier":blur,"modifier_input":"image"})
     ],&Default::default()).unwrap();
     let c = Composite::from_document(&next).unwrap();

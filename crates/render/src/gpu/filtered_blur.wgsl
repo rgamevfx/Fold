@@ -1,4 +1,4 @@
-// Exact separable finite Gaussian kernel, shared with the CPU reference.
+// Exact separable Gaussian/box kernel, shared with the CPU reference.
 // Each 64-pixel stripe cooperatively loads its overlapping samples in chunks.
 struct Params {
     dimensions: vec2<u32>,

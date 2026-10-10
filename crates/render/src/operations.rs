@@ -79,6 +79,9 @@ pub struct Grade {
     pub offset: [f32; 3],
     pub gamma: [f32; 3],
     pub unpremultiply: bool,
+    pub black_clamp: bool,
+    pub white_clamp: bool,
+    pub invert: bool,
 }
 impl Default for Grade {
     fn default() -> Self {
@@ -90,7 +93,10 @@ impl Default for Grade {
             multiply: [1.; 3],
             offset: [0.; 3],
             gamma: [1.; 3],
-            unpremultiply: true,
+            unpremultiply: false,
+            black_clamp: true,
+            white_clamp: false,
+            invert: false,
         }
     }
 }
@@ -118,12 +124,12 @@ impl Grade {
                     .into(),
             );
         }
+        if self.invert && (0..3).any(|c| self.gain[c] == self.lift[c] || self.multiply[c] == 0.) {
+            return Err("Cannot invert a Grade with zero gain range or multiply".into());
+        }
         Ok(())
     }
     pub(crate) fn apply(&self, pixel: [f32; 4]) -> [f32; 4] {
-        if self == &Self::default() {
-            return pixel;
-        }
         if self.unpremultiply && pixel[3] == 0. {
             return [0.; 4];
         }
@@ -134,12 +140,22 @@ impl Grade {
             } else {
                 pixel[c]
             };
-            let value = ((value - self.black[c]) / (self.white[c] - self.black[c])
-                * (self.gain[c] - self.lift[c])
-                + self.lift[c])
-                * self.multiply[c]
-                + self.offset[c];
-            let value = value.signum() * value.abs().powf(1. / self.gamma[c]);
+            let slope =
+                (self.gain[c] - self.lift[c]) * self.multiply[c] / (self.white[c] - self.black[c]);
+            let intercept =
+                self.offset[c] + self.lift[c] * self.multiply[c] - slope * self.black[c];
+            let mut value = if self.invert {
+                (value.signum() * value.abs().powf(self.gamma[c]) - intercept) / slope
+            } else {
+                let value = value * slope + intercept;
+                value.signum() * value.abs().powf(1. / self.gamma[c])
+            };
+            if self.black_clamp {
+                value = value.max(0.);
+            }
+            if self.white_clamp {
+                value = value.min(1.);
+            }
             result[c] = if self.unpremultiply {
                 value * pixel[3]
             } else {
@@ -173,8 +189,18 @@ pub(crate) fn sample(
     dimensions: [u32; 2],
     point: [f64; 2],
     filter: Filter,
+    edges: Edges,
+    clamp: bool,
 ) -> [f32; 4] {
     let [width, height] = dimensions;
+    let point = if edges == Edges::Clamp {
+        [
+            point[0].clamp(0.5, f64::from(width) - 0.5),
+            point[1].clamp(0.5, f64::from(height) - 0.5),
+        ]
+    } else {
+        point
+    };
     if point.iter().any(|v| !v.is_finite())
         || point[0] < -2.
         || point[1] < -2.
@@ -184,6 +210,14 @@ pub(crate) fn sample(
         return [0.; 4];
     }
     let read = |x: i64, y: i64| {
+        let (x, y) = if edges == Edges::Clamp {
+            (
+                x.clamp(0, i64::from(width) - 1),
+                y.clamp(0, i64::from(height) - 1),
+            )
+        } else {
+            (x, y)
+        };
         if x >= 0 && y >= 0 && x < i64::from(width) && y < i64::from(height) {
             pixels[(y * i64::from(width) + x) as usize]
         } else {
@@ -226,6 +260,20 @@ pub(crate) fn sample(
             }
         }
     }
+    if clamp {
+        for c in 0..3 {
+            let samples = [
+                read(base[0], base[1])[c],
+                read(base[0] + 1, base[1])[c],
+                read(base[0], base[1] + 1)[c],
+                read(base[0] + 1, base[1] + 1)[c],
+            ];
+            result[c] = result[c].clamp(
+                samples.into_iter().fold(f32::INFINITY, f32::min),
+                samples.into_iter().fold(f32::NEG_INFINITY, f32::max),
+            );
+        }
+    }
     result[3] = result[3].clamp(0., 1.);
     result
 }
@@ -252,27 +300,43 @@ pub fn validate_blur(size: [f32; 2]) -> Result<(), String> {
         .iter()
         .any(|v| !v.is_finite() || !(0.0..=256.).contains(v))
     {
-        return Err("Gaussian size must be finite and in 0..256 pixels".into());
+        return Err("Blur size must be finite and in 0..256 pixels".into());
     }
     Ok(())
 }
-pub(crate) fn gaussian_weights(sigma: f32) -> Vec<f32> {
-    let radius = (3. * sigma).ceil() as i32;
-    (-radius..=radius)
-        .map(|k| {
-            if sigma == 0. {
-                1.
-            } else {
-                (-0.5 * (k as f32 / sigma).powi(2)).exp()
-            }
-        })
-        .collect()
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum BlurFilter {
+    #[default]
+    Gaussian,
+    Box,
 }
-pub(crate) fn gaussian(
+impl BlurFilter {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Gaussian => "Gaussian",
+            Self::Box => "Box",
+        }
+    }
+    pub(crate) fn weights(self, size: f32) -> Vec<f32> {
+        let radius = match self {
+            Self::Gaussian => (3. * size).ceil(),
+            Self::Box => size.ceil(),
+        } as i32;
+        (-radius..=radius)
+            .map(|k| match self {
+                Self::Gaussian if size > 0. => (-0.5 * (k as f32 / size).powi(2)).exp(),
+                Self::Gaussian => 1.,
+                Self::Box => (size + 1. - k.abs() as f32).clamp(0., 1.),
+            })
+            .collect()
+    }
+}
+pub(crate) fn filtered_blur(
     pixels: &[[f32; 4]],
     result: &mut Vec<[f32; 4]>,
     dimensions: [u32; 2],
     size: [f32; 2],
+    filter: BlurFilter,
     edges: Edges,
     cancel: &fold_media::Cancel,
 ) -> Result<(), fold_foundation::Failure> {
@@ -282,8 +346,8 @@ pub(crate) fn gaussian(
     let mut scratch = vec![[0.; 4]; pixels.len()];
     result.resize(pixels.len(), [0.; 4]);
     for (axis, sigma) in size.into_iter().enumerate() {
-        let radius = (3. * sigma).ceil() as i32;
-        let weights = gaussian_weights(sigma);
+        let weights = filter.weights(sigma);
+        let radius = (weights.len() / 2) as i32;
         let divisor: f32 = weights.iter().sum();
         let (input, output) = if axis == 0 {
             (pixels, scratch.as_mut_slice())
@@ -366,5 +430,74 @@ impl Unary {
             };
         }
         output
+    }
+}
+
+#[cfg(test)]
+mod node_tests {
+    use super::*;
+    #[test]
+    fn grade_clamps_and_inverse_are_explicit() {
+        let grade = Grade {
+            black_clamp: false,
+            gain: [2.; 3],
+            offset: [-0.5; 3],
+            gamma: [2.; 3],
+            ..Default::default()
+        };
+        let pixel = [0.1, 0.5, 1.5, 0.4];
+        let result = grade.apply(pixel);
+        let inverse = Grade {
+            invert: true,
+            ..grade.clone()
+        };
+        for (actual, expected) in inverse.apply(result).into_iter().zip(pixel) {
+            assert!((actual - expected).abs() < 1e-6);
+        }
+        let clipped = Grade {
+            black_clamp: true,
+            white_clamp: true,
+            ..grade
+        }
+        .apply(pixel);
+        assert_eq!(clipped[0], 0.);
+        assert_eq!(clipped[2], 1.);
+        assert_eq!(clipped[3], pixel[3]);
+        assert!(
+            Grade {
+                invert: true,
+                multiply: [0.; 3],
+                ..Default::default()
+            }
+            .validate()
+            .is_err()
+        );
+    }
+    #[test]
+    fn fractional_box_blur_has_expected_coverage_and_zero_is_identity() {
+        let source = [[0., 0., 0., 0.], [1., 1., 1., 1.], [0., 0., 0., 0.]];
+        let mut result = vec![];
+        filtered_blur(
+            &source,
+            &mut result,
+            [3, 1],
+            [0.5, 0.],
+            BlurFilter::Box,
+            Edges::Transparent,
+            &Default::default(),
+        )
+        .unwrap();
+        assert_eq!(result, [[0.25; 4], [0.5; 4], [0.25; 4]]);
+        filtered_blur(
+            &source,
+            &mut result,
+            [3, 1],
+            [0., 0.],
+            BlurFilter::Box,
+            Edges::Transparent,
+            &Default::default(),
+        )
+        .unwrap();
+        assert_eq!(result, source);
     }
 }

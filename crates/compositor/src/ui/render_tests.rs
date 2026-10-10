@@ -15,6 +15,7 @@ fn shuffle_inspector_normal_and_narrow() {
     let mut context = imgui::Context::create();
     context.set_ini_filename(None::<String>).unwrap();
     let _fonts = Typography::install(&mut context);
+    fold_ui::sdk::appearance::Appearance::default().apply(context.style_mut());
     let mut renderer = WgpuRenderer::new(
         WgpuInitInfo::new(
             device.clone(),
@@ -76,8 +77,13 @@ fn shuffle_inspector_normal_and_narrow() {
         })
         .unwrap();
     let shared = Rc::new(RefCell::new(state::State::default()));
-    let mut inspector =
-        inspector::Inspector(shared.clone(), Default::default(), Default::default());
+    let mut inspector = inspector::Inspector(
+        shared.clone(),
+        Default::default(),
+        Default::default(),
+        Default::default(),
+        Default::default(),
+    );
     shared.borrow_mut().sync(&mut host);
     shared.borrow_mut().selected = vec![selected];
     context.io_mut().set_display_size([512., 480.]);
@@ -85,6 +91,18 @@ fn shuffle_inspector_normal_and_narrow() {
     std::fs::create_dir_all("/tmp/fold-shuffle-ui").unwrap();
     let mut sources = super::source::Sources::default();
     for (name, width) in [
+        ("grade-driven-normal", 420.),
+        ("grade-driven-narrow", 280.),
+        ("grade-normal", 420.),
+        ("grade-narrow", 280.),
+        ("grade-split-normal", 420.),
+        ("grade-split-narrow", 280.),
+        ("transform-normal", 420.),
+        ("transform-narrow", 280.),
+        ("transform-shutter-normal", 420.),
+        ("transform-shutter-narrow", 280.),
+        ("blur-normal", 420.),
+        ("blur-narrow", 280.),
         ("source-normal", 420.),
         ("source-narrow", 280.),
         ("normal", 420.),
@@ -96,12 +114,41 @@ fn shuffle_inspector_normal_and_narrow() {
         ("shader-interface-normal", 420.),
         ("shader-interface-narrow", 280.),
     ] {
-        if name.starts_with("relative") || name.starts_with("shader") {
+        if std::env::var_os("FOLD_NODE_CAPTURE").is_some()
+            && (name.starts_with("source")
+                || name.starts_with("relative")
+                || name.starts_with("shader"))
+        {
+            continue;
+        }
+        if name.starts_with("grade")
+            || name.starts_with("transform")
+            || name.starts_with("blur")
+            || name.starts_with("relative")
+            || name.starts_with("shader")
+        {
             let mut graph = crate::Composite::from_document(
                 &host.project.snapshot().state().documents[&document],
             )
             .unwrap();
-            let parameters = if name.starts_with("relative") {
+            let parameters = if name.starts_with("grade") {
+                OperationConfig::ColorGrade {
+                    settings: Default::default(),
+                }
+            } else if name.starts_with("transform") {
+                OperationConfig::TransformImage {
+                    settings: crate::Transform {
+                        pivot: [960., 540.],
+                        ..Default::default()
+                    },
+                }
+            } else if name.starts_with("blur") {
+                OperationConfig::Blur {
+                    size: [0.; 2],
+                    edges: Default::default(),
+                    filter: Default::default(),
+                }
+            } else if name.starts_with("relative") {
                 OperationConfig::RelativeTransform {
                     settings: Default::default(),
                 }
@@ -112,7 +159,55 @@ fn shuffle_inspector_normal_and_narrow() {
             };
             let node = Node::new(parameters, vec![solid]);
             let id = node.id;
+            if name.starts_with("grade-split") {
+                for property in ["gain", "gamma"] {
+                    inspector.3.insert((id, property.into()));
+                }
+            }
             graph.nodes.push(node);
+            if name.starts_with("grade-driven") {
+                let reference = graph
+                    .prepare()
+                    .unwrap()
+                    .node(solid)
+                    .unwrap()
+                    .property_reference("color", 0)
+                    .unwrap();
+                graph
+                    .node_mut(id)
+                    .unwrap()
+                    .animation
+                    .set_binding(
+                        "gain.0".into(),
+                        fold_graph::binding::Binding::Link {
+                            reference: reference.into(),
+                        },
+                    )
+                    .unwrap();
+                let prepared = graph.prepare().unwrap();
+                let mut edited = graph.node(id).unwrap().clone();
+                let property = prepared
+                    .node(id)
+                    .unwrap()
+                    .animated_properties()
+                    .into_iter()
+                    .find(|p| p.id == "gain")
+                    .unwrap();
+                super::references::Context {
+                    graph: &prepared,
+                    document,
+                    drafts: &mut inspector.4,
+                }
+                .action(
+                    &mut edited,
+                    &property,
+                    0,
+                    fold_foundation::Time::ZERO,
+                    fold_ui::sdk::parameter_menu::Action::EditExpression,
+                    &mut false,
+                )
+                .unwrap();
+            }
             host.project
                 .commit(EditBatch {
                     base: host.project.snapshot().revision(),
@@ -122,7 +217,16 @@ fn shuffle_inspector_normal_and_narrow() {
             shared.borrow_mut().sync(&mut host);
             shared.borrow_mut().selected = vec![id];
         }
+        if name == "normal" || name == "narrow" {
+            shared.borrow_mut().selected = vec![selected];
+        }
         for frame_index in 0..8 {
+            if name.starts_with("transform-shutter") && (frame_index == 1 || frame_index == 2) {
+                context.io_mut().add_mouse_pos_event([45., 316.]);
+                context
+                    .io_mut()
+                    .add_mouse_button_event(imgui::MouseButton::Left, frame_index == 1);
+            }
             if name.starts_with("shader-interface") {
                 if frame_index == 1 || frame_index == 2 {
                     context.io_mut().add_mouse_pos_event([30., 61.]);

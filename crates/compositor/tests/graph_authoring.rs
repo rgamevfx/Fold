@@ -8,7 +8,8 @@ fn fixture() -> Composite {
         vec![],
     );
     let blur = Node::new(
-        P::GaussianBlur {
+        P::Blur {
+            filter: Default::default(),
             size: [2.; 2],
             edges: Default::default(),
         },

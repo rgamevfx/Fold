@@ -73,7 +73,7 @@ pub fn authored(ui: &Ui, value: &mut [f64; 4], aces: bool, response: &mut EditRe
             *value = fold_platform::color::from_picker(picker.map(f64::from), aces);
         }
     }
-    crate::sdk::toolbar::tooltip(ui, "sRGB color picker. Right-click for working values.");
+
     if let Some(_popup) = ui.begin_popup_context_item_with_label(Some("working-color")) {
         for (i, label) in ["Red", "Green", "Blue", "Alpha"].iter().enumerate() {
             NumericProperty {

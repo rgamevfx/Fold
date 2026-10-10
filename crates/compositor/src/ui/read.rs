@@ -151,10 +151,6 @@ pub(super) fn draw(
                 response.finished = true;
             }
         }
-        fold_ui::sdk::toolbar::tooltip(
-            ui,
-            "Apply the input color transform only to checked RGB layers. Depth, vectors and other data stay unchanged.",
-        );
     }
     let exr = matches!(source, Source::Exr { .. });
     match source {

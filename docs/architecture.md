@@ -99,7 +99,9 @@ physical artist continuation or complete export acceptance.
 
 Timeline owns Sequence 5; Composition owns layer schema 3; Compositor owns native
 schema 8; native Motion Construction and Scene use their distinct schema-1 types.
-Grade/Merge/Transform/Blur use version 2. Old Motion, two-layer Timeline and retired
+Grade/Transform/Blur use version 3; Merge uses version 2.
+The [first curated node set](rewrite/evidence/compositor-nodes-first-set/result.md)
+replaces their temporary inspectors and Gaussian-only Blur contract. Old Motion, two-layer Timeline and retired
 schema generations are not executable. Unsupported records remain opaque.
 
 Composition combines independent scene, image and nested outputs through named

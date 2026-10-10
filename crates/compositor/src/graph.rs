@@ -23,8 +23,7 @@ impl crate::Operator {
     pub fn supports_effect(&self) -> bool {
         matches!(
             self.id,
-            "Transform"
-                | "Crop"
+            "Crop"
                 | "Blur"
                 | "Grade"
                 | "Merge"
@@ -76,7 +75,7 @@ impl Node {
             operation: crate::operation::record(&parameters),
             animation: Default::default(),
             inputs,
-            effect: Default::default(),
+            effect: crate::Effect::for_config(&parameters),
             position: None,
             extensions: Default::default(),
         }

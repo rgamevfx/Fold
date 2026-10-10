@@ -27,7 +27,8 @@ is described below.
 Select the Motion entry in `scoped_proposals` by `type`, then check
 `requests.catalog.parameter_references`. The current M5c implementation supports
 references within one Motion graph definition, including nested instances of that
-definition. Cross-document expression references are not yet available. Project-wide
+definition, and numeric component references within one Compositor document.
+Cross-document expression references are not yet available. Project-wide
 inspection paths are a separate capability described below.
 
 Expose useful artist controls as container `input` declarations. Network displays
@@ -369,6 +370,31 @@ observations even without a separate Text placement. Outlined glyphs remain
 separate profile partitions; overlapping glyphs are not implicitly Boolean-unioned.
 Closed contour inputs share the explicitly selected fill rule.
 
+## Compositor parameter links and expressions
+
+Discover `project_authoring.providers` for `fold.compositor.composite`; its catalog
+advertises `expression` and `reference` author edits. Use the ordinary guarded
+project `author` operation with the exact inspected document as `expected`.
+Numeric property components, Mix and shader controls accept the shared bounded
+expression IR. Enum/boolean configuration fields and cross-document bindings are
+not exposed as writable expressions in this slice.
+
+The following author edit is covered by the public provider integration test:
+
+```json
+{"op":"expression","node":"TARGET_NODE_UUID","property":"gain","component":0,"source":"ch(\"../Source/color/r\") * 2"}
+```
+
+A direct link uses `op:"reference"`, the same target fields, and
+`source_node`, `source_property`, `source_component`. Discover property paths from
+revision-bound parameter inspection; resolve names uniquely. Stored references
+retain native identities through node renames. Inspect the candidate and apply
+its receipt normally. Cycles and missing targets reject the edit; time-dependent
+runtime errors remain explicit evaluation errors. Source round trips retain native
+channel bindings and edge extension data. The native inspector provides Copy
+Parameter, Paste Relative Reference, Edit Expression, Go to Source and Remove
+Reference on component context menus. Removing a reference retains its sampled value.
+
 ## Composition and object graphs (M5a)
 
 Discovery's `project_authoring.schema` describes the host's `create`, `add_layer`
@@ -440,8 +466,11 @@ to the held frame. See the [pixel audit](../../../docs/rewrite/evidence/m5a-comp
 
 Compositor inspection returns `graph_source` alongside its `native` record and
 named `image_inputs`. Provider discovery lists the 24 current operation/version entries
-and their native `record` examples. Grade, Merge, Transform and Blur use version 2;
-Blur is Gaussian. Old operation records remain opaque and cannot execute.
+and their native `record` examples. Grade, Transform and Blur use version 3; Merge uses version 2.
+Blur provides Gaussian and Box filters. Grade provides explicit clamps/inversion;
+Transform provides ordered XY skews, reconstruction boundary controls and exact
+shutter sampling of its own animation. Upstream images remain at the requested
+time, and output stays inside the composition format. Old operation records remain opaque and cannot execute.
 Example IDs are placeholders: allocate fresh
 node/parameter IDs for creation; preserve inspected IDs when editing.
 

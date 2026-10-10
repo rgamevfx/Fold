@@ -121,7 +121,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         vec![],
     );
     let mask = Node::new(
-        P::GaussianBlur {
+        P::Blur {
+            filter: Default::default(),
             size: [16.; 2],
             edges: Edges::Transparent,
         },

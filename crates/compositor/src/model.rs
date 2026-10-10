@@ -85,7 +85,7 @@ impl Node {
                 .into_iter()
                 .map(|node| Some(fold_graph::model::Reference::Node { node }.into()))
                 .collect(),
-            effect: Default::default(),
+            effect: crate::Effect::for_config(&parameters),
             position: None,
             extensions: Default::default(),
         }

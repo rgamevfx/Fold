@@ -19,12 +19,15 @@ fn fixture(filter: Filter, edges: Edges) -> RenderGraph {
         .collect();
     let nodes = vec![
         Op::Media(fold_media::RgbImage::from_rgb(dimensions, rgb).unwrap()),
-        Op::Gaussian {
+        Op::FilteredBlur {
+            filter: Default::default(),
             input: 0,
             size: [2., 3.],
             edges,
         },
         Op::Resample {
+            edges: Default::default(),
+            clamp: false,
             input: 1,
             transform: Affine {
                 a: 0.97,
@@ -240,7 +243,8 @@ fn gpu_region_reduces_working_memory_without_source_supersampling() {
             Op::Solid {
                 rgba: [0.1, 0.2, 0.3, 0.5],
             },
-            Op::Gaussian {
+            Op::FilteredBlur {
+                filter: Default::default(),
                 input: 0,
                 size: [5.; 2],
                 edges: Edges::Transparent,
@@ -303,7 +307,8 @@ fn translated_vector_regions_keep_fractional_coverage() {
         height: 100,
         nodes: vec![
             Op::Vector(drawings),
-            Op::Gaussian {
+            Op::FilteredBlur {
+                filter: Default::default(),
                 input: 0,
                 size: [1.; 2],
                 edges: Edges::Transparent,

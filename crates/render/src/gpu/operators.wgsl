@@ -15,6 +15,9 @@ struct Params {
 @group(0) @binding(3) var<uniform> params: Params;
 @group(0) @binding(4) var<storage, read_write> invalid: atomic<u32>;
 fn sample_first(p: vec2<i32>) -> vec4<f32> {
+    if params.header.x == 14u && params.rect.y == 1u {
+        return textureLoad(first, clamp(p, vec2<i32>(0), vec2<i32>(params.header.yz)-vec2<i32>(1)), 0);
+    }
     if any(p < vec2<i32>(0)) || any(p >= vec2<i32>(params.header.yz)) { return vec4<f32>(0.0); }
     return textureLoad(first, p, 0);
 }
@@ -49,7 +52,8 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         }
         case 14u: {
             let q=vec2<f32>(id.xy)+vec2<f32>(0.5); let m=params.matrix;
-            let s=vec2<f32>(m.x*q.x+m.z*q.y,m.y*q.x+m.w*q.y)+params.offset.xy;
+            var s=vec2<f32>(m.x*q.x+m.z*q.y,m.y*q.x+m.w*q.y)+params.offset.xy;
+            if params.rect.y == 1u { s=clamp(s,vec2<f32>(0.5),vec2<f32>(params.header.yz)-vec2<f32>(0.5)); }
             if all(s>=vec2<f32>(-2.0)) && all(s<=vec2<f32>(params.header.yz)+vec2<f32>(2.0)) {
                 if params.rect.x==0u { value=sample_first(vec2<i32>(floor(s))); }
                 else {
@@ -62,6 +66,12 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
                         else { weight=select(1.0-fraction.x,fraction.x,x==1)*select(1.0-fraction.y,fraction.y,y==1); }
                         value+=sample_first(vec2<i32>(base)+vec2<i32>(x,y))*weight;
                     } }
+                    if params.rect.z != 0u {
+                        let q0=vec2<i32>(base);
+                        let a=sample_first(q0); let b=sample_first(q0+vec2<i32>(1,0));
+                        let c=sample_first(q0+vec2<i32>(0,1)); let d=sample_first(q0+vec2<i32>(1,1));
+                        value=vec4<f32>(clamp(value.rgb,min(min(a.rgb,b.rgb),min(c.rgb,d.rgb)),max(max(a.rgb,b.rgb),max(c.rgb,d.rgb))),value.a);
+                    }
                     value.a=clamp(value.a,0.0,1.0);
                 }
             }
@@ -86,18 +96,21 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         }
         case 13u: {
             value = textureLoad(first,p,0);
-            if params.rect.y == 0u {
-                if params.rect.x != 0u && value.a == 0.0 { value = vec4<f32>(0.0); }
-                else {
-                    var rgb = value.rgb;
-                    if params.rect.x != 0u { rgb /= value.a; }
-                    rgb = ((rgb-params.grade[0].rgb)/(params.grade[1].rgb-params.grade[0].rgb)*(params.grade[3].rgb-params.grade[2].rgb)+params.grade[2].rgb)*params.grade[4].rgb+params.grade[5].rgb;
-                    rgb = sign(rgb)*pow(abs(rgb),vec3<f32>(1.0)/params.grade[6].rgb);
-                    if params.rect.x != 0u { rgb *= value.a; }
-                    value = vec4<f32>(rgb,value.a);
-                }
+            if params.rect.x != 0u && value.a == 0.0 { value = vec4<f32>(0.0); }
+            else {
+                var rgb=value.rgb;
+                if params.rect.x != 0u { rgb/=value.a; }
+                let slope=(params.grade[3].rgb-params.grade[2].rgb)*params.grade[4].rgb/(params.grade[1].rgb-params.grade[0].rgb);
+                let intercept=params.grade[5].rgb+params.grade[2].rgb*params.grade[4].rgb-slope*params.grade[0].rgb;
+                if params.rect.y != 0u { rgb=(sign(rgb)*pow(abs(rgb),params.grade[6].rgb)-intercept)/slope; }
+                else { rgb=rgb*slope+intercept; rgb=sign(rgb)*pow(abs(rgb),vec3<f32>(1.0)/params.grade[6].rgb); }
+                if params.rect.z != 0u { rgb=max(rgb,vec3<f32>(0.0)); }
+                if params.rect.w != 0u { rgb=min(rgb,vec3<f32>(1.0)); }
+                if params.rect.x != 0u { rgb*=value.a; }
+                value=vec4<f32>(rgb,value.a);
             }
         }
+
         case 10u: {
             let a = textureLoad(first, p, 0);
             let b = textureLoad(second, p, 0);

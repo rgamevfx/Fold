@@ -100,9 +100,6 @@ impl Transport {
             }
             self.editing = false;
         }
-        if ui.is_item_hovered() {
-            ui.tooltip_text("Frame — Enter to jump, Escape to cancel");
-        }
     }
 }
 /// The document's full duration, independent of the marked playback range.

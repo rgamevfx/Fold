@@ -128,6 +128,8 @@ fn gpu_channel_gather_and_mask_match_cpu_with_shared_inputs() {
 fn grade_identity_transparency_and_signed_gamma_have_defined_results() {
     let settings = fold_render::operations::Grade {
         gamma: [2.; 3],
+        black_clamp: false,
+        unpremultiply: true,
         offset: [-0.5, 0., 0.],
         ..Default::default()
     };
@@ -145,6 +147,7 @@ fn grade_identity_transparency_and_signed_gamma_have_defined_results() {
     assert_eq!(render(graph).unwrap().pixels(), &[[-0.25, 0.25, 0.25, 0.5]]);
     let settings = fold_render::operations::Grade {
         offset: [1.; 3],
+        unpremultiply: true,
         ..Default::default()
     };
     let graph = RenderGraph {
@@ -196,50 +199,61 @@ fn gpu_grade_merge_modes_and_data_visualization_match_cpu() {
     let mut decoder = fold_media::Decoder::default();
     let cancel = fold_media::Cancel::default();
     for mode in fold_render::operations::MergeMode::ALL {
-        let settings = fold_render::operations::Grade {
-            offset: [-0.5, 0.1, 0.],
-            gamma: [2.; 3],
-            ..Default::default()
-        };
-        let graph = RenderGraph {
-            width: 3,
-            height: 2,
-            output: 3,
-            nodes: vec![
-                Op::Solid {
-                    rgba: [0.2, 0.3, 0.1, 0.5],
-                },
-                Op::Solid {
-                    rgba: [0.3, 0.4, 0.2, 0.75],
-                },
-                Op::ColorGrade { input: 0, settings },
-                Op::Merge {
-                    first: 2,
-                    second: 1,
-                    mode,
-                },
-            ],
-        };
-        let expected = render(graph.clone()).unwrap();
-        let mut actual = renderer
-            .evaluate(graph, None, &mut decoder, &cancel)
-            .unwrap();
-        let result = actual.readback(&cancel).unwrap();
-        for (a, b) in result
-            .pixels()
-            .iter()
-            .flatten()
-            .zip(expected.pixels().iter().flatten())
-        {
-            assert!((a - b).abs() < 1e-5, "{mode:?}: {a} != {b}");
-        }
-        let range = fold_render::view::Range::new(-1., 2.).unwrap();
-        let display = expected.to_data_display(range).unwrap();
-        let mut gpu_display = renderer.output_data(&actual, range, &cancel).unwrap();
-        assert_eq!(gpu_display.storage_bytes(), 3 * 2 * 4);
-        let actual = gpu_display.readback(&cancel).unwrap();
-        for (&a, &b) in actual.rgba().iter().zip(display.rgba()) {
-            assert!(a.abs_diff(b) <= 1);
+        for (invert, unpremultiply, white_clamp, black_clamp) in [
+            (false, false, false, true),
+            (true, false, true, false),
+            (false, true, true, true),
+            (true, true, false, false),
+        ] {
+            let settings = fold_render::operations::Grade {
+                invert,
+                unpremultiply,
+                white_clamp,
+                black_clamp,
+                offset: [-0.5, 0.1, 0.],
+                gamma: [2.; 3],
+                ..Default::default()
+            };
+            let graph = RenderGraph {
+                width: 3,
+                height: 2,
+                output: 3,
+                nodes: vec![
+                    Op::Solid {
+                        rgba: [0.2, 0.3, 0.1, 0.5],
+                    },
+                    Op::Solid {
+                        rgba: [0.3, 0.4, 0.2, 0.75],
+                    },
+                    Op::ColorGrade { input: 0, settings },
+                    Op::Merge {
+                        first: 2,
+                        second: 1,
+                        mode,
+                    },
+                ],
+            };
+            let expected = render(graph.clone()).unwrap();
+            let mut actual = renderer
+                .evaluate(graph, None, &mut decoder, &cancel)
+                .unwrap();
+            let result = actual.readback(&cancel).unwrap();
+            for (a, b) in result
+                .pixels()
+                .iter()
+                .flatten()
+                .zip(expected.pixels().iter().flatten())
+            {
+                assert!((a - b).abs() < 1e-5, "{mode:?}: {a} != {b}");
+            }
+            let range = fold_render::view::Range::new(-1., 2.).unwrap();
+            let display = expected.to_data_display(range).unwrap();
+            let mut gpu_display = renderer.output_data(&actual, range, &cancel).unwrap();
+            assert_eq!(gpu_display.storage_bytes(), 3 * 2 * 4);
+            let actual = gpu_display.readback(&cancel).unwrap();
+            for (&a, &b) in actual.rgba().iter().zip(display.rgba()) {
+                assert!(a.abs_diff(b) <= 1);
+            }
         }
     }
 }
@@ -264,6 +278,8 @@ fn fractional_transform_samples_between_pixels_and_gaussian_has_symmetric_suppor
         nodes: base.clone(),
     };
     graph.nodes.push(Op::Resample {
+        edges: Default::default(),
+        clamp: false,
         input: 1,
         transform: Affine {
             tx: 0.5,
@@ -280,7 +296,8 @@ fn fractional_transform_samples_between_pixels_and_gaussian_has_symmetric_suppor
         output: 2,
         nodes: base,
     };
-    graph.nodes.push(Op::Gaussian {
+    graph.nodes.push(Op::FilteredBlur {
+        filter: Default::default(),
         input: 1,
         size: [0.7, 0.],
         edges: Edges::Transparent,
@@ -304,49 +321,57 @@ fn gpu_fractional_sampling_and_gaussian_match_reference() {
     let cancel = fold_media::Cancel::default();
     let mut decoder = fold_media::Decoder::default();
     for filter in Filter::ALL {
-        for edges in [Edges::Transparent, Edges::Clamp] {
-            let graph = RenderGraph {
-                width: 9,
-                height: 7,
-                output: 3,
-                nodes: vec![
-                    Op::Solid {
-                        rgba: [0.7, 0.3, 0.1, 0.8],
-                    },
-                    Op::Crop {
-                        input: 0,
-                        rect: [2, 1, 7, 6],
-                    },
-                    Op::Resample {
-                        input: 1,
-                        transform: Affine {
-                            a: 0.8,
-                            d: 1.1,
-                            tx: 0.3,
-                            ty: -0.7,
-                            ..Affine::IDENTITY
+        for blur_filter in [
+            fold_render::operations::BlurFilter::Gaussian,
+            fold_render::operations::BlurFilter::Box,
+        ] {
+            for edges in [Edges::Transparent, Edges::Clamp] {
+                let graph = RenderGraph {
+                    width: 9,
+                    height: 7,
+                    output: 3,
+                    nodes: vec![
+                        Op::Solid {
+                            rgba: [0.7, 0.3, 0.1, 0.8],
                         },
-                        filter,
-                    },
-                    Op::Gaussian {
-                        input: 2,
-                        size: [0.7, 1.2],
-                        edges,
-                    },
-                ],
-            };
-            let expected = render(graph.clone()).unwrap();
-            let mut actual = renderer
-                .evaluate(graph, None, &mut decoder, &cancel)
-                .unwrap();
-            let actual = actual.readback(&cancel).unwrap();
-            for (a, b) in actual
-                .pixels()
-                .iter()
-                .flatten()
-                .zip(expected.pixels().iter().flatten())
-            {
-                assert!((a - b).abs() < 1e-5, "{filter:?} {edges:?}: {a} vs {b}");
+                        Op::Crop {
+                            input: 0,
+                            rect: [2, 1, 7, 6],
+                        },
+                        Op::Resample {
+                            edges,
+                            clamp: true,
+                            input: 1,
+                            transform: Affine {
+                                a: 0.8,
+                                d: 1.1,
+                                tx: 0.3,
+                                ty: -0.7,
+                                ..Affine::IDENTITY
+                            },
+                            filter,
+                        },
+                        Op::FilteredBlur {
+                            filter: blur_filter,
+                            input: 2,
+                            size: [0.7, 1.2],
+                            edges,
+                        },
+                    ],
+                };
+                let expected = render(graph.clone()).unwrap();
+                let mut actual = renderer
+                    .evaluate(graph, None, &mut decoder, &cancel)
+                    .unwrap();
+                let actual = actual.readback(&cancel).unwrap();
+                for (a, b) in actual
+                    .pixels()
+                    .iter()
+                    .flatten()
+                    .zip(expected.pixels().iter().flatten())
+                {
+                    assert!((a - b).abs() < 1e-5, "{filter:?} {edges:?}: {a} vs {b}");
+                }
             }
         }
     }
@@ -479,7 +504,8 @@ fn gpu_gaussian_stripes_match_cpu_for_borders_large_kernels_and_partial_groups()
                                 height.saturating_sub(1).max(1),
                             ],
                         },
-                        Op::Gaussian {
+                        Op::FilteredBlur {
+                            filter: Default::default(),
                             input: 1,
                             size,
                             edges,

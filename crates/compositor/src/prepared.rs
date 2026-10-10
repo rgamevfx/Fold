@@ -8,7 +8,7 @@ use std::collections::{BTreeMap, BTreeSet};
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct PreparationCounters {
     pub decoded_records: usize,
-    pub decoded_animation_tracks: usize,
+    pub decoded_channel_bindings: usize,
 }
 
 pub struct PreparedNode<'a> {
@@ -45,7 +45,7 @@ impl Node {
             }
         }
         let animation = self.animation.prepare()?;
-        counters.decoded_animation_tracks += animation.len();
+        counters.decoded_channel_bindings += animation.len();
         let prepared = PreparedNode {
             native: self,
             config,
@@ -58,7 +58,7 @@ impl Node {
     }
 }
 impl PreparedNode<'_> {
-    pub(crate) fn tracks(&self) -> &crate::animation::PreparedChannels {
+    pub(crate) fn channels(&self) -> &crate::animation::PreparedChannels {
         &self.animation
     }
     pub fn config(&self) -> &OperationConfig {
@@ -84,6 +84,7 @@ pub struct PreparedComposite<'a> {
     counters: PreparationCounters,
     order: Vec<ObjectId>,
     reusable: Option<crate::reusable::Definition>,
+    pub(crate) references: BTreeMap<fold_graph::model::Reference, (ObjectId, String, f64)>,
 }
 impl std::ops::Deref for PreparedComposite<'_> {
     type Target = Composite;
@@ -102,7 +103,8 @@ impl Composite {
             }
             nodes.push(node.prepare_counted(&mut counters)?);
         }
-        let prepared = PreparedComposite {
+        let mut prepared = PreparedComposite {
+            references: BTreeMap::new(),
             native: self,
             order: self.evaluation_order()?,
             reusable: self
@@ -114,6 +116,7 @@ impl Composite {
             nodes,
             indexes,
         };
+        prepared.index_references()?;
         prepared.validate()?;
         Ok(prepared)
     }
@@ -145,6 +148,7 @@ impl<'a> PreparedComposite<'a> {
             }
             node.config = config;
         }
+        self.index_references()?;
         Ok(self)
     }
 
@@ -173,6 +177,7 @@ impl<'a> PreparedComposite<'a> {
         self.counters
     }
     pub(crate) fn validate(&self) -> Result<(), String> {
+        self.validate_references()?;
         self.info.validate()?;
         if self.nodes.is_empty()
             || self.nodes.len() > 512

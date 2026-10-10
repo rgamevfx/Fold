@@ -130,6 +130,8 @@ pub enum ImageOp {
         operation: crate::operations::Unary,
     },
     Resample {
+        edges: crate::operations::Edges,
+        clamp: bool,
         input: ImageId,
         transform: Affine,
         filter: crate::operations::Filter,
@@ -153,7 +155,8 @@ pub enum ImageOp {
         input: ImageId,
         rect: [u32; 4],
     },
-    Gaussian {
+    FilteredBlur {
+        filter: crate::operations::BlurFilter,
         input: ImageId,
         size: [f32; 2],
         edges: crate::operations::Edges,
@@ -220,7 +223,7 @@ impl ImageOp {
             | Self::Transform { input, .. }
             | Self::Opacity { input, .. }
             | Self::Crop { input, .. }
-            | Self::Gaussian { input, .. }
+            | Self::FilteredBlur { input, .. }
             | Self::Blur { input, .. }
             | Self::Grade { input, .. } => [Some(input), None, None],
             Self::Baked(_) => [None, None, None],
@@ -297,7 +300,7 @@ impl RenderGraph {
                 | ImageOp::Transform { input, .. }
                 | ImageOp::Opacity { input, .. }
                 | ImageOp::Crop { input, .. }
-                | ImageOp::Gaussian { input, .. }
+                | ImageOp::FilteredBlur { input, .. }
                 | ImageOp::Blur { input, .. }
                 | ImageOp::Grade { input, .. } => *input += offset,
                 ImageOp::Merge {
@@ -472,7 +475,7 @@ pub(crate) fn validate(graph: &RenderGraph, aces: bool) -> Result<usize, String>
                     return Err("invalid crop rectangle".into());
                 }
             }
-            ImageOp::Gaussian { size, .. } => crate::operations::validate_blur(size)?,
+            ImageOp::FilteredBlur { size, .. } => crate::operations::validate_blur(size)?,
             ImageOp::Blur { radius, .. } => {
                 if radius > 64 {
                     return Err("blur radius exceeds 64 pixels".into());
@@ -849,7 +852,8 @@ pub(crate) fn evaluate(
                         .map(|(p, m)| p.map(|v| v * m[3])),
                 );
             }
-            ImageOp::Gaussian {
+            ImageOp::FilteredBlur {
+                filter,
                 input: source,
                 size,
                 edges,
@@ -857,11 +861,12 @@ pub(crate) fn evaluate(
                 if live_bytes + 2 * bytes > budget {
                     return Err("Gaussian scratch exceeds working memory budget".into());
                 }
-                crate::operations::gaussian(
+                crate::operations::filtered_blur(
                     &input(source).pixels,
                     &mut pixels,
                     [graph.width, graph.height],
                     size,
+                    filter,
                     edges,
                     cancel,
                 )?;
@@ -933,6 +938,8 @@ pub(crate) fn evaluate(
                 }
             }
             ImageOp::Resample {
+                edges,
+                clamp,
                 input: source,
                 transform,
                 filter,
@@ -948,6 +955,8 @@ pub(crate) fn evaluate(
                             [graph.width, graph.height],
                             [m.a * x + m.c * y + m.tx, m.b * x + m.d * y + m.ty],
                             filter,
+                            edges,
+                            clamp,
                         ));
                     }
                 }

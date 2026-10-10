@@ -948,33 +948,6 @@ impl GraphCanvas {
                         [0, 1].map(|i| (ui.item_rect_min()[i] + ui.item_rect_max()[i]) * 0.5);
                 }
             }
-            if let Some(pin) = editor.hovered_pin().and_then(|id| self.ids.pin(id))
-                && let Some(node) = graph.nodes.iter().find(|n| n.id == pin.0.node)
-                && let Some(port) = (if pin.1 { &node.outputs } else { &node.inputs })
-                    .iter()
-                    .find(|p| p.key == pin.0.key)
-            {
-                ui.tooltip_text(if !pin.1 && graph.wires.iter().any(|w| w.target == pin.0) {
-                    format!(
-                        "{}\nDrag to empty space to disconnect; Escape cancels",
-                        port.label
-                    )
-                } else {
-                    port.label.clone()
-                });
-            }
-            if !self.moving
-                && !self.connecting
-                && editor.hovered_pin().is_none()
-                && let Some(id) = editor.hovered_node()
-                && let Some(node) = graph
-                    .nodes
-                    .iter()
-                    .find(|n| self.ids.nodes[&n.id] == id.raw())
-                && !node.summary.is_empty()
-            {
-                ui.tooltip_text(format!("{}\n{}", node.label, node.summary));
-            }
             if let Some(node) = node_context {
                 self.context_node = Some(node);
                 ui.open_popup("Node actions");

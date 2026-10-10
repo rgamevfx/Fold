@@ -97,7 +97,7 @@ fn compile(request: VideoCompile<'_>) -> Result<ChannelGraph, fold_foundation::F
         cancel.check()?;
         let node = composite.node(id)?;
         let connections = node.input_ids();
-        let parameters = node.evaluated_parameters(time)?;
+        let parameters = composite.evaluated_parameters(node.id, time)?;
         match &parameters {
             P::Input { id } => {
                 let invocation = request
@@ -157,7 +157,7 @@ fn compile(request: VideoCompile<'_>) -> Result<ChannelGraph, fold_foundation::F
             _ => {}
         }
 
-        let effect = node.evaluated_effect(time)?;
+        let effect = composite.evaluated_effect(node.id, time)?;
         if let P::Read {
             source:
                 Source::Exr {
@@ -286,7 +286,8 @@ fn compile(request: VideoCompile<'_>) -> Result<ChannelGraph, fold_foundation::F
             ids.insert(id, ids[&background].clone());
             continue;
         }
-        if parameters.operator().supports_effect() {
+        if parameters.operator().supports_effect() || matches!(parameters, P::TransformImage { .. })
+        {
             let inputs: Vec<_> = node
                 .input_ids()
                 .iter()
@@ -297,9 +298,22 @@ fn compile(request: VideoCompile<'_>) -> Result<ChannelGraph, fold_foundation::F
                 .mask_node()
                 .filter(|_| !effect.mask_disabled)
                 .map(|id| &ids[&id]);
+            let samples = if let P::TransformImage { settings } = &parameters {
+                settings
+                    .sample_times(time, composite.info.rate)?
+                    .into_iter()
+                    .map(|time| composite.evaluated_parameters(node.id, time))
+                    .collect::<Result<Vec<_>, _>>()?
+            } else {
+                vec![parameters.clone()]
+            };
+            let mut effect = effect.clone();
+            if matches!(parameters, P::TransformImage { .. }) {
+                effect.channels = inputs[0].iter().map(|(name, _)| name.clone()).collect();
+            }
             let result = crate::compile_image::effect(
                 &mut graph,
-                &parameters,
+                &samples,
                 &effect,
                 &inputs,
                 mask,
@@ -342,6 +356,8 @@ fn compile(request: VideoCompile<'_>) -> Result<ChannelGraph, fold_foundation::F
                 }
 
                 P::RelativeTransform { settings } => Op::Resample {
+                    edges: Default::default(),
+                    clamp: false,
                     input: input(0),
                     filter: settings.filter,
                     transform: settings.matrix(
@@ -456,7 +472,7 @@ fn compile(request: VideoCompile<'_>) -> Result<ChannelGraph, fold_foundation::F
                     mask: input(1),
                 },
                 P::Unary { .. }
-                | P::GaussianBlur { .. }
+                | P::Blur { .. }
                 | P::TransformImage { .. }
                 | P::Crop { .. }
                 | P::ColorGrade { .. }

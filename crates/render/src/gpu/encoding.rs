@@ -278,7 +278,9 @@ impl Renderer {
                 ImageOp::ColorGrade { settings, .. } => {
                     params.header[0] = 13;
                     params.rect[0] = u32::from(settings.unpremultiply);
-                    params.rect[1] = u32::from(settings == &crate::operations::Grade::default());
+                    params.rect[1] = u32::from(settings.invert);
+                    params.rect[2] = u32::from(settings.black_clamp);
+                    params.rect[3] = u32::from(settings.white_clamp);
                     for (target, value) in params.grade.iter_mut().zip([
                         settings.black,
                         settings.white,
@@ -345,9 +347,17 @@ impl Renderer {
                 ImageOp::Resample { transform, .. } | ImageOp::Transform { transform, .. } => {
                     let m = transform.inverse()?;
                     params.header[0] = 6;
-                    if let ImageOp::Resample { filter, .. } = op {
+                    if let ImageOp::Resample {
+                        filter,
+                        edges,
+                        clamp,
+                        ..
+                    } = op
+                    {
                         params.header[0] = 14;
                         params.rect[0] = *filter as u32;
+                        params.rect[1] = *edges as u32;
+                        params.rect[2] = u32::from(*clamp);
                     }
                     params.matrix = [m.a as f32, m.b as f32, m.c as f32, m.d as f32];
                     params.offset = [m.tx as f32, m.ty as f32, 0., 0.];
@@ -363,7 +373,7 @@ impl Renderer {
                         );
                     }
                 }
-                ImageOp::Gaussian { .. } | ImageOp::Blur { .. } => {
+                ImageOp::FilteredBlur { .. } | ImageOp::Blur { .. } => {
                     let intermediate = match scratch.pop() {
                         Some(image) => image,
                         None => {
@@ -372,7 +382,13 @@ impl Renderer {
                             image
                         }
                     };
-                    if let ImageOp::Gaussian { size, edges, .. } = op {
+                    if let ImageOp::FilteredBlur {
+                        size,
+                        edges,
+                        filter,
+                        ..
+                    } = op
+                    {
                         for (axis, images) in [
                             [first, intermediate.as_ref()],
                             [intermediate.as_ref(), output.as_ref()],
@@ -380,11 +396,12 @@ impl Renderer {
                         .into_iter()
                         .enumerate()
                         {
-                            buffers.push(self.gaussian.encode(
+                            buffers.push(self.filtered_blur.encode(
                                 &mut encoder,
                                 images,
                                 axis,
                                 size[axis],
+                                *filter,
                                 *edges,
                                 &status,
                             )?);

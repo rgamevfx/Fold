@@ -54,6 +54,8 @@ impl Panel for Canvas {
                 state,
                 Default::default(),
                 Default::default(),
+                Default::default(),
+                Default::default(),
             )),
         })
     }

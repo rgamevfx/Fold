@@ -45,7 +45,8 @@ pub enum OperationConfig {
         shape: crate::Shape,
         bounds: [f64; 4],
     },
-    GaussianBlur {
+    Blur {
+        filter: fold_render::operations::BlurFilter,
         size: [f32; 2],
         edges: fold_render::operations::Edges,
     },
@@ -115,7 +116,7 @@ impl OperationConfig {
             Self::ColorGrade { .. } => 8,
             Self::Composite { .. } => 9,
             Self::TransformImage { .. } => 10,
-            Self::GaussianBlur { .. } => 11,
+            Self::Blur { .. } => 11,
             Self::Unary { operation } => {
                 12 + match operation {
                     fold_render::operations::Unary::Exposure { .. } => 0,
@@ -163,7 +164,7 @@ impl OperationConfig {
             Self::Shape { shape, bounds } => {
                 crate::shapes::drawing(*shape, *bounds, [1.; 2])?;
             }
-            Self::GaussianBlur { size, .. } => fold_render::operations::validate_blur(*size)?,
+            Self::Blur { size, .. } => fold_render::operations::validate_blur(*size)?,
             Self::TransformImage { settings } => {
                 settings.matrix([1.; 2])?;
             }

@@ -444,9 +444,6 @@ impl Editor {
                     [body[0], top + row_height],
                 ) {
                     row_hit = Some(r);
-                    if ui.calc_text_size(label)[0] > header - controls_width - 16. - indent {
-                        ui.tooltip_text(label);
-                    }
                 }
                 if !self.curves {
                     draw.with_clip_rect(body, end, || {

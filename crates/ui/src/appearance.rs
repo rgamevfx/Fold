@@ -96,7 +96,7 @@ impl Appearance {
         Ok(())
     }
 
-    pub(crate) fn apply(&self, style: &mut Style) {
+    pub fn apply(&self, style: &mut Style) {
         style.set_font_size_base(self.application_text);
         let c = self.colors;
         for (tokens, color) in [

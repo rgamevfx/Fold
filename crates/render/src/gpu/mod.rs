@@ -16,8 +16,8 @@ pub use cache::PresentationCompressor;
 mod baked;
 mod color;
 mod display;
+mod filtered_blur;
 mod fusion;
-mod gaussian;
 mod host;
 mod precision;
 mod preparation;
@@ -50,7 +50,7 @@ pub struct Renderer {
     planes: wgpu::ComputePipeline,
     yuv: yuv::YuvPipeline,
     vector: vector::VectorPipeline,
-    gaussian: gaussian::Gaussian,
+    filtered_blur: filtered_blur::FilteredBlur,
     sampling: sampling::Sampling,
     baked_sampling: baked::Sampling,
     baked: baked::Cache,
@@ -142,7 +142,7 @@ impl Renderer {
             compilation_options: Default::default(),
             cache: None,
         });
-        let gaussian = gaussian::Gaussian::new(&host);
+        let filtered_blur = filtered_blur::FilteredBlur::new(&host);
         let sampling = sampling::Sampling::new(&host);
         let baked_sampling = baked::Sampling::new(&host);
         let yuv = yuv::YuvPipeline::new(&host);
@@ -163,7 +163,7 @@ impl Renderer {
         Ok(Self {
             uploads: Default::default(),
             data_display,
-            gaussian,
+            filtered_blur,
             sampling,
             baked_sampling,
             baked: Default::default(),

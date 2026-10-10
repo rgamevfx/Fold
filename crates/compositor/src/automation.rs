@@ -7,6 +7,20 @@ use serde_json::{Value, json};
 #[derive(Deserialize)]
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 enum Edit {
+    Expression {
+        node: ObjectId,
+        property: String,
+        component: usize,
+        source: String,
+    },
+    Reference {
+        node: ObjectId,
+        property: String,
+        component: usize,
+        source_node: ObjectId,
+        source_property: String,
+        source_component: usize,
+    },
     Source {
         #[serde(default)]
         nodes: Option<Vec<ObjectId>>,
@@ -85,7 +99,10 @@ pub fn catalog() -> Value {
         frames: 120,
     };
     json!({
+        "parameter_references":{"scope":"same compositor document","components":"scalar numeric controls, including mix and shader controls","expression":"shared bounded expression syntax; ch(\"../Node/property/component\") resolves stable native identities"},
         "operations":[
+            {"op":"expression","node":"node identity","property":"property key","component":0,"source":"ch(\"../Grade/gain/r\") * 0.5"},
+            {"op":"reference","node":"node identity","property":"property key","component":0,"source_node":"source node identity","source_property":"property key","source_component":0},
             {"op":"create_node","id":"node identity","record":"shared versioned Node record","inputs":"map of input name to node identity"},
             {"op":"replace","node":"node identity","record":"shared versioned Node record; retain node and parameter identities"},
             {"op":"node","node":"node identity","value":"patch of operation/animation/effect/position"},
@@ -191,18 +208,57 @@ pub fn author(d: &Document, edits: &[Value]) -> Result<Document, String> {
                 c.connect(previous, modifier, &modifier_input)?;
                 c.connect(modifier, node, &input)?;
             }
+            Edit::Expression {
+                node,
+                property,
+                component,
+                source,
+            } => {
+                let graph = c.prepare()?;
+                graph.node(node)?.property_reference(&property, component)?;
+                let expression = graph.parse_expression(node, &source)?;
+                c.node_mut(node)?.animation.set_binding(
+                    crate::animation::path(&property, component),
+                    fold_graph::binding::Binding::Expression { expression },
+                )?;
+            }
+            Edit::Reference {
+                node,
+                property,
+                component,
+                source_node,
+                source_property,
+                source_component,
+            } => {
+                let graph = c.prepare()?;
+                graph.node(node)?.property_reference(&property, component)?;
+                let reference = graph
+                    .node(source_node)?
+                    .property_reference(&source_property, source_component)?;
+                c.node_mut(node)?.animation.set_binding(
+                    crate::animation::path(&property, component),
+                    fold_graph::binding::Binding::Link {
+                        reference: reference.into(),
+                    },
+                )?;
+            }
             Edit::Duplicate { node, id } => {
                 if c.nodes.iter().any(|n| n.id == id) {
                     return Err("node ID already exists".into());
                 }
                 let mut n = c.node(node)?.clone();
                 n.id = id;
-                n.effect.id = ObjectId::new();
+                let mut remap = std::collections::BTreeMap::new();
+                let effect_id = ObjectId::new();
+                remap.insert(n.effect.id, effect_id);
+                n.effect.id = effect_id;
                 n.duplicate_instance()?;
                 for p in n.operation.parameters.values_mut() {
-                    p.id = ObjectId::new();
+                    let id = ObjectId::new();
+                    remap.insert(p.id, id);
+                    p.id = id;
                 }
-                n.animation = n.animation.duplicate()?;
+                n.animation = n.animation.duplicate(&remap)?;
                 if let Some(edge) = &mut n.effect.mask {
                     edge.id = ObjectId::new();
                 }

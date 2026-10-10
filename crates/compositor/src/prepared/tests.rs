@@ -44,7 +44,7 @@ fn consumers_share_one_decode_per_record_and_stable_indexes() {
     let prepared = native.prepare().unwrap();
     let counters = prepared.counters();
     assert_eq!(counters.decoded_records, native.nodes.len());
-    assert_eq!(counters.decoded_animation_tracks, 1);
+    assert_eq!(counters.decoded_channel_bindings, 1);
     assert_eq!(prepared.render_order().unwrap().len(), 2);
     for node in prepared.nodes() {
         assert_eq!(prepared.node(node.id).unwrap().config(), node.config());
@@ -58,13 +58,13 @@ fn consumers_share_one_decode_per_record_and_stable_indexes() {
             Time::new(1, 2).unwrap(),
             Time::new(1, 4).unwrap(),
         ] {
-            node.evaluated_parameters(time).unwrap();
-            node.evaluated_effect(time).unwrap();
+            prepared.evaluated_parameters(node.id, time).unwrap();
+            prepared.evaluated_effect(node.id, time).unwrap();
             node.animated_properties();
         }
     }
-    let P::Solid { rgba } = prepared.nodes()[0]
-        .evaluated_parameters(Time::new(1, 2).unwrap())
+    let P::Solid { rgba } = prepared
+        .evaluated_parameters(prepared.nodes()[0].id, Time::new(1, 2).unwrap())
         .unwrap()
     else {
         panic!()
@@ -174,8 +174,8 @@ fn invocation_shadows_tracks_without_redecoding_or_changing_native_protection() 
         .with_invocation(&invocation)
         .unwrap();
     assert_eq!(
-        prepared.nodes()[0]
-            .evaluated_parameters(Time::ZERO)
+        prepared
+            .evaluated_parameters(prepared.nodes()[0].id, Time::ZERO)
             .unwrap(),
         P::Solid {
             rgba: [0.1, 0.3, 0.5, 1.]

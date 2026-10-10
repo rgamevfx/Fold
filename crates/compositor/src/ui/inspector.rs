@@ -7,6 +7,8 @@ pub(super) struct Inspector(
     pub Shared,
     pub super::channels::ShuffleDraft,
     pub super::shader::Draft,
+    pub std::collections::BTreeSet<(fold_foundation::ObjectId, String)>,
+    pub super::references::Drafts,
 );
 impl Panel for Inspector {
     fn id(&self) -> &'static str {
@@ -103,6 +105,16 @@ impl Panel for Inspector {
             .as_ref()
             .is_some_and(|g| g.extensions.contains_key(crate::reusable::KEY));
         let mut promotion = None;
+        let reference_graph = state.graph.clone();
+        let reference_prepared = reference_graph.as_ref().and_then(|g| g.prepare().ok());
+        let mut references = reference_prepared
+            .as_ref()
+            .zip(document)
+            .map(|(graph, document)| super::references::Context {
+                graph,
+                document,
+                drafts: &mut self.4,
+            });
         let Some(node) = state.graph.as_mut().and_then(|g| g.node_mut(id).ok()) else {
             return;
         };
@@ -139,10 +151,21 @@ impl Panel for Inspector {
                 return;
             }
         };
+        let curated = matches!(
+            config,
+            P::ColorGrade { .. } | P::TransformImage { .. } | P::Blur { .. }
+        );
+        if curated && !matches!(config, P::TransformImage { .. }) {
+            super::channels::selection(ui, &mut node.effect, &input_a, &mut response);
+        }
         for property in properties
             .into_iter()
             .filter(|property| property.id != "mix")
         {
+            let split = curated
+                && ((matches!(config, P::ColorGrade { .. }) && property.channels.len() > 1)
+                    || property.id == "scale"
+                    || property.id == "size");
             property_control(
                 ui,
                 node,
@@ -153,6 +176,8 @@ impl Panel for Inspector {
                 &mut response,
                 publishable,
                 &mut promotion,
+                split.then_some(&mut self.3),
+                references.as_mut(),
             );
         }
         let mut shader_migration = None;
@@ -174,9 +199,6 @@ impl Panel for Inspector {
                     .input_text_multiline("##shader-source", &mut settings.source, size)
                     .build();
                 response.item(ui, changed);
-                if ui.is_item_hovered() {
-                    ui.tooltip_text("WGSL effect(uv) returns premultiplied RGBA. Image and control functions use their published names. GPU execution required.");
-                }
             }
 
             P::RelativeTransform { settings } => {
@@ -241,36 +263,11 @@ impl Panel for Inspector {
             }
 
             P::Unary { .. } | P::Shape { .. } => {}
-            P::GaussianBlur { edges, .. } => {
-                if let Some(_advanced) = ui.tree_node("Edges") {
-                    let mut clamp = *edges == fold_render::operations::Edges::Clamp;
-                    if ui.checkbox("Extend edge pixels", &mut clamp) {
-                        *edges = if clamp {
-                            fold_render::operations::Edges::Clamp
-                        } else {
-                            fold_render::operations::Edges::Transparent
-                        };
-                        response.changed = true;
-                        response.finished = true;
-                    }
-                }
+            P::Blur { edges, filter, .. } => {
+                super::controls::blur(ui, filter, edges, &mut response)
             }
             P::TransformImage { settings } => {
-                if let Some(_advanced) = ui.tree_node("Sampling") {
-                    if let Some(_combo) = ui.begin_combo("Filter", settings.filter.label()) {
-                        for filter in fold_render::operations::Filter::ALL {
-                            if ui.selectable(filter.label()) {
-                                settings.filter = filter;
-                                response.changed = true;
-                                response.finished = true;
-                            }
-                        }
-                    }
-                    if ui.checkbox("Invert transform", &mut settings.invert) {
-                        response.changed = true;
-                        response.finished = true;
-                    }
-                }
+                super::controls::transform(ui, settings, &mut response)
             }
             P::Composite { mode } => {
                 if let Some(_combo) = ui.begin_combo("Operation", mode.label()) {
@@ -283,14 +280,7 @@ impl Panel for Inspector {
                     }
                 }
             }
-            P::ColorGrade { settings } => {
-                if let Some(_advanced) = ui.tree_node("Alpha handling")
-                    && ui.checkbox("Unpremultiply before grading", &mut settings.unpremultiply)
-                {
-                    response.changed = true;
-                    response.finished = true;
-                }
-            }
+            P::ColorGrade { settings } => super::controls::grade(ui, settings, &mut response),
             P::Shuffle { mappings } => super::channels::shuffle(
                 ui,
                 mappings,
@@ -353,17 +343,20 @@ impl Panel for Inspector {
             ui.text_wrapped(error);
         }
         if config.operator().supports_effect() {
-            super::channels::effect(
-                ui,
-                &mut node.effect,
-                if matches!(config, P::Composite { .. }) {
-                    &input_b
-                } else {
-                    &input_a
-                },
-                &mask_channels,
-                &mut response,
-            );
+            ui.separator();
+            if !curated {
+                super::channels::selection(
+                    ui,
+                    &mut node.effect,
+                    if matches!(config, P::Composite { .. }) {
+                        &input_b
+                    } else {
+                        &input_a
+                    },
+                    &mut response,
+                );
+            }
+            super::channels::effect(ui, &mut node.effect, &mask_channels, &mut response);
             if let Some(property) = node
                 .prepare()
                 .ok()
@@ -382,6 +375,8 @@ impl Panel for Inspector {
                     &mut response,
                     publishable,
                     &mut promotion,
+                    None,
+                    references.as_mut(),
                 );
             }
         }
@@ -466,6 +461,9 @@ impl Panel for Inspector {
             state.sync(host);
             return;
         }
+        if let Some(selected) = self.4.selected.take() {
+            state.selected = vec![selected];
+        }
         response.cancel_on_escape(ui, state.editing && state.property_editing);
         if response.cancelled {
             state.cancel(host);
@@ -498,33 +496,92 @@ fn property_control(
     response: &mut Response,
     publishable: bool,
     promotion: &mut Option<(fold_platform::effects::Control, crate::reusable::Binding)>,
+    split_state: Option<&mut std::collections::BTreeSet<(fold_foundation::ObjectId, String)>>,
+    mut references: Option<&mut super::references::Context<'_, '_>>,
 ) {
+    let split_key = (node.id, property.id.clone());
+    let mut split = split_state
+        .as_ref()
+        .is_some_and(|state| state.contains(&split_key));
     let mut edit = Response::default();
     let mut promote = false;
     let Ok(mut curves) = node.animation.project() else {
         return;
     };
+    let mut action = None;
+    let driven = (0..property.values.len()).any(|i| {
+        node.animation
+            .driven(&crate::animation::path(&property.id, i))
+    });
+    let property_menu = crate::animation::Property {
+        id: property.id.clone(),
+        label: property.label.clone(),
+        unit: property.unit,
+        channels: property.channels,
+        values: property.values.clone(),
+        range: property.range,
+    };
+    let mut bound = vec![None; property.values.len()];
+    if let Some(context) = references.as_ref() {
+        for (i, sample) in bound.iter_mut().enumerate() {
+            if node
+                .animation
+                .driven(&crate::animation::path(&property.id, i))
+            {
+                *sample = Some(property.values[i]);
+                match context
+                    .graph
+                    .node(node.id)
+                    .and_then(|n| n.property_reference(&property.id, i))
+                    .and_then(|r| context.graph.sample_reference(r, time))
+                {
+                    Ok(value) => *sample = Some(value),
+                    Err(error) => ui.text_wrapped(error),
+                }
+            }
+        }
+    }
     fold_ui::sdk::animated_property::AnimatedProperty {
         id: &property.id,
         label: &property.label,
         components: property.channels,
         unit: property.unit,
         range: property.range,
-        color: (property.id == "color").then_some(aces),
+        color: (property.id == "color" && !driven).then_some(aces),
     }
-    .draw_with_menu(
+    .draw_compact(
         ui,
         &mut property.values,
         &mut curves,
         time,
         auto_key,
         &mut edit,
-        &mut |ui| {
+        &mut |ui, component| {
+            if let Some(context) = references.as_mut() {
+                context.menu(ui, node, &property_menu, component, &mut action);
+            }
             if publishable && ui.menu_item("Promote to effect") {
                 promote = true;
             }
         },
+        split_state.as_ref().map(|_| &mut split),
+        &bound,
     );
+    let mut binding_changed = false;
+    if let Some(context) = references {
+        if context.finish(ui, node, &property, time, action) {
+            binding_changed = true;
+            edit.changed = true;
+            edit.finished = true;
+        }
+    }
+    if let Some(state) = split_state {
+        if split {
+            state.insert(split_key);
+        } else {
+            state.remove(&split_key);
+        }
+    }
     if promote {
         let id = format!(
             "control_{}",
@@ -550,12 +607,17 @@ fn property_control(
             },
         ));
     }
-    if edit.changed {
-        if let Err(error) = node.animation.replace(&curves) {
+    if edit.changed && !binding_changed {
+        let mut next = node.clone();
+        if let Err(error) = next
+            .animation
+            .replace(&curves)
+            .and_then(|_| next.set_property(&property.id, &property.values))
+        {
             ui.text_wrapped(error);
             return;
         }
-        let _ = node.set_property(&property.id, &property.values);
+        *node = next;
     }
     response.began |= edit.began;
     response.changed |= edit.changed;

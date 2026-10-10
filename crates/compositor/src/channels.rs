@@ -35,6 +35,13 @@ impl Default for Effect {
     }
 }
 impl Effect {
+    pub(crate) fn for_config(config: &crate::OperationConfig) -> Self {
+        let mut effect = Self::default();
+        if matches!(config, crate::OperationConfig::ColorGrade { .. }) {
+            effect.channels.truncate(3);
+        }
+        effect
+    }
     pub fn mask_node(&self) -> Option<ObjectId> {
         self.mask.as_ref().and_then(|edge| match edge.target {
             fold_graph::model::Reference::Node { node } => Some(node),

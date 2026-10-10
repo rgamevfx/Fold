@@ -163,7 +163,7 @@ impl Node {
             inputs: vec![None; config.input_count()],
             operation: record,
             animation: Default::default(),
-            effect: Default::default(),
+            effect: crate::Effect::for_config(&config),
             position: None,
             extensions: Default::default(),
         })

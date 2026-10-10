@@ -46,8 +46,5 @@ pub(crate) fn draw<T: Clone>(
             ui.text_disabled("No compatible project targets");
         }
     }
-    if ui.is_item_hovered() {
-        ui.tooltip_text(label);
-    }
     action
 }

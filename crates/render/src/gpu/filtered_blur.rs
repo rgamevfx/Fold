@@ -1,26 +1,26 @@
-//! Shared-sample Gaussian execution; no approximation or hardware filtering.
+//! Shared-sample separable filter execution; no approximation or hardware filtering.
 use super::{
     Host,
     host::{Image, Reservation},
     validation::Status,
 };
-use crate::operations::{Edges, gaussian_weights};
+use crate::operations::{BlurFilter, Edges};
 use std::sync::Arc;
 use wgpu::util::DeviceExt;
 
-pub(super) struct Gaussian {
+pub(super) struct FilteredBlur {
     host: Host,
     pipeline: wgpu::ComputePipeline,
 }
-impl Gaussian {
+impl FilteredBlur {
     pub fn new(host: &Host) -> Self {
         let shader = host
             .device()
-            .create_shader_module(wgpu::include_wgsl!("gaussian.wgsl"));
+            .create_shader_module(wgpu::include_wgsl!("filtered_blur.wgsl"));
         let pipeline = host
             .device()
             .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-                label: Some("Gaussian shared samples"),
+                label: Some("FilteredBlur shared samples"),
                 layout: None,
                 module: &shader,
                 entry_point: Some("main"),
@@ -38,12 +38,13 @@ impl Gaussian {
         images: [&Image; 2],
         axis: usize,
         sigma: f32,
+        filter: BlurFilter,
         edges: Edges,
         status: &Status,
     ) -> Result<Arc<Reservation>, fold_foundation::Failure> {
         let host = &self.host;
         let [input, output] = images;
-        let weights = gaussian_weights(sigma);
+        let weights = filter.weights(sigma);
         let params = [
             output.dimensions[0],
             output.dimensions[1],
@@ -59,14 +60,14 @@ impl Gaussian {
         let uniform = host
             .device()
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Gaussian parameters"),
+                label: Some("FilteredBlur parameters"),
                 contents: bytemuck::cast_slice(&params),
                 usage: wgpu::BufferUsages::UNIFORM,
             });
         let kernel = host
             .device()
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Gaussian weights"),
+                label: Some("FilteredBlur weights"),
                 contents: bytemuck::cast_slice(&weights),
                 usage: wgpu::BufferUsages::STORAGE,
             });
