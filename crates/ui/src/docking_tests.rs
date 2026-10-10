@@ -93,12 +93,13 @@ fn dock_drag(project_drops: bool) {
         let ui = context.frame();
         shell.controls(ui, &mut client).unwrap();
         shell.viewer(ui, &Preview::Pending, "", &mut client);
-        ui.window(&shell.viewer).build(|| {
-            let pos = ui.window_pos();
-            if step == 4 {
-                tab = [pos[0] + 45., pos[1] + ui.text_line_height() * 0.5];
-            }
-        });
+        ui.window(&shell.viewers.values().next().unwrap().key)
+            .build(|| {
+                let pos = ui.window_pos();
+                if step == 4 {
+                    tab = [pos[0] + 45., pos[1] + ui.text_line_height() * 0.5];
+                }
+            });
         saw_drag |= ui.drag_drop_payload().is_some();
         context.end_frame();
     }
@@ -228,7 +229,7 @@ fn default_workspace_places_authoring_below_viewer_and_network_below_tools() {
         shell.layout.validate().unwrap();
         let mut windows: Vec<_> = shell.panels.iter().map(|p| p.key.clone()).collect();
         windows.push(shell.delivery.clone());
-        windows.push(shell.viewer.clone());
+        windows.extend(shell.viewers.values().map(|viewer| viewer.key.clone()));
         let mut rects = vec![([0.; 2], [0.; 2]); windows.len()];
         for _ in 0..4 {
             let ui = context.frame();

@@ -1,7 +1,7 @@
 # Fold Codebase Maintenance Plan
 
 **Date:** 9 October 2026
-**Status:** C0 baseline complete, with native measurement failures recorded. C1–C5 complete; desktop/native acceptance limitations remain recorded. C6–C9 not started.
+**Status:** C0 baseline complete, with native measurement failures recorded. C1–C5 complete; desktop/native acceptance limitations remain recorded. C6 implemented; checkpoint and native acceptance recorded below. C7–C9 not started.
 **Audit baseline:** `6280fb6` — Implement M5c parameter references and scoped inspection.
 
 ## Purpose and authority
@@ -34,7 +34,7 @@ M3–M5 and M5a–M5c acceptance remain open. The desktop freeze remains unresol
 | C3 | Prepared Compositor representation | C2 | Complete; see evidence and limitations |
 | C4 | Provider-owned agent editing | C3 | Complete; see evidence and limitations |
 | C5 | Focused application coordinator | C4 | Complete; see evidence and limitations |
-| C6 | Explicit desktop workspace and viewer state | C5 | Planned |
+| C6 | Explicit desktop workspace and viewer state | C5 | Implemented; native acceptance remains open |
 | C7 | Simplified GPU execution and vector path | C6 | Planned |
 | C8 | Measured preparation and refresh optimization | C7; M6 gate for incremental Motion work | Planned |
 | C9 | Integrated qualification and current architecture reference | C8 | Planned |
@@ -161,6 +161,8 @@ Native desktop captures failed with SIGSEGV in release and debug; a control also
 **Gate:** Tests prove no selection feedback loop or stale panel binding across relevant transitions. Native workflows remain usable and responsive. The original freeze is either causally resolved and regression-tested or remains explicitly open; unrelated passing tests do not close it.
 
 **Checkpoint:** Workspace check, full applicable tests, Clippy, headless isolation, and native UI acceptance under the Fold UI skill.
+
+**C6 implementation — 9 October 2026:** [Results and limitations](maintenance/evidence/c6/result.md) record cohesive viewer runtime records, separate workspace/routing/delivery/viewer responsibilities, explicit close/replace/retarget lifetimes and generation-guarded sidecar loads. Frame-free routing tests preserve independent viewers, pinned/following ownership and one-way linked selection. The workspace checkpoint passed 792 Rust tests and 16 Python tests, workspace/headless checks, Clippy and ownership/isolation checks; nine additional native tests passed and normal/narrow GPU captures were reviewed. Native investigation causally isolated and fixed empty-layout sidecar restoration reading address `0x1` in ImGui. Final revalidation passed 122 UI tests, nine affected integration tests, workspace check and Clippy; the original bound-viewer reproduction now presents frames, applies the public edit and exits cleanly. C5/C4 ownership remains unchanged. Physical native acceptance, the original unknown-trigger freeze and C0's separate unbound shutdown failure remain open. All remaining Motion gates are preserved; C7 and M6 have not begun.
 
 ## C7 — Simplify GPU execution and retire duplicate vector rendering
 

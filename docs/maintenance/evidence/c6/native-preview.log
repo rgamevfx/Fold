@@ -1,0 +1,32 @@
+warning: field `format` is never read
+  --> crates/render/src/gpu/yuv.rs:22:9
+   |
+16 | pub(super) struct Layout {
+   |                   ------ field in this struct
+...
+22 |     pub format: fold_media::VideoFormat,
+   |         ^^^^^^
+   |
+   = note: `Layout` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `parameters` is never used
+  --> crates/render/src/gpu/yuv.rs:26:8
+   |
+25 | impl Layout {
+   | ----------- method in this implementation
+26 |     fn parameters(self, size: u64) -> Result<[u32; 20], fold_foundation::Failure> {
+   |        ^^^^^^^^^^
+
+warning: `fold-render` (lib) generated 2 warnings
+   Compiling fold-ui v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/ui)
+    Finished `test` profile [unoptimized] target(s) in 8.09s
+     Running unittests src/lib.rs (target/debug/deps/fold_ui-2130bcd3b024fd6a)
+
+running 3 tests
+test preview::gpu_tests::native_range_spills_beyond_gpu_and_replays_without_render_demands ... ok
+test preview::gpu_tests::real_textures_hold_until_replacement_and_remain_protected_under_pressure ... ok
+test preview::retention::tests::native_bc7_ram_disk_restart_clear_and_gpu_only_transfers ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 123 filtered out; finished in 14.70s
+

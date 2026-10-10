@@ -1,0 +1,104 @@
+[
+  {
+    "name": "final-workspace-check",
+    "command": [
+      "cargo",
+      "check",
+      "--offline",
+      "--locked",
+      "--workspace",
+      "--all-targets",
+      "--features",
+      "fold-app/native-probe"
+    ],
+    "status": 0,
+    "seconds": 21.81
+  },
+  {
+    "name": "final-workspace-tests",
+    "command": [
+      "cargo",
+      "test",
+      "--offline",
+      "--locked",
+      "--workspace",
+      "--features",
+      "fold-app/native-probe",
+      "--no-fail-fast",
+      "--",
+      "--test-threads=1"
+    ],
+    "status": 0,
+    "seconds": 997.47
+  },
+  {
+    "name": "final-clippy",
+    "command": [
+      "cargo",
+      "clippy",
+      "--offline",
+      "--locked",
+      "--workspace",
+      "--all-targets",
+      "--features",
+      "fold-app/native-probe"
+    ],
+    "status": 0,
+    "seconds": 25.22
+  },
+  {
+    "name": "native-frames",
+    "command": [
+      "cargo",
+      "test",
+      "--offline",
+      "--locked",
+      "-p",
+      "fold-app",
+      "--features",
+      "native-probe",
+      "--test",
+      "agent_frames",
+      "--test",
+      "agent_handoff",
+      "--",
+      "--ignored",
+      "--test-threads=1"
+    ],
+    "status": 0,
+    "seconds": 122.25
+  },
+  {
+    "name": "native-layouts",
+    "command": [
+      "cargo",
+      "test",
+      "--offline",
+      "--locked",
+      "-p",
+      "fold-app",
+      "--features",
+      "native-probe",
+      "--test",
+      "panel_linking",
+      "native_linking_normal_and_narrow",
+      "--",
+      "--ignored",
+      "--test-threads=1"
+    ],
+    "status": 0,
+    "seconds": 12.41
+  },
+  {
+    "name": "native-capture",
+    "command": [
+      "python3",
+      "docs/maintenance/native_capture.py",
+      "docs/maintenance/evidence/c6/native",
+      "--desktop",
+      "target/debug/fold-desktop"
+    ],
+    "status": 1,
+    "seconds": 4.68
+  }
+]

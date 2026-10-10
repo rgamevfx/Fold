@@ -127,7 +127,10 @@ impl Shell {
         let link = self.workspace.selection_links.get(&graph)?;
         let parent = self.workspace.editors.get(&link.parent)?;
         let target = self.workspace.editors.get(&graph)?;
-        (parent.group == target.group && parent.document() == Some(link.document)).then_some(link)
+        (parent.group != workspace::LinkGroup::Unlinked
+            && parent.group == target.group
+            && parent.document() == Some(link.document))
+        .then_some(link)
     }
 
     pub(super) fn linked_layer(
@@ -219,6 +222,262 @@ impl Shell {
     pub(super) fn flush_selections(&mut self, client: &mut dyn DesktopClient) {
         for (id, selection) in std::mem::take(&mut self.selection_events) {
             self.publish_selection(id, selection, client);
+        }
+    }
+}
+
+impl Shell {
+    /// Route document navigation to a peer surface, preserving the source tab.
+    pub(super) fn navigate_editor(&mut self, source: PanelInstanceId, mut target: EditorInstance) {
+        let Some(source_binding) = self.workspace.editors.get(&source) else {
+            return;
+        };
+        let source_contribution = source_binding.contribution.clone();
+        let Some(template) = self.panels.iter().find(|p| {
+            p.descriptor.placement == PanelPlacement::Editor
+                && p.panel.document_type() == Some(target.document_type.as_str())
+        }) else {
+            return;
+        };
+        let contribution = template.descriptor.id;
+        let id = if source_contribution == contribution {
+            source
+        } else {
+            self.workspace
+                .editors
+                .iter()
+                .find(|(_, e)| {
+                    e.group == target.group
+                        && target.group != workspace::LinkGroup::Unlinked
+                        && e.contribution == contribution
+                })
+                .map(|(&id, _)| id)
+                .unwrap_or_else(|| {
+                    self.workspace
+                        .add_editor(contribution, &target.document_type)
+                })
+        };
+        if id != source
+            && target.navigation.len() < self.workspace.editors[&source].navigation.len()
+            && self.workspace.editors[&id].document() == target.document()
+        {
+            target.selection = self.workspace.editors[&id].selection.clone();
+        }
+        self.workspace.selection_links.remove(&id);
+        self.selection_events.retain(|(owner, _)| *owner != id);
+        target.contribution = contribution.into();
+        self.workspace.editors.insert(id, target);
+        self.sync_instances();
+        self.activate_editor(id, true);
+    }
+
+    /// Explicit navigation follows the group; focus and ordinary selections do not.
+    pub(super) fn activate_editor(&mut self, id: PanelInstanceId, map_time: bool) {
+        let Some(binding) = self.workspace.editors.get(&id) else {
+            return;
+        };
+        let group = binding.group;
+        let time = binding.navigation.last().map(|v| v.time);
+        let mapped = map_time && binding.mapped_navigation;
+        if group != workspace::LinkGroup::Unlinked {
+            for viewer in self
+                .workspace
+                .viewers
+                .values_mut()
+                .filter(|v| v.group == group && v.binding == ViewerBinding::Linked)
+            {
+                viewer.source = Some(binding.contribution.clone());
+                viewer.editor = None;
+                if mapped && let Some(time) = time {
+                    viewer.time = time;
+                    viewer.playing = false;
+                }
+            }
+        }
+        if let Some(editor) = self.editors.get(&id)
+            && editor.panels.editor.supports_composition()
+        {
+            self.workspace.composition_editor = Some(id);
+        }
+        self.selection_events
+            .push((id, self.workspace.editors[&id].selection.clone()));
+        self.workspace.record_selection(id);
+        self.workspace.focused_editor = Some(id);
+        self.focus = Some(id);
+    }
+
+    pub(super) fn open_host_target(&mut self, client: &dyn DesktopClient) {
+        let state = client.state();
+        let target = state
+            .navigation
+            .last()
+            .map(|v| v.document)
+            .or(state.selection.document);
+        if state.navigation_event == self.last_host_navigation || target.is_none() {
+            return;
+        }
+        self.last_host_navigation = state.navigation_event;
+        let Some(snapshot) = client.snapshot() else {
+            return;
+        };
+        let Some(document) = target.and_then(|id| snapshot.state().documents.get(&id)) else {
+            return;
+        };
+        let group = self
+            .workspace
+            .focused_editor
+            .and_then(|id| self.workspace.editors.get(&id))
+            .map_or(workspace::LinkGroup::A, |e| e.group);
+        let instance = self
+            .workspace
+            .focused_editor
+            .filter(|id| {
+                self.workspace
+                    .editors
+                    .get(id)
+                    .is_some_and(|e| e.document_type == document.type_id)
+            })
+            .or_else(|| {
+                self.workspace
+                    .editors
+                    .iter()
+                    .find(|(_, e)| e.document_type == document.type_id && e.group == group)
+                    .map(|(&id, _)| id)
+            })
+            .or_else(|| {
+                let template = self.panels.iter().find(|p| {
+                    p.descriptor.placement == PanelPlacement::Editor
+                        && p.panel.document_type() == Some(document.type_id.as_str())
+                })?;
+                let id = self
+                    .workspace
+                    .add_editor(template.descriptor.id, &document.type_id);
+                self.workspace.set_editor_group(id, group);
+                self.sync_instances();
+                Some(id)
+            });
+        if let Some(id) = instance {
+            let editor = self.workspace.editors.get_mut(&id).unwrap();
+            editor.bind(state.navigation.last().cloned().unwrap_or(ViewLocation {
+                document: document.id,
+                time: Time::ZERO,
+                label: String::new(),
+            }));
+            editor.selection = state.selection.clone();
+            editor.selection.document = Some(document.id);
+            self.activate_editor(id, false);
+        }
+    }
+    pub(super) fn refresh_viewer_targets(&mut self, client: &mut dyn DesktopClient) {
+        self.workspace.refresh_outputs(|document| {
+            client
+                .outputs(document)
+                .into_iter()
+                .next()
+                .map(|output| output.reference)
+        });
+        let targets: Vec<_> = self
+            .workspace
+            .viewers
+            .keys()
+            .map(|&id| {
+                (
+                    id,
+                    self.workspace.resolve(id),
+                    self.workspace.editor_for_viewer(id),
+                )
+            })
+            .collect();
+        for (id, output, source_editor) in targets {
+            if let Some(runtime) = self.viewers.get_mut(&id) {
+                runtime.bind(output.clone());
+            }
+            let viewer = self.workspace.viewers.get_mut(&id).unwrap();
+            let same_editor = source_editor.is_some() && source_editor == viewer.last_editor;
+            viewer.last_editor = source_editor;
+            if output == viewer.last_output {
+                if output.is_some() && client.viewer_transport(id).is_none() {
+                    self.submit_viewer(id, client);
+                }
+                continue;
+            }
+            viewer.playing = false;
+            viewer.range = Default::default();
+            if same_editor
+                && viewer.binding == ViewerBinding::Linked
+                && let Some(location) = source_editor
+                    .and_then(|id| self.workspace.editors.get(&id))
+                    .filter(|e| e.mapped_navigation)
+                    .and_then(|e| e.navigation.last())
+            {
+                viewer.time = location.time;
+            }
+            if let Some(output) = &output
+                && let Some(info) = client
+                    .outputs(output.document)
+                    .into_iter()
+                    .find(|o| o.reference.output == output.output)
+                    .and_then(|o| o.info.ok())
+                && viewer.time >= info.time(info.frames).unwrap_or(Time::ZERO)
+            {
+                viewer.time = info
+                    .time(info.frames.saturating_sub(1))
+                    .unwrap_or(Time::ZERO);
+            }
+            viewer.last_output = output;
+            self.submit_viewer(id, client);
+        }
+        self.workspace.reconcile();
+    }
+    pub(super) fn submit_viewer(&self, id: PanelInstanceId, client: &mut dyn DesktopClient) {
+        if let Some(output) = self.workspace.resolve(id) {
+            let viewer = &self.workspace.viewers[&id];
+            client.command(DesktopCommand::ViewerTransport {
+                viewer: id,
+                transport: fold_platform::desktop::ViewerTransport {
+                    mode: self.playback_mode(id, client),
+                    output,
+                    time: viewer.time,
+                    range: viewer.range,
+                    looping: viewer.looping,
+                    playing: viewer.playing,
+                },
+            });
+        } else {
+            client.command(DesktopCommand::CloseViewer(id));
+        }
+    }
+    pub(super) fn seek_from_editor(
+        &mut self,
+        editor: PanelInstanceId,
+        time: Time,
+        client: &mut dyn DesktopClient,
+    ) {
+        match self.workspace.viewer_for_editor(editor) {
+            Ok(viewer) => {
+                let binding = self.workspace.viewers.get_mut(&viewer).unwrap();
+                binding.playing = false;
+                binding.time = time;
+                self.submit_viewer(viewer, client);
+            }
+            Err(error) => {
+                let has_viewer = self
+                    .workspace
+                    .viewers
+                    .keys()
+                    .any(|id| self.workspace.editor_for_viewer(*id) == Some(editor));
+                if !has_viewer
+                    && let Some(location) = self
+                        .workspace
+                        .editors
+                        .get_mut(&editor)
+                        .and_then(|e| e.navigation.last_mut())
+                {
+                    location.time = time;
+                } else {
+                    client.command(DesktopCommand::Notify(error));
+                }
+            }
         }
     }
 }

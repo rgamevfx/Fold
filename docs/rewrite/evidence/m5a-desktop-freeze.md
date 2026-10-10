@@ -46,3 +46,17 @@ The reopened instance stayed responsive during startup and this loop. The user's
 exact symptom has **not** been reproduced; no causal hypothesis or code fix has
 been established. If it freezes again, inspect the live process before restarting
 it, plus the supervisor's logs if it exits. Avoid losing the next failing state.
+
+
+## C6 investigation — 9 October 2026
+
+[C6](../../maintenance/evidence/c6/result.md) reproduced C0's bound-viewer startup
+SIGSEGV and traced it to empty workspace INI loading. A minimal restore test
+reproduced signal 11 without a project, GPU or frame. The corrected lifecycle
+restores default docking for an empty layout; that test and the original native
+replay now pass, with presented frames, a public seed edit and clean exit.
+
+This is a bounded causal repair. It does **not** establish the cause of this
+unknown-trigger freeze or C0's separate unbound shutdown failure. Both remain
+open. Native normal/narrow GPU captures passed; physical desktop interaction
+was unavailable because the inspection service could not start. M6 remains gated.

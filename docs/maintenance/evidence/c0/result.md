@@ -89,3 +89,14 @@ Use `--desktop target/debug/fold-desktop` for the debug case. The driver install
 ## Next phase
 
 C1 is planned, not started: remove superseded document/operation generations and re-author supported fixtures against the captured contract. C0 deleted no runtime implementation or dependency and retained no new compatibility shim. The native failures and unavailable metrics travel with the baseline; later phases must not erase them from acceptance records.
+
+
+## C6 follow-up — 9 October 2026
+
+[C6 investigation](../c6/result.md) causally isolates the bound-viewer restore
+failure: empty workspace INI reaches an ImGui `strlen` path at address `0x1`.
+The minimal production-path test reproduced SIGSEGV before the fix. Default
+docking now handles absent INI; the original bound-viewer replay presents frames,
+applies its public seed edit and exits 0. This closes the empty-layout restore
+case, not the separate initial unbound shutdown failure or the original
+unknown-trigger freeze. No historical measurement is replaced or reinterpreted.

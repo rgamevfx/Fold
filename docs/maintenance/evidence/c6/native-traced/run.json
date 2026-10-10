@@ -1,0 +1,24 @@
+{
+  "fixture_sha256": "ed899803347d4739a6464e8b9eed9d9f86b54ea125e427b94f28adffa7988218",
+  "events": [
+    {
+      "method": "discover",
+      "unix_ms": 1791590848937.3386,
+      "state": null,
+      "error": null
+    },
+    {
+      "method": "discover",
+      "unix_ms": 1791590849322.5364,
+      "state": null,
+      "error": null
+    }
+  ],
+  "desktop": "/tmp/fold-c6-traced-desktop",
+  "desktop_sha256": "b2ccabe2d63981fb2ee39df1d06ede4d466238a716c9db1b98eee94305bff891",
+  "failure": "Command '['/home/rgame/.codex/worktrees/efc8/Fold/target/debug/fold-cli', 'protocol', '/tmp/fold-c0-native-824qe1gl/fold-session-PkLtnC/protocol.sock']' returned non-zero exit status 1.",
+  "request_stderr": "fold-cli: Connection reset by peer (os error 104)\n",
+  "supervisor_terminated_disposable_child": true,
+  "exit_code": -11,
+  "original_unchanged": true
+}

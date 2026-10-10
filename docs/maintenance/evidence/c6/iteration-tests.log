@@ -1,0 +1,49 @@
+   Compiling fold-project v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/project)
+warning: field `format` is never read
+  --> crates/render/src/gpu/yuv.rs:22:9
+   |
+16 | pub(super) struct Layout {
+   |                   ------ field in this struct
+...
+22 |     pub format: fold_media::VideoFormat,
+   |         ^^^^^^
+   |
+   = note: `Layout` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `parameters` is never used
+  --> crates/render/src/gpu/yuv.rs:26:8
+   |
+25 | impl Layout {
+   | ----------- method in this implementation
+26 |     fn parameters(self, size: u64) -> Result<[u32; 20], fold_foundation::Failure> {
+   |        ^^^^^^^^^^
+
+warning: `fold-render` (lib) generated 2 warnings
+   Compiling fold-graph v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/graph)
+   Compiling fold-platform v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/platform)
+   Compiling fold-ui v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/ui)
+error[E0615]: attempted to take value of method `viewer` on type `shell::Shell`
+  --> crates/ui/src/docking_tests.rs:96:26
+   |
+96 |         ui.window(&shell.viewer).build(|| {
+   |                          ^^^^^^ method, not a field
+   |
+help: use parentheses to call the method
+   |
+96 |         ui.window(&shell.viewer(_, _, _, _)).build(|| {
+   |                                ++++++++++++
+
+error[E0615]: attempted to take value of method `viewer` on type `shell::Shell`
+   --> crates/ui/src/docking_tests.rs:231:28
+    |
+231 |         windows.push(shell.viewer.clone());
+    |                            ^^^^^^ method, not a field
+    |
+help: use parentheses to call the method
+    |
+231 |         windows.push(shell.viewer(_, _, _, _).clone());
+    |                                  ++++++++++++
+
+For more information about this error, try `rustc --explain E0615`.
+error: could not compile `fold-ui` (lib test) due to 2 previous errors

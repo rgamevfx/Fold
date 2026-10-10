@@ -8,13 +8,19 @@ use std::{
 };
 
 enum Request {
-    Load(String),
+    Load(u64, String),
     Save(Workspace),
+}
+pub(crate) struct Completion {
+    pub load_ticket: Option<u64>,
+    pub project: String,
+    pub value: Result<Option<Workspace>, String>,
 }
 pub(crate) struct WorkspaceStore {
     sender: Option<SyncSender<Request>>,
-    result: Receiver<(String, Result<Option<Workspace>, String>)>,
+    result: Receiver<Completion>,
     pending: VecDeque<Request>,
+    load_ticket: u64,
     thread: Option<JoinHandle<()>>,
 }
 fn sidecar(root: &std::path::Path, project: &str) -> PathBuf {
@@ -40,18 +46,19 @@ impl WorkspaceStore {
         let thread = std::thread::spawn(move || {
             while let Ok(request) = requests.recv() {
                 let Some(root) = &root else {
-                    let project = match request {
-                        Request::Load(project) => project,
-                        Request::Save(workspace) => workspace.project,
+                    let (ticket, project) = match request {
+                        Request::Load(ticket, project) => (Some(ticket), project),
+                        Request::Save(workspace) => (None, workspace.project),
                     };
-                    let _ = publish.send((
+                    let _ = publish.send(Completion {
+                        load_ticket: ticket,
                         project,
-                        Err("No workspace state directory is configured".into()),
-                    ));
+                        value: Err("No workspace state directory is configured".into()),
+                    });
                     continue;
                 };
                 match request {
-                    Request::Load(project) => {
+                    Request::Load(ticket, project) => {
                         let path = sidecar(root, &project);
                         let value = match std::fs::metadata(&path) {
                             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
@@ -63,7 +70,11 @@ impl WorkspaceStore {
                                 .map_err(|e| e.to_string())
                                 .and_then(|bytes| Workspace::decode(&bytes, &project).map(Some)),
                         };
-                        let _ = publish.send((project, value));
+                        let _ = publish.send(Completion {
+                            load_ticket: Some(ticket),
+                            project,
+                            value,
+                        });
                     }
                     Request::Save(workspace) => {
                         let save = || -> Result<(), String> {
@@ -81,7 +92,11 @@ impl WorkspaceStore {
                             Ok(())
                         };
                         if let Err(error) = save() {
-                            let _ = publish.send((workspace.project, Err(error)));
+                            let _ = publish.send(Completion {
+                                load_ticket: None,
+                                project: workspace.project,
+                                value: Err(error),
+                            });
                         }
                     }
                 }
@@ -91,14 +106,20 @@ impl WorkspaceStore {
             sender: Some(sender),
             result,
             pending: VecDeque::new(),
+            load_ticket: 0,
             thread: Some(thread),
         }
     }
     pub fn load(&mut self, project: String) {
+        self.invalidate_load();
         self.pending
-            .retain(|request| !matches!(request, Request::Load(_)));
-        self.pending.push_back(Request::Load(project));
+            .push_back(Request::Load(self.load_ticket, project));
         self.flush();
+    }
+    pub fn invalidate_load(&mut self) {
+        self.load_ticket += 1;
+        self.pending
+            .retain(|request| !matches!(request, Request::Load(..)));
     }
     pub fn save(&mut self, workspace: Workspace) {
         self.pending.retain(
@@ -128,9 +149,17 @@ impl WorkspaceStore {
             }
         }
     }
-    pub fn take(&mut self) -> Option<(String, Result<Option<Workspace>, String>)> {
+    pub fn take(&mut self) -> Option<Completion> {
         self.flush();
-        self.result.try_recv().ok()
+        while let Ok(completion) = self.result.try_recv() {
+            if completion
+                .load_ticket
+                .is_none_or(|ticket| ticket == self.load_ticket)
+            {
+                return Some(completion);
+            }
+        }
+        None
     }
 }
 #[cfg(test)]

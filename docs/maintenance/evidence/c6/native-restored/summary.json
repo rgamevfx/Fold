@@ -1,0 +1,11 @@
+{
+  "samples": 552,
+  "ready_samples": 443,
+  "presented_samples": 453,
+  "gpu_records": 2,
+  "revisions": [
+    5,
+    6
+  ],
+  "success": true
+}

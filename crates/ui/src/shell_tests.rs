@@ -110,7 +110,7 @@ fn preview_resolution_tracks_viewport_pixels_quality_and_aspect() {
 fn full_resolution_probe_does_not_measure_a_viewport_sized_substitute() {
     let mut shell = Shell::new(vec![]);
     let id = *shell.workspace.viewers.keys().next().unwrap();
-    shell.viewport_pixels.insert(id, [480., 480.]);
+    shell.viewers.get_mut(&id).unwrap().viewport_pixels = Some([480., 480.]);
     let key = PreviewKey {
         region: None,
         target: None,
@@ -737,7 +737,7 @@ fn review_menu_is_explicit_and_preserves_playback_mode_at_normal_and_narrow_widt
             let viewer = shell.workspace.viewers.get_mut(&id).unwrap();
             viewer.playback_mode = Some(mode);
             viewer.playing = playing;
-            shell.review_states.insert(id, (None, ready));
+            shell.viewers.get_mut(&id).unwrap().review = (None, ready);
             let mut frame = |context: &mut Context| {
                 let mut point = [0.; 2];
                 let ui = context.frame();
@@ -1167,16 +1167,16 @@ fn viewer_errors_do_not_change_preview_demand_size() {
             let error = (frame >= 4).then(|| {
                 "Render failed with a long diagnostic that wraps over several lines. ".repeat(5)
             });
-            shell.presentation.insert(id, (None, error.clone()));
+            shell.viewers.get_mut(&id).unwrap().presentation = (None, error.clone());
             shell.review_state(id, (error.clone(), false));
             let preview = error.map(Preview::Failed).unwrap_or(Preview::Pending);
             let ui = context.frame();
-            ui.window(&shell.viewers[&id])
+            ui.window(&shell.viewers[&id].key)
                 .position([0.; 2], dear_imgui_rs::Condition::Always)
                 .size([width, 400.], dear_imgui_rs::Condition::Always)
                 .build(|| {});
             shell.viewer_instance(ui, id, &preview, "", &mut host);
-            let size = shell.viewport_pixels[&id];
+            let size = shell.viewers[&id].viewport_pixels.unwrap();
             if frame == 3 {
                 baseline = Some(size);
             }
@@ -1250,7 +1250,7 @@ fn ready_viewer_releases_image_draw_list_before_editor_overlay() {
         for _ in 0..3 {
             let before = seen.borrow().len();
             let ui = context.frame();
-            ui.window(&shell.viewers[&id])
+            ui.window(&shell.viewers[&id].key)
                 .position([0.; 2], dear_imgui_rs::Condition::Always)
                 .size([width, 400.], dear_imgui_rs::Condition::Always)
                 .build(|| {});
@@ -1812,4 +1812,281 @@ fn named_scene_outputs_drive_linked_transport_and_editor_preview_context() {
     assert!(
         matches!(host.host.commands.last(), Some(DesktopCommand::ViewerTransport { transport, .. }) if transport.output.output == host.port)
     );
+}
+
+#[test]
+fn closed_viewer_releases_all_runtime_state_and_rejects_late_callbacks() {
+    let mut shell = Shell::new(vec![]);
+    let id = *shell.workspace.viewers.keys().next().unwrap();
+    let other = shell.workspace.add_viewer(ViewerInstance::default());
+    shell.sync_instances();
+    let documents = [DocumentId::new(), DocumentId::new()];
+    let mut host = Host {
+        documents,
+        state: Default::default(),
+        delivery: documents[0],
+        commands: vec![],
+    };
+    shell.workspace.monitored_viewer = Some(id);
+    shell.workspace.inspector_viewer = Some(id);
+    shell.viewers.get_mut(&id).unwrap().viewport_pixels = Some([640., 360.]);
+    shell.review_state(id, (Some("old review".into()), true));
+    shell.close_viewer(id, &mut host);
+    shell.presentation(id, None, Some("late completion".into()), &host);
+    shell.review_state(id, (Some("late review".into()), true));
+    shell.close_viewer(id, &mut host);
+    assert!(!shell.viewers.contains_key(&id));
+    assert!(!shell.workspace.viewers.contains_key(&id));
+    assert!(shell.workspace.monitored_viewer.is_none());
+    assert!(shell.workspace.inspector_viewer.is_none());
+    assert!(shell.viewers.contains_key(&other));
+    assert_eq!(
+        host.commands
+            .iter()
+            .filter(
+                |command| matches!(command, DesktopCommand::CloseViewer(viewer) if *viewer == id)
+            )
+            .count(),
+        1
+    );
+    let new = shell.workspace.add_viewer(ViewerInstance::default());
+    shell.sync_instances();
+    assert_ne!(new, id);
+    assert!(shell.viewers[&new].viewport_pixels.is_none());
+    assert_eq!(shell.viewers[&new].review, (None, false));
+}
+
+#[test]
+fn runtime_replacement_clears_reused_panel_identity_without_a_frame() {
+    let mut shell = Shell::new(vec![]);
+    let id = *shell.workspace.viewers.keys().next().unwrap();
+    shell.viewers.get_mut(&id).unwrap().viewport_pixels = Some([640., 360.]);
+    shell.viewers.get_mut(&id).unwrap().presentation.1 = Some("old failure".into());
+    shell.review_state(id, (Some("old review".into()), true));
+    shell.reset_runtime();
+    shell.sync_instances();
+    assert!(shell.viewers[&id].viewport_pixels.is_none());
+    assert_eq!(shell.viewers[&id].presentation, (None, None));
+    assert_eq!(shell.viewers[&id].review, (None, false));
+    assert!(shell.selection_events.is_empty());
+    assert!(shell.cached_previews.is_empty());
+}
+
+#[test]
+fn closing_editor_pins_followers_and_drops_queued_selection() {
+    let mut shell = Shell::new(vec![]);
+    let document = DocumentId::new();
+    let editor = shell.workspace.add_editor("unavailable", "test.kind");
+    shell
+        .workspace
+        .editors
+        .get_mut(&editor)
+        .unwrap()
+        .bind(ViewLocation {
+            document,
+            time: Time::ZERO,
+            label: String::new(),
+        });
+    declare_test_outputs(&mut shell.workspace);
+    let id = *shell.workspace.viewers.keys().next().unwrap();
+    shell.workspace.follow_source(id, editor);
+    shell.workspace.record_selection(editor);
+    shell.focus = Some(editor);
+    let selection = shell.workspace.editors[&editor].selection.clone();
+    shell.selection_events.push((editor, selection.clone()));
+    let mut host = Host {
+        documents: [document; 2],
+        state: Default::default(),
+        delivery: document,
+        commands: vec![],
+    };
+    shell.close_editor(editor, &mut host);
+    shell.publish_selection(editor, selection, &mut host);
+    shell.flush_selections(&mut host);
+    assert!(shell.selection_events.is_empty());
+    assert!(shell.focus.is_none());
+    assert!(shell.workspace.focused_editor.is_none());
+    assert!(!shell.workspace.editors.contains_key(&editor));
+    assert_eq!(shell.workspace.resolve(id).unwrap().document, document);
+    assert!(matches!(
+        shell.workspace.viewers[&id].binding,
+        ViewerBinding::Pinned(_)
+    ));
+}
+
+#[test]
+fn graph_selection_updates_parent_once_without_focus_or_feedback() {
+    struct Linked {
+        graph: bool,
+        calls: Rc<Cell<u32>>,
+    }
+    impl Panel for Linked {
+        fn id(&self) -> &'static str {
+            if self.graph { "graph" } else { "parent" }
+        }
+        fn document_type(&self) -> Option<&'static str> {
+            Some(self.id())
+        }
+        fn is_layer_graph(&self) -> bool {
+            self.graph
+        }
+        fn new_instance(&self) -> Option<EditorPanels> {
+            Some(EditorPanels {
+                editor: Box::new(Self {
+                    graph: self.graph,
+                    calls: self.calls.clone(),
+                }),
+                inspector: Box::new(Self {
+                    graph: self.graph,
+                    calls: self.calls.clone(),
+                }),
+            })
+        }
+        fn selection_target(
+            &mut self,
+            _: &mut dyn DesktopClient,
+        ) -> Result<Option<crate::sdk::SelectionTarget>, String> {
+            self.calls.set(self.calls.get() + 1);
+            Ok(None)
+        }
+        fn layer_for_graph(
+            &self,
+            _: DocumentId,
+            _: Option<fold_foundation::ObjectId>,
+            occurrence: Option<fold_foundation::ObjectId>,
+        ) -> Option<(fold_foundation::ObjectId, bool)> {
+            occurrence.map(|id| (id, false))
+        }
+        fn draw(&mut self, _: ExtensionUi<'_>) {
+            panic!("routing must not draw");
+        }
+    }
+    let calls = Rc::new(Cell::new(0));
+    let mut shell = Shell::new(
+        [false, true]
+            .into_iter()
+            .map(|graph| {
+                let panel = Linked {
+                    graph,
+                    calls: calls.clone(),
+                };
+                RegisteredPanel {
+                    descriptor: fold_platform::packages::PanelDescriptor {
+                        id: panel.id(),
+                        title: panel.id(),
+                        placement: PanelPlacement::Editor,
+                    },
+                    key: WindowKey::new(panel.id(), panel.id()).unwrap(),
+                    panel: Box::new(panel),
+                }
+            })
+            .collect(),
+    );
+    let parent = *shell
+        .workspace
+        .editors
+        .iter()
+        .find(|(_, e)| e.contribution == "parent")
+        .unwrap()
+        .0;
+    let graph = *shell
+        .workspace
+        .editors
+        .iter()
+        .find(|(_, e)| e.contribution == "graph")
+        .unwrap()
+        .0;
+    let document = DocumentId::new();
+    let child = DocumentId::new();
+    let occurrence = fold_foundation::ObjectId::new();
+    for (id, document) in [(parent, document), (graph, child)] {
+        let binding = shell.workspace.editors.get_mut(&id).unwrap();
+        binding.group = workspace::LinkGroup::A;
+        binding.bind(ViewLocation {
+            document,
+            time: Time::ZERO,
+            label: String::new(),
+        });
+    }
+    shell.workspace.selection_links.insert(
+        graph,
+        workspace::SelectionLink {
+            parent,
+            document,
+            occurrence,
+        },
+    );
+    shell.workspace.focused_editor = Some(parent);
+    let mut selection = shell.workspace.editors[&graph].selection.clone();
+    selection.objects.push(fold_foundation::ObjectId::new());
+    shell.selection_events.push((graph, selection.clone()));
+    let mut host = Host {
+        documents: [document, child],
+        state: Default::default(),
+        delivery: document,
+        commands: vec![],
+    };
+    shell.flush_selections(&mut host);
+    shell.flush_selections(&mut host);
+    assert_eq!(calls.get(), 1);
+    assert_eq!(
+        shell.workspace.editors[&parent].selection.objects,
+        vec![occurrence]
+    );
+    assert_eq!(shell.workspace.focused_editor, Some(parent));
+    assert_eq!(shell.workspace.inspector_editor(), Some(graph));
+    assert!(shell.selection_events.is_empty());
+    assert!(host.commands.is_empty());
+    // A re-bound source must reject the old document's queued event.
+    shell
+        .workspace
+        .editors
+        .get_mut(&graph)
+        .unwrap()
+        .bind(ViewLocation {
+            document,
+            time: Time::ZERO,
+            label: String::new(),
+        });
+    shell.publish_selection(graph, selection, &mut host);
+    assert_eq!(calls.get(), 1);
+    // Unlinked panels may never propagate through a formerly shared group.
+    shell.workspace.editors.get_mut(&parent).unwrap().group = workspace::LinkGroup::Unlinked;
+    shell.workspace.editors.get_mut(&graph).unwrap().group = workspace::LinkGroup::Unlinked;
+    shell.workspace.reconcile();
+    assert!(shell.workspace.selection_links.is_empty());
+}
+
+#[test]
+fn retarget_releases_only_the_changed_viewers_review_and_presentation() {
+    let mut shell = Shell::new(vec![]);
+    let first = *shell.workspace.viewers.keys().next().unwrap();
+    let second = shell.workspace.add_viewer(ViewerInstance::default());
+    let docs = [DocumentId::new(), DocumentId::new()];
+    shell.sync_instances();
+    let output = |document| workspace::DocumentRef {
+        document,
+        output: "video".into(),
+        extensions: Default::default(),
+    };
+    for id in [first, second] {
+        shell.workspace.pin_output(id, output(docs[0]));
+    }
+    let mut host = Host {
+        documents: docs,
+        state: Default::default(),
+        delivery: docs[0],
+        commands: vec![],
+    };
+    shell.refresh_viewer_targets(&mut host);
+    for id in [first, second] {
+        shell.review_state(id, (Some("cached range".into()), true));
+        shell.viewers.get_mut(&id).unwrap().presentation.1 = Some("old error".into());
+    }
+    shell.workspace.pin_output(first, output(docs[1]));
+    shell.refresh_viewer_targets(&mut host);
+    assert_eq!(shell.viewers[&first].review, (None, false));
+    assert_eq!(shell.viewers[&first].presentation, (None, None));
+    assert!(shell.viewers[&second].review.1);
+    assert!(shell.viewers[&second].presentation.1.is_some());
 }

@@ -53,8 +53,7 @@ impl WorkspaceProbe {
     }
     pub fn restore(&mut self, workspace: Workspace) {
         self.shell.workspace = workspace;
-        self.shell.editors.clear();
-        self.shell.locked_inspector = None;
+        self.shell.reset_runtime();
         self.shell.sync_instances();
     }
     pub fn bind(

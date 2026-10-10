@@ -654,7 +654,9 @@ impl Workspace {
                 .get(id)
                 .zip(self.editors.get(&link.parent))
                 .is_some_and(|(target, parent)| {
-                    target.group == parent.group && parent.document() == Some(link.document)
+                    parent.group != LinkGroup::Unlinked
+                        && target.group == parent.group
+                        && parent.document() == Some(link.document)
                 })
         });
     }

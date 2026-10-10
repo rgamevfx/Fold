@@ -1,0 +1,84 @@
+[
+  {
+    "name": "restoration-workspace-check",
+    "command": [
+      "cargo",
+      "check",
+      "--offline",
+      "--locked",
+      "--workspace",
+      "--all-targets",
+      "--features",
+      "fold-app/native-probe"
+    ],
+    "status": 0,
+    "seconds": 20.06
+  },
+  {
+    "name": "restoration-clippy",
+    "command": [
+      "cargo",
+      "clippy",
+      "--offline",
+      "--locked",
+      "--workspace",
+      "--all-targets",
+      "--features",
+      "fold-app/native-probe"
+    ],
+    "status": 0,
+    "seconds": 24.83
+  },
+  {
+    "name": "restoration-integration",
+    "command": [
+      "cargo",
+      "test",
+      "--offline",
+      "--locked",
+      "-p",
+      "fold-app",
+      "--features",
+      "native-probe",
+      "--test",
+      "panel_linking",
+      "--test",
+      "viewer_transport",
+      "--test",
+      "project_lifecycle",
+      "--",
+      "--test-threads=1"
+    ],
+    "status": 0,
+    "seconds": 62.36
+  },
+  {
+    "name": "restoration-build",
+    "command": [
+      "cargo",
+      "build",
+      "--offline",
+      "--locked",
+      "-p",
+      "fold-app",
+      "--features",
+      "native-probe",
+      "--bin",
+      "fold-desktop"
+    ],
+    "status": 0,
+    "seconds": 0.39
+  },
+  {
+    "name": "native-restored",
+    "command": [
+      "python3",
+      "docs/maintenance/native_capture.py",
+      "docs/maintenance/evidence/c6/native-restored",
+      "--desktop",
+      "target/debug/fold-desktop"
+    ],
+    "status": 0,
+    "seconds": 16.68
+  }
+]

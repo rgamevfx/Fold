@@ -1,0 +1,61 @@
+warning: field `format` is never read
+  --> crates/render/src/gpu/yuv.rs:22:9
+   |
+16 | pub(super) struct Layout {
+   |                   ------ field in this struct
+...
+22 |     pub format: fold_media::VideoFormat,
+   |         ^^^^^^
+   |
+   = note: `Layout` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `parameters` is never used
+  --> crates/render/src/gpu/yuv.rs:26:8
+   |
+25 | impl Layout {
+   | ----------- method in this implementation
+26 |     fn parameters(self, size: u64) -> Result<[u32; 20], fold_foundation::Failure> {
+   |        ^^^^^^^^^^
+
+warning: `fold-render` (lib) generated 2 warnings
+   Compiling fold-ui v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/ui)
+    Finished `test` profile [unoptimized] target(s) in 5.90s
+     Running unittests src/lib.rs (target/debug/deps/fold_ui-2130bcd3b024fd6a)
+
+running 32 tests
+test shell::docking_tests::default_workspace_places_authoring_below_viewer_and_network_below_tools ... ok
+test shell::docking_tests::dock_tab_drag_without_project_overlay ... ok
+test shell::docking_tests::grabbing_and_dragging_a_dock_tab_keeps_the_shell_alive ... ok
+test shell::docking_tests::project_drag_delivers_once_and_preserves_the_canvas_cursor ... ok
+test shell::presets::tests::preset_management_retains_current_targets_without_importing_saved_targets ... ok
+test shell::tests::channel_selector_and_viewer_status_fit_narrow_headers ... ok
+test shell::tests::closed_viewer_releases_all_runtime_state_and_rejects_late_callbacks ... ok
+test shell::tests::closing_editor_pins_followers_and_drops_queued_selection ... ok
+test shell::tests::composition_surface_has_a_context_after_restoring_a_workspace_without_one ... ok
+test shell::tests::composition_surface_uses_the_explicit_viewer_time_and_rejects_ambiguity ... ok
+test shell::tests::editor_content_context_menu_survives_right_button_release ... ok
+test shell::tests::editor_seeks_choose_one_explicit_viewer_and_leave_others_and_delivery_untouched ... ok
+test shell::tests::editor_without_a_viewer_seeks_its_own_exact_local_time ... ok
+test shell::tests::external_viewer_retarget_updates_binding_without_moving_other_viewers ... ok
+test shell::tests::following_preserves_viewer_time_on_root_switch_and_maps_nested_navigation_and_back ... ok
+test shell::tests::full_resolution_probe_does_not_measure_a_viewport_sized_substitute ... ok
+test shell::tests::graph_selection_updates_parent_once_without_focus_or_feedback ... ok
+test shell::tests::image_fit ... ok
+test shell::tests::joining_another_group_preserves_time_even_when_its_source_has_nested_navigation ... ok
+test shell::tests::named_scene_outputs_drive_linked_transport_and_editor_preview_context ... ok
+test shell::tests::nested_navigation_preserves_timeline_and_follows_group_a ... ok
+test shell::tests::opening_a_layer_graph_retains_the_parent_stack_selection_and_clock ... ok
+test shell::tests::playback_menu_selects_both_modes_and_source_default_at_narrow_widths ... ok
+test shell::tests::preview_resolution_tracks_viewport_pixels_quality_and_aspect ... ok
+test shell::tests::ready_viewer_releases_image_draw_list_before_editor_overlay ... ok
+test shell::tests::restored_viewers_initialize_host_transports_and_keep_explicit_mode_on_retarget ... ok
+test shell::tests::retarget_releases_only_the_changed_viewers_review_and_presentation ... ok
+test shell::tests::review_menu_is_explicit_and_preserves_playback_mode_at_normal_and_narrow_widths ... ok
+test shell::tests::runtime_editors_and_inspectors_are_isolated_at_normal_and_narrow_widths ... ok
+test shell::tests::runtime_replacement_clears_reused_panel_identity_without_a_frame ... ok
+test shell::tests::viewer_errors_do_not_change_preview_demand_size ... ok
+test shell::tests::viewer_header_stays_one_row_and_inside_normal_and_narrow_panels ... ok
+
+test result: ok. 32 passed; 0 failed; 0 ignored; 0 measured; 94 filtered out; finished in 0.17s
+

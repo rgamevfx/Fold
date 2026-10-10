@@ -1,0 +1,35 @@
+   Compiling fold-ui v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/ui)
+   Compiling fold-motion v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/motion)
+   Compiling fold-timeline v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/timeline)
+   Compiling fold-compositor v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/compositor)
+   Compiling fold-composition v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/composition)
+   Compiling fold-app v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/app)
+    Finished `test` profile [unoptimized] target(s) in 54.28s
+     Running tests/panel_linking.rs (target/debug/deps/panel_linking-ed05e70c3f2fd9c6)
+
+running 2 tests
+test native_grouped_selection_is_stable_and_routes_inspector_network_and_occurrences ... ok
+test native_linking_normal_and_narrow ... ignored, native GPU capture; writes /tmp/fold-selection-diagnosis/*.ppm
+
+test result: ok. 1 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 4.73s
+
+     Running tests/project_lifecycle.rs (target/debug/deps/project_lifecycle-397663e94e27e92b)
+
+running 4 tests
+test cancelled_open_keeps_the_current_project ... ok
+test opening_does_not_discard_edits_published_while_io_runs ... ok
+test replacement_while_file_io_runs_never_publishes_its_path_or_saved_root ... ok
+test save_tracks_the_written_snapshot_and_undo_returns_to_clean_content ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+
+     Running tests/viewer_transport.rs (target/debug/deps/viewer_transport-fda126a94ad89202)
+
+running 4 tests
+test instance_play_seek_retarget_and_close_never_change_another_clock_or_project ... ok
+test nested_motion_and_compositor_play_their_own_marked_range_then_hold_out ... ok
+test one_transport_controls_each_view_and_keeps_review_marks_out_of_project_data ... ok
+test playback_defaults_and_presentation_generations_preserve_exact_edit_context ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.06s
+
