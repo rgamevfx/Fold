@@ -53,6 +53,9 @@ impl Cache {
         checkpoint: &mut dyn FnMut() -> Result<(), Error>,
     ) -> Result<Prepared, Error> {
         checkpoint()?;
+        if drawing.feather.is_some() {
+            return Err(Error::InvalidInput);
+        }
         if !projected_scale.is_finite() || !(1e-9..=1e9).contains(&projected_scale) {
             return Err(Error::InvalidInput);
         }
@@ -123,7 +126,7 @@ impl Cache {
         let mut vertices = BTreeMap::new();
         for triangle in triangles.iter() {
             checkpoint()?;
-            let [a, b, c] = *triangle;
+            let [a, b, c] = triangle.points;
             let cross = (f64::from(b[0]) - f64::from(a[0])) * (f64::from(c[1]) - f64::from(a[1]))
                 - (f64::from(b[1]) - f64::from(a[1])) * (f64::from(c[0]) - f64::from(a[0]));
             if cross == 0. {

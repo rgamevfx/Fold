@@ -178,6 +178,13 @@ pub const OPERATORS: &[Operator] = &[
         output: Image,
         version: 1,
     },
+    Operator {
+        kernel: "Roto",
+        id: "Roto",
+        inputs: &[Image],
+        output: Image,
+        version: 1,
+    },
 ];
 
 impl Operator {
@@ -187,6 +194,9 @@ impl Operator {
         use fold_render::operations::Unary;
         let rect = [0, 0, info.width, info.height];
         Ok(match (self.id, self.version) {
+            ("Roto", 1) => C::Roto {
+                settings: Default::default(),
+            },
             ("Write", 1) => C::Write {
                 settings: fold_platform::delivery::Settings {
                     last: info.frames - 1,

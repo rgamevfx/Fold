@@ -305,6 +305,7 @@ fn native_cap_choice_changes_open_path_endpoint_coverage() {
             .as_ref()
             .unwrap();
         let drawing = Drawing {
+            feather: None,
             path: Arc::new(vec![Segment::Move([20., 20.]), Segment::Line([40., 20.])]),
             transform: [1., 0., 0., 1., 0., 0.],
             fill: None,

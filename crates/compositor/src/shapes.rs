@@ -48,6 +48,7 @@ pub(super) fn drawing(shape: Shape, bounds: [f64; 4], scale: [f64; 2]) -> Result
         }
     };
     Ok(Drawing {
+        feather: None,
         path: Arc::new(path),
         transform: [scale[0], 0., 0., scale[1], 0., 0.],
         fill: Some([1.; 4]),

@@ -7,6 +7,9 @@ use std::collections::BTreeSet;
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub enum OperationConfig {
+    Roto {
+        settings: crate::roto::Roto,
+    },
     Shader {
         settings: crate::shader::Shader,
     },
@@ -104,6 +107,7 @@ impl OperationConfig {
 
     pub fn operator(&self) -> &'static Operator {
         &OPERATORS[match self {
+            Self::Roto { .. } => 24,
             Self::Write { .. } => 23,
             Self::Shader { .. } => 22,
             Self::RelativeTransform { .. } => 21,
@@ -141,6 +145,7 @@ impl OperationConfig {
     }
     pub(crate) fn validate(&self) -> Result<(), String> {
         match self {
+            Self::Roto { settings } => settings.validate()?,
             Self::Write { settings } => settings.validate()?,
             Self::Shader { settings } => settings.validate()?,
             Self::RelativeTransform { settings } => {

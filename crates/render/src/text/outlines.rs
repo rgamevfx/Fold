@@ -39,6 +39,7 @@ impl Outlines {
         self.glyphs
             .iter()
             .map(|glyph| Drawing {
+                feather: None,
                 path: glyph.path.clone(),
                 transform: glyph.transform,
                 fill,

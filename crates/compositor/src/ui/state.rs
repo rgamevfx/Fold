@@ -9,6 +9,7 @@ use std::{cell::RefCell, rc::Rc};
 pub type Shared = Rc<RefCell<State>>;
 #[derive(Default)]
 pub struct State {
+    pub roto: Rc<RefCell<super::roto::Editor>>,
     pub document: Option<DocumentId>,
     pub base: Revision,
     pub original: Option<Composite>,

@@ -399,6 +399,7 @@ fn color(kind: Type) -> [f32; 4] {
 }
 fn summary(p: &P) -> String {
     match p {
+        P::Roto { .. } => "Alpha matte".into(),
         P::Shader { .. } => "GPU image shader".into(),
         P::RelativeTransform { .. } => "Relative image placement".into(),
         P::Input { id } => format!("Input: {id}"),

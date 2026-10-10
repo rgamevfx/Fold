@@ -16,6 +16,7 @@ fn native_nested_sources_vectors_and_scratch_upload_order() {
         ImageOp::Media(fold_media::RgbImage::from_rgb([17, 11], rgb.repeat(17 * 11)).unwrap())
     };
     let drawings = std::sync::Arc::new(vec![Drawing {
+        feather: None,
         path: std::sync::Arc::new(vec![
             Segment::Move([1., 1.]),
             Segment::Line([16., 3.]),

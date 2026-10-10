@@ -33,7 +33,9 @@ impl crate::Operator {
         )
     }
     pub fn optional_input(&self, slot: usize) -> bool {
-        (self.id == "Shuffle" && slot == 1) || (self.id == "Merge" && slot == 0)
+        (self.id == "Roto" && slot == 0)
+            || (self.id == "Shuffle" && slot == 1)
+            || (self.id == "Merge" && slot == 0)
     }
 
     /// Stable socket names within the versioned operator schema, never UI labels.

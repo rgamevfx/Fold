@@ -34,6 +34,8 @@ pub enum Join {
 }
 #[derive(Clone, Debug, PartialEq)]
 pub struct Drawing {
+    /// Optional clear-edge contour. Coverage stays scalar and color-independent.
+    pub feather: Option<Arc<crate::vector_feather::Feather>>,
     pub path: Arc<Vec<Segment>>,
     /// Column-vector affine: [a, b, c, d, tx, ty].
     pub transform: [f64; 6],
@@ -80,8 +82,41 @@ pub fn validate_working(drawings: &[Drawing], aces: bool) -> Result<(), String> 
         {
             return Err("invalid vector stroke".into());
         }
+        if let Some(feather) = &d.feather {
+            if d.stroke.is_some()
+                || d.fill.is_none()
+                || feather.path.len() != d.path.len()
+                || !feather.falloff.is_finite()
+                || !(0.01..=100.).contains(&feather.falloff)
+                || d.path
+                    .iter()
+                    .filter(|s| matches!(s, Segment::Move(_)))
+                    .count()
+                    != 1
+                || !matches!(d.path.last(), Some(Segment::Close))
+                || d.path
+                    .iter()
+                    .zip(feather.path.iter())
+                    .any(|(a, b)| std::mem::discriminant(a) != std::mem::discriminant(b))
+            {
+                return Err(
+                    "Soft contours require one closed corresponding path, a fill and valid falloff"
+                        .into(),
+                );
+            }
+            segments = segments
+                .checked_add(feather.path.len())
+                .ok_or("Feather segment overflow")?;
+            if segments > MAX_SEGMENTS {
+                return Err("Feather segment budget exceeded".into());
+            }
+        }
         let mut started = false;
-        for s in d.path.iter() {
+        for s in d
+            .path
+            .iter()
+            .chain(d.feather.iter().flat_map(|f| f.path.iter()))
+        {
             let points: &[[f64; 2]] = match s {
                 Segment::Move(p) => {
                     started = true;
@@ -157,6 +192,7 @@ mod color_tests {
     #[test]
     fn float_color_is_not_quantized_with_coverage_or_clamped() {
         let drawing = Drawing {
+            feather: None,
             path: Arc::new(vec![
                 Segment::Move([0., 0.]),
                 Segment::Line([1., 0.]),

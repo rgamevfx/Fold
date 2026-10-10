@@ -10,6 +10,7 @@ mod references;
 #[cfg(test)]
 mod render_tests;
 mod reusable;
+mod roto;
 mod shader;
 mod source;
 mod state;

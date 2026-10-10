@@ -18,7 +18,8 @@ impl OperationConfig {
     /// Native static record owning an animatable control's authored base.
     pub(crate) fn parameter_for_property<'a>(&self, property: &'a str) -> &'a str {
         match self {
-            Self::Shader { .. }
+            Self::Roto { .. }
+            | Self::Shader { .. }
             | Self::RelativeTransform { .. }
             | Self::TransformImage { .. }
             | Self::ColorGrade { .. } => "settings",
@@ -38,6 +39,7 @@ impl OperationConfig {
             range,
         };
         match self {
+            Self::Roto { settings } => settings.properties(),
             Self::Shader { settings } => settings
                 .controls
                 .iter()
@@ -214,6 +216,7 @@ impl OperationConfig {
     }
     pub fn set_property(&mut self, id: &str, values: &[f64]) -> Result<(), String> {
         match (self, id, values) {
+            (Self::Roto { settings }, id, values) => settings.set_property(id, values)?,
             (Self::Shader { settings }, id, values) => {
                 let control = settings
                     .controls

@@ -1,0 +1,16 @@
+    Blocking waiting for file lock on artifact directory
+   Compiling fold-render v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/render)
+    Finished `test` profile [unoptimized] target(s) in 2m 09s
+     Running unittests src/lib.rs (target/debug/deps/fold_render-310412472833597a)
+
+running 8 tests
+test gpu::vector::tests::native_abandoned_encoder_and_budget_failure_leave_reusable_pipeline ... ok
+test gpu::vector::tests::native_extreme_coordinates_use_clipped_preparation_and_remain_equivalent ... ok
+test gpu::vector::tests::native_extreme_curves_holes_and_invisible_paints_use_retained_coverage ... ok
+test gpu::vector::tests::native_float_coverage_matches_reference_without_full_image_upload ... ok
+test gpu::vector::tests::native_instances_keep_order_across_tile_words_and_reuse_only_static_geometry ... ok
+test gpu::vector::tests::native_repeated_geometry_exceeds_old_triangle_limit_without_repeated_uploads ... ok
+test gpu::vector::tests::native_retained_gpu_atlas_does_not_pin_evicted_cpu_geometry ... ok
+test gpu::vector::tests::unconfigured_vectors_stay_on_gpu_with_float_coverage ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 57 filtered out; finished in 24.33s

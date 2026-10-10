@@ -40,7 +40,7 @@ fn prepare(@builtin(workgroup_id) group:vec3<u32>,@builtin(local_invocation_inde
     let job=jobs[job_index]; let instance=instances[job.instance]; let index=job.start+lane;
     if index<instance.source.z {
         let t=source_triangles[instance.source.x+index];
-        triangles[instance.screen.x+index]=Triangle(transform(t.a,instance),transform(t.b,instance),transform(t.c,instance));
+        triangles[instance.screen.x+index]=Triangle(transform(t.a,instance),transform(t.b,instance),transform(t.c,instance),vec2<f32>(0.0),t.weights);
     } else if index<instance.source.z+instance.source.w {
         let index=index-instance.source.z;
         let n=source_nodes[instance.source.y+index];

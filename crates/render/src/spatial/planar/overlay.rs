@@ -114,6 +114,7 @@ impl Cache {
                 return Ok(None);
             }
             let drawing = crate::vector::Drawing {
+                feather: None,
                 path: Arc::new(path),
                 transform: [1., 0., 0., 1., 0., 0.],
                 fill: Some([1.; 4]),

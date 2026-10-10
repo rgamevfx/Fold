@@ -53,6 +53,7 @@ impl State<'_> {
         }
         let mut drawings = vec![];
         let drawing = |path, transform| Drawing {
+            feather: None,
             path,
             transform,
             fill: Some([1.; 4]),

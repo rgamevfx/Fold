@@ -84,6 +84,7 @@ impl Preparation {
                 .projected_scale(&scene.camera, dimensions, bounds)
                 .map_err(Error::Invalid)?;
             let drawing = Drawing {
+                feather: None,
                 path,
                 transform,
                 fill,

@@ -69,6 +69,15 @@ impl Panel for Inspector {
             .last()
             .map(|v| v.time)
             .unwrap_or(Time::ZERO);
+        if state
+            .graph
+            .as_ref()
+            .and_then(|g| g.node(id).ok())
+            .is_some_and(|n| n.operation.operation == "Roto")
+        {
+            super::roto::draw_inspector(ui, &mut state, host, id, time, auto_key);
+            return;
+        }
         let mut output_change = None;
         let mut write_actions = (false, false);
         let names = |slot: usize| {
@@ -342,7 +351,7 @@ impl Panel for Inspector {
             P::Dissolve { curve } => {
                 fold_ui::sdk::normalized_curve::draw(ui, curve, None, f64::NAN, &mut response);
             }
-            P::Read { .. } => {}
+            P::Roto { .. } | P::Read { .. } => {}
             P::Solid { .. } | P::Crop { .. } | P::Mask { .. } => {}
 
             P::Write { settings } => {

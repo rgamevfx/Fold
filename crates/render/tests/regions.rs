@@ -291,6 +291,7 @@ fn gpu_region_reduces_working_memory_without_source_supersampling() {
 fn translated_vector_regions_keep_fractional_coverage() {
     use fold_render::vector::{Drawing, Segment};
     let drawings = std::sync::Arc::new(vec![Drawing {
+        feather: None,
         path: std::sync::Arc::new(vec![
             Segment::Move([0., 0.]),
             Segment::Quad([45., -12.], [70., 25.]),

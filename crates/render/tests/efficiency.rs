@@ -26,6 +26,7 @@ fn fixture(kind: &str, frame: u32, sources: &[fold_media::VideoSource]) -> Rende
     } else if kind == "motion" {
         let drawings = (0..64)
             .map(|i| Drawing {
+                feather: None,
                 path: Arc::new(vec![
                     Segment::Move([0., 0.]),
                     Segment::Line([80., 0.]),

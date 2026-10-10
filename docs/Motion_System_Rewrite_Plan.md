@@ -786,6 +786,22 @@ configuration expressions and the remaining universal acceptance are still open.
   evidence is distinct from physical artist acceptance. Existing Motion phase
   statuses and gates remain open as recorded above.
 
+### User-directed compositor Roto node (10 October)
+
+- Roto v1 is implemented in Compositor: persistent shape/layer identities,
+  Bézier and uniform cubic B-spline paths, rectangle/ellipse tools, signed feather,
+  isolated group operations, channel output, animation and shutter samples.
+- Node selection activates shared-viewer tools. Point/tangent/feather editing,
+  selection-box translation, scale, rotation and corner-pin use preview/commit/
+  cancel transactions. The inspector follows the node prototype and shared UI SDK.
+- Feather extends the existing CPU/GPU vector coverage path used by Motion;
+  no alternate rasterizer or Motion document dependency was introduced.
+- [Roto evidence and limits](rewrite/evidence/compositor-roto/result.md) records
+  focused validation, normal/narrow native UI captures, GPU parity and timings.
+  Fixed-format output remains required. Physical artist acceptance and large
+  production-roto qualification remain open. Existing Motion phase gates do not
+  change.
+
 ## 4. Validation discipline
 
 During each phase, format touched Rust files and check affected crates. Add focused behavioral tests for changed semantics; test the document/IR independently of UI and use image/runtime fixtures for rendering contracts. Compare CPU/GPU at declared tolerances rather than silently relaxing them. Exercise examples through real public tools.

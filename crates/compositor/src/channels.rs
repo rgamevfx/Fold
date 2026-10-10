@@ -207,6 +207,9 @@ impl crate::PreparedComposite<'_> {
                         }
                     }
                 }
+                crate::OperationConfig::Roto { settings } => {
+                    names.extend(settings.channels.iter().cloned());
+                }
                 crate::OperationConfig::Shuffle { mappings } => {
                     names.extend(mappings.iter().map(|mapping| mapping.destination.clone()));
                 }

@@ -13,9 +13,65 @@ pub(crate) const MAX_TRIANGLES: usize = 262_144;
 /// Expanded execution is bounded separately from unique local geometry.
 pub(crate) const MAX_INSTANCE_TRIANGLES: usize = 4 * 1024 * 1024;
 type Point = [f64; 2];
-pub(crate) type Triangle = [[f32; 2]; 3];
+/// ABI shared with vector_coverage.wgsl. Hard paths use unit coverage;
+/// soft contours add linearly varying coverage without a second renderer.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "gpu", derive(bytemuck::Pod, bytemuck::Zeroable))]
+pub(crate) struct Triangle {
+    pub points: [[f32; 2]; 3],
+    padding: [f32; 2],
+    pub weights: [f32; 4],
+}
+impl Triangle {
+    pub fn weighted(points: [[f32; 2]; 3], weights: [f32; 3]) -> Self {
+        Self {
+            points,
+            padding: [0.; 2],
+            weights: [weights[0], weights[1], weights[2], 0.],
+        }
+    }
+    pub fn coverage(&self, p: [f64; 2]) -> f64 {
+        if self.weights[..3] == [1.; 3] {
+            return 1.;
+        }
+        coverage_at(self.points.map(|p| p.map(f64::from)), self.weights, p)
+    }
+}
+fn coverage_at(points: [[f64; 2]; 3], weights: [f32; 4], p: [f64; 2]) -> f64 {
+    if weights[..3] == [1.; 3] {
+        return 1.;
+    }
+    let [a, b, c] = points;
+    let det = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+    if det == 0. {
+        return 0.;
+    }
+    let u = ((p[0] - a[0]) * (c[1] - a[1]) - (p[1] - a[1]) * (c[0] - a[0])) / det;
+    let v = ((b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0])) / det;
+    ((1. - u - v) * weights[0] as f64 + u * weights[1] as f64 + v * weights[2] as f64)
+        .clamp(-1., 1.)
+}
+impl From<[[f32; 2]; 3]> for Triangle {
+    fn from(points: [[f32; 2]; 3]) -> Self {
+        Self::weighted(points, [1.; 3])
+    }
+}
+impl std::ops::Deref for Triangle {
+    type Target = [[f32; 2]; 3];
+    fn deref(&self) -> &Self::Target {
+        &self.points
+    }
+}
+impl std::ops::DerefMut for Triangle {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.points
+    }
+}
+
 #[derive(Clone, PartialEq)]
 struct Key {
+    feather: Option<Arc<crate::vector_feather::Feather>>,
     path: Arc<Vec<Segment>>,
     stroke: Option<Stroke>,
     even_odd: bool,
@@ -52,11 +108,14 @@ impl GeometryBuilder for Builder<'_> {
             self.overflow = true;
             return;
         }
-        self.triangles.push([
-            self.vertices[a.to_usize()],
-            self.vertices[b.to_usize()],
-            self.vertices[c.to_usize()],
-        ]);
+        self.triangles.push(
+            [
+                self.vertices[a.to_usize()],
+                self.vertices[b.to_usize()],
+                self.vertices[c.to_usize()],
+            ]
+            .into(),
+        );
     }
 }
 impl FillGeometryBuilder for Builder<'_> {
@@ -118,6 +177,11 @@ impl GeometryCache {
             s.color = [0.; 4];
         }
         let key = Key {
+            feather: if stroke.is_none() {
+                d.feather.clone()
+            } else {
+                None
+            },
             path: d.path.clone(),
             stroke: style,
             even_odd: stroke.is_none() && d.even_odd,
@@ -128,6 +192,20 @@ impl GeometryCache {
             let result = entry.triangles.clone();
             self.entries.push_back(entry);
             return Ok(result);
+        }
+        if let Some(feather) = &key.feather {
+            let mut hard = d.clone();
+            hard.feather = None;
+            let mut triangles = self.get_with(&hard, None, checkpoint)?.as_ref().clone();
+            crate::vector_feather::append(
+                &d.path,
+                feather,
+                2f64.powi(-3 - scale),
+                &mut triangles,
+                checkpoint,
+            )?;
+            checkpoint().map_err(PreparationError::Stopped)?;
+            return Ok(self.retain(key, triangles));
         }
         // Bound flattening before lyon builds its event queue: callbacks occur
         // after event generation and alone cannot bound pathological subdivision.
@@ -276,15 +354,20 @@ impl GeometryCache {
         }
         result.map_err(|e| PreparationError::Invalid(format!("vector tessellation: {e:?}")))?;
         (output.checkpoint)().map_err(PreparationError::Stopped)?;
-        let triangles = Arc::new(output.triangles);
-        let bytes = triangles.capacity() * std::mem::size_of::<Triangle>()
-            + key.path.capacity() * std::mem::size_of::<Segment>();
+        Ok(self.retain(key, output.triangles))
+    }
+    fn retain(&mut self, key: Key, triangles: Vec<Triangle>) -> Arc<Vec<Triangle>> {
+        let triangles = Arc::new(triangles);
+        let key_bytes = |k: &Key| {
+            (k.path.capacity() + k.feather.as_ref().map_or(0, |f| f.path.capacity()))
+                * size_of::<Segment>()
+        };
+        let bytes = triangles.capacity() * size_of::<Triangle>() + key_bytes(&key);
         while !self.entries.is_empty()
             && (self.bytes + bytes > CACHE_BYTES || self.entries.len() >= 512)
         {
             let old = self.entries.pop_front().unwrap();
-            self.bytes -= old.triangles.capacity() * std::mem::size_of::<Triangle>()
-                + old.key.path.capacity() * std::mem::size_of::<Segment>();
+            self.bytes -= old.triangles.capacity() * size_of::<Triangle>() + key_bytes(&old.key);
         }
         if bytes <= CACHE_BYTES {
             self.bytes += bytes;
@@ -293,7 +376,7 @@ impl GeometryCache {
                 triangles: triangles.clone(),
             });
         }
-        Ok(triangles)
+        triangles
     }
 }
 
@@ -365,7 +448,7 @@ pub(crate) fn pixel_area(t: &Triangle, x: u32, y: u32) -> f32 {
         inside &= base + dx.min(0.) + dy.min(0.) >= 0.;
     }
     if inside {
-        return 1.;
+        return t.coverage([f64::from(x) + 0.5, f64::from(y) + 0.5]) as f32;
     }
     clipped_pixel_area(t, x, y)
 }
@@ -381,12 +464,23 @@ fn clipped_pixel_area(t: &Triangle, x: u32, y: u32) -> f32 {
     .clip(1, 0., true)
     .clip(1, 1., false);
     let mut area = 0.;
+    let mut moment = [0.; 2];
     for i in 0..p.count {
         let a = p.points[i];
         let b = p.points[(i + 1) % p.count];
-        area += a[0] * b[1] - a[1] * b[0];
+        let cross = a[0] * b[1] - a[1] * b[0];
+        area += cross;
+        moment[0] += (a[0] + b[0]) * cross;
+        moment[1] += (a[1] + b[1]) * cross;
     }
-    (area.abs() * 0.5).min(1.) as f32
+    if area == 0. {
+        return 0.;
+    }
+    let coverage = t.coverage([
+        moment[0] / (3. * area) + f64::from(x),
+        moment[1] / (3. * area) + f64::from(y),
+    ]);
+    ((area.abs() * 0.5).min(1.) * coverage) as f32
 }
 #[derive(Debug)]
 pub(crate) struct Paint {
@@ -412,6 +506,7 @@ pub(crate) fn clipped_triangles(
             let y = f64::from(y);
             [a * x + c * y + tx, b * x + e * y + ty]
         }));
+        let transformed: [Point; 3] = [p.points[0], p.points[1], p.points[2]];
         // Most scene triangles lie wholly inside the viewport. Preserve
         // them directly; clipping is only needed at its boundary.
         if !p.points[..3].iter().all(|v| {
@@ -428,7 +523,10 @@ pub(crate) fn clipped_triangles(
                 return Err("vector triangle budget exceeded".into());
             }
             let t = [p.points[0], p.points[i], p.points[i + 1]].map(|v| v.map(|v| v as f32));
-            triangles.push(t);
+            triangles.push(Triangle::weighted(
+                t,
+                t.map(|p| coverage_at(transformed, triangle.weights, p.map(f64::from)) as f32),
+            ));
         }
     }
     Ok(triangles)
@@ -551,7 +649,7 @@ pub(crate) fn bin(
         tiles[2 * i + 1] = tiles.len() as u32;
     }
     if triangles.is_empty() {
-        triangles.push([[0.; 2]; 3]);
+        triangles.push([[0.; 2]; 3].into());
     }
     if records.is_empty() {
         records.push(PaintRecord { color: [0.; 4] });
@@ -654,6 +752,7 @@ mod tests {
     use super::*;
     fn shape(path: Vec<Segment>) -> Drawing {
         Drawing {
+            feather: None,
             path: Arc::new(path),
             transform: [1., 0., 0., 1., 0., 0.],
             fill: Some([1.; 4]),
@@ -742,6 +841,7 @@ mod tests {
                     (seed >> 8) as f32 / 16777216. * 32. - 8.
                 })
             });
+            let triangle = Triangle::from(triangle);
             for y in 0..16 {
                 for x in 0..16 {
                     let actual = pixel_area(&triangle, x, y);
@@ -859,6 +959,7 @@ mod tests {
                 .unwrap()
                 .into_iter()
                 .flat_map(|p| p.triangles)
+                .map(|t| t.points)
                 .collect();
             assert_eq!(actual, expected, "transform {transform:?}");
         }
@@ -908,10 +1009,10 @@ mod tests {
     }
     #[test]
     fn analytic_area_has_no_sample_grid_quantization() {
-        let t = [[0., 0.], [1., 0.], [0., 1.]];
+        let t = Triangle::from([[0., 0.], [1., 0.], [0., 1.]]);
         assert_eq!(pixel_area(&t, 0, 0), 0.5);
         assert_eq!(pixel_area(&t, 1, 0), 0.);
-        let t = [[0., 0.], [1., 0.], [0., 0.2]];
+        let t = Triangle::from([[0., 0.], [1., 0.], [0., 0.2]]);
         assert!((pixel_area(&t, 0, 0) - 0.1).abs() < 1e-7);
     }
 }

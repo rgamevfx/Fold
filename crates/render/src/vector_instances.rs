@@ -40,7 +40,7 @@ impl Source {
                 f32::NEG_INFINITY,
                 f32::NEG_INFINITY,
             ];
-            for p in triangles.iter().flatten() {
+            for p in triangles.iter().flat_map(|t| t.iter()) {
                 for a in 0..2 {
                     bounds[a] = bounds[a].min(p[a]);
                     bounds[a + 2] = bounds[a + 2].max(p[a]);
@@ -305,6 +305,7 @@ mod tests {
     use crate::vector::{Cap, Join, Segment, Stroke};
     fn drawing() -> Drawing {
         Drawing {
+            feather: None,
             path: Arc::new(vec![
                 Segment::Move([0., 0.]),
                 Segment::Line([4., 0.]),
@@ -383,7 +384,7 @@ mod tests {
     fn hierarchy_is_bounded_and_covers_each_triangle_once() {
         let triangles = Arc::new(
             (0..100)
-                .map(|x| [[x as f32, 0.], [x as f32 + 1., 0.], [x as f32, 1.]])
+                .map(|x| Triangle::from([[x as f32, 0.], [x as f32 + 1., 0.], [x as f32, 1.]]))
                 .collect(),
         );
         let source = Source::new(triangles, &Cancel::default()).unwrap();
@@ -393,7 +394,7 @@ mod tests {
             assert!(node.links[2] as usize > index && node.links[2] as usize <= source.nodes.len());
             for t in node.links[0]..node.links[0] + node.links[1] {
                 seen[t as usize] += 1;
-                for p in source.triangles[t as usize] {
+                for p in source.triangles[t as usize].points {
                     assert!(
                         p[0] >= node.bounds[0]
                             && p[0] <= node.bounds[2]
@@ -425,6 +426,7 @@ mod limits_tests {
             Segment::Close,
         ];
         let d = Drawing {
+            feather: None,
             path: Arc::new(path),
             transform: [1., 0., 0., 1., 0., 0.],
             fill: Some([1.; 4]),

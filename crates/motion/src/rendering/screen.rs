@@ -101,6 +101,7 @@ pub(super) fn prepare(
             }
             let [a, b, c, d, tx, ty] = *transform;
             drawings.push(Drawing {
+                feather: None,
                 path: path.clone(),
                 transform: [
                     a * scale[0],

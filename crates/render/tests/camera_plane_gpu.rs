@@ -62,6 +62,7 @@ fn camera_planes_match_declared_pixel_bounds_and_share_world_depth() {
                         let [[left, top], [right, bottom]] = rectangles[i];
                         let points = [[left, top], [right, top], [right, bottom], [left, bottom]];
                         let drawing = fold_render::vector::Drawing {
+                            feather: None,
                             path: Arc::new(vec![
                                 fold_render::vector::Segment::Move(points[0]),
                                 fold_render::vector::Segment::Line(points[1]),

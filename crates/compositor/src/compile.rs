@@ -388,6 +388,22 @@ fn compile(request: VideoCompile<'_>) -> Result<ChannelGraph, fold_foundation::F
             ids.insert(id, result);
             continue;
         }
+        if let P::Roto { settings } = &parameters {
+            let samples = settings
+                .sample_times(time, composite.info.rate)?
+                .into_iter()
+                .map(|t| {
+                    let P::Roto { settings } = composite.evaluated_parameters(node.id, t)? else {
+                        unreachable!()
+                    };
+                    Ok((t, settings))
+                })
+                .collect::<Result<Vec<_>, String>>()?;
+            let input = connections.first().and_then(|id| *id).map(|id| &ids[&id]);
+            let result = crate::roto::compile(&mut graph, &samples, input, [sx, sy], cancel)?;
+            ids.insert(node.id, result);
+            continue;
+        }
         let mut packed = Vec::new();
         for input in connections.iter().flatten() {
             packed.push(ids[input].pack(&mut graph, RGBA)?);
@@ -541,7 +557,8 @@ fn compile(request: VideoCompile<'_>) -> Result<ChannelGraph, fold_foundation::F
                         rect: rect(*r),
                     }
                 }
-                P::Unary { .. }
+                P::Roto { .. }
+                | P::Unary { .. }
                 | P::Blur { .. }
                 | P::TransformImage { .. }
                 | P::Crop { .. }

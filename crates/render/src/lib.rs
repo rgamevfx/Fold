@@ -551,3 +551,5 @@ mod tests {
 }
 
 pub mod presentation;
+
+pub mod vector_feather;

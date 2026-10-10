@@ -24,6 +24,26 @@ impl Canvas {
     }
 }
 impl Panel for Canvas {
+    fn draw_viewer_overlay(&mut self, context: ExtensionUi<'_>, rect: fold_ui::sdk::ViewerRect) {
+        let mut state = self.state.borrow_mut();
+        state.sync(context.host);
+        let tools = state.roto.clone();
+        tools.borrow_mut().draw(context, rect, &mut state);
+    }
+    fn viewer_tool_insets(&self, ui: &imgui::Ui) -> [f32; 2] {
+        let state = self.state.borrow();
+        let roto = state.selected.len() == 1
+            && state
+                .graph
+                .as_ref()
+                .and_then(|g| g.node(state.selected[0]).ok())
+                .is_some_and(|n| n.operation.operation == "Roto");
+        if roto {
+            [0., ui.frame_height() + ui.clone_style().item_spacing()[1]]
+        } else {
+            [0.; 2]
+        }
+    }
     fn external_drag(&mut self, position: Option<[f32; 2]>) {
         self.files.begin_frame(position);
     }
@@ -64,6 +84,7 @@ impl Panel for Canvas {
         if state.editing {
             state.cancel(host);
         }
+        state.roto.borrow_mut().reset_gesture();
     }
     fn id(&self) -> &'static str {
         package::PANEL

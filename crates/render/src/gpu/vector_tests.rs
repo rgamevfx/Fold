@@ -20,6 +20,7 @@ fn native_float_coverage_matches_reference_without_full_image_upload() {
         for cap in [Cap::Butt, Cap::Round, Cap::Square] {
             let drawings = vec![
                 Drawing {
+                    feather: None,
                     path: path.clone(),
                     transform: [1., 0.1, -0.2, 0.8, 0.25, 0.75],
                     fill: Some([2.5, -0.2, 0.7, 0.4]),
@@ -32,6 +33,7 @@ fn native_float_coverage_matches_reference_without_full_image_upload() {
                     }),
                 },
                 Drawing {
+                    feather: None,
                     path: path.clone(),
                     transform: [-0.5, 0., 0., 0.5, 30., 10.],
                     fill: Some([0.7, 0.3, 0.1, 0.8]),
@@ -101,6 +103,7 @@ fn unconfigured_vectors_stay_on_gpu_with_float_coverage() {
     let (host, _) = pollster::block_on(Host::headless(8 * 1024 * 1024)).unwrap();
     let mut renderer = crate::gpu::Renderer::new(host).unwrap();
     let drawings = vec![Drawing {
+        feather: None,
         path: Arc::new(vec![
             Segment::Move([0.25, 0.25]),
             Segment::Line([20.75, 0.25]),
@@ -148,6 +151,7 @@ fn unconfigured_vectors_stay_on_gpu_with_float_coverage() {
 
 fn rectangle() -> Drawing {
     Drawing {
+        feather: None,
         path: Arc::new(vec![
             Segment::Move([0.2, 0.3]),
             Segment::Line([8.7, 0.3]),
@@ -255,6 +259,7 @@ fn native_repeated_geometry_exceeds_old_triangle_limit_without_repeated_uploads(
     }
     path.push(Segment::Close);
     let d = Drawing {
+        feather: None,
         path: Arc::new(path),
         transform: [1., 0., 0., 1., 0., 0.],
         fill: Some([0.2, 0.4, 0.8, 1.]),
@@ -269,7 +274,9 @@ fn native_repeated_geometry_exceeds_old_triangle_limit_without_repeated_uploads(
     let (actual, report) = render(&mut pipeline, &host, &vec![d; 1000], [16, 16]);
     assert!(report.execution_triangles > crate::vector_geometry::MAX_TRIANGLES as u64);
     assert!(report.unique_triangles < 1000);
-    assert!(report.geometry_upload_bytes < 32 * 1024);
+    // The shared coverage ABI adds 24 bytes per unique triangle (weights and
+    // alignment), never per instance. Keep the original geometry budget.
+    assert!(report.geometry_upload_bytes < 32 * 1024 + 24 * report.unique_triangles);
     assert_eq!(actual.pixels()[8 * 16 + 8], [0.2, 0.4, 0.8, 1.]);
     assert_eq!(actual.pixels()[0], [0.; 4]);
 }

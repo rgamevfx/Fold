@@ -52,6 +52,7 @@ fn retained_text_outlines_match_cpu_across_zoom_alpha_and_paint_order() {
         }
         for fill in [[0.1, 0.6, 0.2, 0.25], [0.8, 0.2, 0.1, 0.5]] {
             drawings.push(Drawing {
+                feather: None,
                 path: marker_path.clone(),
                 transform: [1., 0., 0., 1., 0., 0.],
                 fill: Some(fill),
@@ -172,6 +173,7 @@ fn vector_fill_rules_strokes_and_rectangular_clip_match_reference() {
         Segment::Close,
     ];
     let filled = |path, even_odd| Drawing {
+        feather: None,
         path: Arc::new(path),
         transform: [1., 0., 0., 1., 0., 0.],
         fill: Some([0.2, 0.4, 0.8, 1.]),
@@ -179,6 +181,7 @@ fn vector_fill_rules_strokes_and_rectangular_clip_match_reference() {
         stroke: None,
     };
     let stroked = |path, width, cap, join| Drawing {
+        feather: None,
         path: Arc::new(path),
         transform: [1., 0., 0., 1., 0., 0.],
         fill: None,
