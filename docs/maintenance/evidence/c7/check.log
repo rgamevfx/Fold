@@ -1,0 +1,48 @@
+   Compiling fold-native-video v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/native-video)
+    Checking fold-foundation v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/foundation)
+    Checking fold-color v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/color)
+    Checking fold-media v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/media)
+    Checking fold-render v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/render)
+warning: variable does not need to be mutable
+   --> crates/render/src/gpu/request.rs:144:13
+    |
+144 |         let mut exr = crate::preparation::SourcePipeline::new(requests, cancel)?;
+    |             ----^^^
+    |             |
+    |             help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+   --> crates/render/src/gpu/request.rs:150:13
+    |
+150 |         let mut video = if aces {
+    |             ----^^^^^
+    |             |
+    |             help: remove this `mut`
+
+error[E0599]: no method named `unwrap` found for tuple `(std::sync::Arc<gpu::vector::Packet>, gpu::vector::Report)` in the current scope
+  --> crates/render/src/gpu/vector_tests.rs:66:22
+   |
+63 | /                 pipeline
+64 | |                     .packet(&drawings, dimensions, &cancel)
+   | |                      -------------------------------------- method `unwrap` is available on `std::result::Result<(std::sync::Arc<gpu::vector::Packet>, gpu::vector::Report), fold_foundation::Failure>`
+65 | |                     .unwrap()
+66 | |                     .unwrap()
+   | |                     -^^^^^^ method not found in `(std::sync::Arc<gpu::vector::Packet>, gpu::vector::Report)`
+   | |_____________________|
+   |
+
+warning: `fold-render` (lib) generated 2 warnings (run `cargo fix --lib -p fold-render` to apply 2 suggestions)
+warning: unused variable: `report`
+   --> crates/render/src/gpu/vector_tests.rs:322:18
+    |
+322 |     let (actual, report) = render(&mut pipeline, &host, &[d.clone()], [16, 16]);
+    |                  ^^^^^^ help: if this is intentional, prefix it with an underscore: `_report`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+For more information about this error, try `rustc --explain E0599`.
+warning: `fold-render` (lib test) generated 3 warnings (2 duplicates)
+error: could not compile `fold-render` (lib test) due to 1 previous error; 3 warnings emitted
+warning: build failed, waiting for other jobs to finish...

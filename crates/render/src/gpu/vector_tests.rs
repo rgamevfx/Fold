@@ -63,7 +63,6 @@ fn native_float_coverage_matches_reference_without_full_image_upload() {
                 pipeline
                     .packet(&drawings, dimensions, &cancel)
                     .unwrap()
-                    .unwrap()
                     .1
                     .upload_bytes,
                 0
@@ -215,7 +214,6 @@ fn native_instances_keep_order_across_tile_words_and_reuse_only_static_geometry(
     let (first, report) = render(&mut pipeline, &host, &drawings, [16, 16]);
     assert_eq!(report.instances, 97);
     assert_eq!(report.unique_triangles, 2);
-    assert_eq!(report.cpu_transform_fallbacks, 0);
     assert!(report.geometry_upload_bytes > 0);
     let expected =
         vector::rasterize(&drawings, 16, 16, &fold_media::Cancel::default(), true).unwrap();
@@ -272,7 +270,6 @@ fn native_repeated_geometry_exceeds_old_triangle_limit_without_repeated_uploads(
     assert!(report.execution_triangles > crate::vector_geometry::MAX_TRIANGLES as u64);
     assert!(report.unique_triangles < 1000);
     assert!(report.geometry_upload_bytes < 32 * 1024);
-    assert_eq!(report.cpu_transform_fallbacks, 0);
     assert_eq!(actual.pixels()[8 * 16 + 8], [0.2, 0.4, 0.8, 1.]);
     assert_eq!(actual.pixels()[0], [0.; 4]);
 }
@@ -319,18 +316,98 @@ fn native_abandoned_encoder_and_budget_failure_leave_reusable_pipeline() {
 fn native_extreme_coordinates_use_clipped_preparation_and_remain_equivalent() {
     let (host, _) = pollster::block_on(Host::headless(8 * 1024 * 1024)).unwrap();
     let mut pipeline = VectorPipeline::new(&host);
+    // Every former dispatch class: fill rules, open/closed strokes, all caps
+    // and joins, reflection/shear, huge translation cancellation, and mixed order.
+    for transform in [
+        [100000., 0., 0., 100000., -500000., -500000.],
+        [100000., 0.2, 0., 1., -500000., 0.25],
+        [-100000., 0.1, 30000., 1., 500000., 0.5],
+        [200000., 0., 0., 1., -1000000., 0.],
+        [10000., 0., 0., 1., -20000., 0.],
+    ] {
+        for even_odd in [false, true] {
+            for cap in [Cap::Butt, Cap::Round, Cap::Square] {
+                for join in [Join::Miter, Join::Round, Join::Bevel] {
+                    let mut d = rectangle();
+                    d.transform = transform;
+                    d.even_odd = even_odd;
+                    d.fill = Some([2.5, -0.2, 0.7, 0.4]);
+                    d.stroke = Some(Stroke {
+                        color: [0.2, 1.5, -0.1, 0.6],
+                        width: 0.4,
+                        cap,
+                        join,
+                    });
+                    let mut open = d.clone();
+                    Arc::make_mut(&mut open.path).pop();
+                    open.fill = None;
+                    let drawings = [rectangle(), d, open, rectangle()];
+                    let (actual, report) = render(&mut pipeline, &host, &drawings, [16, 16]);
+                    assert!(report.instances >= 3);
+                    assert_eq!(report.passes, 3);
+                    let expected =
+                        vector::rasterize(&drawings, 16, 16, &fold_media::Cancel::default(), true)
+                            .unwrap();
+                    let max = actual
+                        .pixels()
+                        .iter()
+                        .flatten()
+                        .zip(expected.iter().flatten())
+                        .map(|(a, b)| (a - b).abs())
+                        .fold(0f32, f32::max);
+                    assert!(
+                        max < 0.0001,
+                        "{transform:?} {even_odd} {cap:?} {join:?}: {max}"
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
+#[ignore = "requires native Vulkan"]
+fn native_extreme_curves_holes_and_invisible_paints_use_retained_coverage() {
+    let (host, _) = pollster::block_on(Host::headless(8 * 1024 * 1024)).unwrap();
+    let mut pipeline = VectorPipeline::new(&host);
     let mut d = rectangle();
-    d.transform = [100000., 0., 0., 100000., -500000., -500000.];
-    let (actual, report) = render(&mut pipeline, &host, &[d.clone()], [16, 16]);
-    assert_eq!(report.cpu_transform_fallbacks, 1);
-    let expected = vector::rasterize(&[d], 16, 16, &fold_media::Cancel::default(), true).unwrap();
-    for (a, b) in actual
-        .pixels()
-        .iter()
-        .flatten()
-        .zip(expected.iter().flatten())
-    {
-        assert!((a - b).abs() < 0.0001, "{a} != {b}");
+    d.transform = [1., 0., 0., 1., 0.25, 0.5];
+    d.path = Arc::new(vec![
+        Segment::Move([-100000., 2.]),
+        Segment::Quad([0., 0.], [100000., 2.]),
+        Segment::Line([100000., 14.]),
+        Segment::Cubic([10000., 16.], [-10000., 16.], [-100000., 14.]),
+        Segment::Close,
+        Segment::Move([4., 4.]),
+        Segment::Line([10., 4.]),
+        Segment::Line([10., 10.]),
+        Segment::Line([4., 10.]),
+        Segment::Close,
+    ]);
+    for even_odd in [false, true] {
+        d.even_odd = even_odd;
+        let mut offscreen = d.clone();
+        offscreen.transform[5] = 100000.;
+        let mut singular = d.clone();
+        singular.transform[0] = 0.;
+        let mut transparent = d.clone();
+        transparent.fill = Some([0.; 4]);
+        let mut empty = d.clone();
+        empty.path = Arc::new(vec![]);
+        let drawings = [offscreen, d.clone(), singular, transparent, empty];
+        let (actual, report) = render(&mut pipeline, &host, &drawings, [16, 16]);
+        assert_eq!(report.instances, 1);
+        assert_eq!(report.passes, 3);
+        let expected =
+            vector::rasterize(&drawings, 16, 16, &fold_media::Cancel::default(), true).unwrap();
+        for (a, b) in actual
+            .pixels()
+            .iter()
+            .flatten()
+            .zip(expected.iter().flatten())
+        {
+            assert!((a - b).abs() < 0.0001, "{a} != {b}");
+        }
     }
 }
 

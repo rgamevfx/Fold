@@ -1,0 +1,72 @@
+   Compiling fold-render v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/render)
+    Finished `test` profile [unoptimized] target(s) in 5.61s
+     Running unittests src/lib.rs (target/debug/deps/fold_render-367e27ade22dbf7f)
+
+running 21 tests
+test gpu::cache::tests::native_bc7_padding_sampling_and_lifetimes ... BC7 adapter: AdapterInfo { name: "llvmpipe (LLVM 20.1.2, 256 bits)", vendor: 65541, device: 0, device_type: Cpu, driver: "llvmpipe", driver_info: "Mesa 26.1.6-1pop0~1787580452~24.04~a5619ea (LLVM 20.1.2)", backend: Vulkan }
+BC7 pipeline setup: 4.649430873s
+
+thread 'gpu::cache::tests::native_bc7_padding_sampling_and_lifetimes' (53) panicked at crates/render/src/gpu/cache_tests.rs:120:13:
+assertion failed: start.elapsed().as_secs() < 30
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+test gpu::cache::tests::native_bc7_unavailable_features_and_allocation_pressure_leave_host_usable ... ok
+test gpu::native_video::tests::acquire_retains_cache_ineligible_and_cleared_inputs_until_completion ... 
+thread 'gpu::native_video::tests::acquire_retains_cache_ineligible_and_cleared_inputs_until_completion' (132) panicked at crates/render/src/gpu/native_video.rs:141:72:
+called `Result::unwrap()` on an `Err` value: NotPresent
+FAILED
+test gpu::native_video::tests::destroyed_parent_device_is_rejected_before_native_launch ... 
+thread 'gpu::native_video::tests::destroyed_parent_device_is_rejected_before_native_launch' (133) panicked at crates/render/src/gpu/native_video.rs:141:72:
+called `Result::unwrap()` on an `Err` value: NotPresent
+FAILED
+test gpu::native_video::tests::gpu_cache_hit_does_not_recount_native_telemetry ... 
+thread 'gpu::native_video::tests::gpu_cache_hit_does_not_recount_native_telemetry' (134) panicked at crates/render/src/gpu/native_video.rs:141:72:
+called `Result::unwrap()` on an `Err` value: NotPresent
+FAILED
+test gpu::precision::tests::rgba16_signed_hdr_range_and_overflow ... ok
+test gpu::presentation::tests::native_presentation_roundtrip_reuses_staging_and_preserves_bc7 ... Cache transfer adapter: AdapterInfo { name: "llvmpipe (LLVM 20.1.2, 256 bits)", vendor: 65541, device: 0, device_type: Cpu, driver: "llvmpipe", driver_info: "Mesa 26.1.6-1pop0~1787580452~24.04~a5619ea (LLVM 20.1.2)", backend: Vulkan }
+
+thread 'gpu::presentation::tests::native_presentation_roundtrip_reuses_staging_and_preserves_bc7' (163) panicked at crates/render/src/gpu/presentation.rs:168:13:
+assertion failed: start.elapsed().as_secs() < 10
+FAILED
+test gpu::submission::tests::cancellation_before_submission_releases_encoded_leases ... ok
+test gpu::submission::tests::inflight_cancellation_and_device_failure_release_completion_owned_leases ... 
+thread 'gpu::submission::tests::inflight_cancellation_and_device_failure_release_completion_owned_leases' (217) panicked at crates/render/src/gpu/submission.rs:142:17:
+assertion failed: frame.is_ready().is_err()
+FAILED
+test gpu::submission::tests::preview_export_contention_cancellation_and_device_failure_release_admission ... ok
+test gpu::vector::tests::native_abandoned_encoder_and_budget_failure_leave_reusable_pipeline ... ok
+test gpu::vector::tests::native_extreme_coordinates_use_clipped_preparation_and_remain_equivalent ... 
+thread 'gpu::vector::tests::native_extreme_coordinates_use_clipped_preparation_and_remain_equivalent' (353) panicked at crates/render/src/gpu/vector_tests.rs:346:21:
+assertion failed: report.instances >= 4
+FAILED
+test gpu::vector::tests::native_float_coverage_matches_reference_without_full_image_upload ... ok
+test gpu::vector::tests::native_instances_keep_order_across_tile_words_and_reuse_only_static_geometry ... ok
+test gpu::vector::tests::native_repeated_geometry_exceeds_old_triangle_limit_without_repeated_uploads ... ok
+test gpu::vector::tests::native_retained_gpu_atlas_does_not_pin_evicted_cpu_geometry ... ok
+test gpu::vector::tests::unconfigured_vectors_stay_on_gpu_with_float_coverage ... ok
+test gpu::yuv::layout_tests::p010_preserves_low_ten_bit_samples ... ok
+test gpu::yuv::layout_tests::padded_nv12_is_equivalent_to_planar_and_rejects_out_of_bounds_layout ... ok
+test gpu::yuv::tests::high_precision_chroma_and_alpha_match_cpu ... ok
+test gpu::yuv::tests::native_yuv_reconstruction_matches_float_reference ... [64, 32] native YUV max error 0
+[32, 16] native YUV max error 0
+[31, 17] native YUV max error 0
+[30, 14] native YUV max error 0
+[126, 66] native YUV max error 0
+[1, 1] native YUV max error 0
+ok
+
+failures:
+
+failures:
+    gpu::cache::tests::native_bc7_padding_sampling_and_lifetimes
+    gpu::native_video::tests::acquire_retains_cache_ineligible_and_cleared_inputs_until_completion
+    gpu::native_video::tests::destroyed_parent_device_is_rejected_before_native_launch
+    gpu::native_video::tests::gpu_cache_hit_does_not_recount_native_telemetry
+    gpu::presentation::tests::native_presentation_roundtrip_reuses_staging_and_preserves_bc7
+    gpu::submission::tests::inflight_cancellation_and_device_failure_release_completion_owned_leases
+    gpu::vector::tests::native_extreme_coordinates_use_clipped_preparation_and_remain_equivalent
+
+test result: FAILED. 14 passed; 7 failed; 0 ignored; 0 measured; 44 filtered out; finished in 126.19s
+
+error: test failed, to rerun pass `-p fold-render --lib`

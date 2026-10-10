@@ -4,7 +4,6 @@ use super::{
     Host,
     host::{Image, Reservation},
     validation::Status,
-    vector_legacy,
 };
 use crate::{
     vector::Drawing,
@@ -31,7 +30,6 @@ pub(super) struct Report {
     pub instances: u64,
     pub unique_triangles: u64,
     pub execution_triangles: u64,
-    pub cpu_transform_fallbacks: u32,
     pub passes: u32,
 }
 struct Atlas {
@@ -70,7 +68,6 @@ pub(super) struct VectorPipeline {
     atlas_bytes: usize,
     cache: VecDeque<Entry>,
     bytes: usize,
-    legacy: vector_legacy::VectorPipeline,
 }
 impl VectorPipeline {
     pub fn new(host: &Host) -> Self {
@@ -108,7 +105,6 @@ impl VectorPipeline {
             atlas_bytes: 0,
             cache: VecDeque::new(),
             bytes: 0,
-            legacy: vector_legacy::VectorPipeline::new(host),
         }
     }
     pub fn clear(&mut self) {
@@ -117,7 +113,6 @@ impl VectorPipeline {
         self.atlases.clear();
         self.atlas_bytes = 0;
         self.sources = Sources::default();
-        self.legacy.clear();
     }
     fn reserve(&mut self, bytes: u64) -> Result<Arc<Reservation>, fold_foundation::Failure> {
         match self
@@ -130,7 +125,6 @@ impl VectorPipeline {
                 self.bytes = 0;
                 self.atlases.clear();
                 self.atlas_bytes = 0;
-                self.legacy.clear();
                 self.host
                     .reserve_as(bytes, super::host::AllocationKind::Geometry)
             }
@@ -224,7 +218,7 @@ impl VectorPipeline {
         drawings: &[Drawing],
         size: [u32; 2],
         cancel: &fold_media::Cancel,
-    ) -> Result<Option<(Arc<Packet>, Report)>, fold_foundation::Failure> {
+    ) -> Result<(Arc<Packet>, Report), fold_foundation::Failure> {
         cancel.check()?;
         if let Some(index) = self
             .cache
@@ -234,12 +228,9 @@ impl VectorPipeline {
             let entry = self.cache.remove(index).unwrap();
             let packet = entry.packet.clone();
             self.cache.push_back(entry);
-            return Ok(Some((packet, Report::default())));
+            return Ok((packet, Report::default()));
         }
         let scene = self.sources.prepare(drawings, size, cancel)?;
-        if scene.needs_cpu_transform {
-            return Ok(None);
-        }
         let (atlas, geometry_upload_bytes) = self.atlas(&scene)?;
         let words = (scene.instances.len() as u32).div_ceil(32);
         let tile_bytes = (u64::from(size[0].div_ceil(16))
@@ -322,7 +313,7 @@ impl VectorPipeline {
             });
         }
         let instance_upload_bytes = lengths[0] + lengths[1] + lengths[5];
-        Ok(Some((
+        Ok((
             packet,
             Report {
                 upload_bytes: geometry_upload_bytes + instance_upload_bytes,
@@ -330,7 +321,7 @@ impl VectorPipeline {
                 instance_upload_bytes,
                 ..Default::default()
             },
-        )))
+        ))
     }
     pub fn encode(
         &mut self,
@@ -342,18 +333,7 @@ impl VectorPipeline {
         cancel: &fold_media::Cancel,
     ) -> Result<Report, fold_foundation::Failure> {
         let begin = std::time::Instant::now();
-        let Some((packet, mut report)) = self.packet(drawings, output.dimensions, cancel)? else {
-            let (bytes, _) =
-                self.legacy
-                    .encode(encoder, drawings, output, status, reservations, cancel)?;
-            return Ok(Report {
-                upload_bytes: bytes,
-                prepare_nanoseconds: begin.elapsed().as_nanos(),
-                cpu_transform_fallbacks: 1,
-                passes: 1,
-                ..Default::default()
-            });
-        };
+        let (packet, mut report) = self.packet(drawings, output.dimensions, cancel)?;
         reservations.push(packet.reservation.clone());
         reservations.push(packet.atlas.reservation.clone());
         let buffers = [

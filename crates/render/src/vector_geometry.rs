@@ -390,10 +390,50 @@ fn clipped_pixel_area(t: &Triangle, x: u32, y: u32) -> f32 {
 }
 #[derive(Debug)]
 pub(crate) struct Paint {
-    pub rect: [u32; 4],
     pub color: [f32; 4],
     pub triangles: Vec<Triangle>,
 }
+/// Transform and viewport-clip in f64 before narrowing to GPU coordinates.
+/// Shared by explicit CPU reference execution and precision-sensitive instances.
+pub(crate) fn clipped_triangles(
+    geometry: &[Triangle],
+    transform: [f64; 6],
+    [width, height]: [u32; 2],
+    cancel: &Cancel,
+) -> Result<Vec<Triangle>, String> {
+    let [a, b, c, e, tx, ty] = transform;
+    let mut triangles = Vec::new();
+    for triangle in geometry.iter() {
+        if triangles.len() % 4096 == 0 {
+            cancel.check()?;
+        }
+        let mut p = Polygon::triangle(triangle.map(|[x, y]| {
+            let x = f64::from(x);
+            let y = f64::from(y);
+            [a * x + c * y + tx, b * x + e * y + ty]
+        }));
+        // Most scene triangles lie wholly inside the viewport. Preserve
+        // them directly; clipping is only needed at its boundary.
+        if !p.points[..3].iter().all(|v| {
+            v[0] >= 0. && v[0] < f64::from(width) && v[1] >= 0. && v[1] < f64::from(height)
+        }) {
+            p = p
+                .clip(0, 0., true)
+                .clip(0, f64::from(width), false)
+                .clip(1, 0., true)
+                .clip(1, f64::from(height), false);
+        }
+        for i in 1..p.count.saturating_sub(1) {
+            if triangles.len() == MAX_TRIANGLES {
+                return Err("vector triangle budget exceeded".into());
+            }
+            let t = [p.points[0], p.points[i], p.points[i + 1]].map(|v| v.map(|v| v as f32));
+            triangles.push(t);
+        }
+    }
+    Ok(triangles)
+}
+
 pub(crate) fn prepare(
     cache: &mut GeometryCache,
     drawings: &[Drawing],
@@ -405,7 +445,7 @@ pub(crate) fn prepare(
     let mut total = 0;
     for d in drawings {
         cancel.check()?;
-        let [a, b, c, e, tx, ty] = d.transform;
+        let [a, b, c, e, _, _] = d.transform;
         if a * e - b * c == 0. || d.path.is_empty() {
             continue;
         }
@@ -423,56 +463,15 @@ pub(crate) fn prepare(
                 continue;
             }
             let geometry = cache.get(d, stroke, cancel)?;
-            let mut triangles = Vec::new();
-            let mut bounds = [width as f32, height as f32, 0f32, 0f32];
-            for triangle in geometry.iter() {
-                if triangles.len() % 4096 == 0 {
-                    cancel.check()?;
-                }
-                let mut p = Polygon::triangle(triangle.map(|[x, y]| {
-                    let x = f64::from(x);
-                    let y = f64::from(y);
-                    [a * x + c * y + tx, b * x + e * y + ty]
-                }));
-                // Most scene triangles lie wholly inside the viewport. Preserve
-                // them directly; clipping is only needed at its boundary.
-                if !p.points[..3].iter().all(|v| {
-                    v[0] >= 0. && v[0] < f64::from(width) && v[1] >= 0. && v[1] < f64::from(height)
-                }) {
-                    p = p
-                        .clip(0, 0., true)
-                        .clip(0, f64::from(width), false)
-                        .clip(1, 0., true)
-                        .clip(1, f64::from(height), false);
-                }
-                for i in 1..p.count.saturating_sub(1) {
-                    total += 1;
-                    if total > MAX_TRIANGLES {
-                        return Err("vector triangle budget exceeded".into());
-                    }
-                    let t =
-                        [p.points[0], p.points[i], p.points[i + 1]].map(|v| v.map(|v| v as f32));
-                    for v in t {
-                        bounds[0] = bounds[0].min(v[0]);
-                        bounds[1] = bounds[1].min(v[1]);
-                        bounds[2] = bounds[2].max(v[0]);
-                        bounds[3] = bounds[3].max(v[1]);
-                    }
-                    triangles.push(t);
-                }
+            let triangles = clipped_triangles(&geometry, d.transform, [width, height], cancel)?;
+            total += triangles.len();
+            if total > MAX_TRIANGLES {
+                return Err("vector triangle budget exceeded".into());
             }
             if triangles.is_empty() {
                 continue;
             }
-            let x = bounds[0].floor() as u32;
-            let y = bounds[1].floor() as u32;
             paints.push(Paint {
-                rect: [
-                    x,
-                    y,
-                    bounds[2].ceil() as u32 - x,
-                    bounds[3].ceil() as u32 - y,
-                ],
                 color: color.map(|v| v as f32),
                 triangles,
             });
@@ -480,11 +479,8 @@ pub(crate) fn prepare(
     }
     Ok(paints)
 }
-#[repr(C)]
 #[derive(Clone, Copy)]
-#[cfg_attr(feature = "gpu", derive(bytemuck::Pod, bytemuck::Zeroable))]
 pub(crate) struct PaintRecord {
-    pub rect: [u32; 4],
     pub color: [f32; 4],
 }
 pub(crate) struct Packet {
@@ -511,10 +507,7 @@ pub(crate) fn bin(
     let mut groups = 0usize;
     for p in paints {
         let paint = records.len() as u32;
-        records.push(PaintRecord {
-            rect: p.rect,
-            color: p.color,
-        });
+        records.push(PaintRecord { color: p.color });
         for t in p.triangles {
             cancel.check()?;
             let left = t.iter().map(|v| v[0]).fold(f32::INFINITY, f32::min).floor() as u32;
@@ -561,10 +554,7 @@ pub(crate) fn bin(
         triangles.push([[0.; 2]; 3]);
     }
     if records.is_empty() {
-        records.push(PaintRecord {
-            rect: [0; 4],
-            color: [0.; 4],
-        });
+        records.push(PaintRecord { color: [0.; 4] });
     }
     Ok(Packet {
         triangles,

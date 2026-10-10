@@ -1,7 +1,7 @@
 # Fold Codebase Maintenance Plan
 
 **Date:** 9 October 2026
-**Status:** C0 baseline complete, with native measurement failures recorded. C1–C5 complete; desktop/native acceptance limitations remain recorded. C6 implemented; checkpoint and native acceptance recorded below. C7–C9 not started.
+**Status:** C0 baseline complete, with native measurement failures recorded. C1–C5 complete; desktop/native acceptance limitations remain recorded. C6 implemented; checkpoint and native acceptance recorded below. C7 complete by user acceptance, with the inherited spatial-depth failure recorded as an exception. C8–C9 not started.
 **Audit baseline:** `6280fb6` — Implement M5c parameter references and scoped inspection.
 
 ## Purpose and authority
@@ -35,7 +35,7 @@ M3–M5 and M5a–M5c acceptance remain open. The desktop freeze remains unresol
 | C4 | Provider-owned agent editing | C3 | Complete; see evidence and limitations |
 | C5 | Focused application coordinator | C4 | Complete; see evidence and limitations |
 | C6 | Explicit desktop workspace and viewer state | C5 | Implemented; native acceptance remains open |
-| C7 | Simplified GPU execution and vector path | C6 | Planned |
+| C7 | Simplified GPU execution and vector path | C6 | Complete; accepted spatial-depth exception |
 | C8 | Measured preparation and refresh optimization | C7; M6 gate for incremental Motion work | Planned |
 | C9 | Integrated qualification and current architecture reference | C8 | Planned |
 
@@ -176,6 +176,8 @@ Native desktop captures failed with SIGSEGV in release and debug; a control also
 4. Verify cancellation and resource release before submission, during in-flight work, on device failure, and under preview/export contention.
 
 **Gate:** Pixel/color/alpha tolerances pass for retained vector, image, and spatial fixtures. Old vector execution is absent. Memory/resource accounting and readiness rules remain valid. Native GPU verification is required; a compile or CPU-only pass is insufficient.
+
+**C7 completion — 9 October 2026:** [Results and limitations](maintenance/evidence/c7/result.md) and [vector input inventory](maintenance/evidence/c7/vector-inputs.md) record focused request, encoding, submission, frame and statistics ownership; one retained vector execution path; completion-safe cancellation and device-loss handling. Native GTX 1070 qualification includes vector, image/color and spatial fixtures. The extrusion ray-depth fixture fails identically in the retained C6 checkpoint executable; its tolerance is unchanged. After review of this failure, the user accepted C7 as complete with this specific inherited failure deferred. This exception permits C8 maintenance work; it does not mark the failing test as passed or close M4 acceptance. C4/C5/C6 ownership, explicit CPU execution and remaining Motion gates are preserved. The original unknown-trigger freeze, separate C0 unbound shutdown SIGSEGV and physical artist acceptance remain open; C6's empty-layout restore fix remains causally verified. No C8 or M6 work was performed.
 
 ## C8 — Optimize measured preparation and refresh costs
 

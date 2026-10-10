@@ -1,0 +1,8 @@
+
+running 3 tests
+test gpu::submission::tests::cancellation_before_submission_releases_encoded_leases ... ok
+test gpu::submission::tests::inflight_cancellation_and_device_failure_release_completion_owned_leases ... ok
+test gpu::submission::tests::preview_export_contention_cancellation_and_device_failure_release_admission ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 63 filtered out; finished in 1.96s
+

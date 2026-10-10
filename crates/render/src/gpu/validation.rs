@@ -4,40 +4,57 @@
 use super::{Host, host::Reservation};
 use std::sync::{Arc, Mutex};
 
-type ResultState = Arc<Mutex<Option<Result<Option<f64>, fold_foundation::Failure>>>>;
+type ResultState = Arc<Mutex<State>>;
+enum State {
+    Pending,
+    Mapped(Status, Result<(), wgpu::BufferAsyncError>),
+    Complete(Result<Option<f64>, fold_foundation::Failure>),
+}
 pub(super) struct Status {
     pub gpu: wgpu::Buffer,
     pub failure: &'static str,
+    host_failure: Arc<Mutex<Option<String>>>,
+    completion_poll: Arc<Mutex<()>>,
     readback: wgpu::Buffer,
-    reservation: Arc<Reservation>,
+    _reservation: Arc<Reservation>,
     timestamps: Option<(wgpu::QuerySet, wgpu::Buffer, f32)>,
 }
 #[derive(Clone)]
-pub(super) struct Completion(ResultState);
+pub(super) struct Completion(ResultState, Option<Arc<Mutex<()>>>);
 impl Completion {
     pub(super) fn submitted(queue: &wgpu::Queue, image: Arc<super::host::Image>) -> Self {
-        let state = Arc::new(Mutex::new(None));
+        let state = Arc::new(Mutex::new(State::Pending));
         let done = state.clone();
         queue.on_submitted_work_done(move || {
             drop(image);
-            *done.lock().unwrap() = Some(Ok(None));
+            *done.lock().unwrap() = State::Complete(Ok(None));
         });
-        Self(state)
+        Self(state, None)
     }
 
-    pub fn gpu_nanoseconds(&self) -> Result<Option<f64>, fold_foundation::Failure> {
-        match self.0.lock().unwrap().as_ref() {
-            Some(Ok(time)) => Ok(*time),
-            Some(Err(e)) => Err(e.clone()),
-            None => Ok(None),
+    fn result(&self) -> Option<Result<Option<f64>, fold_foundation::Failure>> {
+        // Serialize status decoding against other workers pumping loss/map
+        // callbacks, so a partially delivered poll cannot publish readiness.
+        let _poll = self.1.as_ref().map(|poll| poll.lock().unwrap());
+        let mut state = self.0.lock().unwrap();
+        if matches!(*state, State::Mapped(..)) {
+            let State::Mapped(status, mapped) = std::mem::replace(&mut *state, State::Pending)
+            else {
+                unreachable!()
+            };
+            *state = State::Complete(status.read(mapped));
+        }
+        match &*state {
+            State::Complete(result) => Some(result.clone()),
+            _ => None,
         }
     }
+    pub fn gpu_nanoseconds(&self) -> Result<Option<f64>, fold_foundation::Failure> {
+        self.result().unwrap_or(Ok(None))
+    }
     pub fn ready(&self) -> Result<bool, fold_foundation::Failure> {
-        match self.0.lock().unwrap().as_ref() {
-            None => Ok(false),
-            Some(Ok(_)) => Ok(true),
-            Some(Err(error)) => Err(error.clone()),
-        }
+        self.result()
+            .map_or(Ok(false), |result| result.map(|_| true))
     }
 }
 impl Status {
@@ -77,10 +94,12 @@ impl Status {
             mapped_at_creation: false,
         });
         Ok(Self {
+            host_failure: host.failure_state(),
+            completion_poll: host.completion_poll(),
             failure: "GPU intermediate contains nonfinite RGB or invalid alpha",
             gpu,
             readback,
-            reservation,
+            _reservation: reservation,
             timestamps,
         })
     }
@@ -103,33 +122,41 @@ impl Status {
     /// Call after submission. Callback retains the mapped buffer and reservation
     /// even if the consumer cancels/drops its frame before completion.
     pub fn submitted(self) -> Completion {
-        let result: ResultState = Arc::new(Mutex::new(None));
+        let result: ResultState = Arc::new(Mutex::new(State::Pending));
         let output = result.clone();
-        let buffer = self.readback.clone();
+        let poll = self.completion_poll.clone();
         self.readback
+            .clone()
             .slice(..)
             .map_async(wgpu::MapMode::Read, move |mapped| {
-                let status = mapped
-                    .map_err(|e| fold_foundation::Failure::from(e.to_string()))
-                    .and_then(|()| {
-                        let bytes = buffer.slice(..).get_mapped_range();
-                        let valid = bytes[..4] == [0; 4];
-                        let time = self.timestamps.as_ref().map(|(_, _, period)| {
-                            let start = u64::from_le_bytes(bytes[8..16].try_into().unwrap());
-                            let end = u64::from_le_bytes(bytes[16..24].try_into().unwrap());
-                            end.wrapping_sub(start) as f64 * f64::from(*period)
-                        });
-                        drop(bytes);
-                        buffer.unmap();
-                        if valid {
-                            Ok(time)
-                        } else {
-                            Err(self.failure.into())
-                        }
-                    });
-                drop(self.reservation);
-                *output.lock().unwrap() = Some(status);
+                // Device-loss notification can follow a successful map callback
+                // in the same poll. Decode only after the caller's poll returns,
+                // when the shared host failure state has been updated.
+                *output.lock().unwrap() = State::Mapped(self, mapped);
             });
-        Completion(result)
+        Completion(result, Some(poll))
+    }
+    fn read(
+        self,
+        mapped: Result<(), wgpu::BufferAsyncError>,
+    ) -> Result<Option<f64>, fold_foundation::Failure> {
+        if let Some(error) = self.host_failure.lock().unwrap().as_ref() {
+            return Err(error.clone().into());
+        }
+        mapped.map_err(|e| fold_foundation::Failure::from(e.to_string()))?;
+        let bytes = self.readback.slice(..).get_mapped_range();
+        let valid = bytes[..4] == [0; 4];
+        let time = self.timestamps.as_ref().map(|(_, _, period)| {
+            let start = u64::from_le_bytes(bytes[8..16].try_into().unwrap());
+            let end = u64::from_le_bytes(bytes[16..24].try_into().unwrap());
+            end.wrapping_sub(start) as f64 * f64::from(*period)
+        });
+        drop(bytes);
+        self.readback.unmap();
+        if valid {
+            Ok(time)
+        } else {
+            Err(self.failure.into())
+        }
     }
 }

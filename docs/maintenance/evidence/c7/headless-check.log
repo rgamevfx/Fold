@@ -1,0 +1,6 @@
+    Checking schemars v1.2.2
+    Checking fold-color v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/color)
+    Checking fold-foundation v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/foundation)
+    Checking fold-media v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/media)
+    Checking fold-render v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/render)
+    Finished `dev` profile [unoptimized] target(s) in 4.75s

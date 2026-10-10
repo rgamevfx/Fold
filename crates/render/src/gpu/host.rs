@@ -55,6 +55,7 @@ struct Shared {
     pool: Mutex<Pool>,
     sources: Mutex<super::still::Cache>,
     stopped: Arc<Mutex<Option<String>>>,
+    completion_poll: Arc<Mutex<()>>,
 }
 
 /// Host-only access to the render device. Panels should receive presentation
@@ -213,6 +214,7 @@ impl Host {
             }),
             sources: Mutex::new(Default::default()),
             stopped,
+            completion_poll: Arc::new(Mutex::new(())),
         })))
     }
     pub(super) fn sources(&self) -> std::sync::MutexGuard<'_, super::still::Cache> {
@@ -235,6 +237,13 @@ impl Host {
     pub fn queue(&self) -> &wgpu::Queue {
         &self.0.queue
     }
+    /// Completion callbacks observe failure without retaining the host/device.
+    pub(super) fn failure_state(&self) -> Arc<Mutex<Option<String>>> {
+        self.0.stopped.clone()
+    }
+    pub(super) fn completion_poll(&self) -> Arc<Mutex<()>> {
+        self.0.completion_poll.clone()
+    }
     pub fn check(&self) -> Result<(), fold_foundation::Failure> {
         match self.0.stopped.lock().unwrap().as_ref() {
             Some(error) => Err(error.clone().into()),
@@ -243,6 +252,7 @@ impl Host {
     }
     /// Nonblocking completion pump, usable by the desktop event loop.
     pub fn poll(&self) -> Result<(), fold_foundation::Failure> {
+        let _poll = self.0.completion_poll.lock().unwrap();
         self.device()
             .poll(wgpu::PollType::Poll)
             .map_err(|e| e.to_string())?;
@@ -399,6 +409,7 @@ impl Host {
         leases: Vec<Arc<Image>>,
         buffers: Vec<Arc<Reservation>>,
     ) {
+        let _poll = self.0.completion_poll.lock().unwrap();
         self.queue().submit([encoder.finish()]);
         self.queue().on_submitted_work_done(move || {
             drop(leases);

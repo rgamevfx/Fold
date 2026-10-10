@@ -1,0 +1,59 @@
+
+running 18 tests
+test gpu::cache::tests::native_bc7_padding_sampling_and_lifetimes ... BC7 adapter: AdapterInfo { name: "NVIDIA GeForce GTX 1070", vendor: 4318, device: 7137, device_type: DiscreteGpu, driver: "NVIDIA", driver_info: "580.173.02", backend: Vulkan }
+BC7 pipeline setup: 14.072814447s
+BC7 479x273: wall=9.986233ms GPU=None bytes=132480
+BC7 lossy playback quality: RMS=0.746 max=4
+BC7 480x480: wall=14.159616ms GPU=None bytes=230400
+BC7 lossy playback quality: RMS=0.757 max=3
+BC7 1x1: wall=4.473746ms GPU=None bytes=16
+BC7 lossy playback quality: RMS=1.225 max=2
+BC7 4x4: wall=5.166035ms GPU=None bytes=16
+BC7 lossy playback quality: RMS=43.503 max=117
+BC7 64x64: wall=4.882942ms GPU=None bytes=4096
+BC7 lossy playback quality: RMS=0.576 max=1
+BC7 host memory: Memory { allocated: 27341728, reusable: 15639200, peak: 27892440, budget: 134217728, working: 17664528, presentation: 3819152, decoded: 0, geometry: 0, scratch: 5858048 }
+ok
+test gpu::cache::tests::native_bc7_unavailable_features_and_allocation_pressure_leave_host_usable ... ok
+test gpu::precision::tests::rgba16_signed_hdr_range_and_overflow ... ok
+test gpu::presentation::tests::native_presentation_roundtrip_reuses_staging_and_preserves_bc7 ... Cache transfer adapter: AdapterInfo { name: "NVIDIA GeForce GTX 1070", vendor: 4318, device: 7137, device_type: DiscreteGpu, driver: "NVIDIA", driver_info: "580.173.02", backend: Vulkan }
+[64, 64]: RGBA8=16384 BC7=4096 transfer/restore/verify=3.58701ms
+[479, 273]: RGBA8=523068 BC7=132480 transfer/restore/verify=6.559532ms
+[1920, 1080]: RGBA8=8294400 BC7=2073600 transfer/restore/verify=10.063796ms
+ok
+test gpu::submission::tests::cancellation_before_submission_releases_encoded_leases ... ok
+test gpu::submission::tests::inflight_cancellation_and_device_failure_release_completion_owned_leases ... 
+thread 'gpu::submission::tests::inflight_cancellation_and_device_failure_release_completion_owned_leases' (2374168) panicked at crates/render/src/gpu/submission.rs:142:17:
+assertion failed: frame.is_ready().is_err()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+test gpu::submission::tests::preview_export_contention_cancellation_and_device_failure_release_admission ... ok
+test gpu::vector::tests::native_abandoned_encoder_and_budget_failure_leave_reusable_pipeline ... ok
+test gpu::vector::tests::native_extreme_coordinates_use_clipped_preparation_and_remain_equivalent ... 
+thread 'gpu::vector::tests::native_extreme_coordinates_use_clipped_preparation_and_remain_equivalent' (2374750) panicked at crates/render/src/gpu/vector_tests.rs:346:21:
+assertion failed: report.instances >= 4
+FAILED
+test gpu::vector::tests::native_float_coverage_matches_reference_without_full_image_upload ... ok
+test gpu::vector::tests::native_instances_keep_order_across_tile_words_and_reuse_only_static_geometry ... ok
+test gpu::vector::tests::native_repeated_geometry_exceeds_old_triangle_limit_without_repeated_uploads ... ok
+test gpu::vector::tests::native_retained_gpu_atlas_does_not_pin_evicted_cpu_geometry ... ok
+test gpu::vector::tests::unconfigured_vectors_stay_on_gpu_with_float_coverage ... ok
+test gpu::yuv::layout_tests::p010_preserves_low_ten_bit_samples ... ok
+test gpu::yuv::layout_tests::padded_nv12_is_equivalent_to_planar_and_rejects_out_of_bounds_layout ... ok
+test gpu::yuv::tests::high_precision_chroma_and_alpha_match_cpu ... ok
+test gpu::yuv::tests::native_yuv_reconstruction_matches_float_reference ... [64, 32] native YUV max error 0.00000011920929
+[32, 16] native YUV max error 0.00000011920929
+[31, 17] native YUV max error 0.00000011920929
+[30, 14] native YUV max error 0.00000017881393
+[126, 66] native YUV max error 0.00000011920929
+[1, 1] native YUV max error 0.000000059604645
+ok
+
+failures:
+
+failures:
+    gpu::submission::tests::inflight_cancellation_and_device_failure_release_completion_owned_leases
+    gpu::vector::tests::native_extreme_coordinates_use_clipped_preparation_and_remain_equivalent
+
+test result: FAILED. 16 passed; 2 failed; 0 ignored; 0 measured; 47 filtered out; finished in 54.94s
+

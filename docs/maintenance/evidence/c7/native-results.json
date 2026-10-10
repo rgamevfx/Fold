@@ -1,0 +1,112 @@
+[
+  {
+    "name": "camera_plane_gpu",
+    "command": [
+      "target/debug/deps/camera_plane_gpu-5bdefea48c90ef81",
+      "--ignored",
+      "--test-threads=1",
+      "--nocapture"
+    ],
+    "status": 0,
+    "seconds": 7.07
+  },
+  {
+    "name": "gpu",
+    "command": [
+      "target/debug/deps/gpu-def3fbb9e4ba6568",
+      "--ignored",
+      "--test-threads=1",
+      "--nocapture"
+    ],
+    "status": 0,
+    "seconds": 16.32
+  },
+  {
+    "name": "gpu_adapters",
+    "command": [
+      "target/debug/deps/gpu_adapters-97fe3305fae2d8ce",
+      "--ignored",
+      "--test-threads=1",
+      "--nocapture"
+    ],
+    "status": 101,
+    "seconds": 0.78
+  },
+  {
+    "name": "gpu_color",
+    "command": [
+      "target/debug/deps/gpu_color-8fe716e233e0de87",
+      "--ignored",
+      "--test-threads=1",
+      "--nocapture"
+    ],
+    "status": 0,
+    "seconds": 3.5
+  },
+  {
+    "name": "gpu_fusion",
+    "command": [
+      "target/debug/deps/gpu_fusion-2fcef000f3ab74eb",
+      "--ignored",
+      "--test-threads=1",
+      "--nocapture"
+    ],
+    "status": 0,
+    "seconds": 1.52
+  },
+  {
+    "name": "precision_gpu",
+    "command": [
+      "target/debug/deps/precision_gpu-0df1670a2be27079",
+      "--ignored",
+      "--test-threads=1",
+      "--nocapture"
+    ],
+    "status": 0,
+    "seconds": 1.08
+  },
+  {
+    "name": "regions",
+    "command": [
+      "target/debug/deps/regions-c798c1f110d8cfd5",
+      "--ignored",
+      "--test-threads=1",
+      "--nocapture"
+    ],
+    "status": 0,
+    "seconds": 2.54
+  },
+  {
+    "name": "sampling",
+    "command": [
+      "target/debug/deps/sampling-841a377b1d5188bc",
+      "--ignored",
+      "--test-threads=1",
+      "--nocapture"
+    ],
+    "status": 0,
+    "seconds": 2.29
+  },
+  {
+    "name": "spatial_gpu",
+    "command": [
+      "target/debug/deps/spatial_gpu-4bc18b498cb21b4c",
+      "--ignored",
+      "--test-threads=1",
+      "--nocapture"
+    ],
+    "status": 101,
+    "seconds": 20.78
+  },
+  {
+    "name": "text_gpu",
+    "command": [
+      "target/debug/deps/text_gpu-91839cd995bfbb5c",
+      "--ignored",
+      "--test-threads=1",
+      "--nocapture"
+    ],
+    "status": 0,
+    "seconds": 5.11
+  }
+]

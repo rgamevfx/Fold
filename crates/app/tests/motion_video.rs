@@ -496,7 +496,6 @@ fn registered_motion_text_matches_gpu_across_output_sizes_and_retained_revisions
         let again =
             evaluate_scene_gpu(&snapshot, &request, &mut renderer, &mut decoder, &cancel).unwrap();
         assert_eq!(again.statistics.vector_geometry_upload_bytes, 0);
-        assert_eq!(again.statistics.vector_cpu_transform_fallbacks, 0);
         eprintln!(
             "Registered text {:?}: max linear error={error}; display byte error={display_error}; recompiled geometry upload=0",
             dimensions

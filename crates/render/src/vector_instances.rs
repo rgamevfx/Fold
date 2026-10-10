@@ -117,8 +117,6 @@ pub(crate) struct Scene {
     pub triangles: usize,
     pub nodes: usize,
     pub unique_triangles: usize,
-    /// Extreme coordinates retain viewport-clipped CPU preparation.
-    pub needs_cpu_transform: bool,
 }
 impl Sources {
     pub fn prepare(
@@ -135,7 +133,6 @@ impl Sources {
             triangles: 0,
             nodes: 0,
             unique_triangles: 0,
-            needs_cpu_transform: false,
         };
         let mut source_nodes = 0;
         let mut source_offsets = HashMap::new();
@@ -217,7 +214,25 @@ impl Sources {
                 {
                     continue;
                 }
-                scene.needs_cpu_transform |= rect.iter().any(|v| v.abs() > 65536.);
+                // Clip only precision-sensitive geometry, then use the same
+                // retained hierarchy, visibility and coverage kernels as every instance.
+                let (source, transform) = if rect.iter().any(|v| v.abs() > 65536.) {
+                    let triangles = crate::vector_geometry::clipped_triangles(
+                        &source.original,
+                        d.transform,
+                        size,
+                        cancel,
+                    )?;
+                    if triangles.is_empty() {
+                        continue;
+                    }
+                    (
+                        Arc::new(Source::new(Arc::new(triangles), cancel)?),
+                        [1., 0., 0., 1., 0., 0.],
+                    )
+                } else {
+                    (source, d.transform)
+                };
                 let width =
                     (rect[2].ceil() + 1.).min(f64::from(size[0])) - (rect[0].floor() - 1.).max(0.);
                 let height =
@@ -253,9 +268,9 @@ impl Sources {
                         scene.triangles + triangle_count
                     ));
                 }
-                let hi = d.transform.map(|v| v as f32);
+                let hi = transform.map(|v| v as f32);
                 let lo: [f32; 6] =
-                    std::array::from_fn(|i| (d.transform[i] - f64::from(hi[i])) as f32);
+                    std::array::from_fn(|i| (transform[i] - f64::from(hi[i])) as f32);
                 let instance = scene.instances.len() as u32;
                 scene.instances.push(Instance {
                     matrix: [hi[0], hi[1], hi[2], hi[3]],

@@ -1,0 +1,60 @@
+    Checking smallvec v1.16.2
+    Checking naga v27.0.3
+    Checking bevy_reflect v0.18.1
+    Checking bevy_ecs v0.18.1
+    Checking bevy_math v0.18.1
+    Checking parking_lot_core v0.9.12
+    Checking parking_lot v0.12.5
+    Checking wgpu-hal v27.0.4
+    Checking bevy_app v0.18.1
+    Checking bevy_time v0.18.1
+    Checking bevy_diagnostic v0.18.1
+    Checking ron v0.12.2
+    Checking tracing-subscriber v0.3.23
+    Checking bevy_asset v0.18.1
+    Checking wgpu-core-deps-windows-linux-android v27.0.0
+    Checking wgpu-core v27.0.3
+    Checking bevy_log v0.18.1
+    Checking bevy_color v0.18.1
+    Checking bevy_image v0.18.1
+    Checking wgpu v27.0.1
+    Checking bevy_transform v0.18.1
+    Checking bevy_input v0.18.1
+    Checking bevy_mesh v0.18.1
+    Checking bevy_window v0.18.1
+    Checking naga_oil v0.20.0
+    Checking bevy_camera v0.18.1
+    Checking bevy_shader v0.18.1
+    Checking fold-foundation v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/foundation)
+    Checking tempfile v3.27.0
+    Checking read-fonts v0.41.0
+    Checking bevy_render v0.18.1
+    Checking bevy_light v0.18.1
+    Checking bevy_a11y v0.18.1
+    Checking skrifa v0.44.0
+    Checking fontique v0.7.0
+    Checking exr v1.74.2
+    Checking swash v0.2.10
+    Checking fold-native-video v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/native-video)
+    Checking harfrust v0.3.2
+    Checking bevy_core_pipeline v0.18.1
+    Checking parley v0.7.0
+    Checking fold-media v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/media)
+    Checking fold-color v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/color)
+    Checking block_compression v0.7.0
+    Checking fold-project v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/project)
+    Checking bevy_pbr v0.18.1
+    Checking fold-animation v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/animation)
+    Checking fold-graph v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/graph)
+    Checking ahash v0.8.12
+    Checking rhai v1.26.1
+   Compiling fold-app v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/app)
+    Checking bevy_internal v0.18.1
+    Checking bevy v0.18.1
+    Checking fold-render v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/render)
+    Checking fold-platform v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/platform)
+    Checking fold-timeline v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/timeline)
+    Checking fold-motion v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/motion)
+    Checking fold-compositor v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/compositor)
+    Checking fold-composition v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/composition)
+    Finished `dev` profile [unoptimized] target(s) in 1m 07s

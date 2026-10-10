@@ -1,0 +1,8 @@
+
+running 3 tests
+test aces_video_filtering_precedes_display_and_matches_cpu ... ok
+test downsampling_preserves_stripe_energy_in_linear_light ... ok
+test gpu_reconstruction_matches_cpu_for_odd_sizes_enlargement_and_regions ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 2.27s
+

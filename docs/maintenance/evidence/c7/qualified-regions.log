@@ -1,0 +1,9 @@
+
+running 2 tests
+test gpu_region_reduces_working_memory_without_source_supersampling ... full/ROI working allocation peaks: [11060724, 947168]
+ok
+test gpu_regions_match_full_frame_and_keep_display_cropped ... ROI GPU: AdapterInfo { name: "NVIDIA GeForce GTX 1070", vendor: 4318, device: 7137, device_type: DiscreteGpu, driver: "NVIDIA", driver_info: "580.173.02", backend: Vulkan }
+ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 2.13s
+
