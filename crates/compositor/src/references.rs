@@ -11,6 +11,17 @@ use fold_graph::{
 use std::collections::{BTreeMap, BTreeSet};
 
 impl PreparedNode<'_> {
+    fn property_owner(&self, property: &str) -> Result<ObjectId, String> {
+        if property == "mix" {
+            Ok(self.effect.id)
+        } else {
+            self.operation
+                .parameters
+                .get(self.config().parameter_for_property(property))
+                .map(|p| p.id)
+                .ok_or_else(|| "Missing parameter owner".into())
+        }
+    }
     pub fn property_reference(
         &self,
         property: &str,
@@ -18,15 +29,7 @@ impl PreparedNode<'_> {
     ) -> Result<Reference, String> {
         let mut offsets = BTreeMap::new();
         for p in self.animated_properties() {
-            let id = if p.id == "mix" {
-                self.effect.id
-            } else {
-                self.operation
-                    .parameters
-                    .get(self.config().parameter_for_property(&p.id))
-                    .ok_or("Missing parameter owner")?
-                    .id
-            };
+            let id = self.property_owner(&p.id)?;
             let offset = offsets.entry(id).or_insert(0usize);
             if p.id == property {
                 if component >= p.values.len() {
@@ -49,9 +52,18 @@ impl PreparedComposite<'_> {
     pub(crate) fn index_references(&mut self) -> Result<(), String> {
         let mut references = BTreeMap::new();
         for node in self.nodes() {
+            let mut offsets = BTreeMap::new();
             for property in node.animated_properties() {
+                let parameter = node.property_owner(&property.id)?;
+                let offset = offsets.entry(parameter).or_insert(0usize);
                 for (i, value) in property.values.iter().enumerate() {
-                    let reference = node.property_reference(&property.id, i)?;
+                    let reference = Reference::Parameter {
+                        parameter,
+                        component: Some(
+                            u8::try_from(*offset + i)
+                                .map_err(|_| "Too many parameter components")?,
+                        ),
+                    };
                     if references
                         .insert(reference, (node.id, path(&property.id, i), *value))
                         .is_some()
@@ -59,6 +71,7 @@ impl PreparedComposite<'_> {
                         return Err("Duplicate parameter reference address".into());
                     }
                 }
+                *offset += property.values.len();
             }
         }
         self.references = references;
@@ -196,6 +209,11 @@ impl PreparedComposite<'_> {
     ) -> Result<crate::OperationConfig, String> {
         let node = self.node(id)?;
         let mut config = node.config().clone();
+        // Prepared static Roto controls are already validated. Avoid generating
+        // thousands of point-property paths when there is nothing to sample.
+        if matches!(config, crate::OperationConfig::Roto { .. }) && node.channels().len() == 0 {
+            return Ok(config);
+        }
         let mut sampler = Sampler::new(self, time);
         for mut property in config.animated_properties() {
             let mut changed = false;

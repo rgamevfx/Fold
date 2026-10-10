@@ -1,91 +1,154 @@
-use super::{Combine, Layer, Roto, geometry::compose};
+//! Lower evaluated shapes to a feature-neutral scalar coverage program.
+use super::{Combine, Layer, Roto, Shape, geometry::compose};
 use fold_foundation::Time;
 use fold_media::Cancel;
 use fold_render::{
-    Affine, ImageId, ImageOp as Op, RenderGraph,
+    Affine, ImageId, ImageOp, RenderGraph,
     channels::{Channel, Channels, Interpretation, RGBA, Value},
-    operations::MergeMode,
+    coverage::{Op, Program},
+    vector::Drawing,
 };
-use std::sync::Arc;
-fn push(graph: &mut RenderGraph, op: Op) -> ImageId {
+use std::{cell::RefCell, collections::VecDeque, sync::Arc};
+thread_local! {
+    // Worker-local geometry only. No project, GPU resource or frame is retained.
+    static PATHS: RefCell<VecDeque<(Shape, Drawing)>> = const { RefCell::new(VecDeque::new()) };
+}
+fn drawing(
+    shape: &Shape,
+    matrix: Affine,
+    opacity: f64,
+    cancel: &Cancel,
+) -> Result<Drawing, String> {
+    cancel.check()?;
+    let mut drawing = PATHS.with(|cache| {
+        let mut cache = cache.borrow_mut();
+        if let Some(i) = cache.iter().position(|(s, _)| s == shape) {
+            let entry = cache.remove(i).unwrap();
+            let result = entry.1.clone();
+            cache.push_back(entry);
+            return Ok(result);
+        }
+        let result = fold_render::vector_feather::drawings(
+            shape.path(false),
+            shape.path(true),
+            [1., 0., 0., 1., 0., 0.],
+            shape.falloff,
+            cancel,
+        )?
+        .remove(0);
+        // Bound retained control/segment counts as well as entry count.
+        while !cache.is_empty()
+            && (cache.len() >= 64
+                || cache.iter().map(|(s, _)| s.points.len()).sum::<usize>() + shape.points.len()
+                    > 16384)
+        {
+            cache.pop_front();
+        }
+        if shape.points.len() <= 16384 {
+            cache.push_back((shape.clone(), result.clone()));
+        }
+        Ok::<_, String>(result)
+    })?;
+    drawing.transform = [matrix.a, matrix.b, matrix.c, matrix.d, matrix.tx, matrix.ty];
+    drawing.fill = Some([1., 1., 1., opacity]);
+    Ok(drawing)
+}
+struct Builder<'a> {
+    program: Program,
+    cancel: &'a Cancel,
+}
+impl Builder<'_> {
+    fn push(&mut self, op: Op) -> usize {
+        let id = self.program.nodes.len();
+        self.program.nodes.push(op);
+        id
+    }
+    fn combine(&mut self, first: usize, second: usize, mode: Combine) -> usize {
+        if mode == Combine::Replace {
+            return first;
+        }
+        if matches!(self.program.nodes[second], Op::Constant(0.)) {
+            return match mode {
+                Combine::Over | Combine::Add => first,
+                _ => second,
+            };
+        }
+        let mode = match mode {
+            Combine::Over => fold_render::coverage::Combine::Over,
+            Combine::Add => fold_render::coverage::Combine::Add,
+            Combine::Subtract => fold_render::coverage::Combine::Subtract,
+            Combine::Intersect => fold_render::coverage::Combine::Intersect,
+            Combine::Replace => unreachable!(),
+        };
+        self.push(Op::Combine {
+            first,
+            second,
+            mode,
+        })
+    }
+    fn flush(&mut self, batch: &mut Vec<Drawing>, result: usize) -> usize {
+        if batch.is_empty() {
+            return result;
+        }
+        let first = self.push(Op::Draw(Arc::new(std::mem::take(batch))));
+        self.combine(first, result, Combine::Over)
+    }
+    fn layer(&mut self, l: &Layer, parent: Affine, time: Time) -> Result<usize, String> {
+        self.cancel.check()?;
+        if self.program.nodes.len() > 4000 {
+            return Err("Roto coverage budget exceeded".into());
+        }
+        if !l.enabled || l.lifetime.is_some_and(|[a, b]| time < a || time >= b) {
+            return Ok(self.push(Op::Constant(0.)));
+        }
+        let matrix = compose(parent, l.matrix());
+        let mut result = if let Some(shape) = &l.shape {
+            if shape.points.len() < 3 || !shape.closed {
+                self.push(Op::Constant(0.))
+            } else {
+                let d = drawing(shape, matrix, 1., self.cancel)?;
+                self.push(Op::Draw(Arc::new(vec![d])))
+            }
+        } else {
+            let mut result = self.push(Op::Constant(0.));
+            let mut batch = Vec::new();
+            for child in &l.children {
+                if !child.enabled || child.lifetime.is_some_and(|[a, b]| time < a || time >= b) {
+                    continue;
+                }
+                if child.combine == Combine::Over && !child.invert {
+                    if let Some(shape) = &child.shape {
+                        if shape.closed && shape.points.len() >= 3 {
+                            batch.push(drawing(
+                                shape,
+                                compose(matrix, child.matrix()),
+                                child.opacity,
+                                self.cancel,
+                            )?);
+                        }
+                        continue;
+                    }
+                }
+                result = self.flush(&mut batch, result);
+                let first = self.layer(child, matrix, time)?;
+                result = self.combine(first, result, child.combine);
+            }
+            self.flush(&mut batch, result)
+        };
+        if l.invert || l.opacity != 1. {
+            result = self.push(Op::Adjust {
+                input: result,
+                invert: l.invert,
+                opacity: l.opacity as f32,
+            });
+        }
+        Ok(result)
+    }
+}
+fn push(graph: &mut RenderGraph, op: ImageOp) -> ImageId {
     let id = graph.nodes.len();
     graph.nodes.push(op);
     id
-}
-fn layer(
-    graph: &mut RenderGraph,
-    l: &Layer,
-    parent: Affine,
-    time: Time,
-    cancel: &Cancel,
-) -> Result<ImageId, String> {
-    cancel.check()?;
-    if graph.nodes.len() > 4000 {
-        return Err("Roto render graph budget exceeded".into());
-    }
-    if !l.enabled || l.lifetime.is_some_and(|[a, b]| time < a || time >= b) {
-        return Ok(push(graph, Op::Solid { rgba: [0.; 4] }));
-    }
-    let m = compose(parent, l.matrix());
-    let mut result = if let Some(s) = &l.shape {
-        if s.points.len() < 3 || !s.closed {
-            push(graph, Op::Solid { rgba: [0.; 4] })
-        } else {
-            let drawings = fold_render::vector_feather::drawings(
-                s.path(false),
-                s.path(true),
-                [m.a, m.b, m.c, m.d, m.tx, m.ty],
-                s.falloff,
-                cancel,
-            )?;
-            push(graph, Op::Vector(Arc::new(drawings)))
-        }
-    } else {
-        let mut result = push(graph, Op::Solid { rgba: [0.; 4] });
-        for child in &l.children {
-            if !child.enabled || child.lifetime.is_some_and(|[a, b]| time < a || time >= b) {
-                continue;
-            }
-            let shape = layer(graph, child, m, time, cancel)?;
-            let (a, b, mode) = match child.combine {
-                Combine::Over => (shape, result, MergeMode::Over),
-                Combine::Add => (shape, result, MergeMode::Plus),
-                Combine::Subtract => (result, shape, MergeMode::Out),
-                Combine::Intersect => (result, shape, MergeMode::In),
-                Combine::Replace => (shape, result, MergeMode::Copy),
-            };
-            result = push(
-                graph,
-                Op::Merge {
-                    first: a,
-                    second: b,
-                    mode,
-                },
-            );
-        }
-        result
-    };
-    if l.invert {
-        let white = push(graph, Op::Solid { rgba: [1.; 4] });
-        result = push(
-            graph,
-            Op::Merge {
-                first: white,
-                second: result,
-                mode: MergeMode::Out,
-            },
-        );
-    }
-    if l.opacity != 1. {
-        result = push(
-            graph,
-            Op::Opacity {
-                input: result,
-                opacity: l.opacity as f32,
-            },
-        );
-    }
-    Ok(result)
 }
 pub(crate) fn compile(
     graph: &mut RenderGraph,
@@ -95,38 +158,37 @@ pub(crate) fn compile(
     cancel: &Cancel,
 ) -> Result<Channels, String> {
     let settings = &samples.first().ok_or("Roto requires a time sample")?.1;
-    let m = Affine {
+    let matrix = Affine {
         a: scale[0],
         d: scale[1],
         ..Affine::IDENTITY
     };
+    let mut builder = Builder {
+        program: Program {
+            nodes: vec![],
+            output: 0,
+        },
+        cancel,
+    };
     let mut matte = None;
     for (i, (time, roto)) in samples.iter().enumerate() {
-        let image = layer(graph, &roto.root, m, *time, cancel)?;
-        matte = Some(if let Some(original) = matte {
-            push(
-                graph,
-                Op::Mix {
-                    original,
-                    processed: image,
-                    mask: None,
-                    mask_channel: 3,
-                    invert: false,
-                    amount: 1. / (i + 1) as f32,
-                    channels: [true; 4],
-                },
-            )
+        let next = builder.layer(&roto.root, matrix, *time)?;
+        matte = Some(if let Some(first) = matte {
+            builder.push(Op::Mix {
+                first,
+                second: next,
+                amount: 1. / (i + 1) as f32,
+            })
         } else {
-            image
+            next
         });
     }
-    let matte = matte.unwrap();
-    // Read scalar coverage from alpha, never convert it through working color.
+    builder.program.output = matte.unwrap();
+    let matte = push(graph, ImageOp::Coverage(Arc::new(builder.program)));
     let mut channels = if let Some(input) = input {
         input.clone()
     } else {
-        let zero = push(graph, Op::Solid { rgba: [0.; 4] });
-        Channels::rgba(zero)
+        Channels::rgba(push(graph, ImageOp::Solid { rgba: [0.; 4] }))
     };
     for name in &settings.channels {
         channels.insert(
@@ -134,7 +196,7 @@ pub(crate) fn compile(
             Channel {
                 value: Value::Component {
                     image: matte,
-                    component: 3,
+                    component: 0,
                 },
                 interpretation: if name.as_str().ends_with(".alpha") {
                     Interpretation::Alpha
@@ -148,7 +210,7 @@ pub(crate) fn compile(
         let image = channels.pack(graph, RGBA)?;
         let result = push(
             graph,
-            Op::Unary {
+            ImageOp::Unary {
                 input: image,
                 operation: fold_render::operations::Unary::Premult,
             },

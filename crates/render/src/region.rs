@@ -154,6 +154,20 @@ impl Plan {
                         rect[1] = rect[1].saturating_sub(working.y);
                         rect[3] = rect[3].saturating_sub(working.y);
                     }
+                    ImageOp::Coverage(program) => {
+                        let mut local = program.as_ref().clone();
+                        for op in &mut local.nodes {
+                            if let crate::coverage::Op::Draw(drawings) = op {
+                                let mut shifted = drawings.as_ref().clone();
+                                for d in &mut shifted {
+                                    d.transform[4] -= f64::from(working.x);
+                                    d.transform[5] -= f64::from(working.y);
+                                }
+                                *drawings = std::sync::Arc::new(shifted);
+                            }
+                        }
+                        *program = std::sync::Arc::new(local);
+                    }
                     ImageOp::Vector(drawings) => {
                         let mut local = drawings.as_ref().clone();
                         for d in &mut local {

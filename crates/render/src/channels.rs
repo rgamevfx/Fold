@@ -146,7 +146,12 @@ pub fn pack(graph: &mut RenderGraph, values: [Value; 4]) -> Result<ImageId, Stri
     {
         return Ok(sources[0]);
     }
-    if graph.nodes.len() + if sources.is_empty() { 2 } else { sources.len() } > 4096 {
+    let passes = match sources.len() {
+        0 => 2,
+        1 | 2 => 1,
+        count => count,
+    };
+    if graph.nodes.len() + passes > 4096 {
         return Err("Channel packing exceeds 4096 render operations".into());
     }
     if sources.is_empty() {
@@ -159,6 +164,30 @@ pub fn pack(graph: &mut RenderGraph, values: [Value; 4]) -> Result<ImageId, Stri
             first: source,
             second: None,
             mapping: values.map(|value| if value == Value::One { 9 } else { 8 }),
+        });
+        return Ok(result);
+    }
+    // A tuple from one or two images fits one Shuffle. Do not clear channels
+    // in a preliminary full-frame pass before copying the second source.
+    if sources.len() <= 2 {
+        let first = sources[0];
+        let second = sources.get(1).copied();
+        let mapping = values.map(|value| match value {
+            Value::Component { image, component } => {
+                if image == first {
+                    component
+                } else {
+                    4 + component
+                }
+            }
+            Value::One => 9,
+            Value::Zero => 8,
+        });
+        let result = graph.nodes.len();
+        graph.nodes.push(ImageOp::Shuffle {
+            first,
+            second,
+            mapping,
         });
         return Ok(result);
     }

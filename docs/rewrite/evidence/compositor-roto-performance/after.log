@@ -1,0 +1,45 @@
+warning: field `format` is never read
+  --> crates/render/src/gpu/yuv.rs:22:9
+   |
+16 | pub(super) struct Layout {
+   |                   ------ field in this struct
+...
+22 |     pub format: fold_media::VideoFormat,
+   |         ^^^^^^
+   |
+   = note: `Layout` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `parameters` is never used
+  --> crates/render/src/gpu/yuv.rs:26:8
+   |
+25 | impl Layout {
+   | ----------- method in this implementation
+26 |     fn parameters(self, size: u64) -> Result<[u32; 20], fold_foundation::Failure> {
+   |        ^^^^^^^^^^
+
+warning: `fold-render` (lib) generated 2 warnings
+   Compiling fold-compositor v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/compositor)
+    Finished `test` profile [unoptimized] target(s) in 1.12s
+     Running tests/roto.rs (target/debug/deps/roto-a1ad0e523849f218)
+
+running 5 tests
+test roto_feather_hole_channels_and_exact_animation_survive_roundtrip ... ok
+test roto_gpu_matches_cpu_and_reuses_geometry ... Roto GPU: AdapterInfo { name: "NVIDIA GeForce GTX 1070", vendor: 4318, device: 7137, device_type: DiscreteGpu, driver: "NVIDIA", driver_info: "580.173.02", backend: Vulkan }
+Roto error 0.000002026558, warm statistics Statistics { upload_bytes: 0, upload_allocations: 0, upload_reuses: 0, lut_upload_bytes: 0, readback_bytes: 262144, status_readback_bytes: 24, cpu_adapter_nodes: 0, resident_still_nodes: 0, cpu_adapter_nanoseconds: 0, compute_passes: 2, resident_coverage_nodes: 1, coverage_pixels: 0, shader_compilations: 0, fused_opacity_passes: 0, graph_prepare_nanoseconds: 28935, evaluate_cpu_nanoseconds: 6358460, output_cpu_nanoseconds: 0, queue_submit_nanoseconds: 980544, graphics_queue_nanoseconds: 457, native_video_nodes: 0, resident_video_nodes: 0, vector_prepare_nanoseconds: 0, vector_upload_bytes: 0, vector_geometry_upload_bytes: 0, vector_instance_upload_bytes: 0, vector_instances: 0, vector_unique_triangles: 0, vector_execution_triangles: 0, native_decode_nanoseconds: 0, native_codec_call_nanoseconds: 0, native_allocate_nanoseconds: 0, native_submit_nanoseconds: 0, native_seeks: 0, native_forward_reuses: 0, native_copy_ready_nanoseconds: 0, native_gpu_local_copy_bytes: 0, native_pipe_bytes: 0, native_upload_encode_nanoseconds: 0 }
+Roto 512x512: cold incl. readback 103.94732ms, warm ready 10.469608ms, warm incl. readback 92.17241ms, prepare 0 ns, evaluate CPU 6618301 ns
+Roto 1080x1080: cold incl. readback 435.854342ms, warm ready 44.273866ms, warm incl. readback 408.679288ms, prepare 0 ns, evaluate CPU 36805150 ns
+Roto 2160x2160: cold incl. readback 1.531217284s, warm ready 48.762735ms, warm incl. readback 1.362334486s, prepare 0 ns, evaluate CPU 39729825 ns
+ok
+test roto_gpu_scalar_tiles_preserve_compositing_and_invalidation ... ok
+test roto_playback_cost ... Playback adapter: AdapterInfo { name: "NVIDIA GeForce GTX 1070", vendor: 4318, device: 7137, device_type: DiscreteGpu, driver: "NVIDIA", driver_info: "580.173.02", backend: Vulkan }
+bypass: median ready/compile us (6992, 5139), evaluate CPU us 5278, GPU us 114.7, passes 1
+hard: median ready/compile us (7416, 4244), evaluate CPU us 5621, GPU us 322.6, passes 2
+feather: median ready/compile us (7710, 4307), evaluate CPU us 5493, GPU us 323.6, passes 2
+animated: median ready/compile us (13016, 5703), evaluate CPU us 14714, GPU us 3083.2, passes 6
+deformed: median ready/compile us (22616, 6135), evaluate CPU us 17578, GPU us 3335.2, passes 6
+ok
+test roto_samples_deforming_points_and_group_opacity_once ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.62s
+

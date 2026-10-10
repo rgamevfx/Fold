@@ -1,8 +1,5 @@
 use super::{Editor, Tool};
-use crate::{
-    OperationConfig,
-    roto::{Combine, Layer},
-};
+use crate::roto::{Combine, Layer};
 use fold_foundation::{ObjectId, Time};
 use fold_platform::desktop::DesktopClient;
 use fold_ui::sdk::{
@@ -134,14 +131,10 @@ pub(in crate::ui) fn draw_inspector(
     let shared = state.roto.clone();
     let mut editor = shared.borrow_mut();
     editor.select(id);
+    let Ok(before) = state.roto_at(id, time) else {
+        return;
+    };
     let Some(graph) = state.graph.as_ref() else {
-        return;
-    };
-    let Ok(prepared) = graph.prepare() else {
-        return;
-    };
-    let Ok(OperationConfig::Roto { settings: before }) = prepared.evaluated_parameters(id, time)
-    else {
         return;
     };
     let mut settings = before.clone();

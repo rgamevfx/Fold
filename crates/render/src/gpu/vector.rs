@@ -62,6 +62,7 @@ pub(super) struct VectorPipeline {
     prepare: wgpu::ComputePipeline,
     bin: wgpu::ComputePipeline,
     render: wgpu::ComputePipeline,
+    scalar: Option<wgpu::ComputePipeline>,
     host: Host,
     sources: Sources,
     atlases: VecDeque<Arc<Atlas>>,
@@ -99,6 +100,7 @@ impl VectorPipeline {
             prepare: pipeline("prepare"),
             bin: pipeline("bin"),
             render: pipeline("main"),
+            scalar: None,
             host: host.clone(),
             sources: Sources::default(),
             atlases: VecDeque::new(),
@@ -333,6 +335,34 @@ impl VectorPipeline {
         cancel: &fold_media::Cancel,
     ) -> Result<Report, fold_foundation::Failure> {
         let begin = std::time::Instant::now();
+        if output.texture.format() == wgpu::TextureFormat::R32Float && self.scalar.is_none() {
+            let source = concat!(
+                include_str!("vector_coverage.wgsl"),
+                "\n",
+                include_str!("vector.wgsl")
+            )
+            .replace(
+                "texture_storage_2d<rgba32float,write>",
+                "texture_storage_2d<r32float,write>",
+            );
+            let module = self
+                .host
+                .device()
+                .create_shader_module(wgpu::ShaderModuleDescriptor {
+                    label: Some("Scalar native vector coverage"),
+                    source: wgpu::ShaderSource::Wgsl(source.into()),
+                });
+            self.scalar = Some(self.host.device().create_compute_pipeline(
+                &wgpu::ComputePipelineDescriptor {
+                    label: Some("Scalar native vector coverage"),
+                    layout: None,
+                    module: &module,
+                    entry_point: Some("main"),
+                    compilation_options: Default::default(),
+                    cache: None,
+                },
+            ));
+        }
         let (packet, mut report) = self.packet(drawings, output.dimensions, cancel)?;
         reservations.push(packet.reservation.clone());
         reservations.push(packet.atlas.reservation.clone());
@@ -411,7 +441,11 @@ impl VectorPipeline {
         }
         encode(
             encoder,
-            &self.render,
+            if output.texture.format() == wgpu::TextureFormat::R32Float {
+                self.scalar.as_ref().unwrap()
+            } else {
+                &self.render
+            },
             &[2, 4, 5, 6, 7],
             true,
             [

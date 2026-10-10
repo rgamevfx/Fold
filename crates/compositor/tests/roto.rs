@@ -137,9 +137,15 @@ fn roto_samples_deforming_points_and_group_opacity_once() {
         operations
             .nodes
             .iter()
-            .filter(|n| matches!(n, fold_render::ImageOp::Vector(_)))
+            .filter_map(|n| if let fold_render::ImageOp::Coverage(p) = n {
+                Some(p)
+            } else {
+                None
+            })
+            .flat_map(|p| p.nodes.iter())
+            .filter(|n| matches!(n, fold_render::coverage::Op::Mix { .. }))
             .count()
-            >= 8
+            == 3
     );
 }
 #[cfg(feature = "ui")]
@@ -203,4 +209,221 @@ fn roto_gpu_matches_cpu_and_reuses_geometry() {
             frame.statistics.evaluate_cpu_nanoseconds
         );
     }
+}
+
+#[cfg(feature = "ui")]
+#[test]
+#[ignore = "native Roto playback cost regression"]
+fn roto_playback_cost() {
+    use fold_render::gpu::{Host, Renderer};
+    use std::time::{Duration, Instant};
+    let (host, adapter) = pollster::block_on(Host::headless(512 * 1024 * 1024)).unwrap();
+    eprintln!("Playback adapter: {adapter:?}");
+    let cancel = fold_media::Cancel::default();
+    let mut decoder = fold_media::Decoder::default();
+    let mut static_passes = 0;
+    for mode in ["bypass", "hard", "feather", "animated", "deformed"] {
+        let mut settings = Roto::default();
+        let mut shape = Layer::rectangle([16., 16.], [48., 48.], true);
+        if mode != "hard" {
+            shape.shape.as_mut().unwrap().feather = 4.;
+        }
+        let shape_id = shape.id;
+        let point_id = shape.shape.as_ref().unwrap().points[0].id;
+        settings.root.children.push(shape);
+        let (mut graph, roto) = fixture(settings);
+        let background = Node::disconnected(P::Solid {
+            rgba: [0.2, 0.3, 0.4, 1.],
+        });
+        graph
+            .node_mut(roto)
+            .unwrap()
+            .set_input(0, background.id)
+            .unwrap();
+        if mode == "bypass" {
+            graph
+                .node_mut(graph.output)
+                .unwrap()
+                .set_input(0, background.id)
+                .unwrap();
+        }
+        graph.nodes.insert(0, background);
+        if mode == "animated" || mode == "deformed" {
+            let mut curve = fold_animation::Curve::default();
+            let base = if mode == "deformed" { 48. } else { 0. };
+            curve.insert(Time::ZERO, base);
+            curve.insert(Time::new(1, 1).unwrap(), base + 8.);
+            graph
+                .node_mut(roto)
+                .unwrap()
+                .animation
+                .insert(
+                    if mode == "deformed" {
+                        format!("roto/{shape_id}/point/{point_id}/position.0")
+                    } else {
+                        format!("roto/{shape_id}/translate.0")
+                    },
+                    curve,
+                )
+                .unwrap();
+        }
+        let mut renderer = Renderer::new(host.clone()).unwrap();
+        let mut samples = vec![];
+        let mut passes = 0;
+        let mut cpu = 0;
+        let mut gpu_us = 0.;
+        for frame in 0..8 {
+            graph.nodes[0]
+                .set_configuration(P::Solid {
+                    rgba: [0.2 + frame as f32 * 0.01, 0.3, 0.4, 1.],
+                })
+                .unwrap();
+            let start = Instant::now();
+            let ir = compile(&graph, Time::new(frame, 24).unwrap(), 1080);
+            let compiled = start.elapsed();
+            let start = Instant::now();
+            let result = renderer.evaluate(ir, None, &mut decoder, &cancel).unwrap();
+            while !result.is_ready().unwrap() {
+                host.poll().unwrap();
+                assert!(start.elapsed() < Duration::from_secs(30));
+                std::thread::sleep(Duration::from_micros(100));
+            }
+            assert_eq!(result.statistics.readback_bytes, 0);
+            assert_eq!(result.statistics.cpu_adapter_nodes, 0);
+            if frame > 1 {
+                samples.push((start.elapsed().as_micros(), compiled.as_micros()));
+                passes = result.statistics.compute_passes;
+                cpu = result.statistics.evaluate_cpu_nanoseconds / 1000;
+                gpu_us = result.gpu_nanoseconds().unwrap().unwrap_or(0.) / 1000.;
+                if mode == "hard" || mode == "feather" {
+                    assert_eq!(result.statistics.coverage_pixels, 0);
+                    assert_eq!(result.statistics.resident_coverage_nodes, 1);
+                }
+            }
+        }
+        samples.sort();
+        eprintln!(
+            "{mode}: median ready/compile us {:?}, evaluate CPU us {cpu}, GPU us {gpu_us:.1}, passes {passes}",
+            samples[samples.len() / 2]
+        );
+        if mode == "feather" {
+            static_passes = passes;
+        }
+    }
+    assert!(
+        static_passes <= 2,
+        "static Roto must reuse its matte while the background changes; got {static_passes} passes"
+    );
+}
+
+#[cfg(feature = "ui")]
+#[test]
+#[ignore = "native scalar coverage parity and invalidation"]
+fn roto_gpu_scalar_tiles_preserve_compositing_and_invalidation() {
+    use fold_render::gpu::{Host, Renderer};
+    let (host, _) = pollster::block_on(Host::headless(64 * 1024 * 1024)).unwrap();
+    let mut renderer = Renderer::new(host.clone()).unwrap();
+    let mut decoder = fold_media::Decoder::default();
+    let cancel = fold_media::Cancel::default();
+    for mode in [
+        Combine::Over,
+        Combine::Add,
+        Combine::Subtract,
+        Combine::Intersect,
+        Combine::Replace,
+    ] {
+        let mut settings = Roto::default();
+        settings.root.invert = true;
+        settings.root.opacity = 0.8;
+        let mut a = Layer::rectangle([-8., 8.], [48., 48.], false);
+        a.opacity = 0.7;
+        a.shape.as_mut().unwrap().feather = 3.;
+        let mut b = Layer::rectangle([16., 16.], [40., 40.], true);
+        b.opacity = 0.4;
+        b.combine = mode;
+        b.shape.as_mut().unwrap().feather = -2.;
+        settings.root.children = vec![a, b];
+        let (graph, _) = fixture(settings);
+        for size in [64, 96] {
+            let ir = compile(&graph, Time::ZERO, size);
+            let expected = fold_render::render(ir.clone()).unwrap();
+            let mut actual = renderer
+                .evaluate(ir.clone(), None, &mut decoder, &cancel)
+                .unwrap();
+            assert_eq!(
+                actual.statistics.resident_coverage_nodes, 0,
+                "configuration or size must invalidate"
+            );
+            let pixels = actual.readback(&cancel).unwrap();
+            let error = expected
+                .pixels()
+                .iter()
+                .zip(pixels.pixels())
+                .map(|(a, b)| (a[3] - b[3]).abs())
+                .fold(0f32, f32::max);
+            assert!(error < 0.002, "{mode:?} {size}: {error}");
+            assert!(
+                (pixels.pixels()[0][3] - 0.8).abs() < 1e-6,
+                "inverted area outside the cropped tiles"
+            );
+            let covered = match mode {
+                Combine::Over => 0.82,
+                Combine::Add => 1.,
+                Combine::Subtract => 0.42,
+                Combine::Intersect => 0.28,
+                Combine::Replace => 0.4,
+            };
+            let center = (size / 2) as usize;
+            assert!(
+                (pixels.pixels()[center * size as usize + center][3] - (1. - covered) * 0.8).abs()
+                    < 1e-5
+            );
+            let mut warm = renderer
+                .evaluate(ir.clone(), None, &mut decoder, &cancel)
+                .unwrap();
+            warm.readback(&cancel).unwrap();
+            assert_eq!(warm.statistics.resident_coverage_nodes, 1);
+            assert_eq!(warm.statistics.coverage_pixels, 0);
+            assert_eq!(warm.statistics.vector_prepare_nanoseconds, 0);
+            if mode == Combine::Over && size == 64 {
+                use fold_render::region::{Plan, Region, crop};
+                let region = Region {
+                    x: 19,
+                    y: 7,
+                    width: 24,
+                    height: 29,
+                };
+                let plan = Plan::new(ir, region, false).unwrap();
+                let mut tile = renderer
+                    .evaluate(plan.graph, None, &mut decoder, &cancel)
+                    .unwrap();
+                let tile = crop(tile.readback(&cancel).unwrap(), plan.output).unwrap();
+                let expected = crop(expected, region).unwrap();
+                for (a, b) in tile
+                    .pixels()
+                    .iter()
+                    .flatten()
+                    .zip(expected.pixels().iter().flatten())
+                {
+                    assert!(
+                        (a - b).abs() < 0.002,
+                        "regional coverage must preserve global coordinates"
+                    );
+                }
+            }
+        }
+    }
+    let stopped = fold_media::Cancel::default();
+    stopped.cancel();
+    let (graph, _) = fixture(Roto::default());
+    assert!(
+        renderer
+            .evaluate(
+                compile(&graph, Time::ZERO, 64),
+                None,
+                &mut decoder,
+                &stopped
+            )
+            .is_err()
+    );
 }

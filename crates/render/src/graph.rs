@@ -85,6 +85,7 @@ pub enum ImageOp {
     },
     /// Immutable native paths in output-pixel coordinates, ordered back to front.
     Vector(std::sync::Arc<Vec<crate::vector::Drawing>>),
+    Coverage(std::sync::Arc<crate::coverage::Program>),
     /// Immutable world scene rendered on the shared GPU. The binding retains
     /// camera, revision and exact scene time; no feature document or ECS escapes.
     Spatial {
@@ -216,6 +217,7 @@ impl ImageOp {
             | Self::Media(_)
             | Self::Video { .. }
             | Self::VideoInput { .. }
+            | Self::Coverage(_)
             | Self::Vector(_) => [None, None, None],
             Self::Spatial { .. } => [None, None, None],
             Self::Unary { input, .. }
@@ -503,6 +505,7 @@ pub(crate) fn validate(graph: &RenderGraph, aces: bool) -> Result<usize, String>
             }
             ImageOp::Baked(ref texture) => texture.validate()?,
             ImageOp::Vector(ref drawings) => crate::vector::validate_working(drawings, aces)?,
+            ImageOp::Coverage(ref program) => program.validate()?,
             ImageOp::Spatial {
                 ref scene,
                 ref binding,
@@ -749,6 +752,10 @@ pub(crate) fn evaluate(
                 }
                 drop(pixels);
                 pixels = texture.sample([graph.width, graph.height], cancel)?;
+            }
+            ImageOp::Coverage(ref program) => {
+                drop(pixels);
+                pixels = crate::coverage::rasterize(program, graph.width, graph.height, cancel)?;
             }
             ImageOp::Vector(ref drawings) => {
                 // Raster surface + resulting float pixels coexist; do not reserve

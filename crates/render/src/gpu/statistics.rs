@@ -14,6 +14,8 @@ pub struct Statistics {
     pub resident_still_nodes: u32,
     pub cpu_adapter_nanoseconds: u128,
     pub compute_passes: u32,
+    pub resident_coverage_nodes: u32,
+    pub coverage_pixels: u64,
     pub shader_compilations: u32,
     pub fused_opacity_passes: u32,
     pub graph_prepare_nanoseconds: u128,
@@ -54,6 +56,8 @@ impl Statistics {
         self.resident_still_nodes += other.resident_still_nodes;
         self.cpu_adapter_nanoseconds += other.cpu_adapter_nanoseconds;
         self.compute_passes += other.compute_passes;
+        self.resident_coverage_nodes += other.resident_coverage_nodes;
+        self.coverage_pixels += other.coverage_pixels;
         self.shader_compilations += other.shader_compilations;
         self.fused_opacity_passes += other.fused_opacity_passes;
         self.graph_prepare_nanoseconds += other.graph_prepare_nanoseconds;

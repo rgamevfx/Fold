@@ -552,4 +552,5 @@ mod tests {
 
 pub mod presentation;
 
+pub mod coverage;
 pub mod vector_feather;

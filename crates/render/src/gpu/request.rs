@@ -35,6 +35,7 @@ impl Renderer {
             self.host.sources().clear();
             self.yuv.clear();
             self.vector.clear();
+            self.coverage.clear();
             self.baked.clear();
             self.uploads.clear();
             #[cfg(all(feature = "native-video", target_os = "linux"))]

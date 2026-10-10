@@ -10,6 +10,7 @@ pub type Shared = Rc<RefCell<State>>;
 #[derive(Default)]
 pub struct State {
     pub roto: Rc<RefCell<super::roto::Editor>>,
+    roto_sample: Option<(u64, ObjectId, Time, crate::roto::Roto)>,
     pub document: Option<DocumentId>,
     pub base: Revision,
     pub original: Option<Composite>,
@@ -25,6 +26,25 @@ pub struct State {
     view: Option<DocumentId>,
 }
 impl State {
+    pub fn roto_at(&mut self, id: ObjectId, time: Time) -> Result<crate::roto::Roto, String> {
+        if let Some((generation, node, at, settings)) = &self.roto_sample {
+            if *generation == self.generation && *node == id && *at == time {
+                return Ok(settings.clone());
+            }
+        }
+        let crate::OperationConfig::Roto { settings } = self
+            .graph
+            .as_ref()
+            .ok_or("Missing composite")?
+            .prepare()?
+            .evaluated_parameters(id, time)?
+        else {
+            return Err("Not a Roto node".into());
+        };
+        self.roto_sample = Some((self.generation, id, time, settings.clone()));
+        Ok(settings)
+    }
+
     pub fn sync(&mut self, host: &mut dyn DesktopClient) {
         let Some(snapshot) = host.snapshot() else {
             return;
@@ -102,6 +122,7 @@ impl State {
                     .is_some_and(|g| g.nodes.iter().any(|n| n.id == *id))
             });
             self.generation += 1;
+            self.roto_sample = None;
         }
     }
     pub fn request(&self) -> Result<CommandRequest, String> {
@@ -116,6 +137,7 @@ impl State {
         })
     }
     pub fn preview(&mut self, host: &mut dyn DesktopClient) {
+        self.roto_sample = None;
         self.editing = true;
         match self
             .graph
@@ -193,6 +215,7 @@ impl State {
         self.editing = false;
         self.property_editing = false;
         self.generation += 1;
+        self.roto_sample = None;
     }
     pub fn view(&self, host: &mut dyn DesktopClient) {
         if let Some(document) = self.document {

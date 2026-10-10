@@ -20,6 +20,7 @@ pub(super) struct Encoded {
     pub image: Arc<Image>,
     pub dependencies: Vec<validation::Completion>,
     pub retained: Vec<(still::Key, Arc<Image>)>,
+    pub coverage_retained: Vec<coverage::Retained>,
     pub stats: Statistics,
     pub aces: bool,
     pub evaluate_begin: std::time::Instant,
@@ -123,6 +124,7 @@ impl Renderer {
         let mut uploads = Vec::new();
         let mut immutable = vec![false; graph.nodes.len()];
         let mut retained = Vec::new();
+        let mut coverage_retained = Vec::new();
         let mut encoder = self
             .host
             .device()
@@ -150,6 +152,35 @@ impl Renderer {
                 frames[id] = Some(image);
                 immutable[id] = true;
                 stats.resident_still_nodes += 1;
+                continue;
+            }
+            if let ImageOp::Coverage(program) = op {
+                let image = if let Some(image) = self.coverage.get(program, dimensions) {
+                    stats.resident_coverage_nodes += 1;
+                    image
+                } else {
+                    let image = self.coverage.encode(
+                        program,
+                        dimensions,
+                        &self.host,
+                        &mut self.vector,
+                        &mut encoder,
+                        &status,
+                        &mut leases,
+                        &mut buffers,
+                        &mut stats,
+                        cancel,
+                    )?;
+                    coverage_retained.push(coverage::Retained {
+                        program: program.clone(),
+                        size: dimensions,
+                        image: image.clone(),
+                    });
+                    image
+                };
+                leases.push(image.clone());
+                frames[id] = Some(image);
+                immutable[id] = true;
                 continue;
             }
             let output = match scratch.pop() {
@@ -453,6 +484,7 @@ impl Renderer {
                     stats.compute_passes += 1;
                     compute = false;
                 }
+                ImageOp::Coverage(_) => unreachable!("handled before RGBA allocation"),
                 ImageOp::Vector(drawings) => {
                     let report = self.vector.encode(
                         &mut encoder,
@@ -714,14 +746,34 @@ impl Renderer {
                 }
             }
         }
+        let mut image = frames[graph.output].take().unwrap();
+        // Scalar storage is internal. Public frames keep the four-channel ABI.
+        if image.texture.format() == wgpu::TextureFormat::R32Float {
+            let rgba = self.host.image(dimensions)?;
+            self.pass(
+                &mut encoder,
+                [&image, &dummy, &dummy],
+                &rgba,
+                Params {
+                    header: [1, graph.width, graph.height, u32::from(aces)],
+                    color: [1., 0., 0., 0.],
+                    ..Default::default()
+                },
+                &status,
+            );
+            leases.push(rgba.clone());
+            image = rgba;
+            stats.compute_passes += 1;
+        }
         Ok(Encoded {
             encoder,
             leases,
             buffers,
             status,
-            image: frames[graph.output].take().unwrap(),
+            image,
             dependencies,
             retained,
+            coverage_retained,
             stats,
             aces,
             evaluate_begin,

@@ -28,6 +28,7 @@ pub mod spatial;
 mod still;
 mod upload;
 pub use display::Display;
+mod coverage;
 #[cfg(all(feature = "native-video", target_os = "linux"))]
 mod native_video;
 mod validation;
@@ -50,6 +51,7 @@ pub struct Renderer {
     planes: wgpu::ComputePipeline,
     yuv: yuv::YuvPipeline,
     vector: vector::VectorPipeline,
+    coverage: coverage::Coverage,
     filtered_blur: filtered_blur::FilteredBlur,
     sampling: sampling::Sampling,
     baked_sampling: baked::Sampling,
@@ -175,6 +177,7 @@ impl Renderer {
             pipeline,
             yuv,
             vector,
+            coverage: Default::default(),
             #[cfg(all(feature = "native-video", target_os = "linux"))]
             native_video: None,
             layout,

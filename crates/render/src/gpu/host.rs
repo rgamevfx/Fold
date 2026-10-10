@@ -31,6 +31,7 @@ fn image_kind(image: &Image) -> AllocationKind {
     if matches!(
         image.texture.format(),
         wgpu::TextureFormat::Rgba32Float
+            | wgpu::TextureFormat::R32Float
             | wgpu::TextureFormat::Rgba16Float
             | wgpu::TextureFormat::Depth32Float
     ) {
@@ -345,6 +346,7 @@ impl Host {
         let kind = if matches!(
             format,
             wgpu::TextureFormat::Rgba32Float
+                | wgpu::TextureFormat::R32Float
                 | wgpu::TextureFormat::Rgba16Float
                 | wgpu::TextureFormat::Depth32Float
         ) {
@@ -374,6 +376,7 @@ impl Host {
                     format,
                     wgpu::TextureFormat::Rgba16Float
                         | wgpu::TextureFormat::Rgba32Float
+                        | wgpu::TextureFormat::R32Float
                         | wgpu::TextureFormat::Depth32Float
                 ) {
                     wgpu::TextureUsages::RENDER_ATTACHMENT

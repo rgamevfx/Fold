@@ -804,6 +804,19 @@ configuration expressions and the remaining universal acceptance are still open.
   production-roto qualification remain open. Existing Motion phase gates do not
   change.
 
+### User-directed Roto performance follow-up (10 October)
+
+- Roto now compiles to bounded scalar coverage using the shared vector renderer.
+  Compatible shapes batch together; single-channel tiles and completion-gated
+  GPU matte caching avoid repeated full-frame mask work over changing footage.
+- Reference indexing and static/viewport evaluation avoid repeated preparation.
+  Native parity, region cropping, invalidation and transaction checks pass.
+- [Performance evidence](rewrite/evidence/compositor-roto-performance/result.md)
+  records the failing baseline and native GPU results: static Roto falls from
+  eight passes to two in the changing-background fixture. Animated masks still
+  rasterize; release and physical playback qualification remain open. Existing
+  Motion phase status and artist-acceptance gates do not change.
+
 ## 4. Validation discipline
 
 During each phase, format touched Rust files and check affected crates. Add focused behavioral tests for changed semantics; test the document/IR independently of UI and use image/runtime fixtures for rendering contracts. Compare CPU/GPU at declared tolerances rather than silently relaxing them. Exercise examples through real public tools.

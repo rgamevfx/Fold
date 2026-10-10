@@ -17,6 +17,7 @@ impl Renderer {
             image,
             dependencies,
             retained,
+            coverage_retained,
             mut stats,
             aces,
             evaluate_begin,
@@ -41,6 +42,10 @@ impl Renderer {
             self.host
                 .sources()
                 .insert(key, image, ready.clone(), self.host.memory().budget);
+        }
+        for value in coverage_retained {
+            self.coverage
+                .retain(value, ready.clone(), self.host.memory().budget);
         }
         stats.evaluate_cpu_nanoseconds = evaluate_begin.elapsed().as_nanos();
         cancel.check()?;

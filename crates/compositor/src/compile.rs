@@ -393,6 +393,9 @@ fn compile(request: VideoCompile<'_>) -> Result<ChannelGraph, fold_foundation::F
                 .sample_times(time, composite.info.rate)?
                 .into_iter()
                 .map(|t| {
+                    if t == time {
+                        return Ok((t, settings.clone()));
+                    }
                     let P::Roto { settings } = composite.evaluated_parameters(node.id, t)? else {
                         unreachable!()
                     };

@@ -5,10 +5,7 @@ use super::{
     overlay::*,
     transform as tx,
 };
-use crate::{
-    OperationConfig,
-    roto::{Layer, Point, Roto, Spline, add, map, mul, sub},
-};
+use crate::roto::{Layer, Point, Roto, Spline, add, map, mul, sub};
 use fold_foundation::{ObjectId, Time};
 use fold_ui::sdk::{
     ExtensionUi, ViewerRect,
@@ -75,13 +72,10 @@ impl Editor {
                 return;
             }
         }
-        let Some(graph) = state.graph.as_ref() else {
+        let Ok(roto) = state.roto_at(id, time) else {
             return;
         };
-        let Ok(OperationConfig::Roto { settings: roto }) = graph
-            .prepare()
-            .and_then(|g| g.evaluated_parameters(id, time))
-        else {
+        let Some(graph) = state.graph.as_ref() else {
             return;
         };
         if rect.size.iter().any(|v| *v <= 0.) {
@@ -487,19 +481,7 @@ impl Editor {
             state.error = error;
         }
         // Observe the local draft immediately; rendered pixels update asynchronously.
-        let visible = state
-            .graph
-            .as_ref()
-            .and_then(|g| g.prepare().ok())
-            .and_then(|g| g.evaluated_parameters(id, time).ok())
-            .and_then(|c| {
-                if let OperationConfig::Roto { settings } = c {
-                    Some(settings)
-                } else {
-                    None
-                }
-            })
-            .unwrap_or(roto);
+        let visible = state.roto_at(id, time).unwrap_or(roto);
         draw_layer(ui, &visible.root, &visible, view, self, time);
         if let Some(b) = selected_bounds(&visible, self) {
             if self.points.len() > 1 {
