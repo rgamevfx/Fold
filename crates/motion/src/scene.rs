@@ -184,20 +184,43 @@ impl Scene {
         }
         Ok(())
     }
+    fn image_declarations(
+        &self,
+    ) -> Result<
+        (
+            Vec<fold_project::DocumentRef>,
+            Vec<fold_foundation::AssetId>,
+        ),
+        String,
+    > {
+        let mut dependencies = vec![];
+        let mut assets = std::collections::BTreeSet::new();
+        for object in &self.objects {
+            let (refs, ids) = crate::images::declarations(&object.graph)?;
+            for reference in refs {
+                if !dependencies.contains(&reference) {
+                    dependencies.push(reference);
+                }
+            }
+            assets.extend(ids);
+        }
+        Ok((dependencies, assets.into_iter().collect()))
+    }
     pub fn document(&self, id: DocumentId) -> Result<Document, String> {
         self.validate()?;
         let payload = serde_json::to_vec(self).map_err(|e| e.to_string())?;
         if payload.len() > 16 * 1024 * 1024 {
             return Err("Scene exceeds 16 MiB".into());
         }
+        let (dependencies, assets) = self.image_declarations()?;
         Ok(Document {
             id,
             package_id: crate::PACKAGE.into(),
             type_id: TYPE.into(),
             schema_version: SCHEMA,
             revision: Revision::default(),
-            dependencies: vec![],
-            assets: vec![],
+            dependencies,
+            assets,
             payload,
             extensions: Default::default(),
         })
@@ -210,10 +233,11 @@ impl Scene {
         {
             return Err("Unsupported scene document".into());
         }
-        if !document.dependencies.is_empty() || !document.assets.is_empty() {
+        let value: Self = serde_json::from_slice(&document.payload).map_err(|e| e.to_string())?;
+        let (dependencies, assets) = value.image_declarations()?;
+        if document.dependencies != dependencies || document.assets != assets {
             return Err("Scene resource declarations do not match its embedded graphs".into());
         }
-        let value: Self = serde_json::from_slice(&document.payload).map_err(|e| e.to_string())?;
         value.validate()?;
         Ok(value)
     }
@@ -255,6 +279,15 @@ impl Scene {
         limits: evaluation::Limits,
         cancel: &dyn Fn() -> Result<(), String>,
     ) -> Result<evaluation::Scene, String> {
+        self.evaluate_with_images(time, limits, cancel, None)
+    }
+    pub fn evaluate_with_images(
+        &self,
+        time: Time,
+        limits: evaluation::Limits,
+        cancel: &dyn Fn() -> Result<(), String>,
+        images: Option<&dyn fold_platform::image_sampling::Resolver>,
+    ) -> Result<evaluation::Scene, String> {
         self.validate()?;
         cancel()?;
         let mut result = evaluation::Scene {
@@ -291,11 +324,15 @@ impl Scene {
                 continue;
             };
             cancel()?;
-            let value = evaluation::Prepared::new(object.graph.clone())?.evaluate_in_object(
+            let mut prepared = evaluation::Prepared::new(object.graph.clone())?;
+            if let Some(images) = images {
+                prepared = prepared.with_images(images);
+            }
+            let value = prepared.evaluate_in_object(
                 object.output,
                 object_times[&object.id],
                 object.id,
-                per_object.clone(),
+                per_object,
                 cancel,
             )?;
             let id = occurrence(object.id);

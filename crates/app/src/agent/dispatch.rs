@@ -403,7 +403,7 @@ impl Dispatcher {
                 output,
                 times,
             } => {
-                let (document, revision, candidate) = match target {
+                let (snapshot, document, revision, candidate) = match target {
                     wire::ObservationTarget::Committed {
                         epoch,
                         revision,
@@ -419,15 +419,11 @@ impl Dispatcher {
                             snapshot.state().documents.get(&document).ok_or_else(|| {
                                 Failure::new("missing_resource", "Missing document")
                             })?;
-                        (document.as_ref().clone(), Revision(revision), None)
+                        (snapshot.evaluation(), document.as_ref().clone(), Revision(revision), None)
                     }
                     wire::ObservationTarget::Candidate { handle } => {
-                        let revision = self.candidates.base_revision(handle, now)?;
-                        (
-                            self.candidates.document(handle, now)?.clone(),
-                            revision,
-                            Some(handle),
-                        )
+                        let candidate = self.candidates.shared(handle, now)?;
+                        (candidate.snapshot().clone(), candidate.document().clone(), candidate.base_revision(), Some(handle))
                     }
                 };
                 if times.is_empty() || times.len() > 64 {
@@ -442,9 +438,10 @@ impl Dispatcher {
                     },
                     now,
                     move |cancel| {
-                        crate::packages::builtins().observations(&document)?.measure(
-                            &document, &fold_platform::observations::Request { epoch, revision, candidate, output: output.to_string(), times, build:env!("FOLD_SOURCE_SHA256").into(), target:env!("FOLD_BUILD_TARGET").into() }, cancel,
-                        ).map(workers::Output::Value).map_err(Failure::from)
+                        let registry = crate::packages::builtins();
+                        fold_platform::image_sampling::with_registry(&snapshot, &registry, cancel, |images| registry.observations(&document)?.measure_with_images(
+                            &document, &fold_platform::observations::Request { epoch, revision, candidate, output: output.to_string(), times, build:env!("FOLD_SOURCE_SHA256").into(), target:env!("FOLD_BUILD_TARGET").into() }, cancel, images,
+                        ).map(workers::Output::Value).map_err(Failure::from))
                     },
                 )
             }

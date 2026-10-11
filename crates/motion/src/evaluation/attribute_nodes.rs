@@ -25,6 +25,7 @@ impl State<'_> {
         id: ObjectId,
         args: &BTreeMap<&str, Value>,
         kind: Builtin,
+        binding: Option<&crate::binding::Binding>,
     ) -> Result<Value, String> {
         let Some(Value::Geometry(input)) = args.get("geometry") else {
             return Err("Attribute operation requires geometry".into());
@@ -36,16 +37,36 @@ impl State<'_> {
         let mut output = input.as_ref().clone();
         let values = match kind {
             Builtin::AttributeCreate => {
-                let value = args.get("value").ok_or("Missing value")?.primitive()?;
-                super::attributes::check_storage(count, value)?;
-                self.reserve(
-                    count.saturating_mul(
-                        super::attributes::value_bytes(value)
+                let binding = binding.ok_or("Missing attribute value")?;
+                let mut values = Vec::with_capacity(count);
+                for index in 0..count {
+                    let value = self
+                        .sample_binding(
+                            scope,
+                            id,
+                            binding,
+                            scope.time,
+                            Some(crate::execution::ElementContext {
+                                id: input.element_id(domain, index)?,
+                                index: index as i64,
+                                count: count as i64,
+                                position: input
+                                    .position(domain, index)
+                                    .ok()
+                                    .map(|p| vector(p, input.unit)),
+                            }),
+                        )?
+                        .primitive()?
+                        .clone();
+                    super::attributes::check_storage(count, &value)?;
+                    self.reserve(
+                        super::attributes::value_bytes(&value)
                             .div_ceil(128)
                             .saturating_sub(1),
-                    ),
-                )?;
-                vec![value.clone(); count]
+                    )?;
+                    values.push(value);
+                }
+                values
             }
             Builtin::AttributeRandomize => {
                 let min = args.get("minimum").ok_or("Missing minimum")?.primitive()?;
@@ -218,7 +239,23 @@ impl State<'_> {
         };
         if values.is_empty() {
             let ty = match kind {
-                Builtin::AttributeCreate => args["value"].primitive()?.ty(),
+                Builtin::AttributeCreate => {
+                    let node = self
+                        .prepared
+                        .construction
+                        .definition(scope.definition)?
+                        .nodes
+                        .iter()
+                        .find(|n| n.id == id)
+                        .ok_or("Missing attribute node")?;
+                    self.prepared
+                        .construction
+                        .parameter_types()?
+                        .get(&node.parameters["value"].id)
+                        .ok_or("Missing attribute type")?
+                        .sampled()
+                        .clone()
+                }
                 Builtin::AttributeRandomize => args["minimum"].primitive()?.ty(),
                 _ => {
                     let Value::Geometry(source) = &args["source"] else {

@@ -1482,3 +1482,98 @@ fn adding_a_container_parameter_uses_one_native_transaction() {
     state.sync(&mut host);
     assert_eq!(state.construction.as_ref(), Some(&before));
 }
+
+pub(super) fn image_setup() -> Host {
+    let mut host = setup();
+    let snapshot = host.project.snapshot();
+    let document = host.state.selection.document.unwrap();
+    let mut graph =
+        crate::model::Construction::from_document(&snapshot.state().documents[&document]).unwrap();
+    let id = fold_foundation::AssetId::new();
+    let asset = fold_project::Asset {
+        id,
+        location: "/tmp/Color study.ppm".into(),
+        fingerprint: "ui-metadata-fixture".into(),
+        extensions: [(
+            fold_media::ingest::METADATA_KEY.into(),
+            serde_json::to_value(fold_media::ingest::SourceMetadata {
+                profile: fold_media::ingest::SourceProfile::Ppm {
+                    dimensions: [64, 32],
+                },
+                streams: vec![],
+                raw_format: serde_json::json!({}),
+                timing_policy: "still".into(),
+            })
+            .unwrap(),
+        )]
+        .into(),
+    };
+    let texture = crate::registry::resolve("fold.motion.image_texture", 1, "asset")
+        .unwrap()
+        .node(
+            "Image Texture",
+            super::images::bindings(&fold_platform::image_source::Source::Asset(id)),
+        )
+        .unwrap();
+    let sampled = crate::registry::resolve("fold.motion.sample_image", 1, "scalar")
+        .unwrap()
+        .node(
+            "Sample Image",
+            [(
+                "image".into(),
+                Binding::Link {
+                    reference: crate::model::Reference::Node { node: texture.id }.into(),
+                },
+            )]
+            .into(),
+        )
+        .unwrap();
+    host.state.selection.objects = vec![texture.id, sampled.id];
+    graph.definitions[0].nodes.extend([texture, sampled]);
+    host.project
+        .commit(EditBatch {
+            base: snapshot.revision(),
+            mutations: vec![
+                Mutation::PutAsset(asset),
+                Mutation::PutDocument(graph.document(document).unwrap()),
+            ],
+        })
+        .unwrap();
+    host
+}
+#[test]
+fn image_graph_templates_preserve_existing_identity() {
+    use sdk::graph_canvas::{GraphChange, GraphContext};
+    let mut host = image_setup();
+    let mut state = super::state::State::default();
+    state.sync(&mut host);
+    let original = state.construction.clone().unwrap();
+    let definition = original.root.definition;
+    let context = super::graph::Context {
+        state: &mut state,
+        host: &mut host,
+        definition,
+    };
+    let templates: Vec<_> = context
+        .catalog()
+        .into_iter()
+        .filter(|t| t.category == "Image Texture" || t.label.starts_with("Sample Image"))
+        .collect();
+    assert_eq!(templates.len(), 3);
+    for template in templates {
+        let after = super::graph::apply(
+            &original,
+            definition,
+            &[GraphChange::Add {
+                template: template.key,
+                position: [0., 0.],
+            }],
+        )
+        .unwrap();
+        after.validate_semantics().unwrap();
+        assert_eq!(
+            &after.definitions[0].nodes[..original.definitions[0].nodes.len()],
+            original.definitions[0].nodes.as_slice()
+        );
+    }
+}

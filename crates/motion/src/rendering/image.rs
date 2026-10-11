@@ -11,15 +11,16 @@ use std::sync::Arc;
 /// Each contiguous spatial run is one depth-tested pass with the active camera and
 /// scene lights. A Screen run composites in authored order and resets depth for
 /// the next spatial run. Camera Plane entries share depth with World entries.
-pub fn image(
+pub fn image_with_services(
     snapshot: &Snapshot,
     document: DocumentId,
     output: ObjectId,
     time: Time,
     dimensions: [u32; 2],
     limits: Limits,
-    cancellation: &dyn Fn() -> Result<(), String>,
+    services: super::Services<'_>,
 ) -> Result<RenderGraph, Error> {
+    let cancellation = services.cancellation;
     let evaluated = evaluate(
         snapshot,
         document,
@@ -27,7 +28,7 @@ pub fn image(
         time,
         dimensions,
         limits.evaluation,
-        cancellation,
+        services,
     )?;
     let mut budget = Budget::new(limits.conversion_steps, cancellation);
     let is_world = |entry: &evaluation::SceneEntry| {
@@ -98,4 +99,27 @@ pub fn image(
         nodes,
         output,
     })
+}
+
+pub fn image(
+    snapshot: &Snapshot,
+    document: DocumentId,
+    output: ObjectId,
+    time: Time,
+    dimensions: [u32; 2],
+    limits: Limits,
+    cancellation: &dyn Fn() -> Result<(), String>,
+) -> Result<RenderGraph, Error> {
+    image_with_services(
+        snapshot,
+        document,
+        output,
+        time,
+        dimensions,
+        limits,
+        super::Services {
+            cancellation,
+            images: None,
+        },
+    )
 }

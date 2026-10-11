@@ -23,6 +23,10 @@ fn matrix(v: [f64; 4], m: [[f64; 3]; 3]) -> [f64; 4] {
 pub fn linear_rec709_to_aces(v: [f64; 4]) -> [f64; 4] {
     matrix(v, TO_ACES)
 }
+/// ACEScg to straight scene-linear Rec.709; preserves signed HDR and alpha.
+pub fn aces_to_linear_rec709(v: [f64; 4]) -> [f64; 4] {
+    matrix(v, FROM_ACES)
+}
 pub fn from_picker(mut v: [f64; 4], aces: bool) -> [f64; 4] {
     for c in &mut v[..3] {
         *c = if *c <= 0.04045 {

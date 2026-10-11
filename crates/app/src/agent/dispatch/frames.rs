@@ -207,19 +207,24 @@ fn run(
         document_record,
         fold_platform::packages::Capability::Observations,
     ) {
-        registry.observations(document_record)?.frame_provenance(
-            document_record,
-            &fold_platform::observations::Request {
-                epoch,
-                revision,
-                candidate,
-                output: output.clone(),
-                times: vec![time],
-                build: env!("FOLD_SOURCE_SHA256").into(),
-                target: env!("FOLD_BUILD_TARGET").into(),
-            },
-            cancel,
-        )?
+        fold_platform::image_sampling::with_registry(&snapshot, &registry, cancel, |images| {
+            registry
+                .observations(document_record)?
+                .frame_provenance_with_images(
+                    document_record,
+                    &fold_platform::observations::Request {
+                        epoch,
+                        revision,
+                        candidate,
+                        output: output.clone(),
+                        times: vec![time],
+                        build: env!("FOLD_SOURCE_SHA256").into(),
+                        target: env!("FOLD_BUILD_TARGET").into(),
+                    },
+                    cancel,
+                    images,
+                )
+        })?
     } else {
         // Mixed outputs may contain several cameras and clocks. Fingerprint the
         // immutable project rather than inventing one scene's provenance.

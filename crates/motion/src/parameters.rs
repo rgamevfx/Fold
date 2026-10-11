@@ -75,12 +75,24 @@ pub fn sample(
     time: Time,
     cancel: &Cancel,
 ) -> Result<Literal, String> {
+    sample_with_images(graph, target, time, cancel, None)
+}
+pub fn sample_with_images(
+    graph: Construction,
+    target: &Target,
+    time: Time,
+    cancel: &Cancel,
+    images: Option<&dyn fold_platform::image_sampling::Resolver>,
+) -> Result<Literal, String> {
     cancel.check()?;
     let parameter = target
         .parameter
         .native()
         .ok_or("Expected a native Motion parameter")?;
-    let prepared = Prepared::new(graph)?;
+    let mut prepared = Prepared::new(graph)?;
+    if let Some(images) = images {
+        prepared = prepared.with_images(images);
+    }
     let value = prepared
         .sample_parameters(&target.occurrence, &[parameter], time, &|| {
             Ok(cancel.check()?)

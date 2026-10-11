@@ -47,8 +47,14 @@ fn scene_panels_capture() {
 fn wrangle_inspector_capture() {
     capture(Capture::Wrangle);
 }
+#[test]
+#[ignore = "requires GPU; writes /tmp/fold-motion-images.ppm"]
+fn image_inspector_capture() {
+    capture(Capture::Images);
+}
 #[derive(Clone, Copy)]
 enum Capture {
+    Images,
     Wrangle,
     Scene,
     Network,
@@ -71,11 +77,15 @@ fn capture(kind: Capture) {
     network.initialize(&context, Some(&fonts));
     let mut narrow_network = Editor(Shared::default(), Default::default());
     narrow_network.initialize(&context, Some(&fonts));
-    let mut host = if matches!(kind, Capture::Scene) {
+    let mut host = if matches!(kind, Capture::Images) {
+        super::tests::image_setup()
+    } else if matches!(kind, Capture::Scene) {
         super::tests::scene_setup()
     } else {
         super::tests::setup()
     };
+    let mut image_inspector = Inspector(Shared::default());
+    let mut narrow_image_inspector = Inspector(Shared::default());
     let scene_state = Shared::default();
     let mut scene_network = scene::Editor(Editor(scene_state.clone(), Default::default()));
     scene_network.initialize(&context, Some(&fonts));
@@ -308,6 +318,18 @@ fn capture(kind: Capture) {
                 .position([x, 0.], sdk::imgui::Condition::Always)
                 .size([width, 780.], sdk::imgui::Condition::Always)
                 .build(|| {
+                    if matches!(kind, Capture::Images) {
+                        let inspector = if x == 0. {
+                            &mut image_inspector
+                        } else {
+                            &mut narrow_image_inspector
+                        };
+                        inspector.draw(ExtensionUi {
+                            ui,
+                            host: &mut host,
+                        });
+                        return;
+                    }
                     if matches!(kind, Capture::Network) {
                         let network = if title.starts_with("Narrow") {
                             &mut narrow_network
@@ -424,6 +446,7 @@ fn capture(kind: Capture) {
     assert_eq!(host.snapshot().unwrap().revision(), before.revision());
     std::fs::write(
         match kind {
+            Capture::Images => "/tmp/fold-motion-images.ppm",
             Capture::Wrangle => "/tmp/fold-motion-wrangle.ppm",
             Capture::Scene => "/tmp/fold-motion-scene.ppm",
             Capture::Network => "/tmp/fold-motion-network.ppm",

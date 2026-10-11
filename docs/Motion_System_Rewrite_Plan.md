@@ -887,3 +887,18 @@ For each acceptance run, retain source/project revision, protocol/operation vers
 The eight later candidates—Scatter, Sample Geometry, Offset Path, Sweep, Bevel, Subdivide, Morph and Text on Points—are a follow-on expansion (proposal Slice E), each requiring its own topology, attribute-transfer, identity and performance evidence. Physics, fluids, character rigging, arbitrary solvers, boolean modeling and general camera-silhouette outlining remain outside the initial catalog. Do not resurrect legacy systems to fill these gaps.
 
 Unrelated historical obligations (including EXR throughput, compositor discrepancies, delivery hardening and Phase 57 work) remain in the retired ledger as deferred history. Reprioritize them explicitly after the rewrite or when a concrete dependency blocks a phase; old phase numbering supplies neither authorization to expand this plan nor proof of acceptance.
+
+## User-directed image sampling addition (2026-10-11)
+
+Implemented Image Texture and Sample Image in the current Motion system. This
+is a bounded M7 capability added at the user's request; phase order and remaining
+M6/M7 gates are unchanged. Static asset/output declarations feed project dependency
+validation. Worker evaluation shares a bounded image service across rendering,
+observation, and parameter sampling. Source identities use native transactions.
+No legacy engine, SDK, or deferred image-field type was restored.
+
+Automated checks cover sampling, dependency cycles, exact document time, cache
+limits, attributes, save/undo, public CLI authoring, and native frame observation.
+Native Inspector captures and a rendered clone frame were reviewed. Physical
+artist interaction and the full phase checkpoints remain unverified.
+See [implementation and validation evidence](rewrite/evidence/image-sampling/result.md).

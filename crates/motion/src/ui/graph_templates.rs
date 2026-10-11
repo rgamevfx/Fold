@@ -9,8 +9,18 @@ use fold_foundation::{ObjectId, Time};
 use std::collections::BTreeMap;
 
 pub(super) fn add(asset: &mut Definition, template: &str) -> Result<Vec<ObjectId>, String> {
-    let (key, version, mode): (String, u32, String) =
+    let mut parts: Vec<serde_json::Value> =
         serde_json::from_str(template).map_err(|e| e.to_string())?;
+    let image_source = if parts.len() == 4 {
+        Some(
+            serde_json::from_value::<fold_platform::image_source::Source>(parts.pop().unwrap())
+                .map_err(|e| e.to_string())?,
+        )
+    } else {
+        None
+    };
+    let (key, version, mode): (String, u32, String) =
+        serde_json::from_value(serde_json::Value::Array(parts)).map_err(|e| e.to_string())?;
     let operation = registry::resolve(&key, version, &mode)?;
     if operation.role != registry::Role::Operation || !operation.cpu_reference {
         return Err("Operation is not qualified for native authoring".into());
@@ -21,6 +31,26 @@ pub(super) fn add(asset: &mut Definition, template: &str) -> Result<Vec<ObjectId
     let mut bindings = BTreeMap::new();
     let mut ids = vec![];
     match operation.builtin {
+        Builtin::ImageTexture => {
+            bindings.extend(super::images::bindings(&image_source.ok_or(
+                "Select an imported image or document output from the Image Texture menu",
+            )?));
+        }
+        Builtin::SampleImageColor | Builtin::SampleImageScalar => {
+            let texture = asset
+                .nodes
+                .iter()
+                .rev()
+                .find(|n| n.operation == "fold.motion.image_texture")
+                .ok_or("Add Image Texture first")?;
+            bindings.insert(
+                "image".into(),
+                Binding::Link {
+                    reference: Reference::Node { node: texture.id }.into(),
+                },
+            );
+        }
+
         Builtin::Ramp => {
             let pair = if operation.mode == "scalar_linear" {
                 [

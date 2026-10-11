@@ -200,9 +200,25 @@ impl PackageRegistry {
             .documents
             .get(&document_id)
             .ok_or("Missing parameter document")?;
+        if !self.supports(document) {
+            return Err("Unavailable parameter schema".into());
+        }
         let mut local = target.clone();
         local.placement = None;
-        self.sample_parameter(document, &local, time, cancel)
+        let provider = self
+            .documents
+            .iter()
+            .find(|p| p.package_id() == document.package_id && p.type_id() == document.type_id)
+            .ok_or("Unavailable parameter provider")?;
+        let parameters = provider
+            .parameters_capability()
+            .ok_or("Unsupported Parameters capability")?;
+        let result = crate::image_sampling::with_registry(snapshot, self, cancel, |images| {
+            parameters.sample_parameter_with_images(document, &local, time, cancel, images)
+        })?;
+        result.validate()?;
+        cancel.check()?;
+        Ok(result)
     }
 
     fn parameter_source_document<'a>(

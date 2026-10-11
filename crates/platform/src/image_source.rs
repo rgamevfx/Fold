@@ -90,6 +90,30 @@ pub fn compile(
     {
         return Ok((context.resolve_image)(reference, request.time)?.select(None)?);
     }
+    compile_source(
+        request,
+        context.snapshot,
+        context.dimensions,
+        context.cancel,
+        &|reference, time| Ok((context.resolve_image)(reference, time)?.select(None)?),
+    )
+}
+
+/// Resolve an immutable source at explicit dimensions. No viewer state is read.
+pub fn compile_source(
+    request: &Request,
+    snapshot: &fold_project::Snapshot,
+    dimensions: [u32; 2],
+    cancel: &fold_media::Cancel,
+    resolve: &crate::VideoResolver<'_>,
+) -> Result<RenderGraph, fold_foundation::Failure> {
+    cancel.check()?;
+    let single = |op| RenderGraph {
+        width: dimensions[0],
+        height: dimensions[1],
+        nodes: vec![op],
+        output: 0,
+    };
     let Some(time) = request.mapped_time()? else {
         return Ok(single(ImageOp::Solid { rgba: [0.; 4] }));
     };
@@ -97,10 +121,9 @@ pub fn compile(
         let Source::Output(reference) = &request.source else {
             unreachable!()
         };
-        return Ok((context.resolve_image)(reference, time)?.select(None)?);
+        return Ok(resolve(reference, time)?);
     };
-    let asset = context
-        .snapshot
+    let asset = snapshot
         .state()
         .assets
         .get(id)
@@ -125,8 +148,8 @@ pub fn compile(
                 .or(crate::color::input(&asset.extensions)?),
         )));
     }
-    let metadata = crate::browser::asset_metadata(context.snapshot, *id)?;
-    let expected = asset_info(context.snapshot, *id, &request.info)?;
+    let metadata = crate::browser::asset_metadata(snapshot, *id)?;
+    let expected = asset_info(snapshot, *id, &request.info)?;
     if expected != request.info {
         return Err(
             "image source metadata changed; replace the source to update its contract".into(),
@@ -156,7 +179,7 @@ pub fn compile(
             ImageOp::Media(fold_media::still::ppm(
                 std::path::Path::new(&asset.location),
                 &asset.fingerprint,
-                context.cancel,
+                cancel,
             )?)
         }
         fold_media::ingest::SourceProfile::Exr(info) => {
@@ -196,7 +219,7 @@ pub fn compile(
                         .into(),
                 );
             }
-            let aces = crate::color::project(context.snapshot)?.is_some();
+            let aces = crate::color::project(snapshot)?.is_some();
             ImageOp::Exr {
                 alpha: Default::default(),
                 source,

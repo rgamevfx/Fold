@@ -120,6 +120,7 @@ fn invalid_imports_and_payloads_fail_explicitly() {
             dimensions: [1, 1],
             cancel: &Default::default(),
             resolve: &|_, _| Err("unexpected nested source".into()),
+            resolve_native_image: &|_, _| Err("unexpected native image".into()),
             resolve_image: &|_, _| Err("unexpected nested image".into()),
             describe_channels: &|_| Err("unexpected nested channel catalog".into()),
             describe_video: &|_| Err("unexpected nested video metadata".into()),

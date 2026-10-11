@@ -92,14 +92,25 @@ impl VideoProvider for Provider {
             .start
             .checked_add(request.time)
             .map_err(|e| e.to_string())?;
-        let mut graph = rendering::image(
+        let resolve =
+            |reference: &DocumentRef, time| (request.resolve_native_image)(reference, time);
+        let images = fold_platform::image_sampling::Service::new(
+            request.snapshot,
+            request.cancel,
+            &resolve,
+            request.describe_video,
+        );
+        let mut graph = rendering::image_with_services(
             request.snapshot,
             request.document.id,
             output.id,
             scene_time,
             request.dimensions,
             Default::default(),
-            &|| Ok(request.cancel.check()?),
+            rendering::Services {
+                cancellation: &|| Ok(request.cancel.check()?),
+                images: Some(&images),
+            },
         )
         .map_err(|e| format!("Motion image preparation failed: {e:?}"))?;
         let aces = fold_platform::color::project(request.snapshot)?.is_some();

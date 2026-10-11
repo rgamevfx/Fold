@@ -37,3 +37,5 @@ pub mod proposals;
 pub mod proposal_budget;
 
 mod proposal_errors;
+
+pub mod images;

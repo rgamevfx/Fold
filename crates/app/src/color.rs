@@ -1,5 +1,6 @@
 //! Application color routing. Native handles and all resource I/O stay worker-local.
-use fold_color::{Config, Runtime, settings::*};
+use fold_color::{Config, settings::*};
+pub use fold_platform::color::runtime;
 use fold_project::{Project, Snapshot};
 use std::cell::RefCell;
 thread_local! { static CONFIG: RefCell<Option<(ProjectColor, Config)>> = const { RefCell::new(None) }; }
@@ -13,13 +14,6 @@ pub fn new_project(history: usize) -> Project {
         )]
         .into(),
     )
-}
-pub fn runtime() -> Result<Runtime, String> {
-    // Explicit development/test installation override, never an implicit OCIO config.
-    match std::env::var_os("FOLD_COLOR_ROOT") {
-        Some(root) => Runtime::at(std::path::Path::new(&root)),
-        None => Runtime::installed(),
-    }
 }
 pub fn with_config<T>(
     snapshot: &Snapshot,

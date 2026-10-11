@@ -230,6 +230,26 @@ impl DocumentProvider for Documents {
     }
 }
 impl fold_platform::packages::Parameters for Documents {
+    fn sample_parameter_with_images(
+        &self,
+        document: &Document,
+        target: &fold_platform::parameters::Target,
+        time: Time,
+        cancel: &fold_media::Cancel,
+        images: &dyn fold_platform::image_sampling::Resolver,
+    ) -> Result<Literal, String> {
+        if target.object.is_some() {
+            return Err("Standalone graph has no object scope".into());
+        }
+        crate::parameters::sample_with_images(
+            Construction::from_document(document)?,
+            target,
+            time,
+            cancel,
+            Some(images),
+        )
+    }
+
     fn parameters(
         &self,
         document: &Document,

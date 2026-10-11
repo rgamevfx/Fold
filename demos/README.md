@@ -109,3 +109,10 @@ Connection and regeneration steps are in the
 The demo is available for hands-on testing. This is not a claim that all M0–M5
 gates have passed: the [completion audit](../docs/rewrite/m0-m5-completion-audit.md)
 tracks remaining rendering/resource and physical artist acceptance work.
+
+## Image sampling
+
+[`image-sampling.py`](image-sampling.py) creates an image source and two clones.
+Each clone gets its color from Sample Image. The script checks shuffled times,
+saves a project copy, and captures a frame when the host supports it.
+See the [usage guide](../skills/fold/references/image-sampling.md) for the command and limits.

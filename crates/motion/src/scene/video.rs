@@ -66,7 +66,14 @@ impl VideoProvider for Provider {
         if r.time < Time::ZERO || r.time >= duration {
             return Err("Scene time outside its half-open range".into());
         }
-        Ok(crate::rendering::image(
+        let resolve = |reference: &DocumentRef, time| (r.resolve_native_image)(reference, time);
+        let images = fold_platform::image_sampling::Service::new(
+            r.snapshot,
+            r.cancel,
+            &resolve,
+            r.describe_video,
+        );
+        Ok(crate::rendering::image_with_services(
             r.snapshot,
             r.document.id,
             scene.output,
@@ -77,7 +84,10 @@ impl VideoProvider for Provider {
                 .map_err(|e| e.to_string())?,
             r.dimensions,
             Default::default(),
-            &|| Ok(r.cancel.check()?),
+            crate::rendering::Services {
+                cancellation: &|| Ok(r.cancel.check()?),
+                images: Some(&images),
+            },
         )
         .map_err(|e| format!("Scene rendering failed: {e:?}"))?)
     }

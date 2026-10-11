@@ -10,9 +10,15 @@ use crate::{
 use fold_foundation::{DocumentId, ObjectId, Time};
 use fold_project::Snapshot;
 use fold_render::spatial as render;
-pub use image::image;
+pub use image::{image, image_with_services};
 pub use screen::{ScreenFrame, screen};
 use std::{collections::BTreeMap, sync::Arc};
+
+/// Worker-owned evaluation services. No GPU or viewer state enters Motion.
+pub struct Services<'a> {
+    pub cancellation: &'a dyn Fn() -> Result<(), String>,
+    pub images: Option<&'a dyn fold_platform::image_sampling::Resolver>,
+}
 
 #[derive(Debug)]
 pub enum Error {
@@ -57,7 +63,10 @@ pub fn spatial(
         time,
         dimensions,
         limits.evaluation,
-        cancellation,
+        Services {
+            cancellation,
+            images: None,
+        },
     )?;
     let mut budget = Budget::new(limits.conversion_steps, cancellation);
     prepare_spatial(evaluated, snapshot, document, time, dimensions, &mut budget)
@@ -402,8 +411,12 @@ fn evaluate(
     time: Time,
     dimensions: [u32; 2],
     limits: evaluation::Limits,
-    cancellation: &dyn Fn() -> Result<(), String>,
+    services: Services<'_>,
 ) -> Result<Evaluated, Error> {
+    let Services {
+        cancellation,
+        images,
+    } = services;
     cancellation().map_err(|_| Error::Cancelled)?;
     if dimensions.iter().any(|v| *v == 0 || *v > 4096) {
         return Err(Error::Invalid("Unsupported frame dimensions".into()));
@@ -420,7 +433,7 @@ fn evaluate(
         }
         let native = Arc::new(
             scene
-                .evaluate(time, limits, cancellation)
+                .evaluate_with_images(time, limits, cancellation, images)
                 .map_err(Error::Invalid)?,
         );
         return Ok(Evaluated {
@@ -437,7 +450,10 @@ fn evaluate(
     )
     .map_err(|e| Error::Invalid(e.to_string()))?;
     let canvas = [construction.canvas.width, construction.canvas.height];
-    let prepared = evaluation::Prepared::new(construction).map_err(Error::Invalid)?;
+    let mut prepared = evaluation::Prepared::new(construction).map_err(Error::Invalid)?;
+    if let Some(images) = images {
+        prepared = prepared.with_images(images);
+    }
     let Value::Scene(native) = prepared
         .evaluate_detailed(output, time, limits, cancellation)
         .map_err(Error::Evaluation)?

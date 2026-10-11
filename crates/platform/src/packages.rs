@@ -114,6 +114,17 @@ pub trait DocumentProvider: Send + Sync {
     }
 }
 pub trait Parameters: Send + Sync {
+    fn sample_parameter_with_images(
+        &self,
+        document: &Document,
+        target: &crate::parameters::Target,
+        time: Time,
+        cancel: &Cancel,
+        _images: &dyn crate::image_sampling::Resolver,
+    ) -> Result<fold_graph::types::Literal, String> {
+        self.sample_parameter(document, target, time, cancel)
+    }
+
     fn parameters(
         &self,
         _document: &Document,

@@ -89,6 +89,15 @@ pub(super) fn sample(
     time: Time,
     cancel: &Cancel,
 ) -> Result<Literal, String> {
+    sample_with_images(document, target, time, cancel, None)
+}
+pub(super) fn sample_with_images(
+    document: &Document,
+    target: &Target,
+    time: Time,
+    cancel: &Cancel,
+    images: Option<&dyn fold_platform::image_sampling::Resolver>,
+) -> Result<Literal, String> {
     cancel.check()?;
     let scene = Scene::from_document(document)?;
     let id = target.object.ok_or("Select a scene object")?;
@@ -108,5 +117,5 @@ pub(super) fn sample(
             .ok_or("Unknown scene property")?;
         return parameters::select_component(value, target);
     }
-    crate::parameters::sample(object.graph.clone(), target, local_time, cancel)
+    crate::parameters::sample_with_images(object.graph.clone(), target, local_time, cancel, images)
 }

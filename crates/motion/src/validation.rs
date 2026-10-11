@@ -57,6 +57,7 @@ impl Construction {
     }
     pub fn validate_semantics_detailed(&self) -> Result<(), Diagnostic> {
         let mut ids = self.structural_ids()?;
+        crate::images::declarations(self)?;
         for definition in &self.definitions {
             for node in &definition.nodes {
                 registry::resolve(&node.operation, node.version, &node.mode).map_err(

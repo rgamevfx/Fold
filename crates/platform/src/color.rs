@@ -1,5 +1,7 @@
 //! Feature-neutral project and published-output color metadata.
-pub use fold_color::authored::{from_picker, linear_rec709_to_aces, to_picker};
+pub use fold_color::authored::{
+    aces_to_linear_rec709, from_picker, linear_rec709_to_aces, to_picker,
+};
 pub use fold_color::settings::*;
 pub use fold_color::{DisplayTransform, WORKING_SPACE};
 use fold_foundation::DocumentId;
@@ -44,4 +46,12 @@ pub fn input(metadata: &fold_project::Metadata) -> Result<Option<String>, String
                 .ok_or_else(|| "Invalid input color space".into())
         })
         .transpose()
+}
+
+/// Explicit development/test package override shared by all worker consumers.
+pub fn runtime() -> Result<fold_color::Runtime, String> {
+    match std::env::var_os("FOLD_COLOR_ROOT") {
+        Some(root) => fold_color::Runtime::at(std::path::Path::new(&root)),
+        None => fold_color::Runtime::installed(),
+    }
 }

@@ -1,6 +1,7 @@
 //! Native controls and source share one provider-owned construction and edit gate.
 mod graph;
 mod graph_templates;
+mod images;
 mod instance;
 mod keyframes;
 mod literal;
@@ -386,7 +387,38 @@ impl Panel for Inspector {
                         continue;
                     };
                     procedural::schema(ui, node, &locked, &mut response);
-                    for (name, parameter) in &mut node.parameters {
+                    images::source_picker(ui, node, host, document, &locked, &mut response);
+                    let mut parameters: Vec<_> = node.parameters.iter_mut().collect();
+                    if matches!(
+                        node.operation.as_str(),
+                        "fold.motion.image_texture" | "fold.motion.sample_image"
+                    ) {
+                        let order = [
+                            "asset",
+                            "document",
+                            "output",
+                            "image",
+                            "time",
+                            "uv",
+                            "channel",
+                            "filter",
+                            "wrap",
+                            "outside",
+                            "color_space",
+                        ];
+                        parameters.sort_by_key(|(name, _)| {
+                            order
+                                .iter()
+                                .position(|key| key == name)
+                                .unwrap_or(order.len())
+                        });
+                    }
+                    for (name, parameter) in parameters {
+                        if node.operation == "fold.motion.image_texture"
+                            && matches!(name.as_str(), "asset" | "document" | "output")
+                        {
+                            continue;
+                        }
                         let _id = UiId {
                             package: crate::PACKAGE,
                             panel: package::INSPECTOR,
@@ -403,13 +435,22 @@ impl Panel for Inspector {
                         match parameter.binding() {
                             Ok(Binding::Literal { mut value }) => {
                                 let previous = value.clone();
-                                literal(
+                                if !images::choice(
                                     ui,
+                                    &node.operation,
+                                    name,
                                     label,
                                     &mut value,
                                     &mut response,
-                                    &mut state.literal_controls,
-                                );
+                                ) {
+                                    literal(
+                                        ui,
+                                        label,
+                                        &mut value,
+                                        &mut response,
+                                        &mut state.literal_controls,
+                                    );
+                                }
                                 if value.ty().is_interpolatable() {
                                     if value != previous
                                         && host.state().auto_key

@@ -16,10 +16,11 @@ use std::collections::BTreeMap;
 fn digest(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
 }
-fn run(
+fn run_with_images(
     document: &Document,
     request: &fold_platform::observations::Request,
     cancel: &Cancel,
+    images: Option<&dyn fold_platform::image_sampling::Resolver>,
 ) -> Result<Value, Failure> {
     let output: ObjectId = serde_json::from_value(json!(request.output))
         .map_err(|_| Failure::new(FailureKind::InvalidRequest, "Invalid construction output"))?;
@@ -58,7 +59,10 @@ fn run(
         "resource_inputs":{"assets":[],"fonts":[],"reason":"Qualified CPU operations do not resolve external resources"},
         "configuration":configuration
     });
-    let prepared = Prepared::new_detailed(value)?;
+    let mut prepared = Prepared::new_detailed(value)?;
+    if let Some(images) = images {
+        prepared = prepared.with_images(images);
+    }
     let mut samples = Vec::with_capacity(times.len());
     let mut fonts = BTreeMap::new();
     for &time in times {
@@ -89,7 +93,23 @@ fn run(
         provenance["resource_inputs"]["reason"] =
             json!("Explicit packaged fonts; no external asset lookup");
     }
+    if let Some(images) = images {
+        let resources = images.provenance();
+        provenance["fingerprints"]["assets"] = json!(digest(
+            &serde_json::to_vec(&resources).expect("image provenance")
+        ));
+        provenance["resource_inputs"]["assets"] = resources;
+        provenance["resource_inputs"]["reason"] =
+            json!("Snapshot-bound CPU images and packaged fonts; no viewer texture reads");
+    }
     Ok(json!({"provenance":provenance,"samples":samples}))
+}
+fn run(
+    document: &Document,
+    request: &fold_platform::observations::Request,
+    cancel: &Cancel,
+) -> Result<Value, Failure> {
+    run_with_images(document, request, cancel, None)
 }
 struct Measurement<'a> {
     cancel: &'a Cancel,
@@ -432,6 +452,7 @@ impl Measurement<'_> {
     }
     fn value(&mut self, value: &evaluation::Value) -> Result<Value, Failure> {
         match value {
+            evaluation::Value::Image(value) => Ok(json!({"kind":"image","source":value})),
             evaluation::Value::Primitive(value) => Ok(json!({"kind":"primitive","value":value})),
             evaluation::Value::Geometry(geometry) => Ok(
                 json!({"kind":"geometry","id":geometry.id,"bounds":self.geometry(geometry)?,"bounds_kind":bounds_kind(geometry),"appearance":geometry.appearance,"attributes":geometry.attributes}),
@@ -524,6 +545,25 @@ fn include3(bounds: &mut Option<[[f64; 3]; 2]>, p: [f64; 3]) -> Result<(), Failu
 
 pub struct Provider;
 impl fold_platform::observations::Observations for Provider {
+    fn measure_with_images(
+        &self,
+        document: &Document,
+        r: &fold_platform::observations::Request,
+        cancel: &Cancel,
+        images: &dyn fold_platform::image_sampling::Resolver,
+    ) -> Result<Value, Failure> {
+        run_with_images(document, r, cancel, Some(images))
+    }
+    fn frame_provenance_with_images(
+        &self,
+        document: &Document,
+        r: &fold_platform::observations::Request,
+        cancel: &Cancel,
+        images: &dyn fold_platform::image_sampling::Resolver,
+    ) -> Result<Value, Failure> {
+        frame_provenance(document, r, cancel, Some(images))
+    }
+
     fn measure(
         &self,
         document: &Document,
@@ -538,38 +578,47 @@ impl fold_platform::observations::Observations for Provider {
         r: &fold_platform::observations::Request,
         cancel: &Cancel,
     ) -> Result<Value, Failure> {
-        if r.times.len() != 1 {
-            return Err(Failure::new(
-                FailureKind::InvalidRequest,
-                "Frame provenance requires one time",
-            ));
-        }
-        let construction = Construction::from_document(document).map_err(Failure::invalid)?;
-        let scene_time = construction
-            .canvas
-            .start
-            .checked_add(r.times[0])
-            .map_err(|e| Failure::invalid(e.to_string()))?;
-        let measurements = self.measure(
-            document,
-            &fold_platform::observations::Request {
-                times: vec![scene_time],
-                epoch: r.epoch,
-                revision: r.revision,
-                candidate: r.candidate,
-                output: r.output.clone(),
-                build: r.build.clone(),
-                target: r.target.clone(),
-            },
-            cancel,
-        )?;
-        let mut provenance = measurements["provenance"].clone();
-        provenance["camera"] = measurements["samples"][0]["value"]["camera"].clone();
-        provenance["cameras"] = measurements["samples"][0]["value"]["cameras"].clone();
-        provenance["scene_time"] = json!(scene_time);
-        provenance["asset_time"] = measurements["samples"][0]["asset_time"].clone();
-        Ok(provenance)
+        frame_provenance(document, r, cancel, None)
     }
+}
+fn frame_provenance(
+    document: &Document,
+    r: &fold_platform::observations::Request,
+    cancel: &Cancel,
+    images: Option<&dyn fold_platform::image_sampling::Resolver>,
+) -> Result<Value, Failure> {
+    if r.times.len() != 1 {
+        return Err(Failure::new(
+            FailureKind::InvalidRequest,
+            "Frame provenance requires one time",
+        ));
+    }
+    let construction = Construction::from_document(document).map_err(Failure::invalid)?;
+    let scene_time = construction
+        .canvas
+        .start
+        .checked_add(r.times[0])
+        .map_err(|e| Failure::invalid(e.to_string()))?;
+    let measurements = run_with_images(
+        document,
+        &fold_platform::observations::Request {
+            times: vec![scene_time],
+            epoch: r.epoch,
+            revision: r.revision,
+            candidate: r.candidate,
+            output: r.output.clone(),
+            build: r.build.clone(),
+            target: r.target.clone(),
+        },
+        cancel,
+        images,
+    )?;
+    let mut provenance = measurements["provenance"].clone();
+    provenance["camera"] = measurements["samples"][0]["value"]["camera"].clone();
+    provenance["cameras"] = measurements["samples"][0]["value"]["cameras"].clone();
+    provenance["scene_time"] = json!(scene_time);
+    provenance["asset_time"] = measurements["samples"][0]["asset_time"].clone();
+    Ok(provenance)
 }
 
 #[cfg(test)]

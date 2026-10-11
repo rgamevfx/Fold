@@ -41,7 +41,10 @@ pub fn screen(
         time,
         dimensions,
         limits.evaluation,
-        cancellation,
+        super::Services {
+            cancellation,
+            images: None,
+        },
     )?;
     let mut budget = Budget::new(limits.conversion_steps, cancellation);
     let drawings = prepare(&evaluated, dimensions, &mut budget)?;

@@ -5,6 +5,7 @@ pub mod attributes;
 pub mod cloner;
 pub mod distribution;
 pub mod extrude;
+mod image;
 pub mod material;
 pub mod mesh;
 pub mod outlines;
@@ -79,6 +80,7 @@ pub struct Scene {
 }
 #[derive(Clone, Debug, PartialEq)]
 pub enum Value {
+    Image(fold_platform::image_sampling::Request),
     Primitive(Literal),
     Geometry(Arc<Geometry>),
     Placement(Arc<Placement>),
@@ -134,11 +136,16 @@ pub struct FailureContext {
 
 /// Owns a validated immutable document and decoded operation arguments.
 /// Preparing a new edit never changes snapshots already held by consumers.
-pub struct Prepared {
+pub struct Prepared<'a> {
+    images: Option<&'a dyn fold_platform::image_sampling::Resolver>,
     construction: Construction,
     operations: BTreeMap<ObjectId, Operation>,
 }
-impl Prepared {
+impl<'a> Prepared<'a> {
+    pub fn with_images(mut self, images: &'a dyn fold_platform::image_sampling::Resolver) -> Self {
+        self.images = Some(images);
+        self
+    }
     pub fn new(construction: Construction) -> Result<Self, String> {
         Self::new_detailed(construction).map_err(|error| error.message)
     }
@@ -163,6 +170,7 @@ impl Prepared {
             }
         }
         Ok(Self {
+            images: None,
             construction,
             operations,
         })
@@ -300,7 +308,7 @@ struct Scope {
     inputs: Arc<BTreeMap<ObjectId, Literal>>,
 }
 struct State<'a> {
-    prepared: &'a Prepared,
+    prepared: &'a Prepared<'a>,
     scene_time: Time,
     budget: Budget<'a>,
     remaining_elements: usize,
@@ -555,6 +563,7 @@ impl State<'_> {
         for (name, binding) in &operation.bindings {
             if (operation.builtin == Builtin::TextAnimatorWords && name == "position")
                 || (operation.builtin == Builtin::InstanceScale && name == "factor")
+                || (operation.builtin == Builtin::AttributeCreate && name == "value")
                 || (operation.builtin == Builtin::InstanceColor && name == "color")
                 || (operation.builtin == Builtin::InstanceRotationZ && name == "angle")
             {
@@ -576,6 +585,10 @@ impl State<'_> {
             _ => Err("Expected duration".to_string()),
         };
         let value = match operation.builtin {
+            Builtin::ImageTexture => self.image_texture(scope, id, &args)?,
+            Builtin::SampleImageColor | Builtin::SampleImageScalar => {
+                self.sample_image(&args, operation.builtin)?
+            }
             Builtin::Ramp => {
                 let Binding::Ramp { ramp } = &operation.bindings["stops"] else {
                     return Err("Ramp requires stops".into());
@@ -654,7 +667,13 @@ impl State<'_> {
             Builtin::InstanceRandom => self.instance_random(scope, id, &args)?,
             Builtin::Cloner => self.cloner(scope, id, &args)?,
             Builtin::AttributeCreate | Builtin::AttributeRandomize | Builtin::AttributeTransfer => {
-                self.attribute_node(scope, id, &args, operation.builtin)?
+                self.attribute_node(
+                    scope,
+                    id,
+                    &args,
+                    operation.builtin,
+                    operation.bindings.get("value"),
+                )?
             }
             Builtin::Wrangle => {
                 let Binding::List { values } = &operation.bindings["inputs"] else {

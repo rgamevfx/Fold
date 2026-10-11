@@ -14,6 +14,25 @@ pub struct Request {
     pub target: String,
 }
 pub trait Observations: Send + Sync {
+    fn measure_with_images(
+        &self,
+        document: &Document,
+        request: &Request,
+        cancel: &Cancel,
+        _images: &dyn crate::image_sampling::Resolver,
+    ) -> Result<Value, Failure> {
+        self.measure(document, request, cancel)
+    }
+    fn frame_provenance_with_images(
+        &self,
+        document: &Document,
+        request: &Request,
+        cancel: &Cancel,
+        _images: &dyn crate::image_sampling::Resolver,
+    ) -> Result<Value, Failure> {
+        self.frame_provenance(document, request, cancel)
+    }
+
     fn measure(
         &self,
         document: &Document,

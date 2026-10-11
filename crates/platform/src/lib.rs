@@ -48,6 +48,8 @@ pub struct VideoCompile<'a> {
     pub dimensions: [u32; 2],
     pub cancel: &'a Cancel,
     pub resolve: &'a VideoResolver<'a>,
+    /// Native source resolution for procedural sampling, independent of viewer size.
+    pub resolve_native_image: &'a VideoResolver<'a>,
     pub invocation: Option<&'a effects::Invocation<'a>>,
     pub context: Option<effects::Context>,
     pub resolve_effect: &'a effects::Resolver<'a>,
@@ -365,6 +367,21 @@ impl VideoRegistry {
                 .ok_or("Unavailable nested video output")?
                 .info
         };
+        let resolve_native_image = |nested: &DocumentRef, local_time: Time| {
+            let info = describe_video(nested)?;
+            Ok(self
+                .compile_nested(
+                    snapshot,
+                    nested,
+                    local_time,
+                    [info.width, info.height],
+                    cancel,
+                    &path,
+                    None,
+                    child_context(local_time)?,
+                )?
+                .select(None)?)
+        };
         if let Some(invocation) = invocation {
             invocation.validate(&provider.effect_interface(document)?)?;
         }
@@ -376,6 +393,7 @@ impl VideoRegistry {
             dimensions,
             cancel,
             resolve: &resolve,
+            resolve_native_image: &resolve_native_image,
             invocation,
             context,
             resolve_effect: &resolve_effect,
@@ -409,3 +427,5 @@ pub mod hierarchy;
 pub mod proposals;
 
 pub mod observations;
+
+pub mod image_sampling;

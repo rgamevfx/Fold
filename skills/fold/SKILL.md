@@ -59,3 +59,7 @@ For Grid point sources, Attribute Create/Randomize/Transfer, or live Rhai Wrangl
 read [Geometry attributes and Wrangle](references/wrangle.md). Discover the
 running host's catalog before using the examples; implementation and acceptance
 status remain in rewrite phase M5b.
+
+For Image Texture and Sample Image, read
+[Image sampling](references/image-sampling.md). Use the public CLI example to
+check sampled clone colors and source provenance.

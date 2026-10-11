@@ -136,9 +136,29 @@ impl GraphContext for Context<'_> {
         }
     }
     fn catalog(&self) -> Vec<NodeTemplate> {
-        registry::operations()
+        let has_image = self
+            .state
+            .construction
+            .as_ref()
+            .and_then(|c| c.definition(self.definition).ok())
+            .is_some_and(|d| {
+                d.nodes
+                    .iter()
+                    .any(|n| n.operation == "fold.motion.image_texture")
+            });
+        let mut entries: Vec<_> = registry::operations()
             .iter()
-            .filter(|op| op.role == registry::Role::Operation && op.cpu_reference)
+            .filter(|op| {
+                op.role == registry::Role::Operation
+                    && op.cpu_reference
+                    && op.builtin != registry::Builtin::ImageTexture
+                    && (has_image
+                        || !matches!(
+                            op.builtin,
+                            registry::Builtin::SampleImageColor
+                                | registry::Builtin::SampleImageScalar
+                        ))
+            })
             .map(|op| NodeTemplate {
                 key: serde_json::to_string(&(&op.key, op.version, &op.mode))
                     .expect("operation key"),
@@ -153,7 +173,21 @@ impl GraphContext for Context<'_> {
                     "Animation and values".into()
                 },
             })
-            .collect()
+            .collect();
+        for (source, label) in super::images::sources(self.host, self.state.document) {
+            let mode = if matches!(source, fold_platform::image_source::Source::Asset(_)) {
+                "asset"
+            } else {
+                "output"
+            };
+            entries.push(NodeTemplate {
+                key: serde_json::to_string(&("fold.motion.image_texture", 1, mode, source))
+                    .unwrap(),
+                label,
+                category: "Image Texture".into(),
+            });
+        }
+        entries
     }
     fn validate(&self, change: &GraphChange) -> Result<(), String> {
         apply(

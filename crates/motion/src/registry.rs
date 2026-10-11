@@ -1,6 +1,7 @@
 //! Single contract authority for native operations. A declaration is not execution qualification.
 mod animator;
 mod distribution;
+mod image;
 mod procedural;
 mod profile;
 mod spatial;
@@ -74,6 +75,9 @@ pub enum ResultType {
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Builtin {
+    ImageTexture,
+    SampleImageColor,
+    SampleImageScalar,
     Rectangle,
     TransformScreen,
     TransformMesh,
@@ -336,6 +340,7 @@ pub fn operations() -> &'static [Operation] {
                 vec![Domain::Collection],
             ),
         ];
+        entries.extend(image::operations());
         entries.extend(animator::operations());
         entries.extend(distribution::operations());
         entries.extend(procedural::operations());

@@ -259,14 +259,15 @@ impl Construction {
         if payload.len() > MAX_DOCUMENT_BYTES {
             return Err("Native construction exceeds 16 MiB".into());
         }
+        let (dependencies, assets) = crate::images::declarations(self)?;
         Ok(Document {
             id,
             package_id: crate::PACKAGE.into(),
             type_id: crate::CONSTRUCTION.into(),
             schema_version: crate::SCHEMA_VERSION,
             revision: Revision::default(),
-            dependencies: vec![],
-            assets: vec![],
+            dependencies,
+            assets,
             payload,
             extensions: Metadata::default(),
         })
@@ -295,13 +296,11 @@ impl Construction {
         if document.payload.len() > MAX_DOCUMENT_BYTES {
             return Err("Native construction exceeds 16 MiB".into());
         }
-        if !document.dependencies.is_empty() || !document.assets.is_empty() {
-            return Err(
-                "External resources are not yet supported by this native schema implementation"
-                    .into(),
-            );
-        }
         let value: Self = serde_json::from_slice(&document.payload).map_err(|e| e.to_string())?;
+        let (dependencies, assets) = crate::images::declarations(&value)?;
+        if dependencies != document.dependencies || assets != document.assets {
+            return Err("Motion image dependencies disagree with the document".into());
+        }
         value.validate_structure()?;
         Ok(value)
     }
