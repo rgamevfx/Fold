@@ -1,8 +1,0 @@
-
-running 4 tests
-test gpu::yuv::tests::abandoned_plane_upload_is_not_a_cache_hit ... ok
-test gpu::yuv::tests::high_precision_chroma_and_alpha_match_cpu ... ok
-test gpu::yuv::tests::native_yuv_reconstruction_matches_float_reference ... ok
-test gpu::yuv::tests::plane_recycling_preserves_unsubmitted_consumers ... ok
-
-test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 74 filtered out; finished in 3.48s

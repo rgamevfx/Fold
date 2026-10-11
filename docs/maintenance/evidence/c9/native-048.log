@@ -1,6 +1,0 @@
-
-running 1 test
-test gpu::vector::tests::native_instances_keep_order_across_tile_words_and_reuse_only_static_geometry ... ok
-
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 65 filtered out; finished in 0.43s
-

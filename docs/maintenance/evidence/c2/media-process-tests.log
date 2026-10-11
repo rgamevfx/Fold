@@ -1,8 +1,0 @@
-    Finished `test` profile [unoptimized] target(s) in 0.17s
-     Running unittests src/lib.rs (target/debug/deps/fold_media-8057e444d812e633)
-
-running 1 test
-test process::tests::monitored_audio_keeps_reserved_slots_and_capacity_recovers ... ok
-
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
-

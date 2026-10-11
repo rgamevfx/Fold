@@ -1,8 +1,0 @@
-
-running 1 test
-test integrated_motion_public_authoring ... Authored via cli: 35 native nodes at revision 20; baseline, eight catalog trials and control variations complete; saved /tmp/.tmpS39Vub/report.json.fold
-Integrated evidence: /home/rgame/.codex/worktrees/efc8/Fold/docs/maintenance/evidence/c9/integrated-public/67f41814-81ca-4d09-b8f8-320ff641f3fc
-ok
-
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 23.58s
-

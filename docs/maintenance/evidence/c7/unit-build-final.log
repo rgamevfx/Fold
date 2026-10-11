@@ -1,3 +1,0 @@
-   Compiling fold-render v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/render)
-    Finished `test` profile [unoptimized] target(s) in 7.10s
-  Executable unittests src/lib.rs (target/debug/deps/fold_render-367e27ade22dbf7f)

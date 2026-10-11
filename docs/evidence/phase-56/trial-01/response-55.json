@@ -1,8 +1,0 @@
-{
-  "job": 8,
-  "outcome": {
-    "error": "verify requires 2..64 strictly increasing exact times",
-    "ok": false
-  },
-  "status": "complete"
-}

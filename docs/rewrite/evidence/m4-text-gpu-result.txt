@@ -1,6 +1,0 @@
-M4 text vector adapter: AdapterInfo { name: "llvmpipe (LLVM 20.1.2, 256 bits)", vendor: 65541, device: 0, device_type: Cpu, driver: "llvmpipe", driver_info: "Mesa 26.1.6-1pop0~1787580452~24.04~a5619ea (LLVM 20.1.2)", backend: Vulkan }; intermediate=RGBA32F; wgpu=27; no history
-font_sha256=[b8, 5c, 38, ec, ea, 8a, 7c, fb, 39, c2, 4e, 39, 5a, 40, 07, 47, 4f, a5, a4, fc, 86, 4f, 6e, e3, 33, 09, eb, 49, 48, d2, 32, d5]; layout=[2a, 6b, 90, 5f, c8, f6, 46, e7, 8f, c3, 0f, 6c, 4d, 43, cb, 4f, 7f, fb, ad, ab, 72, 13, 9a, d3, b9, 11, d8, eb, 9b, c5, 67, f9]
-scale=0.25; max_linear_error=0.00000011920929; max_display_byte_error=0; vector_instances=8
-scale=1; max_linear_error=0.0000004172325; max_display_byte_error=0; vector_instances=8
-scale=4; max_linear_error=0.000001847744; max_display_byte_error=0; vector_instances=8
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.68s

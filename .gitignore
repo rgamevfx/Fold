@@ -1,4 +1,5 @@
 /target/
+/docs/
 __pycache__/
 
 # Local credentials and environment overrides

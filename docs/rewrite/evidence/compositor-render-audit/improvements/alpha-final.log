@@ -1,6 +1,0 @@
-source=/home/rgame/Videos/Cutdown_02_VFX_v01.mov info=VideoInfo { width: 1920, height: 1080, rate: [24, 1], frames: 360 }
-budget=1073741824
-AdapterInfo { name: "NVIDIA GeForce GTX 1070", vendor: 4318, device: 7137, device_type: DiscreteGpu, driver: "NVIDIA", driver_info: "580.173.02", backend: Vulkan }
-same-scene GPU/CPU packing max_code_error=1
-CPU/GPU RGBA16 raw_max_code_error=10549 visible_max_code_error=5
-CPU/GPU output max_code_error=1

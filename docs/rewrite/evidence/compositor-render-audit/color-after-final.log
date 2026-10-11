@@ -1,6 +1,0 @@
-
-running 2 tests
-test gpu::color::tests::direct_working_output_still_rejects_conversion_overflow ... ok
-test gpu::color::tests::working_conversion_does_not_allocate_a_copy_of_its_output ... ok
-
-test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 70 filtered out; finished in 0.77s

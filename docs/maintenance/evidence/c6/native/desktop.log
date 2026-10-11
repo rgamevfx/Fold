@@ -1,4 +1,0 @@
-Fold protocol socket: /tmp/fold-c0-native-dk49ttmw/fold-session-vgPzFg/protocol.sock
-Fold presentation adapter: AdapterInfo { name: "NVIDIA GeForce GTX 1070", vendor: 4318, device: 7137, device_type: DiscreteGpu, driver: "NVIDIA", driver_info: "580.173.02", backend: Vulkan }
-Fold render backend: shared GPU
-Fold native probe surface: SurfaceConfiguration { usage: TextureUsages(RENDER_ATTACHMENT), format: Rgba8Unorm, width: 1280, height: 800, present_mode: Fifo, desired_maximum_frame_latency: 2, alpha_mode: Auto, view_formats: [] }; scale: 1

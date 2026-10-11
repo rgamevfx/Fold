@@ -1,5 +1,0 @@
-
-running 1 test
-test baked_image_sampling_matches_cpu_at_multiple_sizes_and_reuses_uploads ... ok
-
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 2.93s

@@ -1,8 +1,0 @@
-
-running 1 test
-test camera_plane_oblique_views_match_ray_plane_coverage_and_clipping ... Oblique Camera Plane: AdapterInfo { name: "NVIDIA GeForce GTX 1070", vendor: 4318, device: 7137, device_type: DiscreteGpu, driver: "NVIDIA", driver_info: "580.173.02", backend: Vulkan }; analytic rays; RGBA16F; MSAA off
-Oblique ray coverage: 230400 pixels; 27534 painted
-ok
-
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 3.19s
-

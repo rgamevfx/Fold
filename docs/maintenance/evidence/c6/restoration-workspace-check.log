@@ -1,7 +1,0 @@
-    Checking fold-ui v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/ui)
-   Compiling fold-app v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/app)
-    Checking fold-motion v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/motion)
-    Checking fold-compositor v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/compositor)
-    Checking fold-timeline v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/timeline)
-    Checking fold-composition v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/composition)
-    Finished `dev` profile [unoptimized] target(s) in 19.78s

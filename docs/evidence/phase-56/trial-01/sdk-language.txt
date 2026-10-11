@@ -1,1 +1,0 @@
-JavaScript ES module with TypeScript declarations

@@ -1,4 +1,0 @@
-    Blocking waiting for file lock on build directory
-    Checking fold-compositor v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/compositor)
-    Checking fold-app v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/app)
-    Finished `dev` profile [unoptimized] target(s) in 1m 09s

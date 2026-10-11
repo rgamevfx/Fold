@@ -1,9 +1,0 @@
-   Compiling fold-foundation v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/foundation)
-    Finished `test` profile [unoptimized] target(s) in 0.41s
-     Running unittests src/lib.rs (target/debug/deps/fold_foundation-e1d969058de89abd)
-
-running 1 test
-test failure::tests::only_category_controls_retry_and_context_is_retained ... ok
-
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
-

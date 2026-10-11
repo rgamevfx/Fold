@@ -1,1 +1,0 @@
-{"method": "observe", "args": {"source": {"document": "0505e5f2-3c3e-4a4e-a2ee-5b0486e7e340", "output": "video"}, "times": [{"numerator": 0, "denominator": 1}, {"numerator": 1, "denominator": 1}, {"numerator": 2, "denominator": 1}, {"numerator": 4, "denominator": 1}], "dimensions": [500, 888], "candidate": 1, "generation": 2, "project_epoch": 0}, "job": true}

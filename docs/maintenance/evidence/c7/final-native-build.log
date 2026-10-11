@@ -1,7 +1,0 @@
-   Compiling fold-render v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/render)
-    Finished `test` profile [unoptimized] target(s) in 27.46s
-  Executable unittests src/lib.rs (target/debug/deps/fold_render-367e27ade22dbf7f)
-  Executable tests/gpu.rs (target/debug/deps/gpu-def3fbb9e4ba6568)
-  Executable tests/gpu_adapters.rs (target/debug/deps/gpu_adapters-97fe3305fae2d8ce)
-  Executable tests/regions.rs (target/debug/deps/regions-c798c1f110d8cfd5)
-  Executable tests/spatial_gpu.rs (target/debug/deps/spatial_gpu-4bc18b498cb21b4c)

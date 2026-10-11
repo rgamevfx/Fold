@@ -1,3 +1,0 @@
-Fold protocol socket: /tmp/fold-c0-native-3nj4fco2/fold-session-MOueyb/protocol.sock
-Fold presentation adapter: AdapterInfo { name: "NVIDIA GeForce GTX 1070", vendor: 4318, device: 7137, device_type: DiscreteGpu, driver: "NVIDIA", driver_info: "580.173.02", backend: Vulkan }
-Fold render backend: shared GPU
