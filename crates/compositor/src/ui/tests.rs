@@ -20,6 +20,12 @@ impl DesktopClient for Host {
     fn command(&mut self, command: DesktopCommand) {
         match command {
             DesktopCommand::Select(selection) => self.state.selection = selection,
+            DesktopCommand::Transport(TransportAction::Jump(frame)) => {
+                self.state.frame = frame;
+                if let Some(view) = self.state.navigation.last_mut() {
+                    view.time = fold_foundation::Time::new(i64::from(frame), 24).unwrap();
+                }
+            }
             DesktopCommand::CancelPreviewEdit => {}
             DesktopCommand::PreviewExtension(request) => {
                 self.registry

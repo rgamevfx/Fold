@@ -190,6 +190,9 @@ pub(in crate::ui) fn draw_inspector(
         let _disabled = ui.begin_disabled_with_cond(editor.gesture.is_some());
         toolbar(ui, &mut editor, 0.);
     }
+    if super::keys::row(ui, &mut editor, state, host, id, &before, time) {
+        return;
+    }
     ui.child_window("roto-shapes")
         .size([0., ui.frame_height() * 6.])
         .build(ui, || {
@@ -304,7 +307,11 @@ pub(in crate::ui) fn draw_inspector(
             &mut property.values,
             &mut curves,
             time,
-            auto_key,
+            if matches!(part, "feather" | "falloff") {
+                editor.auto_key
+            } else {
+                auto_key
+            },
             &mut response,
             &mut |_, _| {},
             None,
@@ -345,7 +352,7 @@ pub(in crate::ui) fn draw_inspector(
                 &mut property.values,
                 &mut curves,
                 time,
-                auto_key,
+                editor.auto_key,
                 &mut response,
                 &mut |_, _| {},
                 None,
@@ -423,10 +430,29 @@ pub(in crate::ui) fn draw_inspector(
     if response.cancelled {
         state.cancel(host);
     } else if response.changed {
-        let result = node
-            .animation
-            .replace(&curves)
-            .and_then(|()| super::edit(node, &before, settings, time, false));
+        let result = (|| {
+            for property in settings.properties() {
+                if super::keys::geometry(&property.id).is_some() {
+                    let values = property
+                        .values
+                        .iter()
+                        .enumerate()
+                        .map(|(i, value)| {
+                            curves
+                                .get(&crate::animation::path(&property.id, i))
+                                .and_then(|curve| curve.sample(time))
+                                .unwrap_or(*value)
+                        })
+                        .collect::<Vec<_>>();
+                    settings.set_property(&property.id, &values)?;
+                }
+            }
+            let mut draft = node.clone();
+            draft.animation.replace(&curves)?;
+            super::edit(&mut draft, &before, settings, time, editor.auto_key)?;
+            *node = draft;
+            Ok::<_, String>(())
+        })();
         match result {
             Ok(()) => {
                 state.property_editing = true;

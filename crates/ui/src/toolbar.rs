@@ -4,6 +4,9 @@ use super::imgui::{PopupToken, StyleColor, Ui};
 
 #[derive(Clone, Copy)]
 pub enum ToolbarIcon {
+    PreviousKey,
+    Keyframe(bool),
+    NextKey,
     Settings,
     Blade,
     Snap,
@@ -35,9 +38,10 @@ pub enum ToolbarIcon {
 }
 
 pub fn tooltip(ui: &Ui, text: &str) {
-    if ui.is_item_hovered() || ui.is_item_focused() {
-        ui.tooltip_text(text);
-    }
+    // Let ImGui distinguish active keyboard navigation from a button that
+    // merely retains focus after a mouse click. Retained focus must not put a
+    // toolbar tooltip over the canvas while the artist draws.
+    ui.set_item_tooltip(text);
 }
 
 pub fn icon_button(ui: &Ui, id: &str, icon: ToolbarIcon, tip: &str) -> bool {
@@ -74,6 +78,31 @@ pub fn draw_icon_on(
             .build();
     };
     match icon {
+        ToolbarIcon::Keyframe(filled) => {
+            draw.add_polyline(
+                vec![
+                    point(0., -1.),
+                    point(0.8, 0.),
+                    point(0., 1.),
+                    point(-0.8, 0.),
+                ],
+                color,
+            )
+            .closed(true)
+            .filled(filled)
+            .thickness((size / 14.).max(1.))
+            .build();
+        }
+        ToolbarIcon::PreviousKey | ToolbarIcon::NextKey => {
+            let direction = if matches!(icon, ToolbarIcon::PreviousKey) {
+                -1.
+            } else {
+                1.
+            };
+            line([-direction * 0.4, -0.8], [direction * 0.5, 0.]);
+            line([direction * 0.5, 0.], [-direction * 0.4, 0.8]);
+            line([direction * 0.8, -0.8], [direction * 0.8, 0.8]);
+        }
         ToolbarIcon::Settings => {
             draw.add_circle(center, unit * 0.65, color)
                 .thickness(1.5)

@@ -215,14 +215,26 @@ impl PreparedComposite<'_> {
             return Ok(config);
         }
         let mut sampler = Sampler::new(self, time);
+        // Walk native component addresses once. Regenerating all properties for
+        // each keyed component makes a fully keyed shape quadratic to sample.
+        let mut offsets = BTreeMap::new();
         for mut property in config.animated_properties() {
+            let parameter = node.property_owner(&property.id)?;
+            let offset = offsets.entry(parameter).or_insert(0usize);
             let mut changed = false;
             for (i, value) in property.values.iter_mut().enumerate() {
                 if node.channels().binding(&path(&property.id, i)).is_some() {
-                    *value = sampler.reference(node.property_reference(&property.id, i)?)?;
+                    *value = sampler.reference(Reference::Parameter {
+                        parameter,
+                        component: Some(
+                            u8::try_from(*offset + i)
+                                .map_err(|_| "Too many parameter components")?,
+                        ),
+                    })?;
                     changed = true;
                 }
             }
+            *offset += property.values.len();
             if changed {
                 config.set_property(&property.id, &property.values)?;
             }

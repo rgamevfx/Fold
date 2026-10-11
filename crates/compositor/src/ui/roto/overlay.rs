@@ -188,3 +188,97 @@ pub(super) fn draw_box(ui: &Ui, view: View, b: [f64; 4]) {
         .build();
     draw.add_circle(r, 5., color).build();
 }
+
+/// The pen draft is screen-space interaction state, independent of rendered
+/// frames, selection and animation. Even one point must have a visible guide.
+pub(super) fn draw_draft(
+    ui: &Ui,
+    layer: &Layer,
+    view: View,
+    cursor: Option<[f64; 2]>,
+    dragging: bool,
+) {
+    let Some(shape) = &layer.shape else {
+        return;
+    };
+    let Some(first) = shape.points.first() else {
+        return;
+    };
+    let closing =
+        cursor.is_some_and(|p| shape.points.len() >= 3 && view.near(p, first.position, 10.));
+    let draw = ui.get_window_draw_list();
+    let color = ui.style_color(StyleColor::PlotLinesHovered);
+    let border = ui.style_color(StyleColor::WindowBg);
+    let line = |a, b, color| {
+        draw.add_line(a, b, border).thickness(4.).build();
+        draw.add_line(a, b, color).thickness(1.5).build();
+    };
+    let mut preview = shape.clone();
+    if closing {
+        preview.closed = true;
+    } else if let Some(p) = cursor.filter(|_| !dragging) {
+        let mut cursor_point = first.clone();
+        cursor_point.position = p;
+        cursor_point.incoming = [0.; 2];
+        cursor_point.outgoing = [0.; 2];
+        preview.points.push(cursor_point);
+    }
+    for c in preview.cubics(false) {
+        let c = c.map(|p| view.screen(p));
+        draw.add_bezier_curve(c[0], c[1], c[2], c[3], border)
+            .thickness(4.)
+            .build();
+        draw.add_bezier_curve(c[0], c[1], c[2], c[3], color)
+            .thickness(2.)
+            .build();
+    }
+    // B-spline control points do not lie on the curve. Keep the control polygon
+    // visible so the artist can understand what each click will change.
+    if shape.spline == Spline::BSpline {
+        for pair in preview.points.windows(2) {
+            line(
+                view.screen(pair[0].position),
+                view.screen(pair[1].position),
+                ui.style_color(StyleColor::Text),
+            );
+        }
+    }
+    for point in &shape.points {
+        let p = view.screen(point.position);
+        if shape.spline == Spline::Bezier {
+            for handle in [point.incoming, point.outgoing]
+                .into_iter()
+                .filter(|h| *h != [0.; 2])
+            {
+                let h = view.screen(add(point.position, handle));
+                line(p, h, ui.style_color(StyleColor::Text));
+                draw.add_circle(h, 4.5, border).filled(true).build();
+                draw.add_circle(h, 3., ui.style_color(StyleColor::Text))
+                    .filled(true)
+                    .build();
+            }
+        }
+        draw.add_rect([p[0] - 5., p[1] - 5.], [p[0] + 5., p[1] + 5.], border)
+            .filled(true)
+            .build();
+        draw.add_rect([p[0] - 3.5, p[1] - 3.5], [p[0] + 3.5, p[1] + 3.5], color)
+            .filled(true)
+            .build();
+    }
+    if shape.points.len() >= 3 {
+        let p = view.screen(first.position);
+        draw.add_circle(p, if closing { 10. } else { 7. }, border)
+            .thickness(4.)
+            .build();
+        draw.add_circle(p, if closing { 10. } else { 7. }, color)
+            .thickness(2.)
+            .build();
+        if closing {
+            draw.add_text(
+                [p[0] + 13., p[1] - 15.],
+                ui.style_color(StyleColor::Text),
+                "Close",
+            );
+        }
+    }
+}

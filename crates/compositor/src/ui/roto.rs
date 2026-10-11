@@ -2,6 +2,7 @@
 //! the inspector; mouse motion never owns a render context or device.
 mod gesture;
 mod inspector;
+mod keys;
 mod overlay;
 mod transform;
 mod viewport;
@@ -18,16 +19,31 @@ pub(super) enum Tool {
     Bezier,
     BSpline,
 }
-#[derive(Default)]
 pub(super) struct Editor {
     pub target: Option<ObjectId>,
     pub layer: Option<ObjectId>,
     pub points: BTreeSet<ObjectId>,
     pub tool: Tool,
     pub show_feather: bool,
+    pub auto_key: bool,
     gesture: Option<gesture::Gesture>,
     drawing: Option<crate::roto::Layer>,
     pen_anchor: Option<[f64; 2]>,
+}
+impl Default for Editor {
+    fn default() -> Self {
+        Self {
+            target: None,
+            layer: None,
+            points: BTreeSet::new(),
+            tool: Tool::default(),
+            show_feather: false,
+            auto_key: true,
+            gesture: None,
+            drawing: None,
+            pen_anchor: None,
+        }
+    }
 }
 impl Editor {
     pub fn select(&mut self, id: ObjectId) {
@@ -79,11 +95,24 @@ pub(super) fn edit(
         .animation
         .bindings()
         .keys()
-        .filter(|p| !available.contains(*p))
+        .filter(|p| p.starts_with("roto/") && !available.contains(*p))
         .cloned()
         .collect();
     for path in remove {
         next.animation.remove(&path)?;
+    }
+    let changed_shapes: BTreeSet<_> = properties
+        .iter()
+        .filter(|p| old.get(&p.id) != Some(&p.values))
+        .filter_map(|p| keys::geometry(&p.id))
+        .collect();
+    for shape in changed_shapes {
+        let times = keys::times(&next, shape)?;
+        if auto_key || times.contains(&time) {
+            keys::insert(&mut next, &after, shape, time)?;
+        } else if !times.is_empty() {
+            return Err("Enable Auto key or add a shape key before editing between keys".into());
+        }
     }
     let mut settings = after;
     for property in properties {
@@ -97,7 +126,12 @@ pub(super) fn edit(
                 if next.animation.driven(&path) {
                     return Err("Roto control is driven; edit its source".into());
                 }
-                if auto_key || next.animation.curve(&path)?.is_some() {
+                if (auto_key && keys::geometry(&property.id).is_some())
+                    || next
+                        .animation
+                        .curve(&path)?
+                        .is_some_and(|c| c.at(time).is_some())
+                {
                     let mut curve = next.animation.curve(&path)?.unwrap_or_default();
                     curve.insert(time, value);
                     next.animation.insert(path.clone(), curve)?;

@@ -24,7 +24,7 @@ impl Editor {
             .navigation
             .last()
             .map_or(Time::ZERO, |v| v.time);
-        let auto_key = host.state().auto_key;
+
         let Some(id) = state
             .selected
             .first()
@@ -40,11 +40,10 @@ impl Editor {
         let Some(graph) = state.graph.as_ref() else {
             return;
         };
-        let Some(node) = graph
+        let Some(_) = graph
             .node(id)
             .ok()
             .filter(|n| n.operation.operation == "Roto")
-            .cloned()
         else {
             if self.active() {
                 state.cancel(host);
@@ -58,6 +57,7 @@ impl Editor {
             self.reset_gesture();
         }
         self.select(id);
+        let auto_key = self.auto_key;
         if self
             .gesture
             .as_ref()
@@ -120,8 +120,8 @@ impl Editor {
         if !ui.is_key_down(Key::Space) {
             ui.invisible_button("##roto-canvas", size);
         }
-        let hovered = (rect.image_current || self.active())
-            && ui.is_item_hovered()
+        // Document guides remain interactive while the image worker catches up.
+        let hovered = ui.is_item_hovered()
             && ui.is_mouse_hovering_rect(origin, [origin[0] + size[0], origin[1] + size[1]]);
         let focused = ui.is_window_focused() && !ui.io().want_text_input();
         if focused && ui.is_key_pressed(Key::Escape) {
@@ -211,7 +211,9 @@ impl Editor {
                     .drawing
                     .as_ref()
                     .and_then(|l| l.shape.as_ref())
-                    .is_some_and(|s| s.points.len() >= 3 && view.near(p, s.points[0].position, 8.));
+                    .is_some_and(|s| {
+                        s.points.len() >= 3 && view.near(p, s.points[0].position, 10.)
+                    });
                 if close {
                     result = self.finish_drawing(state, host, &roto, id, time, auto_key);
                 } else {
@@ -358,7 +360,7 @@ impl Editor {
             if let Some(action) = action {
                 self.gesture = Some(Gesture {
                     before: roto.clone(),
-                    node: node.clone(),
+                    node: state.graph.as_ref().unwrap().node(id).unwrap().clone(),
                     time,
                     generation: state.generation,
                     start: p,
@@ -446,7 +448,7 @@ impl Editor {
                             .graph
                             .as_mut()
                             .unwrap()
-                            .node_mut(node.id)
+                            .node_mut(id)
                             .and_then(|n| super::edit(n, &roto, after, time, auto_key));
                         if result.is_ok() {
                             state.commit(host);
@@ -468,7 +470,7 @@ impl Editor {
                             .graph
                             .as_mut()
                             .unwrap()
-                            .node_mut(node.id)
+                            .node_mut(id)
                             .and_then(|n| super::edit(n, &roto, after, time, auto_key));
                         if result.is_ok() {
                             state.commit(host);
@@ -489,9 +491,13 @@ impl Editor {
             }
         }
         if let Some(layer) = &self.drawing {
-            let mut temporary = Roto::default();
-            temporary.root.children.push(layer.clone());
-            draw_layer(ui, &temporary.root, &temporary, view, self, time);
+            draw_draft(
+                ui,
+                layer,
+                view,
+                hovered.then_some(p),
+                self.pen_anchor.is_some(),
+            );
         }
         if !state.error.is_empty() {
             ui.get_window_draw_list().add_text(
@@ -511,11 +517,10 @@ impl Editor {
         time: Time,
         auto: bool,
     ) -> Result<(), String> {
-        let Some(mut layer) = self.drawing.take() else {
+        let Some(mut layer) = self.drawing.clone() else {
             return Ok(());
         };
         if layer.shape.as_ref().unwrap().points.len() < 3 {
-            self.drawing = Some(layer);
             return Err("A closed shape needs at least three points".into());
         }
         layer.shape.as_mut().unwrap().closed = true;
@@ -538,6 +543,10 @@ impl Editor {
             auto,
         )?;
         state.commit(host);
+        if !state.error.is_empty() {
+            return Err(state.error.clone());
+        }
+        self.drawing = None;
         self.layer = Some(selected);
         self.points = points;
         self.tool = Tool::Select;

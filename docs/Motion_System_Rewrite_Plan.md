@@ -817,6 +817,21 @@ configuration expressions and the remaining universal acceptance are still open.
   rasterize; release and physical playback qualification remain open. Existing
   Motion phase status and artist-acceptance gates do not change.
 
+### User-directed Roto shape keys (10 October)
+
+- Compact selected-shape controls add/remove a geometry key and traverse keys.
+  Roto auto-key starts enabled; complete shape geometry uses the existing native
+  scalar tracks, separately from layer transforms. Preview/commit/cancel and undo
+  remain transactional.
+- [Shape-key evidence](rewrite/evidence/compositor-roto-keys/result.md) records
+  five passing focused/native tests and reviewed normal/narrow UI captures.
+  Existing Motion phase gates and physical artist acceptance remain open.
+- Artist follow-up exposed missing open-pen guides and quadratic fully keyed
+  evaluation. [Guide repair evidence](rewrite/evidence/compositor-roto-guides/result.md)
+  records the failing interaction test, dedicated draft overlay, native visual
+  review and seven passing focused tests. Prepared 20-point keyed evaluation
+  falls from 31.2 ms to 1.7 ms in the debug fixture; physical latency is unverified.
+
 ## 4. Validation discipline
 
 During each phase, format touched Rust files and check affected crates. Add focused behavioral tests for changed semantics; test the document/IR independently of UI and use image/runtime fixtures for rendering contracts. Compare CPU/GPU at declared tolerances rather than silently relaxing them. Exercise examples through real public tools.

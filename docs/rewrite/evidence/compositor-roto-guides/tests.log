@@ -1,0 +1,38 @@
+warning: field `format` is never read
+  --> crates/render/src/gpu/yuv.rs:22:9
+   |
+16 | pub(super) struct Layout {
+   |                   ------ field in this struct
+...
+22 |     pub format: fold_media::VideoFormat,
+   |         ^^^^^^
+   |
+   = note: `Layout` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `parameters` is never used
+  --> crates/render/src/gpu/yuv.rs:26:8
+   |
+25 | impl Layout {
+   | ----------- method in this implementation
+26 |     fn parameters(self, size: u64) -> Result<[u32; 20], fold_foundation::Failure> {
+   |        ^^^^^^^^^^
+
+warning: `fold-render` (lib) generated 2 warnings
+   Compiling fold-ui v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/ui)
+   Compiling fold-compositor v0.1.0 (/home/rgame/.codex/worktrees/efc8/Fold/crates/compositor)
+    Finished `test` profile [unoptimized] target(s) in 10.25s
+     Running unittests src/lib.rs (target/debug/deps/fold_compositor-40b5bbedb11d202a)
+
+running 7 tests
+test ui::roto::tests::roto_key_buttons_navigate_add_remove_and_undo ... ok
+test ui::roto::tests::roto_keyed_evaluation_cost ... 20-point fully keyed Roto: median evaluation 1675 us
+ok
+test ui::roto::tests::roto_native_normal_and_narrow ... Roto UI AdapterInfo { name: "NVIDIA GeForce GTX 1070", vendor: 4318, device: 7137, device_type: DiscreteGpu, driver: "NVIDIA", driver_info: "580.173.02", backend: Vulkan }
+ok
+test ui::roto::tests::roto_open_pen_keeps_anchor_and_live_guide_visible ... ok
+test ui::roto::tests::roto_point_edit_keeps_ids_keys_and_corner_pin_maps_the_box ... ok
+test ui::roto::tests::roto_shape_keys_are_complete_scoped_and_preserve_last_pose ... ok
+test ui::roto::tests::roto_viewport_drag_cancel_commit_and_selection_routing ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 14 filtered out; finished in 3.63s
