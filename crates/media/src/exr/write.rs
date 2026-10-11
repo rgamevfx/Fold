@@ -23,7 +23,10 @@ pub fn write(
     cancel: &Cancel,
 ) -> Result<(), fold_foundation::Failure> {
     cancel.check()?;
-    if pixels.len() != dimensions[0] as usize * dimensions[1] as usize
+    let count = u64::from(dimensions[0]) * u64::from(dimensions[1]);
+    if count == 0
+        || count > crate::MAX_PIXELS as u64
+        || pixels.len() as u64 != count
         || components.is_empty()
         || components.iter().any(|c| *c > 3)
     {
@@ -36,6 +39,16 @@ pub fn write(
     }) {
         return Err("Output samples exceed the selected EXR precision; choose 32-bit float".into());
     }
+    let sample_bytes = if matches!(precision, Precision::Half) {
+        2
+    } else {
+        4
+    };
+    let _samples = budget::reserve_working(count * components.len() as u64 * sample_bytes)?;
+    // A sequential compressor bounds temporary storage independently of image height.
+    let _scratch = budget::reserve_working(
+        u64::from(dimensions[0]) * 32 * components.len() as u64 * 4 * 16 + 1024 * 1024,
+    )?;
     let channels: Vec<_> = components
         .iter()
         .map(|&component| {
@@ -69,7 +82,11 @@ pub fn write(
     let mut temporary = tempfile::NamedTempFile::new_in(parent).map_err(|e| e.to_string())?;
     image
         .write()
-        .to_unbuffered(temporary.as_file_mut())
+        .non_parallel()
+        .to_unbuffered(Cancellable {
+            inner: temporary.as_file_mut(),
+            cancel: cancel.clone(),
+        })
         .map_err(|e| e.to_string())?;
     cancel.check()?;
     temporary.as_file().sync_all().map_err(|e| e.to_string())?;

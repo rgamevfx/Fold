@@ -398,9 +398,19 @@ fn cpu_pixel_budget(plan: &RenderGraph, baseline: usize) -> usize {
     // Retain the existing small-raster limits; larger rasters need room for a
     // source, destination and scratch frame. Aggregate leases still bound all
     // concurrent evaluation, decoding and caller-held outputs.
-    let three_frames = (plan.width as usize)
-        .saturating_mul(plan.height as usize)
-        .saturating_mul(48);
+    let largest = plan
+        .nodes
+        .iter()
+        .filter_map(|op| match op {
+            ImageOp::WindowedSource { source, .. } => sampling::source_dimensions(source),
+            _ => sampling::source_dimensions(op),
+        })
+        .map(|[w, h]| (w as usize).saturating_mul(h as usize))
+        .fold(
+            (plan.width as usize).saturating_mul(plan.height as usize),
+            usize::max,
+        );
+    let three_frames = largest.saturating_mul(48);
     baseline.max(three_frames).min(cpu_working_budget())
 }
 
@@ -418,7 +428,7 @@ pub fn render(plan: impl Into<RenderGraph>) -> Result<Frame, fold_foundation::Fa
 }
 
 /// Worker entry point with retained source handles and cooperative cancellation.
-/// Live pixels share the configured working allowance, including DCI 4K frames.
+/// Live pixels share the configured working allowance, including native 8K frames.
 /// Caller-retained outputs, source bytes and display copies have separate budgets.
 pub fn render_with(
     plan: RenderGraph,

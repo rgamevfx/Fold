@@ -113,6 +113,7 @@ impl GpuFrame {
         let pixel_bytes = self.pixel_bytes() as usize;
         let stride = (width * pixel_bytes as u32).div_ceil(256) * 256;
         let size = u64::from(stride) * u64::from(height);
+        self.host.check_buffer_size(size)?;
         let reservation = self.host.reserve(size)?;
         let device = self.host.device();
         let buffer = device.create_buffer(&wgpu::BufferDescriptor {

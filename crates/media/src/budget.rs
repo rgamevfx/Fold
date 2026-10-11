@@ -1,7 +1,7 @@
 //! Aggregate accounting follows allocation ownership, including caller-held
 //! decoded leases. Cache eviction alone does not release referenced storage.
 use std::sync::{
-    Arc,
+    Arc, LazyLock,
     atomic::{AtomicU64, Ordering},
 };
 
@@ -23,7 +23,7 @@ impl Budget {
         if bytes > self.limit.load(Ordering::Acquire) {
             return Err(fold_foundation::Failure::new(
                 fold_foundation::FailureKind::RequestTooLarge,
-                "media allocation exceeds storage budget",
+                format!("Allocation needs {:.1} MiB; the configured resource allowance is {:.1} MiB. Increase the relevant budget or reduce the request.", bytes as f64 / 1048576., self.limit.load(Ordering::Acquire) as f64 / 1048576.),
             )
             .context(bytes));
         }
@@ -81,7 +81,7 @@ pub struct Usage {
     pub peak: u64,
     pub budget: u64,
 }
-static PREPARATION: Budget = Budget::new(128 * 1024 * 1024);
+static PREPARATION: LazyLock<Budget> = LazyLock::new(|| Budget::new(automatic_image_memory() / 6));
 
 /// Admission allowance, not additional physical storage: prepared samples also
 /// retain their normal decoded leases. Leave half the decode budget for demand.
@@ -92,7 +92,8 @@ pub fn preparation_usage() -> Usage {
     PREPARATION.usage()
 }
 
-pub(crate) static DECODED: Budget = Budget::new(256 * 1024 * 1024);
+pub(crate) static DECODED: LazyLock<Budget> =
+    LazyLock::new(|| Budget::new(automatic_image_memory() / 3));
 // One 4K 12-bit 4:4:4+A frame exceeds 64 MiB. All decoder pipes share this cap.
 pub(crate) static PIPE: Budget = Budget::new(128 * 1024 * 1024);
 pub fn pipe_usage() -> Usage {
@@ -136,8 +137,11 @@ mod tests {
     }
 }
 
-static WORKING: Budget = Budget::new(512 * 1024 * 1024);
-static OUTPUT: Budget = Budget::new(64 * 1024 * 1024);
+static WORKING: LazyLock<Budget> = LazyLock::new(|| {
+    let total = automatic_image_memory();
+    Budget::new(total - total / 3)
+});
+static OUTPUT: LazyLock<Budget> = LazyLock::new(|| Budget::new(automatic_image_memory() / 6));
 static DELIVERY: Budget = Budget::new(4 * 1024 * 1024 * 1024);
 static DELIVERY_PCM: Budget = Budget::new(256 * 1024 * 1024);
 pub fn working_usage() -> Usage {
@@ -168,7 +172,13 @@ pub fn reserve_delivery_pcm(bytes: u64) -> Result<Arc<Lease>, fold_foundation::F
 /// Shared CPU image allowance: one third decoded planes, two thirds working images.
 /// Pipe, output, project/history and allocator overhead remain separately bounded.
 pub fn configure_image_memory(bytes: u64) {
+    OUTPUT.limit.store(bytes / 6, Ordering::Release);
     DECODED.limit.store(bytes / 3, Ordering::Release);
     PREPARATION.limit.store(bytes / 6, Ordering::Release);
     WORKING.limit.store(bytes - bytes / 3, Ordering::Release);
+}
+
+/// Automatic CPU image allowance, sampled once at process startup/first use.
+pub fn automatic_image_memory() -> u64 {
+    crate::system_memory::automatic()
 }

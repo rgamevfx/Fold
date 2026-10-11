@@ -106,7 +106,10 @@ pub fn source_from_profile(
 ) -> Result<Source, String> {
     match profile {
         fold_media::ingest::SourceProfile::Video(info) => Ok(Source::Asset { asset, info }),
-        fold_media::ingest::SourceProfile::Ppm { dimensions } => Ok(Source::Asset {
+        fold_media::ingest::SourceProfile::Ppm { dimensions }
+        | fold_media::ingest::SourceProfile::Raster(fold_media::raster::Info {
+            dimensions, ..
+        }) => Ok(Source::Asset {
             asset,
             info: fold_media::VideoInfo {
                 width: dimensions[0],

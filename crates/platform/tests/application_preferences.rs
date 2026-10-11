@@ -29,7 +29,10 @@ fn machine_preferences_validate_and_configure_real_media_limits() {
         ram_mib: 384,
         ..Default::default()
     };
-    assert_eq!(app.effective().ram_mib, 768);
+    assert_eq!(
+        app.effective().ram_mib,
+        (fold_media::budget::automatic_image_memory() / (1024 * 1024)) as u32
+    );
 }
 
 #[test]

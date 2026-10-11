@@ -169,18 +169,22 @@ pub fn compile_source(
             time,
             space,
         ),
-        fold_media::ingest::SourceProfile::Ppm { .. } => {
+        fold_media::ingest::SourceProfile::Ppm { .. }
+        | fold_media::ingest::SourceProfile::Raster(_) => {
             if space
                 .as_deref()
                 .is_some_and(|s| s != fold_color::settings::SRGB_INPUT)
             {
-                return Err("PPM supports the sRGB input assignment".into());
+                return Err("Still images support the sRGB input assignment".into());
             }
-            ImageOp::Media(fold_media::still::ppm(
-                std::path::Path::new(&asset.location),
-                &asset.fingerprint,
-                cancel,
-            )?)
+            ImageOp::Media(
+                fold_media::still::load(
+                    std::path::Path::new(&asset.location),
+                    &asset.fingerprint,
+                    cancel,
+                )?
+                .0,
+            )
         }
         fold_media::ingest::SourceProfile::Exr(info) => {
             let mut source = fold_media::exr::Source {
@@ -245,7 +249,11 @@ pub fn asset_info(
     Ok(
         match crate::browser::asset_metadata(snapshot, id)?.profile {
             fold_media::ingest::SourceProfile::Video(info) => info,
-            fold_media::ingest::SourceProfile::Ppm { dimensions } => fold_media::VideoInfo {
+            fold_media::ingest::SourceProfile::Ppm { dimensions }
+            | fold_media::ingest::SourceProfile::Raster(fold_media::raster::Info {
+                dimensions,
+                ..
+            }) => fold_media::VideoInfo {
                 width: dimensions[0],
                 height: dimensions[1],
                 ..document.clone()

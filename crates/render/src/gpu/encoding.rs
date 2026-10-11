@@ -611,6 +611,8 @@ impl Renderer {
                     let mut input_space = None;
                     let mut native_planes = None;
                     let exr_pixels;
+                    let cpu_frame;
+                    let mut _pixel_storage = None;
                     let pixels: std::borrow::Cow<'_, [[f32; 4]]> =
                         if let ImageOp::Exr { space, alpha, .. } = op {
                             exr_pixels = exr.take(id, cancel)?;
@@ -618,6 +620,9 @@ impl Renderer {
                             if *alpha == crate::operations::SourceAlpha::Premultiplied {
                                 std::borrow::Cow::Borrowed(&exr_pixels.pixels)
                             } else {
+                                _pixel_storage = Some(fold_media::budget::reserve_working(
+                                    exr_pixels.pixels.len() as u64 * 16,
+                                )?);
                                 let mut pixels = exr_pixels.pixels.to_vec();
                                 alpha.apply(&mut pixels);
                                 std::borrow::Cow::Owned(pixels)
@@ -636,31 +641,38 @@ impl Renderer {
                             };
                             input_space = Some(match op {
                                 ImageOp::VideoInput { space, .. } => space.as_str(),
-                                _ if source.is_signal() => fold_color::settings::VIDEO_INPUT,
+                                _ if !source.is_srgb() => fold_color::settings::VIDEO_INPUT,
                                 _ => fold_color::settings::SRGB_INPUT,
                             });
-                            if source.native_gbr_planes().is_some() && !source.has_alpha() {
+                            if source.native_gbr_planes().is_some()
+                                && !source.has_alpha()
+                                && source.storage_bytes()
+                                    <= u64::from(
+                                        self.host.device().limits().max_storage_buffer_binding_size,
+                                    )
+                            {
                                 native_planes = Some(source.clone());
                                 std::borrow::Cow::Owned(Vec::new())
                             } else {
+                                _pixel_storage = Some(fold_media::budget::reserve_working(
+                                    u64::from(dimensions[0]) * u64::from(dimensions[1]) * 16,
+                                )?);
                                 source.encoded_pixels().collect()
                             }
                         } else {
-                            std::borrow::Cow::Owned(
-                                graph::evaluate(
-                                    RenderGraph {
-                                        width: graph.width,
-                                        height: graph.height,
-                                        nodes: vec![op.clone()],
-                                        output: 0,
-                                    },
-                                    decoder,
-                                    cancel,
-                                    128 * 1024 * 1024,
-                                    config,
-                                )?
-                                .pixels,
-                            )
+                            cpu_frame = graph::evaluate(
+                                RenderGraph {
+                                    width: graph.width,
+                                    height: graph.height,
+                                    nodes: vec![op.clone()],
+                                    output: 0,
+                                },
+                                decoder,
+                                cancel,
+                                crate::cpu_working_budget(),
+                                config,
+                            )?;
+                            std::borrow::Cow::Borrowed(&cpu_frame.pixels)
                         };
                     stats.cpu_adapter_nanoseconds += begin.elapsed().as_nanos();
                     stats.cpu_adapter_nodes += 1;

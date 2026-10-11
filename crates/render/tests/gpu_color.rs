@@ -261,3 +261,74 @@ fn prores_xq_alpha_matches_cpu_through_aces_and_over() {
         assert!(error < 0.0001, "shared alpha source error {error}");
     }
 }
+
+#[test]
+#[ignore = "requires native Vulkan and the private GPU OCIO package"]
+fn raster_alpha_srgb_cpu_gpu_and_retained_source_agree() {
+    let dir = tempfile::tempdir().unwrap();
+    let raw = dir.path().join("source.rgba");
+    let png = dir.path().join("source.png");
+    std::fs::write(&raw, [128u8, 64, 32, 128].repeat(4)).unwrap();
+    let result = std::process::Command::new("ffmpeg")
+        .args([
+            "-v",
+            "error",
+            "-y",
+            "-f",
+            "rawvideo",
+            "-pixel_format",
+            "rgba",
+            "-video_size",
+            "2x2",
+            "-i",
+        ])
+        .arg(&raw)
+        .args(["-frames:v", "1", "-threads", "1"])
+        .arg(&png)
+        .output()
+        .unwrap();
+    assert!(result.status.success());
+    let cancel = fold_media::Cancel::default();
+    let source = fold_media::ingest::inspect_linked(&png, &cancel).unwrap();
+    let (image, _) = fold_media::still::load(&png, &source.fingerprint, &cancel).unwrap();
+    let graph = RenderGraph {
+        width: 2,
+        height: 2,
+        nodes: vec![ImageOp::Media(image)],
+        output: 0,
+    };
+    let root = std::path::PathBuf::from(
+        std::env::var_os("FOLD_TEST_COLOR_ROOT").expect("FOLD_TEST_COLOR_ROOT"),
+    );
+    let runtime = fold_color::Runtime::at(&root).unwrap();
+    let config = runtime.bundled().unwrap();
+    let (host, _) = pollster::block_on(Host::headless(128 * 1024 * 1024)).unwrap();
+    let mut renderer = Renderer::new(host).unwrap();
+    let mut decoder = fold_media::Decoder::default();
+    for color in [None, Some(&config)] {
+        let expected = match color {
+            Some(config) => {
+                fold_render::render_aces_with(graph.clone(), config, &mut decoder, &cancel).unwrap()
+            }
+            None => fold_render::render(graph.clone()).unwrap(),
+        };
+        if color.is_none() {
+            let alpha = 128. / 255.;
+            let linear = ((128f32 / 255. + 0.055) / 1.055).powf(2.4) * alpha;
+            assert!((expected.pixels()[0][0] - linear).abs() < 1e-6);
+            assert!((expected.pixels()[0][3] - alpha).abs() < 1e-6);
+        }
+        for _ in 0..2 {
+            let actual = renderer
+                .evaluate(graph.clone(), color, &mut decoder, &cancel)
+                .unwrap()
+                .readback(&cancel)
+                .unwrap();
+            for (a, b) in actual.pixels().iter().zip(expected.pixels()) {
+                for c in 0..4 {
+                    assert!((a[c] - b[c]).abs() < 0.0001, "channel {c}: {a:?} != {b:?}");
+                }
+            }
+        }
+    }
+}

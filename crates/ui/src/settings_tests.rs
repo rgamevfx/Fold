@@ -119,12 +119,15 @@ fn playback_settings_native_normal_and_narrow() {
     settings.application_draft.timeline_disk_gib = 20;
     settings.application_draft.composition_disk_gib = 10;
     settings.open = true;
-    for (name, width, scroll) in [
-        ("normal-top", 640., 100.),
-        ("normal-bottom", 640., -100.),
-        ("narrow-top", 440., 100.),
-        ("narrow-bottom", 440., -100.),
+    for (name, width, scroll, automatic) in [
+        ("normal-top", 640., 100., false),
+        ("normal-bottom", 640., -100., false),
+        ("narrow-top", 440., 100., false),
+        ("narrow-bottom", 440., -100., false),
+        ("automatic-normal", 640., 100., true),
+        ("automatic-narrow", 440., 100., true),
     ] {
+        settings.application_draft.automatic = automatic;
         context.load_ini_settings(&format!(
             "[Window][Settings##fold.settings]\nPos=10,10\nSize={},780\nCollapsed=0\n",
             width

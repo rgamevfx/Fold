@@ -33,8 +33,11 @@ pub fn key(snapshot: &fold_project::Snapshot, request: &Request) -> Result<Strin
     if let Source::Asset(id) = request.source {
         let profile = crate::browser::asset_metadata(snapshot, id)?.profile;
         if mapped.is_some()
-            && (matches!(profile, fold_media::ingest::SourceProfile::Ppm { .. })
-                || matches!(profile,fold_media::ingest::SourceProfile::Exr(ref info) if info.sequence.is_none()))
+            && (matches!(
+                profile,
+                fold_media::ingest::SourceProfile::Ppm { .. }
+                    | fold_media::ingest::SourceProfile::Raster(_)
+            ) || matches!(profile,fold_media::ingest::SourceProfile::Exr(ref info) if info.sequence.is_none()))
         {
             request.time = fold_foundation::Time::ZERO;
         }

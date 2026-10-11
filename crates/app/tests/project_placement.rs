@@ -749,3 +749,73 @@ fn multiple_native_images_are_sequential_on_one_new_timeline_track() {
     assert_eq!(sequence.clips[0].track, sequence.clips[1].track);
     assert_eq!(sequence.clips[1].start, sequence.clips[0].end().unwrap());
 }
+
+#[test]
+fn common_image_import_placement_render_and_reopen() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = dir.path().join("source.ppm");
+    std::fs::write(
+        &source,
+        b"P6\n2 2\n255\n\xff\x00\x00\xff\x00\x00\xff\x00\x00\xff\x00\x00",
+    )
+    .unwrap();
+    for ext in ["jpg", "png", "webp", "tiff", "gif", "bmp"] {
+        let path = dir.path().join(format!("source.{ext}"));
+        let result = std::process::Command::new("ffmpeg")
+            .args(["-v", "error", "-y", "-i"])
+            .arg(&source)
+            .args(["-frames:v", "1", "-threads", "1"])
+            .arg(&path)
+            .output()
+            .unwrap();
+        assert!(
+            result.status.success(),
+            "{}",
+            String::from_utf8_lossy(&result.stderr)
+        );
+        let mut project = Project::new(16);
+        ingest::import(
+            &project.snapshot(),
+            &ingest::ImportRequest {
+                base: project.snapshot().revision(),
+                paths: vec![path],
+                destination: Parent::Root,
+            },
+            &Cancel::default(),
+        )
+        .unwrap()
+        .commit(&mut project)
+        .unwrap();
+        let asset = *project.snapshot().state().assets.keys().next().unwrap();
+        let mut outputs = vec![];
+        for kind in [fold_timeline::SEQUENCE, fold_composition::COMPOSITION] {
+            let document = create(&mut project, kind);
+            edit(
+                &mut project,
+                Command::Place(placement(PlacementSource::Asset(asset), document)),
+            );
+            outputs.push(DocumentRef {
+                document,
+                output: "video".into(),
+                extensions: Default::default(),
+            });
+        }
+        let before = project.snapshot().state().documents.clone();
+        project.undo().unwrap();
+        project.redo().unwrap();
+        assert_eq!(project.snapshot().state().documents, before);
+        let archive = dir.path().join(format!("{ext}.fold"));
+        fold_project::save(&project.snapshot(), &archive).unwrap();
+        let reopened = fold_project::load(&archive, 16).unwrap();
+        for reference in outputs {
+            let graph = packages::builtins()
+                .video(&reopened.snapshot(), &reference, Time::ZERO, 1280, 720)
+                .unwrap();
+            let frame = fold_render::render(graph).unwrap();
+            assert!(
+                frame.pixels().iter().any(|p| p[0] > 0.8 && p[1] < 0.02),
+                "{ext}"
+            );
+        }
+    }
+}

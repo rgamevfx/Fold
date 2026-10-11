@@ -200,9 +200,11 @@ impl fold_platform::packages::Relink for Documents {
         {
             let compatible = match (&clip.info, &metadata.profile) {
                 (crate::SourceMedia::Video(a), SourceProfile::Video(b)) => a == b,
-                (crate::SourceMedia::Image(a), SourceProfile::Ppm { dimensions }) => {
-                    [a.width, a.height] == *dimensions
-                }
+                (
+                    crate::SourceMedia::Image(a),
+                    SourceProfile::Ppm { dimensions }
+                    | SourceProfile::Raster(fold_media::raster::Info { dimensions, .. }),
+                ) => [a.width, a.height] == *dimensions,
                 (crate::SourceMedia::Image(a), SourceProfile::Exr(b)) => {
                     [a.width, a.height] == b.dimensions
                 }

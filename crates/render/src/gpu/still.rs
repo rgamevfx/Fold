@@ -25,7 +25,7 @@ impl Key {
         processors: &std::collections::BTreeMap<String, fold_color::Processor>,
     ) -> Result<Option<Self>, fold_foundation::Failure> {
         if let ImageOp::Media(image) = op {
-            if let Some(identity) = image.rgb_identity() {
+            if let Some(identity) = image.still_identity() {
                 return Ok(Some(Self {
                     alpha: Default::default(),
                     fingerprint: identity.into(),

@@ -8,7 +8,8 @@ use std::{
 };
 
 pub const SUPPORTED_EXTENSIONS: &[&str] = &[
-    "mp4", "mov", "mxf", "wav", "mp3", "m4a", "aac", "flac", "ppm", "exr",
+    "mp4", "mov", "mxf", "wav", "mp3", "m4a", "aac", "flac", "ppm", "exr", "jpg", "jpeg", "png",
+    "webp", "tif", "tiff", "gif", "bmp",
 ];
 
 pub const METADATA_KEY: &str = "fold.media.source.v1";
@@ -20,6 +21,7 @@ pub enum SourceProfile {
     Exr(crate::exr::Info),
     Wave(WaveInfo),
     Ppm { dimensions: [u32; 2] },
+    Raster(crate::raster::Info),
 }
 
 /// Probed facts, not a color assignment. FFprobe stream records retain native
@@ -87,6 +89,10 @@ pub fn inspect_linked(
             video_format=Some(format);
             SourceProfile::Video(info)
         },
+        "jpg" | "jpeg" | "png" | "webp" | "tif" | "tiff" | "gif" | "bmp" => {
+            let (_, info) = crate::still::load(&path, &hash, cancel)?;
+            SourceProfile::Raster(info.ok_or("image extension does not match its content")?)
+        }
         "ppm" => {
             let mut bytes = Vec::new();
             std::fs::File::open(&path)
@@ -98,7 +104,7 @@ pub fn inspect_linked(
                 dimensions: crate::RgbImage::decode_ppm(&bytes)?.dimensions(),
             }
         }
-        _ => return Err("unsupported linked media: expected MP4/MOV/MXF video, WAV/MP3/AAC/M4A/FLAC audio, P6 PPM or OpenEXR".into()),
+        _ => return Err("unsupported linked media: expected MP4/MOV/MXF video, WAV/MP3/AAC/M4A/FLAC audio, JPEG/PNG/WebP/TIFF/GIF/BMP, P6 PPM or OpenEXR".into()),
     };
     let (streams, raw_format) = if matches!(profile, SourceProfile::Ppm { .. }) {
         (
@@ -112,6 +118,27 @@ pub fn inspect_linked(
                     "codec_name": "ppm", "pix_fmt": "rgb24", "bits_per_raw_sample": 8,
                     "alpha": "opaque", "interpretation": "legacy P6 sRGB adapter"
                 }),
+            }],
+            serde_json::Value::Null,
+        )
+    } else if let SourceProfile::Raster(info) = &profile {
+        (
+            vec![StreamMetadata {
+                index: 0,
+                kind: "video".into(),
+                facts: serde_json::to_value(info).map_err(|e| e.to_string())?,
+                bit_depth: Some(info.bit_depth),
+                planes: Some(1),
+                alpha: Some(
+                    if info.premultiplied {
+                        "premultiplied"
+                    } else if info.alpha {
+                        "straight"
+                    } else {
+                        "opaque"
+                    }
+                    .into(),
+                ),
             }],
             serde_json::Value::Null,
         )
@@ -225,7 +252,9 @@ pub fn inspect_linked(
         SourceProfile::Exr(info) if info.sequence.is_some() => {
             "exact numbered EXR frames; rate assigned per use"
         }
-        SourceProfile::Ppm { .. } | SourceProfile::Exr(_) => "still image",
+        SourceProfile::Ppm { .. } | SourceProfile::Raster(_) | SourceProfile::Exr(_) => {
+            "still image"
+        }
     }
     .into();
     Ok(LinkedSource {

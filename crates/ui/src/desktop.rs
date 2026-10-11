@@ -316,6 +316,7 @@ impl Desktop {
         eprintln!("Fold presentation adapter: {:?}", adapter.get_info());
         let (device, queue) =
             pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
+                required_limits: fold_platform::gpu::Host::image_device_limits(&adapter),
                 required_features: adapter.features()
                     & (wgpu::Features::FLOAT32_FILTERABLE
                         | wgpu::Features::TIMESTAMP_QUERY

@@ -412,9 +412,11 @@ impl fold_platform::packages::Relink for Documents {
             }
             let valid = match &metadata.profile {
                 fold_media::ingest::SourceProfile::Video(info) => *info == layer.info,
-                fold_media::ingest::SourceProfile::Ppm { dimensions } => {
-                    *dimensions == [layer.info.width, layer.info.height]
-                }
+                fold_media::ingest::SourceProfile::Ppm { dimensions }
+                | fold_media::ingest::SourceProfile::Raster(fold_media::raster::Info {
+                    dimensions,
+                    ..
+                }) => *dimensions == [layer.info.width, layer.info.height],
                 fold_media::ingest::SourceProfile::Exr(info) => {
                     info.dimensions == [layer.info.width, layer.info.height]
                         && info

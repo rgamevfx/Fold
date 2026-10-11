@@ -112,12 +112,12 @@ impl Resolver for Service<'_> {
             .checked_mul(request.info.height as usize)
             .and_then(|n| n.checked_mul(16))
             .ok_or("Image dimensions overflow")?;
-        const LIMIT: usize = 128 * 1024 * 1024;
-        if bytes > LIMIT
-            || self.cache.borrow().bytes.saturating_add(bytes) > LIMIT
+        let limit = (fold_media::budget::working_usage().budget / 2) as usize;
+        if bytes > limit
+            || self.cache.borrow().bytes.saturating_add(bytes) > limit
             || self.cache.borrow().frames.len() >= 64
         {
-            return Err("Image sampling exceeds 128 MiB or 64 source frames per request".into());
+            return Err("Image sampling exceeds its share of the CPU memory budget or 64 source frames per request".into());
         }
         let graph = image_source::compile_source(
             &request,

@@ -3,7 +3,6 @@ use crate::{Frame, SolidPlan};
 
 const MAX_NODES: usize = 4096;
 const MAX_PIXELS: u64 = fold_media::MAX_PIXELS as u64;
-const PIXEL_BUDGET: usize = 64 * 1024 * 1024;
 
 /// Transient index in a topologically ordered graph, not an authoring identity.
 pub type ImageId = usize;
@@ -73,8 +72,8 @@ pub enum ImageOp {
         dimensions: [u32; 2],
         region: crate::region::Region,
     },
-    /// Validated opaque SDR source. Decoded storage is caller-owned; its RGB8
-    /// byte count across all source nodes is separately capped at 64 MiB.
+    /// Validated SDR source with explicit transfer and alpha. Decoded storage
+    /// is caller-owned and admitted by the shared decoded-memory budget.
     Media(fold_media::RgbImage),
     Exr {
         alpha: crate::operations::SourceAlpha,
@@ -363,15 +362,10 @@ pub(crate) fn validate(graph: &RenderGraph, aces: bool) -> Result<usize, String>
     if graph.nodes.len() > MAX_NODES || graph.output >= graph.nodes.len() {
         return Err("graph requires a valid output and at most 4096 nodes".into());
     }
-    let mut source_bytes = 0u64;
     for (id, op) in graph.nodes.iter().enumerate() {
         if let ImageOp::Media(source) = op {
             if source.dimensions() != [graph.width, graph.height] {
                 return Err("media dimensions must match graph resolution".into());
-            }
-            source_bytes += source.storage_bytes();
-            if source_bytes > PIXEL_BUDGET as u64 {
-                return Err("render graph exceeds 64 MiB source image budget".into());
             }
         }
         if op.inputs().any(|input| input >= id) {
@@ -400,12 +394,6 @@ pub(crate) fn validate(graph: &RenderGraph, aces: bool) -> Result<usize, String>
                         | ImageOp::VideoInput { .. }
                 ) {
                     return Err("windowed source requires a media leaf".into());
-                }
-                if let ImageOp::Media(media) = source.as_ref() {
-                    source_bytes += media.storage_bytes();
-                    if source_bytes > PIXEL_BUDGET as u64 {
-                        return Err("render graph exceeds 64 MiB source image budget".into());
-                    }
                 }
                 region.validate(dimensions)?;
                 if region.dimensions() != [graph.width, graph.height] {
@@ -786,7 +774,7 @@ pub(crate) fn evaluate(
             ImageOp::Media(ref source) => {
                 if aces {
                     pixels.extend(source.encoded_pixels());
-                    let space = if source.is_signal() {
+                    let space = if !source.is_srgb() {
                         fold_color::settings::VIDEO_INPUT
                     } else {
                         fold_color::settings::SRGB_INPUT

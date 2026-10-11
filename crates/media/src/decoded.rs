@@ -223,6 +223,7 @@ impl YuvFrame {
             rgb: Arc::new(Vec::new()),
             identity: Default::default(),
             signal: Some(Arc::new(planes)),
+            srgb_signal: false,
             _storage: storage,
         })
     }

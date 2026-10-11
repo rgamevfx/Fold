@@ -23,7 +23,7 @@ impl Default for Application {
             automatic: true,
             gpu_mib: 1024,
             viewer_mib: 256,
-            ram_mib: 768,
+            ram_mib: (fold_media::budget::automatic_image_memory() / (1024 * 1024)) as u32,
             viewer_ram_mib: 1024,
             timeline_disk_gib: 0,
             composition_disk_gib: 0,

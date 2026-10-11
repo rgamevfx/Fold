@@ -38,7 +38,13 @@ pub fn replace(
             {
                 let Some(path) = rfd::FileDialog::new()
                     .set_title("Read image or video")
-                    .add_filter("Compositing sources", &["exr", "mp4"])
+                    .add_filter(
+                        "Compositing sources",
+                        &[
+                            "exr", "ppm", "jpg", "jpeg", "png", "webp", "tif", "tiff", "gif",
+                            "bmp", "mp4", "mov", "mxf",
+                        ],
+                    )
                     .pick_file()
                 else {
                     return Ok(EditBatch {

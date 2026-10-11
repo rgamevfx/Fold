@@ -1,10 +1,11 @@
-//! Bounded media adapters and opaque, full-range SDR sRGB RGB8 source images.
+//! Bounded media adapters and explicit sRGB still / BT.709 video source samples.
 use std::sync::Arc;
 
 pub mod audio;
 pub mod budget;
 mod decoded;
 pub mod scratch;
+mod system_memory;
 pub use decoded::{PlaneLayout, YuvFrame};
 pub mod exr;
 pub mod exr_sequence;
@@ -33,11 +34,12 @@ pub fn content_hash(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
 }
 
-pub const MAX_PIXELS: usize = 4096 * 2160;
+/// Shared image geometry guard; memory admission is separate from resolution.
+pub const MAX_PIXELS: usize = 8192 * 8192;
 pub const MAX_SOURCE_BYTES: usize = MAX_PIXELS * 3 + 4096;
 
-/// Validated immutable RGB: sRGB RGB8 fixtures/legacy decode, or reconstructed BT.709
-/// encoded float RGB after YUV reconstruction (`is_signal`). This is not a
+/// Validated immutable RGB: sRGB still samples (RGB8 or float RGBA), or
+/// reconstructed BT.709 video samples. This is not a
 /// working image or viewer cache entry; OCIO consumes `encoded_pixels` for ACES.
 #[derive(Clone, Debug)]
 pub struct RgbImage {
@@ -46,6 +48,7 @@ pub struct RgbImage {
     identity: Arc<std::sync::OnceLock<String>>,
     /// Tightly packed straight G, B, R and optional A float planes (not working color).
     signal: Option<Arc<Vec<f32>>>,
+    srgb_signal: bool,
     _storage: Arc<budget::Lease>,
 }
 
@@ -125,6 +128,7 @@ impl RgbImage {
             rgb: Arc::new(rgb.to_vec()),
             identity: Default::default(),
             signal: None,
+            srgb_signal: false,
             _storage: storage,
         })
     }
@@ -140,6 +144,7 @@ impl RgbImage {
             rgb: Arc::new(rgb),
             identity: Default::default(),
             signal: None,
+            srgb_signal: false,
             _storage: storage,
         })
     }
@@ -169,10 +174,11 @@ impl RgbImage {
             rgb: Arc::new(Vec::new()),
             identity: Default::default(),
             signal: Some(Arc::new(pixels)),
+            srgb_signal: false,
             _storage: storage,
         })
     }
-    /// Borrowed G/B/R float planes after explicit BT.709 reconstruction.
+    /// Borrowed straight G/B/R float planes in the source transfer encoding.
     /// Native codec samples are exposed separately through `YuvFrame`.
     /// Ownership remains with this image. This view excludes optional alpha.
     pub fn native_gbr_planes(&self) -> Option<&[f32]> {
@@ -204,6 +210,10 @@ impl RgbImage {
             p.len() == self.dimensions[0] as usize * self.dimensions[1] as usize * 4
         })
     }
+    pub fn is_srgb(&self) -> bool {
+        self.signal.is_none() || self.srgb_signal
+    }
+
     pub fn is_signal(&self) -> bool {
         self.signal.is_some()
     }
@@ -213,12 +223,23 @@ impl RgbImage {
             .map_or(self.rgb.len() as u64, |p| p.len() as u64 * 4)
     }
 
-    /// Content identity for immutable RGB8 still reuse; native float planes use
+    /// Content identity for immutable sRGB still reuse; native video planes use
     /// their decoder-owned identities instead.
-    pub fn rgb_identity(&self) -> Option<&str> {
-        (!self.is_signal()).then(|| {
+    pub fn still_identity(&self) -> Option<&str> {
+        self.is_srgb().then(|| {
             self.identity
-                .get_or_init(|| content_hash(&self.rgb))
+                .get_or_init(|| {
+                    if let Some(planes) = &self.signal {
+                        use sha2::{Digest, Sha256};
+                        let mut hash = Sha256::new();
+                        for sample in planes.iter() {
+                            hash.update(sample.to_le_bytes());
+                        }
+                        format!("{hash:x}", hash = hash.finalize())
+                    } else {
+                        content_hash(&self.rgb)
+                    }
+                })
                 .as_str()
         })
     }
@@ -247,7 +268,13 @@ impl RgbImage {
                 let count = self.dimensions[0] as usize * self.dimensions[1] as usize;
                 let alpha = signal.get(3 * count + i).copied().unwrap_or(1.);
                 let decode = |v: f32| {
-                    if v < 0.081 {
+                    if self.srgb_signal {
+                        (if v <= 0.04045 {
+                            v / 12.92
+                        } else {
+                            ((v + 0.055) / 1.055).powf(2.4)
+                        }) * alpha
+                    } else if v < 0.081 {
                         v / 4.5 * alpha
                     } else {
                         ((v + 0.099) / 1.099).powf(1. / 0.45) * alpha
@@ -328,4 +355,5 @@ mod tests {
     }
 }
 
+pub mod raster;
 pub mod still;

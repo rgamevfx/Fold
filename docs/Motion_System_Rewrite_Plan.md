@@ -902,3 +902,30 @@ limits, attributes, save/undo, public CLI authoring, and native frame observatio
 Native Inspector captures and a rendered clone frame were reviewed. Physical
 artist interaction and the full phase checkpoints remain unverified.
 See [implementation and validation evidence](rewrite/evidence/image-sampling/result.md).
+
+## User-directed common image codecs (11 October 2026)
+
+JPEG, PNG, WebP, TIFF, GIF and BMP now enter the shared still-image path used by
+Timeline, Composition, Compositor and Motion. The implementation preserves alpha,
+16-bit samples and EXIF orientation, and handles associated TIFF alpha. Animation
+and multipage files use their first image; still color interpretation is sRGB.
+Embedded ICC conversion is not included. [Codec evidence and limits](rewrite/evidence/image-codecs/result.md)
+record passing decoder, native rendering, application placement/persistence and
+desktop checks separately from unverified physical interaction. Existing Motion gates and phase order remain
+unchanged; this is a user-directed shared-media addition.
+
+## User-directed large-image support (11 October 2026)
+
+The shared image geometry guard now accepts 8192 × 8192. Small raster/EXR file-size
+caps and the 64 MiB render-source cap are replaced by accounted memory admission;
+EXRs read selected compression blocks directly from disk. Linux CPU memory defaults
+adapt to system RAM, and desktop/headless GPU transfer limits accommodate 8K frames.
+Native source dimensions and authored resizing semantics are unchanged; existing
+viewer preview scaling remains transient. Bounded EXR export retains full resolution.
+
+[Large-image evidence](rewrite/evidence/large-images/result.md) records real 8K
+16-bit RGBA PNG, 6K BMP, 405 MiB multilayer 4K EXR, native 8K render/export/reopen,
+GTX 1070 upload/readback/preview checks, 50 focused regression tests and the desktop
+build check. Normal/narrow settings captures were reviewed. Memory/device limits,
+other-OS telemetry and physical artist/performance acceptance remain explicit.
+Existing Motion phase gates and M6 status are unchanged.

@@ -284,9 +284,11 @@ impl fold_platform::packages::Relink for Documents {
                 && *id == asset
                 && !match &metadata.profile {
                     fold_media::ingest::SourceProfile::Video(updated) => updated == info,
-                    fold_media::ingest::SourceProfile::Ppm { dimensions } => {
-                        *dimensions == [info.width, info.height]
-                    }
+                    fold_media::ingest::SourceProfile::Ppm { dimensions }
+                    | fold_media::ingest::SourceProfile::Raster(fold_media::raster::Info {
+                        dimensions,
+                        ..
+                    }) => *dimensions == [info.width, info.height],
                     _ => false,
                 }
             {

@@ -54,7 +54,7 @@ pub fn place(
             let info = match metadata.profile {
                 SourceProfile::Video(info) => SourceMedia::Video(info),
                 SourceProfile::Wave(info) => SourceMedia::Audio(info),
-                SourceProfile::Ppm { .. } | SourceProfile::Exr(_) => {
+                SourceProfile::Ppm { .. } | SourceProfile::Raster(_) | SourceProfile::Exr(_) => {
                     let defaults = fold_media::VideoInfo {
                         width: sequence.dimensions[0],
                         height: sequence.dimensions[1],

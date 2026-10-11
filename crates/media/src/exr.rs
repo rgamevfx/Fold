@@ -10,12 +10,11 @@ use ::exr::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::result::Result;
 use std::{
-    io::{Cursor, Read},
+    io::{Read, Seek},
     path::{Path, PathBuf},
     sync::Arc,
 };
 
-const MAX_FILE_BYTES: u64 = 256 * 1024 * 1024;
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Channel {
     pub name: String,
@@ -169,8 +168,9 @@ fn metadata(reader: impl Read) -> Result<Layout, fold_foundation::Failure> {
             | Compression::ZIP1
             | Compression::ZIP16
             | Compression::RLE => block_bytes.checked_mul(4),
-            _ => (area * header.channels.list.len() as u64 * 4)
-                .checked_add(block_bytes.saturating_mul(4)),
+            // PIZ/PXR24/B44 and DWA operate on one compression block, not
+            // all channels of the full image. Allow conversion/wavelet scratch.
+            _ => block_bytes.checked_mul(16),
         }
         .and_then(|n| n.checked_add(1024 * 1024))
         .ok_or("EXR scratch size overflow")?;
@@ -223,9 +223,6 @@ fn retain_scratch(bytes: u64, lease: Arc<budget::Lease>) {
 pub fn inspect(path: &Path, cancel: &Cancel) -> Result<Info, fold_foundation::Failure> {
     cancel.check()?;
     let file = std::fs::File::open(path).map_err(|e| e.to_string())?;
-    if file.metadata().map_err(|e| e.to_string())?.len() > MAX_FILE_BYTES {
-        return Err("EXR exceeds 256 MiB compressed source limit".into());
-    }
     let result = metadata(std::io::BufReader::new(file))?;
     cancel.check()?;
     Ok(result.info)
@@ -250,32 +247,18 @@ pub fn decode(
     if count == 0 || count > crate::MAX_PIXELS as u64 {
         return Err("Invalid EXR output dimensions".into());
     }
-    let mut file = std::fs::File::open(&source.path).map_err(|e| e.to_string())?;
-    let size = file.metadata().map_err(|e| e.to_string())?.len();
-    if size > MAX_FILE_BYTES {
-        return Err("EXR exceeds 256 MiB compressed source limit".into());
-    }
-    let _source_lease = budget::reserve_working(size)?;
-    let mut bytes = Vec::new();
-    bytes
-        .try_reserve_exact(size as usize)
-        .map_err(|_| "EXR source allocation failed")?;
-    let mut block = [0u8; 65536];
-    loop {
-        cancel.check()?;
-        let read = file.read(&mut block).map_err(|e| e.to_string())?;
-        if read == 0 {
-            break;
-        }
-        if bytes.len() as u64 + read as u64 > size {
-            return Err("EXR source changed during read".into());
-        }
-        bytes.extend_from_slice(&block[..read]);
-    }
-    if format!("sha256:{}", crate::content_hash(&bytes)) != source.fingerprint {
+    let stamp = cache::Stamp::read(&source.path, cancel)?;
+    if crate::fingerprint(&source.path, cancel)? != source.fingerprint {
         return Err("EXR source fingerprint changed; reimport required".into());
     }
-    let layout = metadata(Cursor::new(&bytes))?;
+    let mut file = std::fs::File::open(&source.path).map_err(|e| e.to_string())?;
+    let layout = metadata(std::io::BufReader::new(&mut file))?;
+    let unchanged = || -> Result<(), fold_foundation::Failure> {
+        if cache::Stamp::read(&source.path, cancel)? != stamp {
+            return Err("EXR source changed during decode; reimport required".into());
+        }
+        Ok(())
+    };
     if layout.info != source.info {
         return Err("EXR source metadata changed".into());
     }
@@ -333,9 +316,10 @@ pub fn decode(
         } else {
             Some(budget::reserve_working(size.area() as u64 * 16)?)
         };
+        file.rewind().map_err(|e| e.to_string())?;
         let chunks = ::exr::block::read(
             Cancellable {
-                inner: Cursor::new(&bytes),
+                inner: std::io::BufReader::new(&mut file),
                 cancel: cancel.clone(),
             },
             true,
@@ -359,6 +343,7 @@ pub fn decode(
             cancel,
         )?;
         if direct {
+            unchanged()?;
             return Ok(Pixels {
                 pixels: samples,
                 _lease: output_lease,
@@ -400,6 +385,7 @@ pub fn decode(
             }
         }
     }
+    unchanged()?;
     Ok(Pixels {
         pixels,
         _lease: output_lease,
@@ -418,5 +404,15 @@ impl<T: Read> Read for Cancellable<T> {
 impl<T: std::io::Seek> std::io::Seek for Cancellable<T> {
     fn seek(&mut self, position: std::io::SeekFrom) -> std::io::Result<u64> {
         self.inner.seek(position)
+    }
+}
+
+impl<T: std::io::Write> std::io::Write for Cancellable<T> {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.cancel.check().map_err(std::io::Error::other)?;
+        self.inner.write(bytes)
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.inner.flush()
     }
 }

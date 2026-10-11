@@ -141,7 +141,7 @@ pub fn import(
             alpha: None,
             provenance: if matches!(source.metadata.profile, fold_media::ingest::SourceProfile::Video(_)) {
                 "SDR video reconstruction: missing matrix/primaries/transfer assume Rec.709; missing YUV range assumes limited, RGB assumes full range. Probed facts remain unknown; OCIO input assignment is unassigned."
-            } else { "unassigned; consult probed facts (no OCIO transform selected)" }.into(),
+            } else if matches!(source.metadata.profile, fold_media::ingest::SourceProfile::Raster(_)) { "Still image: first image only; EXIF orientation applied; sRGB interpretation. Embedded ICC profiles are identified but not converted." } else { "unassigned; consult probed facts (no OCIO transform selected)" }.into(),
         };
         let asset = Asset {
             id: AssetId::new(),

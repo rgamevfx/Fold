@@ -31,6 +31,35 @@ pub fn thumbnail_range(
             "Source changed; relink required",
         ));
     }
+    if matches!(profile, SourceProfile::Raster(_)) {
+        let (image, _) = crate::still::load(path, fingerprint, cancel)?;
+        let [w, h] = image.dimensions();
+        let _working = crate::budget::reserve_working(
+            u64::from(w) * u64::from(h) * 16 + u64::from(w.max(h)) * 128 * 32 + 128 * 72 * 16,
+        )?;
+        let samples: Vec<f32> = image.encoded_pixels().flatten().collect();
+        let source =
+            image::Rgba32FImage::from_raw(w, h, samples).ok_or("invalid thumbnail source")?;
+        let scale = (SIZE[0] as f64 / w as f64).min(SIZE[1] as f64 / h as f64);
+        let tw = ((w as f64 * scale).round() as u32).clamp(1, SIZE[0]);
+        let th = ((h as f64 * scale).round() as u32).clamp(1, SIZE[1]);
+        let resized =
+            image::imageops::resize(&source, tw, th, image::imageops::FilterType::Triangle);
+        let mut pixels = vec![0; (SIZE[0] * SIZE[1] * 4) as usize];
+        for (x, y, p) in resized.enumerate_pixels() {
+            let i = (((y + (SIZE[1] - th) / 2) * SIZE[0] + x + (SIZE[0] - tw) / 2) * 4) as usize;
+            for c in 0..3 {
+                pixels[i + c] = if p[3] > 0. {
+                    (p[c] / p[3] * 255.).round().clamp(0., 255.) as u8
+                } else {
+                    0
+                };
+            }
+            pixels[i + 3] = (p[3] * 255.).round().clamp(0., 255.) as u8;
+        }
+        cancel.check()?;
+        return Ok(pixels);
+    }
     let output = crate::scratch::file().map_err(|e| e.to_string())?;
     let mut command = Command::new("ffmpeg");
     command
@@ -98,7 +127,7 @@ pub fn thumbnail_range(
                     "EXR browser thumbnails require a selected color interpretation",
                 ));
             }
-            SourceProfile::Ppm { .. } => {
+            SourceProfile::Ppm { .. } | SourceProfile::Raster(_) => {
                 command.args(["-vf", "scale=128:72:force_original_aspect_ratio=decrease:flags=bilinear,pad=128:72:(ow-iw)/2:(oh-ih)/2"]);
             }
             SourceProfile::Wave(_) => {

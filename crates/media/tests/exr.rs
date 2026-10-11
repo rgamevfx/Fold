@@ -129,7 +129,10 @@ fn twenty_rgb_layers_decode_one_tuple_under_working_memory_pressure() {
         info: media::inspect(&path, &cancel).unwrap(),
         path,
     };
-    let pressure = fold_media::budget::reserve_working(448 * 1024 * 1024).unwrap();
+    let working = fold_media::budget::working_usage();
+    let pressure =
+        fold_media::budget::reserve_working(working.budget - working.bytes - 64 * 1024 * 1024)
+            .unwrap();
     let decoded = media::decode(
         &source,
         [

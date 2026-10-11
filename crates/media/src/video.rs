@@ -118,16 +118,11 @@ pub fn fingerprint(path: &Path, cancel: &Cancel) -> Result<String, fold_foundati
     }
     let mut hash = Sha256::new();
     let mut buffer = [0u8; 64 * 1024];
-    let mut size = 0u64;
     loop {
         cancel.check()?;
         let n = file.read(&mut buffer).map_err(|e| e.to_string())?;
         if n == 0 {
             break;
-        }
-        size += n as u64;
-        if size > MAX_FILE {
-            return Err("media exceeds 2 GiB source budget".into());
         }
         hash.update(&buffer[..n]);
     }

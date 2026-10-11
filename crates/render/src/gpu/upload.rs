@@ -40,6 +40,7 @@ impl Pool {
         host: &Host,
         bytes: u64,
     ) -> Result<(Arc<Staging>, bool), fold_foundation::Failure> {
+        host.check_buffer_size(bytes)?;
         let available = self
             .entries
             .iter()

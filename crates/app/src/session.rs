@@ -397,8 +397,8 @@ impl DesktopClient for Session {
         let output = fold_media::budget::output_usage();
         let delivery = fold_media::budget::delivery_disk_usage();
         let delivery_pcm = fold_media::budget::delivery_pcm_usage();
-        report.push_str(&format!("\nCPU working {:.1}/{:.1} MiB · output {:.1}/64 MiB · delivery scratch {:.1}/4096 MiB + PCM {:.1}/256 MiB",
-            mib(working.bytes), mib(working.budget), mib(output.bytes), mib(delivery.bytes), mib(delivery_pcm.bytes)));
+        report.push_str(&format!("\nCPU working {:.1}/{:.1} MiB · output {:.1}/{:.1} MiB · delivery scratch {:.1}/4096 MiB + PCM {:.1}/256 MiB",
+            mib(working.bytes), mib(working.budget), mib(output.bytes), mib(output.budget), mib(delivery.bytes), mib(delivery_pcm.bytes)));
         report
     }
     fn viewer_request(

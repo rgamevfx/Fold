@@ -550,8 +550,8 @@ fn oversized_sources_fail_before_render_and_external_identity_is_static() {
         &|_, _| panic!("oversized source must not render"),
         &|_| {
             Ok(fold_media::VideoInfo {
-                width: 4096,
-                height: 2160,
+                width: 8192,
+                height: 8193,
                 rate: [24, 1],
                 frames: 1,
             })
@@ -567,7 +567,7 @@ fn oversized_sources_fail_before_render_and_external_identity_is_static() {
         outside: Default::default(),
         color_space: None,
     };
-    assert!(images.frame(&request).unwrap_err().contains("128 MiB"));
+    assert!(images.frame(&request).unwrap_err().contains("dimensions"));
 }
 #[test]
 fn image_document_cycles_are_rejected_by_project_transactions() {

@@ -22,6 +22,7 @@ pub(super) fn sources(
             matches!(
                 m.profile,
                 fold_media::ingest::SourceProfile::Ppm { .. }
+                    | fold_media::ingest::SourceProfile::Raster(_)
                     | fold_media::ingest::SourceProfile::Video(_)
                     | fold_media::ingest::SourceProfile::Exr(_)
             )

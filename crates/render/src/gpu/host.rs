@@ -223,6 +223,7 @@ impl Host {
         let budget = budget.unwrap_or_else(|| Self::automatic_budget(&adapter));
         let (device, queue) = adapter
             .request_device(&wgpu::DeviceDescriptor {
+                required_limits: Self::image_device_limits(&adapter),
                 required_features: adapter.features()
                     & (wgpu::Features::FLOAT32_FILTERABLE
                         | wgpu::Features::TIMESTAMP_QUERY
@@ -236,6 +237,28 @@ impl Host {
             Self::from_device(instance, adapter, device, queue, budget)?,
             info,
         ))
+    }
+
+    /// Shared desktop/headless device contract. An 8192-square RGBA32F copy
+    /// needs a 1 GiB transfer buffer; request only limits the adapter supports.
+    pub fn image_device_limits(adapter: &wgpu::Adapter) -> wgpu::Limits {
+        let available = adapter.limits();
+        let mut limits = wgpu::Limits::default();
+        limits.max_buffer_size = available
+            .max_buffer_size
+            .min((fold_media::MAX_PIXELS as u64) * 16)
+            .max(limits.max_buffer_size);
+        limits
+    }
+
+    pub(crate) fn check_buffer_size(&self, bytes: u64) -> Result<(), fold_foundation::Failure> {
+        if bytes > self.device().limits().max_buffer_size {
+            return Err(fold_foundation::Failure::new(
+                fold_foundation::FailureKind::UnsupportedCapability,
+                "Image transfer exceeds this GPU device's buffer limit",
+            ));
+        }
+        Ok(())
     }
 
     /// The application host transfers error/device-loss handling to this service.
