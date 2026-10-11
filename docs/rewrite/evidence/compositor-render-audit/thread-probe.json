@@ -1,0 +1,73 @@
+{
+  "ffmpeg": "ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers",
+  "clip": "/home/rgame/Videos/Cutdown_02_VFX_v01.mov",
+  "frames": 360,
+  "rows": [
+    {
+      "trial": 0,
+      "threads": 1,
+      "seconds": 17.05649071499647
+    },
+    {
+      "trial": 0,
+      "threads": 2,
+      "seconds": 9.316483528004028
+    },
+    {
+      "trial": 0,
+      "threads": 4,
+      "seconds": 5.434896638995269
+    },
+    {
+      "trial": 0,
+      "threads": 8,
+      "seconds": 3.8399680689908564
+    },
+    {
+      "trial": 1,
+      "threads": 8,
+      "seconds": 3.9057972869923105
+    },
+    {
+      "trial": 1,
+      "threads": 4,
+      "seconds": 5.6889883399999235
+    },
+    {
+      "trial": 1,
+      "threads": 2,
+      "seconds": 9.247310138001922
+    },
+    {
+      "trial": 1,
+      "threads": 1,
+      "seconds": 16.977892288996372
+    },
+    {
+      "trial": 2,
+      "threads": 2,
+      "seconds": 9.770960149995517
+    },
+    {
+      "trial": 2,
+      "threads": 8,
+      "seconds": 3.9512983099994017
+    },
+    {
+      "trial": 2,
+      "threads": 1,
+      "seconds": 16.910268079009256
+    },
+    {
+      "trial": 2,
+      "threads": 4,
+      "seconds": 5.3452701899950625
+    }
+  ],
+  "median_seconds": {
+    "1": 16.977892288996372,
+    "2": 9.316483528004028,
+    "4": 5.434896638995269,
+    "8": 3.9057972869923105
+  }
+}

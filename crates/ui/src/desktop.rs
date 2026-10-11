@@ -337,7 +337,12 @@ impl Desktop {
             application = Default::default();
             application.configure_media()?;
         }
-        let budgets = application.effective();
+        let mut budgets = application.effective();
+        if application.automatic {
+            budgets.gpu_mib =
+                (fold_platform::gpu::Host::automatic_budget(&adapter) / (1024 * 1024)) as u32;
+            budgets.viewer_mib = (budgets.gpu_mib / 4).clamp(32, 1024);
+        }
         let mut preview_host = PreviewHost::new();
         preview_host.set_cache_budget(budgets.viewer_mib as usize * 1024 * 1024);
         // One host budget/device for scene evaluation and held display leases.

@@ -53,10 +53,24 @@ struct Shared {
     device: wgpu::Device,
     queue: wgpu::Queue,
     budget: u64,
+    video_retained: Mutex<u64>,
     pool: Mutex<Pool>,
     sources: Mutex<super::still::Cache>,
     stopped: Arc<Mutex<Option<String>>>,
     completion_poll: Arc<Mutex<()>>,
+}
+
+/// Retention entitlement only; the allocation has its separate completion lease.
+pub(super) struct VideoRetention {
+    owner: Weak<Shared>,
+    bytes: u64,
+}
+impl Drop for VideoRetention {
+    fn drop(&mut self) {
+        if let Some(owner) = self.owner.upgrade() {
+            *owner.video_retained.lock().unwrap() -= self.bytes;
+        }
+    }
 }
 
 /// Host-only access to the render device. Panels should receive presentation
@@ -128,10 +142,48 @@ pub struct Memory {
     pub scratch: u64,
 }
 
+fn automatic_limit(physical: u64, budget: u64, usage: u64) -> u64 {
+    const MIB: u64 = 1024 * 1024;
+    (physical / 2)
+        .min(budget.saturating_sub(usage).saturating_mul(3) / 4)
+        .clamp(128 * MIB, 32 * 1024 * MIB)
+        / MIB
+        * MIB
+}
+
 impl Host {
     /// Shared engine allocations on the reference 8 GiB GPU. Codec/driver
     /// allocations are measured separately; this is not a physical VRAM cap.
     pub const DEFAULT_BUDGET: u64 = 1024 * 1024 * 1024;
+
+    /// Startup policy based on actual available device-local memory. Keep half
+    /// the physical heap and a quarter of current headroom outside Fold's cap.
+    /// Unsupported telemetry uses the explicit conservative portable default.
+    pub fn automatic_budget(adapter: &wgpu::Adapter) -> u64 {
+        #[cfg(target_os = "linux")]
+        if let Some([physical, budget, usage]) = fold_native_video::device_memory(adapter) {
+            return automatic_limit(physical, budget, usage);
+        }
+        Self::DEFAULT_BUDGET
+    }
+
+    /// Expendable video retention per cache. All allocations still acquire
+    /// the shared host reservation, including retained and submitted inputs.
+    pub(super) fn video_cache_budget(&self) -> u64 {
+        (self.0.budget / 8).min(512 * 1024 * 1024)
+    }
+
+    pub(super) fn retain_video(&self, bytes: u64) -> Option<VideoRetention> {
+        let mut retained = self.0.video_retained.lock().unwrap();
+        if bytes > (self.0.budget / 4).saturating_sub(*retained) {
+            return None;
+        }
+        *retained += bytes;
+        Some(VideoRetention {
+            owner: Arc::downgrade(&self.0),
+            bytes,
+        })
+    }
 
     /// Create the native GPU instance through Fold's shared bootstrap boundary.
     /// Keep adapter/device selection outside this short critical section.
@@ -148,6 +200,17 @@ impl Host {
     pub async fn headless(
         budget: u64,
     ) -> Result<(Self, wgpu::AdapterInfo), fold_foundation::Failure> {
+        Self::headless_with_budget(Some(budget)).await
+    }
+
+    pub async fn headless_automatic() -> Result<(Self, wgpu::AdapterInfo), fold_foundation::Failure>
+    {
+        Self::headless_with_budget(None).await
+    }
+
+    async fn headless_with_budget(
+        budget: Option<u64>,
+    ) -> Result<(Self, wgpu::AdapterInfo), fold_foundation::Failure> {
         let instance = Self::create_instance(&wgpu::InstanceDescriptor {
             backends: wgpu::Backends::VULKAN,
             ..Default::default()
@@ -157,6 +220,7 @@ impl Host {
             .await
             .map_err(|e| e.to_string())?;
         let info = adapter.get_info();
+        let budget = budget.unwrap_or_else(|| Self::automatic_budget(&adapter));
         let (device, queue) = adapter
             .request_device(&wgpu::DeviceDescriptor {
                 required_features: adapter.features()
@@ -207,6 +271,7 @@ impl Host {
             device,
             queue,
             budget,
+            video_retained: Mutex::new(0),
             pool: Mutex::new(Pool {
                 images: vec![],
                 by_kind: [0; 5],
@@ -423,8 +488,41 @@ impl Host {
 
 #[cfg(test)]
 mod budget_tests {
+    #[test]
+    fn automatic_headroom_is_bounded_by_capacity_and_current_usage() {
+        let gib = 1024 * 1024 * 1024;
+        assert_eq!(super::automatic_limit(8 * gib, 7 * gib, gib), 4 * gib);
+        assert_eq!(
+            super::automatic_limit(8 * gib, 7 * gib, 5 * gib),
+            3 * gib / 2
+        );
+        assert_eq!(
+            super::automatic_limit(8 * gib, gib, 2 * gib),
+            128 * 1024 * 1024
+        );
+    }
     use super::*;
     use fold_foundation::FailureKind;
+    #[test]
+    #[ignore = "requires native Vulkan"]
+    fn video_retention_is_shared_and_released_independently_of_allocations() {
+        let mib = 1024 * 1024;
+        let (host, _) = pollster::block_on(Host::headless(64 * mib)).unwrap();
+        let other = host.clone();
+        let first = host.retain_video(8 * mib).unwrap();
+        let second = other.retain_video(8 * mib).unwrap();
+        assert!(host.retain_video(1).is_none());
+        assert_eq!(
+            host.memory().allocated,
+            0,
+            "retention grants are not allocations"
+        );
+        drop(first);
+        let third = other.retain_video(8 * mib).unwrap();
+        drop((second, third));
+        assert_eq!(*host.0.video_retained.lock().unwrap(), 0);
+    }
+
     #[test]
     fn oversized_reservations_are_permanent_and_held_leases_are_pressure() {
         let mut pool = Pool {

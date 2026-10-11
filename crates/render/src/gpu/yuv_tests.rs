@@ -49,8 +49,16 @@ fn native_yuv_reconstruction_matches_float_reference() {
         let mut encoder = host.device().create_command_encoder(&Default::default());
         status.start(&mut encoder);
         let mut reservations = vec![];
+        let mut uploads = vec![];
         let bytes = pipeline
-            .encode(&host, &mut encoder, &native, &output, &mut reservations)
+            .encode(
+                &host,
+                &mut encoder,
+                &native,
+                &output,
+                &mut reservations,
+                &mut uploads,
+            )
             .unwrap();
         assert_eq!(
             bytes,
@@ -59,6 +67,10 @@ fn native_yuv_reconstruction_matches_float_reference() {
         );
         status.encode(&mut encoder);
         host.submit(encoder, vec![output.clone()], reservations);
+        for upload in &uploads {
+            upload.submitted();
+        }
+        drop(uploads);
         let mut frame = GpuFrame {
             dependencies: vec![],
             image: output,
@@ -131,11 +143,23 @@ fn high_precision_chroma_and_alpha_match_cpu() {
                                 host.device().create_command_encoder(&Default::default());
                             status.start(&mut encoder);
                             let mut reservations = vec![];
+                            let mut uploads = vec![];
                             pipeline
-                                .encode(&host, &mut encoder, &native, &output, &mut reservations)
+                                .encode(
+                                    &host,
+                                    &mut encoder,
+                                    &native,
+                                    &output,
+                                    &mut reservations,
+                                    &mut uploads,
+                                )
                                 .unwrap();
                             status.encode(&mut encoder);
                             host.submit(encoder, vec![output.clone()], reservations);
+                            for upload in &uploads {
+                                upload.submitted();
+                            }
+                            drop(uploads);
                             let mut frame = GpuFrame {
                                 dependencies: vec![],
                                 image: output,
@@ -163,5 +187,153 @@ fn high_precision_chroma_and_alpha_match_cpu() {
                 }
             }
         }
+    }
+}
+
+#[test]
+#[ignore = "requires native Vulkan"]
+fn plane_recycling_preserves_unsubmitted_consumers() {
+    let (host, _) = pollster::block_on(Host::headless(512 * 1024)).unwrap();
+    let mut pipeline = YuvPipeline::new(&host);
+    let cancel = fold_media::Cancel::default();
+    let mut pending = Vec::new();
+    let format = fold_media::VideoFormat {
+        alpha: true,
+        rgb: true,
+        full_range: true,
+        subsampling: [1, 1],
+        ..Default::default()
+    };
+    // Each plane set fits the cache; two sets exceed its allowance. Keep the
+    // first commands unsubmitted while newer frames evict its source storage.
+    for value in [32u8, 96, 192] {
+        let native = fold_media::YuvFrame::from_planes(
+            format,
+            [128, 64],
+            vec![value; format.bytes([128, 64]) as usize],
+            fold_foundation::Time::ZERO,
+            fold_foundation::Time::new(1, 24).unwrap(),
+        )
+        .unwrap();
+        let expected = native.reconstruct_signal([1, 1], &cancel).unwrap();
+        let output = host.image([1, 1]).unwrap();
+        let status = Status::new(&host).unwrap();
+        let mut encoder = host.device().create_command_encoder(&Default::default());
+        status.start(&mut encoder);
+        let mut reservations = vec![];
+        let mut uploads = vec![];
+        pipeline
+            .encode(
+                &host,
+                &mut encoder,
+                &native,
+                &output,
+                &mut reservations,
+                &mut uploads,
+            )
+            .unwrap();
+        status.encode(&mut encoder);
+        pending.push((encoder, output, status, reservations, uploads, expected));
+    }
+    for (encoder, output, status, reservations, uploads, expected) in pending {
+        host.submit(encoder, vec![output.clone()], reservations);
+        for upload in &uploads {
+            upload.submitted();
+        }
+        drop(uploads);
+        let mut frame = GpuFrame {
+            dependencies: vec![],
+            image: output,
+            host: host.clone(),
+            ready: status.submitted(),
+            working_space: crate::WorkingSpace::LegacyLinearSrgb,
+            config_identity: None,
+            timing: None,
+            lease_id: 1,
+            statistics: Default::default(),
+        };
+        let actual = frame.readback(&cancel).unwrap();
+        assert!(
+            actual
+                .pixels()
+                .iter()
+                .zip(expected.encoded_pixels())
+                .all(|(a, b)| a.iter().zip(b).all(|(a, b)| (*a - b).abs() < 1e-5))
+        );
+    }
+    let retired = Arc::downgrade(&pipeline.cache.back().unwrap().reservation);
+    let native = fold_media::YuvFrame::from_planes(
+        format,
+        [128, 64],
+        vec![64; format.bytes([128, 64]) as usize],
+        fold_foundation::Time::ZERO,
+        fold_foundation::Time::new(1, 24).unwrap(),
+    )
+    .unwrap();
+    let output = host.image([1, 1]).unwrap();
+    let mut encoder = host.device().create_command_encoder(&Default::default());
+    let mut reservations = vec![];
+    let mut uploads = vec![];
+    pipeline
+        .encode(
+            &host,
+            &mut encoder,
+            &native,
+            &output,
+            &mut reservations,
+            &mut uploads,
+        )
+        .unwrap();
+    assert!(
+        std::sync::Weak::ptr_eq(
+            &retired,
+            &Arc::downgrade(&pipeline.cache.back().unwrap().reservation)
+        ),
+        "completed storage should be recycled"
+    );
+    drop(encoder);
+    drop(reservations);
+    drop(uploads);
+    pipeline.clear();
+}
+
+#[test]
+#[ignore = "requires native Vulkan"]
+fn abandoned_plane_upload_is_not_a_cache_hit() {
+    let (host, _) = pollster::block_on(Host::headless(512 * 1024)).unwrap();
+    let mut pipeline = YuvPipeline::new(&host);
+    let format = fold_media::VideoFormat::default();
+    let native = fold_media::YuvFrame::from_planes(
+        format,
+        [16, 16],
+        vec![96; format.bytes([16, 16]) as usize],
+        fold_foundation::Time::ZERO,
+        fold_foundation::Time::new(1, 24).unwrap(),
+    )
+    .unwrap();
+    let output = host.image([16, 16]).unwrap();
+    for _ in 0..2 {
+        let mut encoder = host.device().create_command_encoder(&Default::default());
+        let mut reservations = vec![];
+        let mut uploads = vec![];
+        let bytes = pipeline
+            .encode(
+                &host,
+                &mut encoder,
+                &native,
+                &output,
+                &mut reservations,
+                &mut uploads,
+            )
+            .unwrap();
+        assert_eq!(
+            bytes,
+            native.storage_bytes(),
+            "abandoned commands did not initialize the cache"
+        );
+        drop(encoder);
+        drop(reservations);
+        drop(uploads);
+        host.poll().unwrap();
     }
 }

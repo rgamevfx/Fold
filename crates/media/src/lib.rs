@@ -18,6 +18,7 @@ pub mod thumbnail;
 mod video;
 mod video_format;
 pub use video_format::VideoFormat;
+mod decoder_threads;
 mod video_stream;
 mod wave;
 pub use process::Cancel;

@@ -246,6 +246,68 @@ impl ImageOp {
             .flatten()
             .chain(shader_inputs.iter().copied())
     }
+    pub(crate) fn remap_inputs(&mut self, mut map: impl FnMut(ImageId) -> ImageId) {
+        match self {
+            ImageOp::Shader { inputs, .. } => {
+                for input in inputs {
+                    *input = map(*input);
+                }
+            }
+            ImageOp::Shuffle { first, second, .. } => {
+                *first = map(*first);
+                if let Some(second) = second {
+                    *second = map(*second);
+                }
+            }
+            ImageOp::Mix {
+                original,
+                processed,
+                mask,
+                ..
+            } => {
+                *original = map(*original);
+                *processed = map(*processed);
+                if let Some(mask) = mask {
+                    *mask = map(*mask);
+                }
+            }
+            ImageOp::Unary { input, .. }
+            | ImageOp::Resample { input, .. }
+            | ImageOp::ColorGrade { input, .. }
+            | ImageOp::Transform { input, .. }
+            | ImageOp::Opacity { input, .. }
+            | ImageOp::Crop { input, .. }
+            | ImageOp::FilteredBlur { input, .. }
+            | ImageOp::Blur { input, .. }
+            | ImageOp::Grade { input, .. } => *input = map(*input),
+            ImageOp::Merge {
+                first: input,
+                second: mask,
+                ..
+            }
+            | ImageOp::Mask { input, mask } => {
+                *input = map(*input);
+                *mask = map(*mask);
+            }
+            ImageOp::Over {
+                foreground,
+                background,
+            } => {
+                *foreground = map(*foreground);
+                *background = map(*background);
+            }
+            ImageOp::Baked(_)
+            | ImageOp::WindowedSource { .. }
+            | ImageOp::Media(_)
+            | ImageOp::Exr { .. }
+            | ImageOp::Vector(_)
+            | ImageOp::Coverage(_)
+            | ImageOp::Spatial { .. }
+            | ImageOp::Video { .. }
+            | ImageOp::VideoInput { .. }
+            | ImageOp::Solid { .. } => {}
+        }
+    }
 }
 
 /// Immutable during evaluation. Inputs must precede their consumer; this makes
@@ -273,57 +335,7 @@ impl RenderGraph {
             if op.inputs().any(|input| input >= id) {
                 return Err("invalid nested graph ordering".into());
             }
-            match op {
-                ImageOp::Shader { inputs, .. } => {
-                    for input in inputs {
-                        *input += offset;
-                    }
-                }
-                ImageOp::Shuffle { first, second, .. } => {
-                    *first += offset;
-                    if let Some(second) = second {
-                        *second += offset;
-                    }
-                }
-                ImageOp::Mix {
-                    original,
-                    processed,
-                    mask,
-                    ..
-                } => {
-                    *original += offset;
-                    *processed += offset;
-                    if let Some(mask) = mask {
-                        *mask += offset;
-                    }
-                }
-                ImageOp::Unary { input, .. }
-                | ImageOp::Resample { input, .. }
-                | ImageOp::ColorGrade { input, .. }
-                | ImageOp::Transform { input, .. }
-                | ImageOp::Opacity { input, .. }
-                | ImageOp::Crop { input, .. }
-                | ImageOp::FilteredBlur { input, .. }
-                | ImageOp::Blur { input, .. }
-                | ImageOp::Grade { input, .. } => *input += offset,
-                ImageOp::Merge {
-                    first: input,
-                    second: mask,
-                    ..
-                }
-                | ImageOp::Mask { input, mask } => {
-                    *input += offset;
-                    *mask += offset;
-                }
-                ImageOp::Over {
-                    foreground,
-                    background,
-                } => {
-                    *foreground += offset;
-                    *background += offset;
-                }
-                _ => {}
-            }
+            op.remap_inputs(|input| input + offset);
         }
         self.nodes.extend(fragment.nodes);
         Ok(offset + fragment.output)
@@ -594,6 +606,7 @@ pub(crate) fn evaluate(
         fold_foundation::Failure::new(fold_foundation::FailureKind::InvalidInput, error)
     })?;
     let processors = input_processors(&graph, config)?;
+    crate::video_sources::reuse(&mut graph);
     let (needed, mut uses) = dependencies(&graph);
     let mut frames: Vec<Option<Frame>> = (0..graph.nodes.len()).map(|_| None).collect();
     let bytes = count * std::mem::size_of::<[f32; 4]>();

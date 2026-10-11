@@ -206,6 +206,19 @@ fn prores_xq_alpha_matches_cpu_through_aces_and_over() {
         ],
         output: 2,
     };
+    // Independent provider fragments can read the same video. Keep a later
+    // consumer alive across intervening operations, including opacity fusion.
+    let mut duplicated = graph.clone();
+    duplicated.nodes.push(duplicated.nodes[0].clone());
+    duplicated.nodes.push(ImageOp::Opacity {
+        input: 3,
+        opacity: 0.5,
+    });
+    duplicated.nodes.push(ImageOp::Over {
+        foreground: 4,
+        background: 2,
+    });
+    duplicated.output = 5;
     let mut cpu_decoder = fold_media::Decoder::default();
     let expected =
         fold_render::render_aces_with(graph.clone(), &config, &mut cpu_decoder, &cancel).unwrap();
@@ -225,4 +238,26 @@ fn prores_xq_alpha_matches_cpu_through_aces_and_over() {
         .fold(0f32, f32::max);
     assert!(error < 0.0001, "ACES composite error {error}");
     assert!(actual.pixels().iter().all(|p| p[3] == 1.));
+    for [width, height] in [[64, 32], [32, 16]] {
+        duplicated.width = width;
+        duplicated.height = height;
+        let expected =
+            fold_render::render_aces_with(duplicated.clone(), &config, &mut cpu_decoder, &cancel)
+                .unwrap();
+        let mut gpu = renderer
+            .evaluate(duplicated.clone(), Some(&config), &mut decoder, &cancel)
+            .unwrap();
+        assert_eq!(
+            gpu.statistics.native_video_nodes, 1,
+            "duplicate source must not reconstruct/color-convert twice"
+        );
+        let actual = gpu.readback(&cancel).unwrap();
+        let error = actual
+            .pixels()
+            .iter()
+            .zip(expected.pixels())
+            .flat_map(|(a, b)| (0..4).map(move |i| (a[i] - b[i]).abs()))
+            .fold(0f32, f32::max);
+        assert!(error < 0.0001, "shared alpha source error {error}");
+    }
 }

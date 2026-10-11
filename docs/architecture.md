@@ -138,6 +138,13 @@ owns accounting. One retained vector pipeline serves supported vector inputs.
 Explicit CPU reference execution and independently useful image kernels remain.
 [C7](maintenance/evidence/c7/result.md) records vector coverage and native results.
 
+After complete logical/color validation, CPU and GPU planners share equivalent
+video source reads within a request, including native-resolution windowed inputs.
+Working OCIO output is validated read-only; display quantization retains its float
+intermediate. Scratch retirement covers every shader image dependency. The
+[compositor/render audit](rewrite/evidence/compositor-render-audit/result.md)
+records correctness, allocation and real-video measurements with their limits.
+
 [Host](../crates/render/src/gpu/host.rs) shares device/queue, pooled images and
 per-kind accounting. Resource reuse requires GPU completion and release of leases,
 not CPU reference counts alone. Cancellation/health are checked after admission and
@@ -153,6 +160,16 @@ pixels under byte limits. BC7 playback retention is lossy, completion-gated and
 separate from working/source images. Export never consumes a viewer texture.
 Cancellation and pressure handling preserve admission and account for held resources.
 Logical budgets, process RSS and driver/decoder allocations are different measurements.
+
+Automatic GPU budgets use available Vulkan heap telemetry at startup, with explicit
+preferences taking precedence. Source retention has an aggregate host entitlement
+in addition to allocation leases. Bounded software prefetch, independent source
+preparation lanes and leased codec threads overlap media work. Software-plane GPU
+storage is recycled only after consumers release their completion reservations.
+Single-use pointwise chains share a dispatch and validate every intermediate.
+RGBA16 delivery packs on the GPU; a bounded encoder writer overlaps IO with
+rendering. [Implementation limits and evidence](rewrite/evidence/compositor-render-audit/improvements.md)
+include the deferred native CUDA/Vulkan pooling protocol.
 
 The pinned color runtime uses OCIO 2.4.2, ACES 1.3 Studio config 2.2.0 and
 ACEScg working space. Input interpretation, viewer display and delivery transform

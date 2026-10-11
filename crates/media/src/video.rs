@@ -361,15 +361,17 @@ struct ActiveStream {
     next: u32,
     stream: crate::video_stream::Stream,
     pin: Arc<crate::source_pin::Pinned>,
+    _threads: crate::decoder_threads::Threads,
 }
 /// Two retained range decoders and two leases on process-wide verified sources.
 /// Source bytes cannot change during decoding; pins are not a frame cache.
 pub struct Decoder {
     pinned: VecDeque<Arc<crate::source_pin::Pinned>>,
     streams: VecDeque<ActiveStream>,
+    stream_limit: usize,
     backend: DecodeBackend,
     statistics: DecodeStatistics,
-    // Shared across sources/resolutions, bounded to 64 MiB and 512 frames.
+    // Shared across sources/resolutions; bounded by the decoded-memory budget and 512 frames.
     // Only demanded frames are retained; FFmpeg is backpressured by its pipe.
     read_ahead: VecDeque<(String, VideoInfo, u32, Decoded)>,
 }
@@ -394,6 +396,7 @@ impl Decoder {
         Self {
             pinned: VecDeque::new(),
             streams: VecDeque::new(),
+            stream_limit: 2,
             backend,
             statistics: DecodeStatistics::default(),
             read_ahead: VecDeque::new(),
@@ -401,6 +404,14 @@ impl Decoder {
     }
     pub fn backend(&self) -> DecodeBackend {
         self.backend
+    }
+    /// Parallel source lanes use one cursor each so two preview/export workers
+    /// cannot exhaust all regular process slots with idle reverse-seek cursors.
+    pub fn single_stream(&mut self, single: bool) {
+        self.stream_limit = if single { 1 } else { 2 };
+        while self.streams.len() > self.stream_limit {
+            self.streams.pop_front();
+        }
     }
     pub fn statistics(&self) -> DecodeStatistics {
         self.statistics
@@ -545,7 +556,7 @@ impl Decoder {
             return Err("cuda-native requires the native GPU surface service; CPU/download fallback is forbidden".into());
         }
         let frame_bytes = format.bytes(dimensions, native);
-        let budget = 64 * 1024 * 1024;
+        let budget = crate::budget::decoded_usage().budget / 2;
         let count = u64::from(dimensions[0]) * u64::from(dimensions[1]);
         if count == 0 || count > crate::MAX_PIXELS as u64 {
             return Err("invalid decode resolution".into());
@@ -589,7 +600,7 @@ impl Decoder {
         let mut active = if let Some(index) = existing {
             self.streams.remove(index).unwrap()
         } else {
-            if self.streams.len() == 2 {
+            if self.streams.len() == self.stream_limit {
                 self.streams.pop_front();
             }
             self.open_stream(source, frame, dimensions, format, cancel)?
@@ -627,7 +638,7 @@ impl Decoder {
             && DECODED_BYTES
                 .fetch_update(Ordering::AcqRel, Ordering::Acquire, |used| {
                     used.checked_add(image.storage_bytes())
-                        .filter(|bytes| *bytes <= 128 * 1024 * 1024)
+                        .filter(|bytes| *bytes <= crate::budget::decoded_usage().budget * 3 / 4)
                 })
                 .is_ok()
         {
@@ -704,11 +715,7 @@ impl Decoder {
                 "{download}select=gte(n\\,{offset}),{before}zscale=matrixin={matrix}:transferin=709:primariesin=709:rangein={range}:chromalin={chroma}:matrix=gbr:transfer={transfer}:primaries=709:range=full,format={float_format},{after}format={pixel_format}"
             )
         };
-        // Six regular process permits bound the total to at most 24 decoder
-        // threads; filters and raw output each use one thread.
-        let threads = std::thread::available_parallelism()
-            .map_or(1, usize::from)
-            .min(4);
+        let threads = crate::decoder_threads::Threads::acquire();
         let mut cmd = base("ffmpeg");
         if self.backend == DecodeBackend::Cuda && native.nvdec_compatible {
             cmd.args([
@@ -723,7 +730,7 @@ impl Decoder {
         cmd.args([
             "-nostdin",
             "-threads",
-            &threads.to_string(),
+            &threads.count().to_string(),
             "-filter_threads",
             "1",
             "-noautorotate",
@@ -764,6 +771,7 @@ impl Decoder {
             next: frame,
             stream,
             pin: self.pinned.back().unwrap().clone(),
+            _threads: threads,
         })
     }
 }

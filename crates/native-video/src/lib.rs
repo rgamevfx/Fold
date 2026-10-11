@@ -9,6 +9,10 @@ pub use readiness::{PendingWrite, WriteComplete, WriteTicket};
 mod gpu;
 #[cfg(feature = "gpu")]
 pub use gpu::{PendingBuffer, ReadyBuffer};
+#[cfg(feature = "gpu")]
+mod memory;
+#[cfg(feature = "gpu")]
+pub use memory::device_memory;
 use std::os::{
     fd::{AsRawFd, BorrowedFd, FromRawFd, OwnedFd},
     unix::net::UnixDatagram,

@@ -15,10 +15,12 @@ mod cache;
 pub use cache::PresentationCompressor;
 mod baked;
 mod color;
+mod delivery;
 mod display;
 mod filtered_blur;
 mod fusion;
 mod host;
+mod pointwise;
 mod precision;
 mod preparation;
 mod sampling;
@@ -58,6 +60,9 @@ pub struct Renderer {
     baked: baked::Cache,
     shaders: shader::Cache,
     precision: Option<(bool, wgpu::ComputePipeline)>,
+    delivery: Option<wgpu::ComputePipeline>,
+    secondary_decoder: Option<fold_media::Decoder>,
+    pointwise: pointwise::Pipeline,
     #[cfg(feature = "spatial")]
     spatial: Option<spatial::Adapter>,
     #[cfg(all(feature = "native-video", target_os = "linux"))]
@@ -122,7 +127,13 @@ impl Renderer {
         });
         let module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Fold image operators"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("operators.wgsl").into()),
+            source: wgpu::ShaderSource::Wgsl(
+                concat!(
+                    include_str!("pointwise.wgsl"),
+                    include_str!("operators.wgsl")
+                )
+                .into(),
+            ),
         });
         let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
             label: Some("Fold image operators"),
@@ -171,6 +182,9 @@ impl Renderer {
             baked: Default::default(),
             shaders: Default::default(),
             precision: None,
+            delivery: None,
+            secondary_decoder: None,
+            pointwise: pointwise::Pipeline::new(&host),
             #[cfg(feature = "spatial")]
             spatial: None,
             host,

@@ -3,13 +3,70 @@ use super::*;
 use wgpu::util::DeviceExt;
 #[repr(C)]
 #[derive(Clone, Copy, Default, bytemuck::Pod, bytemuck::Zeroable)]
-struct Params {
+pub(super) struct Params {
     header: [u32; 4],
     color: [f32; 4],
     matrix: [f32; 4],
     offset: [f32; 4],
     rect: [u32; 4],
     grade: [[f32; 4]; 7],
+}
+
+impl Params {
+    pub(super) fn pointwise(op: &ImageOp, dimensions: [u32; 2], aces: bool) -> Option<Self> {
+        let mut params = Self {
+            header: [0, dimensions[0], dimensions[1], u32::from(aces)],
+            ..Default::default()
+        };
+        match op {
+            ImageOp::Unary { operation, .. } => {
+                use crate::operations::Unary;
+                params.header[0] = 17;
+                params.rect[0] = match *operation {
+                    Unary::Exposure { stops } => {
+                        params.color[0] = stops.exp2();
+                        0
+                    }
+                    Unary::Invert => 1,
+                    Unary::Clamp { minimum, maximum } => {
+                        params.color[0] = minimum;
+                        params.color[1] = maximum;
+                        2
+                    }
+                    Unary::Premult => 3,
+                    Unary::Unpremult => 4,
+                };
+            }
+            ImageOp::ColorGrade { settings, .. } => {
+                params.header[0] = 13;
+                params.rect[0] = u32::from(settings.unpremultiply);
+                params.rect[1] = u32::from(settings.invert);
+                params.rect[2] = u32::from(settings.black_clamp);
+                params.rect[3] = u32::from(settings.white_clamp);
+                for (target, value) in params.grade.iter_mut().zip([
+                    settings.black,
+                    settings.white,
+                    settings.lift,
+                    settings.gain,
+                    settings.multiply,
+                    settings.offset,
+                    settings.gamma,
+                ]) {
+                    target[..3].copy_from_slice(&value);
+                }
+            }
+            ImageOp::Opacity { opacity, .. } => {
+                params.header[0] = 1;
+                params.color[0] = *opacity;
+            }
+            ImageOp::Grade { gain, .. } => {
+                params.header[0] = 4;
+                params.color[..3].copy_from_slice(gain);
+            }
+            _ => return None,
+        }
+        Some(params)
+    }
 }
 
 pub(super) struct Encoded {
@@ -99,6 +156,7 @@ impl Renderer {
             needed,
             mut uses,
             fused,
+            chains,
             mut stats,
             mut sources,
             dimensions,
@@ -111,8 +169,18 @@ impl Renderer {
         } = request;
         // At most two parameter buffers per reachable node (separable blur).
         // Reserve before recording so even a long graph is aggregate bounded.
-        let parameter_bytes =
-            needed.iter().filter(|&&v| v).count() as u64 * 2 * std::mem::size_of::<Params>() as u64;
+        let parameter_bytes = needed
+            .iter()
+            .enumerate()
+            .filter(|(_, needed)| **needed)
+            .map(|(id, _)| {
+                if chains[id].is_some() {
+                    16 + 16 * std::mem::size_of::<Params>() as u64
+                } else {
+                    2 * std::mem::size_of::<Params>() as u64
+                }
+            })
+            .sum();
         let mut buffers = vec![self.host.reserve(parameter_bytes)?];
         let dummy = self.host.image([1, 1])?;
         let mut leases = vec![dummy.clone()];
@@ -204,6 +272,9 @@ impl Renderer {
             if let Some((input, _)) = fused[id] {
                 inputs[0] = Some(input);
             }
+            if let Some(chain) = &chains[id] {
+                inputs[0] = Some(chain.input);
+            }
             let first = inputs[0].map_or(&dummy, |i| frames[i].as_ref().unwrap());
             let second = inputs[1].map_or(&dummy, |i| frames[i].as_ref().unwrap());
             let mask = inputs[2].map_or(&dummy, |i| frames[i].as_ref().unwrap());
@@ -225,8 +296,10 @@ impl Renderer {
                         &status,
                     )?;
                     leases.push(source.image);
-                    leases.push(intermediate.clone());
-                    scratch.push(intermediate);
+                    if let Some(intermediate) = intermediate {
+                        leases.push(intermediate.clone());
+                        scratch.push(intermediate);
+                    }
                     buffers.push(pipeline.reservation.clone());
                     stats.compute_passes += 2;
                     compute = false;
@@ -284,45 +357,15 @@ impl Renderer {
                     leases.push(source.image);
                     compute = false;
                 }
-                ImageOp::Unary { operation, .. } => {
-                    use crate::operations::Unary;
-                    params.header[0] = 17;
-                    params.rect[0] = match *operation {
-                        Unary::Exposure { stops } => {
-                            params.color[0] = stops.exp2();
-                            0
-                        }
-                        Unary::Invert => 1,
-                        Unary::Clamp { minimum, maximum } => {
-                            params.color[0] = minimum;
-                            params.color[1] = maximum;
-                            2
-                        }
-                        Unary::Premult => 3,
-                        Unary::Unpremult => 4,
-                    };
+                ImageOp::Unary { .. }
+                | ImageOp::ColorGrade { .. }
+                | ImageOp::Opacity { .. }
+                | ImageOp::Grade { .. } => {
+                    params = Params::pointwise(op, dimensions, aces).unwrap();
                 }
                 ImageOp::Merge { mode, .. } => {
                     params.header[0] = 12;
                     params.rect[0] = *mode as u32;
-                }
-                ImageOp::ColorGrade { settings, .. } => {
-                    params.header[0] = 13;
-                    params.rect[0] = u32::from(settings.unpremultiply);
-                    params.rect[1] = u32::from(settings.invert);
-                    params.rect[2] = u32::from(settings.black_clamp);
-                    params.rect[3] = u32::from(settings.white_clamp);
-                    for (target, value) in params.grade.iter_mut().zip([
-                        settings.black,
-                        settings.white,
-                        settings.lift,
-                        settings.gain,
-                        settings.multiply,
-                        settings.offset,
-                        settings.gamma,
-                    ]) {
-                        target[..3].copy_from_slice(&value);
-                    }
                 }
                 ImageOp::Shuffle { mapping, .. } => {
                     params.header[0] = 10;
@@ -353,10 +396,6 @@ impl Renderer {
                         *rgba
                     };
                 }
-                ImageOp::Opacity { opacity, .. } => {
-                    params.header[0] = 1;
-                    params.color[0] = *opacity;
-                }
                 ImageOp::Over { .. } => {
                     if let Some((_, opacity)) = fused[id] {
                         params.header[0] = 9;
@@ -369,10 +408,6 @@ impl Renderer {
                 ImageOp::Crop { rect, .. } => {
                     params.header[0] = 3;
                     params.rect = *rect;
-                }
-                ImageOp::Grade { gain, .. } => {
-                    params.header[0] = 4;
-                    params.color[..3].copy_from_slice(gain);
                 }
                 ImageOp::Mask { .. } => params.header[0] = 5,
                 ImageOp::Resample { transform, .. } | ImageOp::Transform { transform, .. } => {
@@ -539,6 +574,7 @@ impl Renderer {
                                 &frame,
                                 &encoded,
                                 &mut buffers,
+                                &mut uploads,
                             )?;
                             stats.native_upload_encode_nanoseconds += begin.elapsed().as_nanos();
                         }
@@ -558,8 +594,10 @@ impl Renderer {
                         false,
                         &status,
                     )?;
-                    leases.push(intermediate.clone());
-                    scratch.push(intermediate);
+                    if let Some(intermediate) = intermediate {
+                        leases.push(intermediate.clone());
+                        scratch.push(intermediate);
+                    }
                     scratch.push(encoded);
                     buffers.push(pipeline.reservation.clone());
                     stats.compute_passes += 3;
@@ -711,8 +749,10 @@ impl Renderer {
                             false,
                             &status,
                         )?;
-                        leases.push(intermediate.clone());
-                        scratch.push(intermediate);
+                        if let Some(intermediate) = intermediate {
+                            leases.push(intermediate.clone());
+                            scratch.push(intermediate);
+                        }
                         buffers.push(pipeline.reservation.clone());
                         stats.compute_passes += 2;
                         scratch.push(encoded);
@@ -722,13 +762,32 @@ impl Renderer {
                 }
             }
             if compute {
-                self.pass(
-                    &mut encoder,
-                    [first, second, mask],
-                    &output,
-                    params,
-                    &status,
-                );
+                if let Some(chain) = &chains[id] {
+                    let steps: Vec<_> = chain
+                        .steps
+                        .iter()
+                        .map(|&step| {
+                            Params::pointwise(&graph.nodes[step], dimensions, aces).unwrap()
+                        })
+                        .collect();
+                    self.pointwise.encode(
+                        &self.host,
+                        &mut encoder,
+                        first,
+                        &output,
+                        &steps,
+                        &status,
+                    );
+                    stats.fused_pointwise_passes += (steps.len() - 1) as u32;
+                } else {
+                    self.pass(
+                        &mut encoder,
+                        [first, second, mask],
+                        &output,
+                        params,
+                        &status,
+                    );
+                }
                 stats.compute_passes += 1;
             }
             if let Some(key) = still_key {
@@ -736,7 +795,18 @@ impl Renderer {
                 retained.push((key, output.clone()));
             }
             frames[id] = Some(output);
-            for input in inputs.into_iter().flatten() {
+            // The generic operator bindings above have three slots, but image
+            // shaders can consume eight. Retire every actual dependency, with
+            // the same foreground substitution used by opacity/over fusion.
+            for (slot, input) in op.inputs().enumerate() {
+                let input = if slot == 0 {
+                    chains[id].as_ref().map_or_else(
+                        || fused[id].map_or(input, |(source, _)| source),
+                        |chain| chain.input,
+                    )
+                } else {
+                    input
+                };
                 uses[input] -= 1;
                 if uses[input] == 0 {
                     let image = frames[input].take().unwrap();

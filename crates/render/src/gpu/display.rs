@@ -349,7 +349,10 @@ impl Renderer {
         let submit_begin = std::time::Instant::now();
         self.host.submit(
             encoder,
-            vec![frame.image.clone(), output.clone(), intermediate],
+            std::iter::once(frame.image.clone())
+                .chain(std::iter::once(output.clone()))
+                .chain(intermediate)
+                .collect(),
             vec![uniform, pipeline.reservation.clone()],
         );
         let submit_nanoseconds = submit_begin.elapsed().as_nanos();

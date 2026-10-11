@@ -4,6 +4,187 @@ use fold_render::{
     gpu::{Host, Renderer},
 };
 
+#[test]
+#[ignore = "requires native Vulkan"]
+fn pointwise_fusion_preserves_pixels_and_intermediate_failures() {
+    let (host, _) = pollster::block_on(Host::headless(16 * 1024 * 1024)).unwrap();
+    let mut renderer = Renderer::new(host).unwrap();
+    let cancel = fold_media::Cancel::default();
+    let mut decoder = fold_media::Decoder::default();
+    let graph = RenderGraph {
+        width: 17,
+        height: 9,
+        nodes: vec![
+            ImageOp::Solid {
+                rgba: [0.2, 0.1, 0.05, 0.5],
+            },
+            ImageOp::Grade {
+                input: 0,
+                gain: [0.5, 1.2, 0.7],
+            },
+            ImageOp::Opacity {
+                input: 1,
+                opacity: 0.7,
+            },
+            ImageOp::Unary {
+                input: 2,
+                operation: fold_render::operations::Unary::Exposure { stops: 0.5 },
+            },
+        ],
+        output: 3,
+    };
+    let expected = fold_render::render_with(graph.clone(), &mut decoder, &cancel).unwrap();
+    let mut result = renderer
+        .evaluate(graph, None, &mut decoder, &cancel)
+        .unwrap();
+    assert_eq!(result.statistics.fused_pointwise_passes, 2);
+    assert_eq!(result.statistics.compute_passes, 2);
+    let actual = result.readback(&cancel).unwrap();
+    assert!(
+        actual
+            .pixels()
+            .iter()
+            .zip(expected.pixels())
+            .all(|(a, b)| a.iter().zip(b).all(|(a, b)| (a - b).abs() < 1e-6))
+    );
+    let graph = RenderGraph {
+        width: 1,
+        height: 1,
+        nodes: vec![
+            ImageOp::Solid {
+                rgba: [1., 1., 1., 1.],
+            },
+            ImageOp::Unary {
+                input: 0,
+                operation: fold_render::operations::Unary::Exposure { stops: 32. },
+            },
+            ImageOp::Unary {
+                input: 1,
+                operation: fold_render::operations::Unary::Exposure { stops: 32. },
+            },
+            ImageOp::Unary {
+                input: 2,
+                operation: fold_render::operations::Unary::Exposure { stops: 32. },
+            },
+            ImageOp::Unary {
+                input: 3,
+                operation: fold_render::operations::Unary::Exposure { stops: 32. },
+            },
+            ImageOp::Unary {
+                input: 4,
+                operation: fold_render::operations::Unary::Exposure { stops: 32. },
+            },
+            ImageOp::Unary {
+                input: 5,
+                operation: fold_render::operations::Unary::Clamp {
+                    minimum: 0.,
+                    maximum: 1.,
+                },
+            },
+        ],
+        output: 6,
+    };
+    let mut result = renderer
+        .evaluate(graph, None, &mut decoder, &cancel)
+        .unwrap();
+    assert!(
+        result.readback(&cancel).is_err(),
+        "final clamp must not hide overflow"
+    );
+}
+
+#[test]
+#[ignore = "requires native Vulkan"]
+fn packed_alpha_delivery_matches_cpu_without_scene_readback() {
+    let (host, _) = pollster::block_on(Host::headless(16 * 1024 * 1024)).unwrap();
+    let mut renderer = Renderer::new(host).unwrap();
+    let cancel = fold_media::Cancel::default();
+    let mut decoder = fold_media::Decoder::default();
+    for alpha in [0., 0.0001, 0.25, 0.5, 1.] {
+        let graph = RenderGraph {
+            width: 17,
+            height: 9,
+            nodes: vec![ImageOp::Solid {
+                rgba: [0.2 * alpha, 0.01 * alpha, 0.7 * alpha, alpha],
+            }],
+            output: 0,
+        };
+        let expected = fold_render::render_with(graph.clone(), &mut decoder, &cancel)
+            .unwrap()
+            .into_rgba16(None)
+            .unwrap();
+        let scene = renderer
+            .evaluate(graph, None, &mut decoder, &cancel)
+            .unwrap();
+        let actual = renderer.output_rgba16(&scene, None, &cancel).unwrap();
+        assert_eq!(actual.bytes().len(), 17 * 9 * 8);
+        for (a, b) in actual
+            .bytes()
+            .chunks_exact(2)
+            .zip(expected.bytes().chunks_exact(2))
+        {
+            assert!(
+                u16::from_le_bytes(a.try_into().unwrap())
+                    .abs_diff(u16::from_le_bytes(b.try_into().unwrap()))
+                    <= 1
+            );
+        }
+    }
+}
+
+#[test]
+#[ignore = "requires native Vulkan"]
+fn all_shader_inputs_release_after_their_last_consumer() {
+    let size = 128;
+    let image_bytes = u64::from(size * size) * 16;
+    let (host, _) = pollster::block_on(Host::headless(6 * image_bytes + 65536)).unwrap();
+    let mut renderer = Renderer::new(host.clone()).unwrap();
+    let program = std::sync::Arc::new(fold_render::shader::Program {
+        source: "fn effect(uv:vec2<f32>)->vec4<f32>{return (a(uv)+b(uv)+c(uv)+d(uv))*0.25;}".into(),
+        images: vec!["a".into(), "b".into(), "c".into(), "d".into()],
+        values: vec![],
+        time: 0.,
+        progress: 0.,
+        logical_size: [size as f32; 2],
+    });
+    let mut graph = RenderGraph {
+        width: size,
+        height: size,
+        nodes: vec![],
+        output: 0,
+    };
+    for group in 0..5 {
+        let start = graph.nodes.len();
+        for _ in 0..4 {
+            graph.nodes.push(ImageOp::Solid {
+                rgba: [0.25, 0.125, 0., 1.],
+            });
+        }
+        let shader = graph.nodes.len();
+        graph.nodes.push(ImageOp::Shader {
+            inputs: (start..start + 4).collect(),
+            program: program.clone(),
+        });
+        if group == 0 {
+            graph.output = shader;
+        } else {
+            let background = graph.output;
+            graph.output = graph.nodes.len();
+            graph.nodes.push(ImageOp::Over {
+                foreground: shader,
+                background,
+            });
+        }
+    }
+    let cancel = fold_media::Cancel::default();
+    let mut frame = renderer
+        .evaluate(graph, None, &mut fold_media::Decoder::default(), &cancel)
+        .unwrap();
+    let result = frame.readback(&cancel).unwrap();
+    assert!(result.pixels().iter().all(|p| *p == [0.25, 0.125, 0., 1.]));
+    assert!(host.memory().peak <= 6 * image_bytes + 65536);
+}
+
 fn fixture(aces: bool) -> RenderGraph {
     let pixels = (0..19 * 13)
         .flat_map(|i| {

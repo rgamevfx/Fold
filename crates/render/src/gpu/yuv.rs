@@ -4,7 +4,13 @@ use super::{
     Host,
     host::{Image, Reservation},
 };
-use std::{collections::VecDeque, sync::Arc};
+use std::{
+    collections::VecDeque,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+};
 use wgpu::util::DeviceExt;
 #[cfg(test)]
 #[path = "yuv_layout_tests.rs"]
@@ -86,7 +92,10 @@ impl Layout {
     }
 }
 struct Entry {
+    submitted: Arc<AtomicBool>,
+    retention: Option<super::host::VideoRetention>,
     identity: u64,
+    params: [u32; 20],
     bytes: u64,
     buffer: wgpu::Buffer,
     uniform: wgpu::Buffer,
@@ -94,6 +103,7 @@ struct Entry {
 }
 pub(super) struct YuvPipeline {
     pipeline: wgpu::ComputePipeline,
+    uploads: super::upload::Pool,
     cache: VecDeque<Arc<Entry>>,
     bytes: u64,
     external_layouts: VecDeque<([u32; 20], wgpu::Buffer, Arc<Reservation>)>,
@@ -104,6 +114,7 @@ impl YuvPipeline {
             .device()
             .create_shader_module(wgpu::include_wgsl!("yuv.wgsl"));
         Self {
+            uploads: Default::default(),
             pipeline: host
                 .device()
                 .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
@@ -121,6 +132,7 @@ impl YuvPipeline {
     }
     pub fn clear(&mut self) {
         self.cache.clear();
+        self.uploads.clear();
         self.bytes = 0;
         self.external_layouts.clear();
     }
@@ -131,11 +143,12 @@ impl YuvPipeline {
         frame: &fold_media::YuvFrame,
         output: &Image,
         reservations: &mut Vec<Arc<Reservation>>,
+        uploads: &mut Vec<super::upload::Upload>,
     ) -> Result<u64, fold_foundation::Failure> {
         let (entry, uploaded) = if let Some(index) = self
             .cache
             .iter()
-            .position(|v| v.identity == frame.identity())
+            .position(|v| v.identity == frame.identity() && v.submitted.load(Ordering::Acquire))
         {
             let entry = self.cache.remove(index).unwrap();
             self.cache.push_back(entry.clone());
@@ -154,43 +167,69 @@ impl YuvPipeline {
             let bytes = (frame.bytes().len() as u64).div_ceil(4) * 4;
             let params =
                 layout.format_parameters(bytes, frame.format(), planes[3].offset as u32)?;
-            let limit = (64 * 1024 * 1024).min(host.memory().budget / 8);
+            let limit = host.video_cache_budget();
+            let mut reusable = None;
             while !self.cache.is_empty()
-                && (self.bytes + bytes + 80 > limit || self.cache.len() >= 64)
+                && (self.bytes + bytes + 80 > limit || self.cache.len() >= 512)
             {
                 let old = self.cache.pop_front().unwrap();
                 self.bytes -= old.bytes;
-            }
-            let reservation =
-                match host.reserve_as(bytes + 80, super::host::AllocationKind::Decoded) {
-                    Ok(r) => r,
-                    Err(_) => {
-                        self.clear();
-                        host.reserve_as(bytes + 80, super::host::AllocationKind::Decoded)?
+                // Every encoded/submitted use retains this reservation. A cache
+                // eviction alone does not authorize overwriting queued readers.
+                if old.params == params && Arc::strong_count(&old.reservation) == 1 {
+                    reusable = Arc::try_unwrap(old).ok();
+                    if let Some(entry) = &mut reusable {
+                        entry.retention = None;
                     }
-                };
-            let buffer = host
-                .device()
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                }
+            }
+            let mut entry = if let Some(mut entry) = reusable {
+                entry.submitted = Arc::new(AtomicBool::new(false));
+                entry
+            } else {
+                let reservation =
+                    match host.reserve_as(bytes + 80, super::host::AllocationKind::Decoded) {
+                        Ok(r) => r,
+                        Err(_) => {
+                            self.clear();
+                            host.reserve_as(bytes + 80, super::host::AllocationKind::Decoded)?
+                        }
+                    };
+                let buffer = host.device().create_buffer(&wgpu::BufferDescriptor {
                     label: Some("Retained native YUV"),
-                    contents: frame.bytes(),
-                    usage: wgpu::BufferUsages::STORAGE,
+                    size: bytes,
+                    usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+                    mapped_at_creation: false,
                 });
-            let uniform = host
-                .device()
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("Native video layout"),
-                    contents: bytemuck::cast_slice(&params),
-                    usage: wgpu::BufferUsages::UNIFORM,
-                });
-            let entry = Arc::new(Entry {
-                identity: frame.identity(),
-                bytes: bytes + 80,
-                buffer,
-                uniform,
-                reservation,
-            });
+                let uniform = host
+                    .device()
+                    .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                        label: Some("Native video layout"),
+                        contents: bytemuck::cast_slice(&params),
+                        usage: wgpu::BufferUsages::UNIFORM,
+                    });
+                Entry {
+                    submitted: Arc::new(AtomicBool::new(false)),
+                    retention: None,
+                    identity: frame.identity(),
+                    params,
+                    bytes: bytes + 80,
+                    buffer,
+                    uniform,
+                    reservation,
+                }
+            };
+            entry.identity = frame.identity();
+            let (mut upload, _) =
+                self.uploads
+                    .write_buffer(host, frame.bytes(), encoder, &entry.buffer)?;
+            upload.publish_on_submit(entry.submitted.clone());
+            uploads.push(upload);
             if entry.bytes <= limit {
+                entry.retention = host.retain_video(entry.bytes);
+            }
+            let entry = Arc::new(entry);
+            if entry.retention.is_some() {
                 self.bytes += entry.bytes;
                 self.cache.push_back(entry.clone());
             }

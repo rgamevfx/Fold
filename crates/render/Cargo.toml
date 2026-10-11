@@ -8,7 +8,7 @@ publish.workspace = true
 default = []
 spatial = ["gpu", "dep:bevy"]
 native-video = ["gpu", "fold-media/native-video", "dep:fold-native-video", "fold-native-video/gpu"]
-gpu = ["dep:wgpu", "dep:bytemuck", "dep:pollster", "block_compression/wgpu"]
+gpu = ["dep:wgpu", "dep:bytemuck", "dep:pollster", "block_compression/wgpu", "dep:fold-native-video", "fold-native-video/gpu"]
 
 [dependencies]
 bevy = { version = "=0.18.1", optional = true, default-features = false, features = ["std", "async_executor", "multi_threaded", "bevy_asset", "bevy_render", "bevy_core_pipeline", "bevy_pbr"] }

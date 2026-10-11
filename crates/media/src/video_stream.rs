@@ -1,5 +1,6 @@
 //! Demand-driven retained FFmpeg range decoder. Pipes, not temporary RGB files.
-//! At most one frame is being read per stream; the OS pipe backpressures FFmpeg.
+//! One frame is prefetched per stream while the consumer processes its previous
+//! frame. The bounded mailbox and aggregate pipe leases backpressure FFmpeg.
 use crate::{Cancel, process::Process};
 use std::{
     io::Read,
@@ -70,6 +71,9 @@ impl Stream {
                 }
             }
         });
+        // Prime a single read. Further reads are requested only when the consumer
+        // takes the previous frame, so speculative storage cannot grow unbounded.
+        demand.send(()).map_err(|_| "decoder reader stopped")?;
         Ok(Self {
             process: Some(process),
             demand: Some(demand),
@@ -93,16 +97,17 @@ impl Stream {
         cancel: &Cancel,
     ) -> Result<(Vec<u8>, std::sync::Arc<crate::budget::Lease>), fold_foundation::Failure> {
         cancel.check()?;
-        self.demand
-            .as_ref()
-            .ok_or("decoder stopped")?
-            .send(())
-            .map_err(|_| "decoder reader stopped")?;
+        self.demand.as_ref().ok_or("decoder stopped")?;
         let start = Instant::now();
         loop {
             cancel.check()?;
             match self.frames.recv_timeout(Duration::from_millis(10)) {
-                Ok(Ok(bytes)) => return Ok(bytes),
+                Ok(Ok(bytes)) => {
+                    // Reading may finish while this caller uploads/renders. EOF
+                    // and decode errors belong to the next demand, not this frame.
+                    let _ = self.demand.as_ref().unwrap().send(());
+                    return Ok(bytes);
+                }
                 Ok(Err(mut error)) => {
                     let details = self
                         .process

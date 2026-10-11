@@ -11,11 +11,13 @@ pub(super) struct ColorPipeline {
     pipeline: wgpu::ComputePipeline,
     layout: wgpu::BindGroupLayout,
     finish: wgpu::ComputePipeline,
+    display: bool,
     views: Vec<wgpu::TextureView>,
     samplers: Vec<wgpu::Sampler>,
     pub reservation: Arc<Reservation>,
     pub upload_bytes: u64,
 }
+
 impl ColorPipeline {
     pub fn new(
         host: &Host,
@@ -248,17 +250,15 @@ impl ColorPipeline {
         if let Some(error) = pollster::block_on(device.pop_error_scope()) {
             return Err(format!("OCIO GPU shader: {error}").into());
         }
-        let finish_source = include_str!("color_finish.wgsl")
-            .replace("FORMAT", if display { "rgba8unorm" } else { "rgba32float" });
         let finish_module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("OCIO validation/quantization"),
-            source: wgpu::ShaderSource::Wgsl(finish_source.into()),
+            source: wgpu::ShaderSource::Wgsl(include_str!("color_finish.wgsl").into()),
         });
         let finish = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
             label: Some("OCIO validation/quantization"),
             layout: None,
             module: &finish_module,
-            entry_point: Some("main"),
+            entry_point: Some(if display { "main" } else { "validate_working" }),
             compilation_options: Default::default(),
             cache: None,
         });
@@ -267,6 +267,7 @@ impl ColorPipeline {
             pipeline,
             layout,
             finish,
+            display,
             views,
             samplers,
             reservation,
@@ -281,8 +282,15 @@ impl ColorPipeline {
         output: &Image,
         matte: bool,
         status: &Status,
-    ) -> Result<Arc<Image>, fold_foundation::Failure> {
-        let intermediate = host.image(output.dimensions)?;
+    ) -> Result<Option<Arc<Image>>, fold_foundation::Failure> {
+        // Quantization needs a float intermediate so invalid/HDR values are
+        // checked before UNORM storage. Working output is already float: write
+        // it directly and validate read-only, without a second full-frame copy.
+        let intermediate = self
+            .display
+            .then(|| host.image(output.dimensions))
+            .transpose()?;
+        let converted = intermediate.as_deref().unwrap_or(output);
         let uniform = host
             .device()
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -301,7 +309,7 @@ impl ColorPipeline {
             },
             wgpu::BindGroupEntry {
                 binding: 2,
-                resource: wgpu::BindingResource::TextureView(&intermediate.view),
+                resource: wgpu::BindingResource::TextureView(&converted.view),
             },
             wgpu::BindGroupEntry {
                 binding: 3,
@@ -336,23 +344,24 @@ impl ColorPipeline {
             1,
         );
         drop(pass);
+        let entries = [
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::TextureView(&converted.view),
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: status.gpu.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: wgpu::BindingResource::TextureView(&output.view),
+            },
+        ];
         let group = host.device().create_bind_group(&wgpu::BindGroupDescriptor {
             label: None,
             layout: &self.finish.get_bind_group_layout(0),
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&intermediate.view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::TextureView(&output.view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: status.gpu.as_entire_binding(),
-                },
-            ],
+            entries: &entries[..if self.display { 3 } else { 2 }],
         });
         let mut pass = encoder.begin_compute_pass(&Default::default());
         pass.set_pipeline(&self.finish);
@@ -363,5 +372,94 @@ impl ColorPipeline {
             1,
         );
         Ok(intermediate)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[ignore = "requires native Vulkan"]
+    fn working_conversion_does_not_allocate_a_copy_of_its_output() {
+        let dimensions = [64, 32];
+        let image_bytes = 64 * 32 * 16;
+        let (host, _) = pollster::block_on(Host::headless(2 * image_bytes + 4096)).unwrap();
+        let input = host.image(dimensions).unwrap();
+        let output = host.image(dimensions).unwrap();
+        let pipeline = ColorPipeline::new(&host, None, false).unwrap();
+        let status = Status::new(&host).unwrap();
+        let mut encoder = host.device().create_command_encoder(&Default::default());
+        status.start(&mut encoder);
+        pipeline
+            .encode(&host, &mut encoder, &input, &output, false, &status)
+            .unwrap();
+        status.encode(&mut encoder);
+        host.submit(
+            encoder,
+            vec![input, output],
+            vec![pipeline.reservation.clone()],
+        );
+        let ready = status.submitted();
+        let begin = std::time::Instant::now();
+        while !ready.ready().unwrap() {
+            host.poll().unwrap();
+            assert!(begin.elapsed().as_secs() < 10);
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+        assert!(host.memory().peak <= 2 * image_bytes + 4096);
+    }
+
+    #[test]
+    #[ignore = "requires native Vulkan"]
+    fn direct_working_output_still_rejects_conversion_overflow() {
+        let (host, _) = pollster::block_on(Host::headless(1024 * 1024)).unwrap();
+        let input = host.image([1, 1]).unwrap();
+        let output = host.image([1, 1]).unwrap();
+        let pipeline = ColorPipeline::new(&host, None, false).unwrap();
+        for (pixel, valid) in [
+            ([0.1, -0.1, 2., 0.5], true),
+            ([f32::MAX, 0., 0., 0.1], false),
+        ] {
+            host.queue().write_texture(
+                input.texture.as_image_copy(),
+                bytemuck::cast_slice(&pixel),
+                wgpu::TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(16),
+                    rows_per_image: Some(1),
+                },
+                input.texture.size(),
+            );
+            let status = Status::new(&host).unwrap();
+            let mut encoder = host.device().create_command_encoder(&Default::default());
+            status.start(&mut encoder);
+            assert!(
+                pipeline
+                    .encode(&host, &mut encoder, &input, &output, false, &status)
+                    .unwrap()
+                    .is_none()
+            );
+            status.encode(&mut encoder);
+            host.submit(
+                encoder,
+                vec![input.clone(), output.clone()],
+                vec![pipeline.reservation.clone()],
+            );
+            let ready = status.submitted();
+            let begin = std::time::Instant::now();
+            loop {
+                host.poll().unwrap();
+                match ready.ready() {
+                    Ok(false) => {}
+                    result => {
+                        assert_eq!(result.is_ok(), valid);
+                        break;
+                    }
+                }
+                assert!(begin.elapsed().as_secs() < 10);
+                std::thread::sleep(std::time::Duration::from_millis(1));
+            }
+        }
     }
 }

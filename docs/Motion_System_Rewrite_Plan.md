@@ -832,6 +832,48 @@ configuration expressions and the remaining universal acceptance are still open.
   review and seven passing focused tests. Prepared 20-point keyed evaluation
   falls from 31.2 ms to 1.7 ms in the debug fixture; physical latency is unverified.
 
+### User-directed compositor/render pipeline audit (10 October)
+
+- Shared CPU/GPU request planning reuses equivalent video reads after logical
+  and color validation. Working OCIO conversions validate their destination
+  without a full-frame copy. GPU scratch retirement now covers all eight shader
+  inputs, including the existing opacity-fusion dependency substitution.
+- [Audit and evidence](rewrite/evidence/compositor-render-audit/result.md) records
+  data flow, Vulkan/wgpu review, failing/passing allocation regressions, 89 render
+  tests and 11 selected native GPU checks. Real 1080p24 HEVC and ProRes clips have
+  three-trial release measurements and final forward/reverse/random/held checks.
+  Shared-source GPU P50 falls about 42%/30%, with 63.28 MiB less peak logical
+  allocation. Other gains are smaller; the ProRes source-only timing caveat and
+  measured clock-state variation remain explicit.
+- One inherited Compositor inventory test expects 24 operators against the
+  unchanged 25-entry registry. Physical desktop playback, encoded export and
+  general incremental/fusion acceptance remain unqualified. This bounded
+  shared-render follow-up does not close any Motion phase gate or advance M6.
+- A user-requested [further optimization report](rewrite/evidence/compositor-render-audit/further-optimization.md)
+  records fixed automatic budgets, source/worker scheduling, allocation reuse,
+  GPU fusion/export opportunities and primary-source Vulkan/wgpu research.
+  An isolated three-trial ProRes native-plane probe reduces median 360-frame
+  processing from 5.43 s at four decoder threads to 3.91 s at eight; this is not
+  an end-to-end Fold speedup. That research checkpoint made no runtime/default
+  changes; the implemented follow-up and its evidence are recorded below.
+
+### User-directed rendering optimization implementation (11 October)
+
+- [Implementation and evidence](rewrite/evidence/compositor-render-audit/improvements.md)
+  records adaptive startup memory budgets, shared video retention, completion-safe
+  software-plane reuse, bounded prefetch/source preparation and codec thread leases.
+  Pointwise chains preserve intermediate validation; GPU RGBA16 delivery and a
+  bounded encoder writer overlap export stages while preserving alpha and failure cleanup.
+- The actual 8 GiB GTX 1070 selects a 4 GiB host budget. Automated real-clip CPU/GPU
+  parity and encoded ProRes alpha/failure tests pass. Final three-trial ProRes
+  source/effects latency falls about 22%/19%; sequential HEVC remains essentially
+  unchanged. A 60-frame HEVC revisit test makes 39/17/0 new copies at 1/2/4 GiB.
+  Physical desktop playback acceptance remains open.
+- Native CUDA/Vulkan allocation/import pooling remains unimplemented pending the
+  documented opaque ownership/submission protocol. General incremental graph
+  compilation, uniform arenas and multi-frame preview submission remain outside
+  this bounded follow-up. Existing phase gates and M6 status are unchanged.
+
 ## 4. Validation discipline
 
 During each phase, format touched Rust files and check affected crates. Add focused behavioral tests for changed semantics; test the document/IR independently of UI and use image/runtime fixtures for rendering contracts. Compare CPU/GPU at declared tolerances rather than silently relaxing them. Exercise examples through real public tools.

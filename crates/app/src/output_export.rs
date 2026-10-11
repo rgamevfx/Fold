@@ -167,18 +167,20 @@ fn export_video(
                 );
             }
         };
-        let mut encoder =
-            Encoder::new_prores4444(path, &info, end - start, cancel.clone(), rec709)?;
-        for frame in start..end {
-            cancel.check()?;
-            request.time = info.time(frame)?;
-            let output = match first.take() {
-                Some(frame) => frame,
-                None => evaluator.evaluate_rgba16(snapshot, &request, cancel)?,
-            };
-            encoder.write_rgba16(output.bytes())?;
-        }
-        return Ok(encoder.finish()?);
+        let encoder = Encoder::new_prores4444(path, &info, end - start, cancel.clone(), rec709)?;
+        return write_pipeline(
+            encoder,
+            start..end,
+            cancel,
+            |frame| {
+                request.time = info.time(frame)?;
+                match first.take() {
+                    Some(frame) => Ok(frame),
+                    None => Ok(evaluator.evaluate_rgba16(snapshot, &request, cancel)?),
+                }
+            },
+            |encoder, output| encoder.write_rgba16(output.bytes()).map_err(Into::into),
+        );
     }
     let mut evaluate_output =
         |request: &SceneRequest| evaluator.evaluate(snapshot, request, cancel);
@@ -187,26 +189,72 @@ fn export_video(
     let output_color = fold_platform::color::project(snapshot)?
         .map(|_| fold_platform::color::output(snapshot, request.source.document))
         .transpose()?;
-    let mut encoder = match output_color.as_ref().map(|c| c.display.as_str()) {
+    let encoder = match output_color.as_ref().map(|c| c.display.as_str()) {
         Some("Rec.1886 Rec.709 - Display") => {
             Encoder::new_rec709(path, &info, end - start, cancel.clone())?
         }
         Some("sRGB - Display") | None => Encoder::new(path, &info, end - start, cancel.clone())?,
         _ => return Err("MP4 requires an sRGB or Rec.1886 Rec.709 output transform".into()),
     };
-    for frame in start..end {
-        cancel.check()?;
-        request.time = info.time(frame)?;
-        let display = match first.take() {
-            Some(display) => display,
-            None => evaluate_output(&request)?,
-        };
-        let rgb: Vec<u8> = display
-            .rgba()
-            .chunks_exact(4)
-            .flat_map(|p| p[..3].iter().copied())
-            .collect();
-        encoder.write_rgb(&rgb)?;
-    }
-    Ok(encoder.finish()?)
+    write_pipeline(
+        encoder,
+        start..end,
+        cancel,
+        |frame| {
+            request.time = info.time(frame)?;
+            match first.take() {
+                Some(display) => Ok(display),
+                None => Ok(evaluate_output(&request)?),
+            }
+        },
+        |encoder, display| {
+            let rgb: Vec<u8> = display
+                .rgba()
+                .chunks_exact(4)
+                .flat_map(|p| p[..3].iter().copied())
+                .collect();
+            encoder.write_rgb(&rgb).map_err(Into::into)
+        },
+    )
+}
+
+/// The writer owns the encoder. Only a complete sequence may finalize it; a
+/// failed producer closes the channel and dropping Encoder removes its temporary.
+/// One queued frame overlaps bounded CPU conversion/pipe IO with rendering.
+fn write_pipeline<T: Send>(
+    mut encoder: Encoder,
+    frames: std::ops::Range<u32>,
+    cancel: &Cancel,
+    mut render: impl FnMut(u32) -> Result<T, String>,
+    mut write: impl FnMut(&mut Encoder, T) -> Result<(), String> + Send,
+) -> Result<(), String> {
+    let count = frames.len();
+    std::thread::scope(|scope| {
+        let (send, receive) = std::sync::mpsc::sync_channel(1);
+        let writer = scope.spawn(move || -> Result<(), String> {
+            for _ in 0..count {
+                cancel.check()?;
+                let frame = receive.recv().map_err(|_| "export rendering stopped")?;
+                write(&mut encoder, frame)?;
+            }
+            cancel.check()?;
+            Ok(encoder.finish()?)
+        });
+        let produced = (|| -> Result<(), String> {
+            for frame in frames {
+                cancel.check()?;
+                let output = render(frame)?;
+                send.send(output).map_err(|_| "export writer stopped")?;
+            }
+            Ok(())
+        })();
+        drop(send);
+        let written = writer.join().map_err(|_| "export writer panicked")?;
+        // Preserve the producer's concrete decode/render failure; otherwise
+        // return the writer's codec/IO error instead of a channel symptom.
+        match produced {
+            Err(error) if error != "export writer stopped" => Err(error),
+            _ => written,
+        }
+    })
 }

@@ -1,0 +1,98 @@
+[
+  {
+    "case": "verify-hevc-full-forward",
+    "frames": 361,
+    "first_reference_frame": 0,
+    "cpu_max_rgba8_error": 1,
+    "matched_preview_delivery_bytes": true,
+    "completion_validation": "all requested GPU frames"
+  },
+  {
+    "case": "verify-hevc-shared-forward",
+    "frames": 1,
+    "first_reference_frame": 0,
+    "cpu_max_rgba8_error": 1,
+    "matched_preview_delivery_bytes": true,
+    "completion_validation": "all requested GPU frames"
+  },
+  {
+    "case": "verify-hevc-shared-held",
+    "frames": 30,
+    "first_reference_frame": 0,
+    "cpu_max_rgba8_error": 1,
+    "matched_preview_delivery_bytes": true,
+    "completion_validation": "all requested GPU frames"
+  },
+  {
+    "case": "verify-hevc-shared-random",
+    "frames": 90,
+    "first_reference_frame": 6,
+    "cpu_max_rgba8_error": 1,
+    "matched_preview_delivery_bytes": true,
+    "completion_validation": "all requested GPU frames"
+  },
+  {
+    "case": "verify-hevc-shared-reverse",
+    "frames": 90,
+    "first_reference_frame": 89,
+    "cpu_max_rgba8_error": 1,
+    "matched_preview_delivery_bytes": true,
+    "completion_validation": "all requested GPU frames"
+  },
+  {
+    "case": "verify-hevc-source-forward",
+    "frames": 1,
+    "first_reference_frame": 0,
+    "cpu_max_rgba8_error": 1,
+    "matched_preview_delivery_bytes": true,
+    "completion_validation": "all requested GPU frames"
+  },
+  {
+    "case": "verify-prores-full-forward",
+    "frames": 360,
+    "first_reference_frame": 0,
+    "cpu_max_rgba8_error": 1,
+    "matched_preview_delivery_bytes": true,
+    "completion_validation": "all requested GPU frames"
+  },
+  {
+    "case": "verify-prores-shared-forward",
+    "frames": 1,
+    "first_reference_frame": 0,
+    "cpu_max_rgba8_error": 1,
+    "matched_preview_delivery_bytes": true,
+    "completion_validation": "all requested GPU frames"
+  },
+  {
+    "case": "verify-prores-shared-held",
+    "frames": 30,
+    "first_reference_frame": 0,
+    "cpu_max_rgba8_error": 1,
+    "matched_preview_delivery_bytes": true,
+    "completion_validation": "all requested GPU frames"
+  },
+  {
+    "case": "verify-prores-shared-random",
+    "frames": 90,
+    "first_reference_frame": 6,
+    "cpu_max_rgba8_error": 1,
+    "matched_preview_delivery_bytes": true,
+    "completion_validation": "all requested GPU frames"
+  },
+  {
+    "case": "verify-prores-shared-reverse",
+    "frames": 90,
+    "first_reference_frame": 89,
+    "cpu_max_rgba8_error": 1,
+    "matched_preview_delivery_bytes": true,
+    "completion_validation": "all requested GPU frames"
+  },
+  {
+    "case": "verify-prores-source-forward",
+    "frames": 1,
+    "first_reference_frame": 0,
+    "cpu_max_rgba8_error": 1,
+    "matched_preview_delivery_bytes": true,
+    "completion_validation": "all requested GPU frames"
+  }
+]

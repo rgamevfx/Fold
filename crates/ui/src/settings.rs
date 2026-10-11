@@ -196,7 +196,7 @@ impl Settings {
         }
         ui.checkbox("Automatic budgets", &mut app.automatic);
         if app.automatic {
-            ui.text_wrapped("Conservative defaults: 1024 MiB GPU, 256 MiB GPU playback cache, 768 MiB CPU image processing.");
+            ui.text_wrapped("GPU and playback cache budgets adapt to available video memory at startup. CPU image processing uses 768 MiB. Changes apply after restart.");
         } else {
             memory_control(ui, "GPU memory budget (MiB)", &mut app.gpu_mib, 128, 65536);
             app.viewer_mib = app.viewer_mib.min(app.gpu_mib / 2);

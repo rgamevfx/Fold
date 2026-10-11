@@ -18,6 +18,7 @@ pub struct Statistics {
     pub coverage_pixels: u64,
     pub shader_compilations: u32,
     pub fused_opacity_passes: u32,
+    pub fused_pointwise_passes: u32,
     pub graph_prepare_nanoseconds: u128,
     pub evaluate_cpu_nanoseconds: u128,
     pub output_cpu_nanoseconds: u128,
@@ -60,6 +61,7 @@ impl Statistics {
         self.coverage_pixels += other.coverage_pixels;
         self.shader_compilations += other.shader_compilations;
         self.fused_opacity_passes += other.fused_opacity_passes;
+        self.fused_pointwise_passes += other.fused_pointwise_passes;
         self.graph_prepare_nanoseconds += other.graph_prepare_nanoseconds;
         self.evaluate_cpu_nanoseconds += other.evaluate_cpu_nanoseconds;
         self.output_cpu_nanoseconds += other.output_cpu_nanoseconds;

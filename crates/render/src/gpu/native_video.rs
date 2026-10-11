@@ -15,6 +15,7 @@ pub(super) struct NativeInput {
     bytes: u64,
 }
 struct Entry {
+    _retention: super::host::VideoRetention,
     fingerprint: String,
     info: fold_media::VideoInfo,
     frame: u32,
@@ -72,9 +73,9 @@ impl NativeVideo {
         }
         let layout = Nv12Layout::for_source(source)?;
         let format = layout.format;
-        let limit = (64 * 1024 * 1024).min(host.memory().budget / 8);
+        let limit = host.video_cache_budget();
         while !self.cache.is_empty()
-            && (self.bytes + layout.bytes + 65536 > limit || self.cache.len() >= 64)
+            && (self.bytes + layout.bytes + 65536 > limit || self.cache.len() >= 512)
         {
             let old = self.cache.pop_front().unwrap();
             self.bytes -= old.input.bytes;
@@ -120,9 +121,12 @@ impl NativeVideo {
             let old = self.cache.pop_front().unwrap();
             self.bytes -= old.input.bytes;
         }
-        if bytes <= limit {
+        if bytes <= limit
+            && let Some(retention) = host.retain_video(bytes)
+        {
             self.bytes += bytes;
             self.cache.push_back(Entry {
+                _retention: retention,
                 fingerprint: source.fingerprint.clone(),
                 info: source.info.clone(),
                 frame,

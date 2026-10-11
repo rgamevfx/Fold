@@ -1,0 +1,26 @@
+[
+  {
+    "budget_mib": 1024,
+    "revisit_frames": 60,
+    "native_copy_frames": 39,
+    "wall_p50": 34.2526825,
+    "peak_mib": 227.41754913330078,
+    "wall_p95": 75.43910500000001
+  },
+  {
+    "budget_mib": 2048,
+    "revisit_frames": 60,
+    "native_copy_frames": 17,
+    "wall_p50": 7.924087999999999,
+    "peak_mib": 357.9351272583008,
+    "wall_p95": 27.914576999999998
+  },
+  {
+    "budget_mib": 4096,
+    "revisit_frames": 60,
+    "native_copy_frames": 0,
+    "wall_p50": 7.8716615,
+    "peak_mib": 458.7896194458008,
+    "wall_p95": 8.900108
+  }
+]

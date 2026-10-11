@@ -1,0 +1,6 @@
+
+running 2 tests
+test native_ocio_display_luts_alpha_and_output_identity ... ok
+test prores_xq_alpha_matches_cpu_through_aces_and_over ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.31s

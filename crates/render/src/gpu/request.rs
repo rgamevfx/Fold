@@ -7,6 +7,7 @@ pub(super) struct Prepared {
     pub needed: Vec<bool>,
     pub uses: Vec<usize>,
     pub fused: Vec<Option<(usize, f32)>>,
+    pub chains: Vec<Option<pointwise::Chain>>,
     pub stats: Statistics,
     pub sources: Vec<Option<GpuFrame>>,
     pub dimensions: [u32; 2],
@@ -50,8 +51,10 @@ impl Renderer {
             fold_foundation::Failure::new(fold_foundation::FailureKind::InvalidInput, error)
         })?;
         let processors = graph::input_processors(&graph, config)?;
+        crate::video_sources::reuse(&mut graph);
         let (mut needed, mut uses) = graph::dependencies(&graph);
         let fused = fusion::opacity_over(&graph, &mut needed, &mut uses);
+        let chains = pointwise::plan(&graph, &mut needed, &mut uses);
         let prepare_nanoseconds = evaluate_begin.elapsed().as_nanos();
         let mut stats = Statistics {
             graph_prepare_nanoseconds: prepare_nanoseconds,
@@ -160,6 +163,7 @@ impl Renderer {
             needed,
             uses,
             fused,
+            chains,
             stats,
             sources,
             dimensions,

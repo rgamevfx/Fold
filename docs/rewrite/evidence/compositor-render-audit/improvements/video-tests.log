@@ -1,0 +1,9 @@
+
+running 5 tests
+test codec_timing_color_import_composition_export_and_persistence ... ok
+test latest_requests_cancel_export_and_nonblocking_commands ... ok
+test retired_documents_and_extensions_survive_import_and_sequence_edits ... ok
+test saturated_colors_untagged_layout_and_explicit_profile_rejection ... ok
+test seeks_cross_fractional_second_boundaries_and_cancel_active_encoder ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.96s

@@ -15,21 +15,31 @@ struct Staging {
 pub(super) struct Pool {
     entries: Vec<Arc<Staging>>,
 }
-pub(super) struct Upload(Arc<Staging>);
+pub(super) struct Upload {
+    staging: Arc<Staging>,
+    publication: Option<Arc<AtomicBool>>,
+}
+impl Upload {
+    pub fn publish_on_submit(&mut self, ready: Arc<AtomicBool>) {
+        self.publication = Some(ready);
+    }
+    /// Call only after the encoder containing this upload has been submitted.
+    /// Queue ordering then protects later cached reads, without a CPU fence.
+    pub fn submitted(&self) {
+        if let Some(ready) = &self.publication {
+            ready.store(true, Ordering::Release);
+        }
+    }
+}
 impl Pool {
     pub fn clear(&mut self) {
         self.entries.clear();
     }
-    pub fn write(
+    fn acquire(
         &mut self,
         host: &Host,
-        pixels: &[[f32; 4]],
-        dimensions: [u32; 2],
-        encoder: &mut wgpu::CommandEncoder,
-        target: &wgpu::Texture,
-    ) -> Result<(Upload, bool), fold_foundation::Failure> {
-        let stride = (dimensions[0] * 16).div_ceil(256) * 256;
-        let bytes = u64::from(stride) * u64::from(dimensions[1]);
+        bytes: u64,
+    ) -> Result<(Arc<Staging>, bool), fold_foundation::Failure> {
         let available = self
             .entries
             .iter()
@@ -70,6 +80,43 @@ impl Pool {
             entry
         };
         entry.mapped.store(false, Ordering::Release);
+        Ok((entry, reused))
+    }
+    pub fn write_buffer(
+        &mut self,
+        host: &Host,
+        data: &[u8],
+        encoder: &mut wgpu::CommandEncoder,
+        target: &wgpu::Buffer,
+    ) -> Result<(Upload, bool), fold_foundation::Failure> {
+        let bytes = (data.len() as u64).div_ceil(4) * 4;
+        let (entry, reused) = self.acquire(host, bytes)?;
+        {
+            let mut mapped = entry.buffer.slice(..).get_mapped_range_mut();
+            mapped[..data.len()].copy_from_slice(data);
+            mapped[data.len()..].fill(0);
+        }
+        entry.buffer.unmap();
+        encoder.copy_buffer_to_buffer(&entry.buffer, 0, target, 0, bytes);
+        Ok((
+            Upload {
+                staging: entry,
+                publication: None,
+            },
+            reused,
+        ))
+    }
+    pub fn write(
+        &mut self,
+        host: &Host,
+        pixels: &[[f32; 4]],
+        dimensions: [u32; 2],
+        encoder: &mut wgpu::CommandEncoder,
+        target: &wgpu::Texture,
+    ) -> Result<(Upload, bool), fold_foundation::Failure> {
+        let stride = (dimensions[0] * 16).div_ceil(256) * 256;
+        let bytes = u64::from(stride) * u64::from(dimensions[1]);
+        let (entry, reused) = self.acquire(host, bytes)?;
         {
             let mut mapped = entry.buffer.slice(..).get_mapped_range_mut();
             for (row, pixels) in mapped
@@ -92,13 +139,19 @@ impl Pool {
             target.as_image_copy(),
             target.size(),
         );
-        Ok((Upload(entry), reused))
+        Ok((
+            Upload {
+                staging: entry,
+                publication: None,
+            },
+            reused,
+        ))
     }
 }
 impl Drop for Upload {
     fn drop(&mut self) {
-        let entry = self.0.clone();
-        self.0
+        let entry = self.staging.clone();
+        self.staging
             .buffer
             .slice(..)
             .map_async(wgpu::MapMode::Write, move |result| {

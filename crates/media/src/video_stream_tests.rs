@@ -2,6 +2,23 @@ use super::*;
 use std::process::Stdio;
 
 #[test]
+fn prefetched_frames_remain_ordered_and_last_frame_survives_eof() {
+    let mut command = Command::new("python3");
+    command
+        .args([
+            "-c",
+            "import sys; sys.stdout.buffer.write(bytes(range(48)))",
+        ])
+        .stdout(Stdio::piped());
+    let mut stream = Stream::new(command, 16).unwrap();
+    for frame in 0..3 {
+        let (bytes, _lease) = stream.read(&Cancel::default()).unwrap();
+        assert_eq!(bytes, (frame * 16..frame * 16 + 16).collect::<Vec<u8>>());
+    }
+    assert!(stream.read(&Cancel::default()).is_err());
+}
+
+#[test]
 fn blocked_pipe_cancels_and_reaps_promptly() {
     let mut command = Command::new("python3");
     command

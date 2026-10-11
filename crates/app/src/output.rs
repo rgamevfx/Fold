@@ -35,9 +35,7 @@ impl OutputRenderer {
         #[cfg(feature = "gpu")]
         let gpu = match std::env::var("FOLD_RENDER_BACKEND").as_deref() {
             Ok("gpu") => {
-                let (host, _) = pollster::block_on(fold_render::gpu::Host::headless(
-                    fold_render::gpu::Host::DEFAULT_BUDGET,
-                ))?;
+                let (host, _) = pollster::block_on(fold_render::gpu::Host::headless_automatic())?;
                 Some(fold_render::gpu::Renderer::new(host)?)
             }
             Ok("cpu") | Err(std::env::VarError::NotPresent) => None,
@@ -136,6 +134,34 @@ impl OutputRenderer {
         request: &SceneRequest,
         cancel: &Cancel,
     ) -> Result<fold_render::Rgba16Output, fold_foundation::Failure> {
+        #[cfg(feature = "gpu")]
+        if let Some(renderer) = self.gpu.as_mut() {
+            let scene = crate::output::evaluate_scene_gpu_admitted(
+                snapshot,
+                request,
+                renderer,
+                &mut self.decoder,
+                cancel,
+                Some(fold_render::scheduling::Class::Export),
+            )?;
+            return crate::color::with_config(snapshot, |config| {
+                let processor = config
+                    .map(|config| {
+                        config.display(
+                            fold_color::WORKING_SPACE,
+                            &fold_platform::color::output(snapshot, request.source.document)?
+                                .display_transform(),
+                        )
+                    })
+                    .transpose()?;
+                renderer.output_rgba16_admitted(
+                    &scene,
+                    processor.as_ref(),
+                    cancel,
+                    Some(fold_render::scheduling::Class::Export),
+                )
+            });
+        }
         let scene = self.evaluate_linear_once(snapshot, request, cancel)?;
         crate::color::with_config(snapshot, |config| {
             let processor = config

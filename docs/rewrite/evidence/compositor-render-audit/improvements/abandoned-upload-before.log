@@ -1,0 +1,16 @@
+
+running 1 test
+
+thread 'gpu::yuv::tests::abandoned_plane_upload_is_not_a_cache_hit' (442645) panicked at crates/render/src/gpu/yuv_tests.rs:274:9:
+assertion `left == right` failed: abandoned commands did not initialize the cache
+  left: 0
+ right: 384
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test gpu::yuv::tests::abandoned_plane_upload_is_not_a_cache_hit ... FAILED
+
+failures:
+
+failures:
+    gpu::yuv::tests::abandoned_plane_upload_is_not_a_cache_hit
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 77 filtered out; finished in 0.40s

@@ -35,6 +35,9 @@ impl Renderer {
         self.host.check()?;
         let submit_begin = std::time::Instant::now();
         self.host.submit(encoder, leases, buffers);
+        for upload in &uploads {
+            upload.submitted();
+        }
         drop(uploads);
         stats.queue_submit_nanoseconds += submit_begin.elapsed().as_nanos();
         let ready = status.submitted();
