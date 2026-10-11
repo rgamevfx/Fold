@@ -1,0 +1,76 @@
+<!doctype html>
+<!-- Throwaway Grade interaction study. Open this file directly. Compact inline RGB controls. No project writes. -->
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fold · Grade control study</title>
+<style>
+:root{color-scheme:dark;font:12px Arial, sans-serif;color:#c9c9cb;background:#19191b}*{box-sizing:border-box}body{margin:0}button,input,select{font:inherit;color:inherit}button,select{background:#29292c;border:1px solid #424246;border-radius:0;min-height:25px}button{cursor:pointer;padding:3px 9px}button:hover{background:#38383c}button:focus-visible,input:focus-visible,select:focus-visible,[role=slider]:focus-visible{outline:1px solid #b5c7dd;outline-offset:2px}header{height:39px;padding:0 18px;border-bottom:1px solid #353538;display:flex;align-items:center;gap:14px}header strong{font-size:13px;font-weight:500}header span{color:#828287;font-size:11px}main{display:grid;grid-template-columns:minmax(340px,1fr) 386px;max-width:1280px;margin:58px auto 90px;padding:0 24px;gap:24px;align-items:start}.viewer{min-width:0}.viewbar{display:flex;align-items:center;gap:12px;height:32px;color:#94949b;font-size:11px}.viewbar label{margin-left:auto;display:flex;gap:6px;align-items:center}canvas{display:block;width:100%;background:#111;aspect-ratio:4/3;object-fit:contain}.caption{color:#77777f;font-size:11px;line-height:1.6;margin-top:10px}.panel{background:#242426;border:1px solid #3a3a3e}.title{height:31px;display:flex;align-items:center;padding:0 12px;border-bottom:1px solid #3a3a3e;gap:9px}.title strong{font-weight:500;color:#e2e2e4}.title small{color:#77777e}.title button{margin-left:auto;background:none;border:0;color:#929298}.body{padding:8px 10px}.channels{display:flex;gap:12px;align-items:center;margin-bottom:7px}.channels label{width:78px;color:#a4a4aa}.channels select{width:100px;padding:3px}.row{display:grid;grid-template-columns:78px minmax(0,1fr) 22px;gap:8px;align-items:center;margin:3px 0}.name{border:0;background:none;text-align:left;padding:0;color:#bcbcc1;font-size:12px}.name:hover{background:none;color:white}.expand{border:0;background:transparent;padding:0;color:#8e8e95;font-size:15px}.field{position:relative;min-width:0;height:25px;border:1px solid #48484e;background:#1c1c1f;cursor:ew-resize;touch-action:none;user-select:none;overflow:hidden;border-radius:0}.fill{position:absolute;left:0;top:0;bottom:0;background:#323237;pointer-events:none}.mark{position:absolute;top:auto;height:3px;bottom:0;width:1px;background:#9c9ca6;pointer-events:none}.value{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#d6d6db;font:12px 'DejaVu Sans Mono',monospace;pointer-events:none}.mixed{position:absolute;left:6px;top:9px;font-size:8px;letter-spacing:1px;color:#b8b8c0}.entry{position:absolute;inset:0;width:100%;background:#1c1c1f;border:0;text-align:center;font:12px monospace;outline:none}.rgb{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:3px}.rgb label{position:relative;min-width:0}.rgb label span{position:absolute;left:5px;top:7px;font-size:9px;color:var(--channel);pointer-events:none}.rgb input{width:100%;height:25px;padding:0 3px 0 14px;background:#1c1c1f;border:1px solid #444449;border-radius:0;text-align:center;font:11px monospace}.mask-controls{display:flex;align-items:center;gap:8px;min-width:0}.mask-controls label{display:flex;align-items:center;gap:4px;font-size:11px;white-space:nowrap;color:#a4a4ad}.mask-controls .mask{min-width:0;flex:1}.mask{width:100%;height:25px;padding:0 5px;background:#1c1c1f;border:1px solid #444449;border-radius:0}.divider{border-top:1px solid #38383c;margin:7px 0}.checks{display:flex;gap:18px;margin:7px 0;color:#a4a4ad;font-size:11px}.checks label{display:flex;align-items:center;gap:4px}input[type=checkbox]{accent-color:#a5adb8;margin:0}@media(max-width:760px){main{grid-template-columns:minmax(0,1fr);max-width:480px;margin-top:18px;padding:0 14px;gap:18px}.viewer canvas{max-height:210px}.panel{width:100%}.viewer .caption{display:none}}@media(min-width:761px) and (max-width:980px){main{grid-template-columns:minmax(240px,1fr) 340px;padding:0 16px;gap:16px}}
+</style>
+
+<main><section class="viewer"><div class="viewbar"><span>Viewer</span><span>RGB</span><label><input id="bypass" type="checkbox"> Bypass</label></div><canvas id="image" width="640" height="480"></canvas><div class="caption">Generated test image · display-space preview</div></section><section><div class="panel"><div class="title"><strong>Grade</strong><small>01</small><button id="reset" title="Reset all parameters">Reset</button></div><div class="body"><div class="channels"><label for="channels">Channels</label><select id="channels"><option>rgb</option><option>rgba</option><option>alpha</option></select></div><div id="rows"></div><div class="divider"></div><div class="checks"><label><input id="black" type="checkbox" checked> Black clamp</label><label><input id="white" type="checkbox"> White clamp</label><label><input id="invert" type="checkbox"> Invert</label></div><div class="row"><label class="name" for="mask">mask</label><div class="mask-controls"><select class="mask" id="mask" title="Demo mask input: feathered circle in alpha, horizontal and vertical ramps in RGB"><option value="none">none</option><option value="alpha">mask.alpha</option><option value="red">mask.red</option><option value="green">mask.green</option><option value="blue">mask.blue</option></select><label><input id="mask-invert" type="checkbox" aria-label="Invert mask"> Invert</label></div></div><div id="mix"></div></div></div></section></main>
+<script>
+const defs=[['blackpoint',0,-1,1],['whitepoint',1,0,2],['lift',0,-1,1],['gain',1,0,4],['multiply',1,0,4],['offset',0,-1,1],['gamma',1,.01,4],['mix',1,0,1]];
+let values=Object.fromEntries(defs.map(([k,d])=>[k,[d,d,d,d]])),expanded=new Set(),undo=[],redo=[],active=null;
+
+const $=id=>document.getElementById(id),copy=()=>JSON.parse(JSON.stringify(values)),same=(a,b)=>JSON.stringify(a)===JSON.stringify(b),fmt=n=>n.toFixed(3),colors=['#c58787','#89b394','#899dc4','#b2b2b8'];
+function commit(before,open=[...expanded]){if(!same(before,values)){undo.push({values:before,expanded:open});redo=[];}}
+function restore(from,to){if(!from.length)return;to.push({values:copy(),expanded:[...expanded]});let state=from.pop();values=state.values;expanded=new Set(state.expanded);render();draw()}
+function set(k,c,n,start){if(!Number.isFinite(n))return;if(k==='gamma')n=Math.max(.001,n);if(k==='mix')n=Math.max(0,Math.min(1,n));if(c===-1)values[k]=[n,n,n,n];else values[k][c]=n;refresh();draw()}
+function field(k,c=-1,vertical=false){let d=defs.find(x=>x[0]===k),el=document.createElement('div');el.className='field';el.tabIndex=0;el.role='slider';el.dataset.k=k;el.dataset.c=c;el.setAttribute('aria-label',k+(c<0?' combined':' '+['red','green','blue','alpha'][c]));el.title='Drag · Shift: fine · Double-click: type';el.innerHTML='<span class="fill"></span><span class="mark"></span><span class="value"></span><span class="mixed"></span>';
+el.onpointerdown=e=>{if(e.button!==0||e.target.tagName==='INPUT')return;el.focus();el.setPointerCapture(e.pointerId);let before=copy(),start=c<0?values[k].reduce((a,b)=>a+b)/4:values[k][c],last=vertical?e.clientY:e.clientX,n=start;active={cancel:()=>{values=before;active=null;refresh();draw()}};el.onpointermove=e=>{if(!active)return;let pos=vertical?e.clientY:e.clientX;n+=(pos-last)*(vertical?-1:1)*(d[3]-d[2])/(vertical?160:240)*(e.shiftKey?.1:1);last=pos;set(k,c,n,before)};el.onpointerup=()=>{if(active){commit(before);active=null}el.onpointermove=null};el.onpointercancel=()=>{if(active)active.cancel()}};
+el.ondblclick=()=>edit(el,k,c);el.onkeydown=e=>{if(e.target.tagName==='INPUT')return;if(e.key==='Enter'){e.preventDefault();edit(el,k,c)}if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)){e.preventDefault();e.stopPropagation();let before=copy(),n=c<0?values[k].reduce((a,b)=>a+b)/4:values[k][c];set(k,c,n+(['ArrowRight','ArrowUp'].includes(e.key)?1:-1)*(e.shiftKey?.001:.01),before);commit(before)}};return el}
+function edit(el,k,c){let input=document.createElement('input');input.className='entry';input.type='text';input.inputMode='decimal';input.setAttribute('aria-label','Enter '+k);input.value=fmt(c<0?values[k].reduce((a,b)=>a+b)/4:values[k][c]);el.append(input);input.focus();input.select();let done=false;function finish(save){if(done)return;done=true;if(save&&input.value.trim()!==''&&Number.isFinite(Number(input.value))){let before=copy();set(k,c,Number(input.value),before);commit(before)}input.remove();refresh()}input.onblur=()=>finish(true);input.onkeydown=e=>{e.stopPropagation();if(e.key==='Enter')finish(true);if(e.key==='Escape')finish(false)}}
+function render(){
+  $('rows').replaceChildren();$('mix').replaceChildren();
+  defs.forEach(([k,d])=>{
+    const row=document.createElement('div');row.className='row';
+    const name=document.createElement('button');name.className='name';name.textContent=k;name.title='Double-click to reset';
+    name.ondblclick=()=>{let before=copy();values[k]=[d,d,d,d];commit(before);refresh();draw()};row.append(name);
+    if(expanded.has(k)){
+      const group=document.createElement('div');group.className='rgb';
+      for(let c=0;c<3;c++){
+        const label=document.createElement('label');label.style.setProperty('--channel',colors[c]);
+        const tag=document.createElement('span');tag.textContent=['R','G','B'][c];
+        const input=document.createElement('input');input.type='text';input.inputMode='decimal';input.value=fmt(values[k][c]);input.dataset.numeric=k;input.dataset.c=c;input.setAttribute('aria-label',k+' '+['red','green','blue'][c]);
+        function save(){if(input.value.trim()!==''&&Number.isFinite(Number(input.value))){let before=copy();set(k,c,Number(input.value),before);commit(before)}input.value=fmt(values[k][c])}
+        input.onblur=save;input.onkeydown=e=>{if(e.key==='Enter'){save();input.blur()}if(e.key==='Escape'){input.value=fmt(values[k][c]);input.blur()}};
+        label.append(tag,input);group.append(label);
+      }
+      row.append(group);
+    }else row.append(field(k));
+    if(k!=='mix'){
+      const toggle=document.createElement('button');toggle.className='expand';toggle.textContent=expanded.has(k)?'−':'+';toggle.setAttribute('aria-label',(expanded.has(k)?'Combine ':'Split ')+k+' RGB');toggle.setAttribute('aria-expanded',expanded.has(k));toggle.title=expanded.has(k)?'Combine RGB at their average':'Edit RGB separately';
+      toggle.onclick=()=>{if(expanded.has(k)){let before=copy(),open=[...expanded],mean=values[k].slice(0,3).reduce((a,b)=>a+b)/3;values[k]=[mean,mean,mean,mean];expanded.delete(k);commit(before,open)}else expanded.add(k);render();draw();document.querySelector('[data-toggle="'+k+'"]').focus()};toggle.dataset.toggle=k;row.append(toggle);
+    }
+    $(k==='mix'?'mix':'rows').append(row);
+  });refresh();
+}
+function refresh(){
+  document.querySelectorAll('.field').forEach(el=>{let k=el.dataset.k,d=defs.find(x=>x[0]===k),n=values[k][0],p=Math.max(0,Math.min(100,(n-d[2])/(d[3]-d[2])*100));el.querySelector('.fill').style.width=p+'%';el.querySelector('.mark').style.left=p+'%';el.querySelector('.value').textContent=fmt(n);el.setAttribute('aria-valuenow',n)});
+  document.querySelectorAll('[data-numeric]').forEach(el=>{if(document.activeElement!==el)el.value=fmt(values[el.dataset.numeric][+el.dataset.c])});
+}
+const canvas=$('image'),ctx=canvas.getContext('2d'),source=document.createElement('canvas');source.width=640;source.height=480;const sc=source.getContext('2d');let g=sc.createLinearGradient(0,0,640,400);g.addColorStop(0,'#23313b');g.addColorStop(1,'#99a5a6');sc.fillStyle=g;sc.fillRect(0,0,640,480);sc.fillStyle='#74736b';sc.fillRect(0,320,640,160);sc.fillStyle='#494c49';sc.beginPath();sc.ellipse(328,355,233,32,0,0,Math.PI*2);sc.fill();sc.fillStyle='#b57549';sc.fillRect(105,184,140,157);sc.fillStyle='#d99b6c';sc.beginPath();sc.moveTo(105,184);sc.lineTo(150,144);sc.lineTo(280,144);sc.lineTo(245,184);sc.fill();sc.fillStyle='#895233';sc.beginPath();sc.moveTo(245,184);sc.lineTo(280,144);sc.lineTo(280,306);sc.lineTo(245,341);sc.fill();g=sc.createRadialGradient(389,224,4,423,270,102);g.addColorStop(0,'#e2e4dc');g.addColorStop(.65,'#a2b4b4');g.addColorStop(1,'#455a64');sc.fillStyle=g;sc.beginPath();sc.arc(423,265,93,0,Math.PI*2);sc.fill();for(let i=0;i<12;i++){sc.fillStyle=`rgb(${i/11*255},${i/11*255},${i/11*255})`;sc.fillRect(32+i*48,418,48,25)}const original=sc.getImageData(0,0,640,480);
+function draw(){
+  if($('bypass').checked){ctx.putImageData(original,0,0);return}
+  let out=new ImageData(new Uint8ClampedArray(original.data),640,480),v=values,mode=$('channels').value,invert=$('invert').checked,mask=$('mask').value;
+  for(let i=0;i<out.data.length;i+=4){
+    let alpha=1,p=i/4,px=p%640,py=Math.floor(p/640),weight=1;
+    if(mask==='alpha')weight=Math.max(0,Math.min(1,(165-Math.hypot(px-320,py-240))/55));
+    if(mask==='red')weight=px/639;if(mask==='green')weight=py/479;if(mask==='blue')weight=1-px/639;
+    if(mask!=='none'&&$('mask-invert').checked)weight=1-weight;
+    for(let c=0;c<4;c++){
+      if((mode==='rgb'&&c===3)||(mode==='alpha'&&c<3))continue;
+      let x=original.data[i+c]/255,den=v.whitepoint[c]-v.blackpoint[c],a=(v.gain[c]-v.lift[c])*v.multiply[c]/(Math.abs(den)<.00001?.00001:den),b=v.offset[c]+v.lift[c]*v.multiply[c]-a*v.blackpoint[c],y;
+      if(invert){y=Math.sign(x)*Math.pow(Math.abs(x),v.gamma[c]);y=Math.abs(a)<.00001?x:(y-b)/a}
+      else{y=a*x+b;y=Math.sign(y)*Math.pow(Math.abs(y),1/v.gamma[c])}
+      if($('black').checked)y=Math.max(0,y);if($('white').checked)y=Math.min(1,y);
+      y=x+(y-x)*v.mix[0]*weight;
+      if(c===3)alpha=Math.max(0,Math.min(1,y));else out.data[i+c]=y*255;
+    }
+    if(mode!=='rgb'){let bg=((Math.floor(px/12)+Math.floor(py/12))%2)?55:44;for(let c=0;c<3;c++)out.data[i+c]=out.data[i+c]*alpha+bg*(1-alpha)}
+  }
+  ctx.putImageData(out,0,0);
+}
+$('reset').onclick=()=>{let before=copy();values=Object.fromEntries(defs.map(([k,d])=>[k,[d,d,d,d]]));commit(before);refresh();draw()};
+for(let id of ['bypass','channels','black','white','invert','mask','mask-invert'])$(id).onchange=draw;
+document.onkeydown=e=>{if(e.key==='Escape'&&active){active.cancel();return}if(e.target.matches('input,select'))return;if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?restore(redo,undo):restore(undo,redo)}};
+render();draw();
+</script></html>

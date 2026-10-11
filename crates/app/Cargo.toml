@@ -49,6 +49,10 @@ name = "render_profile"
 required-features = ["gpu"]
 
 [[example]]
+name = "project_profile"
+required-features = ["gpu"]
+
+[[example]]
 name = "maintenance_profile"
 required-features = ["native-probe"]
 
