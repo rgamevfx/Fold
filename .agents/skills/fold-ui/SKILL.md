@@ -1,43 +1,44 @@
 ---
 name: fold-ui
-description: "Use when creating or changing Fold UI: panels, toolbars, inspectors, controls, artist-facing names, or workflows. Apply before implementation and during visual review, including UI added as part of a larger feature."
+description: "Use when changing Fold UI: panels, controls, labels or artist workflows, including UI within larger features."
 ---
 
-# Fold UI: artist-first, quiet chrome
+# Artist-first UI
 
-Deliver creative power with few steps and little visual noise. The artwork is primary; the interface supports it. Existing clutter is not a design precedent.
-
-## Product grounding
-
-Source: `docs/Fold_Application_Product_Architecture.md`, especially §§2, 10, 13–15 and 18. It is a product/architecture proposal, not evidence that a capability is implemented. Consult the relevant section when changing workflow or interaction semantics; this skill does not replace its contracts.
-
-- Editing, Compositing, and Motion are peer workspaces over one project and selection model (§§3, 14). Keep shared viewer, inspector, transport, and navigation patterns consistent.
-- Basic motion design starts on the canvas: Content → Distribution → Driver → Influence → Response. Reveal the same editable construction in the graph when precision is useful; basic work must not require graph wiring (§13).
-- Direct controls and shortcuts preserve editable intent. Cross-workspace operations retain timing and references rather than flattening content (§§2, 10).
-- Property stacks distinguish the authored base, contributions, and evaluated result. Keep animation targets and scope understandable: Whole object, Each copy, Each glyph, Each path point (§13).
-- Use the application-owned UI SDK, shared property metadata, semantic theme tokens, icons, and command/edit lifecycle. A drag previews changes and commits one undo entry; cancellation restores the prior state (§§4, 15).
-
-The compactness rules below are additional product taste guidance, not quotations from the architecture.
+Artwork is primary. Existing clutter is not a design precedent. Use Dear ImGui
+through the shared UI SDK, semantic theme tokens, property metadata and command
+lifecycle. For cross-workspace semantics, consult the [system map](../../../docs/architecture.md).
 
 ## Design rules
 
-1. **Quiet chrome.** Panel toolbars use one row by default, two at most. Move secondary actions into menus, contextual controls, or the inspector. At narrow widths, use overflow rather than stacking more toolbar rows. Keep the canvas, graph, timeline, or viewer dominant.
-2. **Purposeful visibility.** Each visible element must support the current task, navigation, or meaningful state. Put internal IDs and raw diagnostics in diagnostic views; legal notices in About / Third-party licenses as required. Put gesture instructions and explanations in tooltips or help.
-3. **Recognizable controls.** Prefer shared icon buttons for familiar actions, with tooltips giving the action name and available shortcut. Use concise text when an icon would be ambiguous. Keep meaningful parameter labels visible: tooltips replace explanations, not basic comprehension. Provide keyboard access and clear focus.
-4. **Artist language.** Use established editing, VFX, and animation terms, with consistent names across workspaces. Translate schema fields into readable labels with useful units and precision. Present alignment as alignment controls, not instructions for decoding numeric values. Display precision must not reduce stored precision or authoritative time accuracy.
-5. **Fast paths, retained depth.** Offer sensible defaults and direct actions for common outcomes; retain primitive operations through expandable detail, menus, or the graph. Convenience controls edit the same underlying construction. Keep advanced controls discoverable rather than deleting creative capability to simplify the screen.
-6. **Context and hierarchy.** Group related properties; align labels and values. Keep frequent controls prominent and occasional actions secondary. Prefer a compact animation affordance and parameter menu to repeated rows of Animate/Publish buttons. Make driven/keyframed state and the actual edit target clear.
-7. **Compact, not cramped.** Remove redundant labels, headings, and containers before shrinking text, spacing, or hit targets. Use readable type, DPI-aware shared components, restrained semantic color, and non-color state cues. Preserve numeric alternatives to dragging.
-8. **Honest state.** Keep source/local-time context, relevant scope, missing dependencies, pending work, and preview quality/approximation status visible when applicable (§14). Essential warnings and errors must not depend on hovering. Minimalism must not make a stale or degraded preview appear current.
+- **Quiet chrome:** one toolbar row by default, two at most. Use overflow at
+  narrow widths; move secondary actions to menus, contextual controls or inspectors.
+- **Direct editing:** common work starts on the canvas or working surface. Graphs
+  expose the same editable construction, not a second model. Keep numeric
+  alternatives to dragging and retain advanced operations behind compact controls.
+- **Readable controls:** use shared icons for familiar actions, action/shortcut
+  tooltips, visible parameter labels and established VFX/animation terms. Preserve
+  stored precision and exact time independently of display precision.
+- **Hierarchy:** group related properties, align labels/values and distinguish
+  authored, animated and evaluated state. Show the actual edit target and time
+  context. Prefer one animation affordance/menu to repeated Animate/Publish rows.
+- **Accessible density:** remove redundant labels/containers before shrinking
+  text or hit targets. Preserve keyboard access, focus, non-color cues and DPI scaling.
+- **Useful feedback:** controls and artwork show ordinary edits. Add notices only
+  for a failure, consequence, required action or meaningful background completion.
+  Routine feedback must not resize the working surface. Show stale/degraded
+  preview state and essential warnings without relying on hover. Internal IDs
+  and edit-session diagnostics belong in diagnostic views.
 
-## Feedback must add information
+## Apply and review
 
-The control and artwork provide feedback for parameter edits, selections, dragging, and ordinary commits. Do not announce these routine interactions when their outcome is already visible. Internal edit-session states such as “uncommitted” belong in diagnostics. Show notifications when they communicate a failure, consequence, required action, or meaningful background completion that would otherwise be unclear. Routine interaction feedback must not shift or resize the working surface.
+1. Identify the artist task, shortest common workflow and shared component to reuse.
+   Decide what is primary, contextual and advanced before adding widgets.
+2. Use the shared preview/commit/cancel lifecycle: a drag is one Undo entry.
+   New engine capability does not automatically earn a toolbar button.
+3. Review normal and narrow sizes: toolbar height, labels, tooltips, focus,
+   selection/animation state and access to advanced controls. Exercise the common
+   workflow, Undo and cancellation. Report visual or interaction checks not performed.
 
-## Apply to each UI change
-
-1. Identify the artist's task, common shortest workflow, and the existing shared component or interaction pattern to reuse. Decide which controls are primary, contextual, and advanced before adding widgets.
-2. Implement within that hierarchy and the product contracts. A new engine capability does not automatically earn a toolbar button or inspector section. Stay within the requested change rather than redesigning unrelated panels.
-3. Inspect the affected UI at normal and narrow panel sizes. Check toolbar height, readable labels, tooltips, focus, selection/animation state, and access to advanced controls. Exercise the common workflow and relevant undo/cancel behavior. Report anything not visually or interactively verified.
-
-Finish only when every added visible element has a task or state purpose, primary controls can be understood without hovering over everything, and the fast path preserves editable depth.
+Every visible addition must serve a task or meaningful state. Screenshots and
+widget tests do not establish native interaction or speed acceptance.

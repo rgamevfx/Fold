@@ -1,6 +1,4 @@
 **/target/
-/docs/*
-!/docs/Motion_Context_Replacement.md
 __pycache__/
 
 # Local credentials and environment overrides

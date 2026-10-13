@@ -1,32 +1,24 @@
-We are building Fold, a modular VFX, Editing, and Graphics engine and application.
+# Working on Fold
 
-## Active work
+Fold is a Rust video editor, compositor and graphics application with Dear ImGui UI.
 
-For motion, rendering integration, MCP, CLI authoring, agent protocols, SDKs or motion demos, read the [Motion System Rewrite Plan](docs/Motion_System_Rewrite_Plan.md) and relevant sections of its [architecture and node-set proposal](docs/Fold_Motion_Architecture_and_Node_Set_Proposal.md). The plan owns phase order, removal scope, acceptance and current status.
+## Read for the task
 
-This is a complete motion-system and surrounding agent-protocol rewrite. Delete superseded implementations and dependencies as required by the plan. Do not retain legacy engines, SDKs, protocol aliases, compatibility shims or fallback paths. Preserve historical source through Git; preserve unsupported project payloads through generic opaque-document handling.
+- Architecture or cross-package changes: [system map](docs/architecture.md).
+- Motion/3D replacement, rendering integration or acceptance work: [current work](docs/current-work.md).
+- Build, SDK, packaging or validation setup: [development](docs/development.md).
+- UI changes, including labels and interactions: [fold-ui skill](.agents/skills/fold-ui/SKILL.md).
+- Artwork, demos or public agent workflows: [Fold skill](skills/fold/SKILL.md). Artwork must use public tools, not Rust internals or saved-payload edits.
 
-For shared product scope and non-motion workflows, consult the relevant sections and diagrams of the [product specification](docs/Fold_Application_Product_Architecture.md). Use [architecture.md](docs/architecture.md) as the pre-rewrite implementation inventory until updated with phase evidence. The [retirement register](docs/Retired_Documentation.md) identifies historical documents. `dev-plan.md` and old phase records are evidence only; do not resume their work or treat their acceptance as rewrite acceptance.
+## Engineering constraints
 
-Before creating or changing UI, read and apply the [fold-ui skill](.agents/skills/fold-ui/SKILL.md), including UI work within larger features.
+- Keep feature models in their owning packages; connect them through stable IDs and explicit services. Fold owns documents, evaluation and exact rational time; rendering engines stay behind adapters.
+- Artist and agent mutations use the same guarded transactions and Undo. Render immutable snapshots; keep media processing and compilation off the UI thread.
+- Keep color, alpha and resource ownership explicit. Preserve unknown extension data and unsupported documents through generic opaque storage.
+- Replace superseded implementations rather than adding compatibility engines, protocol aliases or fallback renderers. Retain independently used shared services.
 
-When creating or refining `demos/` workflows or MCP skills, use and update the [Fold agent skill](skills/fold/SKILL.md) and its references with verified public-tool examples. During the rewrite, replace old protocol guidance as capabilities qualify; track missing capabilities and evidence in the rewrite plan. Artwork workflows must run without reading Rust crates.
+## Validation and documentation
 
-## Development rules
-
-- Use Rust for application logic and Dear ImGui through the shared UI SDK.
-- Keep Timeline, Compositor and Motion as independent feature packages. Keep project and render infrastructure free of feature-specific models.
-- Connect packages through stable IDs, capabilities and explicit services. Keep Bevy runtime state behind the Fold rendering adapter; Fold owns document state, evaluation and time.
-- Route project mutations through transactions with undo support. Render from immutable snapshots; never block the UI with media processing.
-- Use exact rational time and explicit color, alpha and resource ownership. Share evaluation semantics between preview, export and headless operation.
-- Preserve unknown extension data when loading and saving projects.
-- Make the smallest complete phase change. Prefer explicit code, reuse independently valid shared services, and add abstractions only for demonstrated needs.
-- Keep modules focused on one responsibility. Remove obsolete code, tests, dependencies and documentation in the phase that replaces their behavior.
-- Before finishing, review the diff for duplication, unnecessary complexity and unrelated changes.
-
-## Validation and evidence
-
-- During iteration, format touched files and check affected crates. Run focused tests for changed behavior; avoid repeating checks on unchanged code.
-- Run workspace checks, full test suites and Clippy at the rewrite plan's vertical-slice checkpoints.
-- Fix failures introduced by the change. Report unrelated failures, deferred checks and unverified behavior.
-- Update the rewrite plan's phase status and evidence before claiming completion. Distinguish implemented behavior, automated verification and native artist/agent acceptance.
+- Format touched code and run affected checks or regressions. Exercise real Session lifecycle bugs at that seam. Use optimized builds for artist review.
+- Run workspace checks, tests and Clippy at integration checkpoints; report omitted checks and unrelated failures. Tests, rendered pixels and native artist acceptance are separate evidence.
+- Update the owning document, not a new handoff or report. Keep open replacement work in `docs/current-work.md`; store detailed results with fixtures. Documentation structure and retention rules are in [docs/README.md](docs/README.md).

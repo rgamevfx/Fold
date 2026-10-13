@@ -2,8 +2,9 @@
 """Generate the phase-11 verified-profile fixtures and run release headless probes.
 
 Run from the repository root with an absolute NEW directory outside the repo.
-Build execution_probe and stage_probe first; see docs/phase-11.md. Each subprocess
-has a timeout. Neither filesystem caches nor other applications are disturbed.
+Historical harness: execution_probe is absent from the current tree, so this is
+not a current runnable baseline. Each subprocess has a timeout. Neither
+filesystem caches nor other applications are disturbed.
 """
 import argparse
 import hashlib

@@ -1,9 +1,10 @@
 # Phase-11 OCIO/wgpu feasibility probe
 
-Not a production color module. Python is only fixture generation against pinned
-OCIO; Rust executes the generated shader through the same wgpu/Naga versions as
-Fold (27.0.1 / 27.0.3), using Vulkan on the GTX 1070. The isolated Cargo workspace
-and lockfile do not add dependencies to Fold's runtime or headless graph.
+Historical isolated experiment, not the production color module or a current
+application qualification. Python generates fixtures against pinned OCIO;
+Rust uses the probe's pinned wgpu/Naga (27.0.1 / 27.0.3), with Vulkan on a GTX 1070.
+The isolated Cargo workspace and lockfile do not add dependencies to Fold's runtime
+or headless graph.
 
 Run from the repository root (choose new absolute artifact directories):
 
@@ -54,4 +55,6 @@ presentation, native Fold acceptance, or zero-copy codec interoperability**.
 The executable intentionally refuses another adapter. Wrap runs with the shown
 timeout because driver waits are not guaranteed to terminate.
 
-See `docs/phase-11.md` for results, contracts, runtime packaging and remaining gates.
+Production setup: [development](../../docs/development.md) and
+[color resources](../../resources/color/README.md). Historical phase prose is
+available in Git, not an active implementation plan.

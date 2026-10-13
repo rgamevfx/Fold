@@ -44,6 +44,6 @@ This needs a native Vulkan device. It checks three SVG shapes against an analyti
 linear-sRGB sample and preserves signed HDR shader output and premultiplied alpha.
 The small CPU surface is a diagnostic reference in this example only.
 
-Current evidence is in `color-precision-evidence.json`. The package in
-`target/motion-installed-relocated-20261012` predates the precision patch.
-The current rebuilt native archive is in `target/motion-skia-precision`.
+Recorded results are in [color-precision-evidence.json](color-precision-evidence.json).
+See [current work](../../docs/current-work.md) for remaining qualification;
+local build/package paths are not durable runtime configuration.

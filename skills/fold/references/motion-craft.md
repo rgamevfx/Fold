@@ -1,79 +1,48 @@
-# Motion craft with fframes
+# Motion craft
 
-Use this workflow when making or changing Motion artwork in Fold. Use the
-[public workflow](public-workflow.md) for connection, edits and Apply.
+Use the [public workflow](public-workflow.md) for authoring and render review.
 
-## Brief and design
+## Design and script
 
-1. Establish the output size, exact frame rate, duration, audience and assets.
-   Inspect existing artwork before replacing it. For a supplied reference,
-   record cuts in source frames and examine consecutive frames near fast effects.
-2. Plan the visual hierarchy and reading time before scripting. Give each shot
-   a clear focus. Use consistent alignment, generous margins and a small palette.
-   Measure text where supported; inspect full-size pixels for box fit and glyphs.
-3. Use native objects for shapes the artist needs to edit directly. Use one
-   script object for procedural content. Expose useful controls such as count,
-   spacing, color, timing and text. Preserve their IDs when updating the script.
+1. Establish dimensions, exact frame rate, duration, audience and assets. Inspect
+   existing artwork. For references, record cuts in source frames and inspect
+   consecutive frames near fast effects.
+2. Plan hierarchy and reading time: one focus per shot, consistent alignment,
+   margins and palette. Check text fit and glyphs in full-size pixels.
+3. Use native objects for direct editing; one script for procedural content.
+   Expose useful count, spacing, color, timing, text or image controls and retain
+   their IDs when changing source.
 
-## Script and motion
-
-Fold supplies this script entry point:
+Fold's script entry point is
 `pub fn render<'a>(input: Context<'a>) -> Result<fframes::Svgr<'a>, String>`.
-Read exposed values with `input.number`, `input.text`, `input.boolean` and
-`input.color`. Use `input.time` as the authoritative clock and `input.seconds()`
-at a numerical animation boundary. Discover the script edit schema from Fold.
+Read controls through the supported `input` accessors (number, text, Boolean,
+color). Use `input.time` as the clock and `input.seconds()` only at a numerical
+animation boundary. Discover the current script edit schema.
 
-Keep static SVG content static. Move related content through a group transform
-or opacity. Cache expensive preparation outside frame evaluation when the
-script contract supports it. Choose upstream animation APIs supported by the
-pinned runtime; the upstream skill may describe newer APIs.
+Keep static SVG content static; move related content through group transforms
+or opacity. Cache preparation only where the script contract supports it. Use
+APIs supported by the pinned runtime, not assumed from upstream main.
+Direct attention with one main movement, stagger related entrances and let text
+settle. Match references before imposing defaults. A skewed 2D group is not 3D.
 
-Direct attention with one main movement. Offset related entrances and give text
-time to settle and be read. Use eased motion or springs when they suit the brief.
-Match supplied references before applying defaults. Camera motion and independent
-object motion need separate models; a skewed 2D group does not supply 3D depth.
+## Review
 
-## Review loop
+- Inspect structure and sample controls at exact times, including placement time mapping.
+- Review opening, settled state, exit and transitions. Sample consecutive frames
+  near fast changes; sparse poses can miss flashes.
+- Use discovered contact-sheet/onion review for flow and trajectories, then
+  full-size frames for detail. Fix unreadable text, blank frames and missing assets.
+- Review real-time playback where available. After requested export, verify
+  dimensions, frame rate, duration, alpha and audio as applicable.
+- State which review was performed. Structural samples and engine tests do not
+  establish visual quality; renderer captures do not establish native interaction.
 
-1. Inspect document structure and sample controls at exact times. Check duration,
-   placement time mapping and stable IDs before reviewing pixels.
-2. Request available render observations through discovered public tools. Review
-   the start, settled state, exit and transition boundaries. Inspect consecutive
-   frames around fast changes; sparse sampling can miss flashes.
-3. Where supported, use a contact sheet to check flow, full-size frames to check
-   details and onion frames to check paths and spacing. Report missing capabilities
-   instead of issuing upstream CLI commands to Fold.
-4. Fix unreadable text, unintended blank frames, missing assets and broken motion.
-   A structural inspection alone does not qualify shaders or rendered output.
-5. Review real-time playback in Fold when available. Export when requested, then
-   verify output dimensions, frame rate, duration, alpha and audio as applicable.
+## Upstream boundary
 
-For artwork, use render observations and playback as evidence. Engine changes
-follow repository validation rules. State exactly which review was performed;
-parameter samples and passing engine tests do not establish visual quality.
-
-## Adoption boundary
-
-Fold owns project storage, exact time, undo, controls, Timeline, Compositing and
-export. fframes provides Motion scripting and drawing. Audio belongs in Fold's
-audio workflow; upstream AudioMap and standalone project creation are not Fold
-authoring instructions. Use the qualified GPU path.
-
-The upstream skill supplies `timeline`, `inspect`, `strip`, `frame`, `onion`,
-`preview` and audio analysis workflows. Their full equivalents are not yet
-qualified through Fold's public tools. These are implementation requirements,
-not commands this guide claims are available.
-
-## Source and maintenance
-
-Studied the [upstream skill](https://github.com/dmtrKovalenko/fframes/blob/main/skills/fframes-video/SKILL.md)
-on 2026-10-11, and its design, API and audio references in the pinned checkout
-`b644f22cf5be2333e7098caf7ec064c3d36aeb02`. This guide is an original Fold
-adaptation. Compare future upstream changes against the runtime pin and verify
-new examples through Fold's public tools before documenting them as supported.
-
-
-For exact multi-pose review, use the discovered `observe_frame.review` field.
-The [public workflow](public-workflow.md#frame-review) has a verified two-pose
-contact-sheet/onion example and its limits. Choose useful poses, then inspect the
-returned images. A passed pixel check does not establish motion-design quality.
+Adapted from the [fframes skill](https://github.com/dmtrKovalenko/fframes/blob/main/skills/fframes-video/SKILL.md)
+and design/API/audio references studied on 2026-10-11 at runtime pin
+`b644f22cf5be2333e7098caf7ec064c3d36aeb02`. Fold owns project storage, exact time,
+Undo, Timeline, compositing, audio and export; fframes supplies Motion scripting
+and drawing. Upstream standalone CLI/AudioMap workflows are not Fold APIs.
+Discover available review tools and report gaps. Verify new examples through
+Fold's public tools before documenting them as supported.

@@ -1,41 +1,32 @@
 ---
 name: fold
-description: "Author or inspect artwork in Fold through its qualified public tools. For repository implementation, follow the repository development instructions."
+description: "Author or inspect artwork in Fold through its public tools. For repository implementation, follow AGENTS.md."
 ---
 
-Use public discovery from the connected build before authoring. For connection,
-native object edits, exposed controls, immutable candidates, jobs, Apply and
-pixel review, read [Public workflow](references/public-workflow.md).
-For motion design, fframes script work or review of animation, also read
-[Motion craft](references/motion-craft.md), adapted from the upstream fframes skill.
+# Fold artwork
 
-1. Discover the epoch, revision, provider schemas and capabilities.
+Use public tools, not Rust internals or direct edits to saved project payloads.
+Artists and agents share one authoritative document and guarded Undo history.
+
+1. Discover the connected build's epoch, revision, providers, schemas and limits.
 2. Inspect the intended document at that revision. Preserve stable IDs,
-   protected controls, unknown data and unrelated artwork.
-3. Propose typed native edits or a multi-document project transaction using a
-   fresh request UUID. Follow the owning provider's discovered schema.
-4. Poll returned jobs. Inspect the immutable candidate and its diff, then Apply
-   its receipt against the current revision. Concurrent changes need fresh
-   inspection and the provider's supported reconciliation workflow.
-5. Review available pixels and parameter samples. Save committed artwork when
-   requested. Report artist or renderer behavior that remains unverified.
+   protections, unknown fields and unrelated artwork.
+3. Propose typed native edits or a discovered project transaction. Poll jobs,
+   inspect the immutable candidate and its diff, then review available pixels.
+4. Apply the inspected receipt against the current revision. Concurrent edits
+   require fresh inspection/reconciliation. Review the committed output.
+5. Save committed artwork when requested; confirm the save job's result.
+   Report unverified rendering or artist behavior.
 
-Artists and agents edit one document. Motion owns native 2D shapes, text and
-fframes script objects with exposed controls. 3D owns spatial objects and shared
-resources. Composition and Timeline arrange their outputs. Graphs project the
-document; scripts stay one object regardless of generated shape count.
+Read only the needed reference:
 
-Use the same request UUID and bytes for exact retries. An active artist gesture
-causes Apply to conflict. Finish it before a new request. Authoring keeps
-protection and unknown extension data intact. Artwork workflows use qualified
-public tools without reading Rust crates or editing saved payloads directly.
+- [Public workflow](references/public-workflow.md): connection, guards, candidates,
+  jobs, frame review and saving. Preserve lossless JSON expected-value guards.
+- [Native recipes](references/native-recipes.md): Motion objects, images, script
+  conversion and path/animation edits. Use discovery for full schemas.
+- [Motion craft](references/motion-craft.md): design, scripting and animation review.
 
-For implementation status and unqualified capabilities, read the
-[replacement plan](../../docs/Motion_Context_Replacement.md).
-
-The image-driven promotional artwork remains at
-[Fold version 1](../../demos/Fold-version-1/README.md). Its earlier authoring
-workflow is historical; preserve saved artwork as opaque data when its provider
-is unavailable. Retain the
-[MCP guard note](references/public-workflow.md#lossless-json-guards) when sending
-inspected JSON through JavaScript clients.
+A Motion script is one object regardless of generated shape count. Its graph
+projects the document rather than storing a second model. Composition/Compositor
+and Timeline consume outputs; 3D owns spatial scenes. Unsupported documents stay
+opaque. Historical demos are not evidence that a retired provider is available.
