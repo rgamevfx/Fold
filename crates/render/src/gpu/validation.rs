@@ -4,6 +4,73 @@
 use super::{Host, host::Reservation};
 use std::sync::{Arc, Mutex};
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{Duration, Instant};
+    use wgpu::util::DeviceExt;
+
+    fn complete(host: &Host, status: Status, invalid: bool) -> Completion {
+        let mut encoder = host.device().create_command_encoder(&Default::default());
+        status.start(&mut encoder);
+        if invalid {
+            let value = host
+                .device()
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: None,
+                    contents: bytemuck::bytes_of(&1u32),
+                    usage: wgpu::BufferUsages::COPY_SRC,
+                });
+            encoder.copy_buffer_to_buffer(&value, 0, &status.gpu, 0, 4);
+        }
+        status.encode(&mut encoder);
+        host.submit(encoder, vec![], vec![]);
+        let ready = status.submitted();
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while matches!(ready.ready(), Ok(false)) {
+            host.poll().unwrap();
+            assert!(Instant::now() < deadline);
+        }
+        assert_eq!(ready.ready().is_err(), invalid);
+        ready
+    }
+
+    #[test]
+    #[ignore = "requires native Vulkan"]
+    fn completed_readbacks_reuse_storage_without_hiding_failure() {
+        let (host, _) = pollster::block_on(Host::headless(1024 * 1024)).unwrap();
+        let first = Status::new(&host).unwrap();
+        let buffer = first.readback.clone();
+        complete(&host, first, true);
+        let second = Status::new(&host).unwrap();
+        assert_eq!(second.readback, buffer, "completed readback must be reused");
+        complete(&host, second, false);
+        let third = Status::new(&host).unwrap();
+        let pending = Status::new(&host).unwrap();
+        assert_ne!(
+            third.readback, pending.readback,
+            "live status cannot be reused"
+        );
+        complete(&host, third, false);
+        complete(&host, pending, true);
+        assert_eq!(host.memory().allocated, host.memory().reusable);
+    }
+}
+
+/// Only unmapped, completed buffers enter this bounded host-local pool.
+#[derive(Default)]
+pub(super) struct Readbacks {
+    idle: Vec<(wgpu::Buffer, Arc<Reservation>)>,
+}
+impl Readbacks {
+    pub fn bytes(&self) -> u64 {
+        self.idle.iter().map(|(buffer, _)| buffer.size()).sum()
+    }
+    pub fn clear(&mut self) {
+        self.idle.clear();
+    }
+}
+
 type ResultState = Arc<Mutex<State>>;
 enum State {
     Pending,
@@ -17,6 +84,8 @@ pub(super) struct Status {
     completion_poll: Arc<Mutex<()>>,
     readback: wgpu::Buffer,
     _reservation: Arc<Reservation>,
+    readback_reservation: Arc<Reservation>,
+    readbacks: Arc<Mutex<Readbacks>>,
     timestamps: Option<(wgpu::QuerySet, wgpu::Buffer, f32)>,
 }
 #[derive(Clone)]
@@ -63,7 +132,23 @@ impl Status {
             .device()
             .features()
             .contains(wgpu::Features::TIMESTAMP_QUERY_INSIDE_ENCODERS);
-        let reservation = host.reserve(if timed { 44 } else { 8 })?;
+        let reservation = host.reserve(if timed { 20 } else { 4 })?;
+        let readbacks = host.readbacks();
+        let cached = readbacks.lock().unwrap().idle.pop();
+        let (readback, readback_reservation) = match cached {
+            Some(value) => value,
+            None => {
+                let size = if timed { 24 } else { 4 };
+                let lease = host.reserve(size)?;
+                let buffer = host.device().create_buffer(&wgpu::BufferDescriptor {
+                    label: Some("Fold validation status"),
+                    size,
+                    usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+                    mapped_at_creation: false,
+                });
+                (buffer, lease)
+            }
+        };
         let timestamps = timed.then(|| {
             (
                 host.device().create_query_set(&wgpu::QuerySetDescriptor {
@@ -84,13 +169,9 @@ impl Status {
         let gpu = host.device().create_buffer(&wgpu::BufferDescriptor {
             label: Some("Fold intermediate validation"),
             size: 4,
-            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
-            mapped_at_creation: false,
-        });
-        let readback = host.device().create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Fold validation status"),
-            size: if timed { 24 } else { 4 },
-            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+            usage: wgpu::BufferUsages::STORAGE
+                | wgpu::BufferUsages::COPY_SRC
+                | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
         Ok(Self {
@@ -100,10 +181,13 @@ impl Status {
             gpu,
             readback,
             _reservation: reservation,
+            readback_reservation,
+            readbacks,
             timestamps,
         })
     }
     pub fn start(&self, encoder: &mut wgpu::CommandEncoder) {
+        encoder.clear_buffer(&self.gpu, 0, None);
         if let Some((queries, _, _)) = &self.timestamps {
             encoder.write_timestamp(queries, 0);
         }
@@ -153,6 +237,12 @@ impl Status {
         });
         drop(bytes);
         self.readback.unmap();
+        // Never recycle on map/device failure. Abandoned completions drop their
+        // storage; their callback still owns it until mapping completes.
+        let mut pool = self.readbacks.lock().unwrap();
+        if pool.idle.len() < 8 {
+            pool.idle.push((self.readback, self.readback_reservation));
+        }
         if valid {
             Ok(time)
         } else {

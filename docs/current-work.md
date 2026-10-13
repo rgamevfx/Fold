@@ -74,6 +74,35 @@ warnings. These results predate the latest focused changes; they are not a new
 full-suite pass. The updated SDK and release desktop built, but the installed
 package also predates the latest fixes.
 
+## Compositor performance work
+
+The [development plan](../resources/render/dev-plan.md) owns the requested phase
+checklist. The [HTML report](../resources/render/report.html) contains before/after
+timings, test evidence, rejected experiments and open work. The original
+[audit baseline](../resources/render/compositor-audit.json) remains historical.
+
+Implemented: bounded status-readback reuse, single-pass validated color output,
+a graph parameter arena, retained blur kernels, masked pointwise/shuffle fusion,
+request-local solid/filter reuse, and incremental cache-pressure eviction.
+On GTX 1070 / NVIDIA 580.173.02, the 16-solid-layer release probe fell from
+17.672 to 8.904 ms median at 1080p and from 50.052 to 33.155 ms at 4K. The
+single-solid probe fell from 6.726 to 0.732 ms. These are synthetic serial
+renderer/display timings, not desktop FPS. Equal solid sources favor reuse;
+distinct media layers require their own benchmark. Clocks/load were not controlled.
+
+**The full optimization plan is not complete.** General binding/merge reuse,
+large-filter algorithm changes, prepared-document and cross-frame caches,
+per-node tiled regions, format-aware working storage and pooled native ingress
+remain open. Two blur layouts were rejected after measurement. A cheap-opacity
+reuse policy was also rejected because it increased live-image memory. FP32,
+validation and the native ingress ownership copy remain intact.
+
+Focused validation passed: 66 normal render tests, 49 explicit native GPU tests,
+and 17 compositor tests. Feature checks and focused Clippy passed with existing
+warnings. See [commands and limits](../resources/render/validation.json).
+Workspace, spatial adapter, installed package and native artist acceptance were
+not run for this change set. Existing uncommitted media/Motion/UI work was preserved.
+
 ## Final acceptance gate
 
 - Complete the remaining slices and removal audit, retaining generic opaque

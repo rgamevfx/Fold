@@ -61,6 +61,7 @@ struct Shared {
     sources: Mutex<super::still::Cache>,
     stopped: Arc<Mutex<Option<String>>>,
     completion_poll: Arc<Mutex<()>>,
+    readbacks: Arc<Mutex<super::validation::Readbacks>>,
 }
 
 /// Retention entitlement only; the allocation has its separate completion lease.
@@ -144,7 +145,7 @@ impl ResourceAllowance {
 #[derive(Clone, Copy, Debug)]
 pub struct Memory {
     pub allocated: u64,
-    /// Idle pooled textures can be reclaimed without evicting source caches.
+    /// Idle pooled textures and status buffers can be reclaimed without evicting sources.
     pub reusable: u64,
     pub peak: u64,
     pub budget: u64,
@@ -319,6 +320,7 @@ impl Host {
             sources: Mutex::new(Default::default()),
             stopped,
             completion_poll: Arc::new(Mutex::new(())),
+            readbacks: Default::default(),
         })))
     }
     pub(super) fn sources(&self) -> std::sync::MutexGuard<'_, super::still::Cache> {
@@ -368,7 +370,11 @@ impl Host {
             .map_err(|e| e.to_string())?;
         self.check()
     }
+    pub(super) fn readbacks(&self) -> Arc<Mutex<super::validation::Readbacks>> {
+        self.0.readbacks.clone()
+    }
     pub fn memory(&self) -> Memory {
+        let readbacks = self.0.readbacks.lock().unwrap().bytes();
         let pool = self.0.pool.lock().unwrap();
         Memory {
             allocated: pool.bytes,
@@ -377,7 +383,8 @@ impl Host {
                 .iter()
                 .filter(|image| Arc::strong_count(image) == 1)
                 .map(|image| image.bytes)
-                .sum(),
+                .sum::<u64>()
+                + readbacks,
             peak: pool.peak,
             budget: self.0.budget,
             working: pool.by_kind[0],
@@ -404,6 +411,10 @@ impl Host {
         kind: AllocationKind,
     ) -> Result<Arc<Reservation>, fold_foundation::Failure> {
         self.check()?;
+        // Drop expendable status storage outside the accounting lock.
+        if self.0.pool.lock().unwrap().bytes.saturating_add(bytes) > self.0.budget {
+            self.0.readbacks.lock().unwrap().clear();
+        }
         let mut pool = self.0.pool.lock().unwrap();
         pool.make_room(bytes, self.0.budget)?;
         pool.allocated(bytes, kind);
@@ -449,6 +460,9 @@ impl Host {
                 wgpu::TextureFormat::Bc7RgbaUnorm => 1,
                 _ => 4,
             };
+        if self.0.pool.lock().unwrap().bytes.saturating_add(bytes) > self.0.budget {
+            self.0.readbacks.lock().unwrap().clear();
+        }
         let mut pool = self.0.pool.lock().unwrap();
         if let Some(image) = pool.images.iter().find(|image| {
             image.dimensions == dimensions

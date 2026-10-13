@@ -274,11 +274,17 @@ fn live_pixel_budget_releases_intermediates_and_skips_dead_work() {
         });
     }
     assert_eq!(render(plan).unwrap().pixels()[0], RED);
-    // Four sources are still needed when the first merge allocates a fifth.
+    // Four distinct sources are needed when the first merge allocates a fifth.
+    // Equal pure sources are now shared by request-local common-subgraph reuse.
     let mut plan = RenderGraph {
         width: 1024,
         height: 1024,
-        nodes: vec![solid(RED); 4],
+        nodes: vec![
+            solid(RED),
+            solid([0., 1., 0., 1.]),
+            solid([0., 0., 1., 1.]),
+            solid([0.5, 0.5, 0.5, 1.]),
+        ],
         output: 6,
     };
     plan.nodes.extend([

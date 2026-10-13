@@ -1,0 +1,58 @@
+{
+  "status": "Partial implementation; open phases are listed in dev-plan.md",
+  "base_commit": "cf1a933f66dabdf834897ccd0040458844d302e5",
+  "build": "Release, fold-render, gpu feature, locked dependencies",
+  "render_source_sha256": "41bc14e3ff4d31c6edc5a30c9c9538c9d8328011fa9c41c41732e60099bfaea9",
+  "hash_method": "Sort all .rs, .wgsl and .toml paths under crates/render. Hash each relative path, a NUL byte, then the file bytes, in that order.",
+  "checks": [
+    {
+      "name": "Format and patch checks",
+      "command": "cargo fmt -p fold-render -- --check; git diff --check",
+      "result": "Pass"
+    },
+    {
+      "name": "Render tests",
+      "command": "cargo test -p fold-render --release --features gpu --locked",
+      "passed": 66, "failed": 0, "ignored": 59
+    },
+    {
+      "name": "Selected native GPU integration tests",
+      "command": "FOLD_TEST_COLOR_ROOT=$PWD/target cargo test -p fold-render --release --features gpu --test gpu --test gpu_color --test gpu_mask_fusion --test gpu_fusion --test precision_gpu --test channels --test regions --test gpu_adapters --locked -- --ignored --test-threads=1",
+      "passed": 21, "failed": 0, "ignored": 0
+    },
+    {
+      "name": "Native GPU unit tests",
+      "command": "cargo test -p fold-render --release --features gpu --lib gpu:: --locked -- --ignored --test-threads=1",
+      "passed": 28, "failed": 0, "ignored": 0
+    },
+    {
+      "name": "Compositor channel and reusable-effect tests",
+      "command": "cargo test -p fold-compositor --release --test channels --test reusable --locked -- --test-threads=1",
+      "passed": 17, "failed": 0, "ignored": 0
+    },
+    {
+      "name": "Native-video and shared-image feature check",
+      "command": "cargo check -p fold-render --features native-video,shared-images --locked",
+      "result": "Pass; runtime acceptance of these adapters is separate"
+    },
+    {
+      "name": "Focused Clippy",
+      "command": "cargo clippy -p fold-render --release --features gpu --all-targets --locked",
+      "result": "Pass with existing library/test warnings; no new suppression attributes"
+    },
+    {
+      "name": "Synthetic p95 gate",
+      "command": "FOLD_PROFILE_MAX_MS=3 target/release/examples/compositor_profile 1920 1080 60 0 0",
+      "result": "Pass, exit 0. Before optimization this diagnostic gate failed, exit 1."
+    }
+  ],
+  "not_run": [
+    "Full workspace checks, tests and Clippy",
+    "Spatial feature build and 3D adapter acceptance",
+    "Installed package acceptance",
+    "Desktop and real Session artist acceptance",
+    "Controlled GPU clock/load benchmark",
+    "Real project, mixed-media pressure, native NVDEC performance matrix",
+    "FP16 working-format, direct import, or per-node tiled-render implementation"
+  ]
+}

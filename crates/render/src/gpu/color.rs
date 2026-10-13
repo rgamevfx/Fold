@@ -10,8 +10,6 @@ use wgpu::util::DeviceExt;
 pub(super) struct ColorPipeline {
     pipeline: wgpu::ComputePipeline,
     layout: wgpu::BindGroupLayout,
-    finish: wgpu::ComputePipeline,
-    display: bool,
     views: Vec<wgpu::TextureView>,
     samplers: Vec<wgpu::Sampler>,
     pub reservation: Arc<Reservation>,
@@ -62,7 +60,11 @@ impl ColorPipeline {
                 visibility: wgpu::ShaderStages::COMPUTE,
                 ty: wgpu::BindingType::StorageTexture {
                     access: wgpu::StorageTextureAccess::WriteOnly,
-                    format: wgpu::TextureFormat::Rgba32Float,
+                    format: if display {
+                        wgpu::TextureFormat::Rgba8Unorm
+                    } else {
+                        wgpu::TextureFormat::Rgba32Float
+                    },
                     view_dimension: wgpu::TextureViewDimension::D2,
                 },
                 count: None,
@@ -214,10 +216,11 @@ impl ColorPipeline {
                 count: None,
             });
         }
-        let format = "rgba32f";
+        let format = if display { "rgba8" } else { "rgba32f" };
         let shader = format!(
-            "#version 450\nlayout(local_size_x=8,local_size_y=8) in;\nlayout(set=0,binding=0) uniform texture2D source_image;\nlayout(set=0,binding=1) uniform sampler source_sampler;\nlayout(set=0,binding=2,{format}) uniform writeonly image2D destination;\nlayout(set=0,binding=3,std430) buffer Validation {{ uint invalid; }};\nlayout(set=0,binding=4,std140) uniform Settings {{ uvec4 settings; }};\n{text}\nvoid main() {{\n ivec2 xy=ivec2(gl_GlobalInvocationID.xy); if(any(greaterThanEqual(xy,imageSize(destination)))) return;\n vec4 p=texelFetch(sampler2D(source_image,source_sampler),xy,0);\n if(settings.x != 0u) p.a=1.0;\n vec4 v=vec4(0.0);\n if(p.a>0.0) {{ vec3 straight=p.rgb/p.a; v=vec4(fold_ocio(vec4(straight,p.a)).rgb*p.a,p.a); if(any(isinf(straight))||any(isnan(straight))) v=vec4(uintBitsToFloat(0x7f800000u)); }}\n imageStore(destination,xy,v);\n}}\n"
+            "#version 450\nlayout(local_size_x=8,local_size_y=8) in;\nlayout(set=0,binding=0) uniform texture2D source_image;\nlayout(set=0,binding=1) uniform sampler source_sampler;\nlayout(set=0,binding=2,{format}) uniform writeonly image2D destination;\nlayout(set=0,binding=3,std430) buffer Validation {{ uint invalid; }};\nlayout(set=0,binding=4,std140) uniform Settings {{ uvec4 settings; }};\n{text}\nvoid fold_flag_invalid() {{ invalid=1u; }}\nvoid main() {{\n ivec2 xy=ivec2(gl_GlobalInvocationID.xy); if(any(greaterThanEqual(xy,imageSize(destination)))) return;\n vec4 p=texelFetch(sampler2D(source_image,source_sampler),xy,0);\n if(settings.x != 0u) p.a=1.0;\n vec4 v=vec4(0.0);\n if(p.a>0.0) {{ vec3 straight=p.rgb/p.a; v=vec4(fold_ocio(vec4(straight,p.a)).rgb*p.a,p.a); if(any(isinf(straight))||any(isnan(straight))) v=vec4(uintBitsToFloat(0x7f800000u)); }}\n if(any(isinf(v))||any(isnan(v))||v.a<0.0||v.a>1.0) fold_flag_invalid();\n imageStore(destination,xy,v);\n}}\n"
         );
+        let shader = validated_shader(&shader)?;
         let _compile_guard = super::shader::COMPILE_LOCK
             .lock()
             .map_err(|_| "Shader compiler lock poisoned")?;
@@ -233,11 +236,7 @@ impl ColorPipeline {
         });
         let module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("OCIO GLSL"),
-            source: wgpu::ShaderSource::Glsl {
-                shader: shader.into(),
-                stage: wgpu::naga::ShaderStage::Compute,
-                defines: Default::default(),
-            },
+            source: wgpu::ShaderSource::Naga(std::borrow::Cow::Owned(shader)),
         });
         let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
             label: Some("OCIO GPU"),
@@ -250,24 +249,10 @@ impl ColorPipeline {
         if let Some(error) = pollster::block_on(device.pop_error_scope()) {
             return Err(format!("OCIO GPU shader: {error}").into());
         }
-        let finish_module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("OCIO validation/quantization"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("color_finish.wgsl").into()),
-        });
-        let finish = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("OCIO validation/quantization"),
-            layout: None,
-            module: &finish_module,
-            entry_point: Some(if display { "main" } else { "validate_working" }),
-            compilation_options: Default::default(),
-            cache: None,
-        });
         host.check()?;
         Ok(Self {
             pipeline,
             layout,
-            finish,
-            display,
             views,
             samplers,
             reservation,
@@ -282,15 +267,9 @@ impl ColorPipeline {
         output: &Image,
         matte: bool,
         status: &Status,
-    ) -> Result<Option<Arc<Image>>, fold_foundation::Failure> {
-        // Quantization needs a float intermediate so invalid/HDR values are
-        // checked before UNORM storage. Working output is already float: write
-        // it directly and validate read-only, without a second full-frame copy.
-        let intermediate = self
-            .display
-            .then(|| host.image(output.dimensions))
-            .transpose()?;
-        let converted = intermediate.as_deref().unwrap_or(output);
+    ) -> Result<(), fold_foundation::Failure> {
+        // The generated shader validates the float result before UNORM storage.
+        // No float display intermediate or separate validation scan is needed.
         let uniform = host
             .device()
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -309,7 +288,7 @@ impl ColorPipeline {
             },
             wgpu::BindGroupEntry {
                 binding: 2,
-                resource: wgpu::BindingResource::TextureView(&converted.view),
+                resource: wgpu::BindingResource::TextureView(&output.view),
             },
             wgpu::BindGroupEntry {
                 binding: 3,
@@ -343,41 +322,108 @@ impl ColorPipeline {
             output.dimensions[1].div_ceil(8),
             1,
         );
-        drop(pass);
-        let entries = [
-            wgpu::BindGroupEntry {
-                binding: 0,
-                resource: wgpu::BindingResource::TextureView(&converted.view),
-            },
-            wgpu::BindGroupEntry {
-                binding: 2,
-                resource: status.gpu.as_entire_binding(),
-            },
-            wgpu::BindGroupEntry {
-                binding: 1,
-                resource: wgpu::BindingResource::TextureView(&output.view),
-            },
-        ];
-        let group = host.device().create_bind_group(&wgpu::BindGroupDescriptor {
-            label: None,
-            layout: &self.finish.get_bind_group_layout(0),
-            entries: &entries[..if self.display { 3 } else { 2 }],
-        });
-        let mut pass = encoder.begin_compute_pass(&Default::default());
-        pass.set_pipeline(&self.finish);
-        pass.set_bind_group(0, &group, &[]);
-        pass.dispatch_workgroups(
-            output.dimensions[0].div_ceil(8),
-            output.dimensions[1].div_ceil(8),
-            1,
-        );
-        Ok(intermediate)
+        Ok(())
     }
+}
+
+/// Naga's GLSL frontend does not support storage atomicOr. Promote the one
+/// generated validation flag/store in typed IR instead of using a racy store,
+/// another full-image pass, or rewriting arbitrary OCIO shader text.
+fn validated_shader(source: &str) -> Result<naga::Module, fold_foundation::Failure> {
+    let mut module = naga::front::glsl::Frontend::default()
+        .parse(
+            &naga::front::glsl::Options::from(naga::ShaderStage::Compute),
+            source,
+        )
+        .map_err(|error| error.to_string())?;
+    let atomic = module.types.insert(
+        naga::Type {
+            name: None,
+            inner: naga::TypeInner::Atomic(naga::Scalar {
+                kind: naga::ScalarKind::Uint,
+                width: 4,
+            }),
+        },
+        naga::Span::UNDEFINED,
+    );
+    let (_, global) = module
+        .global_variables
+        .iter_mut()
+        .find(|(_, global)| {
+            global.binding
+                == Some(naga::ResourceBinding {
+                    group: 0,
+                    binding: 3,
+                })
+        })
+        .ok_or("missing color validation binding")?;
+    let mut ty = module.types[global.ty].clone();
+    let naga::TypeInner::Struct { members, .. } = &mut ty.inner else {
+        return Err("invalid color validation type".into());
+    };
+    if members.len() != 1 {
+        return Err("invalid color validation members".into());
+    }
+    members[0].ty = atomic;
+    global.ty = module.types.insert(ty, naga::Span::UNDEFINED);
+    let (_, function) = module
+        .functions
+        .iter_mut()
+        .find(|(_, function)| function.name.as_deref() == Some("fold_flag_invalid"))
+        .ok_or("missing color validation function")?;
+    let mut stores = 0;
+    for statement in function.body.iter_mut() {
+        if let naga::Statement::Store { pointer, value } = *statement {
+            *statement = naga::Statement::Atomic {
+                pointer,
+                fun: naga::AtomicFunction::InclusiveOr,
+                value,
+                result: None,
+            };
+            stores += 1;
+        }
+    }
+    if stores != 1 {
+        return Err("invalid color validation store count".into());
+    }
+    Ok(module)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    #[ignore = "requires native Vulkan"]
+    fn display_conversion_needs_no_float_intermediate() {
+        let dimensions = [64, 32];
+        let bytes = 64 * 32 * (16 + 4);
+        let (host, _) = pollster::block_on(Host::headless(bytes + 4096)).unwrap();
+        let input = host.image(dimensions).unwrap();
+        let output = host
+            .image_format(dimensions, wgpu::TextureFormat::Rgba8Unorm)
+            .unwrap();
+        let pipeline = ColorPipeline::new(&host, None, true).unwrap();
+        let status = Status::new(&host).unwrap();
+        let mut encoder = host.device().create_command_encoder(&Default::default());
+        status.start(&mut encoder);
+        pipeline
+            .encode(&host, &mut encoder, &input, &output, true, &status)
+            .unwrap();
+        status.encode(&mut encoder);
+        host.submit(
+            encoder,
+            vec![input, output],
+            vec![pipeline.reservation.clone()],
+        );
+        let ready = status.submitted();
+        let start = std::time::Instant::now();
+        while !ready.ready().unwrap() {
+            host.poll().unwrap();
+            assert!(start.elapsed().as_secs() < 10);
+        }
+        assert!(host.memory().peak <= bytes + 4096);
+    }
 
     #[test]
     #[ignore = "requires native Vulkan"]
@@ -434,12 +480,9 @@ mod tests {
             let status = Status::new(&host).unwrap();
             let mut encoder = host.device().create_command_encoder(&Default::default());
             status.start(&mut encoder);
-            assert!(
-                pipeline
-                    .encode(&host, &mut encoder, &input, &output, false, &status)
-                    .unwrap()
-                    .is_none()
-            );
+            pipeline
+                .encode(&host, &mut encoder, &input, &output, false, &status)
+                .unwrap();
             status.encode(&mut encoder);
             host.submit(
                 encoder,

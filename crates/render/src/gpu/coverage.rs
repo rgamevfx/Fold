@@ -55,9 +55,13 @@ struct Params {
     mode: [u32; 4],
 }
 impl Coverage {
-    pub fn clear(&mut self) {
-        self.entries.clear();
-        self.bytes = 0;
+    pub fn evict_one(&mut self) -> bool {
+        if let Some(entry) = self.entries.pop_front() {
+            self.bytes -= entry.image.bytes;
+            true
+        } else {
+            false
+        }
     }
     pub fn get(&mut self, program: &Program, size: [u32; 2]) -> Option<Arc<Image>> {
         let index = self.entries.iter().position(|e| {

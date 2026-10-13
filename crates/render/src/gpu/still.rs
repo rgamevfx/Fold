@@ -83,9 +83,13 @@ pub(super) struct Cache {
     bytes: u64,
 }
 impl Cache {
-    pub fn clear(&mut self) {
-        self.entries.clear();
-        self.bytes = 0;
+    pub fn evict_one(&mut self) -> bool {
+        if let Some(entry) = self.entries.pop_front() {
+            self.bytes -= entry.image.bytes;
+            true
+        } else {
+            false
+        }
     }
     pub fn get(
         &mut self,

@@ -1,0 +1,55 @@
+{
+  "scope": "Synthetic compositor audit; not desktop FPS, media decode, Motion, OCIO/ACES or end-to-end project acceptance",
+  "base_commit": "cf1a933f66dabdf834897ccd0040458844d302e5",
+  "worktree": "Existing uncommitted changes were present in media, Motion and UI. Renderer production code was unchanged after temporary timing instrumentation was removed.",
+  "adapter": "NVIDIA GeForce GTX 1070",
+  "driver": "NVIDIA 580.173.02",
+  "backend": "Vulkan",
+  "build": "cargo build -p fold-render --release --features gpu --example compositor_profile --locked",
+  "fixture": "crates/render/examples/compositor_profile.rs",
+  "command": "target/release/examples/compositor_profile WIDTH HEIGHT 60 LAYERS BLUR_SIZE",
+  "method": {
+    "warmup_frames": 10,
+    "measured_frames": 60,
+    "submission": "Serial scene plus display, wait for validated completion; 100us polling sleep",
+    "content": "Opaque solid background, LAYERS solid foregrounds with animated opacity and over, optional default Gaussian blur, legacy sRGB display",
+    "cache": "Bypasses application presentation cache; retains renderer and texture pool",
+    "summary": "Wall medians average the two central samples; p95 is nearest rank; GPU median sums scene and display timestamps",
+    "limitations": "Desktop remained running; GPU clocks and competing load were not controlled. Single sweep, not repeated isolated performance qualification. Solid layers emphasize pass/bandwidth overhead and are not representative of every artistic graph. No CPU/GPU pixel comparison in the benchmark itself."
+  },
+  "results": [
+    {"dimensions":[1920,1080],"layers":0,"blur":0,"wall_median_ms":6.726,"wall_p95_ms":7.763,"gpu_median_ms":0.715,"evaluate_cpu_median_ms":4.522,"passes":3,"peak_bytes":74650104},
+    {"dimensions":[1920,1080],"layers":16,"blur":0,"wall_median_ms":17.672,"wall_p95_ms":19.018,"gpu_median_ms":11.155,"evaluate_cpu_median_ms":4.990,"passes":35,"peak_bytes":141017592},
+    {"dimensions":[3840,2160],"layers":16,"blur":0,"wall_median_ms":50.052,"wall_p95_ms":54.263,"gpu_median_ms":43.070,"evaluate_cpu_median_ms":5.051,"passes":35,"peak_bytes":564031992},
+    {"dimensions":[1920,1080],"layers":1,"blur":8,"wall_median_ms":8.554,"wall_p95_ms":9.256,"gpu_median_ms":2.958,"evaluate_cpu_median_ms":4.170,"passes":7,"peak_bytes":141006912},
+    {"dimensions":[1920,1080],"layers":1,"blur":32,"wall_median_ms":14.053,"wall_p95_ms":16.090,"gpu_median_ms":7.899,"evaluate_cpu_median_ms":4.297,"passes":7,"peak_bytes":141008064},
+    {"dimensions":[1920,1080],"layers":1,"blur":128,"wall_median_ms":36.468,"wall_p95_ms":42.926,"gpu_median_ms":28.930,"evaluate_cpu_median_ms":5.318,"passes":7,"peak_bytes":141012672},
+    {"dimensions":[320,180],"layers":64,"blur":0,"wall_median_ms":10.189,"wall_p95_ms":11.748,"gpu_median_ms":1.919,"evaluate_cpu_median_ms":6.140,"passes":131,"peak_bytes":3966456}
+  ],
+  "transfers": {
+    "all_workloads_image_upload_bytes":0,
+    "all_workloads_image_readback_bytes":0,
+    "note":"Status readback is separate. Existing upload counters do not account for every uniform/kernel upload; zero image traffic is not zero CPU work."
+  },
+  "targeted_instrumentation": {
+    "workload":"1920 1080, zero foreground layers; repeated warm frames",
+    "finding":"Status::new's MAP_READ | COPY_DST readback buffer creation consumed approximately 3.8-5.3ms on scene evaluation; display status creation was typically microseconds. Query and device-local status buffer creation were microseconds. Graph preparation was typically 5-12us.",
+    "source":"crates/render/src/gpu/validation.rs::Status::new",
+    "interpretation":"Allocation call is localized; driver-internal reason and benefit of pooling are not yet proven by an A/B implementation.",
+    "cleanup":"All temporary DEBUG-comp-audit instrumentation removed; no production renderer change retained."
+  },
+  "budget_probe": {
+    "command":"FOLD_PROFILE_MAX_MS=3 target/release/examples/compositor_profile 1920 1080 60 0 0",
+    "exit_code":1,
+    "wall_median_ms":6.364,
+    "wall_p95_ms":8.765,
+    "note":"Artificial diagnostic threshold verifies the benchmark can reject this CPU-floor workload. Not an agreed product performance target."
+  },
+  "validation": {
+    "render_release_gpu_feature_tests":{"passed":63,"ignored":53,"failed":0},
+    "explicit_gpu_integration_tests":{"passed":5,"failed":0,"excluded":"native_aces_signed_hdr_and_alpha requires color runtime"},
+    "clippy":"Affected release example passed with existing library warnings",
+    "format":"New example formatted with rustfmt",
+    "not_run":["workspace checks/tests/Clippy", "native-video/media performance matrix", "ACES color GPU acceptance", "desktop artist acceptance", "optimization A/B"]
+  }
+}

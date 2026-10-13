@@ -13,6 +13,14 @@ fn pointwise(input: vec4<f32>, params: Params) -> vec4<f32> {
     var value = input;
     switch params.header.x {
         case 1u: { value *= params.color.x; }
+        case 10u: {
+            value = vec4<f32>(0.0);
+            for (var c = 0u; c < 4u; c += 1u) {
+                let source = params.rect[c];
+                if source < 4u { value[c] = input[source]; }
+                else if source == 9u { value[c] = 1.0; }
+            }
+        }
         case 17u: {
             var rgb=value.rgb;
             switch params.rect.x {

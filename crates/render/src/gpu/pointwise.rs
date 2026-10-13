@@ -1,11 +1,12 @@
 //! Bounded pointwise chains. Spatial operations and shared results remain boundaries.
 use super::{Host, Image, encoding::Params, validation::Status};
 use crate::RenderGraph;
-use wgpu::util::DeviceExt;
 
 pub(super) struct Chain {
     pub input: usize,
     pub steps: Vec<usize>,
+    pub mix: Option<usize>,
+    pub mask: Option<usize>,
 }
 pub(super) fn plan(
     graph: &RenderGraph,
@@ -14,7 +15,45 @@ pub(super) fn plan(
 ) -> Vec<Option<Chain>> {
     let mut chains: Vec<_> = (0..graph.nodes.len()).map(|_| None).collect();
     for id in (0..graph.nodes.len()).rev() {
-        if !needed[id] || Params::pointwise(&graph.nodes[id], [1, 1], false).is_none() {
+        if !needed[id] {
+            continue;
+        }
+        if let crate::ImageOp::Mix {
+            original,
+            processed,
+            mask,
+            ..
+        } = graph.nodes[id]
+        {
+            let mut input = processed;
+            let mut steps = Vec::new();
+            while input != original
+                && steps.len() < 16
+                && needed[input]
+                && uses[input] == 1
+                && Params::pointwise(&graph.nodes[input], [1, 1], false).is_some()
+            {
+                steps.push(input);
+                input = graph.nodes[input].inputs().next().unwrap();
+            }
+            if input == original && !steps.is_empty() {
+                for &step in &steps {
+                    needed[step] = false;
+                    uses[step] = 0;
+                }
+                // The original's effect read and mix read become one texture load.
+                uses[original] -= 1;
+                steps.reverse();
+                chains[id] = Some(Chain {
+                    input,
+                    steps,
+                    mix: Some(id),
+                    mask,
+                });
+                continue;
+            }
+        }
+        if Params::pointwise(&graph.nodes[id], [1, 1], false).is_none() {
             continue;
         }
         let mut steps = vec![id];
@@ -31,7 +70,12 @@ pub(super) fn plan(
         }
         if steps.len() > 1 {
             steps.reverse();
-            chains[id] = Some(Chain { input, steps });
+            chains[id] = Some(Chain {
+                input,
+                steps,
+                mix: None,
+                mask: None,
+            });
         }
     }
     chains
@@ -68,23 +112,26 @@ impl Pipeline {
         &self,
         host: &Host,
         encoder: &mut wgpu::CommandEncoder,
-        input: &Image,
-        output: &Image,
-        steps: &[Params],
+        images: [&Image; 3],
+        parameters: (&[Params], Option<Params>),
         status: &Status,
+        arena: &mut super::parameters::Arena,
     ) {
+        let [input, output, mask] = images;
+        let (steps, mix) = parameters;
         let mut values = [Params::zeroed(); 16];
         values[..steps.len()].copy_from_slice(steps);
-        let mut data = Vec::with_capacity(16 + std::mem::size_of_val(&values));
-        data.extend_from_slice(bytemuck::cast_slice(&[steps.len() as u32, 0, 0, 0]));
+        let mut data =
+            Vec::with_capacity(16 + std::mem::size_of_val(&values) + std::mem::size_of::<Params>());
+        data.extend_from_slice(bytemuck::cast_slice(&[
+            steps.len() as u32,
+            u32::from(mix.is_some()),
+            0,
+            0,
+        ]));
         data.extend_from_slice(bytemuck::cast_slice(&values));
-        let buffer = host
-            .device()
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Pointwise chain parameters"),
-                contents: &data,
-                usage: wgpu::BufferUsages::UNIFORM,
-            });
+        data.extend_from_slice(bytemuck::bytes_of(&mix.unwrap_or_default()));
+        let buffer = arena.write(&data);
         let group = host.device().create_bind_group(&wgpu::BindGroupDescriptor {
             label: None,
             layout: &self.0.get_bind_group_layout(0),
@@ -99,11 +146,15 @@ impl Pipeline {
                 },
                 wgpu::BindGroupEntry {
                     binding: 2,
-                    resource: buffer.as_entire_binding(),
+                    resource: buffer,
                 },
                 wgpu::BindGroupEntry {
                     binding: 3,
                     resource: status.gpu.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 4,
+                    resource: wgpu::BindingResource::TextureView(&mask.view),
                 },
             ],
         });

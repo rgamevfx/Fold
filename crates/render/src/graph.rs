@@ -604,6 +604,7 @@ pub(crate) fn evaluate(
     })?;
     let processors = input_processors(&graph, config)?;
     crate::video_sources::reuse(&mut graph);
+    crate::reuse::pure(&mut graph);
     let (needed, mut uses) = dependencies(&graph);
     let mut frames: Vec<Option<Frame>> = (0..graph.nodes.len()).map(|_| None).collect();
     let bytes = count * std::mem::size_of::<[f32; 4]>();

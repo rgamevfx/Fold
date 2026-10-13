@@ -14,6 +14,7 @@ pub mod shader;
 pub mod source;
 pub use preparation::{PreparedSources, prepare_sources};
 pub mod region;
+mod reuse;
 mod sampling;
 pub mod scheduling;
 pub mod spatial;

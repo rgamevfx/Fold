@@ -130,6 +130,16 @@ impl YuvPipeline {
             external_layouts: VecDeque::new(),
         }
     }
+    pub fn evict_one(&mut self) -> bool {
+        if let Some(entry) = self.cache.pop_front() {
+            self.bytes -= entry.bytes;
+            true
+        } else if self.external_layouts.pop_front().is_some() {
+            true
+        } else {
+            self.uploads.evict_one()
+        }
+    }
     pub fn clear(&mut self) {
         self.cache.clear();
         self.uploads.clear();

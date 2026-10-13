@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fold compositor optimization report</title>
+<style>
+:root { color-scheme:light; font:16px/1.6 system-ui,sans-serif; color:#182638; background:#f4f6f8; }
+body { max-width:1120px; margin:auto; padding:2rem 1.2rem 4rem; }
+header { border-bottom:4px solid #215b73; padding-bottom:1rem; }
+h1 { font-size:2.2rem; line-height:1.15; } h2 { margin-top:2rem; color:#194b60; }
+a { color:#075c86; } nav { display:flex; flex-wrap:wrap; gap:1.2rem; }
+section { background:white; border:1px solid #dbe1e6; border-radius:8px; padding:1.2rem; margin-top:1.4rem; }
+.notice { border-left:5px solid #aa6900; background:#fff6df; padding:1rem; }
+.scroll { overflow-x:auto; } table { border-collapse:collapse; width:100%; font-size:.92rem; }
+caption { text-align:left; font-weight:600; margin:1rem 0; }
+th,td { padding:.65rem; border-bottom:1px solid #dbe1e6; text-align:right; white-space:nowrap; }
+th:first-child { text-align:left; } thead { background:#edf3f6; }
+pre { white-space:pre-wrap; overflow-wrap:anywhere; background:#f5f7f9; padding:1rem; font-size:.87rem; }
+li { margin:.6rem 0; } summary { cursor:pointer; color:#194b60; }
+.small { font-size:.9rem; color:#485568; }
+@media print { body { max-width:none; padding:0; } section { break-inside:avoid; } nav { display:none; } }
+</style>
+</head>
+<body>
+<header><p>FOLD / RENDER ENGINE</p><h1>Compositor optimization report</h1>
+<p>Measured changes, tests, rejected work, and next steps.</p>
+<nav aria-label="Report sections"><a href="#results">Results</a><a href="#changes">Changes</a><a href="#experiments">Experiments</a><a href="#tests">Tests</a><a href="#plan">Development plan</a></nav></header>
+<p class="notice"><strong>Partial delivery.</strong> The full plan is not complete. Status storage, color passes, and cache-pressure handling are complete for this change set. Other phases are partial or open. No claim of full engine or desktop acceptance is made.</p>
+<section id="results"><h2>1. Benchmark results</h2>
+<p>Tests used an NVIDIA GTX 1070 with driver 580.173.02 and Vulkan. Each run used a release build. Each run discarded ten warmup frames and measured 60 frames. The desktop stayed active. GPU clocks and other GPU work were not controlled.</p>
+<p>The fixture creates solid layers, opacity, over operations, and an optional Gaussian blur. It measures serial scene and display completion. It does not measure desktop FPS, media decode, Motion, or ACES processing. Equal solid sources favor the new reuse step. Do not apply the layer speed gain to a scene with distinct media sources.</p>
+<div class="scroll"><table><caption>Frame latency. All times are milliseconds. Lower is better.</caption><thead><tr><th>Workload</th><th>Before median</th><th>After median</th><th>Reduction</th><th>p95 before → after</th><th>Before / after data</th></tr></thead><tbody><tr><th scope="row">1080p / one solid</th><td>6.726</td><td>0.732</td><td>89.1%</td><td>7.763 → 0.889</td><td><a href="benchmarks/baseline-1920-1080-60-0-0.jsonl">JSONL</a> / <a href="benchmarks/final-1920-1080-60-0-0.jsonl">JSONL</a></td></tr><tr><th scope="row">1080p / 16 layers</th><td>17.672</td><td>8.904</td><td>49.6%</td><td>19.018 → 10.572</td><td><a href="benchmarks/baseline-1920-1080-60-16-0.jsonl">JSONL</a> / <a href="benchmarks/final-1920-1080-60-16-0.jsonl">JSONL</a></td></tr><tr><th scope="row">4K / 16 layers</th><td>50.052</td><td>33.155</td><td>33.8%</td><td>54.263 → 34.389</td><td><a href="benchmarks/baseline-3840-2160-60-16-0.jsonl">JSONL</a> / <a href="benchmarks/final-3840-2160-60-16-0.jsonl">JSONL</a></td></tr><tr><th scope="row">1080p / blur 8</th><td>8.554</td><td>3.246</td><td>62.1%</td><td>9.256 → 4.051</td><td><a href="benchmarks/baseline-1920-1080-60-1-8.jsonl">JSONL</a> / <a href="benchmarks/final-1920-1080-60-1-8.jsonl">JSONL</a></td></tr><tr><th scope="row">1080p / blur 32</th><td>14.053</td><td>8.564</td><td>39.1%</td><td>16.090 → 10.172</td><td><a href="benchmarks/baseline-1920-1080-60-1-32.jsonl">JSONL</a> / <a href="benchmarks/final-1920-1080-60-1-32.jsonl">JSONL</a></td></tr><tr><th scope="row">1080p / blur 128</th><td>36.468</td><td>29.608</td><td>18.8%</td><td>42.926 → 32.158</td><td><a href="benchmarks/baseline-1920-1080-60-1-128.jsonl">JSONL</a> / <a href="benchmarks/final-1920-1080-60-1-128.jsonl">JSONL</a></td></tr><tr><th scope="row">320 × 180 / 64 layers</th><td>10.189</td><td>2.381</td><td>76.6%</td><td>11.748 → 2.987</td><td><a href="benchmarks/baseline-320-180-60-64-0.jsonl">JSONL</a> / <a href="benchmarks/final-320-180-60-64-0.jsonl">JSONL</a></td></tr></tbody></table></div>
+<div class="scroll"><table><caption>GPU time, compute passes, and peak host-accounted allocation.</caption><thead><tr><th>Workload</th><th>GPU ms before → after</th><th>Passes before → after</th><th>Peak MiB before → after</th></tr></thead><tbody><tr><th scope="row">1080p / one solid</th><td>0.715 → 0.393</td><td>3 → 2</td><td>71.19 → 39.55</td></tr><tr><th scope="row">1080p / 16 layers</th><td>11.155 → 7.969</td><td>35 → 19</td><td>134.48 → 102.84</td></tr><tr><th scope="row">4K / 16 layers</th><td>43.070 → 32.026</td><td>35 → 19</td><td>537.90 → 411.34</td></tr><tr><th scope="row">1080p / blur 8</th><td>2.958 → 2.790</td><td>7 → 6</td><td>134.47 → 102.83</td></tr><tr><th scope="row">1080p / blur 32</th><td>7.899 → 8.031</td><td>7 → 6</td><td>134.48 → 102.84</td></tr><tr><th scope="row">1080p / blur 128</th><td>28.930 → 28.924</td><td>7 → 6</td><td>134.48 → 102.84</td></tr><tr><th scope="row">320 × 180 / 64 layers</th><td>1.919 → 1.227</td><td>131 → 67</td><td>3.78 → 2.89</td></tr></tbody></table></div>
+<p>The median is the middle frame time. The p95 value is the time that 95 percent of measured frames do not exceed. One MiB is 1,048,576 bytes.</p>
+<p>Peak allocation is not total physical VRAM use. Image upload and image readback counters are zero in these synthetic cases. Status bytes and parameter uploads are separate. The filter's large-radius GPU cost remains.</p>
+<details><summary>Run the benchmark</summary><pre>cargo build -p fold-render --release --features gpu --example compositor_profile --locked
+target/release/examples/compositor_profile 1920 1080 60 16 0
+FOLD_PROFILE_MAX_MS=3 target/release/examples/compositor_profile 1920 1080 60 0 0</pre><p>The 3 ms p95 limit is a diagnostic gate. It failed before the changes and passes now. It is not an agreed product limit.</p></details>
+</section>
+<section id="changes"><h2>2. Implemented changes</h2>
+<ul><li><strong>Status storage:</strong> reuse at most eight completed, unmapped readback buffers. Keep GPU completion and failure checks.</li>
+<li><strong>Color output:</strong> check the float result in the conversion pass. Store the display result directly. Remove the extra float image and validation scan.</li>
+<li><strong>Small resources:</strong> use one uniform arena for generic operators and pointwise chains. Cache at most 16 exact blur kernels.</li>
+<li><strong>Pass fusion:</strong> combine eligible masked pointwise chains and one-input channel shuffles. Check every logical intermediate.</li>
+<li><strong>Repeated work:</strong> share equal solids and expensive blur results within one request. Do not share cheap opacity results that prevent consumer fusion.</li>
+<li><strong>Pressure:</strong> remove individual cache entries. Start above 75 percent live use and stop at two thirds of the budget. Limit each request to 128 attempts.</li></ul>
+<div class="scroll"><table><caption>Single-solid phase results at 1080p. These changes are cumulative.</caption><thead><tr><th>Phase</th><th>Median ms</th><th>GPU ms</th><th>Data</th></tr></thead><tbody><tr><th scope="row">P1: status pool</th><td>1.111</td><td>0.700</td><td><a href="benchmarks/p1-status.jsonl">JSONL</a></td></tr><tr><th scope="row">P2: add color fusion</th><td>0.858</td><td>0.392</td><td><a href="benchmarks/p2-color.jsonl">JSONL</a></td></tr><tr><th scope="row">Final: one solid</th><td>0.732</td><td>0.393</td><td><a href="benchmarks/final-1920-1080-60-0-0.jsonl">JSONL</a></td></tr></tbody></table></div>
+<p>The buffer pool removed the main fixed CPU cost. The color change reduced GPU work. Do not add the percentage gains from separate phases.</p>
+<p>General bind-group reuse, general merge fusion, cross-frame caches, per-node tiles, working-format selection, and pooled native ingress are not implemented.</p></section>
+<section id="experiments"><h2>3. Rejected experiments</h2>
+<div class="scroll"><table><caption>Blur layout tests. One layer at 1080p, size 128.</caption><thead><tr><th>Variant</th><th>Median GPU ms</th><th>Peak MiB</th><th>Data</th></tr></thead><tbody><tr><th scope="row">Blur control / size 128</th><td>29.254</td><td>102.84</td><td><a href="benchmarks/blur-before-128.jsonl">JSONL</a></td></tr><tr><th scope="row">Reject: 8 × 8 vertical tiles</th><td>49.969</td><td>102.84</td><td><a href="benchmarks/rejected-vertical-128.jsonl">JSONL</a></td></tr><tr><th scope="row">Reject: transpose each pass</th><td>29.662</td><td>134.48</td><td><a href="benchmarks/rejected-transpose-128.jsonl">JSONL</a></td></tr></tbody></table></div>
+<p>The 8 × 8 vertical layout was slower. Transposing both passes did not give a useful gain. Both shaders were removed. The exact separable shader remains.</p>
+<p>Sharing cheap opacity results raised peak allocation in the small 64-layer case to 28.39 MiB. The final policy uses 2.89 MiB. The final policy keeps opacity-over fusion. <a href="benchmarks/rejected-cheap-reuse.jsonl">Rejected-policy data</a>.</p>
+<p>No approximate Gaussian, automatic FP16 storage, or direct native import was added to claim a speed gain.</p></section>
+<section id="tests"><h2>4. Validation</h2><ul><li><strong>Format and patch checks</strong>: Pass<details><summary>Command</summary><pre>cargo fmt -p fold-render -- --check; git diff --check</pre></details></li><li><strong>Render tests</strong>: 66 passed; 0 failed; 59 ignored in this command<details><summary>Command</summary><pre>cargo test -p fold-render --release --features gpu --locked</pre></details></li><li><strong>Selected native GPU integration tests</strong>: 21 passed; 0 failed; 0 ignored in this command<details><summary>Command</summary><pre>FOLD_TEST_COLOR_ROOT=$PWD/target cargo test -p fold-render --release --features gpu --test gpu --test gpu_color --test gpu_mask_fusion --test gpu_fusion --test precision_gpu --test channels --test regions --test gpu_adapters --locked -- --ignored --test-threads=1</pre></details></li><li><strong>Native GPU unit tests</strong>: 28 passed; 0 failed; 0 ignored in this command<details><summary>Command</summary><pre>cargo test -p fold-render --release --features gpu --lib gpu:: --locked -- --ignored --test-threads=1</pre></details></li><li><strong>Compositor channel and reusable-effect tests</strong>: 17 passed; 0 failed; 0 ignored in this command<details><summary>Command</summary><pre>cargo test -p fold-compositor --release --test channels --test reusable --locked -- --test-threads=1</pre></details></li><li><strong>Native-video and shared-image feature check</strong>: Pass; runtime acceptance of these adapters is separate<details><summary>Command</summary><pre>cargo check -p fold-render --features native-video,shared-images --locked</pre></details></li><li><strong>Focused Clippy</strong>: Pass with existing library/test warnings; no new suppression attributes<details><summary>Command</summary><pre>cargo clippy -p fold-render --release --features gpu --all-targets --locked</pre></details></li><li><strong>Synthetic p95 gate</strong>: Pass, exit 0. Before optimization this diagnostic gate failed, exit 1.<details><summary>Command</summary><pre>FOLD_PROFILE_MAX_MS=3 target/release/examples/compositor_profile 1920 1080 60 0 0</pre></details></li></ul>
+<p>Pixel checks include signed/HDR values, alpha, OCIO transforms, ProRes alpha, masks, shared inputs, region boundaries, and large filters. Lifecycle checks include cancellation, dropped work, device loss, and memory pressure.</p>
+<h3>Not run or not implemented</h3><ul><li>Full workspace checks, tests and Clippy</li><li>Spatial feature build and 3D adapter acceptance</li><li>Installed package acceptance</li><li>Desktop and real Session artist acceptance</li><li>Controlled GPU clock/load benchmark</li><li>Real project, mixed-media pressure, native NVDEC performance matrix</li><li>FP16 working-format, direct import, or per-node tiled-render implementation</li></ul>
+<p>Existing media, Motion, and UI edits were left unchanged. No desktop rebuild was needed. A real slow project still needs an end-to-end benchmark.</p>
+<details><summary>Build identity</summary><pre>Base commit: cf1a933f66dabdf834897ccd0040458844d302e5
+Render source SHA-256: 41bc14e3ff4d31c6edc5a30c9c9538c9d8328011fa9c41c41732e60099bfaea9
+Sort all .rs, .wgsl and .toml paths under crates/render. Hash each relative path, a NUL byte, then the file bytes, in that order.</pre></details>
+</section>
+<section id="plan"><h2>5. Development plan and notes</h2>
+<p><a href="dev-plan.md">Open the plan</a> · <a href="validation.json">Open test evidence</a> · <a href="compositor-audit.json">Open the original audit</a></p>
+<details><summary>Read all phase notes and next steps</summary><pre># Compositor optimization plan
+
+Status: partial delivery. Do not mark the full plan complete.
+This file owns the phase checklist. `report.html` contains the measured results.
+The report uses short, direct English in the style of ASD-STE100. It is not a
+formal language-conformance check.
+
+## Completed work and open work
+
+- [x] P1 — Done: pool completed status readback buffers.
+- [x] P2 — Done: fuse color conversion, validation, and display storage.
+- [ ] P3 — Partial: one graph parameter arena and a blur-kernel cache are in use.
+  Bind groups are still created per pass. Color and filter parameter buffers are
+  not part of the graph arena. General buffer/binding reuse remains open.
+- [ ] P4 — Partial: fuse masked pointwise chains and single-input channel shuffles.
+  General merge fusion and constant inputs inside a consumer shader remain open.
+- [ ] P5 — Open after tests: reject both new blur memory layouts. Neither layout
+  gave a useful speed gain. Keep the exact separable filter. Radius-dependent
+  box/Gaussian algorithms remain open.
+- [ ] P6 — Partial: reuse equal constant sources and blur subgraphs in one request.
+  Prepared document/topology caches and cross-frame effect caches remain open.
+- [x] P7 — Done: use bounded, incremental cache eviction with two thresholds.
+- [ ] P8 — Open: per-node regions, tiled execution, and source-region decode are
+  not implemented. Existing region tests pass with the other changes.
+- [ ] P9 — Open: format-aware working storage and pooled native ingress are not
+  implemented. Direct import and automatic FP16 are not enabled.
+- [x] P10 — Done for this change set: run focused checks and build the HTML report.
+  Full workspace, installed package, and desktop artist acceptance remain open.
+
+## Method
+
+Use release builds of `fold-render`. Run the smallest useful test first. Run GPU
+tests in one thread. Measure 60 frames after ten warmup frames. Use the same GPU
+and workload for comparisons. Keep raw data in `benchmarks/`. A renderer timing
+is not a desktop frame-rate measurement. The desktop stayed active. GPU clocks
+and other GPU work were not controlled.
+
+## Development notes
+
+### P1: status storage
+
+The reuse test failed before the change. The first setup attempt also found that
+the test needed COPY_DST usage to write an invalid status. That setup failure was
+fixed before the reuse failure was used as evidence.
+
+The host now retains at most eight completed, unmapped readback buffers. Live
+requests never share a buffer. The GPU flag is explicitly cleared in the command
+stream. Map or device failures do not return storage to the pool. A dropped
+consumer keeps its callback-owned storage until completion. Idle buffer bytes
+are included in reclaimable memory. Pressure can release them.
+
+The single-solid median fell from 6.726 ms to 1.111 ms after this phase alone.
+GPU time stayed near 0.70 ms. The failure, cancellation, device-loss, and host
+accounting tests pass. The synthetic 3 ms p95 gate now passes. This is a diagnostic
+gate, not an agreed product limit.
+
+### P2: color passes
+
+The display allocation test failed before the change. Color conversion now checks
+the float result before its final store. The display path does not allocate a
+second full float image. The old validation shader was removed.
+
+Naga 27 does not parse GLSL atomicOr. A direct implementation failed its GPU tests.
+The final implementation parses the generated GLSL, changes only the generated
+validation field and store to atomic typed IR, and passes that module to wgpu.
+It does not use a racy write or rewrite arbitrary OCIO expressions. The atomic
+change checks the binding, member count, function name, and store count.
+
+Working overflow, display allocation, signed/HDR alpha, pinned OCIO LUTs, raster
+input, and ProRes alpha parity tests pass. This does not qualify HDR monitors.
+
+### P3: parameters and kernels
+
+Generic image operators and pointwise chains use one mapped uniform arena for
+each graph. Every binding uses a separate aligned range. The arena is unmapped
+before submission. The submission owns the budget lease until completion.
+
+The filter keeps at most 16 exact kernels. Keys include the float size bits and
+filter type. Submitted work holds its own reservation after cache eviction.
+The kernel reuse/eviction test and GPU pixel tests pass. Bind-group reuse needs
+stable, completion-safe buffer identities; it must not cache a previous frame&#x27;s
+parameter ranges.
+
+### P4: pass fusion
+
+A mask mix can consume a pointwise chain in one pass when the chain starts at the
+mix&#x27;s original input and no other node uses its intermediate results. Up to 16
+steps can be fused. A one-input shuffle can be one of those steps. The shader
+checks every logical intermediate, even if a zero mix hides it in the final image.
+
+Tests cover mask absence, mask aliasing, inversion, amounts 0/0.25/1, selected
+channels, odd dimensions, and hidden overflow. Existing shared-input tests pass.
+General merges, multi-input shuffles, and arbitrary spatial operations remain
+separate. Do not relax those boundaries without new lifetime and pixel tests.
+
+### P5: rejected blur layouts
+
+Test A used 8x8 output tiles and a 72x8 shared-memory strip for vertical filtering.
+At size 128, total GPU time rose from about 29.25 ms to 49.97 ms. Reject this layout.
+
+Test B transposed the output of each separable pass. Both passes then read along
+rows. Total GPU time was about 29.66 ms. It did not improve the baseline and added
+a differently sized scratch texture. Reject this layout too. Neither experimental
+shader remains in the engine. The raw size-128 measurements remain in benchmarks/.
+
+Next: build a filter-only benchmark with axis timestamps. Test a sliding-sum box
+filter separately from Gaussian. For a different Gaussian algorithm, define and
+test an error bound first. Do not silently change the exact filter to a pyramid
+approximation. Current full-image cost is still proportional to filter radius.
+
+### P6: repeated work
+
+The shared CPU/GPU planner now reuses equal solids and blur results within one
+request. It runs after logical validation. Keys use exact float bits and canonical
+input IDs. External sources and authored shaders are not assumed to be pure.
+
+An early version also shared opacity results. It disabled opacity-over fusion
+and raised the small 64-layer case&#x27;s peak allocation to about 28.4 MiB. Reject
+that policy. Cheap pointwise results now remain available for consumer fusion.
+The final small-case peak is about 2.9 MiB. Tests lock down this choice, distinct
+parameters, signed zero, and repeated filter execution.
+
+One old CPU budget test used four equal solids. These now share one image. The
+test was changed to four distinct colors so that it still tests budget rejection.
+
+Next: move immutable prepared compositor data into an owned cacheable value.
+PreparedComposite currently borrows authored nodes. Do not store those borrows
+past their snapshot. Cache identity must include document content, invocation
+values, dimensions, color configuration, placement, and source identity. A
+cross-frame image cache also needs time, region, cost, and resource-budget keys.
+No prepared-document or cross-frame effect cache is implemented in this change.
+
+### P7: pressure
+
+Pressure work starts above 75 percent live allocation. It stops at two thirds of
+the budget or when no cache can remove an entry. It removes one entry at a time
+across eight cache classes. Each request does at most 128 eviction attempts.
+Submitted and displayed resources keep their own leases. The new pressure
+counter records removed entries. A test removes seven of eight coverage entries,
+keeps the newest entry, and verifies that a second call does no extra work.
+
+This is a bounded fair policy, not a globally cost-ranked cache. A real mixed-media
+pressure benchmark and detailed hit-rate telemetry remain useful follow-up work.
+
+### P8: region design gate
+
+The graph currently uses one working raster and one coordinate system for all
+operators. Region planning uses a common enclosing rectangle. External Source,
+Spatial, and unknown Shader footprints stay conservative. WindowedSource still
+renders its native source before extraction.
+
+Next: add explicit origin/extent metadata to physical image values and operator
+bindings. Propagate per-input demand bounds. Keep filter halos and edge rules.
+Add region demand to source adapters where the decoder can support it. Test odd
+sizes, transformed inputs, alpha, data channels, blur boundaries, and source
+fallback bounds against full-frame pixels. Then add bounded tile scheduling.
+These changes are not implemented; smaller allocation limits alone are not tiling.
+
+### P9: format and ingress design gate
+
+Working operators still use RGBA32F. The existing native ingress copy still
+establishes compositor ownership. FP16 storage can lose range and precision.
+Direct import can extend the producer lifetime past its current release point.
+
+Next: add a typed, device-owned destination pool to the shared-image boundary.
+Check dimensions, format, device identity, queue ownership, and completion before
+reuse. Test cancellation and producer failure before removing any copy. Add an
+explicit storage/quality policy before FP16 working operators. Test extreme HDR,
+small alpha, repeated grades, filters, and export parity. These changes are not
+implemented. No copy or precision check was removed to claim a speed gain.
+
+### P10: evidence and limits
+
+`validation.json` records commands and test counts. The focused tests pass.
+`build_report.py` builds `report.html` from raw timings and this plan. The report
+includes failed experiments and open work. No desktop rebuild was needed.
+Existing uncommitted media, Motion, and UI edits were left unchanged.
+
+Before release, run workspace checks, tests and Clippy. Check the installed
+package and real Session workflows. Benchmark a real slow project with distinct
+sources, media decode, ACES, masks, Motion and cache pressure. Obtain artist
+acceptance separately. This change set is not full completion of all ten phases.
+</pre></details>
+<p class="small">This report uses short, direct English in the style of ASD-STE100. It has not passed a formal language-conformance check. Rebuild it with: <code>python3 resources/render/build_report.py</code>.</p></section>
+</body></html>

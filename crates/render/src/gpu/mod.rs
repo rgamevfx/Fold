@@ -4,6 +4,7 @@
 //! No renderer or device is initialized in CPU-only/headless builds by default.
 mod encoding;
 mod frame;
+mod parameters;
 mod request;
 mod statistics;
 mod submission;
@@ -49,6 +50,7 @@ use std::sync::Arc;
 /// Explicit selection: constructing this renderer never changes CPU entry points.
 pub struct Renderer {
     uploads: upload::Pool,
+    pressure_cursor: usize,
     host: Host,
     pipeline: wgpu::ComputePipeline,
     data_display: wgpu::ComputePipeline,
@@ -179,6 +181,7 @@ impl Renderer {
         });
         Ok(Self {
             uploads: Default::default(),
+            pressure_cursor: 0,
             data_display,
             filtered_blur,
             sampling,

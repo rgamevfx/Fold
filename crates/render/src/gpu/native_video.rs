@@ -42,6 +42,14 @@ impl NativeVideo {
     pub fn statistics(&self) -> fold_media::native::NativeStatistics {
         self.decoder.statistics()
     }
+    pub fn evict_one(&mut self) -> bool {
+        if let Some(entry) = self.cache.pop_front() {
+            self.bytes -= entry.input.bytes;
+            true
+        } else {
+            false
+        }
+    }
     pub fn clear(&mut self) {
         self.cache.clear();
         self.bytes = 0;

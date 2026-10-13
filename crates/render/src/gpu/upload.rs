@@ -32,6 +32,18 @@ impl Upload {
     }
 }
 impl Pool {
+    pub fn evict_one(&mut self) -> bool {
+        if let Some(index) = self
+            .entries
+            .iter()
+            .position(|e| e.mapped.load(Ordering::Acquire))
+        {
+            self.entries.remove(index);
+            true
+        } else {
+            false
+        }
+    }
     pub fn clear(&mut self) {
         self.entries.clear();
     }

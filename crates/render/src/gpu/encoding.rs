@@ -55,6 +55,14 @@ impl Params {
                     target[..3].copy_from_slice(&value);
                 }
             }
+            ImageOp::Shuffle {
+                second: None,
+                mapping,
+                ..
+            } => {
+                params.header[0] = 10;
+                params.rect = mapping.map(u32::from);
+            }
             ImageOp::Opacity { opacity, .. } => {
                 params.header[0] = 1;
                 params.color[0] = *opacity;
@@ -91,15 +99,9 @@ impl Renderer {
         output: &Image,
         params: Params,
         status: &validation::Status,
+        arena: &mut parameters::Arena,
     ) {
-        let uniform = self
-            .host
-            .device()
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Fold operator parameters"),
-                contents: bytemuck::bytes_of(&params),
-                usage: wgpu::BufferUsages::UNIFORM,
-            });
+        let uniform = arena.write(bytemuck::bytes_of(&params));
         let group = self
             .host
             .device()
@@ -125,7 +127,7 @@ impl Renderer {
                     },
                     wgpu::BindGroupEntry {
                         binding: 3,
-                        resource: uniform.as_entire_binding(),
+                        resource: uniform,
                     },
                     wgpu::BindGroupEntry {
                         binding: 4,
@@ -169,19 +171,27 @@ impl Renderer {
         } = request;
         // At most two parameter buffers per reachable node (separable blur).
         // Reserve before recording so even a long graph is aggregate bounded.
-        let parameter_bytes = needed
+        let parameter_bytes: u64 = needed
             .iter()
             .enumerate()
             .filter(|(_, needed)| **needed)
             .map(|(id, _)| {
                 if chains[id].is_some() {
-                    16 + 16 * std::mem::size_of::<Params>() as u64
+                    parameters::Arena::stride(
+                        &self.host,
+                        16 + 17 * std::mem::size_of::<Params>() as u64,
+                    )
                 } else {
-                    2 * std::mem::size_of::<Params>() as u64
+                    2 * parameters::Arena::stride(&self.host, std::mem::size_of::<Params>() as u64)
                 }
             })
             .sum();
-        let mut buffers = vec![self.host.reserve(parameter_bytes)?];
+        let (mut arena, parameters) = parameters::Arena::new(
+            &self.host,
+            parameter_bytes
+                + parameters::Arena::stride(&self.host, std::mem::size_of::<Params>() as u64),
+        )?;
+        let mut buffers = vec![parameters];
         let dummy = self.host.image([1, 1])?;
         let mut leases = vec![dummy.clone()];
         let mut frames: Vec<Option<Arc<Image>>> = vec![None; graph.nodes.len()];
@@ -271,7 +281,7 @@ impl Renderer {
                 inputs[0] = Some(input);
             }
             if let Some(chain) = &chains[id] {
-                inputs[0] = Some(chain.input);
+                inputs = [Some(chain.input), None, chain.mask];
             }
             let first = inputs[0].map_or(&dummy, |i| frames[i].as_ref().unwrap());
             let second = inputs[1].map_or(&dummy, |i| frames[i].as_ref().unwrap());
@@ -283,7 +293,7 @@ impl Renderer {
                     let (pipeline, uploaded) =
                         self.color_pipeline(Some(&processors[fold_color::LINEAR_SRGB]), false)?;
                     stats.lut_upload_bytes += uploaded;
-                    let intermediate = pipeline.encode(
+                    pipeline.encode(
                         &self.host,
                         &mut encoder,
                         &source.image,
@@ -292,12 +302,8 @@ impl Renderer {
                         &status,
                     )?;
                     leases.push(source.image);
-                    if let Some(intermediate) = intermediate {
-                        leases.push(intermediate.clone());
-                        scratch.push(intermediate);
-                    }
                     buffers.push(pipeline.reservation.clone());
-                    stats.compute_passes += 2;
+                    stats.compute_passes += 1;
                     compute = false;
                 }
                 ImageOp::Shader { inputs, program } => {
@@ -458,7 +464,7 @@ impl Renderer {
                         .into_iter()
                         .enumerate()
                         {
-                            buffers.push(self.filtered_blur.encode(
+                            buffers.extend(self.filtered_blur.encode(
                                 &mut encoder,
                                 images,
                                 axis,
@@ -477,6 +483,7 @@ impl Renderer {
                             &intermediate,
                             params,
                             &status,
+                            &mut arena,
                         );
                         params.header[0] = 8;
                         self.pass(
@@ -485,6 +492,7 @@ impl Renderer {
                             &output,
                             params,
                             &status,
+                            &mut arena,
                         );
                     }
                     stats.compute_passes += 2;
@@ -582,21 +590,10 @@ impl Renderer {
                     let (pipeline, uploaded) =
                         self.color_pipeline(Some(&processors[space]), false)?;
                     stats.lut_upload_bytes += uploaded;
-                    let intermediate = pipeline.encode(
-                        &self.host,
-                        &mut encoder,
-                        &encoded,
-                        &output,
-                        false,
-                        &status,
-                    )?;
-                    if let Some(intermediate) = intermediate {
-                        leases.push(intermediate.clone());
-                        scratch.push(intermediate);
-                    }
+                    pipeline.encode(&self.host, &mut encoder, &encoded, &output, false, &status)?;
                     scratch.push(encoded);
                     buffers.push(pipeline.reservation.clone());
-                    stats.compute_passes += 3;
+                    stats.compute_passes += 2;
                     compute = false;
                 }
                 ImageOp::Exr { .. }
@@ -749,7 +746,7 @@ impl Renderer {
                             self.color_pipeline(Some(&processors[space]), false)?;
                         stats.lut_upload_bytes += uploaded;
                         let encoded = encoded.unwrap();
-                        let intermediate = pipeline.encode(
+                        pipeline.encode(
                             &self.host,
                             &mut encoder,
                             &encoded,
@@ -757,12 +754,8 @@ impl Renderer {
                             false,
                             &status,
                         )?;
-                        if let Some(intermediate) = intermediate {
-                            leases.push(intermediate.clone());
-                            scratch.push(intermediate);
-                        }
                         buffers.push(pipeline.reservation.clone());
-                        stats.compute_passes += 2;
+                        stats.compute_passes += 1;
                         scratch.push(encoded);
                     }
                     stats.upload_bytes += upload_bytes;
@@ -781,12 +774,13 @@ impl Renderer {
                     self.pointwise.encode(
                         &self.host,
                         &mut encoder,
-                        first,
-                        &output,
-                        &steps,
+                        [first, &output, mask],
+                        (&steps, chain.mix.map(|_| params)),
                         &status,
+                        &mut arena,
                     );
-                    stats.fused_pointwise_passes += (steps.len() - 1) as u32;
+                    stats.fused_pointwise_passes +=
+                        (steps.len() - usize::from(chain.mix.is_none())) as u32;
                 } else {
                     self.pass(
                         &mut encoder,
@@ -794,6 +788,7 @@ impl Renderer {
                         &output,
                         params,
                         &status,
+                        &mut arena,
                     );
                 }
                 stats.compute_passes += 1;
@@ -806,15 +801,21 @@ impl Renderer {
             // The generic operator bindings above have three slots, but image
             // shaders can consume eight. Retire every actual dependency, with
             // the same foreground substitution used by opacity/over fusion.
-            for (slot, input) in op.inputs().enumerate() {
-                let input = if slot == 0 {
-                    chains[id].as_ref().map_or_else(
-                        || fused[id].map_or(input, |(source, _)| source),
-                        |chain| chain.input,
-                    )
-                } else {
-                    input
-                };
+            let executed_inputs: Vec<_> = if let Some(chain) = &chains[id] {
+                std::iter::once(chain.input).chain(chain.mask).collect()
+            } else {
+                op.inputs()
+                    .enumerate()
+                    .map(|(slot, input)| {
+                        if slot == 0 {
+                            fused[id].map_or(input, |(source, _)| source)
+                        } else {
+                            input
+                        }
+                    })
+                    .collect()
+            };
+            for input in executed_inputs {
                 uses[input] -= 1;
                 if uses[input] == 0 {
                     let image = frames[input].take().unwrap();
@@ -838,11 +839,13 @@ impl Renderer {
                     ..Default::default()
                 },
                 &status,
+                &mut arena,
             );
             leases.push(rgba.clone());
             image = rgba;
             stats.compute_passes += 1;
         }
+        arena.finish();
         Ok(Encoded {
             encoder,
             leases,

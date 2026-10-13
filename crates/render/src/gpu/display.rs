@@ -337,7 +337,7 @@ impl Renderer {
             .device()
             .create_command_encoder(&Default::default());
         status.start(&mut encoder);
-        let intermediate = pipeline.encode(
+        pipeline.encode(
             &self.host,
             &mut encoder,
             &frame.image,
@@ -349,10 +349,7 @@ impl Renderer {
         let submit_begin = std::time::Instant::now();
         self.host.submit(
             encoder,
-            std::iter::once(frame.image.clone())
-                .chain(std::iter::once(output.clone()))
-                .chain(intermediate)
-                .collect(),
+            vec![frame.image.clone(), output.clone()],
             vec![uniform, pipeline.reservation.clone()],
         );
         let submit_nanoseconds = submit_begin.elapsed().as_nanos();
@@ -362,7 +359,7 @@ impl Renderer {
         statistics.output_cpu_nanoseconds = output_begin.elapsed().as_nanos();
         statistics.queue_submit_nanoseconds += submit_nanoseconds;
         statistics.lut_upload_bytes += bytes;
-        statistics.compute_passes += 2;
+        statistics.compute_passes += 1;
         statistics.status_readback_bytes += status_bytes;
         cancel.check()?;
         Ok(Display {

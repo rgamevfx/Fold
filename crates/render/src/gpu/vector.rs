@@ -109,6 +109,18 @@ impl VectorPipeline {
             bytes: 0,
         }
     }
+    pub fn evict_one(&mut self) -> bool {
+        if let Some(entry) = self.cache.pop_front() {
+            self.bytes -= entry.bytes;
+            true
+        } else if let Some(atlas) = self.atlases.pop_front() {
+            self.atlas_bytes -= atlas.bytes;
+            true
+        } else {
+            false
+        }
+    }
+    #[cfg(test)]
     pub fn clear(&mut self) {
         self.cache.clear();
         self.bytes = 0;

@@ -1,4 +1,7 @@
 //! Request validation, dependency planning and leased source preparation.
+#[cfg(test)]
+#[path = "request_tests.rs"]
+mod tests;
 use super::*;
 pub(super) struct Prepared {
     pub graph: RenderGraph,
@@ -19,6 +22,56 @@ pub(super) struct Prepared {
     pub evaluate_begin: std::time::Instant,
 }
 impl Renderer {
+    fn relieve_pressure(&mut self) -> u32 {
+        let memory = self.host.memory();
+        if memory.allocated.saturating_sub(memory.reusable) <= memory.budget.saturating_mul(3) / 4 {
+            return 0;
+        }
+        let target = memory.budget.saturating_mul(2) / 3;
+        let mut evictions = 0;
+        let mut misses = 0;
+        // Fair, bounded work. Submitted/displayed leases remain independent.
+        // Stop below the low-water mark instead of emptying every cache.
+        for _ in 0..128 {
+            let memory = self.host.memory();
+            if memory.allocated.saturating_sub(memory.reusable) <= target {
+                break;
+            }
+            let lane = self.pressure_cursor % 8;
+            self.pressure_cursor = (lane + 1) % 8;
+            let removed = match lane {
+                0 => self.host.sources().evict_one(),
+                1 => self.coverage.evict_one(),
+                2 => self.baked.evict_one(),
+                3 => self.yuv.evict_one(),
+                4 => self.uploads.evict_one(),
+                5 => self.vector.evict_one(),
+                6 => self.filtered_blur.evict_one(),
+                _ => {
+                    #[cfg(all(feature = "native-video", target_os = "linux"))]
+                    {
+                        self.native_video
+                            .as_mut()
+                            .is_some_and(|native| native.evict_one())
+                    }
+                    #[cfg(not(all(feature = "native-video", target_os = "linux")))]
+                    {
+                        false
+                    }
+                }
+            };
+            if removed {
+                evictions += 1;
+                misses = 0;
+            } else {
+                misses += 1;
+            }
+            if misses == 8 {
+                break;
+            }
+        }
+        evictions
+    }
     pub(super) fn prepare_request(
         &mut self,
         mut graph: RenderGraph,
@@ -31,19 +84,7 @@ impl Renderer {
         self.host.poll()?;
         // Retained inputs are expendable under host pressure; displayed and
         // submitted resources remain protected by their independent leases.
-        let memory = self.host.memory();
-        if memory.allocated.saturating_sub(memory.reusable) > memory.budget.saturating_mul(3) / 4 {
-            self.host.sources().clear();
-            self.yuv.clear();
-            self.vector.clear();
-            self.coverage.clear();
-            self.baked.clear();
-            self.uploads.clear();
-            #[cfg(all(feature = "native-video", target_os = "linux"))]
-            if let Some(native) = self.native_video.as_mut() {
-                native.clear();
-            }
-        }
+        let pressure_evictions = self.relieve_pressure();
         let evaluate_begin = std::time::Instant::now();
         let aces = config.is_some();
         crate::sampling::prepare(&mut graph);
@@ -52,12 +93,14 @@ impl Renderer {
         })?;
         let processors = graph::input_processors(&graph, config)?;
         crate::video_sources::reuse(&mut graph);
+        crate::reuse::pure(&mut graph);
         let (mut needed, mut uses) = graph::dependencies(&graph);
         let fused = fusion::opacity_over(&graph, &mut needed, &mut uses);
         let chains = pointwise::plan(&graph, &mut needed, &mut uses);
         let prepare_nanoseconds = evaluate_begin.elapsed().as_nanos();
         let mut stats = Statistics {
             graph_prepare_nanoseconds: prepare_nanoseconds,
+            pressure_evictions,
             ..Default::default()
         };
         let mut sources: Vec<Option<GpuFrame>> = (0..graph.nodes.len()).map(|_| None).collect();

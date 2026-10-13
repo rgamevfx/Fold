@@ -2,6 +2,8 @@
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Statistics {
     pub upload_bytes: u64,
+    /// Individual retained entries removed at the shared pressure boundary.
+    pub pressure_evictions: u32,
     pub upload_allocations: u32,
     pub upload_reuses: u32,
     pub lut_upload_bytes: u64,
@@ -50,6 +52,7 @@ pub struct Statistics {
 impl Statistics {
     pub(super) fn accumulate(&mut self, other: &Self) {
         self.upload_bytes += other.upload_bytes;
+        self.pressure_evictions += other.pressure_evictions;
         self.upload_allocations += other.upload_allocations;
         self.upload_reuses += other.upload_reuses;
         self.lut_upload_bytes += other.lut_upload_bytes;
