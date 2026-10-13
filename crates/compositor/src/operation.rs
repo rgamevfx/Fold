@@ -111,7 +111,7 @@ pub(crate) fn decode(
         native = Some(instance);
     }
     let kernel = OPERATORS[index].kernel;
-    let value = if kernel == "Output" {
+    let value = if matches!(kernel, "Output" | "Viewer") {
         if !fields.is_empty() {
             return Err("Operation has no parameters".into());
         }
@@ -162,8 +162,9 @@ impl Node {
         Ok(Self {
             inputs: vec![None; config.input_count()],
             operation: record,
-            animation: Default::default(),
+            animation: crate::retime::initial_channels(&config),
             effect: crate::Effect::for_config(&config),
+            disabled: false,
             position: None,
             extensions: Default::default(),
         })

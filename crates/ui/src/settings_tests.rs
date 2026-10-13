@@ -13,6 +13,7 @@ fn appearance_changes_reach_existing_and_new_graph_consumers() {
     value.application_text = 20.;
     value.graph.labels = 24.;
     value.graph.titles = 30.;
+    value.node_colors.filter = [0.3, 0.2, 0.6];
     value.colors.text = [0.8, 0.9, 1.];
     settings.edit(value);
     settings.prepare_frame(&mut context);

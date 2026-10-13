@@ -9,6 +9,8 @@ use std::{cell::RefCell, rc::Rc};
 pub type Shared = Rc<RefCell<State>>;
 #[derive(Default)]
 pub struct State {
+    pub lens_grid: bool,
+    pub qualifier: Rc<RefCell<super::qualifier::Editor>>,
     pub roto: Rc<RefCell<super::roto::Editor>>,
     roto_sample: Option<(u64, ObjectId, Time, crate::roto::Roto)>,
     pub document: Option<DocumentId>,

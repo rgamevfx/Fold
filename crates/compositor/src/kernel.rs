@@ -7,6 +7,24 @@ use std::collections::BTreeSet;
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub enum OperationConfig {
+    ColorShift {
+        settings: crate::filters::ColorShift,
+    },
+    ChromaticAberration {
+        settings: crate::filters::ChromaticAberration,
+    },
+    LensDistortion {
+        settings: crate::filters::Lens,
+    },
+    FilmEmulation {
+        settings: crate::filters::Film,
+    },
+    Grain {
+        settings: crate::filters::Grain,
+    },
+    Retime {
+        settings: crate::retime::Retime,
+    },
     Roto {
         settings: crate::roto::Roto,
     },
@@ -75,8 +93,18 @@ pub enum OperationConfig {
         settings: fold_platform::delivery::Settings,
     },
     Output,
+    Viewer,
 }
 impl OperationConfig {
+    /// Main image pipe for bypass, extraction and insertion.
+    pub fn primary_slot(&self) -> Option<usize> {
+        if self.input_count() == 0 {
+            None
+        } else {
+            Some(usize::from(matches!(self, Self::Composite { .. })))
+        }
+    }
+
     pub fn input_count(&self) -> usize {
         match self {
             Self::Shader { settings } => settings.images.len(),
@@ -107,6 +135,12 @@ impl OperationConfig {
 
     pub fn operator(&self) -> &'static Operator {
         &OPERATORS[match self {
+            Self::ColorShift { .. } => 29,
+            Self::ChromaticAberration { .. } => 30,
+            Self::LensDistortion { .. } => 25,
+            Self::FilmEmulation { .. } => 26,
+            Self::Grain { .. } => 27,
+            Self::Retime { .. } => 28,
             Self::Roto { .. } => 24,
             Self::Write { .. } => 23,
             Self::Shader { .. } => 22,
@@ -119,6 +153,7 @@ impl OperationConfig {
             Self::Crop { .. } => 2,
             Self::Mask { .. } => 3,
             Self::Output => 4,
+            Self::Viewer => 31,
             Self::Shuffle { .. } => 5,
             Self::CullChannels { .. } => 6,
             Self::ColorGrade { .. } => 7,
@@ -145,6 +180,15 @@ impl OperationConfig {
     }
     pub(crate) fn validate(&self) -> Result<(), String> {
         match self {
+            Self::ColorShift { settings } => {
+                settings.validate()?;
+                settings.validate_colors()?;
+            }
+            Self::ChromaticAberration { settings } => settings.validate()?,
+            Self::LensDistortion { settings } => settings.validate()?,
+            Self::FilmEmulation { settings } => settings.validate()?,
+            Self::Grain { settings } => settings.validate()?,
+            Self::Retime { settings } => settings.validate()?,
             Self::Roto { settings } => settings.validate()?,
             Self::Write { settings } => settings.validate()?,
             Self::Shader { settings } => settings.validate()?,

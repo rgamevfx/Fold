@@ -174,6 +174,9 @@ impl GraphContext for Context<'_> {
                 )?;
                 self.state.preview(self.host, edits)?;
             }
+            GraphEvent::PreviewChanges(_) => {
+                return Err("Topology previews are not supported here".into());
+            }
             GraphEvent::Commit(batch) => {
                 let (edits, created) = changes_in(
                     self.state.canvas().ok_or("No Motion document")?,
@@ -361,6 +364,12 @@ fn changes_in(
                 )?;
                 created.push(id);
             }
+            GraphChange::AddAfter { .. }
+            | GraphChange::Detach(_)
+            | GraphChange::ToggleDisabled(_) => {
+                return Err("Unsupported graph action".into());
+            }
+            GraphChange::Dock { .. } => return Err("This graph has no dockable nodes".into()),
             GraphChange::Positions(positions) => {
                 for (id, position) in positions {
                     let expected = canvas

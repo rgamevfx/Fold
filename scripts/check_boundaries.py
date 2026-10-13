@@ -14,9 +14,10 @@ ALLOWED = {
     "fold-animation": {"fold-foundation"},
     "fold-color": set(),
     "fold-native-video": set(),
+    "fold-rife": {"fold-foundation"},
     "fold-project": {"fold-foundation"},
     "fold-media": {"fold-foundation", "fold-native-video"},
-    "fold-render": {"fold-foundation", "fold-color", "fold-media", "fold-native-video", "fold-gpu-sharing"},
+    "fold-render": {"fold-foundation", "fold-color", "fold-media", "fold-native-video", "fold-gpu-sharing", "fold-rife"},
     "fold-gpu-sharing": {"fold-foundation", "fold-media"},
     "fold-platform": SHARED - {"fold-platform"},
     # UI document settings and media thumbnails consume neutral project/media values.

@@ -48,6 +48,9 @@ def main():
         args.motion_toolchain / "bin/cargo", args.motion_toolchain / "bin/rustc")):
         raise SystemExit("Motion native archives and compiler toolchain must exist")
     subprocess.run([sys.executable, str(ROOT / "scripts/build_color_runtime.py"), str(build), str(package)], check=True, timeout=3600)
+    subprocess.run([sys.executable, str(ROOT / "scripts/build_rife_runtime.py"),
+                    "--work", str(build / "rife-build"), "--prefix", str(package)],
+                   check=True, timeout=3600)
     sdk = package / "share/fold/motion-sdk"
     stage_motion_sdk(sdk, precompile=True, vendor=True, skia=args.motion_skia,
                      ffmpeg=args.motion_ffmpeg, toolchain=args.motion_toolchain)
@@ -78,6 +81,10 @@ def main():
         for path in sorted(root.rglob("*")):
             if path.is_file():
                 manifest["files"][str(path.relative_to(package))] = hashlib.sha256(path.read_bytes()).hexdigest()
+    for path in [package / "lib/fold/libfold_rife.so", *sorted((package / "share/fold/rife").rglob("*"))]:
+        if path.is_file():
+            manifest["files"][str(path.relative_to(package))] = hashlib.sha256(path.read_bytes()).hexdigest()
+    manifest["rife_runtime"] = json.loads((package / "share/fold/rife/manifest.json").read_text())
     manifest["video_runtime"] = json.loads((package / "share/fold-video/runtime.json").read_text())
     notices = package / "share/fold/licenses"
     notices.mkdir(parents=True)
@@ -93,6 +100,7 @@ def main():
     sources = [ROOT / "Cargo.toml", ROOT / "Cargo.lock"]
     sources += crate_sources(ROOT / "crates")
     sources += [ROOT / "crates/color/native/bridge.cpp"]
+    sources += sorted(p for p in (ROOT / "resources/rife").rglob("*") if p.is_file())
     sources += sorted((ROOT / "scripts").glob("*.py"))
     sources += sorted((ROOT / "resources/licenses").glob("*"))
     manifest["sources"] = {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest() for p in sources}

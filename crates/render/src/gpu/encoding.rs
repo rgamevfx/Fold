@@ -150,6 +150,7 @@ impl Renderer {
         config: Option<&fold_color::Config>,
         decoder: &mut fold_media::Decoder,
         cancel: &fold_media::Cancel,
+        class: Option<crate::scheduling::Class>,
     ) -> Result<Encoded, fold_foundation::Failure> {
         let request::Prepared {
             graph,
@@ -169,6 +170,10 @@ impl Renderer {
             mut video,
             evaluate_begin,
         } = request;
+        #[cfg(target_os = "linux")]
+        if let Some(rife) = self.rife.as_mut() {
+            rife.begin();
+        }
         // At most two parameter buffers per reachable node (separable blur).
         // Reserve before recording so even a long graph is aggregate bounded.
         let parameter_bytes: u64 = needed
@@ -199,7 +204,7 @@ impl Renderer {
         // read: distinct passes provide barriers. It does not escape to the host
         // pool until the entire submission completes.
         let mut scratch = Vec::<Arc<Image>>::new();
-        let mut uploads = Vec::new();
+        let mut uploads: Vec<upload::Upload> = Vec::new();
         let mut immutable = vec![false; graph.nodes.len()];
         let mut retained = Vec::new();
         let mut coverage_retained = Vec::new();
@@ -305,6 +310,77 @@ impl Renderer {
                     buffers.push(pipeline.reservation.clone());
                     stats.compute_passes += 1;
                     compute = false;
+                }
+                ImageOp::Rife {
+                    first: input_a,
+                    second: input_b,
+                    fraction,
+                    motion_scale,
+                    cut_threshold,
+                } => {
+                    #[cfg(not(target_os = "linux"))]
+                    return Err("RIFE GPU interpolation currently requires Linux Vulkan".into());
+                    #[cfg(target_os = "linux")]
+                    {
+                        // Native inference consumes completed upstream GPU images. Finish the
+                        // mapped uniform arena before submitting this command-stream segment.
+                        let _permit = class
+                            .map(|class| {
+                                crate::scheduling::Scheduler::shared().enter(class, cancel)
+                            })
+                            .transpose()?;
+                        arena.finish();
+                        let next = self
+                            .host
+                            .device()
+                            .create_command_encoder(&Default::default());
+                        self.host.submit(
+                            std::mem::replace(&mut encoder, next),
+                            leases.clone(),
+                            buffers.clone(),
+                        );
+                        for upload in &uploads {
+                            upload.submitted();
+                        }
+                        self.host
+                            .device()
+                            .poll(wgpu::PollType::wait_indefinitely())
+                            .map_err(|e| e.to_string())?;
+                        cancel.check()?;
+                        let mut adapter = self
+                            .rife
+                            .take()
+                            .unwrap_or_else(|| rife::Adapter::new(&self.host));
+                        let (elapsed, readbacks, cut) = adapter.run(
+                            &self.host,
+                            first,
+                            second,
+                            &output,
+                            (*input_a, *input_b),
+                            *fraction,
+                            *motion_scale,
+                            *cut_threshold,
+                            aces,
+                            &status,
+                            cancel,
+                        )?;
+                        self.rife = Some(adapter);
+                        stats.rife_nanoseconds += elapsed;
+                        stats.rife_nodes += 1;
+                        stats.rife_cut_holds += u32::from(cut);
+                        stats.status_readback_bytes += readbacks;
+                        let (next_arena, reservation) = parameters::Arena::new(
+                            &self.host,
+                            parameter_bytes
+                                + parameters::Arena::stride(
+                                    &self.host,
+                                    std::mem::size_of::<Params>() as u64,
+                                ),
+                        )?;
+                        arena = next_arena;
+                        buffers.push(reservation);
+                        compute = false;
+                    }
                 }
                 ImageOp::Shader { inputs, program } => {
                     let images: Vec<_> = inputs

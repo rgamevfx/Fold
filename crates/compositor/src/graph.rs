@@ -21,7 +21,12 @@ impl crate::Operator {
     pub fn supports_effect(&self) -> bool {
         matches!(
             self.id,
-            "Crop"
+            "Color Shift"
+                | "Chromatic Aberration"
+                | "Lens Distortion"
+                | "Film Emulation"
+                | "Grain"
+                | "Crop"
                 | "Blur"
                 | "Grade"
                 | "Merge"
@@ -72,9 +77,10 @@ impl Node {
         let inputs = vec![None; parameters.input_count()];
         Self {
             operation: crate::operation::record(&parameters),
-            animation: Default::default(),
+            animation: crate::retime::initial_channels(&parameters),
             inputs,
             effect: crate::Effect::for_config(&parameters),
+            disabled: false,
             position: None,
             extensions: Default::default(),
         }
@@ -142,7 +148,13 @@ impl Composite {
         port: &str,
     ) -> Result<(), String> {
         let source_node = self.node(source)?.prepare()?;
-        if matches!(source_node.config(), OperationConfig::Output) {
+        if matches!(source_node.config(), OperationConfig::Viewer)
+            || (matches!(source_node.config(), OperationConfig::Output)
+                && !matches!(
+                    self.node(target)?.prepare()?.config(),
+                    OperationConfig::Viewer
+                ))
+        {
             return Err("Output is a terminal node, not a source socket".into());
         }
         let source_type = source_node.config().operator().output.clone();
@@ -166,6 +178,7 @@ impl Composite {
             .ok_or("unknown input port")?;
         if source_type != parameters.input_type(slot)
             && !(parameters.input_type(slot) == Type::Mask && source_type == Type::Image)
+            && !matches!(parameters, OperationConfig::Viewer)
         {
             return Err(format!(
                 "{} requires {:?}, not {:?}",
@@ -201,21 +214,132 @@ impl Composite {
         n.inputs[slot] = None;
         Ok(())
     }
-    pub fn remove(&mut self, ids: &[ObjectId]) -> Result<(), String> {
+    /// Extract a selection atomically, bridging through its primary image pipe.
+    /// Kept nodes lose their inputs; deletion uses the same topology operation.
+    pub fn detach(&mut self, ids: &[ObjectId]) -> Result<(), String> {
         if ids.contains(&self.output) {
-            return Err("the document Output cannot be deleted".into());
+            return Err("The document Output cannot be disconnected".into());
         }
-        self.nodes.retain(|n| !ids.contains(&n.id));
-        for n in &mut self.nodes {
-            if n.effect.mask_node().is_some_and(|id| ids.contains(&id)) {
-                n.effect.mask = None;
+        let types = self
+            .nodes
+            .iter()
+            .map(|node| Ok((node.id, node.prepare()?.config().operator().output.clone())))
+            .collect::<Result<BTreeMap<_, _>, String>>()?;
+        let mut replacements = BTreeMap::new();
+        for &id in ids {
+            let mut current = Some(id);
+            let mut seen = std::collections::BTreeSet::new();
+            while let Some(next) = current.filter(|next| ids.contains(next)) {
+                if !seen.insert(next) {
+                    return Err("Connection cycle".into());
+                }
+                let node = self.node(next)?;
+                current = node
+                    .prepare()?
+                    .config()
+                    .primary_slot()
+                    .and_then(|slot| node.input_ids().get(slot).copied().flatten());
             }
-            for input in &mut n.inputs {
-                if input.as_ref().is_some_and(|edge| matches!(edge.target, fold_graph::model::Reference::Node { node } if ids.contains(&node))) {
-                    *input = None;
+            replacements.insert(id, current);
+        }
+        let mut next = self.clone();
+        for node in &mut next.nodes {
+            if ids.contains(&node.id) {
+                node.inputs.fill(None);
+                node.effect.mask = None;
+                continue;
+            }
+            let config = node.prepare()?.config().clone();
+            for (slot, edge) in node.inputs.iter_mut().enumerate() {
+                let Some(fold_graph::model::Edge {
+                    target: fold_graph::model::Reference::Node { node: source },
+                    ..
+                }) = edge
+                else {
+                    continue;
+                };
+                if let Some(replacement) = replacements.get(source) {
+                    let compatible = replacement.filter(|id| {
+                        types.get(id) == Some(&config.input_type(slot))
+                            || (config.input_type(slot) == Type::Mask
+                                && types.get(id) == Some(&Type::Image))
+                            || matches!(config, OperationConfig::Viewer)
+                    });
+                    if let Some(id) = compatible {
+                        *source = id;
+                    } else {
+                        *edge = None;
+                    }
+                }
+            }
+            if let Some(source) = node.effect.mask_node()
+                && let Some(replacement) = replacements.get(&source)
+            {
+                if let Some(id) = replacement {
+                    node.effect.set_mask(*id);
+                } else {
+                    node.effect.mask = None;
                 }
             }
         }
+        next.validate()?;
+        *self = next;
+        Ok(())
+    }
+    pub fn remove(&mut self, ids: &[ObjectId]) -> Result<(), String> {
+        self.detach(ids)?;
+        self.nodes.retain(|n| !ids.contains(&n.id));
+        Ok(())
+    }
+    /// Attach a newly created node to the selected pipe, preserving edge IDs.
+    pub fn insert_after(&mut self, source: ObjectId, added: ObjectId) -> Result<(), String> {
+        let config = self.node(added)?.prepare()?.config().clone();
+        let Some(slot) = config.primary_slot() else {
+            return Ok(());
+        };
+        let source_config = self.node(source)?.prepare()?.config().clone();
+        if source_config.operator().output != config.input_type(slot)
+            && !(config.input_type(slot) == Type::Mask
+                && source_config.operator().output == Type::Image)
+        {
+            return Ok(());
+        }
+        let mut next = self.clone();
+        if !matches!(
+            config,
+            OperationConfig::Viewer | OperationConfig::Write { .. } | OperationConfig::Output
+        ) {
+            for node in &self.nodes {
+                if node.id == added {
+                    continue;
+                }
+                let target = node.prepare()?.config().clone();
+                for (i, input) in node.input_ids().iter().enumerate() {
+                    if *input == Some(source) {
+                        next.connect(added, node.id, target.input_key(i))?;
+                    }
+                }
+                if node.effect.mask_node() == Some(source) {
+                    next.connect(added, node.id, "mask")?;
+                }
+            }
+        }
+        next.connect(source, added, config.input_key(slot))?;
+        if let Some(p) = self.node(source)?.position {
+            let position = [p[0], p[1] + 80.];
+            for node in &mut next.nodes {
+                if node.id != added
+                    && let Some(at) = &mut node.position
+                    && (at[0] - p[0]).abs() < 100.
+                    && at[1] > p[1] + 40.
+                {
+                    at[1] += 80.;
+                }
+            }
+            next.node_mut(added)?.position = Some(position);
+        }
+        next.validate()?;
+        *self = next;
         Ok(())
     }
     pub fn auto_layout(&mut self) -> Result<(), String> {

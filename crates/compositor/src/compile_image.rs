@@ -11,8 +11,17 @@ fn operation(
     p: &P,
     inputs: &[ImageId],
     scale: [f64; 2],
+    time: fold_foundation::Time,
+    aces: bool,
 ) -> Result<ImageId, String> {
     let op = match p {
+        P::LensDistortion { .. }
+        | P::FilmEmulation { .. }
+        | P::ColorShift { .. }
+        | P::ChromaticAberration { .. }
+        | P::Grain { .. } => {
+            return crate::filters::compile(graph, p, inputs[0], scale, time, aces);
+        }
         P::Unary { operation } => Op::Unary {
             input: inputs[0],
             operation: operation.clone(),
@@ -64,6 +73,8 @@ pub(super) fn effect(
     inputs: &[&Channels],
     mask: Option<&Channels>,
     scale: [f64; 2],
+    time: fold_foundation::Time,
+    aces: bool,
 ) -> Result<Channels, String> {
     let parameters = &samples[0];
     let original_slot = usize::from(matches!(parameters, P::Composite { .. }));
@@ -97,7 +108,15 @@ pub(super) fn effect(
             "alpha" => Some(3),
             _ => None,
         };
-        if matches!(parameters, P::Unary { .. }) && index == Some(3) {
+        if matches!(
+            parameters,
+            P::Unary { .. }
+                | P::FilmEmulation { .. }
+                | P::ColorShift { .. }
+                | P::ChromaticAberration { .. }
+                | P::Grain { .. }
+        ) && index == Some(3)
+        {
             continue;
         }
         let index = if matches!(parameters, P::ColorGrade { .. }) && index == Some(3) {
@@ -174,9 +193,9 @@ pub(super) fn effect(
             };
             packed.push(channels::pack(graph, values)?);
         }
-        let mut processed = operation(graph, parameters, &packed, scale)?;
+        let mut processed = operation(graph, parameters, &packed, scale, time, aces)?;
         for (index, sample) in samples.iter().enumerate().skip(1) {
-            let next = operation(graph, sample, &packed, scale)?;
+            let next = operation(graph, sample, &packed, scale, time, aces)?;
             let id = graph.nodes.len();
             graph.nodes.push(Op::Mix {
                 original: processed,

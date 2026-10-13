@@ -1,0 +1,12 @@
+[package]
+name = "fold-rife"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+fold-foundation.workspace = true
+wgpu = { version = "27", default-features = false, features = ["std", "vulkan"] }
+ash = "0.38"
+libloading = "0.8"
+sha2 = "0.10"

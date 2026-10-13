@@ -8,11 +8,25 @@ use std::collections::HashMap;
 #[derive(Hash, PartialEq, Eq)]
 enum Key {
     Solid([u32; 4]),
+    Rife(usize, usize, u32, u32, u32),
     Blur(usize, u32),
     FilteredBlur(usize, [u32; 2], u8, u8),
 }
 fn key(op: &ImageOp) -> Option<Key> {
     Some(match *op {
+        ImageOp::Rife {
+            first,
+            second,
+            fraction,
+            motion_scale,
+            cut_threshold,
+        } => Key::Rife(
+            first,
+            second,
+            fraction.to_bits(),
+            motion_scale,
+            cut_threshold.to_bits(),
+        ),
         ImageOp::Solid { rgba } => Key::Solid(rgba.map(f32::to_bits)),
         ImageOp::Blur { input, radius } => Key::Blur(input, radius),
         ImageOp::FilteredBlur {

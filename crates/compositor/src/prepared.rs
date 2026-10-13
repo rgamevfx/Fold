@@ -185,9 +185,21 @@ impl<'a> PreparedComposite<'a> {
         {
             return Err("composite requires 1..512 nodes and at most ten minutes".into());
         }
+        if self
+            .nodes
+            .iter()
+            .filter(|n| matches!(n.config(), OperationConfig::Viewer))
+            .count()
+            > 1
+        {
+            return Err("A composite has one working Viewer".into());
+        }
         let mut ports = BTreeMap::new();
         for node in &self.nodes {
-            if !matches!(node.config(), OperationConfig::Output) {
+            if !matches!(
+                node.config(),
+                OperationConfig::Output | OperationConfig::Viewer
+            ) {
                 ports.insert(node.id, node.config().operator().output.clone());
             }
         }
@@ -264,6 +276,9 @@ impl<'a> PreparedComposite<'a> {
                 if let Some(input) = input
                     && ports.get(input) != Some(&expected)
                     && !(expected == Type::Mask && ports.get(input) == Some(&Type::Image))
+                    && !(matches!(node.config(), OperationConfig::Viewer)
+                        && (ports.get(input) == Some(&Type::Mask)
+                            || matches!(self.node(*input)?.config(), OperationConfig::Output)))
                 {
                     return Err(format!(
                         "{}: input requires {expected:?} (missing or incompatible connection)",
@@ -292,6 +307,16 @@ impl<'a> PreparedComposite<'a> {
         for id in order.iter().rev() {
             if needed.contains(id) {
                 let n = self.node(*id)?;
+                if n.disabled {
+                    if let Some(input) = n
+                        .config()
+                        .primary_slot()
+                        .and_then(|slot| n.input_ids().get(slot).copied().flatten())
+                    {
+                        needed.insert(input);
+                    }
+                    continue;
+                }
                 if let Some(mask) = n
                     .effect
                     .mask_node()

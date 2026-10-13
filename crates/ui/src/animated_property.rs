@@ -205,7 +205,11 @@ impl AnimatedProperty<'_> {
         let mut edit_color =
             |ui: &Ui, channels: &mut BTreeMap<String, Curve>, response: &mut EditResponse| {
                 if let Some(aces) = self.color
-                    && let Ok(mut color) = <[f64; 4]>::try_from(values.as_slice())
+                    && let Some(mut color) = match values.as_slice() {
+                        [r, g, b] => Some([*r, *g, *b, 1.]),
+                        [r, g, b, a] => Some([*r, *g, *b, *a]),
+                        _ => None,
+                    }
                 {
                     let locked = bound.iter().any(Option::is_some)
                         || paths
@@ -215,7 +219,13 @@ impl AnimatedProperty<'_> {
                     let _disabled = locked.then(|| ui.begin_disabled());
                     let before = color;
                     let mut edit = EditResponse::default();
-                    crate::sdk::color_controls::authored(ui, &mut color, aces, &mut edit);
+                    if values.len() == 3 {
+                        let mut rgb = [color[0], color[1], color[2]];
+                        crate::sdk::color_controls::authored_rgb(ui, &mut rgb, aces, &mut edit);
+                        color[..3].copy_from_slice(&rgb);
+                    } else {
+                        crate::sdk::color_controls::authored(ui, &mut color, aces, &mut edit);
+                    }
                     for (i, (&value, &previous)) in color.iter().zip(&before).enumerate() {
                         if value != previous && value.is_finite() {
                             if auto_key || channels.contains_key(&paths[i]) {
@@ -284,9 +294,12 @@ impl AnimatedProperty<'_> {
             .build();
         }
         let swatch = self.color.and_then(|aces| {
-            <[f64; 4]>::try_from(values.as_slice())
-                .ok()
-                .map(|v| fold_platform::color::to_picker(v, aces).map(|v| v.clamp(0., 1.) as f32))
+            (match values.as_slice() {
+                [r, g, b] => Some([*r, *g, *b, 1.]),
+                [r, g, b, a] => Some([*r, *g, *b, *a]),
+                _ => None,
+            })
+            .map(|v| fold_platform::color::to_picker(v, aces).map(|v| v.clamp(0., 1.) as f32))
         });
         let swatch_width = if swatch.is_some() { 12. } else { 0. };
         if let Some(color) = swatch {

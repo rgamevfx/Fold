@@ -1,5 +1,5 @@
 use super::{
-    navigation::{HitMap, curve_intersects, directed_curve},
+    navigation::{HitMap, closest_point, curve_intersects, directed_curve},
     *,
 };
 use crate::sdk::{
@@ -77,6 +77,10 @@ pub struct GraphCanvas {
     connecting: bool,
     insertion_choices: Vec<interactions::Insertion>,
     moving: bool,
+    shake: interactions::Shake,
+    drag_node: Option<ObjectId>,
+    dock_drag: Option<ObjectId>,
+    dock_origin: [f32; 2],
     cancel_move: bool,
     error: String,
     #[cfg(test)]
@@ -97,6 +101,8 @@ pub struct GraphCanvas {
     pub(super) add_probe: [f32; 2],
     #[cfg(test)]
     pub(super) template_probe: [f32; 2],
+    #[cfg(test)]
+    pub(super) search_probe: Option<[[f32; 2]; 2]>,
     #[cfg(test)]
     pub(super) disconnect_probe: [f32; 2],
     #[cfg(test)]
@@ -119,7 +125,7 @@ impl GraphCanvas {
         );
         let mut style = editor.style();
         style.node_rounding = 6.;
-        style.selected_node_border_width = 2.5;
+        style.selected_node_border_width = 4.;
         style.highlight_connected_links = 1.;
         editor.set_style(&style);
         self.editor = Some(editor);
@@ -173,6 +179,9 @@ impl GraphCanvas {
             self.cancel_create |= self.connecting;
             self.cancel_move |= self.moving;
             self.moving = false;
+            self.dock_drag = None;
+            self.shake = Default::default();
+            self.drag_node = None;
         }
         if ui.is_key_pressed(Key::Escape)
             && (ui.is_window_focused() || !self.insertion_choices.is_empty())
@@ -181,6 +190,9 @@ impl GraphCanvas {
             graph = context.graph();
             self.moving = false;
             self.cancel_move = true;
+            self.dock_drag = None;
+            self.shake = Default::default();
+            self.drag_node = None;
             self.cancel_create = true;
             self.insertion_choices.clear();
         }
@@ -325,7 +337,9 @@ impl GraphCanvas {
         native.set_style_color(nodes::StyleColor::NodeBackground, surface);
         native.set_style_color(nodes::StyleColor::NodeBorder, colors.grid);
         native.set_style_color(nodes::StyleColor::SelectedNodeBorder, colors.selected);
-        native.set_style_color(nodes::StyleColor::HoveredNodeBorder, colors.selected);
+        let mut hovered = colors.selected;
+        hovered[3] *= 0.45;
+        native.set_style_color(nodes::StyleColor::HoveredNodeBorder, hovered);
         native.set_style_color(nodes::StyleColor::HoveredLinkBorder, colors.selected);
         native.set_style_color(nodes::StyleColor::SelectedLinkBorder, colors.selected);
         let mut connected = colors.selected;
@@ -343,6 +357,7 @@ impl GraphCanvas {
         } else {
             unit * 0.4
         };
+        style.selected_node_border_width = 3.5 * self.drop_transform[1][0].clamp(1., 4.);
         style.source_direction = if vertical { [0., 1.] } else { [1., 0.] };
         style.target_direction = if vertical { [0., -1.] } else { [-1., 0.] };
         native.set_style(&style);
@@ -398,6 +413,47 @@ impl GraphCanvas {
             if reset {
                 editor.set_node_position(id, node.position.unwrap());
             }
+            if let Some(docked) = context.bottom_dock(node.id) {
+                let card = compact::size(ui, node, text);
+                if docked && self.dock_drag != Some(node.id) {
+                    let anchor = editor.screen_to_canvas([
+                        origin[0] + size[0] * 0.5 - card[0] * zoom * 0.5,
+                        origin[1] + size[1] - (card[1] + 12.) * zoom - 12.,
+                    ]);
+                    editor.set_node_position(id, anchor);
+                }
+                let p = editor.node_position(id);
+                let mouse = editor.screen_to_canvas(pointer);
+                if ui.is_mouse_clicked(MouseButton::Left)
+                    && pointer_inside
+                    && (0..2).all(|i| mouse[i] >= p[i] - 4. && mouse[i] <= p[i] + card[i] + 8.)
+                {
+                    self.dock_drag = Some(node.id);
+                    self.dock_origin = p;
+                }
+            }
+            let category_color = context.node_category(node.id).map(|category| {
+                let palette = self
+                    .typography
+                    .as_ref()
+                    .map(|t| t.appearance().node_colors)
+                    .unwrap_or_default();
+                let c = palette.get(category);
+                [c[0], c[1], c[2], 1.]
+            });
+            let mut node_surface = surface;
+            if let Some(c) = category_color {
+                for i in 0..3 {
+                    node_surface[i] = surface[i] * 0.5 + c[i] * 0.5;
+                }
+            }
+            if graph.selected.contains(&node.id) {
+                for i in 0..3 {
+                    node_surface[i] = node_surface[i] * 0.8 + colors.selected[i] * 0.2;
+                }
+            }
+            let _node_surface =
+                editor.push_style_color(nodes::StyleColor::NodeBackground, node_surface);
             editor.node(id, |token| {
                 if vertical {
                     compact::draw(
@@ -409,6 +465,8 @@ impl GraphCanvas {
                         context.primary_input(node),
                         text,
                         self.connecting,
+                        context.node_disabled(node.id) == Some(true),
+                        category_color,
                         &self.ids.pins,
                         &mut pivots,
                         &mut directions,
@@ -634,6 +692,13 @@ impl GraphCanvas {
                 }
             }
             if !removed.is_empty() {
+                // Native deletion also reports incident links. Keep them intact
+                // until the feature can bridge the removed nodes as one batch.
+                actions.retain(|change| {
+                    !matches!(change, GraphChange::Disconnect(socket)
+                    if graph.wires.iter().any(|w| w.target == *socket
+                        && (removed.contains(&w.source.node) || removed.contains(&w.target.node))))
+                });
                 actions.push(GraphChange::Delete(removed));
             }
         }
@@ -729,7 +794,7 @@ impl GraphCanvas {
         let background_search = editor.show_background_context_menu();
         open_search |= background_search;
         if open_search {
-            self.popup_position = if background_search || (tab_search && pointer_inside) {
+            self.popup_position = if background_search {
                 editor.screen_to_canvas(pointer)
             } else {
                 self.last_click.unwrap_or_else(|| {
@@ -771,38 +836,81 @@ impl GraphCanvas {
                 .map(|n| {
                     (
                         n.id,
-                        editor.node_position(nodes::NodeId::new(self.ids.nodes[&n.id])),
+                        if context.bottom_dock(n.id) == Some(true) && self.dock_drag != Some(n.id) {
+                            n.position.unwrap()
+                        } else {
+                            editor.node_position(nodes::NodeId::new(self.ids.nodes[&n.id]))
+                        },
                     )
                 })
                 .collect();
-            if graph
-                .nodes
-                .iter()
-                .zip(&positions)
-                .any(|(n, (_, p))| (0..2).any(|i| (n.position.unwrap()[i] - p[i]).abs() > 0.5))
-            {
+            if graph.nodes.iter().zip(&positions).any(|(n, (_, p))| {
+                (0..2).any(|i| {
+                    (if !self.moving
+                        && self.dock_drag == Some(n.id)
+                        && context.bottom_dock(n.id) == Some(true)
+                    {
+                        self.dock_origin[i]
+                    } else {
+                        n.position.unwrap()[i]
+                    } - p[i])
+                        .abs()
+                        > 0.5
+                })
+            }) {
+                if !self.moving {
+                    let moved: Vec<_> = graph
+                        .nodes
+                        .iter()
+                        .zip(&positions)
+                        .filter(|(n, (_, p))| {
+                            (0..2).any(|i| (n.position.unwrap()[i] - p[i]).abs() > 0.5)
+                        })
+                        .map(|(n, _)| n.id)
+                        .collect();
+                    self.drag_node = match moved.as_slice() {
+                        [id] => Some(*id),
+                        _ => None,
+                    };
+                }
                 self.moving = true;
                 events.push(GraphEvent::PreviewPositions(positions.clone()));
             }
             current_positions = positions;
         }
+        if self.moving
+            && !self.cancel_move
+            && ui.is_mouse_down(MouseButton::Left)
+            && let Some(node) = self.drag_node
+            && context.can_detach(node)
+            && self.shake.sample(pointer, ui.time())
+        {
+            let change = GraphChange::Detach(vec![node]);
+            if context.validate(&change).is_ok() {
+                events.push(GraphEvent::PreviewChanges(vec![change]));
+            }
+        }
         if self.fit > 0 {
             if self.fit == 1 {
                 // Compact cards should not balloon to fill a nearly empty
                 // panel. Center small networks at their current magnification.
-                let bounds = graph.nodes.iter().fold(
-                    [[f32::INFINITY; 2], [f32::NEG_INFINITY; 2]],
-                    |mut bounds, node| {
-                        let id = nodes::NodeId::new(self.ids.nodes[&node.id]);
-                        let p = editor.node_position(id);
-                        let s = editor.node_size(id);
-                        for i in 0..2 {
-                            bounds[0][i] = bounds[0][i].min(p[i]);
-                            bounds[1][i] = bounds[1][i].max(p[i] + s[i]);
-                        }
-                        bounds
-                    },
-                );
+                let bounds = graph
+                    .nodes
+                    .iter()
+                    .filter(|n| context.bottom_dock(n.id) != Some(true))
+                    .fold(
+                        [[f32::INFINITY; 2], [f32::NEG_INFINITY; 2]],
+                        |mut bounds, node| {
+                            let id = nodes::NodeId::new(self.ids.nodes[&node.id]);
+                            let p = editor.node_position(id);
+                            let s = editor.node_size(id);
+                            for i in 0..2 {
+                                bounds[0][i] = bounds[0][i].min(p[i]);
+                                bounds[1][i] = bounds[1][i].max(p[i] + s[i]);
+                            }
+                            bounds
+                        },
+                    );
                 if vertical
                     && !graph.nodes.is_empty()
                     && (0..2).all(|i| (bounds[1][i] - bounds[0][i]) * zoom * 1.1 < size[i])
@@ -810,12 +918,39 @@ impl GraphCanvas {
                     let nodes = editor.selected_nodes();
                     let links = editor.selected_links();
                     editor.clear_selection();
-                    for node in &graph.nodes {
+                    for node in graph
+                        .nodes
+                        .iter()
+                        .filter(|n| context.bottom_dock(n.id) != Some(true))
+                    {
                         editor.add_node_to_selection(nodes::NodeId::new(self.ids.nodes[&node.id]));
                     }
                     editor.navigate_to_selection(false, 0.15);
                     editor.clear_selection();
                     for node in nodes {
+                        editor.add_node_to_selection(node);
+                    }
+                    for link in links {
+                        editor.add_link_to_selection(link);
+                    }
+                } else if graph
+                    .nodes
+                    .iter()
+                    .any(|n| context.bottom_dock(n.id) == Some(true))
+                {
+                    let selected = editor.selected_nodes();
+                    let links = editor.selected_links();
+                    editor.clear_selection();
+                    for node in graph
+                        .nodes
+                        .iter()
+                        .filter(|n| context.bottom_dock(n.id) != Some(true))
+                    {
+                        editor.add_node_to_selection(nodes::NodeId::new(self.ids.nodes[&node.id]));
+                    }
+                    editor.navigate_to_selection(true, 0.15);
+                    editor.clear_selection();
+                    for node in selected {
                         editor.add_node_to_selection(node);
                     }
                     for link in links {
@@ -830,23 +965,34 @@ impl GraphCanvas {
         let mut open_insertion = false;
         if self.moving
             && !self.cancel_move
-            && self.selection.len() == 1
             && self.insertion_choices.is_empty()
             && actions.is_empty()
-            && let Some(node) = graph.nodes.iter().find(|n| n.id == self.selection[0])
+            && let Some(node) = graph.nodes.iter().find(|n| Some(n.id) == self.drag_node)
         {
             let id = nodes::NodeId::new(self.ids.nodes[&node.id]);
             let p = editor.node_position(id);
             let s = editor.node_size(id);
-            let body = [
-                editor.canvas_to_screen([p[0] + s[0] * 0.15, p[1] + s[1] * 0.15]),
-                editor.canvas_to_screen([p[0] + s[0] * 0.85, p[1] + s[1] * 0.85]),
-            ];
-            for (wire, curve) in &wire_curves {
-                if !curve_intersects(*curve, body) {
-                    continue;
+            let min = editor.canvas_to_screen(p);
+            let max = editor.canvas_to_screen([p[0] + s[0], p[1] + s[1]]);
+            let center = [0, 1].map(|i| (min[i] + max[i]) * 0.5);
+            let body = [[min[0] - 12., min[1] - 12.], [max[0] + 12., max[1] + 12.]];
+            let mut candidates: Vec<_> = wire_curves
+                .iter()
+                .filter(|(_, curve)| curve_intersects(*curve, body))
+                .map(|(wire, curve)| {
+                    let point = closest_point(*curve, center);
+                    let distance = (point[0] - center[0]).hypot(point[1] - center[1]);
+                    (wire, point, distance)
+                })
+                .collect();
+            candidates.sort_by(|a, b| a.2.total_cmp(&b.2));
+            for (wire, point, _) in candidates {
+                let mut choices = interactions::insertions(context, &graph, node, wire);
+                let at = editor.screen_to_canvas(point);
+                let snapped = [at[0] - s[0] * 0.5, at[1] - s[1] * 0.5];
+                for choice in &mut choices {
+                    choice.position = Some(snapped);
                 }
-                let choices = interactions::insertions(context, &graph, node, wire);
                 if choices.is_empty() {
                     continue;
                 }
@@ -885,6 +1031,7 @@ impl GraphCanvas {
                 if ui.is_mouse_released(MouseButton::Left) {
                     if choices.len() == 1 {
                         actions.push(choices[0].change.clone());
+                        actions.push(GraphChange::Positions(vec![(node.id, snapped)]));
                     } else {
                         self.insertion_choices = choices;
                         open_insertion = true;
@@ -893,6 +1040,7 @@ impl GraphCanvas {
                 break;
             }
         }
+        let search_anchor = editor.canvas_to_screen(self.popup_position);
         {
             let _suspend = editor.suspend();
             if open_insertion {
@@ -920,7 +1068,12 @@ impl GraphCanvas {
                         }
                     }
                     if let Some(index) = chosen {
-                        actions.push(self.insertion_choices[index].change.clone());
+                        let choice = &self.insertion_choices[index];
+                        actions.push(choice.change.clone());
+                        if let Some(position) = choice.position {
+                            actions
+                                .push(GraphChange::Positions(vec![(choice.input.node, position)]));
+                        }
                         self.insertion_choices.clear();
                         ui.close_current_popup();
                     }
@@ -971,39 +1124,150 @@ impl GraphCanvas {
                 self.search.clear();
                 ui.open_popup("Add graph node");
             }
+            if ui.is_popup_open("Add graph node") {
+                let popup_size = [size[0].min(340.), size[1].min(400.)];
+                let position = [0, 1].map(|i| {
+                    search_anchor[i].clamp(
+                        origin[i],
+                        (origin[i] + size[i] - popup_size[i]).max(origin[i]),
+                    )
+                });
+                popup::geometry(ui, position, popup_size);
+            }
             if let Some(_popup) = ui.begin_popup("Add graph node") {
+                #[cfg(test)]
+                {
+                    self.search_probe = Some([ui.window_pos(), ui.window_size()]);
+                }
                 ui.text("ADD NODE");
                 ui.separator();
                 if open_search {
                     ui.set_keyboard_focus_here();
                 }
+                ui.set_next_item_width(
+                    (ui.content_region_avail()[0] - ui.calc_text_size("Search")[0] - 12.).max(1.),
+                );
                 ui.input_text("Search", &mut self.search).build();
                 let query = self.search.to_lowercase();
-                for template in context.catalog() {
-                    let label = format!("{} / {}", template.category, template.label);
-                    if format!("{label} {}", template.key)
-                        .to_lowercase()
-                        .contains(&query)
-                    {
-                        let _id = ui.push_id(&template.key);
-                        if ui.selectable(label) {
-                            actions.push(GraphChange::Add {
-                                template: template.key,
-                                position: self.popup_position,
-                            });
-                            ui.close_current_popup();
+                let mut catalog = context.catalog();
+                catalog.sort_by(|a, b| (&a.category, &a.label).cmp(&(&b.category, &b.label)));
+                let mut last_category = String::new();
+                let enter = ui.is_key_pressed_with_repeat(Key::Enter, false);
+                let mut first_match = true;
+                ui.child_window("node-results")
+                    .size([0., 0.])
+                    .build(ui, || {
+                        for template in catalog {
+                            let label = format!("{} / {}", template.category, template.label);
+                            if format!("{label} {}", template.key)
+                                .to_lowercase()
+                                .contains(&query)
+                            {
+                                if last_category != template.category {
+                                    ui.separator();
+                                    ui.text_disabled(&template.category);
+                                    last_category = template.category.clone();
+                                }
+                                let _id = ui.push_id(&template.key);
+                                if ui.selectable(&template.label) || (enter && first_match) {
+                                    actions.push(
+                                        if let [source] = graph.selected.as_slice()
+                                            && context.can_add_after(*source)
+                                        {
+                                            GraphChange::AddAfter {
+                                                template: template.key,
+                                                position: self.popup_position,
+                                                source: *source,
+                                            }
+                                        } else {
+                                            GraphChange::Add {
+                                                template: template.key,
+                                                position: self.popup_position,
+                                            }
+                                        },
+                                    );
+                                    ui.close_current_popup();
+                                }
+                                first_match = false;
+                                #[cfg(test)]
+                                {
+                                    self.template_probe = [0, 1].map(|i| {
+                                        (ui.item_rect_min()[i] + ui.item_rect_max()[i]) * 0.5
+                                    });
+                                }
+                            }
                         }
-                        #[cfg(test)]
-                        {
-                            self.template_probe = [0, 1]
-                                .map(|i| (ui.item_rect_min()[i] + ui.item_rect_max()[i]) * 0.5);
-                        }
-                    }
-                }
+                    });
             }
         }
+        let dock_guide = self.dock_drag.filter(|_| self.moving).map(|node| {
+            let width = (180. * unit / 18.).min(size[0] - 12.).max(1.);
+            let min = [
+                origin[0] + (size[0] - width) * 0.5,
+                origin[1] + size[1] - 48. * unit / 18.,
+            ];
+            let max = [min[0] + width, origin[1] + size[1] - 6.];
+            let hovered = (0..2).all(|i| pointer[i] >= min[i] && pointer[i] <= max[i]);
+            (node, min, max, hovered)
+        });
+        if let Some((node, _, _, hovered)) = dock_guide {
+            if ui.is_mouse_released(MouseButton::Left) && !self.cancel_move {
+                actions.push(GraphChange::Dock {
+                    node,
+                    docked: hovered,
+                });
+            }
+        }
+        let shortcut = active
+            && !ui.is_any_item_active()
+            && !self.moving
+            && !ui.io().key_ctrl()
+            && !ui.io().key_alt()
+            && !ui.io().key_super()
+            && !ui.io().key_shift();
+        if shortcut && ui.is_key_pressed_with_repeat(Key::D, false) {
+            let ids: Vec<_> = self
+                .selection
+                .iter()
+                .copied()
+                .filter(|id| context.node_disabled(*id).is_some())
+                .collect();
+            if !ids.is_empty() {
+                actions.push(GraphChange::ToggleDisabled(ids));
+            }
+        }
+        let view_selected = active
+            && !ui.is_any_item_active()
+            && !self.moving
+            && !ui.io().key_ctrl()
+            && !ui.io().key_alt()
+            && !ui.io().key_super()
+            && !ui.io().key_shift()
+            && ui.is_key_pressed_with_repeat(Key::Key1, false);
         drop(_font);
         editor.end();
+        if let Some((_, min, max, hovered)) = dock_guide {
+            let draw = ui.get_window_draw_list();
+            let mut fill = colors.selected;
+            fill[3] = if hovered { 0.3 } else { 0.1 };
+            draw.add_rect(min, max, fill)
+                .filled(true)
+                .rounding(4.)
+                .build();
+            draw.add_rect(min, max, colors.selected)
+                .rounding(4.)
+                .build();
+            let label = "Dock Viewer";
+            let text_size = ui.calc_text_size(label);
+            draw.add_text(
+                [
+                    (min[0] + max[0] - text_size[0]) * 0.5,
+                    (min[1] + max[1] - text_size[1]) * 0.5,
+                ],
+                ui.style_color(imgui::StyleColor::Text),
+                label,
+            );
+        }
         drop(_layout_font);
         if arrange_nodes {
             actions.push(GraphChange::Positions(arrange(ui, &graph, text, context)));
@@ -1025,10 +1289,17 @@ impl GraphCanvas {
             events.push(GraphEvent::Commit(Vec::new()));
             self.moving = false;
         }
+        if !ui.is_mouse_down(MouseButton::Left) {
+            self.dock_drag = None;
+            self.shake = Default::default();
+            self.drag_node = None;
+        }
         for event in events {
             let edit = matches!(
                 event,
-                GraphEvent::Commit(_) | GraphEvent::PreviewPositions(_)
+                GraphEvent::Commit(_)
+                    | GraphEvent::PreviewPositions(_)
+                    | GraphEvent::PreviewChanges(_)
             );
             let commit = matches!(event, GraphEvent::Commit(_));
             match context.event(event) {
@@ -1046,6 +1317,9 @@ impl GraphCanvas {
                     break;
                 }
             }
+        }
+        if view_selected {
+            self.error = context.view_selected().err().unwrap_or_default();
         }
     }
 }

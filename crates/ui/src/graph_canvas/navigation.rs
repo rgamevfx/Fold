@@ -46,6 +46,37 @@ pub(super) fn directed_curve(
         b,
     ]
 }
+/// Closest point on a sampled cubic, in screen coordinates.
+pub(super) fn closest_point(c: Curve, p: Point) -> Point {
+    let mut closest = c[0];
+    let mut distance = f32::INFINITY;
+    let mut a = c[0];
+    for step in 1..=64 {
+        let t = step as f32 / 64.;
+        let u = 1. - t;
+        let b = [0, 1].map(|i| {
+            u * u * u * c[0][i]
+                + 3. * u * u * t * c[1][i]
+                + 3. * u * t * t * c[2][i]
+                + t * t * t * c[3][i]
+        });
+        let d = [b[0] - a[0], b[1] - a[1]];
+        let len = d[0] * d[0] + d[1] * d[1];
+        let k = if len > 0. {
+            (((p[0] - a[0]) * d[0] + (p[1] - a[1]) * d[1]) / len).clamp(0., 1.)
+        } else {
+            0.
+        };
+        let q = [a[0] + k * d[0], a[1] + k * d[1]];
+        let score = (q[0] - p[0]).hypot(q[1] - p[1]);
+        if score < distance {
+            distance = score;
+            closest = q;
+        }
+        a = b;
+    }
+    closest
+}
 pub(super) fn near_curve(c: Curve, p: Point) -> bool {
     let min = [0, 1].map(|i| c.iter().map(|v| v[i]).fold(f32::INFINITY, f32::min));
     let max = [0, 1].map(|i| c.iter().map(|v| v[i]).fold(f32::NEG_INFINITY, f32::max));

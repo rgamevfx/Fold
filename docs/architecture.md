@@ -59,6 +59,29 @@ native-only worker and libraries; authored source compiles with its bundled
 seams. Display observations include a display transform and are not HDR/alpha
 exports. See [development](development.md) for SDK setup.
 
+Retime timing, shutter sampling and artist settings belong to Compositor. The
+renderer owns GPU preparation, cut detection and reconstruction; `crates/rife`
+is the isolated unsafe Linux Vulkan adapter to the packaged ncnn runtime. Model
+weights and bounded tensor pools persist on render workers. GPU buffer exchange
+uses external-memory FDs, explicit queue-family ownership and host completion
+waits; tensors stay on the GPU. The cut detector reads back only a scalar score.
+RIFE estimates motion from an sRGB guide, then Fold warps the original linear
+premultiplied RGBA with the inferred flow and mask. This preserves floating-point
+color/alpha storage; it is not pixel parity with RIFE's ordinary sRGB output.
+Auxiliary channels retain temporal frame blending. Model/source pins and checksums
+live in the runtime producer, with redistribution notices in its package.
+
+Compositor's parameterless Viewer is a terminal working-route node. Its image
+input drives the existing linked viewer panel through the provider's working
+output; the first published `video` port still follows Output. Ordinary node
+selection never retargets the Viewer. An explicit View action requests the
+existing viewer in that editor's link group, preserving local time. Docking is
+node presentation metadata, excluded from evaluation identity, and uses the
+shared graph gesture/Undo lifecycle. Delete and shake extraction bridge the
+primary image pipe (Merge B), including working Viewer consumers. Node bypass
+retains authored parameters, animation and connections, and prunes evaluation to
+the primary input at the current time, including bypass of temporal processing.
+
 ## Replacement constraints
 
 Keep one active implementation per replaced function. Unsupported document

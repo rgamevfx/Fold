@@ -2,6 +2,80 @@
 use super::imgui::{Style, StyleColor as C};
 use serde::{Deserialize, Serialize};
 
+/// Shared visual roles; feature adapters assign their own operators to them.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[repr(usize)]
+pub enum NodeCategory {
+    Io,
+    Color,
+    Filter,
+    Distort,
+    Time,
+    Merge,
+    Mask,
+    Utility,
+}
+impl NodeCategory {
+    pub const ALL: [Self; 8] = [
+        Self::Io,
+        Self::Color,
+        Self::Filter,
+        Self::Distort,
+        Self::Time,
+        Self::Merge,
+        Self::Mask,
+        Self::Utility,
+    ];
+    pub fn label(self) -> &'static str {
+        [
+            "I/O", "Color", "Filter", "Distort", "Time", "Merge", "Mask", "Utility",
+        ][self as usize]
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct NodeColors {
+    pub io: [f32; 3],
+    pub color: [f32; 3],
+    pub filter: [f32; 3],
+    pub distort: [f32; 3],
+    pub time: [f32; 3],
+    pub merge: [f32; 3],
+    pub mask: [f32; 3],
+    pub utility: [f32; 3],
+}
+impl Default for NodeColors {
+    fn default() -> Self {
+        Self {
+            io: [0.25, 0.52, 0.8],
+            color: [0.8, 0.46, 0.2],
+            filter: [0.58, 0.38, 0.75],
+            distort: [0.2, 0.64, 0.62],
+            time: [0.3, 0.65, 0.36],
+            merge: [0.75, 0.65, 0.2],
+            mask: [0.75, 0.3, 0.32],
+            utility: [0.48, 0.5, 0.54],
+        }
+    }
+}
+impl NodeColors {
+    pub fn get(mut self, category: NodeCategory) -> [f32; 3] {
+        *self.get_mut(category)
+    }
+    pub fn get_mut(&mut self, category: NodeCategory) -> &mut [f32; 3] {
+        match category {
+            NodeCategory::Io => &mut self.io,
+            NodeCategory::Color => &mut self.color,
+            NodeCategory::Filter => &mut self.filter,
+            NodeCategory::Distort => &mut self.distort,
+            NodeCategory::Time => &mut self.time,
+            NodeCategory::Merge => &mut self.merge,
+            NodeCategory::Mask => &mut self.mask,
+            NodeCategory::Utility => &mut self.utility,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct GraphText {
@@ -54,6 +128,7 @@ pub struct Appearance {
     pub application_text: f32,
     pub graph: GraphText,
     pub colors: Colors,
+    pub node_colors: NodeColors,
 }
 impl Default for Appearance {
     fn default() -> Self {
@@ -61,6 +136,7 @@ impl Default for Appearance {
             application_text: 15.,
             graph: GraphText::default(),
             colors: Colors::default(),
+            node_colors: NodeColors::default(),
         }
     }
 }
@@ -85,7 +161,10 @@ impl Appearance {
             self.colors.header,
             self.colors.border,
             self.colors.accent,
-        ] {
+        ]
+        .into_iter()
+        .chain(NodeCategory::ALL.map(|c| self.node_colors.get(c)))
+        {
             if color
                 .iter()
                 .any(|v| !v.is_finite() || !(0. ..=1.).contains(v))

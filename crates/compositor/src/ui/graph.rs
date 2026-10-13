@@ -17,6 +17,13 @@ impl Context<'_> {
         let mut templates: Vec<_> = crate::OPERATORS
             .iter()
             .filter(|op| !matches!(op.id, "Input" | "Effect" | "Dissolve" | "Output" | "Mask"))
+            .filter(|op| {
+                op.id != "Viewer"
+                    || !graph
+                        .nodes
+                        .iter()
+                        .any(|n| n.operation.operation == "Viewer")
+            })
             .map(|op| op.defaults(&graph.info).expect("registered default"))
             .collect::<Vec<_>>()
             .into_iter()
@@ -25,7 +32,7 @@ impl Context<'_> {
                     NodeTemplate {
                         key: p.operator().id.into(),
                         label: p.operator().label().into(),
-                        category: "Image".into(),
+                        category: category(p.operator().id).label().into(),
                     },
                     p,
                 )
@@ -48,7 +55,7 @@ impl Context<'_> {
                         NodeTemplate {
                             key: format!("effect:{:?}", d.id),
                             label: fold_ui::sdk::effects::name(self.host, &reference),
-                            category: "Effects".into(),
+                            category: "Filter".into(),
                         },
                         P::Instance {
                             instance: fold_ui::sdk::effects::new_instance(reference, &interface),
@@ -80,7 +87,7 @@ impl Context<'_> {
                                     .map(|item| item.name.as_str())
                                     .unwrap_or("Untitled")
                             ),
-                            category: "Image references".into(),
+                            category: "I/O".into(),
                         },
                         P::Read {
                             options: Default::default(),
@@ -111,7 +118,7 @@ impl Context<'_> {
                     NodeTemplate {
                         key: format!("media:{:?}", node.id),
                         label: format!("Read media {asset:?}"),
-                        category: "Media".into(),
+                        category: "I/O".into(),
                     },
                     node.config().clone(),
                 ));
@@ -125,6 +132,23 @@ impl Context<'_> {
         change: &GraphChange,
     ) -> Result<Option<ObjectId>, String> {
         match change {
+            GraphChange::AddAfter {
+                template,
+                position,
+                source,
+            } => {
+                let id = self
+                    .apply(
+                        graph,
+                        &GraphChange::Add {
+                            template: template.clone(),
+                            position: *position,
+                        },
+                    )?
+                    .ok_or("Missing new node")?;
+                graph.insert_after(*source, id)?;
+                return Ok(Some(id));
+            }
             GraphChange::Connect(wire) => {
                 if graph
                     .node(wire.source.node)?
@@ -148,6 +172,23 @@ impl Context<'_> {
             }
             GraphChange::Disconnect(socket) => graph.disconnect(socket.node, &socket.key)?,
             GraphChange::Delete(ids) => graph.remove(ids)?,
+            GraphChange::Detach(ids) => graph.detach(ids)?,
+            GraphChange::ToggleDisabled(ids) => {
+                let disable = ids
+                    .iter()
+                    .any(|id| graph.node(*id).is_ok_and(|n| !n.disabled));
+                for &id in ids {
+                    graph.node_mut(id)?.disabled = disable;
+                }
+            }
+            GraphChange::Dock { node, docked } => {
+                let n = graph.node_mut(*node)?;
+                if n.operation.operation != "Viewer" {
+                    return Err("Only Viewer can dock".into());
+                }
+                n.extensions
+                    .insert(crate::viewer::DOCKED.into(), serde_json::json!(docked));
+            }
             GraphChange::Positions(positions) => {
                 for &(id, position) in positions {
                     graph.node_mut(id)?.position = Some(position);
@@ -171,13 +212,123 @@ impl Context<'_> {
     }
 }
 impl GraphContext for Context<'_> {
+    fn node_category(&self, id: ObjectId) -> Option<fold_ui::sdk::appearance::NodeCategory> {
+        Some(category(
+            &self
+                .state
+                .graph
+                .as_ref()?
+                .node(id)
+                .ok()?
+                .operation
+                .operation,
+        ))
+    }
+
+    fn can_add_after(&self, id: ObjectId) -> bool {
+        self.state
+            .graph
+            .as_ref()
+            .and_then(|g| g.node(id).ok())
+            .is_some_and(|n| !matches!(n.operation.operation.as_str(), "Output" | "Viewer"))
+    }
+
+    fn can_detach(&self, id: ObjectId) -> bool {
+        self.state.graph.as_ref().is_some_and(|g| {
+            g.output != id && g.node(id).is_ok_and(|n| n.operation.operation != "Viewer")
+        })
+    }
+    fn node_disabled(&self, id: ObjectId) -> Option<bool> {
+        let n = self.state.graph.as_ref()?.node(id).ok()?;
+        (!matches!(n.operation.operation.as_str(), "Output" | "Viewer")).then_some(n.disabled)
+    }
+
+    fn bottom_dock(&self, id: ObjectId) -> Option<bool> {
+        let node = self.state.graph.as_ref()?.node(id).ok()?;
+        (node.operation.operation == "Viewer").then(|| {
+            node.extensions
+                .get(crate::viewer::DOCKED)
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false)
+        })
+    }
+    fn view_selected(&mut self) -> Result<(), String> {
+        let [source] = self.state.selected.as_slice() else {
+            return Ok(());
+        };
+        let mut graph = self.state.graph.clone().ok_or("No composite")?;
+        graph.view_node(*source)?;
+        graph.validate()?;
+        self.state.graph = Some(graph);
+        self.state.commit(self.host);
+        if self.state.error.is_empty() {
+            self.host.show_working_output();
+            Ok(())
+        } else {
+            Err(self.state.error.clone())
+        }
+    }
+    fn node_actions(&self, node: ObjectId) -> Vec<(String, String)> {
+        if self
+            .state
+            .graph
+            .as_ref()
+            .and_then(|g| g.node(node).ok())
+            .is_some_and(|n| n.operation.operation != "Viewer")
+        {
+            let mut actions = vec![("view".into(), "View in Viewer (1)".into())];
+            if self.node_disabled(node).is_some() {
+                let ids = if self.state.selected.contains(&node) {
+                    self.state.selected.clone()
+                } else {
+                    vec![node]
+                };
+                let disable = ids.iter().any(|id| self.node_disabled(*id) == Some(false));
+                actions.push((
+                    "disable".into(),
+                    if disable { "Disable (D)" } else { "Enable (D)" }.into(),
+                ));
+            }
+            actions
+        } else {
+            vec![]
+        }
+    }
+    fn node_action(&mut self, node: ObjectId, action: &str) -> Result<(), String> {
+        if action == "disable" {
+            let ids = if self.state.selected.contains(&node) {
+                self.state.selected.clone()
+            } else {
+                vec![node]
+            };
+            let ids = ids
+                .into_iter()
+                .filter(|id| self.node_disabled(*id).is_some())
+                .collect();
+            return self.event(GraphEvent::Commit(vec![GraphChange::ToggleDisabled(ids)]));
+        }
+        if action == "view" {
+            let mut graph = self.state.graph.clone().ok_or("No composite")?;
+            graph.view_node(node)?;
+            graph.validate()?;
+            self.state.graph = Some(graph);
+            self.state.commit(self.host);
+            if !self.state.error.is_empty() {
+                return Err(self.state.error.clone());
+            }
+            self.host.show_working_output();
+        }
+        Ok(())
+    }
+
     fn presentation(&self) -> GraphPresentation {
         GraphPresentation::VerticalCompact
     }
     fn primary_input<'a>(&self, node: &'a NodeView) -> Option<&'a str> {
-        ["source", "outgoing", "background", "image", "A"]
-            .into_iter()
-            .find(|key| node.inputs.iter().any(|port| port.key == *key))
+        let n = self.state.graph.as_ref()?.node(node.id).ok()?;
+        let config = n.prepare().ok()?;
+        let slot = config.config().primary_slot()?;
+        node.inputs.get(slot).map(|p| p.key.as_str())
     }
 
     fn graph(&self) -> GraphView {
@@ -264,7 +415,12 @@ impl GraphContext for Context<'_> {
                                 color: GRAPH_COLORS.mask,
                             }))
                             .collect(),
-                        outputs: if matches!(n.config(), P::Output) {
+                        outputs: if matches!(n.config(), P::Viewer)
+                            || (matches!(n.config(), P::Output)
+                                && !nodes.iter().any(|v| {
+                                    matches!(v.config(), P::Viewer)
+                                        && v.input_ids().contains(&Some(n.id))
+                                })) {
                             vec![]
                         } else {
                             vec![PortView {
@@ -353,6 +509,18 @@ impl GraphContext for Context<'_> {
                 self.state.graph = Some(graph);
                 self.state.editing = true;
             }
+            GraphEvent::PreviewChanges(changes) => {
+                let mut graph = self.state.graph.clone().ok_or("No composite graph")?;
+                for change in &changes {
+                    self.apply(&mut graph, change)?;
+                }
+                graph.validate()?;
+                self.state.graph = Some(graph);
+                self.state.preview(self.host);
+                if !self.state.error.is_empty() {
+                    return Err(self.state.error.clone());
+                }
+            }
             GraphEvent::Commit(changes) => {
                 let mut graph = self.state.graph.clone().ok_or("No composite graph")?;
                 let mut selected = None;
@@ -399,6 +567,26 @@ fn color(kind: Type) -> [f32; 4] {
 }
 fn summary(p: &P) -> String {
     match p {
+        P::ColorShift { .. } => "Qualified color correction".into(),
+        P::ChromaticAberration { .. } => "Radial / directional RGB separation".into(),
+        P::LensDistortion { settings } => {
+            if settings.undistort {
+                "Undistort".into()
+            } else {
+                "Distort".into()
+            }
+        }
+        P::FilmEmulation { settings } => settings.preset.label().into(),
+        P::Grain { settings } => format!("{:?} • {:.2} px", settings.mode, settings.size),
+        P::Retime { settings } => format!(
+            "{:?}{}",
+            settings.interpolation,
+            if settings.motion_blur {
+                " • motion blur"
+            } else {
+                ""
+            }
+        ),
         P::Roto { .. } => "Alpha matte".into(),
         P::Shader { .. } => "GPU image shader".into(),
         P::RelativeTransform { .. } => "Relative image placement".into(),
@@ -429,8 +617,23 @@ fn summary(p: &P) -> String {
         },
         P::Write { settings } => settings.destination.rsplit('/').next().unwrap_or("").into(),
         P::Output => "Document video output".into(),
+        P::Viewer => "Working preview · 1".into(),
         P::Mask { .. } => "Rectangle • mask".into(),
         P::Crop { .. } => "Transparent outside bounds".into(),
         P::Solid { .. } => "Linear RGBA".into(),
+    }
+}
+
+fn category(id: &str) -> fold_ui::sdk::appearance::NodeCategory {
+    use fold_ui::sdk::appearance::NodeCategory::*;
+    match id {
+        "Read" | "Write" | "Output" | "Viewer" | "Input" | "Solid" => Io,
+        "Grade" | "Exposure" | "Invert" | "Clamp" | "Color Shift" | "Film Emulation" => Color,
+        "Blur" | "Grain" | "Chromatic Aberration" | "Effect" => Filter,
+        "Transform" | "Relative Transform" | "Lens Distortion" | "Crop" => Distort,
+        "Retime" => Time,
+        "Merge" | "Dissolve" => Merge,
+        "Roto" | "Mask" | "Rectangle" | "Ellipse" => Mask,
+        _ => Utility,
     }
 }

@@ -363,6 +363,39 @@ impl Session {
     }
 }
 impl DesktopClient for Session {
+    fn probe_image(
+        &mut self,
+        request: fold_platform::image_probe::Request,
+        cancel: fold_media::Cancel,
+    ) -> Result<fold_platform::image_probe::Receiver, String> {
+        if request.dimensions.contains(&0)
+            || request.dimensions.iter().any(|v| *v > 2048)
+            || u64::from(request.dimensions[0]) * u64::from(request.dimensions[1]) > 2097152
+        {
+            return Err("Image sample dimensions exceed the preview limit".into());
+        }
+        let snapshot = self.preview_snapshot();
+        #[cfg(feature = "gpu")]
+        let render_host = self.preview.shared.0.lock().unwrap().render_host.clone();
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::Builder::new()
+            .name("image-probe".into())
+            .spawn(move || {
+                let result = (|| {
+                    cancel.check()?;
+                    #[cfg(feature = "gpu")]
+                    let mut renderer =
+                        crate::output::OutputRenderer::with_shared_host(render_host)?;
+                    #[cfg(not(feature = "gpu"))]
+                    let mut renderer = crate::output::OutputRenderer::from_environment()?;
+                    renderer.probe_image(&snapshot, &request, &cancel)
+                })();
+                let _ = tx.send(result.map_err(|e: fold_foundation::Failure| e.to_string()));
+            })
+            .map_err(|e| e.to_string())?;
+        Ok(rx)
+    }
+
     fn take_settings_request(&mut self) -> Option<Option<fold_foundation::DocumentId>> {
         self.settings_request.take()
     }
@@ -520,6 +553,12 @@ impl DesktopClient for Session {
         output: &fold_project::DocumentRef,
     ) -> Result<Vec<fold_render::channels::ChannelName>, String> {
         crate::packages::builtins().channels(&self.project.snapshot(), output)
+    }
+    fn working_output(
+        &self,
+        document: fold_foundation::DocumentId,
+    ) -> Option<fold_project::DocumentRef> {
+        crate::packages::builtins().working_output(&self.project.snapshot(), document)
     }
     fn outputs(
         &self,

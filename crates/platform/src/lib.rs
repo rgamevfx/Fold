@@ -84,6 +84,10 @@ pub trait VideoProvider: Send + Sync {
             playback_mode: self.playback_mode(),
         }]
     }
+    /// Editor working route; published/default document outputs remain unchanged.
+    fn working_output(&self, document: &Document) -> Option<DocumentRef> {
+        self.outputs(document).first().map(|o| o.reference.clone())
+    }
     fn effect_interface(&self, _document: &Document) -> Result<effects::Interface, String> {
         Err("Provider does not expose a reusable image interface".into())
     }
@@ -99,6 +103,14 @@ pub trait VideoProvider: Send + Sync {
             .into_iter()
             .map(|name| name.to_owned().try_into())
             .collect()
+    }
+    fn output_channels(
+        &self,
+        document: &Document,
+        _output: &str,
+        resolve: &ChannelResolver<'_>,
+    ) -> Result<Vec<fold_render::channels::ChannelName>, String> {
+        self.channels(document, resolve)
     }
     /// RGBA-only providers retain their existing interface; multilayer providers
     /// override this method to preserve their named outputs through nesting.
@@ -150,6 +162,12 @@ impl VideoRegistry {
             })
     }
 
+    pub fn working_output(&self, document: &Document) -> Option<DocumentRef> {
+        self.providers
+            .iter()
+            .find(|p| p.package_id() == document.package_id && p.type_id() == document.type_id)?
+            .working_output(document)
+    }
     /// Convenience entry for synchronous callers without a cancellable job.
     pub fn compile(
         &self,
@@ -218,7 +236,7 @@ impl VideoRegistry {
         }
         let mut path = ancestors.to_vec();
         path.push(source.document);
-        let names = provider.channels(document, &|nested| {
+        let names = provider.output_channels(document, &source.output, &|nested| {
             if !document.dependencies.contains(nested) {
                 return Err("Undeclared channel source dependency".into());
             }
@@ -429,3 +447,5 @@ pub mod proposals;
 pub mod observations;
 
 pub mod image_sampling;
+
+pub mod image_probe;

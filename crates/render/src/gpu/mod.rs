@@ -24,6 +24,8 @@ mod host;
 mod pointwise;
 mod precision;
 mod preparation;
+#[cfg(target_os = "linux")]
+mod rife;
 mod sampling;
 mod shader;
 #[cfg(feature = "spatial")]
@@ -65,6 +67,8 @@ pub struct Renderer {
     baked_sampling: baked::Sampling,
     baked: baked::Cache,
     shaders: shader::Cache,
+    #[cfg(target_os = "linux")]
+    rife: Option<rife::Adapter>,
     precision: Option<(bool, wgpu::ComputePipeline)>,
     delivery: Option<wgpu::ComputePipeline>,
     secondary_decoder: Option<fold_media::Decoder>,
@@ -188,6 +192,8 @@ impl Renderer {
             baked_sampling,
             baked: Default::default(),
             shaders: Default::default(),
+            #[cfg(target_os = "linux")]
+            rife: None,
             precision: None,
             delivery: None,
             secondary_decoder: None,
@@ -318,7 +324,7 @@ impl Renderer {
         class: Option<crate::scheduling::Class>,
     ) -> Result<GpuFrame, fold_foundation::Failure> {
         let request = self.prepare_request(graph, config, decoder, cancel, class)?;
-        let encoded = self.encode_request(request, config, decoder, cancel)?;
+        let encoded = self.encode_request(request, config, decoder, cancel, class)?;
         self.submit_request(encoded, config, cancel, class)
     }
 }

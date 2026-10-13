@@ -1,0 +1,111 @@
+{
+  "scope": "Focused synthetic qualification; not artist or installed-package acceptance",
+  "gpu": "NVIDIA GeForce GTX 1070",
+  "driver": "580.173.02",
+  "backend": "Vulkan",
+  "dimensions": [
+    1280,
+    720
+  ],
+  "motion_scale": 1,
+  "model": "rife-v4.6",
+  "precision": "FP32",
+  "first_sample_includes_model_and_pipeline_initialization": true,
+  "rife_stage_ms_includes_native_setup_and_gpu_tensor_copies": true,
+  "wall_time_includes_output_pixel_readback_for_validation": true,
+  "native_input_output_pixel_readbacks": 0,
+  "samples": [
+    {
+      "fraction": 0.25,
+      "centroid": 0.3983,
+      "expected_centroid": 0.4,
+      "peak_premultiplied_red": 1.8,
+      "render_plus_readback_ms": 1486.97,
+      "rife_stage_ms": 1407.22,
+      "cpu_adapter_nodes": 0.0,
+      "status_readback_bytes": 28.0
+    },
+    {
+      "fraction": 0.5,
+      "centroid": 0.4484,
+      "expected_centroid": 0.45,
+      "peak_premultiplied_red": 1.8,
+      "render_plus_readback_ms": 115.51,
+      "rife_stage_ms": 47.34,
+      "cpu_adapter_nodes": 0.0,
+      "status_readback_bytes": 28.0
+    },
+    {
+      "fraction": 0.75,
+      "centroid": 0.499,
+      "expected_centroid": 0.5,
+      "peak_premultiplied_red": 1.8,
+      "render_plus_readback_ms": 103.68,
+      "rife_stage_ms": 53.4,
+      "cpu_adapter_nodes": 0.0,
+      "status_readback_bytes": 28.0
+    },
+    {
+      "fraction": 0.5,
+      "centroid": 0.4484,
+      "expected_centroid": 0.45,
+      "peak_premultiplied_red": 1.8,
+      "render_plus_readback_ms": 103.37,
+      "rife_stage_ms": 52.59,
+      "cpu_adapter_nodes": 0.0,
+      "status_readback_bytes": 28.0
+    }
+  ],
+  "shutter_pair_reuse_and_cut_hold": "passed",
+  "temporal_unit_tests": 2,
+  "sources_sha256": {
+    "crates/render/examples/rife_profile.rs": "bc927bee68d693259534413353cd42904a92a6f48721ac5fedcd3b80d3669410",
+    "crates/render/src/gpu/rife.rs": "d2732ca92d62b04ba7a5a356d13cb5467b1d17823a52cb4e268b5562588175ce",
+    "crates/rife/src/linux.rs": "87e31ac6a86842bbec5af1ec71f8cb2eb66f0e186fdf09d42676f30522be59ad",
+    "resources/rife/adapter.cpp": "d31b7aa6ad89d90db9fde25a80f42fd04b2d1d3a748e8bf290addd730c896435",
+    "scripts/build_rife_runtime.py": "af1286df661c16d154da16c809fafa84fb609928bacd588daa2660cc7f3694f8"
+  },
+  "runtime_manifest": {
+    "abi": 1,
+    "model": "rife-v4.6",
+    "rife": "a7532fc3f9f8f008cd6eecd6f2ffe2a9698e0cf7",
+    "ncnn": "b4ba207c18d3103d6df890c0e3a97b469b196b26",
+    "glslang": "86ff4bca1ddc7e2262f119c16e7228d0efb67610",
+    "sha256": {
+      "flownet.bin": "f334ed2260149ce0188a6dcf049844e8b0cdd912e01cbcfb63553157d2508958",
+      "flownet.param": "724569596bcd1e7b9fa50455c604777ebed99746d2ef40aa86e31b5725f1053c"
+    },
+    "reconstruction": "Original scene-linear premultiplied RGBA, v4.6 flow and mask"
+  },
+  "pending": [
+    "Real-footage artifact review",
+    "Native UI normal/narrow, Undo/cancel acceptance",
+    "Installed-package relocation",
+    "Other Vulkan GPUs",
+    "Full suites and Clippy deferred by user"
+  ],
+  "desktop_candidate_smoke": {
+    "project_fingerprint": "589b4a99952006ad0d9b40bd64138ba9dc55343fc550bbb8c8a0cee44adb347f",
+    "build": "97aa3b248053e7266a4ab764524800fea7a70a09b724c798f405a7a68ab3569e",
+    "dimensions": [
+      480,
+      270
+    ],
+    "time": {
+      "denominator": 1,
+      "numerator": 4
+    },
+    "working_space": "ACEScg",
+    "motion_scale": 2,
+    "motion_blur_samples": 16,
+    "existing_curve_preserved": true,
+    "visually_inspected": true,
+    "transfers": {
+      "cpu_adapter_nodes": 0,
+      "evaluation_readback_bytes": 0
+    },
+    "scope": "Existing footage through Retime and artist filters; one frame, not motion or native UI acceptance",
+    "committed_pixels_match_candidate": true,
+    "saved_review_revision": 139
+  }
+}

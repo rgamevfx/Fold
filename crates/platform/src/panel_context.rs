@@ -16,6 +16,7 @@ pub struct PanelContext<'a> {
     seek_request: Option<Time>,
     selection_requested: bool,
     layer_graph: Option<EditorInstance>,
+    working_view: Option<Time>,
 }
 impl<'a> PanelContext<'a> {
     pub fn new(host: &'a mut dyn DesktopClient, editor: &'a mut EditorInstance) -> Self {
@@ -56,6 +57,7 @@ impl<'a> PanelContext<'a> {
             seek_request: None,
             selection_requested: false,
             layer_graph: None,
+            working_view: None,
         }
     }
     /// Non-document panels have an identity without acquiring an editor binding.
@@ -75,6 +77,7 @@ impl<'a> PanelContext<'a> {
             seek_request: None,
             selection_requested: false,
             layer_graph: None,
+            working_view: None,
         }
     }
     pub fn with_cache_reference(mut self, key: Option<PreviewKey>) -> Self {
@@ -107,6 +110,9 @@ impl<'a> PanelContext<'a> {
     }
     pub fn take_layer_graph(&mut self) -> Option<EditorInstance> {
         self.layer_graph.take()
+    }
+    pub fn working_view_requested(&self) -> Option<Time> {
+        self.working_view
     }
     pub fn selection_requested(&self) -> bool {
         self.selection_requested
@@ -216,6 +222,14 @@ impl<'a> PanelContext<'a> {
     }
 }
 impl DesktopClient for PanelContext<'_> {
+    fn probe_image(
+        &mut self,
+        request: crate::image_probe::Request,
+        cancel: fold_media::Cancel,
+    ) -> Result<crate::image_probe::Receiver, String> {
+        self.host.probe_image(request, cancel)
+    }
+
     fn document_settings(
         &self,
         document: fold_foundation::DocumentId,
@@ -264,6 +278,12 @@ impl DesktopClient for PanelContext<'_> {
         output: &fold_project::DocumentRef,
     ) -> Result<Vec<fold_render::channels::ChannelName>, String> {
         self.host.channels(output)
+    }
+    fn show_working_output(&mut self) {
+        self.working_view = self.state.navigation.last().map(|v| v.time);
+    }
+    fn working_output(&self, id: fold_foundation::DocumentId) -> Option<DocumentRef> {
+        self.host.working_output(id)
     }
     fn outputs(&self, id: fold_foundation::DocumentId) -> Vec<crate::workspace::OutputDescriptor> {
         self.host.outputs(id)

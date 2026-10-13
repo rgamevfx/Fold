@@ -30,7 +30,7 @@ wayland-client = "0.31"
 wayland-backend = { version = "0.3", features = ["client_system", "dlopen"] }
 url = "2"
 
-# FFI is confined to the Wayland display adapter; all other UI code stays denied.
+# FFI is confined to the Wayland adapter and missing popup-geometry bindings.
 [lints.rust]
 unsafe_code = "deny"
 

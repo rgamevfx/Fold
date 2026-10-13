@@ -60,6 +60,14 @@ impl Affine {
 /// declared scene-linear working space (legacy linear-sRGB or explicit ACEScg).
 #[derive(Clone, Debug)]
 pub enum ImageOp {
+    /// Neural motion synthesis in scene-linear RGBA; runtime remains behind the GPU adapter.
+    Rife {
+        first: ImageId,
+        second: ImageId,
+        fraction: f32,
+        motion_scale: u32,
+        cut_threshold: f32,
+    },
     /// Immutable external output, rendered through its owning feature adapter.
     Source(std::sync::Arc<dyn crate::source::ImageSource>),
     Shader {
@@ -232,7 +240,9 @@ impl ImageOp {
             | Self::Blur { input, .. }
             | Self::Grade { input, .. } => [Some(input), None, None],
             Self::Baked(_) => [None, None, None],
-            Self::Merge { first, second, .. } => [Some(first), Some(second), None],
+            Self::Rife { first, second, .. } | Self::Merge { first, second, .. } => {
+                [Some(first), Some(second), None]
+            }
             Self::Mask { input, mask } => [Some(input), Some(mask), None],
             Self::Over {
                 foreground,
@@ -250,6 +260,10 @@ impl ImageOp {
     }
     pub(crate) fn remap_inputs(&mut self, mut map: impl FnMut(ImageId) -> ImageId) {
         match self {
+            ImageOp::Rife { first, second, .. } => {
+                *first = map(*first);
+                *second = map(*second);
+            }
             ImageOp::Shader { inputs, .. } => {
                 for input in inputs {
                     *input = map(*input);
@@ -376,6 +390,21 @@ pub(crate) fn validate(graph: &RenderGraph, aces: bool) -> Result<usize, String>
             return Err("image inputs must precede their consumer".into());
         }
         match *op {
+            ImageOp::Rife {
+                fraction,
+                motion_scale,
+                cut_threshold,
+                ..
+            } => {
+                if !fraction.is_finite()
+                    || !(0.0..=1.0).contains(&fraction)
+                    || ![1, 2, 4].contains(&motion_scale)
+                    || !cut_threshold.is_finite()
+                    || !(0.0..=1.0).contains(&cut_threshold)
+                {
+                    return Err("Invalid RIFE interpolation request".into());
+                }
+            }
             ImageOp::Shader {
                 ref inputs,
                 ref program,
@@ -705,6 +734,11 @@ pub(crate) fn evaluate(
                 if let Some(space) = space {
                     processors[space].apply(&mut pixels)?;
                 }
+            }
+            ImageOp::Rife { .. } => {
+                return Err(
+                    "RIFE requires the Linux Vulkan GPU backend and installed RIFE runtime".into(),
+                );
             }
             ImageOp::Shader { .. } => {
                 return Err(

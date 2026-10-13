@@ -9,6 +9,7 @@ fn preferences_roundtrip_preserves_unknown_fields() {
     let mut value = Appearance::default();
     value.application_text = 19.;
     value.graph.titles = 30.;
+    value.node_colors.filter = [0.3, 0.2, 0.6];
     value.colors.text = [0.9, 0.8, 0.7];
     save(
         &path,

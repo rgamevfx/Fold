@@ -152,6 +152,12 @@ impl Settings {
                         ui.tooltip_text("Hides port labels and summaries at distant zoom. Node titles stay visible.");
                     }
                     ui.separator();
+                    ui.text("Node group colors");
+                    for category in crate::sdk::appearance::NodeCategory::ALL {
+                        ui.color_edit3_config(category.label(), value.node_colors.get_mut(category))
+                            .flags(imgui::ColorEditFlags::NO_INPUTS).build();
+                    }
+                    ui.separator();
                     ui.text("Colors");
                     for (label, color) in [
                         ("Text", &mut value.colors.text),

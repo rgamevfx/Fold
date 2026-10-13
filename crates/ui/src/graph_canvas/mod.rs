@@ -5,6 +5,7 @@ mod compact;
 mod editor;
 mod interactions;
 mod navigation;
+mod popup;
 #[cfg(test)]
 mod tests;
 pub use editor::GraphCanvas;
@@ -71,6 +72,11 @@ pub enum GraphChange {
         template: String,
         position: [f32; 2],
     },
+    AddAfter {
+        template: String,
+        position: [f32; 2],
+        source: ObjectId,
+    },
     Connect(WireView),
     Disconnect(Socket),
     /// One atomic topology edit, used for insertion and moving an existing wire.
@@ -79,13 +85,21 @@ pub enum GraphChange {
         add: Vec<WireView>,
     },
     Delete(Vec<ObjectId>),
+    Detach(Vec<ObjectId>),
+    ToggleDisabled(Vec<ObjectId>),
     Positions(Vec<(ObjectId, [f32; 2])>),
+    Dock {
+        node: ObjectId,
+        docked: bool,
+    },
 }
 #[derive(Debug)]
 pub enum GraphEvent {
     Select(Vec<ObjectId>),
     /// UI-only positions. No undo entry until Commit; Cancel restores the model.
     PreviewPositions(Vec<(ObjectId, [f32; 2])>),
+    /// Topology preview within the same drag transaction.
+    PreviewChanges(Vec<GraphChange>),
     /// Apply the whole batch atomically, including any outstanding position edit.
     Commit(Vec<GraphChange>),
     Cancel,
@@ -96,6 +110,28 @@ pub enum GraphEvent {
 /// in the editor. Validation must be side-effect free; failed batches must not
 /// leave partially applied changes. Adapters retain ownership of project undo.
 pub trait GraphContext {
+    fn node_category(&self, _node: ObjectId) -> Option<crate::sdk::appearance::NodeCategory> {
+        None
+    }
+    fn can_add_after(&self, _node: ObjectId) -> bool {
+        false
+    }
+
+    fn can_detach(&self, _node: ObjectId) -> bool {
+        false
+    }
+    /// None means bypass is not applicable to this node.
+    fn node_disabled(&self, _node: ObjectId) -> Option<bool> {
+        None
+    }
+
+    /// A dockable terminal card; None for ordinary processing nodes.
+    fn bottom_dock(&self, _node: ObjectId) -> Option<bool> {
+        None
+    }
+    fn view_selected(&mut self) -> Result<(), String> {
+        Ok(())
+    }
     fn presentation(&self) -> GraphPresentation {
         GraphPresentation::Horizontal
     }

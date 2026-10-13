@@ -369,13 +369,8 @@ impl Shell {
         }
     }
     pub(super) fn refresh_viewer_targets(&mut self, client: &mut dyn DesktopClient) {
-        self.workspace.refresh_outputs(|document| {
-            client
-                .outputs(document)
-                .into_iter()
-                .next()
-                .map(|output| output.reference)
-        });
+        self.workspace
+            .refresh_outputs(|document| client.working_output(document));
         let targets: Vec<_> = self
             .workspace
             .viewers

@@ -1,6 +1,7 @@
 [workspace]
 resolver = "3"
 members = [
+    "crates/rife",
     "crates/foundation",
     "crates/animation",
     "crates/graph",
@@ -42,6 +43,7 @@ fold-project = { path = "crates/project" }
 fold-media = { path = "crates/media" }
 fold-render = { path = "crates/render" }
 fold-gpu-sharing = { path = "crates/gpu-sharing" }
+fold-rife = { path = "crates/rife" }
 fold-platform = { path = "crates/platform" }
 fold-ui = { path = "crates/ui" }
 fold-timeline = { path = "crates/timeline" }

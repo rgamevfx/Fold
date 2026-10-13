@@ -93,7 +93,7 @@ mod tests {
             .prepare_request(graph(), None, &mut decoder, cancel, None)
             .unwrap();
         renderer
-            .encode_request(request, None, &mut decoder, cancel)
+            .encode_request(request, None, &mut decoder, cancel, None)
             .unwrap()
     }
     fn released(host: &Host) {

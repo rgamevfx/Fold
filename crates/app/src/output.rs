@@ -63,6 +63,47 @@ impl OutputRenderer {
             None => Self::from_environment(),
         }
     }
+    pub(crate) fn probe_image(
+        &mut self,
+        snapshot: &fold_project::Snapshot,
+        request: &fold_platform::image_probe::Request,
+        cancel: &Cancel,
+    ) -> Result<fold_platform::image_probe::Image, fold_foundation::Failure> {
+        let scene = self.evaluate_linear_once(
+            snapshot,
+            &SceneRequest {
+                source: request.source.clone(),
+                time: request.time,
+                dimensions: request.dimensions,
+                region: None,
+                preview: None,
+            },
+            cancel,
+        )?;
+        cancel.check()?;
+        let storage = fold_media::budget::reserve_working(scene.pixels().len() as u64 * 16)?;
+        let samples = scene.pixels().to_vec();
+        let scene = scene.over_black();
+        let display = if request.data_display {
+            scene.to_data_display(Default::default())?
+        } else {
+            crate::color::with_config(snapshot, |config| match config {
+                Some(config) => scene.to_output(
+                    &config.display(
+                        fold_color::WORKING_SPACE,
+                        &fold_platform::color::output(snapshot, request.source.document)?
+                            .display_transform(),
+                    )?,
+                ),
+                None => scene.to_display(),
+            })?
+        };
+        Ok(fold_platform::image_probe::Image {
+            display,
+            samples,
+            storage,
+        })
+    }
     pub fn backend(&self) -> &'static str {
         #[cfg(feature = "gpu")]
         if self.gpu.is_some() {
@@ -83,7 +124,7 @@ impl OutputRenderer {
     }
     fn evaluate_linear_once(
         &mut self,
-        snapshot: &CommittedSnapshot,
+        snapshot: &fold_project::Snapshot,
         request: &SceneRequest,
         cancel: &Cancel,
     ) -> Result<fold_render::Frame, fold_foundation::Failure> {

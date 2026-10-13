@@ -18,7 +18,13 @@ impl OperationConfig {
     /// Native static record owning an animatable control's authored base.
     pub(crate) fn parameter_for_property<'a>(&self, property: &'a str) -> &'a str {
         match self {
-            Self::Roto { .. }
+            Self::ColorShift { .. }
+            | Self::ChromaticAberration { .. }
+            | Self::LensDistortion { .. }
+            | Self::FilmEmulation { .. }
+            | Self::Grain { .. }
+            | Self::Retime { .. }
+            | Self::Roto { .. }
             | Self::Shader { .. }
             | Self::RelativeTransform { .. }
             | Self::TransformImage { .. }
@@ -39,6 +45,16 @@ impl OperationConfig {
             range,
         };
         match self {
+            Self::ColorShift { settings } => settings
+                .color_properties()
+                .into_iter()
+                .chain(settings.properties())
+                .collect(),
+            Self::ChromaticAberration { settings } => settings.properties(),
+            Self::LensDistortion { settings } => settings.properties(),
+            Self::FilmEmulation { settings } => settings.properties(),
+            Self::Grain { settings } => settings.properties(),
+            Self::Retime { settings } => settings.properties(),
             Self::Roto { settings } => settings.properties(),
             Self::Shader { settings } => settings
                 .controls
@@ -216,6 +232,17 @@ impl OperationConfig {
     }
     pub fn set_property(&mut self, id: &str, values: &[f64]) -> Result<(), String> {
         match (self, id, values) {
+            (Self::ColorShift { settings }, id @ ("selected" | "target"), values) => {
+                settings.set_color(id, values)?
+            }
+            (Self::ColorShift { settings }, id, values) => settings.set_property(id, values)?,
+            (Self::ChromaticAberration { settings }, id, values) => {
+                settings.set_property(id, values)?
+            }
+            (Self::LensDistortion { settings }, id, values) => settings.set_property(id, values)?,
+            (Self::FilmEmulation { settings }, id, values) => settings.set_property(id, values)?,
+            (Self::Grain { settings }, id, values) => settings.set_property(id, values)?,
+            (Self::Retime { settings }, id, values) => settings.set_property(id, values)?,
             (Self::Roto { settings }, id, values) => settings.set_property(id, values)?,
             (Self::Shader { settings }, id, values) => {
                 let control = settings

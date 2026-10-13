@@ -98,28 +98,34 @@ pub fn create(preset: Preset, id: DocumentId) -> Result<fold_project::Document, 
             );
             nodes.extend([extract, blur, merge]);
         }
+        Preset::FilmLook | Preset::Grain => {
+            let config = if matches!(preset, Preset::FilmLook) {
+                P::FilmEmulation {
+                    settings: Default::default(),
+                }
+            } else {
+                P::Grain {
+                    settings: Default::default(),
+                }
+            };
+            let parameters = config.animated_properties();
+            let node = Node::new(config, vec![nodes[0].id]);
+            for p in parameters {
+                controls.push(control(&p.id, &p.label, p.values, p.range));
+                bindings.push(Binding {
+                    extensions: Default::default(),
+                    control: p.id.clone(),
+                    node: node.id,
+                    property: p.id,
+                });
+            }
+            nodes.push(node);
+        }
         preset => {
             let (source, parameters) = match preset {
                 Preset::CircularWipe => (
                     "fn effect(uv:vec2<f32>)->vec4<f32>{let p=fold_params.clock.y;if(p<=0.){return outgoing(uv);}if(p>=1.){return incoming(uv);}let size=fold_params.size.xy;let c=center()*size;let extent=max(abs(c),abs(size-c));let radius=length(extent)*p;let distance=length(uv*size-c);let mask=1.-smoothstep(radius-0.5,radius+0.5,distance);return mix(outgoing(uv),incoming(uv),mask);}",
                     vec![control("center", "Center", vec![0.5; 2], Some([0., 1.]))],
-                ),
-                Preset::Grain => (
-                    "fn effect(uv:vec2<f32>)->vec4<f32>{let p=source(uv);let xy=vec2<u32>(floor(uv*fold_params.size.xy));var h=xy.x*1664525u+xy.y*1013904223u+u32(seed())+u32(max(0.,floor(fold_params.clock.x*rate())))*747796405u;h=(h^(h>>16u))*2246822519u;h=(h^(h>>13u))*3266489917u;let noise=f32(h^(h>>16u))/4294967295.-0.5;return vec4<f32>(p.rgb+vec3<f32>(noise*amount()*p.a),p.a);}",
-                    vec![
-                        control("amount", "Amount", vec![0.04], Some([0., 1.])),
-                        control("seed", "Seed", vec![1.], Some([0., 1000000.])),
-                        control("rate", "Grain rate", vec![24.], Some([1., 120.])),
-                    ],
-                ),
-                Preset::FilmLook => (
-                    "fn effect(uv:vec2<f32>)->vec4<f32>{let p=source(uv);if(p.a<=0.){return p;}let rgb=p.rgb/p.a;let l=dot(rgb,vec3<f32>(0.2722287,0.6740818,0.0536895));let chroma=mix(vec3<f32>(l),rgb,saturation());let look=chroma*exp2(exposure())+vec3<f32>(lift());return vec4<f32>(mix(rgb,look,strength())*p.a,p.a);}",
-                    vec![
-                        control("exposure", "Exposure", vec![-0.15], Some([-8., 8.])),
-                        control("saturation", "Saturation", vec![0.85], Some([0., 2.])),
-                        control("lift", "Shadow lift", vec![0.01], Some([-0.1, 0.1])),
-                        control("strength", "Strength", vec![1.], Some([0., 1.])),
-                    ],
                 ),
                 _ => unreachable!(),
             };

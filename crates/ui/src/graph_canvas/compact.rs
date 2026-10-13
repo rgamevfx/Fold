@@ -110,6 +110,8 @@ pub(super) fn draw(
     primary: Option<&str>,
     sizes: GraphText,
     show_ports: bool,
+    disabled: bool,
+    category_color: Option<[f32; 4]>,
     ids: &BTreeMap<(Socket, bool), usize>,
     pivots: &mut BTreeMap<usize, [f32; 2]>,
     directions: &mut BTreeMap<usize, [f32; 2]>,
@@ -121,10 +123,25 @@ pub(super) fn draw(
     let scale = ui.current_font_size() / 18.;
     {
         let draw = ui.get_window_draw_list();
+        if disabled {
+            let mut strike = ui.style_color(imgui::StyleColor::TextDisabled);
+            strike[3] = 0.75;
+            draw.add_line(
+                [p[0] + 4. * scale, p[1] + size[1]],
+                [p[0] + size[0] - 4. * scale, p[1]],
+                strike,
+            )
+            .thickness(1.5 * scale)
+            .build();
+        }
         draw.add_line(
             [p[0], p[1] + 2. * scale],
             [p[0], p[1] + size[1] - 2. * scale],
-            node.color,
+            if disabled {
+                ui.style_color(imgui::StyleColor::TextDisabled)
+            } else {
+                category_color.unwrap_or(node.color)
+            },
         )
         .thickness(3. * scale)
         .build();
@@ -135,7 +152,11 @@ pub(super) fn draw(
                 p[0] + (size[0] - label[0]) * 0.5,
                 p[1] + (size[1] - label[1]) * 0.5,
             ],
-            ui.style_color(imgui::StyleColor::Text),
+            ui.style_color(if disabled {
+                imgui::StyleColor::TextDisabled
+            } else {
+                imgui::StyleColor::Text
+            }),
             &node.label,
         );
     }

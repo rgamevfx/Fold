@@ -310,3 +310,22 @@ fn unsupported_workspace_generations_are_rejected() {
         assert!(Workspace::decode(&serde_json::to_vec(&value).unwrap(), "").is_err());
     }
 }
+
+#[test]
+fn explicit_working_view_switches_existing_viewer_without_selection_following() {
+    let (mut w, [parent, _], [viewer, other], docs) = fixture();
+    let child = w.add_editor("compositor", "compositor");
+    w.editors.get_mut(&child).unwrap().bind(location(docs[1]));
+    w.refresh_outputs(test_output);
+    w.record_selection(child);
+    assert_eq!(w.resolve(viewer).unwrap().document, docs[0]);
+    let other_output = w.resolve(other);
+    let time = Time::new(13, 24).unwrap();
+    assert_eq!(w.view_editor(child, time), Some(viewer));
+    assert_eq!(w.editor_for_viewer(viewer), Some(child));
+    assert_eq!(w.resolve(viewer).unwrap().document, docs[1]);
+    assert_eq!(w.viewers[&viewer].time, time);
+    w.record_selection(parent);
+    assert_eq!(w.editor_for_viewer(viewer), Some(child));
+    assert_eq!(w.resolve(other), other_output);
+}

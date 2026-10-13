@@ -1,6 +1,9 @@
 /// Transfer and adapter costs for one evaluation, excluding decoder-owned caches.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Statistics {
+    pub rife_nodes: u32,
+    pub rife_cut_holds: u32,
+    pub rife_nanoseconds: u128,
     pub upload_bytes: u64,
     /// Individual retained entries removed at the shared pressure boundary.
     pub pressure_evictions: u32,
@@ -51,6 +54,9 @@ pub struct Statistics {
 }
 impl Statistics {
     pub(super) fn accumulate(&mut self, other: &Self) {
+        self.rife_nodes += other.rife_nodes;
+        self.rife_cut_holds += other.rife_cut_holds;
+        self.rife_nanoseconds += other.rife_nanoseconds;
         self.upload_bytes += other.upload_bytes;
         self.pressure_evictions += other.pressure_evictions;
         self.upload_allocations += other.upload_allocations;

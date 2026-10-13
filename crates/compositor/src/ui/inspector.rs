@@ -78,6 +78,15 @@ impl Panel for Inspector {
             super::roto::draw_inspector(ui, &mut state, host, id, time, auto_key);
             return;
         }
+        if state
+            .graph
+            .as_ref()
+            .and_then(|g| g.node(id).ok())
+            .is_some_and(|n| n.operation.operation == "Viewer")
+        {
+            ui.text("Viewer");
+            return;
+        }
         let mut output_change = None;
         let mut write_actions = (false, false);
         let names = |slot: usize| {
@@ -125,6 +134,26 @@ impl Panel for Inspector {
                 document,
                 drafts: &mut self.4,
             });
+        if matches!(
+            reference_prepared
+                .as_ref()
+                .and_then(|g| g.node(id).ok())
+                .map(|n| n.config()),
+            Some(P::LensDistortion { .. })
+        ) {
+            ui.checkbox("Reference grid", &mut state.lens_grid);
+        }
+        if let Some(node) = state.graph.as_ref().and_then(|g| g.node(id).ok()) {
+            if node.operation.operation == "Color Shift" {
+                let can_pick = !node
+                    .operation
+                    .parameters
+                    .get("settings")
+                    .is_some_and(|p| p.protected)
+                    && !(0..3).any(|i| node.animation.driven(&format!("selected.{i}")));
+                state.qualifier.borrow_mut().controls(ui, id, can_pick);
+            }
+        }
         let Some(node) = state.graph.as_mut().and_then(|g| g.node_mut(id).ok()) else {
             return;
         };
@@ -155,6 +184,55 @@ impl Panel for Inspector {
             choose_source,
             choose_proxy,
         } = super::read::draw(ui, node, host, aces, &mut response);
+        if matches!(
+            config,
+            P::ColorShift { .. }
+                | P::ChromaticAberration { .. }
+                | P::LensDistortion { .. }
+                | P::FilmEmulation { .. }
+                | P::Grain { .. }
+                | P::Retime { .. }
+        ) {
+            let mut filter_config = config.clone();
+            super::filters::draw(ui, &mut filter_config, &mut response);
+            if filter_config != config {
+                if let Err(error) = node.set_configuration(filter_config) {
+                    ui.text_wrapped(error);
+                }
+            }
+        }
+        let evaluated = reference_prepared
+            .as_ref()
+            .and_then(|g| g.evaluated_parameters(id, time).ok());
+        super::filters::retime_helpers(ui, node, time, evaluated.as_ref(), &mut response);
+        if matches!(config, P::Retime { .. }) {
+            if let Some(P::Retime { settings }) = &evaluated {
+                ui.text_disabled(format!(
+                    "Source time: {:.3} s",
+                    (settings.source_frame + settings.offset) * f64::from(settings.rate[1])
+                        / f64::from(settings.rate[0])
+                ));
+            }
+            if let Some(graph) = reference_prepared.as_ref() {
+                let dt = Time::new(1, 1000).unwrap();
+                let speed = time
+                    .checked_sub(dt)
+                    .ok()
+                    .zip(time.checked_add(dt).ok())
+                    .and_then(|(a, b)| {
+                        Some((
+                            graph.evaluated_parameters(id, a).ok()?,
+                            graph.evaluated_parameters(id, b).ok()?,
+                        ))
+                    });
+                if let Some((P::Retime { settings: a }, P::Retime { settings: b })) = speed {
+                    let speed = (b.source_frame + b.offset - a.source_frame - a.offset) / 0.002
+                        * f64::from(a.rate[1])
+                        / f64::from(a.rate[0]);
+                    ui.text_disabled(format!("Speed: {speed:.3}×"));
+                }
+            }
+        }
         let properties = match node.prepare() {
             Ok(prepared) => prepared.animated_properties(),
             Err(error) => {
@@ -169,27 +247,52 @@ impl Panel for Inspector {
         if curated && !matches!(config, P::TransformImage { .. }) {
             super::channels::selection(ui, &mut node.effect, &input_a, &mut response);
         }
-        for property in properties
-            .into_iter()
-            .filter(|property| property.id != "mix")
-        {
-            let split = curated
-                && ((matches!(config, P::ColorGrade { .. }) && property.channels.len() > 1)
-                    || property.id == "scale"
-                    || property.id == "size");
-            property_control(
-                ui,
-                node,
-                property,
-                time,
-                auto_key,
-                aces,
-                &mut response,
-                publishable,
-                &mut promotion,
-                split.then_some(&mut self.3),
-                references.as_mut(),
-            );
+        let mut groups: Vec<(&str, Vec<crate::animation::Property>)> = vec![];
+        for property in properties.into_iter().filter(|p| p.id != "mix") {
+            let group = crate::filters::group(&config, &property.id);
+            if let Some((_, items)) = groups.iter_mut().find(|(name, _)| *name == group) {
+                items.push(property);
+            } else {
+                groups.push((group, vec![property]));
+            }
+        }
+        for (group, properties) in groups {
+            let _section = if group.is_empty() {
+                None
+            } else {
+                let Some(section) = ui
+                    .tree_node_config(group)
+                    .default_open(matches!(group, "Select" | "Adjust"))
+                    .push()
+                else {
+                    continue;
+                };
+                Some(section)
+            };
+            for property in properties {
+                if property.id == "target"
+                    && matches!(&config,P::ColorShift {settings} if !settings.use_target)
+                {
+                    continue;
+                }
+                let split = curated
+                    && ((matches!(config, P::ColorGrade { .. }) && property.channels.len() > 1)
+                        || property.id == "scale"
+                        || property.id == "size");
+                property_control(
+                    ui,
+                    node,
+                    property,
+                    time,
+                    auto_key,
+                    aces,
+                    &mut response,
+                    publishable,
+                    &mut promotion,
+                    split.then_some(&mut self.3),
+                    references.as_mut(),
+                );
+            }
         }
         let mut shader_migration = None;
         let mut config = match node.prepare() {
@@ -200,6 +303,12 @@ impl Panel for Inspector {
             }
         };
         match &mut config {
+            P::ColorShift { .. }
+            | P::ChromaticAberration { .. }
+            | P::LensDistortion { .. }
+            | P::FilmEmulation { .. }
+            | P::Grain { .. }
+            | P::Retime { .. } => {}
             P::Shader { settings } => {
                 shader_migration = self.2.draw(ui, document.map(|d| (d, id)), settings);
                 let size = [
@@ -351,7 +460,7 @@ impl Panel for Inspector {
             P::Dissolve { curve } => {
                 fold_ui::sdk::normalized_curve::draw(ui, curve, None, f64::NAN, &mut response);
             }
-            P::Roto { .. } | P::Read { .. } => {}
+            P::Roto { .. } | P::Read { .. } | P::Viewer => {}
             P::Solid { .. } | P::Crop { .. } | P::Mask { .. } => {}
 
             P::Write { settings } => {
@@ -605,7 +714,8 @@ fn property_control(
         components: property.channels,
         unit: property.unit,
         range: property.range,
-        color: (property.id == "color" && !driven).then_some(aces),
+        color: (matches!(property.id.as_str(), "color" | "selected" | "target") && !driven)
+            .then_some(aces),
     }
     .draw_compact(
         ui,

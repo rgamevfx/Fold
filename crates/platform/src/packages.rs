@@ -1029,6 +1029,10 @@ impl PackageRegistry {
         };
         self.document_outputs(document)
     }
+    pub fn working_output(&self, snapshot: &Snapshot, id: DocumentId) -> Option<DocumentRef> {
+        self.video
+            .working_output(snapshot.state().documents.get(&id)?)
+    }
     /// Resolve outputs before an atomic create-and-place transaction is committed.
     pub fn document_outputs(&self, document: &Document) -> Vec<crate::workspace::OutputDescriptor> {
         let mut outputs = self.video.outputs(document);

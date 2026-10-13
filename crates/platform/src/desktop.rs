@@ -269,6 +269,14 @@ pub struct GpuPreviewResult {
     pub consumers: Vec<(crate::workspace::PanelInstanceId, u64)>,
 }
 pub trait DesktopClient {
+    fn probe_image(
+        &mut self,
+        _request: crate::image_probe::Request,
+        _cancel: fold_media::Cancel,
+    ) -> Result<crate::image_probe::Receiver, String> {
+        Err("Image sampling is unavailable".into())
+    }
+
     fn hierarchy(
         &self,
         _document: fold_foundation::DocumentId,
@@ -413,6 +421,14 @@ pub trait DesktopClient {
             .into_iter()
             .map(|name| name.to_owned().try_into())
             .collect()
+    }
+    /// UI intent: direct the existing viewer to this editor's working route.
+    fn show_working_output(&mut self) {}
+    fn working_output(
+        &self,
+        document: fold_foundation::DocumentId,
+    ) -> Option<fold_project::DocumentRef> {
+        self.outputs(document).first().map(|o| o.reference.clone())
     }
     fn outputs(
         &self,

@@ -303,6 +303,9 @@ impl fold_platform::packages::EvaluationIdentity for Documents {
         let mut graph = Composite::from_document(document)?;
         for node in &mut graph.nodes {
             node.position = None;
+            if node.operation.operation == "Viewer" {
+                node.extensions.remove(crate::viewer::DOCKED);
+            }
         }
         graph.nodes.sort_by_key(|n| n.id);
         serde_json::to_vec(&graph).map_err(|e| e.to_string())
@@ -317,7 +320,7 @@ pub fn register(registry: &mut PackageRegistry) -> Result<(), String> {
             host_api: HOST_API,
             dependencies: &[],
             panels: PANELS,
-            build: concat!(env!("CARGO_PKG_VERSION"), ":compositor-schema8-evaluator10"),
+            build: concat!(env!("CARGO_PKG_VERSION"), ":compositor-schema8-evaluator12"),
         },
         documents: vec![Box::new(Documents)],
         commands: vec![

@@ -312,11 +312,13 @@ pub fn author(d: &Document, edits: &[Value]) -> Result<Document, String> {
                     v.keys().any(|k| {
                         !matches!(
                             k.as_str(),
-                            "operation" | "animation" | "effect" | "position"
+                            "operation" | "animation" | "effect" | "position" | "disabled"
                         )
                     })
                 }) {
-                    return Err("node patch allows operation/animation/effect/position".into());
+                    return Err(
+                        "node patch allows operation/animation/effect/position/disabled".into(),
+                    );
                 }
                 let previous = c.node(node)?.prepare()?.config().clone();
                 patch(c.node_mut(node)?, &value)?;

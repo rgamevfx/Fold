@@ -35,3 +35,9 @@ pub fn register(registry: &mut PanelRegistry) -> Result<(), String> {
         ),
     )
 }
+
+mod filters;
+
+mod lens;
+
+mod qualifier;

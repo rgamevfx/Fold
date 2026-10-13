@@ -461,6 +461,32 @@ impl Workspace {
             viewer.editor = None;
         }
     }
+    /// An explicit View action may switch the existing viewer's source; ordinary
+    /// node selection never calls this. Prefer its current follower, then its group.
+    pub fn view_editor(&mut self, editor: PanelInstanceId, time: Time) -> Option<PanelInstanceId> {
+        let group = self.editors.get(&editor)?.group;
+        if group == LinkGroup::Unlinked {
+            return None;
+        }
+        let viewer = self
+            .viewer_for_editor(editor)
+            .ok()
+            .or_else(|| {
+                self.viewers
+                    .iter()
+                    .find(|(_, v)| v.group == group && v.binding == ViewerBinding::Linked)
+                    .map(|(&id, _)| id)
+            })
+            .or_else(|| {
+                self.viewers
+                    .iter()
+                    .find(|(_, v)| v.group == group)
+                    .map(|(&id, _)| id)
+            })?;
+        self.follow_source(viewer, editor);
+        self.viewers.get_mut(&viewer)?.time = time;
+        Some(viewer)
+    }
     pub fn pin_output(&mut self, viewer: PanelInstanceId, output: DocumentRef) {
         let mut candidates = self
             .editors

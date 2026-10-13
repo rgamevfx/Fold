@@ -59,7 +59,14 @@ impl Default for Effect {
 impl Effect {
     pub(crate) fn for_config(config: &crate::OperationConfig) -> Self {
         let mut effect = Self::default();
-        if matches!(config, crate::OperationConfig::ColorGrade { .. }) {
+        if matches!(
+            config,
+            crate::OperationConfig::ColorGrade { .. }
+                | crate::OperationConfig::FilmEmulation { .. }
+                | crate::OperationConfig::ColorShift { .. }
+                | crate::OperationConfig::ChromaticAberration { .. }
+                | crate::OperationConfig::Grain { .. }
+        ) {
             effect.channels.truncate(3);
         }
         effect
@@ -156,6 +163,10 @@ impl crate::PreparedComposite<'_> {
                     RGBA.map(|name| ChannelName::try_from(name.to_owned()).unwrap())
                         .into()
                 });
+            if node.disabled {
+                outputs.insert(id, names);
+                continue;
+            }
             match &node.config() {
                 crate::OperationConfig::Read {
                     source: crate::Source::Document { source, .. },

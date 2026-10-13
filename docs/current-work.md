@@ -103,6 +103,156 @@ warnings. See [commands and limits](../resources/render/validation.json).
 Workspace, spatial adapter, installed package and native artist acceptance were
 not run for this change set. Existing uncommitted media/Motion/UI work was preserved.
 
+## Photographic compositor nodes: artist review accepted
+
+Current acceptance (2026-10-13): the artist approved the filters, RIFE, Viewer
+and graph interactions after optimized-build review. Workspace all-target Clippy
+with the desktop feature passed with warnings after correcting a test-only
+renderer call. The earlier validation notes below record the evidence and limits
+at each implementation stage; their deferred Clippy and general artist-review
+status is superseded by this acceptance. Full workspace tests were not rerun,
+as requested. Broader footage, hardware and installed-package qualification
+remain open.
+
+Lens Distortion, Film Emulation (eight original scene-linear looks), Grain
+(film/sensor modes) and Retime use native compositor records and the shared
+animation, linking, expression and edit lifecycle. The old Film Look/Grain
+library constructors now create these native operators. Lens has a viewer center
+handle and reference grid; advanced controls remain in inspector sections.
+
+Retime's Source frame curve starts at identity, in the upstream sampling grid
+initialized from the composition rate. Nearest/frame blending, hold/black/loop/
+bounce boundaries and shutter angle/offset/sample controls request upstream
+node/time pairs. Grain before Retime follows source time; grain after it follows
+output time. Optical flow is not included. A reusable effect's already-bound
+image cannot be requested at a different time inside that effect: place Retime
+before the effect or use an internal Read source.
+
+Artist review found an ImGui ID collision between Retime's Motion blur checkbox
+and its shutter section; the checkbox now has a distinct internal ID. Shutter
+samples refine integration over the existing source-frame grid, not optical-flow
+intermediate images. At identity timing with a centered 180° shutter, 4 and 64
+samples can produce identical frame weights; increasing shutter angle changes
+the exposure duration. Native confirmation of the corrected inspector remains
+pending.
+The focused temporal-sampler regression passed: identity timing gives identical
+4/64-sample weights, while 16× timing changes the contributing frame set from 4
+to 9. The existing compositor inspector draw regression also passed. This does
+not establish live Retime interaction or rendered-pixel acceptance; the desktop
+was not rebuilt or restarted for this correction. Workspace tests and Clippy
+remain deferred.
+
+The photographic filters use the shared GPU shader path, explicit scene-linear
+color interpretation and preserved alpha. Looks are original analytic film
+looks, not measured named-stock LUTs. A focused compositor/UI check and optimized
+Desktop build passed. A combined 960×540 ACEScg diagnostic frame was rendered and
+inspected on GTX 1070 / NVIDIA 580.173.02 after correcting a shader keyword and
+adjusting film-grain density response. This is shader-loading and image evidence,
+not temporal/media regression or native interaction acceptance. Native screenshots
+were unavailable through the current computer-use provider.
+
+Color Shift and Chromatic Aberration are also implemented as native operators.
+Color Shift provides an input eyedropper, selected-color swatch, Range/Softness,
+collapsed hue/saturation/brightness tolerances, hue/saturation/brightness edits,
+and an optional target color that preserves luminance shading. Show matte is a
+viewer-only diagnostic; it does not mutate the effect or the normal output.
+The input picker samples an alpha-weighted 3×3 neighborhood in scene-linear
+working RGB from an aspect-preserving preview capped at 1024 pixels per axis.
+Sampling/rendering runs on a cancellable worker; seeking, playback or selection
+changes invalidate the pick. Matte refreshes after a parameter gesture completes.
+Chromatic Aberration provides global and per-channel radial separation, signed
+channel X/Y offsets, fringe-only blur/saturation, center protection, falloff,
+edge sampling and a draggable optical center. Both use the existing numeric
+curve/link/expression catalog and guarded Undo transactions; RGB swatches use
+the shared animated color control.
+
+For these two nodes, the desktop feature check, three WGSL source validations
+and optimized desktop build passed. A 480×270 uncommitted ACEScg candidate was
+rendered on GTX 1070 / NVIDIA 580.173.02: input, combined effects (including
+fringe blur), and qualifier matte all rendered and were visually inspected.
+This verifies shader loading and diagnostic output routing, not native
+interaction acceptance. The optimized app was opened on a separate saved copy
+of the artist's revision 103; the original running session was preserved.
+Input picking, matte interaction, target-color behavior on footage, curve/link/
+expression edits, Undo/cancel and narrow inspector acceptance remain for artist
+review. Real-Session interaction regressions have not been run for these nodes.
+
+At the user's request, full tests and Clippy are deferred until their hands-on
+review. Still review each film look on real footage, lens round trips and edges,
+grain temporal behavior, retime ramps/reverse/freeze/boundaries, curve and
+link/expression edits, and viewer/inspector Undo/cancel at normal and narrow sizes.
+The real-Session lifecycle and media/export regressions remain pending.
+
+### RIFE interpolation: implemented, artist review accepted
+
+Retime now offers Nearest, Frame Blend and RIFE. RIFE options contain Full/Half/
+Quarter motion resolution and a cut threshold (zero disables detection). Existing
+Source Frame curves, links/expressions, boundary modes and shutter controls stay
+on the same Retime node. Each distinct shutter position is synthesized before
+exposure accumulation; exact source frames and held/frozen samples bypass inference.
+
+The packaged, pinned ncnn/Vulkan v4.6 backend is embedded behind `fold-rife`.
+Weights, pipelines and bounded GPU tensor pools persist. Source preparation is
+reused within a shutter evaluation; exact graph operations use renderer deduplication.
+This is not a persistent cross-frame flow cache: v4.6 flow depends on the requested
+timestep. External-memory buffer exchange keeps tensors GPU resident, with explicit
+ownership transfers and completion waits. Cut detection reads a four-byte score.
+Missing runtime/model, unsupported GPU sharing or budget exhaustion produce errors,
+not a silent change to frame blending. Native inference cannot be interrupted
+mid-dispatch; cancellation is checked between jobs/stages.
+
+The current adapter uses FP32. An sRGB guide estimates flow/masks; reconstruction
+warps original scene-linear premultiplied RGBA. Synthetic motion qualification
+checks fractional positioning, HDR and transparency, but does not establish stock
+RIFE pixel parity or high-quality handling of all HDR/alpha footage. Auxiliary
+channels retain frame blending. Hard cuts use a coarse image-difference heuristic
+and nearest-frame hold; camera flashes and rapid motion need artist review.
+
+Focused temporal tests cover exact frames, distinct shutter fractions, freeze and
+legacy blend sampling. The native runtime builds and the GPU probe runs on GTX
+1070 / NVIDIA 580.173.02; warm 720p RIFE-stage time was roughly 47–53 ms in the
+focused FP32 run (not end-to-end playback FPS). See the reproducible
+[`rife_profile` probe](../crates/render/examples/rife_profile.rs) and
+[qualification measurements](../resources/rife/qualification.json).
+
+The optimized desktop also rendered the existing animated Retime curve with
+16 shutter samples, Half motion resolution and downstream artist filters in
+ACEScg through the public candidate path. The frame was visually inspected;
+committed pixels matched the candidate and the review copy was saved. This is
+a smoke check, not moving-footage or native interaction acceptance.
+
+Remaining acceptance: real footage with occlusion, fine detail, fast pans and cuts;
+reverse/ramp/freeze with shutter blur; normal/narrow native controls and Undo;
+export/viewer agreement; installed-package relocation and non-NVIDIA Vulkan GPUs.
+FP16 and broader caching/performance work should follow measured artist feedback.
+Full suites and Clippy remain deferred until hands-on review, as requested.
+
+## Compositor working Viewer: artist review accepted
+
+The existing viewer panel can follow a separate terminal Viewer node. Select a
+node and press **1**, or choose **View in Viewer (1)** from its context menu.
+The first action creates one docked Viewer; later actions reconnect its single
+input without changing selection or Output. Viewer has no parameters or output
+socket. Manual wiring, disconnection and deletion use ordinary graph transactions.
+The Add menu also exposes Viewer when the graph has none. Selecting Output can
+preview its published branch; Viewer cannot feed a processing node.
+
+Viewer can drag freely or dock at the graph's bottom edge. A small docking guide
+appears during its drag. Docking and position commit together; Escape restores the
+previous state. Its source and dock state persist in the document. The existing
+viewer panel and transport controls are reused. Explicit viewing can switch an
+existing viewer in the editor's link group from Composition to the child graph;
+ordinary selection cannot. Composition/Timeline references to `video` continue
+to receive Output.
+
+Focused checks passed: desktop compilation, Session route/output isolation with
+Undo/Redo/save/reopen, shared-canvas shortcut and dock/undock/cancel at 850/280-pixel
+widths, and workspace viewer routing/time isolation. The optimized desktop build passed
+and was opened on a separate copy of the latest saved review project; its public
+catalog exposes the parameterless Viewer. Native artist interaction and
+visual docking acceptance remain open. Full suites and Clippy remain deferred
+until the user's hands-on review.
+
 ## Final acceptance gate
 
 - Complete the remaining slices and removal audit, retaining generic opaque
@@ -120,3 +270,42 @@ not run for this change set. Existing uncommitted media/Motion/UI work was prese
 Update this file in place when a gate changes. Keep local project backups and
 running process/socket details outside repository documentation; discover and
 save live artwork before restarting any review instance.
+
+## Compositor graph interaction: artist review accepted
+
+Delete bridges the primary input through a removed node or chain; Merge uses B.
+A deliberately quick shake extracts a dragged node and repairs the pipe, including
+Viewer connections. Release commits the gesture once; Escape restores wiring and
+position. **D** or the node context menu toggles bypass; mixed selections disable
+together and all-disabled selections enable together. Bypass preserves controls,
+curves and wiring, and skips Retime interpolation/shutter work. Source nodes bypass
+to transparent black. Output and Viewer remain terminal routes without Disable.
+Dropping a loose or freshly extracted node onto a compatible wire inserts it
+using its primary input and output. Targeting follows the actual dragged node,
+uses the card bounds plus a 12 px margin, and chooses the nearest compatible wire.
+The highlighted connection previews insertion; release snaps the card center to
+the pipe. Extraction, movement and reinsertion remain one Undo entry. Focused
+normal/narrow gesture checks cover unselected-node dragging, near-edge drops,
+alignment, shake-then-insert and Escape restoration.
+Selection has a stronger outline and tinted fill; disabled cards are subdued with
+a diagonal strike. Native shake sensitivity and visual acceptance remain for
+artist review before broad validation.
+
+Focused checks cover chain/Viewer reconnection, real Session bypass and extraction
+preview/cancel/Undo/Redo/persistence, shake jitter rejection and cancellation at
+850/280 px, the non-repeating D shortcut, and preservation of the repaired wire
+through native Delete. The optimized desktop build and package boundary check
+passed. Full suites and Clippy are deferred
+until artist review, as requested.
+
+Compositor search groups are I/O, Color, Filter, Distort, Time, Merge, Mask and
+Utility; Chromatic Aberration belongs to Filter. Muted node fills use editable
+UI > Node group colors preferences, shared by existing graph views and persisted
+outside project documents. Tab search opens at the last graph click, clamped to
+the panel; the scrollable catalog has category headings and searches both node
+and group names. Enter adds the first matching node. With one processing source
+selected, adding a compatible node inserts it after that source, reroutes its
+consumers (including Viewer), selects the new node, and commits one Undo entry.
+New sources and incompatible types remain loose. Focused checks cover preference
+persistence/live updates, popup position and narrow bounds, and Grade/Merge
+insertion through Session Undo/Redo. The artist accepted the category colors and insertion workflow.

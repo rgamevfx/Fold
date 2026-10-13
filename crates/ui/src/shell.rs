@@ -568,6 +568,7 @@ impl Shell {
             .collect();
         let mut seeks = Vec::new();
         let mut layer_graphs = Vec::new();
+        let mut working_views = Vec::new();
         let mut navigations = Vec::new();
         let mut activations = Vec::new();
         let mut close_editor = None;
@@ -649,6 +650,7 @@ impl Shell {
                     let mut context = PanelContext::new(client, &mut scoped).instance(id).with_cache(&self.cached_previews).with_cache_reference(editor_cache.get(&id).cloned().flatten());
                     editor.panels.editor.draw(ExtensionUi { ui, host: &mut context });
                     if let Some(time) = context.seek_request() { seeks.push((id, time)); }
+                    if let Some(time) = context.working_view_requested() { working_views.push((id,time)); }
                     if context.selection_requested() { publish.push((id, context.state().selection.clone())); }
                     if let Some(graph) = context.take_layer_graph() { layer_graphs.push((id, graph)); }
                     drop(context);
@@ -1050,6 +1052,9 @@ impl Shell {
                             if let Some(time) = context.seek_request() {
                                 seeks.push((id, time, locked_binding.is_some()));
                             }
+                            if let Some(time) = context.working_view_requested() {
+                                working_views.push((id, time));
+                            }
                             if context.selection_requested() && locked_binding.is_none() {
                                 publish.push((id, context.state().selection.clone()));
                             }
@@ -1108,6 +1113,9 @@ impl Shell {
         self.flush_selections(client);
         for (parent, graph) in layer_graphs {
             self.open_layer_graph(parent, graph);
+        }
+        for (editor, time) in working_views {
+            self.workspace.view_editor(editor, time);
         }
         // Navigation may have introduced a document not present in the previous
         // provider snapshot. Resolve it before matching queued editor seeks.

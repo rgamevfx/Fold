@@ -8,6 +8,7 @@ use fold_ui::sdk::{
 };
 
 pub(super) struct Canvas {
+    lens: super::lens::Editor,
     state: Shared,
     files: fold_ui::sdk::project_drop::FileDrop,
     canvas: GraphCanvas,
@@ -16,6 +17,7 @@ pub(super) struct Canvas {
 impl Canvas {
     pub fn new(state: Shared) -> Self {
         Self {
+            lens: Default::default(),
             state,
             files: Default::default(),
             canvas: GraphCanvas::default(),
@@ -24,9 +26,30 @@ impl Canvas {
     }
 }
 impl Panel for Canvas {
+    fn prepare_frame(&mut self, context: &mut imgui::Context) {
+        self.state.borrow().qualifier.borrow_mut().prepare(context);
+    }
+
     fn draw_viewer_overlay(&mut self, context: ExtensionUi<'_>, rect: fold_ui::sdk::ViewerRect) {
         let mut state = self.state.borrow_mut();
         state.sync(context.host);
+        let qualifier = state.qualifier.clone();
+        qualifier.borrow_mut().draw(
+            ExtensionUi {
+                ui: context.ui,
+                host: context.host,
+            },
+            rect,
+            &mut state,
+        );
+        self.lens.draw(
+            ExtensionUi {
+                ui: context.ui,
+                host: context.host,
+            },
+            rect,
+            &mut state,
+        );
         let tools = state.roto.clone();
         tools.borrow_mut().draw(context, rect, &mut state);
     }
@@ -85,6 +108,8 @@ impl Panel for Canvas {
             state.cancel(host);
         }
         state.roto.borrow_mut().reset_gesture();
+        self.lens.reset();
+        state.qualifier.borrow_mut().reset();
     }
     fn id(&self) -> &'static str {
         package::PANEL
@@ -128,7 +153,7 @@ impl Canvas {
                 ui,
                 "view-composite",
                 ToolbarIcon::View,
-                "Show composite output in viewer",
+                "Show graph in viewer · select a node and press 1 to route Viewer",
             ) {
                 state.cancel(host);
                 state.view(host);

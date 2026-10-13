@@ -185,6 +185,55 @@ pub const OPERATORS: &[Operator] = &[
         output: Image,
         version: 1,
     },
+    Operator {
+        kernel: "LensDistortion",
+        id: "Lens Distortion",
+        inputs: &[Image],
+        output: Image,
+        version: 1,
+    },
+    Operator {
+        kernel: "FilmEmulation",
+        id: "Film Emulation",
+        inputs: &[Image],
+        output: Image,
+        version: 1,
+    },
+    Operator {
+        kernel: "Grain",
+        id: "Grain",
+        inputs: &[Image],
+        output: Image,
+        version: 1,
+    },
+    Operator {
+        kernel: "Retime",
+        id: "Retime",
+        inputs: &[Image],
+        output: Image,
+        version: 1,
+    },
+    Operator {
+        kernel: "ColorShift",
+        id: "Color Shift",
+        inputs: &[Image],
+        output: Image,
+        version: 1,
+    },
+    Operator {
+        kernel: "ChromaticAberration",
+        id: "Chromatic Aberration",
+        inputs: &[Image],
+        output: Image,
+        version: 1,
+    },
+    Operator {
+        kernel: "Viewer",
+        id: "Viewer",
+        inputs: &[Image],
+        output: Image,
+        version: 1,
+    },
 ];
 
 impl Operator {
@@ -194,6 +243,28 @@ impl Operator {
         use fold_render::operations::Unary;
         let rect = [0, 0, info.width, info.height];
         Ok(match (self.id, self.version) {
+            ("Color Shift", 1) => C::ColorShift {
+                settings: Default::default(),
+            },
+            ("Chromatic Aberration", 1) => C::ChromaticAberration {
+                settings: Default::default(),
+            },
+            ("Lens Distortion", 1) => C::LensDistortion {
+                settings: Default::default(),
+            },
+            ("Film Emulation", 1) => C::FilmEmulation {
+                settings: Default::default(),
+            },
+            ("Grain", 1) => C::Grain {
+                settings: Default::default(),
+            },
+            ("Retime", 1) => C::Retime {
+                settings: crate::retime::Retime {
+                    last: f64::from(info.frames.saturating_sub(1)),
+                    rate: info.rate,
+                    ..Default::default()
+                },
+            },
             ("Roto", 1) => C::Roto {
                 settings: Default::default(),
             },
@@ -220,6 +291,7 @@ impl Operator {
             ("Crop", 1) => C::Crop { rect },
             ("Mask", 1) => C::Mask { rect },
             ("Output", 1) => C::Output,
+            ("Viewer", 1) => C::Viewer,
             ("Shuffle", 2) => C::Shuffle { mappings: vec![] },
             ("Cull Channels", 1) => C::CullChannels {
                 channels: Default::default(),

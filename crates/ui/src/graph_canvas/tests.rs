@@ -9,6 +9,13 @@ struct Context {
     cancels: usize,
     selections: usize,
     vertical: bool,
+    dock: Option<(ObjectId, bool)>,
+    view_calls: usize,
+    disable_calls: usize,
+    bridge_delete: bool,
+    add_after: bool,
+    added_after: Option<ObjectId>,
+    width: f32,
 }
 impl Context {
     fn new() -> Self {
@@ -64,10 +71,34 @@ impl Context {
             cancels: 0,
             selections: 0,
             vertical: false,
+            dock: None,
+            view_calls: 0,
+            disable_calls: 0,
+            bridge_delete: false,
+            add_after: false,
+            added_after: None,
+            width: 850.,
         }
     }
 }
 impl GraphContext for Context {
+    fn can_add_after(&self, _: ObjectId) -> bool {
+        self.add_after
+    }
+    fn node_disabled(&self, _: ObjectId) -> Option<bool> {
+        Some(false)
+    }
+    fn can_detach(&self, _: ObjectId) -> bool {
+        true
+    }
+    fn bottom_dock(&self, node: ObjectId) -> Option<bool> {
+        self.dock.filter(|(id, _)| *id == node).map(|(_, d)| d)
+    }
+    fn view_selected(&mut self) -> Result<(), String> {
+        self.view_calls += 1;
+        Ok(())
+    }
+
     fn presentation(&self) -> GraphPresentation {
         if self.vertical {
             GraphPresentation::VerticalCompact
@@ -115,8 +146,41 @@ impl GraphContext for Context {
                         .position = Some(p);
                 }
             }
+            GraphEvent::PreviewChanges(changes) => {
+                for change in changes {
+                    apply_test_change(&mut self.graph, change);
+                }
+            }
             GraphEvent::Commit(changes) => {
                 for change in changes {
+                    if let GraphChange::AddAfter { source, .. } = &change {
+                        self.added_after = Some(*source);
+                    }
+                    if self.bridge_delete
+                        && let GraphChange::Delete(ids) = &change
+                    {
+                        for id in ids {
+                            let upstream = self
+                                .graph
+                                .wires
+                                .iter()
+                                .find(|w| w.target.node == *id)
+                                .map(|w| w.source.clone());
+                            if let Some(source) = upstream {
+                                for wire in &mut self.graph.wires {
+                                    if wire.source.node == *id {
+                                        wire.source = source.clone();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if matches!(change, GraphChange::ToggleDisabled(_)) {
+                        self.disable_calls += 1;
+                    }
+                    if let GraphChange::Dock { node, docked } = &change {
+                        self.dock = Some((*node, *docked));
+                    }
                     apply_test_change(&mut self.graph, change);
                 }
                 self.commits += 1;
@@ -138,7 +202,7 @@ fn frame(imgui: &mut imgui::Context, canvas: &mut GraphCanvas, graph: &mut Conte
     let ui = imgui.frame();
     ui.window("graph")
         .position([0.; 2], imgui::Condition::Always)
-        .size([850., 800.], imgui::Condition::Always)
+        .size([graph.width, 800.], imgui::Condition::Always)
         .build(|| canvas.draw(ui, graph));
     assert!(imgui.render_legacy().total_vtx_count() > 100);
 }
@@ -518,6 +582,15 @@ mod rendering;
 
 fn apply_test_change(graph: &mut GraphView, change: GraphChange) {
     match change {
+        GraphChange::AddAfter {
+            template, position, ..
+        } => apply_test_change(graph, GraphChange::Add { template, position }),
+        GraphChange::Dock { .. } | GraphChange::ToggleDisabled(_) => {}
+        GraphChange::Detach(ids) => {
+            graph
+                .wires
+                .retain(|w| !ids.contains(&w.source.node) && !ids.contains(&w.target.node));
+        }
         GraphChange::Positions(positions) => {
             for (id, p) in positions {
                 graph
@@ -644,72 +717,105 @@ fn wire_delete_backspace_and_context_disconnect_remove_only_the_wire() {
 }
 
 #[test]
-fn toolbar_add_uses_last_graph_click_and_tab_uses_pointer() {
+fn toolbar_and_tab_search_use_last_graph_click() {
     let _guard = crate::IMGUI_TEST_LOCK.lock().unwrap();
-    let (mut imgui, mut canvas, mut graph) = gesture_fixture(true);
-    let point = [700., 650.];
-    imgui.io_mut().add_mouse_pos_event(point);
-    imgui.io_mut().add_mouse_wheel_event([0., 0.6]);
-    frames(&mut imgui, &mut canvas, &mut graph, 25);
-    // The desktop routes a physical left-background click through CanvasPan.
-    let mut pan = CanvasPan::default();
-    let button = pan.left_button(true, canvas.accepts_background_pan(point));
-    assert_eq!(button, imgui::MouseButton::Middle);
-    click(&mut imgui, &mut canvas, &mut graph, point, button);
-    pan.left_button(false, true);
-    let zoom = scale(&canvas) / 100.;
-    let expected = [0, 1].map(|i| (point[i] - canvas.view[0][i]) / zoom);
-    let add = canvas.add_probe;
-    click(
-        &mut imgui,
-        &mut canvas,
-        &mut graph,
-        add,
-        imgui::MouseButton::Left,
-    );
-    for i in 0..2 {
-        assert!(
-            (canvas.popup_position[i] - expected[i]).abs() < 1.,
-            "actual={:?}, expected={expected:?}",
-            canvas.popup_position
+    for width in [850., 280.] {
+        let (mut imgui, mut canvas, mut graph) = gesture_fixture(true);
+        graph.width = width;
+        canvas.frame_all();
+        frames(&mut imgui, &mut canvas, &mut graph, 30);
+        let point = [width - 100., 650.];
+        imgui.io_mut().add_mouse_pos_event(point);
+        imgui.io_mut().add_mouse_wheel_event([0., 0.6]);
+        frames(&mut imgui, &mut canvas, &mut graph, 25);
+        // The desktop routes a physical left-background click through CanvasPan.
+        let mut pan = CanvasPan::default();
+        let button = pan.left_button(true, canvas.accepts_background_pan(point));
+        assert_eq!(button, imgui::MouseButton::Middle);
+        click(&mut imgui, &mut canvas, &mut graph, point, button);
+        pan.left_button(false, true);
+        let zoom = scale(&canvas) / 100.;
+        let expected = [0, 1].map(|i| (point[i] - canvas.view[0][i]) / zoom);
+        let add = canvas.add_probe;
+        click(
+            &mut imgui,
+            &mut canvas,
+            &mut graph,
+            add,
+            imgui::MouseButton::Left,
         );
-    }
-    // Moving through the popup must not change the stored canvas location.
-    imgui.io_mut().add_mouse_pos_event([100., 150.]);
-    frames(&mut imgui, &mut canvas, &mut graph, 3);
-    for i in 0..2 {
-        assert!(
-            (canvas.popup_position[i] - expected[i]).abs() < 1.,
-            "actual={:?}, expected={expected:?}",
-            canvas.popup_position
+        for i in 0..2 {
+            assert!(
+                (canvas.popup_position[i] - expected[i]).abs() < 1.,
+                "actual={:?}, expected={expected:?}",
+                canvas.popup_position
+            );
+        }
+        // Moving through the popup must not change the stored canvas location.
+        imgui.io_mut().add_mouse_pos_event([100., 150.]);
+        frames(&mut imgui, &mut canvas, &mut graph, 3);
+        for i in 0..2 {
+            assert!(
+                (canvas.popup_position[i] - expected[i]).abs() < 1.,
+                "actual={:?}, expected={expected:?}",
+                canvas.popup_position
+            );
+        }
+        let template = canvas.template_probe;
+        click(
+            &mut imgui,
+            &mut canvas,
+            &mut graph,
+            template,
+            imgui::MouseButton::Left,
         );
-    }
-    let template = canvas.template_probe;
-    click(
-        &mut imgui,
-        &mut canvas,
-        &mut graph,
-        template,
-        imgui::MouseButton::Left,
-    );
-    assert_eq!(graph.graph.nodes.len(), 4);
-    for i in 0..2 {
-        assert!((graph.graph.nodes[3].position.unwrap()[i] - expected[i]).abs() < 1.);
-    }
-    click(
-        &mut imgui,
-        &mut canvas,
-        &mut graph,
-        point,
-        imgui::MouseButton::Left,
-    );
-    let pointer = [600., 500.];
-    imgui.io_mut().add_mouse_pos_event(pointer);
-    frame(&mut imgui, &mut canvas, &mut graph);
-    imgui.io_mut().add_key_event(imgui::Key::Tab, true);
-    frame(&mut imgui, &mut canvas, &mut graph);
-    for i in 0..2 {
-        assert!((canvas.popup_position[i] - (pointer[i] - canvas.view[0][i]) / zoom).abs() < 1.);
+        assert_eq!(
+            graph.graph.nodes.len(),
+            4,
+            "popup={:?}, template={:?}, bounds={:?}",
+            canvas.search_probe,
+            canvas.template_probe,
+            canvas.drop_bounds()
+        );
+        for i in 0..2 {
+            assert!((graph.graph.nodes[3].position.unwrap()[i] - expected[i]).abs() < 1.);
+        }
+        click(
+            &mut imgui,
+            &mut canvas,
+            &mut graph,
+            point,
+            imgui::MouseButton::Left,
+        );
+        let pointer = [600., 500.];
+        imgui.io_mut().add_mouse_pos_event(pointer);
+        frame(&mut imgui, &mut canvas, &mut graph);
+        imgui.io_mut().add_key_event(imgui::Key::Tab, true);
+        frame(&mut imgui, &mut canvas, &mut graph);
+        for i in 0..2 {
+            assert!((canvas.popup_position[i] - (point[i] - canvas.view[0][i]) / zoom).abs() < 1.);
+        }
+        frames(&mut imgui, &mut canvas, &mut graph, 3);
+        let [p, size] = canvas.search_probe.unwrap();
+        let bounds = canvas.drop_bounds().unwrap();
+        for i in 0..2 {
+            assert!(p[i] >= bounds[0][i] && p[i] + size[i] <= bounds[1][i] + 1.);
+            assert!(
+                (p[i] - point[i].clamp(bounds[0][i], (bounds[1][i] - size[i]).max(bounds[0][i])))
+                    .abs()
+                    < 2.
+            );
+        }
+        imgui.io_mut().add_key_event(imgui::Key::Tab, false);
+        graph.graph.selected = vec![graph.graph.nodes[0].id];
+        graph.add_after = true;
+        frames(&mut imgui, &mut canvas, &mut graph, 2);
+        imgui.io_mut().add_key_event(imgui::Key::Enter, true);
+        frames(&mut imgui, &mut canvas, &mut graph, 3);
+        imgui.io_mut().add_key_event(imgui::Key::Enter, false);
+        assert_eq!(graph.graph.nodes.len(), 5);
+        assert_eq!(graph.added_after, Some(graph.graph.nodes[0].id));
+        drop(canvas);
     }
 }
 
@@ -717,11 +823,20 @@ fn toolbar_add_uses_last_graph_click_and_tab_uses_pointer() {
 fn drag_loose_node_into_wire_previews_commits_once_and_escape_restores() {
     let _guard = crate::IMGUI_TEST_LOCK.lock().unwrap();
     for vertical in [false, true] {
-        for cancel in [false, true] {
+        for (cancel, width) in [(false, 850.), (true, 850.), (false, 280.), (true, 280.)] {
             let (mut imgui, mut canvas, mut graph) = gesture_fixture(vertical);
+            graph.width = width;
+            graph.graph.selected = vec![graph.graph.nodes[0].id];
+            graph.graph.generation += 1;
+            canvas.frame_all();
+            frames(&mut imgui, &mut canvas, &mut graph, 30);
             let node = graph.graph.nodes[2].id;
             let start = canvas.node_probes.iter().find(|p| p.0 == node).unwrap().1;
-            let destination = canvas.wire_probe.0;
+            let pipe = canvas.wire_probe.0;
+            let size = canvas.node_probes.iter().find(|p| p.0 == node).unwrap().2;
+            let axis = if vertical { 0 } else { 1 };
+            let mut destination = pipe;
+            destination[axis] += size[axis] * scale(&canvas) / 100. * 0.5 + 6.;
             imgui.io_mut().add_mouse_pos_event(start);
             frames(&mut imgui, &mut canvas, &mut graph, 2);
             imgui
@@ -760,6 +875,11 @@ fn drag_loose_node_into_wire_previews_commits_once_and_escape_restores() {
                 assert!(graph.graph.wires.iter().any(|w| w.target.node == node));
                 assert!(graph.graph.wires.iter().any(|w| w.source.node == node));
                 assert_ne!(graph.graph.nodes[2].position, before.nodes[2].position);
+                let snapped = canvas.node_probes.iter().find(|p| p.0 == node).unwrap().1;
+                assert!(
+                    (snapped[axis] - pipe[axis]).abs() < 2.,
+                    "node should align with pipe: {snapped:?}, {pipe:?}"
+                );
             }
             drop(canvas);
         }
@@ -1056,4 +1176,226 @@ fn ambiguous_insertion_waits_for_port_choice_and_escape_cancels_the_move() {
         }
         drop(canvas);
     }
+}
+
+#[test]
+fn viewer_dock_drag_shortcut_and_cancel_at_normal_and_narrow_sizes() {
+    let _guard = crate::IMGUI_TEST_LOCK.lock().unwrap();
+    for width in [850., 280.] {
+        let (mut ui, mut canvas, mut graph) = gesture_fixture(true);
+        let id = graph.graph.nodes[2].id;
+        graph.graph.nodes[2].outputs.clear();
+        graph.dock = Some((id, true));
+        graph.width = width;
+        frames(&mut ui, &mut canvas, &mut graph, 20);
+        let center = canvas.node_probes.iter().find(|p| p.0 == id).unwrap().1;
+        let bounds = canvas.drop_bounds().unwrap();
+        assert!(center[0] > bounds[0][0] && center[0] < bounds[1][0]);
+        assert!(center[1] > bounds[1][1] - 70. && center[1] < bounds[1][1]);
+        assert_eq!(
+            graph.commits, 0,
+            "anchoring must not author graph positions"
+        );
+        click(
+            &mut ui,
+            &mut canvas,
+            &mut graph,
+            center,
+            imgui::MouseButton::Left,
+        );
+        assert_eq!(
+            graph.commits, 0,
+            "clicking the anchored Viewer must not make an Undo entry"
+        );
+        ui.io_mut().add_key_event(imgui::Key::Key1, true);
+        frames(&mut ui, &mut canvas, &mut graph, 2);
+        ui.io_mut().add_key_event(imgui::Key::Key1, false);
+        frames(&mut ui, &mut canvas, &mut graph, 2);
+        assert_eq!(graph.view_calls, 1);
+        let free = [center[0], center[1] - 180.];
+        for (target, docked) in [(free, false), (center, true)] {
+            let start = canvas.node_probes.iter().find(|p| p.0 == id).unwrap().1;
+            ui.io_mut().add_mouse_pos_event(start);
+            frames(&mut ui, &mut canvas, &mut graph, 2);
+            ui.io_mut()
+                .add_mouse_button_event(imgui::MouseButton::Left, true);
+            frames(&mut ui, &mut canvas, &mut graph, 2);
+            ui.io_mut().add_mouse_pos_event(target);
+            frames(&mut ui, &mut canvas, &mut graph, 4);
+            ui.io_mut()
+                .add_mouse_button_event(imgui::MouseButton::Left, false);
+            frames(&mut ui, &mut canvas, &mut graph, 4);
+            assert_eq!(graph.dock, Some((id, docked)));
+        }
+        assert_eq!(graph.commits, 2, "one Undo entry per dock/undock drag");
+        let start = canvas.node_probes.iter().find(|p| p.0 == id).unwrap().1;
+        ui.io_mut().add_mouse_pos_event(start);
+        frames(&mut ui, &mut canvas, &mut graph, 2);
+        ui.io_mut()
+            .add_mouse_button_event(imgui::MouseButton::Left, true);
+        frames(&mut ui, &mut canvas, &mut graph, 2);
+        ui.io_mut().add_mouse_pos_event(free);
+        frames(&mut ui, &mut canvas, &mut graph, 3);
+        ui.io_mut().add_key_event(imgui::Key::Escape, true);
+        frames(&mut ui, &mut canvas, &mut graph, 2);
+        ui.io_mut().add_key_event(imgui::Key::Escape, false);
+        ui.io_mut()
+            .add_mouse_button_event(imgui::MouseButton::Left, false);
+        frames(&mut ui, &mut canvas, &mut graph, 3);
+        assert_eq!(graph.dock, Some((id, true)));
+        assert_eq!(graph.commits, 2);
+    }
+}
+
+#[test]
+fn shake_extracts_once_and_escape_restores() {
+    let _guard = crate::IMGUI_TEST_LOCK.lock().unwrap();
+    for width in [850., 280.] {
+        for cancel in [false, true] {
+            let (mut imgui, mut canvas, mut graph) = gesture_fixture(true);
+            graph.width = width;
+            graph.graph.wires.push(WireView {
+                source: Socket {
+                    node: graph.graph.nodes[0].id,
+                    key: "image".into(),
+                },
+                target: Socket {
+                    node: graph.graph.nodes[2].id,
+                    key: "image".into(),
+                },
+            });
+            graph.original = graph.graph.clone();
+            canvas.frame_all();
+            frames(&mut imgui, &mut canvas, &mut graph, 30);
+            let node = graph.graph.nodes[1].id;
+            let start = canvas.node_probes.iter().find(|p| p.0 == node).unwrap().1;
+            imgui.io_mut().add_mouse_pos_event(start);
+            frames(&mut imgui, &mut canvas, &mut graph, 2);
+            imgui
+                .io_mut()
+                .add_mouse_button_event(imgui::MouseButton::Left, true);
+            frames(&mut imgui, &mut canvas, &mut graph, 2);
+            for dx in [28., 56., 0., 56., 0., 56.] {
+                imgui
+                    .io_mut()
+                    .add_mouse_pos_event([start[0] + dx, start[1] - 45.]);
+                frames(&mut imgui, &mut canvas, &mut graph, 2);
+            }
+            assert_eq!(
+                graph.graph.wires.len(),
+                1,
+                "shake did not extract at {width}px"
+            );
+            assert!(
+                !graph
+                    .graph
+                    .wires
+                    .iter()
+                    .any(|w| w.source.node == node || w.target.node == node)
+            );
+            let destination = canvas.wire_probe.0;
+            imgui.io_mut().add_mouse_pos_event(destination);
+            frames(&mut imgui, &mut canvas, &mut graph, 4);
+            assert!(
+                canvas.insertion_probe,
+                "extracted node should target the new pipe"
+            );
+            assert_eq!(graph.commits, 0);
+            if cancel {
+                imgui.io_mut().add_key_event(imgui::Key::Escape, true);
+                frame(&mut imgui, &mut canvas, &mut graph);
+                imgui.io_mut().add_key_event(imgui::Key::Escape, false);
+            }
+            imgui
+                .io_mut()
+                .add_mouse_button_event(imgui::MouseButton::Left, false);
+            frames(&mut imgui, &mut canvas, &mut graph, 4);
+            assert_eq!(graph.commits, usize::from(!cancel));
+            if !cancel {
+                assert_eq!(graph.graph.wires.len(), 2);
+                assert!(graph.graph.wires.iter().any(|w| w.source.node == node));
+                assert!(graph.graph.wires.iter().any(|w| w.target.node == node));
+            }
+            if cancel {
+                assert_eq!(graph.graph.wires, graph.original.wires);
+                assert_eq!(
+                    graph.graph.nodes[1].position,
+                    graph.original.nodes[1].position
+                );
+            }
+            drop(canvas);
+        }
+    }
+}
+#[test]
+fn shake_ignores_jitter_and_slow_reversals() {
+    let mut shake = interactions::Shake::default();
+    for i in 0..20 {
+        assert!(!shake.sample([if i % 2 == 0 { 0. } else { 10. }, 0.], i as f64 / 60.));
+    }
+    for i in 0..20 {
+        assert!(!shake.sample([if i % 2 == 0 { 0. } else { 50. }, 0.], 1. + i as f64 * 0.5));
+    }
+}
+
+#[test]
+fn disable_shortcut_commits_once_without_key_repeat() {
+    let _guard = crate::IMGUI_TEST_LOCK.lock().unwrap();
+    let (mut imgui, mut canvas, mut graph) = gesture_fixture(true);
+    let node = graph.graph.nodes[2].id;
+    let start = canvas.node_probes.iter().find(|p| p.0 == node).unwrap().1;
+    click(
+        &mut imgui,
+        &mut canvas,
+        &mut graph,
+        start,
+        imgui::MouseButton::Left,
+    );
+    imgui.io_mut().add_key_event(imgui::Key::D, true);
+    frames(&mut imgui, &mut canvas, &mut graph, 40);
+    imgui.io_mut().add_key_event(imgui::Key::D, false);
+    frame(&mut imgui, &mut canvas, &mut graph);
+    assert_eq!(graph.disable_calls, 1);
+    assert_eq!(graph.commits, 1);
+}
+
+#[test]
+fn delete_keeps_feature_reconnected_wire() {
+    let _guard = crate::IMGUI_TEST_LOCK.lock().unwrap();
+    let (mut imgui, mut canvas, mut graph) = gesture_fixture(true);
+    let ids: Vec<_> = graph.graph.nodes.iter().map(|n| n.id).collect();
+    graph.graph.wires.push(WireView {
+        source: Socket {
+            node: ids[1],
+            key: "image".into(),
+        },
+        target: Socket {
+            node: ids[2],
+            key: "image".into(),
+        },
+    });
+    graph.graph.selected = vec![ids[1]];
+    graph.graph.generation += 1;
+    graph.bridge_delete = true;
+    frames(&mut imgui, &mut canvas, &mut graph, 5);
+    let center = canvas.node_probes.iter().find(|p| p.0 == ids[1]).unwrap().1;
+    click(
+        &mut imgui,
+        &mut canvas,
+        &mut graph,
+        center,
+        imgui::MouseButton::Left,
+    );
+    graph.graph.selected = vec![ids[1]];
+    graph.graph.generation += 1;
+    frames(&mut imgui, &mut canvas, &mut graph, 3);
+    imgui.io_mut().add_key_event(imgui::Key::Delete, true);
+    frames(&mut imgui, &mut canvas, &mut graph, 5);
+    imgui.io_mut().add_key_event(imgui::Key::Delete, false);
+    frames(&mut imgui, &mut canvas, &mut graph, 5);
+    assert_eq!(graph.graph.nodes.len(), 2);
+    assert_eq!(graph.graph.wires.len(), 1);
+    assert_eq!(graph.graph.wires[0].source.node, ids[0]);
+    assert_eq!(graph.graph.wires[0].target.node, ids[2]);
+    assert_eq!(graph.commits, 1);
 }

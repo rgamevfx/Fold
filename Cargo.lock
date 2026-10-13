@@ -2357,6 +2357,7 @@ dependencies = [
  "fold-gpu-sharing",
  "fold-media",
  "fold-native-video",
+ "fold-rife",
  "half",
  "lyon_tessellation",
  "naga",
@@ -2366,6 +2367,17 @@ dependencies = [
  "sha2",
  "tempfile",
  "tiny-skia",
+ "wgpu",
+]
+
+[[package]]
+name = "fold-rife"
+version = "0.1.0"
+dependencies = [
+ "ash",
+ "fold-foundation",
+ "libloading",
+ "sha2",
  "wgpu",
 ]
 

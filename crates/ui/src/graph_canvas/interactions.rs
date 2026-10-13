@@ -7,6 +7,7 @@ pub(super) struct Insertion {
     pub input: Socket,
     pub output: Socket,
     pub change: GraphChange,
+    pub position: Option<[f32; 2]>,
 }
 
 pub(super) fn insertions(
@@ -67,6 +68,7 @@ pub(super) fn insertions(
                     input: input_socket,
                     output: output_socket,
                     change,
+                    position: None,
                 });
             }
         }
@@ -106,5 +108,44 @@ pub(super) fn connection(
             })
         }
         _ => Err("Connect an output to an input".into()),
+    }
+}
+
+/// Deliberate screen-space zigzag, independent of canvas zoom. Small jitter and
+/// slow direction changes do not count; one extraction per held-button gesture.
+#[derive(Default, Debug)]
+pub(super) struct Shake {
+    anchor: Option<[f32; 2]>,
+    direction: [f32; 2],
+    last: f64,
+    reversals: u8,
+    fired: bool,
+}
+impl Shake {
+    pub fn sample(&mut self, point: [f32; 2], now: f64) -> bool {
+        if self.fired {
+            return false;
+        }
+        let Some(anchor) = self.anchor else {
+            self.anchor = Some(point);
+            self.last = now;
+            return false;
+        };
+        let delta = [point[0] - anchor[0], point[1] - anchor[1]];
+        let distance = delta[0].hypot(delta[1]);
+        if distance < 22. {
+            return false;
+        }
+        let direction = [delta[0] / distance, delta[1] / distance];
+        if now - self.last > 0.25 {
+            self.reversals = 0;
+        } else if direction[0] * self.direction[0] + direction[1] * self.direction[1] < -0.65 {
+            self.reversals += 1;
+        }
+        self.anchor = Some(point);
+        self.direction = direction;
+        self.last = now;
+        self.fired = self.reversals >= 3;
+        self.fired
     }
 }

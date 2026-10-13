@@ -177,3 +177,59 @@ fn duplicate_allocates_new_native_connection_parameter_track_and_key_identities(
     assert_ne!(a.keys[0].id, b.keys[0].id);
     assert_eq!(a.sample(Time::ZERO).unwrap(), b.sample(Time::ZERO).unwrap());
 }
+
+#[test]
+fn deletion_and_extraction_bridge_chains_background_and_viewer() {
+    let mut graph = fixture();
+    let source = graph.nodes[1].id;
+    let blur = graph.nodes[2].id;
+    let foreground = Node::new(
+        P::Solid {
+            rgba: [0., 1., 0., 1.],
+        },
+        vec![],
+    );
+    let merge = Node::new(
+        P::Composite {
+            mode: Default::default(),
+            channels: Default::default(),
+        },
+        vec![foreground.id, blur],
+    );
+    let merge_id = merge.id;
+    graph.nodes.extend([foreground, merge]);
+    graph.connect(merge_id, graph.output, "image").unwrap();
+    let viewer = graph.view_node(merge_id).unwrap();
+    let output_edge = graph.node(graph.output).unwrap().inputs[0]
+        .as_ref()
+        .unwrap()
+        .id;
+    let original = graph.clone();
+    graph.detach(&[merge_id, blur]).unwrap();
+    for id in [graph.output, viewer] {
+        assert_eq!(graph.node(id).unwrap().input_ids(), vec![Some(source)]);
+    }
+    for id in [merge_id, blur] {
+        assert!(
+            graph
+                .node(id)
+                .unwrap()
+                .input_ids()
+                .iter()
+                .all(Option::is_none)
+        );
+    }
+    assert_eq!(
+        graph.node(graph.output).unwrap().inputs[0]
+            .as_ref()
+            .unwrap()
+            .id,
+        output_edge
+    );
+    graph = original;
+    graph.remove(&[blur, merge_id]).unwrap();
+    assert_eq!(graph.node(viewer).unwrap().input_ids(), vec![Some(source)]);
+    assert_eq!(graph.render_order().unwrap(), vec![source, graph.output]);
+    graph.remove(&[source]).unwrap();
+    assert_eq!(graph.node(viewer).unwrap().input_ids(), vec![None]);
+}

@@ -50,6 +50,9 @@ pub struct Node {
     /// Fixed, named operator ports; None is a deliberately disconnected socket.
     pub inputs: Vec<Option<fold_graph::model::Edge>>,
     pub effect: crate::Effect,
+    /// Bypass evaluation while retaining authored controls and wiring.
+    #[serde(default)]
+    pub disabled: bool,
     #[serde(default)]
     pub position: Option<[f32; 2]>,
     #[serde(default)]
@@ -80,12 +83,13 @@ impl Node {
     pub fn new(parameters: OperationConfig, inputs: Vec<ObjectId>) -> Self {
         Self {
             operation: crate::operation::record(&parameters),
-            animation: Default::default(),
+            animation: crate::retime::initial_channels(&parameters),
             inputs: inputs
                 .into_iter()
                 .map(|node| Some(fold_graph::model::Reference::Node { node }.into()))
                 .collect(),
             effect: crate::Effect::for_config(&parameters),
+            disabled: false,
             position: None,
             extensions: Default::default(),
         }
