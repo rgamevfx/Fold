@@ -70,6 +70,79 @@ impl Affine {
         }
         Ok(())
     }
+    pub fn inverse(self) -> Result<Self, String> {
+        self.validate()?;
+        let [a, b, c, t] = self.0;
+        let cross = |u: [f64; 3], v: [f64; 3]| {
+            [
+                u[1] * v[2] - u[2] * v[1],
+                u[2] * v[0] - u[0] * v[2],
+                u[0] * v[1] - u[1] * v[0],
+            ]
+        };
+        let rows = [cross(b, c), cross(c, a), cross(a, b)];
+        let det = a.iter().zip(rows[0]).map(|(a, b)| a * b).sum::<f64>();
+        let mut inverse = Self([
+            std::array::from_fn(|i| rows[i][0] / det),
+            std::array::from_fn(|i| rows[i][1] / det),
+            std::array::from_fn(|i| rows[i][2] / det),
+            [0.; 3],
+        ]);
+        inverse.0[3] = inverse.vector(t).map(|v| -v);
+        inverse.validate()?;
+        Ok(inverse)
+    }
+    /// Exact TRS representation within floating-point tolerance; shear is rejected.
+    pub fn trs_components(self) -> Result<([f64; 3], [f64; 4], [f64; 3]), String> {
+        self.validate()?;
+        let scale = std::array::from_fn(|i| self.0[i].iter().map(|v| v * v).sum::<f64>().sqrt());
+        let r: [[f64; 3]; 3] = std::array::from_fn(|i| self.0[i].map(|v| v / scale[i]));
+        for (a, b) in [(0, 1), (0, 2), (1, 2)] {
+            if r[a].iter().zip(r[b]).map(|(a, b)| a * b).sum::<f64>().abs() > 1e-10 {
+                return Err("World-preserving move requires shear, which the native local transform cannot represent".into());
+            }
+        }
+        let trace = r[0][0] + r[1][1] + r[2][2];
+        let q = if trace > 0. {
+            let s = (trace + 1.).sqrt() * 2.;
+            [
+                (r[1][2] - r[2][1]) / s,
+                (r[2][0] - r[0][2]) / s,
+                (r[0][1] - r[1][0]) / s,
+                s / 4.,
+            ]
+        } else {
+            let i = if r[0][0] > r[1][1] && r[0][0] > r[2][2] {
+                0
+            } else if r[1][1] > r[2][2] {
+                1
+            } else {
+                2
+            };
+            let j = (i + 1) % 3;
+            let k = (i + 2) % 3;
+            let s = (1. + r[i][i] - r[j][j] - r[k][k]).max(0.).sqrt() * 2.;
+            let mut q = [0.; 4];
+            q[i] = s / 4.;
+            q[j] = (r[i][j] + r[j][i]) / s;
+            q[k] = (r[i][k] + r[k][i]) / s;
+            q[3] = (r[j][k] - r[k][j]) / s;
+            q
+        };
+        let length = q.iter().map(|v| v * v).sum::<f64>().sqrt();
+        let q = q.map(|v| v / length);
+        let rebuilt = Self::trs(self.0[3], q, scale);
+        if rebuilt
+            .0
+            .iter()
+            .flatten()
+            .zip(self.0.iter().flatten())
+            .any(|(a, b)| (a - b).abs() > 1e-9 * b.abs().max(1.))
+        {
+            return Err("World-preserving move cannot retain this transform exactly".into());
+        }
+        Ok((self.0[3], q, scale))
+    }
     pub fn matrix_f32(self) -> [[f32; 4]; 4] {
         std::array::from_fn(|i| {
             [
@@ -85,6 +158,33 @@ impl Affine {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn inverse_and_trs_round_trip_rotations_and_reject_shear() {
+        for axis in 0..3 {
+            for angle in [0., 0.8_f64, std::f64::consts::PI, 4.] {
+                let mut q = [0., 0., 0., (angle / 2.).cos()];
+                q[axis] = (angle / 2.).sin();
+                let matrix = Affine::trs([3., -4., 2.], q, [2., 3., 4.]);
+                let (p, r, s) = matrix.trs_components().unwrap();
+                let restored = Affine::trs(p, r, s);
+                for point in [[0.; 3], [2., -3., 5.]] {
+                    let a = restored.point(point);
+                    let b = matrix.point(point);
+                    assert!(a.iter().zip(b).all(|(a, b)| (a - b).abs() < 1e-10));
+                    let inverted = matrix.inverse().unwrap().point(b);
+                    assert!(
+                        inverted
+                            .iter()
+                            .zip(point)
+                            .all(|(a, b)| (a - b).abs() < 1e-10)
+                    );
+                }
+            }
+        }
+        let mut sheared = Affine::IDENTITY;
+        sheared.0[1][0] = 0.3;
+        assert!(sheared.trs_components().is_err());
+    }
     #[test]
     fn nonuniform_parent_and_rotated_child_preserve_shear() {
         let parent = Affine::trs([2., 1., 0.], [0., 0., 0., 1.], [2., 1., 3.]);

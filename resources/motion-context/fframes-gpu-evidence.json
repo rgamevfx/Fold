@@ -1,0 +1,71 @@
+{
+  "cpu_pixel_transport": false,
+  "device": "NVIDIA GeForce GTX 1070",
+  "fframes_script_worker": true,
+  "frame_request_ms_including_qualification_readback": [
+    1316.1372629999998,
+    30.845667,
+    36.799802
+  ],
+  "native_typography": true,
+  "performance_qualified": false,
+  "same_backend_reference_max_abs_delta": [
+    6.0558319091796875e-05,
+    6.0558319091796875e-05,
+    6.0558319091796875e-05
+  ],
+  "tolerance": 0.0001,
+  "frames": [
+    {
+      "frame": 0,
+      "text_pixels": 2255,
+      "dot_pixels": 78928,
+      "alpha_max": 1.0,
+      "dimensions": [
+        640,
+        360
+      ]
+    },
+    {
+      "frame": 1,
+      "text_pixels": 2255,
+      "dot_pixels": 62959,
+      "alpha_max": 1.0,
+      "dimensions": [
+        640,
+        360
+      ]
+    },
+    {
+      "frame": 2,
+      "text_pixels": 2255,
+      "dot_pixels": 78928,
+      "alpha_max": 1.0,
+      "dimensions": [
+        640,
+        360
+      ]
+    }
+  ],
+  "runtime_count_edit": true,
+  "animation_changes_pixels": true,
+  "worker_profile": "release",
+  "date": "2026-10-11",
+  "upstream_commit": "b644f22cf5be2333e7098caf7ec064c3d36aeb02",
+  "program_sha256": "14896c91a9647b69b83b9aacd5f00f986978d41fc158165b17a0b3dcfec1d6db",
+  "format": "RGBA16F",
+  "color": "linear_srgb",
+  "alpha": "premultiplied",
+  "cross_process_fd": true,
+  "queue_completion_acknowledgement": true,
+  "validation_layer": "VK_LAYER_KHRONOS_validation",
+  "validation_errors": false,
+  "warnings": [
+    "VK_EXT_physical_device_drm unavailable",
+    "requested validation layer enabled"
+  ],
+  "app_integration_qualified": false,
+  "preview_export_parity_qualified": false,
+  "qualification_readback": true,
+  "reference_comparison": "Skia RGBA32F readback of the same exportable RGBA16F target backend; finite rounding difference remains."
+}

@@ -1,0 +1,15 @@
+{
+  "capture_ms": [
+    4463.331581,
+    37.533738
+  ],
+  "exact_time": [
+    1,
+    2
+  ],
+  "guarded_conversion": true,
+  "pixel_readback": false,
+  "runtime_control_update": true,
+  "scope": "Compiled script capture and native conversion; application orchestration and artist acceptance remain open",
+  "source_compilation": true
+}

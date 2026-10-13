@@ -1,0 +1,51 @@
+{
+  "fixture": "real MCP animated anchor and outgoing-track removal from a sheared cubic",
+  "time": {
+    "numerator": 1,
+    "denominator": 2
+  },
+  "native_execution_seconds": 20.31,
+  "candidate_matches_applied": true,
+  "preparation_keeps_committed_pixels": true,
+  "save_reopen_exact": true,
+  "remaining_point_exact": true,
+  "contour_id_and_paint_retained": true,
+  "undo_restores_animated_anchor_pose": true,
+  "second_undo_restores_exact_static_canvas": true,
+  "frames": {
+    "before": {
+      "dimensions": [
+        640,
+        360
+      ],
+      "rgba8_sha256": "a6ac9ab9be9f2d48676833f338eeb5aac19b0339f3e36e0e13716dd92ee39d63",
+      "transfers": {
+        "cpu_adapter_nodes": 0,
+        "evaluation_readback_bytes": 0
+      }
+    },
+    "candidate": {
+      "dimensions": [
+        640,
+        360
+      ],
+      "rgba8_sha256": "b2eab2e96e1c94751425a42d1e435e41f8c48a5f1cd41ff4defb3931323ddc07",
+      "transfers": {
+        "cpu_adapter_nodes": 0,
+        "evaluation_readback_bytes": 0
+      }
+    },
+    "after": {
+      "dimensions": [
+        640,
+        360
+      ],
+      "rgba8_sha256": "b2eab2e96e1c94751425a42d1e435e41f8c48a5f1cd41ff4defb3931323ddc07",
+      "transfers": {
+        "cpu_adapter_nodes": 0,
+        "evaluation_readback_bytes": 0
+      }
+    }
+  },
+  "remaining_single_anchor_has_no_visible_stroke": true
+}

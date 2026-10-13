@@ -1,0 +1,15 @@
+{
+  "changed_source_rejected": true,
+  "device": "NVIDIA GeForce GTX 1070",
+  "dimensions": [
+    32,
+    16
+  ],
+  "evaluation_cpu_pixel_transport": false,
+  "image_removal_clears_pixels": true,
+  "image_snapshots_sent": 3,
+  "native_project_image": true,
+  "relink_changes_pixels": true,
+  "warm_pixels_identical": true,
+  "warm_snapshot_count": 1
+}

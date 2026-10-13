@@ -1,0 +1,209 @@
+{
+  "cpu_probe": {
+    "changed_pixels": 63,
+    "max_component_error": 0.09075927734375,
+    "scope": "diagnostic Skia CPU raster of the same upstream trees",
+    "time": {
+      "denominator": 1,
+      "numerator": 0
+    }
+  },
+  "device_uuid": [
+    109,
+    101,
+    115,
+    97,
+    50,
+    54,
+    46,
+    49,
+    46,
+    54,
+    45,
+    49,
+    112,
+    111,
+    112,
+    0
+  ],
+  "dimensions": [
+    96,
+    64
+  ],
+  "fixture": "native animated anchor and both handle offsets; distinct key schedules; sheared transform; translucent stroke",
+  "frames": [
+    {
+      "exact_static_pose_parity": true,
+      "exact_warm_parity": true,
+      "expected_anchor": [
+        10.0,
+        10.0
+      ],
+      "expected_incoming": [
+        -5.0,
+        8.0
+      ],
+      "expected_outgoing": [
+        15.0,
+        -7.0
+      ],
+      "subdivision": {
+        "changed_pixels": 17,
+        "exact_warm_parity": true,
+        "max_component_error": 0.08837890625,
+        "sum_absolute_component_error": 3.0540618896484375
+      },
+      "time": {
+        "denominator": 1,
+        "numerator": 0
+      }
+    },
+    {
+      "exact_static_pose_parity": true,
+      "exact_warm_parity": true,
+      "expected_anchor": [
+        20.0,
+        15.0
+      ],
+      "expected_incoming": [
+        -5.0,
+        8.0
+      ],
+      "expected_outgoing": [
+        9.0,
+        5.0
+      ],
+      "subdivision": {
+        "changed_pixels": 12,
+        "exact_warm_parity": true,
+        "max_component_error": 0.261474609375,
+        "sum_absolute_component_error": 2.5036773681640625
+      },
+      "time": {
+        "denominator": 2,
+        "numerator": 1
+      }
+    },
+    {
+      "exact_static_pose_parity": true,
+      "exact_warm_parity": true,
+      "expected_anchor": [
+        30.0,
+        20.0
+      ],
+      "expected_incoming": [
+        -20.0,
+        -12.0
+      ],
+      "expected_outgoing": [
+        3.0,
+        17.0
+      ],
+      "subdivision": {
+        "changed_pixels": 9,
+        "exact_warm_parity": true,
+        "max_component_error": 0.173095703125,
+        "sum_absolute_component_error": 1.964019775390625
+      },
+      "time": {
+        "denominator": 1,
+        "numerator": 1
+      }
+    },
+    {
+      "exact_static_pose_parity": true,
+      "exact_warm_parity": true,
+      "expected_anchor": [
+        30.0,
+        20.0
+      ],
+      "expected_incoming": [
+        -20.0,
+        -12.0
+      ],
+      "expected_outgoing": [
+        -3.0,
+        29.0
+      ],
+      "subdivision": {
+        "changed_pixels": 23,
+        "exact_warm_parity": true,
+        "max_component_error": 0.17626953125,
+        "sum_absolute_component_error": 4.9911346435546875
+      },
+      "time": {
+        "denominator": 1,
+        "numerator": 2
+      }
+    },
+    {
+      "exact_static_pose_parity": true,
+      "exact_warm_parity": true,
+      "expected_anchor": [
+        10.0,
+        10.0
+      ],
+      "expected_incoming": [
+        -5.0,
+        8.0
+      ],
+      "expected_outgoing": [
+        15.0,
+        -7.0
+      ],
+      "subdivision": {
+        "changed_pixels": 17,
+        "exact_warm_parity": true,
+        "max_component_error": 0.08837890625,
+        "sum_absolute_component_error": 3.0540618896484375
+      },
+      "time": {
+        "denominator": 1,
+        "numerator": 0
+      }
+    }
+  ],
+  "quality_probe": {
+    "cpu_split_vs_reference16": {
+      "max_component_error": 0.1667262315750122,
+      "sum_absolute_component_error": 22.762256935238838
+    },
+    "cpu_vs_reference16": {
+      "max_component_error": 0.1667262315750122,
+      "sum_absolute_component_error": 21.164661705493927
+    },
+    "gpu_split_vs_reference16": {
+      "max_component_error": 0.19167613983154297,
+      "sum_absolute_component_error": 21.296557530760765
+    },
+    "gpu_vs_reference16": {
+      "max_component_error": 0.19167613983154297,
+      "sum_absolute_component_error": 21.373842027038336
+    },
+    "reference16_vs_split_reference16": {
+      "max_component_error": 0.005888462066650391,
+      "sum_absolute_component_error": 0.288696464151144
+    },
+    "reference8_vs_reference16": {
+      "max_component_error": 0.024540185928344727,
+      "sum_absolute_component_error": 2.6951076351106167
+    },
+    "scope": "first-pose linear premultiplied Float RGBA; box-reduced Skia CPU reference, not analytic ground truth"
+  },
+  "closed": true,
+  "scope": "Direct native fframes Vulkan fixture; not full application or artist acceptance",
+  "subdivision_pixel_acceptance": false,
+  "frame_sha256": {
+    "frame-0.rgba32f": "016cf3d89bbe767ce22cee62b3d2e20a093fcd711bd3d298793916df3afed6c2",
+    "frame-1.rgba32f": "2fc3bfbd6be244ee637755eb9d33475805880ea782b2d8e9c8d301ad543e9ab9",
+    "frame-2.rgba32f": "9e765ff7d5088e8eefb684e6c21524d998914d746010f348d05369cbc8232d97",
+    "frame-3.rgba32f": "7051ad70dbdddeda55544f4319385fb2bc94a329d209ec56cc4aaad6e4bf681c",
+    "frame-4.rgba32f": "016cf3d89bbe767ce22cee62b3d2e20a093fcd711bd3d298793916df3afed6c2",
+    "reference16.rgba32f": "6255b381a769cf3cded4f501fed5044212d82d7e6751ab05737bb79582b9e838",
+    "split-0.rgba32f": "8a134bf79d56236b91871132a0dc21f2e2a88d0218597e4b20315ce5918ecf93",
+    "split-1.rgba32f": "3322db42dcaa1cd7e32f4a680c92955b95dc2873e3e7aa33b39216ccc8857431",
+    "split-2.rgba32f": "9e7f853fbf3dbe9be0182c7a6af9b55aa13ddcebf39284b42eb1a80b73bf0eac",
+    "split-3.rgba32f": "8f3328e09570fe218f2bbdc3f405287c8fe208ec1bca5890cf14024e9c079242",
+    "split-4.rgba32f": "8a134bf79d56236b91871132a0dc21f2e2a88d0218597e4b20315ce5918ecf93"
+  }
+}

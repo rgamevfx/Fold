@@ -60,6 +60,8 @@ impl Affine {
 /// declared scene-linear working space (legacy linear-sRGB or explicit ACEScg).
 #[derive(Clone, Debug)]
 pub enum ImageOp {
+    /// Immutable external output, rendered through its owning feature adapter.
+    Source(std::sync::Arc<dyn crate::source::ImageSource>),
     Shader {
         inputs: Vec<ImageId>,
         program: std::sync::Arc<crate::shader::Program>,
@@ -211,6 +213,7 @@ impl ImageOp {
                 ..
             } => [Some(original), Some(processed), mask],
             Self::WindowedSource { .. }
+            | Self::Source(_)
             | Self::Solid { .. }
             | Self::Exr { .. }
             | Self::Media(_)
@@ -296,6 +299,7 @@ impl ImageOp {
                 *background = map(*background);
             }
             ImageOp::Baked(_)
+            | ImageOp::Source(_)
             | ImageOp::WindowedSource { .. }
             | ImageOp::Media(_)
             | ImageOp::Exr { .. }
@@ -515,6 +519,11 @@ pub(crate) fn validate(graph: &RenderGraph, aces: bool) -> Result<usize, String>
                 }
                 scene.validate(binding)?;
             }
+            ImageOp::Source(ref source) => {
+                if source.dimensions() != [graph.width, graph.height] {
+                    return Err("External source dimensions differ from graph".into());
+                }
+            }
             ImageOp::Over { .. } | ImageOp::Media(_) => {}
         }
     }
@@ -557,7 +566,7 @@ pub(crate) fn input_processors(
             } else {
                 op
             };
-            if matches!(op, ImageOp::Spatial { .. }) {
+            if matches!(op, ImageOp::Spatial { .. } | ImageOp::Source(_)) {
                 Some(fold_color::LINEAR_SRGB)
             } else if let ImageOp::VideoInput { space, .. }
             | ImageOp::Exr {
@@ -768,8 +777,8 @@ pub(crate) fn evaluate(
                 pixels =
                     crate::vector::rasterize(drawings, graph.width, graph.height, cancel, aces)?;
             }
-            ImageOp::Spatial { .. } => {
-                return Err("Spatial image sources require the qualified GPU renderer".into());
+            ImageOp::Spatial { .. } | ImageOp::Source(_) => {
+                return Err("Native image sources require the qualified GPU renderer".into());
             }
             ImageOp::Media(ref source) => {
                 if aces {

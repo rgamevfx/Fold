@@ -248,7 +248,7 @@ fn source_handles_and_video_lowering_use_exact_half_open_ranges() {
         }
     }
     let graph = compile("video", t(50)).unwrap();
-    assert!(matches!(graph.nodes[0], ImageOp::Solid { .. }));
+    assert!(matches!(graph.nodes[0], ImageOp::Solid { rgba } if rgba == [0.; 4]));
     assert!(compile("audio", t(0)).is_err());
 }
 

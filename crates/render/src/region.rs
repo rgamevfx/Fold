@@ -84,12 +84,12 @@ impl Plan {
             working = working.union(output);
             if matches!(
                 graph.nodes[id],
-                ImageOp::Shader { .. } | ImageOp::Spatial { .. }
+                ImageOp::Shader { .. } | ImageOp::Spatial { .. } | ImageOp::Source(_)
             ) {
                 working = Region::full(dimensions);
             }
             let input = match &graph.nodes[id] {
-                ImageOp::Shader { .. } | ImageOp::Spatial { .. } => Region {
+                ImageOp::Shader { .. } | ImageOp::Spatial { .. } | ImageOp::Source(_) => Region {
                     x: 0,
                     y: 0,
                     width: dimensions[0],

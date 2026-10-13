@@ -205,10 +205,8 @@ impl Renderer {
                 continue;
             }
             cancel.check()?;
-            if !aces && matches!(op, ImageOp::Spatial { .. }) {
-                let source = sources[id]
-                    .take()
-                    .ok_or("Missing prepared spatial source")?;
+            if !aces && matches!(op, ImageOp::Spatial { .. } | ImageOp::Source(_)) {
+                let source = sources[id].take().ok_or("Missing prepared native source")?;
                 leases.push(source.image.clone());
                 frames[id] = Some(source.image);
                 immutable[id] = true;
@@ -280,10 +278,8 @@ impl Renderer {
             let mask = inputs[2].map_or(&dummy, |i| frames[i].as_ref().unwrap());
             let mut compute = true;
             match op {
-                ImageOp::Spatial { .. } => {
-                    let source = sources[id]
-                        .take()
-                        .ok_or("Missing prepared spatial source")?;
+                ImageOp::Spatial { .. } | ImageOp::Source(_) => {
+                    let source = sources[id].take().ok_or("Missing prepared native source")?;
                     let (pipeline, uploaded) =
                         self.color_pipeline(Some(&processors[fold_color::LINEAR_SRGB]), false)?;
                     stats.lut_upload_bytes += uploaded;

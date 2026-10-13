@@ -6,8 +6,8 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-SHARED = {"fold-graph", "fold-animation", "fold-foundation", "fold-color", "fold-project", "fold-media", "fold-render", "fold-platform"}
-CREATIVE = {"fold-timeline", "fold-compositor", "fold-composition", "fold-motion"}
+SHARED = {"fold-graph", "fold-animation", "fold-foundation", "fold-color", "fold-project", "fold-media", "fold-render", "fold-platform", "fold-gpu-sharing"}
+CREATIVE = {"fold-timeline", "fold-compositor", "fold-composition", "fold-motion-canvas", "fold-motion-context", "fold-three-d"}
 ALLOWED = {
     "fold-foundation": set(),
     "fold-graph": {"fold-animation", "fold-foundation", "fold-project"},
@@ -16,11 +16,16 @@ ALLOWED = {
     "fold-native-video": set(),
     "fold-project": {"fold-foundation"},
     "fold-media": {"fold-foundation", "fold-native-video"},
-    "fold-render": {"fold-foundation", "fold-color", "fold-media", "fold-native-video"},
+    "fold-render": {"fold-foundation", "fold-color", "fold-media", "fold-native-video", "fold-gpu-sharing"},
+    "fold-gpu-sharing": {"fold-foundation", "fold-media"},
     "fold-platform": SHARED - {"fold-platform"},
     # UI document settings and media thumbnails consume neutral project/media values.
     "fold-ui": {"fold-animation", "fold-foundation", "fold-platform", "fold-project", "fold-media"},
     **{name: SHARED | {"fold-ui", "fold-composition"} for name in CREATIVE},
+    # Native path animation uses the shared typed Track/Binding model.
+    "fold-motion-canvas": {"fold-graph", "fold-animation", "fold-foundation", "fold-project"},
+    "fold-motion-context": SHARED | {"fold-ui", "fold-motion-canvas"},
+    "fold-three-d": SHARED | {"fold-ui"},
     "fold-app": SHARED | CREATIVE | {"fold-ui"},
 }
 
@@ -68,7 +73,7 @@ def violations(metadata, headless=False):
         if name in SHARED | CREATIVE or (headless and name == "fold-app"):
             for identity in sorted(reachable(metadata, package["id"])):
                 target = packages[identity]["name"]
-                forbidden_peer = name != "fold-app" and target in CREATIVE and target != name and target != "fold-composition"
+                forbidden_peer = name != "fold-app" and target in CREATIVE and target != name and target not in ALLOWED[name]
                 forbidden_ui = is_ui(target) and (name in SHARED or headless)
                 if forbidden_ui or forbidden_peer:
                     errors.append(f"forbidden transitive dependency: {name} -> {target}")

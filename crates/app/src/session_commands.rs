@@ -62,6 +62,11 @@ impl Session {
                     return Outcome::Handled;
                 }
                 let creating = matches!(command, BrowserCommand::Create { .. });
+                let placement_target = match &command {
+                    BrowserCommand::Place(request) => Some(request.target),
+                    _ => None,
+                };
+                let before = self.project.snapshot();
                 crate::browser::edit(&self.project.snapshot(), command).and_then(|batch| {
                     let location = if creating {
                         batch.mutations.iter().find_map(|m| match m {
@@ -80,7 +85,29 @@ impl Session {
                     } else {
                         None
                     };
+                    let selection = placement_target
+                        .filter(|target| self.state.selection.document == Some(*target))
+                        .map(|target| {
+                            let after = batch
+                                .mutations
+                                .iter()
+                                .find_map(|mutation| match mutation {
+                                    Mutation::PutDocument(document) if document.id == target => {
+                                        Some(document)
+                                    }
+                                    _ => None,
+                                })
+                                .ok_or("Placement did not update its target")?;
+                            crate::packages::builtins()
+                                .placed_objects(&before.state().documents[&target], after)
+                        })
+                        .transpose()?;
                     self.project.commit(batch).map_err(|e| e.to_string())?;
+                    if let Some(objects) = selection
+                        && !objects.is_empty()
+                    {
+                        self.state.selection.objects = objects;
+                    }
                     if let Some(location) = location {
                         self.navigate(location);
                     }
@@ -153,6 +180,22 @@ impl Session {
                         .map_err(|e| e.to_string())
                 }),
             DesktopCommand::Extension(request) => {
+                // Release the exact preview the artist just manipulated. A worker
+                // completion cannot replace an active preview, and restaging it
+                // would both discard this gesture and duplicate validated work.
+                if self.overlay.as_ref().is_some_and(|preview| {
+                    preview.request.id == request.id
+                        && preview.request.base == request.base
+                        && preview.request.arguments == request.arguments
+                }) {
+                    let preview = self.overlay.take().unwrap();
+                    return Outcome::Edit(
+                        self.project
+                            .commit_edit(preview.session)
+                            .map(|_| ())
+                            .map_err(|error| error.to_string()),
+                    );
+                }
                 let registry = crate::packages::builtins();
                 match registry.command(&request.id) {
                     Ok(command)

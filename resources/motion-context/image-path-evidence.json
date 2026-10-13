@@ -1,0 +1,59 @@
+{
+  "capture_images_rejected": true,
+  "device_uuid": [
+    109,
+    101,
+    115,
+    97,
+    50,
+    54,
+    46,
+    49,
+    46,
+    54,
+    45,
+    49,
+    112,
+    111,
+    112,
+    0
+  ],
+  "dimensions": [
+    32,
+    32
+  ],
+  "samples": [
+    [
+      1.0,
+      0.0,
+      0.0,
+      1.0
+    ],
+    [
+      0.0,
+      0.501953125,
+      0.0,
+      0.501953125
+    ],
+    [
+      0.0,
+      0.0,
+      1.0,
+      1.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ]
+  ],
+  "warm_pixels_identical": true,
+  "named_resources": true,
+  "over_budget_snapshot_preserves_pixels": true,
+  "replacement_changes_pixels": true,
+  "removed_data_released": true,
+  "worker_retention_replacement_and_error_recovery": true,
+  "native_image_object_worker_render": true,
+  "native_image_project_transaction_save_reopen_undo": true
+}

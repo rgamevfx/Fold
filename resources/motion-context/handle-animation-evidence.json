@@ -1,0 +1,133 @@
+{
+  "device_uuid": [
+    109,
+    101,
+    115,
+    97,
+    50,
+    54,
+    46,
+    49,
+    46,
+    54,
+    45,
+    49,
+    112,
+    111,
+    112,
+    0
+  ],
+  "dimensions": [
+    96,
+    64
+  ],
+  "fixture": "native animated anchor and both handle offsets; distinct key schedules; sheared transform; translucent stroke",
+  "frames": [
+    {
+      "exact_static_pose_parity": true,
+      "exact_warm_parity": true,
+      "expected_anchor": [
+        10.0,
+        10.0
+      ],
+      "expected_incoming": [
+        -5.0,
+        8.0
+      ],
+      "expected_outgoing": [
+        15.0,
+        -7.0
+      ],
+      "time": {
+        "denominator": 1,
+        "numerator": 0
+      },
+      "rgba32f_sha256": "e22cd688f725e65319acd5e2b5361a7cea0fa6bfa3c955ed84504c57272807e5"
+    },
+    {
+      "exact_static_pose_parity": true,
+      "exact_warm_parity": true,
+      "expected_anchor": [
+        20.0,
+        15.0
+      ],
+      "expected_incoming": [
+        -5.0,
+        8.0
+      ],
+      "expected_outgoing": [
+        9.0,
+        5.0
+      ],
+      "time": {
+        "denominator": 2,
+        "numerator": 1
+      },
+      "rgba32f_sha256": "e1939077933062d0caefbace49eee6679bc6099e905cbaa58dc221b14afa3fa5"
+    },
+    {
+      "exact_static_pose_parity": true,
+      "exact_warm_parity": true,
+      "expected_anchor": [
+        30.0,
+        20.0
+      ],
+      "expected_incoming": [
+        -20.0,
+        -12.0
+      ],
+      "expected_outgoing": [
+        3.0,
+        17.0
+      ],
+      "time": {
+        "denominator": 1,
+        "numerator": 1
+      },
+      "rgba32f_sha256": "16fb69bd281e3673c18889c0852cb5e7736aca30eb41aba518996ad5cd9be040"
+    },
+    {
+      "exact_static_pose_parity": true,
+      "exact_warm_parity": true,
+      "expected_anchor": [
+        30.0,
+        20.0
+      ],
+      "expected_incoming": [
+        -20.0,
+        -12.0
+      ],
+      "expected_outgoing": [
+        -3.0,
+        29.0
+      ],
+      "time": {
+        "denominator": 1,
+        "numerator": 2
+      },
+      "rgba32f_sha256": "92083b289b24ef200e273b3ea657cbf46ac1d2e1f8c2ecb1059deca941fd477a"
+    },
+    {
+      "exact_static_pose_parity": true,
+      "exact_warm_parity": true,
+      "expected_anchor": [
+        10.0,
+        10.0
+      ],
+      "expected_incoming": [
+        -5.0,
+        8.0
+      ],
+      "expected_outgoing": [
+        15.0,
+        -7.0
+      ],
+      "time": {
+        "denominator": 1,
+        "numerator": 0
+      },
+      "rgba32f_sha256": "e22cd688f725e65319acd5e2b5361a7cea0fa6bfa3c955ed84504c57272807e5"
+    }
+  ],
+  "scope": "native fframes Vulkan renderer; direct fixture, not full application, export or MCP"
+}

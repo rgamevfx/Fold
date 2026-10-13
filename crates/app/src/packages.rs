@@ -15,8 +15,15 @@ pub fn builtins() -> Arc<PackageRegistry> {
                 .expect("valid built-in package registration");
             fold_compositor::package::register(&mut registry)
                 .expect("valid compositor package registration");
-            fold_motion::package::register(&mut registry)
-                .expect("valid native Motion package registration");
+            let (motion, motion_video) = crate::motion_runtime::providers();
+            fold_motion_context::package::register_with(
+                &mut registry,
+                motion,
+                vec![Box::new(motion_video)],
+                Some(crate::motion_conversion::convert),
+            )
+            .expect("valid Motion package registration");
+            fold_three_d::package::register(&mut registry).expect("valid 3D package registration");
             use fold_platform::packages::*;
             registry
                 .register(Contributions {

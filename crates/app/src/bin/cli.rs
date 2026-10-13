@@ -279,7 +279,9 @@ fn run() -> Result<(), Box<dyn Error>> {
         project.undo()?;
         save(&project.snapshot(), project_path)?;
     }
+    let load_start = std::time::Instant::now();
     let project = load(project_path, 16)?;
+    let project_load_ms = load_start.elapsed().as_secs_f64() * 1000.;
     let snapshot = project.snapshot();
     let source = if snapshot.state().documents.len() == 1 {
         DocumentRef {
@@ -290,7 +292,11 @@ fn run() -> Result<(), Box<dyn Error>> {
     } else {
         fold_app::output::output(&snapshot)?.0
     };
-    let output = fold_app::output::OutputRenderer::from_environment()?.evaluate(
+    let renderer_start = std::time::Instant::now();
+    let mut renderer = fold_app::output::OutputRenderer::from_environment()?;
+    let renderer_init_ms = renderer_start.elapsed().as_secs_f64() * 1000.;
+    let evaluate_start = std::time::Instant::now();
+    let output = renderer.evaluate(
         &snapshot,
         &fold_app::output::SceneRequest {
             region: None,
@@ -301,6 +307,16 @@ fn run() -> Result<(), Box<dyn Error>> {
         },
         &fold_media::Cancel::default(),
     )?;
+    if std::env::var_os("FOLD_PROFILE_RENDER").is_some() {
+        eprintln!(
+            "{}",
+            serde_json::json!({
+                "project_load_ms": project_load_ms,
+                "renderer_init_ms": renderer_init_ms,
+                "evaluate_ms": evaluate_start.elapsed().as_secs_f64() * 1000.,
+            })
+        );
+    }
     let parent = image_path
         .parent()
         .filter(|p| !p.as_os_str().is_empty())

@@ -1,0 +1,22 @@
+{
+  "scope": "Optimized production Runtime::new and Runtime::prepare with relocated release SDK; filesystem cache may be warm",
+  "sdk_profile": "release",
+  "driver_profile": "release",
+  "runs": [
+    {
+      "executable": "/tmp/fold-optimized-sdk-startup-20261012/cache/98b8bee04e32899ed956ba720ea4fd4ebf1ed06b4fa0923f0c5be5a78e9d4b02/fold-motion-0cb6d44045f6ff00342f65ee9c81e1d3fccc192098a16d3b22d038f37dc8f749",
+      "program_preparation_ms": 6363.600451,
+      "sdk_verification_ms": 6126.207354,
+      "cache_state": "empty program cache",
+      "total_ms": 12491.335690981941
+    },
+    {
+      "executable": "/tmp/fold-optimized-sdk-startup-20261012/cache/98b8bee04e32899ed956ba720ea4fd4ebf1ed06b4fa0923f0c5be5a78e9d4b02/fold-motion-0cb6d44045f6ff00342f65ee9c81e1d3fccc192098a16d3b22d038f37dc8f749",
+      "program_preparation_ms": 424.372229,
+      "sdk_verification_ms": 5988.078782,
+      "cache_state": "cached program",
+      "total_ms": 6413.918060978176
+    }
+  ],
+  "installed_app_acceptance": false
+}

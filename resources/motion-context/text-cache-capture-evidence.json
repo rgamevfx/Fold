@@ -1,0 +1,36 @@
+{
+  "cold_conversion_ms": 0.231673,
+  "device_uuid": [
+    51,
+    15,
+    224,
+    75,
+    242,
+    209,
+    55,
+    37,
+    162,
+    157,
+    10,
+    35,
+    238,
+    158,
+    113,
+    71
+  ],
+  "differing_pixels": 0,
+  "dimensions": [
+    640,
+    360
+  ],
+  "gradient_rejected": true,
+  "max_float_error": 0.0,
+  "objects": 11,
+  "qualification_readback": true,
+  "restored_text_pixels_identical": true,
+  "schema": 2,
+  "text_cache_capacity": 10,
+  "text_edit_changes_pixels": true,
+  "warm_conversion_p50_ms": 0.015464,
+  "warm_text_cache_pixels_identical": true
+}

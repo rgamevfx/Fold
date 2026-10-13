@@ -1,0 +1,189 @@
+{
+  "date": "2026-10-12",
+  "host_profile": "debug",
+  "worker_profile": "release",
+  "validation_layer_requested": "VK_LAYER_KHRONOS_validation",
+  "warm_samples": {
+    "motion_ingress_probe": [
+      {
+        "completion_ms": 1.421026,
+        "copy_validation_submit_ms": 3.1038799999999998,
+        "id": 19,
+        "import_ms": 0.7226119999999999,
+        "producer_wait_ms": 26.032051,
+        "release_ms": 0.685459
+      },
+      {
+        "completion_ms": 1.572747,
+        "copy_validation_submit_ms": 2.663374,
+        "id": 20,
+        "import_ms": 0.61046,
+        "producer_wait_ms": 26.190354999999997,
+        "release_ms": 0.9826929999999999
+      },
+      {
+        "completion_ms": 1.455495,
+        "copy_validation_submit_ms": 2.7128460000000003,
+        "id": 21,
+        "import_ms": 0.609126,
+        "producer_wait_ms": 26.096468,
+        "release_ms": 0.777639
+      },
+      {
+        "completion_ms": 1.400856,
+        "copy_validation_submit_ms": 2.724973,
+        "id": 22,
+        "import_ms": 0.60771,
+        "producer_wait_ms": 25.769949,
+        "release_ms": 0.6931510000000001
+      },
+      {
+        "completion_ms": 1.403762,
+        "copy_validation_submit_ms": 2.752275,
+        "id": 23,
+        "import_ms": 0.624414,
+        "producer_wait_ms": 25.521563,
+        "release_ms": 0.961174
+      },
+      {
+        "completion_ms": 1.36133,
+        "copy_validation_submit_ms": 2.920486,
+        "id": 24,
+        "import_ms": 0.6008950000000001,
+        "producer_wait_ms": 30.320197,
+        "release_ms": 1.421564
+      },
+      {
+        "completion_ms": 1.4195259999999998,
+        "copy_validation_submit_ms": 2.749493,
+        "id": 25,
+        "import_ms": 0.620798,
+        "producer_wait_ms": 28.623853,
+        "release_ms": 1.039603
+      },
+      {
+        "completion_ms": 1.528762,
+        "copy_validation_submit_ms": 2.8685989999999997,
+        "id": 26,
+        "import_ms": 0.649848,
+        "producer_wait_ms": 31.301331,
+        "release_ms": 0.939941
+      },
+      {
+        "completion_ms": 1.61876,
+        "copy_validation_submit_ms": 3.060421,
+        "id": 27,
+        "import_ms": 0.652099,
+        "producer_wait_ms": 30.459831,
+        "release_ms": 1.089172
+      },
+      {
+        "completion_ms": 1.378216,
+        "copy_validation_submit_ms": 3.241523,
+        "id": 28,
+        "import_ms": 0.632432,
+        "producer_wait_ms": 27.79749,
+        "release_ms": 0.942782
+      }
+    ],
+    "motion_request_probe": [
+      {
+        "admission_ms": 4.672867,
+        "fonts_ms": 0.059806000000000005,
+        "id": 19,
+        "program_ms": 0.285813,
+        "serialize_ms": 1.06618,
+        "worker_wait_ms": 32.117548
+      },
+      {
+        "admission_ms": 4.255847,
+        "fonts_ms": 0.06203899999999999,
+        "id": 20,
+        "program_ms": 0.28049900000000005,
+        "serialize_ms": 1.060976,
+        "worker_wait_ms": 32.202491
+      },
+      {
+        "admission_ms": 4.317341,
+        "fonts_ms": 0.065132,
+        "id": 21,
+        "program_ms": 0.28510800000000003,
+        "serialize_ms": 1.241905,
+        "worker_wait_ms": 31.835244
+      },
+      {
+        "admission_ms": 4.408802,
+        "fonts_ms": 0.061947999999999996,
+        "id": 22,
+        "program_ms": 0.279135,
+        "serialize_ms": 1.059723,
+        "worker_wait_ms": 31.400178
+      },
+      {
+        "admission_ms": 4.294278,
+        "fonts_ms": 0.06628500000000001,
+        "id": 23,
+        "program_ms": 0.2789,
+        "serialize_ms": 1.3127639999999998,
+        "worker_wait_ms": 31.404346
+      },
+      {
+        "admission_ms": 4.326258,
+        "fonts_ms": 0.06877699999999999,
+        "id": 24,
+        "program_ms": 0.285734,
+        "serialize_ms": 1.067785,
+        "worker_wait_ms": 36.787601
+      },
+      {
+        "admission_ms": 4.379519,
+        "fonts_ms": 0.062273,
+        "id": 25,
+        "program_ms": 0.27973400000000004,
+        "serialize_ms": 1.0814380000000001,
+        "worker_wait_ms": 34.646529
+      },
+      {
+        "admission_ms": 4.299487,
+        "fonts_ms": 0.06282599999999999,
+        "id": 26,
+        "program_ms": 0.303409,
+        "serialize_ms": 1.0580509999999999,
+        "worker_wait_ms": 37.442878
+      },
+      {
+        "admission_ms": 4.353828,
+        "fonts_ms": 0.06253399999999999,
+        "id": 27,
+        "program_ms": 0.360458,
+        "serialize_ms": 1.060287,
+        "worker_wait_ms": 37.066213
+      },
+      {
+        "admission_ms": 4.5057730000000005,
+        "fonts_ms": 0.061681999999999994,
+        "id": 28,
+        "program_ms": 0.352585,
+        "serialize_ms": 1.078931,
+        "worker_wait_ms": 34.146505
+      }
+    ]
+  },
+  "phase_medians_ms": {
+    "motion_ingress_probe": {
+      "completion_ms": 1.4202759999999999,
+      "copy_validation_submit_ms": 2.810437,
+      "import_ms": 0.622606,
+      "producer_wait_ms": 26.993922499999996,
+      "release_ms": 0.951978
+    },
+    "motion_request_probe": {
+      "admission_ms": 4.340043,
+      "fonts_ms": 0.0624035,
+      "program_ms": 0.28542100000000004,
+      "serialize_ms": 1.0669825,
+      "worker_wait_ms": 33.174498
+    }
+  },
+  "performance_accepted": false
+}

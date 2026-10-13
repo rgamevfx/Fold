@@ -9,12 +9,11 @@ default = []
 spatial = ["gpu", "dep:bevy"]
 native-video = ["gpu", "fold-media/native-video", "dep:fold-native-video", "fold-native-video/gpu"]
 gpu = ["dep:wgpu", "dep:bytemuck", "dep:pollster", "block_compression/wgpu", "dep:fold-native-video", "fold-native-video/gpu"]
+shared-images = ["gpu", "dep:fold-gpu-sharing"]
 
 [dependencies]
 bevy = { version = "=0.18.1", optional = true, default-features = false, features = ["std", "async_executor", "multi_threaded", "bevy_asset", "bevy_render", "bevy_core_pipeline", "bevy_pbr"] }
-parley = { version = "=0.7.0", default-features = false, features = ["std"] }
 sha2 = "0.10"
-skrifa = { version = "=0.37.0", default-features = false, features = ["std"] }
 naga = { version = "27", features = ["wgsl-in"] }
 block_compression = { version = "=0.7.0", default-features = false, features = ["bc7"] }
 wgpu = { version = "27", optional = true, features = ["glsl"] }
@@ -24,10 +23,10 @@ fold-foundation.workspace = true
 fold-color.workspace = true
 fold-media.workspace = true
 fold-native-video = { workspace = true, optional = true }
+fold-gpu-sharing = { workspace = true, optional = true }
 serde.workspace = true
 tiny-skia = { version = "0.11", default-features = false, features = ["std", "simd"] }
 lyon_tessellation = "=1.0.20"
-i_overlay = "=4.4.1"
 half = "2"
 serde_json.workspace = true
 

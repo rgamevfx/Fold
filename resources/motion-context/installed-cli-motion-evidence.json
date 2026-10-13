@@ -1,0 +1,54 @@
+{
+  "scope": "Relocated installed-layout fold-cli, ACEScg schema-4 native/script projects, native GPU rendering",
+  "runs": [
+    {
+      "case": "native 0",
+      "returncode": 0,
+      "ms": 14328.874467988499,
+      "stderr": "",
+      "sha256": "a5c8a452fa93f26938e3ab0bd973da23c9bcb29814a1bfee958ac89c45616ba9",
+      "bytes": 3085
+    },
+    {
+      "case": "script 0",
+      "returncode": 0,
+      "ms": 14713.911150989588,
+      "stderr": "",
+      "sha256": "f25b3df85bf221e9d62ca4c70aaca62ee0bdf94970c5f62e3c4322c5e71a910b",
+      "bytes": 691215
+    },
+    {
+      "case": "script half",
+      "returncode": 0,
+      "ms": 7780.288873997051,
+      "stderr": "",
+      "sha256": "f140fe85733c364d5505c559d6bdbfb1df263e1553f91d49a8280c082995ec70",
+      "bytes": 691215
+    },
+    {
+      "case": "script repeat",
+      "returncode": 0,
+      "ms": 10072.755279019475,
+      "stderr": "",
+      "sha256": "f25b3df85bf221e9d62ca4c70aaca62ee0bdf94970c5f62e3c4322c5e71a910b",
+      "bytes": 691215
+    }
+  ],
+  "repeat_exact": true,
+  "time_changes_pixels": true,
+  "sdk_override": false,
+  "compiler_override": false,
+  "color_root_override": false,
+  "full_package_producer_acceptance": false,
+  "desktop_artist_acceptance": false,
+  "native_nonblack_pixels": 216,
+  "build_seconds": 287,
+  "build_log": "/tmp/fold-motion-installed-cli-build.log",
+  "warnings": [
+    "existing gpu/yuv.rs Layout.format dead code",
+    "existing gpu/yuv.rs Layout.parameters dead code"
+  ],
+  "package_original_path_absent": true,
+  "old_sdk_path_absent": true,
+  "explicit_cache_override_only": true
+}

@@ -1,0 +1,121 @@
+{
+  "status": "Direct renderer, native worker, relocated installed renders and mixed HDR EXR passed",
+  "source_tag": "rust-skia/skia m153-0.101.2",
+  "source_archive_sha256": "30c8b51a0a32fae63562c303bdc91605519a9598951422610e3fb8685b3c4f6f",
+  "scope": "actual upstream SVG/Skia rendering into Vulkan RGBA16F; direct and shared readbacks agree",
+  "expected_linear_srgb": [
+    0.033104766570885055,
+    0.31854677812509186,
+    1,
+    1
+  ],
+  "unpatched_gpu": [
+    0.0313720703125,
+    0.317626953125,
+    1,
+    1
+  ],
+  "cpu_reference": [
+    0.0330810546875,
+    0.318359375,
+    1,
+    1
+  ],
+  "direct_gpu_clear": [
+    0.0330810546875,
+    0.318359375,
+    1,
+    1
+  ],
+  "direct_gpu_paint": [
+    0.0313720703125,
+    0.317626953125,
+    1,
+    1
+  ],
+  "shapes": [
+    "rectangle",
+    "ellipse",
+    "path"
+  ],
+  "disable_internal_msaa_changes_result": false,
+  "regression_command": "crates/motion-fframes/target/release/examples/color_precision",
+  "original_regression_exit": 101,
+  "patch_sha256": "3424e911b4d986796c6217e2758177da106d1811cedc21dbab6da486ffd1a267",
+  "passed": true,
+  "patched_results": [
+    {
+      "expected": [
+        0.03310476616024971,
+        0.31854677200317383,
+        1.0,
+        1.0
+      ],
+      "samples": [
+        {
+          "cpu": [
+            0.0330810546875,
+            0.318359375,
+            1.0,
+            1.0
+          ],
+          "gpu": [
+            0.0330810546875,
+            0.318359375,
+            1.0,
+            1.0
+          ],
+          "x": 16
+        },
+        {
+          "cpu": [
+            0.0330810546875,
+            0.318359375,
+            1.0,
+            1.0
+          ],
+          "gpu": [
+            0.0330810546875,
+            0.318359375,
+            1.0,
+            1.0
+          ],
+          "x": 48
+        },
+        {
+          "cpu": [
+            0.0330810546875,
+            0.318359375,
+            1.0,
+            1.0
+          ],
+          "gpu": [
+            0.0330810546875,
+            0.318359375,
+            1.0,
+            1.0
+          ],
+          "x": 80
+        }
+      ]
+    },
+    {
+      "signed_hdr_premultiplied": [
+        -0.25,
+        2.0,
+        0.125,
+        0.5
+      ]
+    }
+  ],
+  "native_worker_original_regression_passed": true,
+  "patched_archive_accepted": true,
+  "unpatched_archive_rejected": true,
+  "native_build_seconds": 490,
+  "final_focused_build_seconds": 6.61,
+  "installed_package_qualified": true,
+  "archive": "target/motion-skia-precision/skia-binaries-b7f043e0b1e2a850e702-x86_64-unknown-linux-gnu-ganesh-jpegd-jpege-pdf-svg-textlayout-vulkan-webpd-webpe.tar.gz",
+  "archive_sha256": "1f05b8b5a3996f9f553c757291cc43901dcd07e085e902bb5ad17500c6e8d87b",
+  "installed_package_evidence": "resources/motion-context/installed-precision-evidence.json",
+  "mixed_hdr_export_evidence": "resources/motion-context/mixed-hdr-export-evidence.json"
+}

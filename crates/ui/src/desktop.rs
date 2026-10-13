@@ -682,8 +682,14 @@ impl Desktop {
                 // One nonblocking poll may observe the last completion; missing
                 // callbacks remain null in the report, never fabricated as zero.
                 let _ = self.device.poll(wgpu::PollType::Poll);
+                let stay_open =
+                    probe.passive && std::env::var_os("FOLD_PASSIVE_PROBE_STAY_OPEN").is_some();
                 probe.finish(true)?;
-                self.probe_done = true;
+                if stay_open {
+                    self.probe = None;
+                } else {
+                    self.probe_done = true;
+                }
             } else if probe.shared.is_none() && !probe.passive {
                 self.shell.probe_time(self.client.as_mut());
             }

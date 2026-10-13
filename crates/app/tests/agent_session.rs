@@ -1,7 +1,7 @@
 mod support;
 use fold_app::session::Session;
 use fold_foundation::{DocumentId, ObjectId};
-use fold_motion::model::Construction;
+use fold_motion_canvas::model::Canvas;
 use fold_platform::desktop::{DesktopClient, DesktopCommand};
 use fold_project::{EditBatch, Mutation, Project};
 use serde_json::{Value, json};
@@ -14,7 +14,7 @@ fn setup() -> (Session, DocumentId) {
         .commit(EditBatch {
             base: project.snapshot().revision(),
             mutations: vec![Mutation::PutDocument(
-                fold_motion::package::create(id).unwrap(),
+                support::motion().document(id).unwrap(),
             )],
         })
         .unwrap();
@@ -41,13 +41,16 @@ fn call(session: &mut Session, command: Value) -> Value {
 }
 fn guard(session: &mut Session, id: DocumentId) -> Value {
     let info = raw(session, json!({"method":"discover"}));
-    json!({"epoch":info["epoch"],"request_id":ObjectId::new(),"base":session.snapshot().unwrap().revision().0,"scope":{"document":id,"definition":null}})
+    json!({"epoch":info["epoch"],"request_id":ObjectId::new(),"base":session.snapshot().unwrap().revision().0,"scope":{"document":id}})
 }
 fn proposal(session: &mut Session, id: DocumentId) -> Value {
     let guard = guard(session, id);
+    let canvas =
+        Canvas::from_document(&session.snapshot().unwrap().state().documents[&id]).unwrap();
+    let request = support::motion_request(id, json!({"native":canvas}), 42.);
     let result = call(
         session,
-        json!({"method":"propose","guard":guard,"edit":{"kind":"patches","patches":[{"path":[{"kind":"field","value":"seed"}],"expected":{"kind":"present","value":0},"value":{"kind":"present","value":42}}]}}),
+        json!({"method":"propose","guard":guard,"edit":{"kind":"native","request":request}}),
     );
     assert!(result.get("error").is_none(), "{result}");
     result["result"]["handle"].clone()
@@ -62,15 +65,22 @@ fn owner_applies_refreshes_undoes_and_preserves_active_artist_edits() {
         json!({"method":"inspect_candidate","handle":handle}),
     );
     let snapshot = session.snapshot().unwrap();
-    let mut artist = Construction::from_document(&snapshot.state().documents[&id]).unwrap();
-    artist.seed = 12;
+    let artist = Canvas::from_document(&snapshot.state().documents[&id]).unwrap();
+    let object = artist.roots[0];
+    let expected = artist.objects[&object].transform.x.clone();
+    let mut value = expected.clone();
+    value.value = 12.;
     session.command(DesktopCommand::PreviewExtension(
         fold_platform::packages::CommandRequest {
-            id: fold_motion::package::EDIT.into(),
+            id: fold_motion_context::package::EDIT.into(),
             base: snapshot.revision(),
-            arguments: serde_json::to_vec(&fold_motion::package::EditArgs {
+            arguments: serde_json::to_vec(&fold_motion_context::package::EditArgs {
                 document: id,
-                construction: artist,
+                edits: vec![fold_motion_canvas::editing::Edit::Parameter {
+                    object,
+                    expected,
+                    value,
+                }],
             })
             .unwrap(),
         },
@@ -96,24 +106,42 @@ fn owner_applies_refreshes_undoes_and_preserves_active_artist_edits() {
     assert!(result.get("error").is_none(), "{result}");
     assert!(session.state().dirty && session.state().can_undo);
     assert_eq!(
-        Construction::from_document(&session.snapshot().unwrap().state().documents[&id])
+        Canvas::from_document(&session.snapshot().unwrap().state().documents[&id])
             .unwrap()
-            .seed,
-        42
+            .objects
+            .values()
+            .next()
+            .unwrap()
+            .transform
+            .x
+            .value,
+        42.
     );
     session.command(DesktopCommand::Undo);
     assert_eq!(
-        Construction::from_document(&session.snapshot().unwrap().state().documents[&id])
+        Canvas::from_document(&session.snapshot().unwrap().state().documents[&id])
             .unwrap()
-            .seed,
-        0
+            .objects
+            .values()
+            .next()
+            .unwrap()
+            .transform
+            .x
+            .value,
+        0.
     );
     assert_eq!(raw(&mut session, fresh), result);
     assert_eq!(
-        Construction::from_document(&session.snapshot().unwrap().state().documents[&id])
+        Canvas::from_document(&session.snapshot().unwrap().state().documents[&id])
             .unwrap()
-            .seed,
-        0
+            .objects
+            .values()
+            .next()
+            .unwrap()
+            .transform
+            .x
+            .value,
+        0.
     );
 }
 
@@ -182,7 +210,7 @@ fn viewer_activity_and_file_save_do_not_consume_or_publish_agent_worker_results(
         .commit(EditBatch {
             base: project.snapshot().revision(),
             mutations: vec![
-                Mutation::PutDocument(fold_motion::package::create(id).unwrap()),
+                Mutation::PutDocument(support::motion().document(id).unwrap()),
                 Mutation::PutDocument(composite.document(image).unwrap()),
             ],
         })
@@ -243,10 +271,16 @@ fn viewer_activity_and_file_save_do_not_consume_or_publish_agent_worker_results(
     );
     let saved = fold_project::load(path, 8).unwrap();
     assert_eq!(
-        Construction::from_document(&saved.snapshot().state().documents[&id])
+        Canvas::from_document(&saved.snapshot().state().documents[&id])
             .unwrap()
-            .seed,
-        0
+            .objects
+            .values()
+            .next()
+            .unwrap()
+            .transform
+            .x
+            .value,
+        0.
     );
     session.command(DesktopCommand::Undo);
     assert!(!session.state().dirty);

@@ -1,0 +1,650 @@
+{
+  "device_uuid": [
+    109,
+    101,
+    115,
+    97,
+    50,
+    54,
+    46,
+    49,
+    46,
+    54,
+    45,
+    49,
+    112,
+    111,
+    112,
+    0
+  ],
+  "dimensions": [
+    96,
+    64
+  ],
+  "fixture": "native animated anchor and both handle offsets; distinct key schedules; sheared transform; translucent stroke",
+  "frames": [
+    {
+      "exact_static_pose_parity": true,
+      "exact_warm_parity": true,
+      "expected_anchor": [
+        10.0,
+        10.0
+      ],
+      "expected_incoming": [
+        -5.0,
+        8.0
+      ],
+      "expected_outgoing": [
+        15.0,
+        -7.0
+      ],
+      "subdivision": {
+        "changed_pixels": 11,
+        "exact_warm_parity": true,
+        "max_component_error": 0.352294921875,
+        "sum_absolute_component_error": 4.2880859375
+      },
+      "time": {
+        "denominator": 1,
+        "numerator": 0
+      },
+      "frame_rgba32f_sha256": "e22cd688f725e65319acd5e2b5361a7cea0fa6bfa3c955ed84504c57272807e5",
+      "split_rgba32f_sha256": "5cd6bba4b30379b12253f6838eb8bb9d0208c00c380898bf4189c0bb8f8038e7"
+    },
+    {
+      "exact_static_pose_parity": true,
+      "exact_warm_parity": true,
+      "expected_anchor": [
+        20.0,
+        15.0
+      ],
+      "expected_incoming": [
+        -5.0,
+        8.0
+      ],
+      "expected_outgoing": [
+        9.0,
+        5.0
+      ],
+      "subdivision": {
+        "changed_pixels": 6,
+        "exact_warm_parity": true,
+        "max_component_error": 0.352294921875,
+        "sum_absolute_component_error": 2.869384765625
+      },
+      "time": {
+        "denominator": 2,
+        "numerator": 1
+      },
+      "frame_rgba32f_sha256": "e1939077933062d0caefbace49eee6679bc6099e905cbaa58dc221b14afa3fa5",
+      "split_rgba32f_sha256": "9505198f5d7980083fabd368f6678e426121c792fe0a469f9903e6042594c496"
+    },
+    {
+      "exact_static_pose_parity": true,
+      "exact_warm_parity": true,
+      "expected_anchor": [
+        30.0,
+        20.0
+      ],
+      "expected_incoming": [
+        -20.0,
+        -12.0
+      ],
+      "expected_outgoing": [
+        3.0,
+        17.0
+      ],
+      "subdivision": {
+        "changed_pixels": 4,
+        "exact_warm_parity": true,
+        "max_component_error": 0.17626953125,
+        "sum_absolute_component_error": 1.420074462890625
+      },
+      "time": {
+        "denominator": 1,
+        "numerator": 1
+      },
+      "frame_rgba32f_sha256": "16fb69bd281e3673c18889c0852cb5e7736aca30eb41aba518996ad5cd9be040",
+      "split_rgba32f_sha256": "018109cb963911213d4dc1b8877a87da0194aeb562ba000d6b88d88a390a8163"
+    },
+    {
+      "exact_static_pose_parity": true,
+      "exact_warm_parity": true,
+      "expected_anchor": [
+        30.0,
+        20.0
+      ],
+      "expected_incoming": [
+        -20.0,
+        -12.0
+      ],
+      "expected_outgoing": [
+        -3.0,
+        29.0
+      ],
+      "subdivision": {
+        "changed_pixels": 10,
+        "exact_warm_parity": true,
+        "max_component_error": 0.349365234375,
+        "sum_absolute_component_error": 3.9241943359375
+      },
+      "time": {
+        "denominator": 1,
+        "numerator": 2
+      },
+      "frame_rgba32f_sha256": "92083b289b24ef200e273b3ea657cbf46ac1d2e1f8c2ecb1059deca941fd477a",
+      "split_rgba32f_sha256": "857ac55ee2454d4fd420af43af0b76f4c6c97a0fd322a70b5002d38e17919229"
+    },
+    {
+      "exact_static_pose_parity": true,
+      "exact_warm_parity": true,
+      "expected_anchor": [
+        10.0,
+        10.0
+      ],
+      "expected_incoming": [
+        -5.0,
+        8.0
+      ],
+      "expected_outgoing": [
+        15.0,
+        -7.0
+      ],
+      "subdivision": {
+        "changed_pixels": 11,
+        "exact_warm_parity": true,
+        "max_component_error": 0.352294921875,
+        "sum_absolute_component_error": 4.2880859375
+      },
+      "time": {
+        "denominator": 1,
+        "numerator": 0
+      },
+      "frame_rgba32f_sha256": "e22cd688f725e65319acd5e2b5361a7cea0fa6bfa3c955ed84504c57272807e5",
+      "split_rgba32f_sha256": "5cd6bba4b30379b12253f6838eb8bb9d0208c00c380898bf4189c0bb8f8038e7"
+    }
+  ],
+  "scope": "direct native fframes Vulkan subdivision measurement; geometry exact in tools tests, raster parity not accepted",
+  "subdivision_raster_parity_accepted": false,
+  "fresh_renderer_probe": {
+    "time": {
+      "numerator": 0,
+      "denominator": 1
+    },
+    "exact_retained_fresh_subdivided_parity": true,
+    "build_seconds": 1.62,
+    "scope": "same device, new renderer and caches; rejects retained-state dependence for first pose"
+  },
+  "cpu_probe": {
+    "changed_pixels": 88,
+    "max_component_error": 0.09356689453125,
+    "scope": "diagnostic Skia CPU raster of the same upstream trees",
+    "time": {
+      "denominator": 1,
+      "numerator": 0
+    }
+  },
+  "disable_tessellation_probe": {
+    "scope": "temporary GPU ContextOptions experiment; default restored after measurement",
+    "build_seconds": 2.8,
+    "frames": [
+      {
+        "time": {
+          "denominator": 1,
+          "numerator": 0
+        },
+        "subdivision": {
+          "changed_pixels": 88,
+          "exact_warm_parity": true,
+          "max_component_error": 0.09356689453125,
+          "sum_absolute_component_error": 4.831848382949829
+        },
+        "original_rgba32f_sha256": "07e15ed45d4ffcb851df13b2c42fc8cd8bf35b273b8202c5f443dadc14693688",
+        "split_rgba32f_sha256": "65e4300a2aa96c5319958b0f4ccc3361322fc0fae038662eb036be924eb16c6b"
+      },
+      {
+        "time": {
+          "denominator": 2,
+          "numerator": 1
+        },
+        "subdivision": {
+          "changed_pixels": 107,
+          "exact_warm_parity": true,
+          "max_component_error": 0.1845703125,
+          "sum_absolute_component_error": 10.87105417251587
+        },
+        "original_rgba32f_sha256": "6b0d84c759cd09cfb748c57a90e72b17a87e7d2f83c8210b0c56f57fd60b700d",
+        "split_rgba32f_sha256": "4e71bf90fd502d61aa47386ac904ff905c4ddef058e53e7e771ec0d4b4662d65"
+      },
+      {
+        "time": {
+          "denominator": 1,
+          "numerator": 1
+        },
+        "subdivision": {
+          "changed_pixels": 47,
+          "exact_warm_parity": true,
+          "max_component_error": 0.154052734375,
+          "sum_absolute_component_error": 3.1535024642944336
+        },
+        "original_rgba32f_sha256": "74579ec20764364800cab92ec7b229fd9e18a3bc3ce66d6afc87a4809d020cd8",
+        "split_rgba32f_sha256": "5c7da2235d508b9949f0b8aaafe5101bbf6984fd34ff7afb4a33030cfd10726e"
+      },
+      {
+        "time": {
+          "denominator": 1,
+          "numerator": 2
+        },
+        "subdivision": {
+          "changed_pixels": 57,
+          "exact_warm_parity": true,
+          "max_component_error": 0.20361328125,
+          "sum_absolute_component_error": 3.1603546142578125
+        },
+        "original_rgba32f_sha256": "e2f660b315aae1cf75f02978105e97b777229fa6557951fd26371c3f5e3559f3",
+        "split_rgba32f_sha256": "ca2747235d2251c0b6df7d5070bd0ed7da3d8930308c236eb4d14fc57db4601b"
+      },
+      {
+        "time": {
+          "denominator": 1,
+          "numerator": 0
+        },
+        "subdivision": {
+          "changed_pixels": 88,
+          "exact_warm_parity": true,
+          "max_component_error": 0.09356689453125,
+          "sum_absolute_component_error": 4.831848382949829
+        },
+        "original_rgba32f_sha256": "07e15ed45d4ffcb851df13b2c42fc8cd8bf35b273b8202c5f443dadc14693688",
+        "split_rgba32f_sha256": "65e4300a2aa96c5319958b0f4ccc3361322fc0fae038662eb036be924eb16c6b"
+      }
+    ]
+  },
+  "quality_probe": {
+    "cpu_split_vs_reference16": {
+      "max_component_error": 0.18755191564559937,
+      "sum_absolute_component_error": 15.701649462804198
+    },
+    "cpu_vs_reference16": {
+      "max_component_error": 0.18755191564559937,
+      "sum_absolute_component_error": 15.385678293183446
+    },
+    "gpu_split_vs_reference16": {
+      "max_component_error": 0.25370728969573975,
+      "sum_absolute_component_error": 27.522447349503636
+    },
+    "gpu_vs_reference16": {
+      "max_component_error": 0.23268526792526245,
+      "sum_absolute_component_error": 27.443517312407494
+    },
+    "reference16_vs_split_reference16": {
+      "max_component_error": 0.008479297161102295,
+      "sum_absolute_component_error": 0.3810611888766289
+    },
+    "reference8_vs_reference16": {
+      "max_component_error": 0.024540185928344727,
+      "sum_absolute_component_error": 1.880347540602088
+    },
+    "scope": "first-pose linear premultiplied Float RGBA; box-reduced Skia CPU reference, not analytic ground truth",
+    "build_seconds": 2.93
+  },
+  "internal_samples8_probes": {
+    "mesa": {
+      "device_uuid": [
+        109,
+        101,
+        115,
+        97,
+        50,
+        54,
+        46,
+        49,
+        46,
+        54,
+        45,
+        49,
+        112,
+        111,
+        112,
+        0
+      ],
+      "quality": {
+        "cpu_split_vs_reference16": {
+          "max_component_error": 0.18755191564559937,
+          "sum_absolute_component_error": 15.701649462804198
+        },
+        "cpu_vs_reference16": {
+          "max_component_error": 0.18755191564559937,
+          "sum_absolute_component_error": 15.385678293183446
+        },
+        "gpu_split_vs_reference16": {
+          "max_component_error": 0.14901363849639893,
+          "sum_absolute_component_error": 16.823294261470437
+        },
+        "gpu_vs_reference16": {
+          "max_component_error": 0.1315068006515503,
+          "sum_absolute_component_error": 16.985982732847333
+        },
+        "reference16_vs_split_reference16": {
+          "max_component_error": 0.008479297161102295,
+          "sum_absolute_component_error": 0.3810611888766289
+        },
+        "reference8_vs_reference16": {
+          "max_component_error": 0.024540185928344727,
+          "sum_absolute_component_error": 1.880347540602088
+        },
+        "scope": "first-pose linear premultiplied Float RGBA; box-reduced Skia CPU reference, not analytic ground truth"
+      },
+      "frames": [
+        {
+          "time": {
+            "denominator": 1,
+            "numerator": 0
+          },
+          "subdivision": {
+            "changed_pixels": 21,
+            "exact_warm_parity": true,
+            "max_component_error": 0.08837890625,
+            "sum_absolute_component_error": 3.7611083984375
+          },
+          "original_rgba32f_sha256": "b2c2e9028774ce5facfe8186debcaaf8d60d40866737ee8505b30aac6ea91665",
+          "split_rgba32f_sha256": "3fd20127516be81ac9ef4ed1bc22aa1c971f7ad1154642507ec6752dd3fa9b30"
+        },
+        {
+          "time": {
+            "denominator": 2,
+            "numerator": 1
+          },
+          "subdivision": {
+            "changed_pixels": 15,
+            "exact_warm_parity": true,
+            "max_component_error": 0.261474609375,
+            "sum_absolute_component_error": 3.22247314453125
+          },
+          "original_rgba32f_sha256": "36611442ffab0b00db23168e184efc2ac81c1aa64ab71f4ec0d55ee6392bdcd7",
+          "split_rgba32f_sha256": "3e46b9d0148a65d1a50084b68492db420369385990f007fc19baf946a67f3578"
+        },
+        {
+          "time": {
+            "denominator": 1,
+            "numerator": 1
+          },
+          "subdivision": {
+            "changed_pixels": 14,
+            "exact_warm_parity": true,
+            "max_component_error": 0.173095703125,
+            "sum_absolute_component_error": 2.861968994140625
+          },
+          "original_rgba32f_sha256": "4572cb73e74228fa1b30890469dce3d0c5d9b84b440d39baba2d336963638c9f",
+          "split_rgba32f_sha256": "20e884379b68e7db82765f348c394aa6e0feb2f1bdb41a0c554db063b8beb349"
+        },
+        {
+          "time": {
+            "denominator": 1,
+            "numerator": 2
+          },
+          "subdivision": {
+            "changed_pixels": 28,
+            "exact_warm_parity": true,
+            "max_component_error": 0.17626953125,
+            "sum_absolute_component_error": 6.0633544921875
+          },
+          "original_rgba32f_sha256": "d1a5426be2ded6f2df0f968f6df5da2d4c83aca6b9a217b44f85cda888b4c3fc",
+          "split_rgba32f_sha256": "9b3a3d6667dfb27384c3b41682acc6a50718e72e3e511f42b325a63760c0598a"
+        },
+        {
+          "time": {
+            "denominator": 1,
+            "numerator": 0
+          },
+          "subdivision": {
+            "changed_pixels": 21,
+            "exact_warm_parity": true,
+            "max_component_error": 0.08837890625,
+            "sum_absolute_component_error": 3.7611083984375
+          },
+          "original_rgba32f_sha256": "b2c2e9028774ce5facfe8186debcaaf8d60d40866737ee8505b30aac6ea91665",
+          "split_rgba32f_sha256": "3fd20127516be81ac9ef4ed1bc22aa1c971f7ad1154642507ec6752dd3fa9b30"
+        }
+      ]
+    },
+    "native": {
+      "device_uuid": [
+        51,
+        15,
+        224,
+        75,
+        242,
+        209,
+        55,
+        37,
+        162,
+        157,
+        10,
+        35,
+        238,
+        158,
+        113,
+        71
+      ],
+      "quality": {
+        "cpu_split_vs_reference16": {
+          "max_component_error": 0.18755191564559937,
+          "sum_absolute_component_error": 15.701649462804198
+        },
+        "cpu_vs_reference16": {
+          "max_component_error": 0.18755191564559937,
+          "sum_absolute_component_error": 15.385678293183446
+        },
+        "gpu_split_vs_reference16": {
+          "max_component_error": 0.14901363849639893,
+          "sum_absolute_component_error": 16.796664180234075
+        },
+        "gpu_vs_reference16": {
+          "max_component_error": 0.13192051649093628,
+          "sum_absolute_component_error": 16.95935265161097
+        },
+        "reference16_vs_split_reference16": {
+          "max_component_error": 0.008479297161102295,
+          "sum_absolute_component_error": 0.3810611888766289
+        },
+        "reference8_vs_reference16": {
+          "max_component_error": 0.024540185928344727,
+          "sum_absolute_component_error": 1.880347540602088
+        },
+        "scope": "first-pose linear premultiplied Float RGBA; box-reduced Skia CPU reference, not analytic ground truth"
+      },
+      "frames": [
+        {
+          "time": {
+            "denominator": 1,
+            "numerator": 0
+          },
+          "subdivision": {
+            "changed_pixels": 21,
+            "exact_warm_parity": true,
+            "max_component_error": 0.08837890625,
+            "sum_absolute_component_error": 3.7611083984375
+          },
+          "original_rgba32f_sha256": "49696a6bf6d673a8a358ed73747bd0ff0f1aad33c476edfd959e26a19c75da58",
+          "split_rgba32f_sha256": "937c678111f599e31517a76705d0d8ff4509c6bf63838561efecd6e02186d585"
+        },
+        {
+          "time": {
+            "denominator": 2,
+            "numerator": 1
+          },
+          "subdivision": {
+            "changed_pixels": 15,
+            "exact_warm_parity": true,
+            "max_component_error": 0.264404296875,
+            "sum_absolute_component_error": 3.2340087890625
+          },
+          "original_rgba32f_sha256": "2330c1543d2f24d7cbdabff61c653ae6ec88723d523e03c2bd76482efa88e456",
+          "split_rgba32f_sha256": "6d28dbb7ad81d62670a942a0606be93fb210c9f246ef86e863749b7c9181a516"
+        },
+        {
+          "time": {
+            "denominator": 1,
+            "numerator": 1
+          },
+          "subdivision": {
+            "changed_pixels": 14,
+            "exact_warm_parity": true,
+            "max_component_error": 0.176025390625,
+            "sum_absolute_component_error": 2.86773681640625
+          },
+          "original_rgba32f_sha256": "b80bb4e48488c4287b81436209103d1b95914360605bcee4fe29f9e6f8796a18",
+          "split_rgba32f_sha256": "337c9a3cf7bcef441c66c3a840b1d778c10cada42622e13037c3d7318f380976"
+        },
+        {
+          "time": {
+            "denominator": 1,
+            "numerator": 2
+          },
+          "subdivision": {
+            "changed_pixels": 28,
+            "exact_warm_parity": true,
+            "max_component_error": 0.17626953125,
+            "sum_absolute_component_error": 6.080657958984375
+          },
+          "original_rgba32f_sha256": "ca68d5fddc802fb4e1fbf33a47397edba172332bd4480f2a0bf57a9a62290394",
+          "split_rgba32f_sha256": "5f563defa1b2162d5d7946de49fc7473939810cd5f9f521608ee3b06f00357d1"
+        },
+        {
+          "time": {
+            "denominator": 1,
+            "numerator": 0
+          },
+          "subdivision": {
+            "changed_pixels": 21,
+            "exact_warm_parity": true,
+            "max_component_error": 0.08837890625,
+            "sum_absolute_component_error": 3.7611083984375
+          },
+          "original_rgba32f_sha256": "49696a6bf6d673a8a358ed73747bd0ff0f1aad33c476edfd959e26a19c75da58",
+          "split_rgba32f_sha256": "937c678111f599e31517a76705d0d8ff4509c6bf63838561efecd6e02186d585"
+        }
+      ]
+    }
+  },
+  "default_native_probe": {
+    "device_uuid": [
+      51,
+      15,
+      224,
+      75,
+      242,
+      209,
+      55,
+      37,
+      162,
+      157,
+      10,
+      35,
+      238,
+      158,
+      113,
+      71
+    ],
+    "quality": {
+      "cpu_split_vs_reference16": {
+        "max_component_error": 0.18755191564559937,
+        "sum_absolute_component_error": 15.701649462804198
+      },
+      "cpu_vs_reference16": {
+        "max_component_error": 0.18755191564559937,
+        "sum_absolute_component_error": 15.385678293183446
+      },
+      "gpu_split_vs_reference16": {
+        "max_component_error": 0.25077760219573975,
+        "sum_absolute_component_error": 27.49004944600165
+      },
+      "gpu_vs_reference16": {
+        "max_component_error": 0.23561495542526245,
+        "sum_absolute_component_error": 27.41688723117113
+      },
+      "reference16_vs_split_reference16": {
+        "max_component_error": 0.008479297161102295,
+        "sum_absolute_component_error": 0.3810611888766289
+      },
+      "reference8_vs_reference16": {
+        "max_component_error": 0.024540185928344727,
+        "sum_absolute_component_error": 1.880347540602088
+      },
+      "scope": "first-pose linear premultiplied Float RGBA; box-reduced Skia CPU reference, not analytic ground truth"
+    },
+    "frames": [
+      {
+        "time": {
+          "denominator": 1,
+          "numerator": 0
+        },
+        "subdivision": {
+          "changed_pixels": 11,
+          "exact_warm_parity": true,
+          "max_component_error": 0.349365234375,
+          "sum_absolute_component_error": 4.282318115234375
+        },
+        "original_rgba32f_sha256": "ddad0f7364dc792d865af13a6a56778bfc78826358e61c987c7f19f6f88cc5ca",
+        "split_rgba32f_sha256": "7804b62d95ba281d4a3ac9eed8fbc78716b1a7e3c4ea9d2a1fea02e0fbef93b1"
+      },
+      {
+        "time": {
+          "denominator": 2,
+          "numerator": 1
+        },
+        "subdivision": {
+          "changed_pixels": 6,
+          "exact_warm_parity": true,
+          "max_component_error": 0.352294921875,
+          "sum_absolute_component_error": 2.863616943359375
+        },
+        "original_rgba32f_sha256": "fb526861c41cb99d9a307ccd3ceeb83869e6c1978fd62bbd847e426702d363d9",
+        "split_rgba32f_sha256": "0607573d7fe1198dc0faccf367b5a930114ec50d3b5595919870c932d4fa9c16"
+      },
+      {
+        "time": {
+          "denominator": 1,
+          "numerator": 1
+        },
+        "subdivision": {
+          "changed_pixels": 4,
+          "exact_warm_parity": true,
+          "max_component_error": 0.17626953125,
+          "sum_absolute_component_error": 1.4373779296875
+        },
+        "original_rgba32f_sha256": "0dd04809abdd01ed04829c577a50deb9302964ddfea1e50bde25befa53509add",
+        "split_rgba32f_sha256": "2295a5d526fc1e7b310781802e272498e6528bf0cb2ae2fb2ffb12c8895800fa"
+      },
+      {
+        "time": {
+          "denominator": 1,
+          "numerator": 2
+        },
+        "subdivision": {
+          "changed_pixels": 10,
+          "exact_warm_parity": true,
+          "max_component_error": 0.352294921875,
+          "sum_absolute_component_error": 3.947265625
+        },
+        "original_rgba32f_sha256": "54af62c00ce7616142e76a6b884d6938a6b78bd57eef0d43f14a7eb7b8af18a8",
+        "split_rgba32f_sha256": "49b32b3f2a631397ba652a1b3d0bfc80e1b7dd398447ba25c31e8ea25ed03e70"
+      },
+      {
+        "time": {
+          "denominator": 1,
+          "numerator": 0
+        },
+        "subdivision": {
+          "changed_pixels": 11,
+          "exact_warm_parity": true,
+          "max_component_error": 0.349365234375,
+          "sum_absolute_component_error": 4.282318115234375
+        },
+        "original_rgba32f_sha256": "ddad0f7364dc792d865af13a6a56778bfc78826358e61c987c7f19f6f88cc5ca",
+        "split_rgba32f_sha256": "7804b62d95ba281d4a3ac9eed8fbc78716b1a7e3c4ea9d2a1fea02e0fbef93b1"
+      }
+    ]
+  }
+}

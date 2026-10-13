@@ -11,12 +11,12 @@ mod graph;
 pub mod operations;
 mod preparation;
 pub mod shader;
+pub mod source;
 pub use preparation::{PreparedSources, prepare_sources};
 pub mod region;
 mod sampling;
 pub mod scheduling;
 pub mod spatial;
-pub mod text;
 pub mod vector;
 mod vector_geometry;
 #[cfg(feature = "gpu")]

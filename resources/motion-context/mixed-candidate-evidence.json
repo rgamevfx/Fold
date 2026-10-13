@@ -1,0 +1,20 @@
+{
+  "date": "2026-10-12",
+  "candidate_timeline_matches_committed_after_apply": true,
+  "candidate_timeline_differs_from_committed_before_apply": true,
+  "committed_timeline_unchanged_during_preparation": true,
+  "proposal_scope": "Motion",
+  "observed_candidate_document": "Timeline",
+  "dimensions": [
+    640,
+    360
+  ],
+  "opaque_rgba8_sha256": "0ddd617625ae0852e09cb731332b1217c10cab2d95b7b4c846035bc8387baade",
+  "transfers": {
+    "cpu_adapter_nodes": 0,
+    "evaluation_readback_bytes": 0
+  },
+  "native_artist_acceptance": false,
+  "export_parity_qualified": false,
+  "candidate_output_measurements_qualified": false
+}

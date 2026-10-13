@@ -1,0 +1,31 @@
+{
+  "scope": "Prebuilt native-only worker, existing shared worker/render implementation, standalone native Vulkan readback",
+  "preparation": {
+    "executable": "/tmp/fold-motion-sdk-native-worker-20261012/libraries/fold-motion-native-worker",
+    "program_preparation_ms": 471.515892,
+    "sdk_verification_ms": 7230.355979999999,
+    "total_ms": 7703.36976001272,
+    "compiler_rejects_compilation": true,
+    "program_cache_created": false
+  },
+  "prebuilt_and_generated_worker_pixels_exact": true,
+  "repeat_exact": true,
+  "artist_transform_changes_pixels": true,
+  "frames_sha256": [
+    "1d2285b8a4856b856e0cd7583633b47148c5880ec890ad647d9f4b95ac64e0a0",
+    "8854a88f87e1f30f10b7220ce9a535e34cee870d52a0e412a3daf2864535d516",
+    "1d2285b8a4856b856e0cd7583633b47148c5880ec890ad647d9f4b95ac64e0a0"
+  ],
+  "worker_process_ms": [
+    264.07243497669697,
+    249.5768110093195
+  ],
+  "installed_app_acceptance": false,
+  "sdk_install_scope": "Producer install_libraries reused previously qualified release libraries; full new cold producer/package build not repeated",
+  "script_preparation": {
+    "executable": "/tmp/fold-native-sdk-script-probe-20261012/cache/995adfe357d2e6751c19ee4bd1aa2fe80a8b831140491ce759ee320486221f19/fold-motion-ce56bfabb884fcf112b7617d3cef0087d73929aa009e58e39581fa2a5ce63626",
+    "program_preparation_ms": 6299.923989,
+    "sdk_verification_ms": 6432.848583
+  },
+  "version_2_script_compilation_passed": true
+}

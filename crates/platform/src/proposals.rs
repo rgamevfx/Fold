@@ -10,9 +10,6 @@ use std::collections::BTreeMap;
 #[serde(deny_unknown_fields)]
 pub struct Scope {
     pub document: DocumentId,
-    pub definition: Option<ObjectId>,
-    #[serde(default)]
-    pub object: Option<ObjectId>,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum FailureKind {
@@ -62,12 +59,6 @@ impl Failure {
     pub fn context(mut self, provider: &str, scope: Scope) -> Self {
         self.details["provider"] = json!(provider);
         self.details["document"] = json!(scope.document);
-        if let Some(id) = scope.object {
-            self.details["object"] = json!(id);
-        }
-        if let Some(id) = scope.definition {
-            self.details["definition"] = json!(id);
-        }
         self
     }
     pub fn invalid(message: String) -> Self {
@@ -460,15 +451,6 @@ pub fn request(request: &ScopedRequest, cancel: &Cancel) -> Result<(), Failure> 
     }
     Ok(())
 }
-pub fn document_scope(scope: Scope) -> Result<(), Failure> {
-    if scope.definition.is_some() || scope.object.is_some() {
-        return Err(Failure::new(
-            FailureKind::InvalidRequest,
-            "This operation requires document scope",
-        ));
-    }
-    Ok(())
-}
 pub fn json_diff<R: Serialize>(
     before: Option<&R>,
     after: &R,
@@ -493,5 +475,100 @@ impl From<fold_graph::validation::Diagnostic> for Failure {
             message: diagnostic.message,
             details: json!({"native_ids": diagnostic.native_ids}),
         }
+    }
+}
+
+/// Shared document-scope candidate adapter for providers with guarded native
+/// records. Candidate lifetime, inspection and publication remain in Prepared.
+pub struct AuthoringProposals<R: Records> {
+    author: fn(&Document, &[Value], &Cancel) -> Result<Document, String>,
+    catalog: fn() -> Value,
+    records: std::marker::PhantomData<R>,
+}
+impl<R: Records> AuthoringProposals<R> {
+    pub const fn new(
+        author: fn(&Document, &[Value], &Cancel) -> Result<Document, String>,
+        catalog: fn() -> Value,
+    ) -> Self {
+        Self {
+            author,
+            catalog,
+            records: std::marker::PhantomData,
+        }
+    }
+}
+#[derive(Deserialize, schemars::JsonSchema)]
+#[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
+enum NativeAuthor {
+    Author {
+        document: DocumentId,
+        expected: Value,
+        edits: Vec<Value>,
+    },
+}
+impl<R: Records> ScopedProposals for AuthoringProposals<R> {
+    fn schema(&self) -> Value {
+        json!({"version":1,"request":schemars::schema_for!(NativeAuthor),"authoring":(self.catalog)()})
+    }
+    fn inspect(
+        &self,
+        document: &Document,
+        scope: Scope,
+        cancel: &Cancel,
+    ) -> Result<DocumentInspection, Failure> {
+        check(cancel)?;
+        R::decode(document)?.source(scope)
+    }
+    fn prepare(
+        &self,
+        base: &Snapshot,
+        input: &ScopedRequest,
+        cancel: &Cancel,
+    ) -> Result<Box<dyn PreparedProposal>, Failure> {
+        request(input, cancel)?;
+        let original = base
+            .state()
+            .documents
+            .get(&input.scope.document)
+            .ok_or_else(|| Failure::new(FailureKind::MissingResource, "Missing document"))?;
+        let NativeAuthor::Author {
+            document,
+            expected,
+            edits,
+        } = serde_json::from_value(input.body.clone())
+            .map_err(|e| Failure::invalid(e.to_string()))?;
+        let DocumentInspection::Native(native) = R::decode(original)?.source(input.scope)? else {
+            return Err(Failure::new(
+                FailureKind::Unsupported,
+                "Native inspection required",
+            ));
+        };
+        // Application inspection adds derived output/input descriptions beside
+        // native records. Only authoritative native state is an expected-value guard.
+        if document != input.scope.document || expected["native"] != native["native"] {
+            return Err(Failure::new(
+                FailureKind::Conflict,
+                "Expected native document differs",
+            ));
+        }
+        let after = (self.author)(original, &edits, cancel).map_err(Failure::invalid)?;
+        self.prepare_change(base, input.scope, &after, cancel)
+    }
+    fn prepare_change(
+        &self,
+        base: &Snapshot,
+        scope: Scope,
+        after: &Document,
+        cancel: &Cancel,
+    ) -> Result<Box<dyn PreparedProposal>, Failure> {
+        if let Some(before) = base.state().documents.get(&scope.document)
+            && before.extensions != after.extensions
+        {
+            return Err(Failure::new(
+                FailureKind::ProtectedEdit,
+                "Cannot discard document extensions",
+            ));
+        }
+        Ok(Box::new(Prepared::<R>::new(base, scope, after, cancel)?))
     }
 }

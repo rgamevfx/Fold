@@ -1,0 +1,93 @@
+{
+  "device_uuid": [
+    109,
+    101,
+    115,
+    97,
+    50,
+    54,
+    46,
+    49,
+    46,
+    54,
+    45,
+    49,
+    112,
+    111,
+    112,
+    0
+  ],
+  "dimensions": [
+    96,
+    64
+  ],
+  "fixture": "native animated cubic; sheared transform; translucent stroke",
+  "frames": [
+    {
+      "exact_static_pose_parity": true,
+      "exact_warm_parity": true,
+      "expected_anchor": [
+        10.0,
+        10.0
+      ],
+      "time": {
+        "denominator": 1,
+        "numerator": 0
+      },
+      "rgba32f_sha256": "e22cd688f725e65319acd5e2b5361a7cea0fa6bfa3c955ed84504c57272807e5"
+    },
+    {
+      "exact_static_pose_parity": true,
+      "exact_warm_parity": true,
+      "expected_anchor": [
+        20.0,
+        15.0
+      ],
+      "time": {
+        "denominator": 2,
+        "numerator": 1
+      },
+      "rgba32f_sha256": "a42466c004d380cabd994b478d45a7fea7af880563340e7182b8234ac786958b"
+    },
+    {
+      "exact_static_pose_parity": true,
+      "exact_warm_parity": true,
+      "expected_anchor": [
+        30.0,
+        20.0
+      ],
+      "time": {
+        "denominator": 1,
+        "numerator": 1
+      },
+      "rgba32f_sha256": "d308a9f89da6ec8fce9b3d2419416a3ab5ffa833a48bd02f8ee0148a5dd70272"
+    },
+    {
+      "exact_static_pose_parity": true,
+      "exact_warm_parity": true,
+      "expected_anchor": [
+        30.0,
+        20.0
+      ],
+      "time": {
+        "denominator": 1,
+        "numerator": 2
+      },
+      "rgba32f_sha256": "d308a9f89da6ec8fce9b3d2419416a3ab5ffa833a48bd02f8ee0148a5dd70272"
+    },
+    {
+      "exact_static_pose_parity": true,
+      "exact_warm_parity": true,
+      "expected_anchor": [
+        10.0,
+        10.0
+      ],
+      "time": {
+        "denominator": 1,
+        "numerator": 0
+      },
+      "rgba32f_sha256": "e22cd688f725e65319acd5e2b5361a7cea0fa6bfa3c955ed84504c57272807e5"
+    }
+  ],
+  "scope": "native fframes Vulkan renderer; direct fixture, not full application or MCP"
+}

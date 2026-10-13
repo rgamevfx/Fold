@@ -1,3 +1,4 @@
+mod support;
 use fold_app::agent::retry::*;
 use fold_foundation::ObjectId;
 use std::time::{Duration, Instant};
@@ -196,7 +197,7 @@ fn response_memory_budget_evicts_oldest_and_tickets_cannot_cross_trackers() {
 #[test]
 fn retried_candidate_apply_commits_once_even_after_artist_undo() {
     use fold_foundation::DocumentId;
-    use fold_motion::{editing, model::Construction};
+    use fold_motion_canvas::model::Canvas;
     use fold_project::proposals::Store;
     use fold_project::{EditBatch, Mutation, Project};
     let now = Instant::now();
@@ -206,15 +207,19 @@ fn retried_candidate_apply_commits_once_even_after_artist_undo() {
         .commit(EditBatch {
             base: project.snapshot().revision(),
             mutations: vec![Mutation::PutDocument(
-                fold_motion::package::create(id).unwrap(),
+                support::motion().document(id).unwrap(),
             )],
         })
         .unwrap();
     let snapshot = project.snapshot();
-    let original = Construction::from_document(&snapshot.state().documents[&id]).unwrap();
-    let mut changed = original.clone();
-    changed.seed = 123;
-    let candidate = editing::prepare(&snapshot, id, editing::Scope::Document, changed).unwrap();
+    let original = Canvas::from_document(&snapshot.state().documents[&id]).unwrap();
+    let candidate = fold_app::agent::dispatch::native::prepare_scoped(
+        &snapshot,
+        fold_platform::proposals::Scope { document: id },
+        support::motion_request(id, serde_json::json!({"native":original}), 123.),
+        &fold_media::Cancel::default(),
+    )
+    .unwrap();
     let mut candidates = Store::default();
     let handle = candidates.insert(candidate, now).unwrap();
     let inspected = candidates.inspect(handle, now).unwrap();
@@ -242,7 +247,7 @@ fn retried_candidate_apply_commits_once_even_after_artist_undo() {
     assert_eq!(replay.as_ref(), response);
     assert_eq!(project.snapshot().revision(), undone);
     assert_eq!(
-        Construction::from_document(&project.snapshot().state().documents[&id]).unwrap(),
+        Canvas::from_document(&project.snapshot().state().documents[&id]).unwrap(),
         original
     );
     error(

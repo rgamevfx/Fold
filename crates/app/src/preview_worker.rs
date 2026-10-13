@@ -15,6 +15,8 @@ pub(super) mod source_preparation;
 type Request = (Snapshot, PreviewDemand);
 struct Active {
     key: PreviewKey,
+    owners: Vec<PanelInstanceId>,
+    started: std::time::Instant,
     consumers: Vec<(PanelInstanceId, u64, bool)>,
     cancel: Cancel,
 }
@@ -82,7 +84,26 @@ impl Mailbox {
                 }
             }
             if active.consumers.is_empty() {
-                active.cancel.cancel();
+                // Rapid edits at the same pose must not repeatedly destroy a
+                // warm native renderer. Finish one bounded frame, discard its
+                // retired consumers, and then evaluate only the newest demand.
+                let editing_same_pose = active.started.elapsed()
+                    < std::time::Duration::from_millis(100)
+                    && demands.iter().any(|d| {
+                        !d.background
+                            && active.owners.contains(&d.consumer)
+                            && d.key.content != active.key.content
+                            && d.key.target == active.key.target
+                            && d.key.frame == active.key.frame
+                            && d.key.output == active.key.output
+                            && d.key.dimensions == active.key.dimensions
+                            && d.key.region == active.key.region
+                            && d.key.channels == active.key.channels
+                            && d.key.view == active.key.view
+                    });
+                if !editing_same_pose {
+                    active.cancel.cancel();
+                }
             }
         }
         self.pending.clear();
@@ -153,6 +174,12 @@ impl Mailbox {
         let cancel = Cancel::default();
         self.active = Some(Active {
             key: demand.key.clone(),
+            owners: consumers
+                .iter()
+                .filter(|owner| !owner.2)
+                .map(|owner| owner.0)
+                .collect(),
+            started: std::time::Instant::now(),
             consumers,
             cancel: cancel.clone(),
         });
@@ -675,5 +702,31 @@ mod tests {
         assert!(queue.occupied());
         queue.result.take();
         assert!(!queue.occupied());
+    }
+    #[test]
+    fn rapid_same_pose_edits_coalesce_without_retiring_warm_renderer_or_publishing_stale_pixels() {
+        let mut queue = Mailbox::default();
+        let first = demand(1, 1, 0, false);
+        queue.replace(snapshot(), vec![first.clone()]);
+        let (_, _, cancel, _) = queue.next().unwrap();
+        let mut latest = first.clone();
+        for generation in 2..20 {
+            latest.generation = generation;
+            latest.key.content = format!("edit-{generation}");
+            queue.replace(snapshot(), vec![latest.clone()]);
+            assert!(cancel.check().is_ok());
+            assert_eq!(queue.depth(), 1);
+        }
+        assert!(
+            queue.finish().is_empty(),
+            "retired pixels have no presentation consumer"
+        );
+        assert_eq!(queue.next().unwrap().1, latest.key);
+        queue.active.as_mut().unwrap().started =
+            std::time::Instant::now() - std::time::Duration::from_millis(101);
+        latest.generation += 1;
+        latest.key.content = "after-deadline".into();
+        queue.replace(snapshot(), vec![latest]);
+        assert!(queue.active.as_ref().unwrap().cancel.check().is_err());
     }
 }

@@ -312,6 +312,33 @@ pub enum EulerOrder {
     Zyx,
 }
 impl Literal {
+    /// Canonical intrinsic XYZ Euler display angles, in radians.
+    /// Quaternion storage remains authoritative.
+    pub fn euler_xyz(&self) -> Result<[f64; 3], String> {
+        self.validate()?;
+        let Self::Rotation {
+            value: [x, y, z, w],
+            ..
+        } = *self
+        else {
+            return Err("Euler angles require a rotation".into());
+        };
+        let sine = (2. * (x * z + y * w)).clamp(-1., 1.);
+        let angles = if sine.abs() < 1. - 1e-12 {
+            [
+                (2. * (x * w - y * z)).atan2(1. - 2. * (x * x + y * y)),
+                sine.asin(),
+                (2. * (z * w - x * y)).atan2(1. - 2. * (y * y + z * z)),
+            ]
+        } else {
+            [
+                (2. * (y * z + x * w)).atan2(1. - 2. * (x * x + z * z)),
+                sine.signum() * std::f64::consts::FRAC_PI_2,
+                0.,
+            ]
+        };
+        Ok(angles)
+    }
     /// Intrinsic rotations, applied in the explicitly named order, in radians.
     pub fn euler(radians: [f64; 3], order: EulerOrder, space: Space) -> Result<Self, String> {
         if radians.iter().any(|v| !v.is_finite()) {

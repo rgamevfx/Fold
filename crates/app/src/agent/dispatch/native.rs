@@ -126,11 +126,7 @@ impl Candidate {
             prepared.push(Arc::from(
                 registry.scoped_proposals(document)?.prepare_change(
                     base,
-                    Scope {
-                        document: *id,
-                        definition: None,
-                        object: None,
-                    },
+                    Scope { document: *id },
                     document,
                     cancel,
                 )?,
@@ -309,7 +305,7 @@ impl Proposal for Candidate {
                 if self.direct {
                     self.prepared[0].undo_label()
                 } else {
-                    "Edit Composition and scene graphs"
+                    "Edit creative documents"
                 }
                 .into(),
             )
@@ -371,8 +367,6 @@ pub fn inspect(document: &Document) -> Result<Value, Failure> {
         document,
         Scope {
             document: document.id,
-            definition: None,
-            object: None,
         },
         &Cancel::default(),
     )? {
@@ -409,8 +403,7 @@ pub fn prepare(
     edits: &[Value],
     cancel: &Cancel,
 ) -> Result<Candidate, Failure> {
-    if scope.definition.is_some() || scope.object.is_some() || edits.is_empty() || edits.len() > 128
-    {
+    if edits.is_empty() || edits.len() > 128 {
         return Err(Failure::new(
             "type",
             "Project edits require document scope and 1..128 operations",
@@ -509,11 +502,7 @@ pub fn prepare(
             let prepared = registry.scoped_proposals(original)?.prepare(
                 current,
                 &ScopedRequest {
-                    scope: Scope {
-                        document: id,
-                        definition: None,
-                        object: None,
-                    },
+                    scope: Scope { document: id },
                     version: 1,
                     body: edit.clone(),
                 },

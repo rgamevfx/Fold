@@ -1,0 +1,15 @@
+{
+  "scope": "Staged pinned native build archives, not cold compilation or rendering",
+  "archives": {
+    "native/ffmpeg/ffmpeg-x86_64-unknown-linux-gnu-avcodec-avdevice-avfilter-avformat-swresample-swscale.tar.gz": {
+      "sha256": "b291e91a779e8446895d0a818db574f3f61ea94da415bfa8e43c8f7acedb348d",
+      "bytes": 78330872,
+      "entries": 162
+    },
+    "native/skia/skia-binaries-b7f043e0b1e2a850e702-x86_64-unknown-linux-gnu-ganesh-jpegd-jpege-pdf-svg-textlayout-vulkan-webpd-webpe.tar.gz": {
+      "sha256": "408d233f311c3adbbcfd8b95e7fb7b7ec451dbcf1a8758127cfad45aca4d7a57",
+      "bytes": 20711317,
+      "entries": 13
+    }
+  }
+}

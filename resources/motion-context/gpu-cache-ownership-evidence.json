@@ -1,0 +1,159 @@
+{
+  "app_integration_qualified": false,
+  "cache_released_after_worker_exit": true,
+  "cpu_pixel_transport": false,
+  "device": "NVIDIA GeForce GTX 1070",
+  "frame_request_ms_excluding_reference_readback": [
+    592.535518,
+    9.724432,
+    11.761932
+  ],
+  "host_profile": "release",
+  "memory_released": true,
+  "oversized_changed_program_rejected_before_start": true,
+  "performance_qualified": false,
+  "producer_memory_reserved_before_demand": true,
+  "producer_release_confirmed_before_reservation_drop": true,
+  "retained_cache_allowance": 33554432,
+  "runtime_statistics": {
+    "frames_completed": 38,
+    "image_snapshots_sent": 1,
+    "workers_started": 1
+  },
+  "stale_epoch_revision_generation_time_dimensions_rejected": true,
+  "warm_frame_ms_max": 12.6692,
+  "warm_frame_ms_p50": 10.877695999999998,
+  "warm_frame_ms_p95": 12.6692,
+  "warm_frames": 30,
+  "warm_host_phases": [
+    {
+      "poll_ms": 0.004338,
+      "publication_release_ms": 0.172541,
+      "render_ms": 10.829418,
+      "snapshot_ms": 0.029326
+    },
+    {
+      "poll_ms": 0.005378,
+      "publication_release_ms": 0.214608,
+      "render_ms": 10.879473,
+      "snapshot_ms": 0.02678
+    },
+    {
+      "poll_ms": 0.0042250000000000005,
+      "publication_release_ms": 0.198826,
+      "render_ms": 10.979256999999999,
+      "snapshot_ms": 0.028145
+    },
+    {
+      "poll_ms": 0.002988,
+      "publication_release_ms": 0.17161600000000002,
+      "render_ms": 11.249905,
+      "snapshot_ms": 0.030045000000000002
+    },
+    {
+      "poll_ms": 0.006902999999999999,
+      "publication_release_ms": 0.20297300000000001,
+      "render_ms": 10.643991999999999,
+      "snapshot_ms": 0.026920999999999997
+    },
+    {
+      "poll_ms": 0.002897,
+      "publication_release_ms": 0.1698,
+      "render_ms": 10.283417,
+      "snapshot_ms": 0.033834
+    },
+    {
+      "poll_ms": 0.004857,
+      "publication_release_ms": 0.186556,
+      "render_ms": 9.82134,
+      "snapshot_ms": 0.026396
+    },
+    {
+      "poll_ms": 0.0043089999999999995,
+      "publication_release_ms": 0.17432,
+      "render_ms": 10.666345000000002,
+      "snapshot_ms": 0.028343
+    },
+    {
+      "poll_ms": 0.006601,
+      "publication_release_ms": 0.18149600000000002,
+      "render_ms": 10.383154000000001,
+      "snapshot_ms": 0.026403000000000003
+    },
+    {
+      "poll_ms": 0.003683,
+      "publication_release_ms": 0.181762,
+      "render_ms": 10.494725,
+      "snapshot_ms": 0.029522
+    },
+    {
+      "poll_ms": 0.014110000000000001,
+      "publication_release_ms": 0.18803,
+      "render_ms": 10.745307,
+      "snapshot_ms": 0.02672
+    },
+    {
+      "poll_ms": 0.005021,
+      "publication_release_ms": 0.177755,
+      "render_ms": 9.097818,
+      "snapshot_ms": 0.030659
+    },
+    {
+      "poll_ms": 0.006396000000000001,
+      "publication_release_ms": 0.194872,
+      "render_ms": 11.148757999999999,
+      "snapshot_ms": 0.027055000000000003
+    },
+    {
+      "poll_ms": 0.008709999999999999,
+      "publication_release_ms": 0.203933,
+      "render_ms": 12.431928,
+      "snapshot_ms": 0.027695
+    },
+    {
+      "poll_ms": 0.006165,
+      "publication_release_ms": 0.183963,
+      "render_ms": 9.633424999999999,
+      "snapshot_ms": 0.038591
+    },
+    {
+      "poll_ms": 0.008043999999999999,
+      "publication_release_ms": 0.242831,
+      "render_ms": 10.586699,
+      "snapshot_ms": 0.029683
+    },
+    {
+      "poll_ms": 0.007878,
+      "publication_release_ms": 0.21849000000000002,
+      "render_ms": 10.486675000000002,
+      "snapshot_ms": 0.043885
+    },
+    {
+      "poll_ms": 0.007335,
+      "publication_release_ms": 0.192659,
+      "render_ms": 9.856567,
+      "snapshot_ms": 0.035711
+    },
+    {
+      "poll_ms": 0.007328,
+      "publication_release_ms": 0.20438800000000001,
+      "render_ms": 11.918893,
+      "snapshot_ms": 0.040683000000000004
+    },
+    {
+      "poll_ms": 0.004597,
+      "publication_release_ms": 0.176343,
+      "render_ms": 11.040265,
+      "snapshot_ms": 0.032241
+    }
+  ],
+  "warm_measured_frames": 20,
+  "warm_measurement": "snapshot preparation, render, publication, release and host poll; no reference readback",
+  "warmup_frames_discarded": 10,
+  "worker_profile": "release",
+  "profiled_frames": 26,
+  "observed_budgeted_cache_bytes_max": 67636,
+  "native_compilation_attempted": false,
+  "sdk": "target/motion-sdk-cache-budget",
+  "scope": "Host retained-cache allowance and Skia budgeted cache; not total physical VRAM."
+}

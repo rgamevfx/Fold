@@ -1,0 +1,55 @@
+{
+  "fixture": "real MCP animated native split_segment; typed anchor/outgoing tracks under shear",
+  "time": {
+    "numerator": 1,
+    "denominator": 2
+  },
+  "fraction": 0.35,
+  "native_execution_seconds": 20.65,
+  "candidate_matches_applied": true,
+  "committed_preparation_unchanged": true,
+  "save_reopen_exact": true,
+  "two_step_undo_exact_original": true,
+  "source_track_key_identity_retained": true,
+  "inserted_point_has_coordinate_tracks": true,
+  "raster_subdivision_parity_accepted": false,
+  "before_after_display_difference": {
+    "changed_pixels": 90,
+    "maximum_rgba8_component_difference": 75
+  },
+  "frames": {
+    "before": {
+      "dimensions": [
+        640,
+        360
+      ],
+      "rgba8_sha256": "a6ac9ab9be9f2d48676833f338eeb5aac19b0339f3e36e0e13716dd92ee39d63",
+      "transfers": {
+        "cpu_adapter_nodes": 0,
+        "evaluation_readback_bytes": 0
+      }
+    },
+    "candidate": {
+      "dimensions": [
+        640,
+        360
+      ],
+      "rgba8_sha256": "64752e4bd90976d273ad58b5cecf5a2faffb56eae9d1a9f6c171bc1586cf15aa",
+      "transfers": {
+        "cpu_adapter_nodes": 0,
+        "evaluation_readback_bytes": 0
+      }
+    },
+    "after": {
+      "dimensions": [
+        640,
+        360
+      ],
+      "rgba8_sha256": "64752e4bd90976d273ad58b5cecf5a2faffb56eae9d1a9f6c171bc1586cf15aa",
+      "transfers": {
+        "cpu_adapter_nodes": 0,
+        "evaluation_readback_bytes": 0
+      }
+    }
+  }
+}

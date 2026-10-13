@@ -1,0 +1,68 @@
+{
+  "workspace_tests": "completed_with_two_failures",
+  "workspace_test_log": "/tmp/fold-motion-current-checkpoint-tests-j2.log",
+  "package_boundaries_passed": true,
+  "proposal_ownership_passed": true,
+  "policy_tests": {
+    "passed": 20,
+    "failed": 0,
+    "seconds": 4.883
+  },
+  "retained_non_motion_service": "Shared vector coverage for Compositor masks and Roto",
+  "retired_dependencies_absent": [
+    "fold-motion",
+    "rhai",
+    "parley",
+    "skrifa",
+    "i_overlay"
+  ],
+  "hdr_image_input_qualified": false,
+  "build_concurrency": 2,
+  "previous_run": {
+    "log": "/tmp/fold-motion-current-checkpoint-tests.log",
+    "exit": 130,
+    "reason": "Deliberate SIGINT of the verified task build group after 73% full I/O stall time; completed artifacts retained."
+  },
+  "workspace_test_result": {
+    "exit": 101,
+    "groups": 132,
+    "passed": 575,
+    "failed": 2,
+    "ignored": 70
+  },
+  "failures": [
+    {
+      "target": "fold-app/compositor_workflow",
+      "cause": "Stale opaque-background expectations after intentional transparent Timeline change",
+      "correction": "Expect quarter alpha for half-opacity source at half clip level; transparent gaps"
+    },
+    {
+      "target": "fold-compositor/native_authoring",
+      "cause": "Stale operation count, 24 instead of current 25 including Roto",
+      "correction": "Count updated; every operation still roundtrips"
+    }
+  ],
+  "focused_rerun": {
+    "status": "passed",
+    "exit": 0,
+    "passed": 16,
+    "failed": 0,
+    "log": "/tmp/fold-motion-checkpoint-fixes-2.log",
+    "first_rerun": "Failed on remaining presentation-versus-scene comparison; corrected using explicit opaque preview expectation."
+  },
+  "checkpoint_test_status": "Original two failures resolved by targeted rerun; 70 ignored tests remain unqualified by this run",
+  "all_target_desktop_check": {
+    "status": "passed",
+    "exit": 0,
+    "seconds": 59.79,
+    "log": "/tmp/fold-motion-current-checkpoint-check.log",
+    "command": "cargo check --workspace --all-targets --features fold-app/desktop --offline -j 2"
+  },
+  "clippy": {
+    "status": "passed_with_warnings",
+    "log": "/tmp/fold-motion-current-checkpoint-clippy.log",
+    "strict_warnings": false,
+    "exit": 0,
+    "completion": "Finished `dev` profile [unoptimized + debuginfo] target(s) in 1m 01s"
+  }
+}

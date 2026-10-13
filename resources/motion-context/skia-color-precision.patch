@@ -1,0 +1,91 @@
+--- a/include/core/SkColor.h
++++ b/include/core/SkColor.h
+@@ -353,6 +353,11 @@
+         return fR >= 0.0f && fR <= 1.0f &&
+                fG >= 0.0f && fG <= 1.0f &&
+                fB >= 0.0f && fB <= 1.0f;
++    }
++
++    /** True only when byte vertex storage preserves all float components. */
++    bool fitsInBytesExactly() const {
++        return this->fitsInBytes() && *this == FromBytes_RGBA(this->toBytes_RGBA());
+     }
+ 
+     /** Returns closest SkRGBA4f to SkColor. Only allowed if SkRGBA4f is unpremultiplied.
+--- a/src/gpu/ganesh/GrColor.h
++++ b/src/gpu/ganesh/GrColor.h
+@@ -74,7 +74,7 @@
+ /** Used to pick vertex attribute types. */
+ static inline bool SkPMColor4fFitsInBytes(const SkPMColor4f& color) {
+     // Might want to instead check that the components are [0...a] instead of [0...1]?
+-    return color.fitsInBytes();
++    return color.fitsInBytesExactly();
+ }
+ 
+ static inline uint64_t SkPMColor4f_toFP16(const SkPMColor4f& color) {
+--- a/src/gpu/ganesh/ops/GrSimpleMeshDrawOpHelper.cpp
++++ b/src/gpu/ganesh/ops/GrSimpleMeshDrawOpHelper.cpp
+@@ -79,7 +79,7 @@
+     auto result = this->finalizeProcessors(caps, clip, clampType, geometryCoverage, &color);
+     color.isConstant(geometryColor);
+     if (wideColor) {
+-        *wideColor = !geometryColor->fitsInBytes();
++        *wideColor = !geometryColor->fitsInBytesExactly();
+     }
+     return result;
+ }
+--- a/src/gpu/ganesh/ops/GrSimpleMeshDrawOpHelperWithStencil.cpp
++++ b/src/gpu/ganesh/ops/GrSimpleMeshDrawOpHelperWithStencil.cpp
+@@ -33,7 +33,7 @@
+     auto result = this->finalizeProcessors(caps, clip, clampType, geometryCoverage, &color);
+     color.isConstant(geometryColor);
+     if (wideColor) {
+-        *wideColor = !geometryColor->fitsInBytes();
++        *wideColor = !geometryColor->fitsInBytesExactly();
+     }
+     return result;
+ }
+--- a/src/gpu/ganesh/ops/LatticeOp.cpp
++++ b/src/gpu/ganesh/ops/LatticeOp.cpp
+@@ -246,7 +246,7 @@
+                                                  GrProcessorAnalysisCoverage::kNone,
+                                                  &analysisColor);
+         analysisColor.isConstant(&fPatches[0].fColor);
+-        fWideColor = !fPatches[0].fColor.fitsInBytes();
++        fWideColor = !fPatches[0].fColor.fitsInBytesExactly();
+         return result;
+     }
+ 
+--- a/src/gpu/ganesh/ops/PathTessellateOp.h
++++ b/src/gpu/ganesh/ops/PathTessellateOp.h
+@@ -62,7 +62,7 @@
+             , fProcessors(std::move(paint))
+             , fShaderMatrix(viewMatrix) {
+         SkASSERT(!path.isInverseFillType());
+-        if (!this->headDraw().fColor.fitsInBytes()) {
++        if (!this->headDraw().fColor.fitsInBytesExactly()) {
+             fPatchAttribs |= PatchAttribs::kWideColorIfEnabled;
+         }
+         this->setBounds(drawBounds, HasAABloat::kNo, IsHairline::kNo);
+--- a/src/gpu/ganesh/ops/QuadPerEdgeAA.cpp
++++ b/src/gpu/ganesh/ops/QuadPerEdgeAA.cpp
+@@ -337,7 +337,7 @@
+     if (color == SK_PMColor4fWHITE) {
+         return ColorType::kNone;
+     } else {
+-        return color.fitsInBytes() ? ColorType::kByte : ColorType::kFloat;
++        return color.fitsInBytesExactly() ? ColorType::kByte : ColorType::kFloat;
+     }
+ }
+ 
+--- a/src/gpu/ganesh/ops/StrokeTessellateOp.cpp
++++ b/src/gpu/ganesh/ops/StrokeTessellateOp.cpp
+@@ -39,7 +39,7 @@
+         , fPathStrokeList(path, stroke, paint.getColor4f())
+         , fTotalCombinedVerbCnt(path.countVerbs())
+         , fProcessors(std::move(paint)) {
+-    if (!this->headColor().fitsInBytes()) {
++    if (!this->headColor().fitsInBytesExactly()) {
+         fPatchAttribs |= PatchAttribs::kWideColorIfEnabled;
+     }
+     SkRect devBounds = path.getBounds();

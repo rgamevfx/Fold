@@ -1,0 +1,38 @@
+{
+  "frames": [
+    {
+      "frame": 0,
+      "text_pixels": 2255,
+      "dot_pixels": 78855,
+      "alpha_max": 1.0,
+      "dimensions": [
+        640,
+        360
+      ]
+    },
+    {
+      "frame": 1,
+      "text_pixels": 2255,
+      "dot_pixels": 62906,
+      "alpha_max": 1.0,
+      "dimensions": [
+        640,
+        360
+      ]
+    },
+    {
+      "frame": 2,
+      "text_pixels": 2255,
+      "dot_pixels": 78855,
+      "alpha_max": 1.0,
+      "dimensions": [
+        640,
+        360
+      ]
+    }
+  ],
+  "runtime_count_edit": true,
+  "animation_changes_pixels": true,
+  "build": "debug",
+  "performance_qualified": false
+}

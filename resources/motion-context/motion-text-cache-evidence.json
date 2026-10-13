@@ -1,0 +1,697 @@
+{
+  "app_integration_qualified": false,
+  "cpu_pixel_transport": false,
+  "device": "NVIDIA GeForce GTX 1070",
+  "frame_request_ms_excluding_reference_readback": [
+    4782.681751,
+    34.496254,
+    36.392942
+  ],
+  "host_profile": "release",
+  "memory_released": true,
+  "oversized_changed_program_rejected_before_start": true,
+  "performance_qualified": false,
+  "producer_memory_reserved_before_demand": true,
+  "producer_release_confirmed_before_reservation_drop": true,
+  "runtime_statistics": {
+    "frames_completed": 128,
+    "workers_started": 1
+  },
+  "stale_epoch_revision_generation_time_dimensions_rejected": true,
+  "warm_frame_ms_max": 48.240593999999994,
+  "warm_frame_ms_p50": 35.656462,
+  "warm_frame_ms_p95": 43.818752,
+  "warm_frames": 120,
+  "warm_host_phases": [
+    {
+      "poll_ms": 0.00503,
+      "publication_release_ms": 0.174541,
+      "render_ms": 33.341013000000004,
+      "snapshot_ms": 0.07233600000000001
+    },
+    {
+      "poll_ms": 0.004136,
+      "publication_release_ms": 0.168251,
+      "render_ms": 33.217220999999995,
+      "snapshot_ms": 0.081887
+    },
+    {
+      "poll_ms": 0.0036880000000000003,
+      "publication_release_ms": 0.177004,
+      "render_ms": 33.241389000000005,
+      "snapshot_ms": 0.07001399999999999
+    },
+    {
+      "poll_ms": 0.003585,
+      "publication_release_ms": 0.168176,
+      "render_ms": 33.394599,
+      "snapshot_ms": 0.07023499999999999
+    },
+    {
+      "poll_ms": 0.003656,
+      "publication_release_ms": 0.166107,
+      "render_ms": 33.173089000000004,
+      "snapshot_ms": 0.071069
+    },
+    {
+      "poll_ms": 0.004204,
+      "publication_release_ms": 0.171681,
+      "render_ms": 34.779747,
+      "snapshot_ms": 0.069017
+    },
+    {
+      "poll_ms": 0.0035090000000000004,
+      "publication_release_ms": 0.177066,
+      "render_ms": 37.869478,
+      "snapshot_ms": 0.070882
+    },
+    {
+      "poll_ms": 0.0046619999999999995,
+      "publication_release_ms": 0.168849,
+      "render_ms": 38.124241000000005,
+      "snapshot_ms": 0.071204
+    },
+    {
+      "poll_ms": 0.004145,
+      "publication_release_ms": 0.181514,
+      "render_ms": 41.049088,
+      "snapshot_ms": 0.07251099999999999
+    },
+    {
+      "poll_ms": 0.0064659999999999995,
+      "publication_release_ms": 0.19416,
+      "render_ms": 41.636853,
+      "snapshot_ms": 0.06955499999999999
+    },
+    {
+      "poll_ms": 0.004712,
+      "publication_release_ms": 0.17971499999999999,
+      "render_ms": 43.548120000000004,
+      "snapshot_ms": 0.088204
+    },
+    {
+      "poll_ms": 0.003415,
+      "publication_release_ms": 0.17078500000000002,
+      "render_ms": 45.437464,
+      "snapshot_ms": 0.07216800000000001
+    },
+    {
+      "poll_ms": 0.008653,
+      "publication_release_ms": 0.249732,
+      "render_ms": 39.750459,
+      "snapshot_ms": 0.07127499999999999
+    },
+    {
+      "poll_ms": 0.00411,
+      "publication_release_ms": 0.18469100000000002,
+      "render_ms": 40.221669,
+      "snapshot_ms": 0.143409
+    },
+    {
+      "poll_ms": 0.0065699999999999995,
+      "publication_release_ms": 0.24782500000000002,
+      "render_ms": 37.144718,
+      "snapshot_ms": 0.07345499999999999
+    },
+    {
+      "poll_ms": 0.0034750000000000002,
+      "publication_release_ms": 0.18008100000000002,
+      "render_ms": 35.252301,
+      "snapshot_ms": 0.104886
+    },
+    {
+      "poll_ms": 0.005017000000000001,
+      "publication_release_ms": 0.188209,
+      "render_ms": 34.529981,
+      "snapshot_ms": 0.069937
+    },
+    {
+      "poll_ms": 0.003422,
+      "publication_release_ms": 0.17233,
+      "render_ms": 35.155215,
+      "snapshot_ms": 0.080929
+    },
+    {
+      "poll_ms": 0.003993,
+      "publication_release_ms": 0.211039,
+      "render_ms": 35.461884999999995,
+      "snapshot_ms": 0.070369
+    },
+    {
+      "poll_ms": 0.003478,
+      "publication_release_ms": 0.170295,
+      "render_ms": 37.504264,
+      "snapshot_ms": 0.10929799999999999
+    },
+    {
+      "poll_ms": 0.005475,
+      "publication_release_ms": 0.188025,
+      "render_ms": 34.844595999999996,
+      "snapshot_ms": 0.07879599999999999
+    },
+    {
+      "poll_ms": 0.003905,
+      "publication_release_ms": 0.17776599999999998,
+      "render_ms": 36.602742,
+      "snapshot_ms": 0.07234499999999999
+    },
+    {
+      "poll_ms": 0.0033079999999999997,
+      "publication_release_ms": 0.170351,
+      "render_ms": 34.767483,
+      "snapshot_ms": 0.07552400000000001
+    },
+    {
+      "poll_ms": 0.003411,
+      "publication_release_ms": 0.159885,
+      "render_ms": 33.320417,
+      "snapshot_ms": 0.07744799999999999
+    },
+    {
+      "poll_ms": 0.003542,
+      "publication_release_ms": 0.183975,
+      "render_ms": 33.298238,
+      "snapshot_ms": 0.07194400000000001
+    },
+    {
+      "poll_ms": 0.003491,
+      "publication_release_ms": 0.17132,
+      "render_ms": 36.577089,
+      "snapshot_ms": 0.07007300000000001
+    },
+    {
+      "poll_ms": 0.003445,
+      "publication_release_ms": 0.176584,
+      "render_ms": 33.108209,
+      "snapshot_ms": 0.071059
+    },
+    {
+      "poll_ms": 0.003193,
+      "publication_release_ms": 0.182364,
+      "render_ms": 33.643245,
+      "snapshot_ms": 0.070779
+    },
+    {
+      "poll_ms": 0.003155,
+      "publication_release_ms": 0.169461,
+      "render_ms": 33.595138,
+      "snapshot_ms": 0.070062
+    },
+    {
+      "poll_ms": 0.003586,
+      "publication_release_ms": 0.171683,
+      "render_ms": 33.313461000000004,
+      "snapshot_ms": 0.070343
+    },
+    {
+      "poll_ms": 0.0032760000000000003,
+      "publication_release_ms": 0.16611299999999998,
+      "render_ms": 33.698079,
+      "snapshot_ms": 0.07111100000000001
+    },
+    {
+      "poll_ms": 0.003272,
+      "publication_release_ms": 0.169111,
+      "render_ms": 33.757571,
+      "snapshot_ms": 0.071337
+    },
+    {
+      "poll_ms": 0.004639,
+      "publication_release_ms": 0.16614900000000002,
+      "render_ms": 33.912017000000006,
+      "snapshot_ms": 0.07085899999999999
+    },
+    {
+      "poll_ms": 0.0038369999999999997,
+      "publication_release_ms": 0.163477,
+      "render_ms": 33.618951,
+      "snapshot_ms": 0.069631
+    },
+    {
+      "poll_ms": 0.003376,
+      "publication_release_ms": 0.168693,
+      "render_ms": 34.678804,
+      "snapshot_ms": 0.094572
+    },
+    {
+      "poll_ms": 0.004189,
+      "publication_release_ms": 0.172813,
+      "render_ms": 33.881089,
+      "snapshot_ms": 0.070336
+    },
+    {
+      "poll_ms": 0.003626,
+      "publication_release_ms": 0.168715,
+      "render_ms": 33.596352,
+      "snapshot_ms": 0.071231
+    },
+    {
+      "poll_ms": 0.004442,
+      "publication_release_ms": 0.184011,
+      "render_ms": 34.290198000000004,
+      "snapshot_ms": 0.069526
+    },
+    {
+      "poll_ms": 0.005465,
+      "publication_release_ms": 0.174131,
+      "render_ms": 36.613197,
+      "snapshot_ms": 0.073201
+    },
+    {
+      "poll_ms": 0.0036279999999999997,
+      "publication_release_ms": 0.171795,
+      "render_ms": 34.717201,
+      "snapshot_ms": 0.071523
+    },
+    {
+      "poll_ms": 0.005051,
+      "publication_release_ms": 0.186217,
+      "render_ms": 36.107544999999995,
+      "snapshot_ms": 0.07575
+    },
+    {
+      "poll_ms": 0.00436,
+      "publication_release_ms": 0.186959,
+      "render_ms": 36.623279000000004,
+      "snapshot_ms": 0.071177
+    },
+    {
+      "poll_ms": 0.005163,
+      "publication_release_ms": 0.17771900000000002,
+      "render_ms": 39.278143,
+      "snapshot_ms": 0.07868399999999999
+    },
+    {
+      "poll_ms": 0.0047550000000000005,
+      "publication_release_ms": 0.177489,
+      "render_ms": 35.876692,
+      "snapshot_ms": 0.071184
+    },
+    {
+      "poll_ms": 0.003365,
+      "publication_release_ms": 0.172345,
+      "render_ms": 35.327245,
+      "snapshot_ms": 0.130092
+    },
+    {
+      "poll_ms": 0.005614,
+      "publication_release_ms": 0.21563800000000002,
+      "render_ms": 35.694485,
+      "snapshot_ms": 0.070382
+    },
+    {
+      "poll_ms": 0.005124,
+      "publication_release_ms": 0.181573,
+      "render_ms": 36.511276,
+      "snapshot_ms": 0.13342099999999998
+    },
+    {
+      "poll_ms": 0.004915,
+      "publication_release_ms": 0.177929,
+      "render_ms": 35.847705,
+      "snapshot_ms": 0.07069299999999999
+    },
+    {
+      "poll_ms": 0.003415,
+      "publication_release_ms": 0.172021,
+      "render_ms": 35.737029,
+      "snapshot_ms": 0.071616
+    },
+    {
+      "poll_ms": 0.0055520000000000005,
+      "publication_release_ms": 0.179728,
+      "render_ms": 35.887074999999996,
+      "snapshot_ms": 0.069664
+    },
+    {
+      "poll_ms": 0.005,
+      "publication_release_ms": 0.179511,
+      "render_ms": 46.845524,
+      "snapshot_ms": 0.071328
+    },
+    {
+      "poll_ms": 0.007019999999999999,
+      "publication_release_ms": 0.198407,
+      "render_ms": 36.131337,
+      "snapshot_ms": 0.069371
+    },
+    {
+      "poll_ms": 0.003971,
+      "publication_release_ms": 0.173115,
+      "render_ms": 47.383803,
+      "snapshot_ms": 0.073272
+    },
+    {
+      "poll_ms": 0.003321,
+      "publication_release_ms": 0.170149,
+      "render_ms": 35.960269000000004,
+      "snapshot_ms": 0.071396
+    },
+    {
+      "poll_ms": 0.0032370000000000003,
+      "publication_release_ms": 0.170205,
+      "render_ms": 35.31094,
+      "snapshot_ms": 0.070533
+    },
+    {
+      "poll_ms": 0.0031810000000000002,
+      "publication_release_ms": 0.170356,
+      "render_ms": 33.696229,
+      "snapshot_ms": 0.070514
+    },
+    {
+      "poll_ms": 0.003317,
+      "publication_release_ms": 0.16931,
+      "render_ms": 33.036278,
+      "snapshot_ms": 0.069932
+    },
+    {
+      "poll_ms": 0.003408,
+      "publication_release_ms": 0.175787,
+      "render_ms": 34.137023,
+      "snapshot_ms": 0.070114
+    },
+    {
+      "poll_ms": 0.003382,
+      "publication_release_ms": 0.179705,
+      "render_ms": 33.82032,
+      "snapshot_ms": 0.07087500000000001
+    },
+    {
+      "poll_ms": 0.003224,
+      "publication_release_ms": 0.168019,
+      "render_ms": 36.5848,
+      "snapshot_ms": 0.070732
+    },
+    {
+      "poll_ms": 0.003348,
+      "publication_release_ms": 0.169338,
+      "render_ms": 34.441131,
+      "snapshot_ms": 0.078179
+    },
+    {
+      "poll_ms": 0.0033770000000000002,
+      "publication_release_ms": 0.168346,
+      "render_ms": 34.295481,
+      "snapshot_ms": 0.069789
+    },
+    {
+      "poll_ms": 0.003218,
+      "publication_release_ms": 0.16952699999999998,
+      "render_ms": 33.869127999999996,
+      "snapshot_ms": 0.069146
+    },
+    {
+      "poll_ms": 0.003317,
+      "publication_release_ms": 0.185453,
+      "render_ms": 35.463487,
+      "snapshot_ms": 0.069723
+    },
+    {
+      "poll_ms": 0.0058200000000000005,
+      "publication_release_ms": 0.17688900000000002,
+      "render_ms": 44.830338,
+      "snapshot_ms": 0.06969099999999999
+    },
+    {
+      "poll_ms": 0.003537,
+      "publication_release_ms": 0.280093,
+      "render_ms": 33.48937,
+      "snapshot_ms": 0.070182
+    },
+    {
+      "poll_ms": 0.0032600000000000003,
+      "publication_release_ms": 0.16953500000000002,
+      "render_ms": 34.117283,
+      "snapshot_ms": 0.088868
+    },
+    {
+      "poll_ms": 0.003534,
+      "publication_release_ms": 0.17954900000000001,
+      "render_ms": 35.393811,
+      "snapshot_ms": 0.070385
+    },
+    {
+      "poll_ms": 0.003454,
+      "publication_release_ms": 0.170636,
+      "render_ms": 34.48955,
+      "snapshot_ms": 0.06957100000000001
+    },
+    {
+      "poll_ms": 0.003618,
+      "publication_release_ms": 0.187064,
+      "render_ms": 36.098428,
+      "snapshot_ms": 0.07132999999999999
+    },
+    {
+      "poll_ms": 0.003353,
+      "publication_release_ms": 0.17454499999999998,
+      "render_ms": 36.313426,
+      "snapshot_ms": 0.069829
+    },
+    {
+      "poll_ms": 0.006048,
+      "publication_release_ms": 0.217752,
+      "render_ms": 38.480228999999994,
+      "snapshot_ms": 0.07029
+    },
+    {
+      "poll_ms": 0.003747,
+      "publication_release_ms": 0.171951,
+      "render_ms": 34.928471,
+      "snapshot_ms": 0.136342
+    },
+    {
+      "poll_ms": 0.004869,
+      "publication_release_ms": 0.183904,
+      "render_ms": 36.111802999999995,
+      "snapshot_ms": 0.071613
+    },
+    {
+      "poll_ms": 0.005137999999999999,
+      "publication_release_ms": 0.180905,
+      "render_ms": 37.240758,
+      "snapshot_ms": 0.07292
+    },
+    {
+      "poll_ms": 0.007514000000000001,
+      "publication_release_ms": 0.23538800000000001,
+      "render_ms": 35.45004,
+      "snapshot_ms": 0.07280400000000001
+    },
+    {
+      "poll_ms": 0.0036109999999999996,
+      "publication_release_ms": 0.170734,
+      "render_ms": 38.136797,
+      "snapshot_ms": 0.130666
+    },
+    {
+      "poll_ms": 0.004581,
+      "publication_release_ms": 0.180009,
+      "render_ms": 34.886585,
+      "snapshot_ms": 0.071413
+    },
+    {
+      "poll_ms": 0.003557,
+      "publication_release_ms": 0.173177,
+      "render_ms": 36.216665,
+      "snapshot_ms": 0.082049
+    },
+    {
+      "poll_ms": 0.004654,
+      "publication_release_ms": 0.178444,
+      "render_ms": 36.683726,
+      "snapshot_ms": 0.070302
+    },
+    {
+      "poll_ms": 0.0036119999999999998,
+      "publication_release_ms": 0.179571,
+      "render_ms": 41.74331,
+      "snapshot_ms": 0.073645
+    },
+    {
+      "poll_ms": 0.003781,
+      "publication_release_ms": 0.18174200000000001,
+      "render_ms": 39.585699000000005,
+      "snapshot_ms": 0.073515
+    },
+    {
+      "poll_ms": 0.003725,
+      "publication_release_ms": 0.17419700000000002,
+      "render_ms": 37.048226,
+      "snapshot_ms": 0.077414
+    },
+    {
+      "poll_ms": 0.006813,
+      "publication_release_ms": 0.19905899999999999,
+      "render_ms": 35.970883,
+      "snapshot_ms": 0.072227
+    },
+    {
+      "poll_ms": 0.00327,
+      "publication_release_ms": 0.185362,
+      "render_ms": 47.951601000000004,
+      "snapshot_ms": 0.101924
+    },
+    {
+      "poll_ms": 0.003128,
+      "publication_release_ms": 0.16893799999999998,
+      "render_ms": 34.942665999999996,
+      "snapshot_ms": 0.070345
+    },
+    {
+      "poll_ms": 0.003213,
+      "publication_release_ms": 0.170756,
+      "render_ms": 34.10588,
+      "snapshot_ms": 0.071024
+    },
+    {
+      "poll_ms": 0.0032660000000000002,
+      "publication_release_ms": 0.17122,
+      "render_ms": 34.729223,
+      "snapshot_ms": 0.06905499999999999
+    },
+    {
+      "poll_ms": 0.0033469999999999997,
+      "publication_release_ms": 0.16888999999999998,
+      "render_ms": 33.766602999999996,
+      "snapshot_ms": 0.069701
+    },
+    {
+      "poll_ms": 0.003561,
+      "publication_release_ms": 0.170043,
+      "render_ms": 34.457811,
+      "snapshot_ms": 0.071016
+    },
+    {
+      "poll_ms": 0.003444,
+      "publication_release_ms": 0.166901,
+      "render_ms": 34.376697,
+      "snapshot_ms": 0.070142
+    },
+    {
+      "poll_ms": 0.003225,
+      "publication_release_ms": 0.16888999999999998,
+      "render_ms": 33.411588,
+      "snapshot_ms": 0.079773
+    },
+    {
+      "poll_ms": 0.003267,
+      "publication_release_ms": 0.172995,
+      "render_ms": 34.622192000000005,
+      "snapshot_ms": 0.070454
+    },
+    {
+      "poll_ms": 0.0034690000000000003,
+      "publication_release_ms": 0.169911,
+      "render_ms": 39.242816,
+      "snapshot_ms": 0.093782
+    },
+    {
+      "poll_ms": 0.0032600000000000003,
+      "publication_release_ms": 0.182554,
+      "render_ms": 34.887544999999996,
+      "snapshot_ms": 0.070318
+    },
+    {
+      "poll_ms": 0.00342,
+      "publication_release_ms": 0.17100300000000002,
+      "render_ms": 33.077165,
+      "snapshot_ms": 0.070178
+    },
+    {
+      "poll_ms": 0.003254,
+      "publication_release_ms": 0.17755700000000002,
+      "render_ms": 35.406637999999994,
+      "snapshot_ms": 0.070568
+    },
+    {
+      "poll_ms": 0.003763,
+      "publication_release_ms": 0.168036,
+      "render_ms": 33.43874,
+      "snapshot_ms": 0.070612
+    },
+    {
+      "poll_ms": 0.0033900000000000002,
+      "publication_release_ms": 0.166489,
+      "render_ms": 33.699049,
+      "snapshot_ms": 0.070587
+    },
+    {
+      "poll_ms": 0.003319,
+      "publication_release_ms": 0.16991599999999998,
+      "render_ms": 33.314707,
+      "snapshot_ms": 0.07082899999999999
+    },
+    {
+      "poll_ms": 0.005787,
+      "publication_release_ms": 0.20002799999999998,
+      "render_ms": 35.264329,
+      "snapshot_ms": 0.070628
+    },
+    {
+      "poll_ms": 0.004779,
+      "publication_release_ms": 0.18040299999999998,
+      "render_ms": 36.808966999999996,
+      "snapshot_ms": 0.071746
+    },
+    {
+      "poll_ms": 0.005044000000000001,
+      "publication_release_ms": 0.175504,
+      "render_ms": 35.634040999999996,
+      "snapshot_ms": 0.079491
+    },
+    {
+      "poll_ms": 0.00434,
+      "publication_release_ms": 0.172077,
+      "render_ms": 36.345666,
+      "snapshot_ms": 0.070668
+    },
+    {
+      "poll_ms": 0.006992,
+      "publication_release_ms": 0.223777,
+      "render_ms": 36.628698,
+      "snapshot_ms": 0.0709
+    },
+    {
+      "poll_ms": 0.0034860000000000004,
+      "publication_release_ms": 0.174381,
+      "render_ms": 38.225227000000004,
+      "snapshot_ms": 0.128772
+    },
+    {
+      "poll_ms": 0.003389,
+      "publication_release_ms": 0.170273,
+      "render_ms": 37.130883000000004,
+      "snapshot_ms": 0.102611
+    },
+    {
+      "poll_ms": 0.0038439999999999998,
+      "publication_release_ms": 0.173077,
+      "render_ms": 37.006047,
+      "snapshot_ms": 0.070562
+    },
+    {
+      "poll_ms": 0.0058590000000000005,
+      "publication_release_ms": 0.276651,
+      "render_ms": 36.019040000000004,
+      "snapshot_ms": 0.07190999999999999
+    },
+    {
+      "poll_ms": 0.003277,
+      "publication_release_ms": 0.170588,
+      "render_ms": 37.550122,
+      "snapshot_ms": 0.0906
+    }
+  ],
+  "warm_measured_frames": 110,
+  "warm_measurement": "snapshot preparation, render, publication, release and host poll; no reference readback",
+  "warmup_frames_discarded": 10,
+  "worker_profile": "release",
+  "pixels_byte_identical": true,
+  "date": "2026-10-12",
+  "text_cache_capacity": 10,
+  "performance_accepted": false,
+  "validation_layer_requested": false,
+  "fold_gpu_status_validation_retained": true
+}

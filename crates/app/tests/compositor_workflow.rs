@@ -190,7 +190,7 @@ fn nested_timing_alpha_cache_persistence_and_atomic_cross_document_undo() {
         ],
     );
     let original = pixels(&project, sequence_id, t(1));
-    assert_eq!(original, vec![[0.25, 0.0, 0.0, 1.0]; 256]);
+    assert_eq!(original, vec![[0.25, 0.0, 0.0, 0.25]; 256]);
     let req = request(
         &project,
         composition::CREATE,
@@ -202,14 +202,8 @@ fn nested_timing_alpha_cache_persistence_and_atomic_cross_document_undo() {
     apply(&mut project, req);
     assert_eq!(project.snapshot().state().documents.len(), 3);
     assert_eq!(pixels(&project, sequence_id, t(1)), original);
-    assert_eq!(
-        pixels(&project, sequence_id, t(0)),
-        vec![[0.0, 0.0, 0.0, 1.0]; 256]
-    );
-    assert_eq!(
-        pixels(&project, sequence_id, t(3)),
-        vec![[0.0, 0.0, 0.0, 1.0]; 256]
-    );
+    assert_eq!(pixels(&project, sequence_id, t(0)), vec![[0.0; 4]; 256]);
+    assert_eq!(pixels(&project, sequence_id, t(3)), vec![[0.0; 4]; 256]);
     let nested =
         Sequence::from_document(&project.snapshot().state().documents[&sequence_id]).unwrap();
     assert_eq!(nested.clips[0].id, clip.id);
@@ -238,7 +232,7 @@ fn nested_timing_alpha_cache_persistence_and_atomic_cross_document_undo() {
     assert_ne!(output::content(&project.snapshot()).unwrap(), hash);
     assert_eq!(
         pixels(&project, sequence_id, t(1)),
-        vec![[0.0, 0.25, 0.0, 1.0]; 256]
+        vec![[0.0, 0.25, 0.0, 0.25]; 256]
     );
     assert_eq!(
         fold_render::render(
@@ -277,7 +271,8 @@ fn nested_timing_alpha_cache_persistence_and_atomic_cross_document_undo() {
         )
         .unwrap()
         .pixels(),
-        pixels(&project, sequence_id, t(1))
+        // Presentation composites the transparent scene over black.
+        vec![[0.0, 0.25, 0.0, 1.0]; 256]
     );
     // Unrelated documents do not invalidate nested preview content.
     let hash = output::content(&project.snapshot()).unwrap();

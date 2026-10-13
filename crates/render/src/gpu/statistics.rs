@@ -7,6 +7,8 @@ pub struct Statistics {
     pub lut_upload_bytes: u64,
     pub readback_bytes: u64,
     pub status_readback_bytes: u64,
+    /// External immutable-image ingress. This is GPU-local copy traffic.
+    pub shared_gpu_copy_bytes: u64,
     /// Full-frame CPU RGB/RGBA adapters. Native decode and geometry preparation are
     /// measured separately below; zero here does not mean zero CPU work. EXR
     /// timing includes demand wait; source workers may already have decoded it.
@@ -53,6 +55,7 @@ impl Statistics {
         self.lut_upload_bytes += other.lut_upload_bytes;
         self.readback_bytes += other.readback_bytes;
         self.status_readback_bytes += other.status_readback_bytes;
+        self.shared_gpu_copy_bytes += other.shared_gpu_copy_bytes;
         self.cpu_adapter_nodes += other.cpu_adapter_nodes;
         self.resident_still_nodes += other.resident_still_nodes;
         self.cpu_adapter_nanoseconds += other.cpu_adapter_nanoseconds;

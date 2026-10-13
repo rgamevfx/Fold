@@ -1,0 +1,41 @@
+{
+  "cold_conversion_ms": 0.209524,
+  "device_uuid": [
+    109,
+    101,
+    115,
+    97,
+    50,
+    54,
+    46,
+    49,
+    46,
+    54,
+    45,
+    49,
+    112,
+    111,
+    112,
+    0
+  ],
+  "differing_pixels": 0,
+  "dimensions": [
+    640,
+    360
+  ],
+  "gradient_rejected": true,
+  "max_float_error": 0.0,
+  "objects": 13,
+  "qualification_readback": true,
+  "restored_text_pixels_identical": true,
+  "schema": 3,
+  "text_cache_capacity": 10,
+  "text_edit_changes_pixels": true,
+  "warm_conversion_p50_ms": 0.018319,
+  "warm_text_cache_pixels_identical": true,
+  "captured_miter_limits": [
+    1,
+    10
+  ],
+  "adapter_note": "Vulkan device UUID begins mesa26.1.6; this run is not GTX1070 hardware performance evidence."
+}

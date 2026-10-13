@@ -33,7 +33,7 @@ class BoundaryTests(unittest.TestCase):
 
     def test_infrastructure_cannot_import_creative_packages(self):
         for source in ("fold-project", "fold-render", "fold-media", "fold-platform"):
-            for target in ("fold-timeline", "fold-compositor"):
+            for target in ("fold-timeline", "fold-compositor", "fold-motion-canvas", "fold-motion-context", "fold-three-d"):
                 with self.subTest(source=source, target=target):
                     data = fixture()
                     add_edge(data, source, target)
@@ -42,14 +42,19 @@ class BoundaryTests(unittest.TestCase):
                     )
 
     def test_peer_imports_are_rejected_even_when_aliased_or_disabled(self):
-        data = fixture()
-        add_edge(
-            data, "fold-timeline", "fold-compositor", resolved=False,
-            rename="graph", optional=True, kind="dev", target="cfg(windows)",
-        )
-        self.assertIn(
-            "forbidden dependency: fold-timeline -> fold-compositor", violations(data)
-        )
+        for source, destination in (("fold-timeline", "fold-compositor"),
+                                    ("fold-motion-context", "fold-three-d"),
+                                    ("fold-three-d", "fold-motion-canvas"),
+                                    ("fold-motion-canvas", "fold-render")):
+            with self.subTest(source=source, destination=destination):
+                data = fixture()
+                add_edge(
+                    data, source, destination, resolved=False,
+                    rename="graph", optional=True, kind="dev", target="cfg(windows)",
+                )
+                self.assertIn(
+                    f"forbidden dependency: {source} -> {destination}", violations(data)
+                )
 
     def test_headless_rejects_transitive_ui(self):
         data = fixture()
@@ -78,15 +83,19 @@ class BoundaryTests(unittest.TestCase):
         )
 
     def test_external_bridge_cannot_hide_peer_dependency(self):
-        data = fixture()
-        data["packages"].append({"id": "helper", "name": "helper", "dependencies": []})
-        data["resolve"]["nodes"].append({"id": "helper", "deps": []})
-        add_edge(data, "fold-timeline", "helper")
-        add_edge(data, "helper", "fold-compositor")
-        self.assertIn(
-            "forbidden transitive dependency: fold-timeline -> fold-compositor",
-            violations(data),
-        )
+        for source, destination in (("fold-timeline", "fold-compositor"),
+                                    ("fold-motion-context", "fold-three-d"),
+                                    ("fold-render", "fold-motion-canvas")):
+            with self.subTest(source=source, destination=destination):
+                data = fixture()
+                data["packages"].append({"id": "helper", "name": "helper", "dependencies": []})
+                data["resolve"]["nodes"].append({"id": "helper", "deps": []})
+                add_edge(data, source, "helper")
+                add_edge(data, "helper", destination)
+                self.assertIn(
+                    f"forbidden transitive dependency: {source} -> {destination}",
+                    violations(data),
+                )
 
     def test_native_panel_sdk_is_optional_and_headless_excluded(self):
         data = fixture()

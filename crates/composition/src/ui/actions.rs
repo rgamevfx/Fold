@@ -15,12 +15,14 @@ pub(super) fn draw(ui: &Ui, host: &mut dyn DesktopClient, state: &mut State) {
             ));
         }
         if let Some(document) = state.document {
-            if ui.menu_item("Add Scene") {
-                state.command(
-                    host,
-                    "fold.app.add-layer-graph",
-                    serde_json::json!({"document":document,"kind":"scene"}),
-                );
+            for (label, kind) in [("Add Motion", "motion"), ("Add 3D", "3d")] {
+                if ui.menu_item(label) {
+                    state.command(
+                        host,
+                        "fold.app.add-layer-graph",
+                        serde_json::json!({"document":document,"kind":kind}),
+                    );
+                }
             }
 
             if ui.menu_item("Add Compositing layer") {

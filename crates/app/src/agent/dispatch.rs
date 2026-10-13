@@ -279,13 +279,13 @@ impl Dispatcher {
                     "native_inspection":crate::packages::builtins().has_capability(document, fold_platform::packages::Capability::ScopedProposals)
                 })).collect::<Vec<_>>(),
                 "scoped_proposals":crate::packages::builtins().proposal_catalog(),
-                "project_authoring":{"schema":schemars::schema_for!(native::ProjectEdit),"providers":crate::packages::builtins().proposal_authoring_catalog(),"inspection":"Native provider records are under native; scenes include read-only object_sources. Project candidates inspect all changed documents before atomic Apply."},
+                "project_authoring":{"schema":schemars::schema_for!(native::ProjectEdit),"providers":crate::packages::builtins().proposal_authoring_catalog(),"inspection":"Native provider records are under native. Project candidates inspect all changed documents before atomic Apply."},
                 "transport_support":{"linux_local_socket":cfg!(target_os = "linux"),"cli_protocol":cfg!(target_os = "linux"),"mcp_stdio":cfg!(target_os = "linux")},
                 "implemented":({ let mut methods = vec!["job_status","cancel_job","save_project_copy","observe","inspect_parameters","resolve_parameter","sample_parameter","inspect_document","inspect_candidate","propose","rebase","apply","cancel_candidate"]; if self.frames_available() { methods.push("observe_frame"); } methods }),
-                "parameter_inspection":{"methods":["inspect_parameters","resolve_parameter","sample_parameter"],"providers":crate::packages::builtins().parameter_provider_types(),"path_scope":"project/document/object/occurrence/parameter as returned by inspection; names are escaped per segment","binding_scope":"Motion ch() expressions remain definition-local","time":"placement root authored time when placement is present; otherwise target document authored time; source clocks apply once","page_limit":256,"structured_values":"discoverable but not sampled as primitives"},
-                "frame_observation":{"available":self.frames_available(),"method":"observe_frame","encoding":"rgba8_hex","max_pixels":2073600,"max_dimension":4096,"in_flight":2,"time_range":"registered output half-open duration","presentation":"shared_viewer_display","regions":true},
+                "parameter_inspection":{"methods":["inspect_parameters","resolve_parameter","sample_parameter"],"providers":crate::packages::builtins().parameter_provider_types(),"path_scope":"project/document/object/occurrence/parameter as returned by inspection; names are escaped per segment","binding_scope":"Bindings belong to the target provider; discover its authoring schema","time":"placement root authored time when placement is present; otherwise target document authored time; source clocks apply once","page_limit":256,"structured_values":"discoverable but not sampled as primitives"},
+                "frame_observation":{"available":self.frames_available(),"method":"observe_frame","encoding":"rgba8_hex","max_pixels":2073600,"max_dimension":4096,"in_flight":2,"time_range":"registered output half-open duration","presentation":"shared_viewer_display","regions":true,"animation_review":{"max_frames":16,"max_total_source_pixels":2073600,"layouts":["contact_sheet","onion"],"onion":"equal_weight_display_space_average"}},
                 "unavailable":if self.frames_available() { json!({}) } else { json!({"frames":"No shared GPU host attached"}) },
-                "limits":{"job_wait_ms":jobs::MAX_LONG_POLL.as_millis(),"cpu_workers":2,"cpu_in_flight":workers::MAX_IN_FLIGHT,"jobs":jobs::MAX_JOBS,"job_lifetime_seconds":jobs::MAX_LIFETIME.as_secs(),"job_retention_seconds":jobs::RETENTION.as_secs(),"request_bytes":retry::MAX_REQUEST_BYTES,"response_bytes":retry::MAX_RESPONSE_BYTES,"observation_samples":64,"evaluation_steps":1000000,"evaluated_elements":1000000,"source_bytes":65536,"patches":128,"operations":10000,"asset_nesting":64,"live_candidates":candidates::MAX_LIVE,"candidate_idle_seconds":candidates::IDLE_LIFETIME.as_secs(),"request_ids":retry::MAX_REQUEST_IDS,"pending_requests":retry::MAX_PENDING,"cached_responses":retry::MAX_CACHED_RESPONSES,"cached_response_bytes":retry::MAX_CACHED_BYTES,"response_retention_seconds":retry::RESPONSE_LIFETIME.as_secs()}
+                "limits":{"job_wait_ms":jobs::MAX_LONG_POLL.as_millis(),"cpu_workers":2,"cpu_in_flight":workers::MAX_IN_FLIGHT,"jobs":jobs::MAX_JOBS,"job_lifetime_seconds":jobs::MAX_LIFETIME.as_secs(),"job_retention_seconds":jobs::RETENTION.as_secs(),"request_bytes":retry::MAX_REQUEST_BYTES,"response_bytes":retry::MAX_RESPONSE_BYTES,"observation_samples":64,"evaluation_steps":1000000,"evaluated_elements":1000000,"live_candidates":candidates::MAX_LIVE,"candidate_idle_seconds":candidates::IDLE_LIFETIME.as_secs(),"request_ids":retry::MAX_REQUEST_IDS,"pending_requests":retry::MAX_PENDING,"cached_responses":retry::MAX_CACHED_RESPONSES,"cached_response_bytes":retry::MAX_CACHED_BYTES,"response_retention_seconds":retry::RESPONSE_LIFETIME.as_secs()}
             })),
             Command::JobStatus { .. } => {
                 unreachable!("job reads return retained bytes before dispatch")
@@ -315,10 +315,11 @@ impl Dispatcher {
                 time,
                 dimensions,
                 region,
+                review,
             } => {
                 #[cfg(not(feature = "gpu"))]
                 {
-                    let _ = (target, output, time, dimensions, region);
+                    let _ = (target, output, time, dimensions, region, review);
                     Err(Failure::new(
                         "unsupported",
                         "Frame observation requires a GPU build and shared host",
@@ -344,6 +345,12 @@ impl Dispatcher {
                             .validate(dimensions)
                             .map_err(|e| Failure::new("type", e))?;
                     }
+                    if let Some(review) = &review {
+                        let size = region.map_or(dimensions, |region| region.dimensions());
+                        review
+                            .dimensions(size)
+                            .map_err(|e| Failure::new("budget", e))?;
+                    }
                     let (snapshot, document, revision, candidate) = match target {
                         wire::ObservationTarget::Committed {
                             epoch,
@@ -358,11 +365,14 @@ impl Dispatcher {
                             }
                             (snapshot.evaluation(), document, Revision(revision), None)
                         }
-                        wire::ObservationTarget::Candidate { handle } => {
+                        wire::ObservationTarget::Candidate { handle, document } => {
                             let candidate = self.candidates.shared(handle, now)?;
+                            if !candidate.snapshot().state().documents.contains_key(&document) {
+                                return Err(Failure::new("missing_resource", "Missing candidate document"));
+                            }
                             (
                                 candidate.snapshot().clone(),
-                                candidate.document().id,
+                                document,
                                 candidate.base_revision(),
                                 Some(handle),
                             )
@@ -376,8 +386,6 @@ impl Dispatcher {
                     let (job, ticket) = self.jobs.start(jobs::MAX_LIFETIME, now)?;
                     let scope = Scope {
                         document,
-                        definition: None,
-                        object: None,
                     };
                     self.job_scopes.insert(job.job, Some(scope));
                     worker.submit(
@@ -390,6 +398,7 @@ impl Dispatcher {
                             time,
                             dimensions,
                             region,
+                            review,
                             host,
                         },
                         ticket,
@@ -421,9 +430,11 @@ impl Dispatcher {
                             })?;
                         (snapshot.evaluation(), document.as_ref().clone(), Revision(revision), None)
                     }
-                    wire::ObservationTarget::Candidate { handle } => {
+                    wire::ObservationTarget::Candidate { handle, document } => {
                         let candidate = self.candidates.shared(handle, now)?;
-                        (candidate.snapshot().clone(), candidate.document().clone(), candidate.base_revision(), Some(handle))
+                        let document = candidate.snapshot().state().documents.get(&document)
+                            .ok_or_else(|| Failure::new("missing_resource", "Missing candidate document"))?;
+                        (candidate.snapshot().clone(), document.as_ref().clone(), candidate.base_revision(), Some(handle))
                     }
                 };
                 if times.is_empty() || times.len() > 64 {
@@ -433,8 +444,6 @@ impl Dispatcher {
                 self.submit(
                     Scope {
                         document: document.id,
-                        definition: None,
-                        object: None,
                     },
                     now,
                     move |cancel| {
@@ -497,11 +506,9 @@ impl Dispatcher {
                 })
             }
             Command::InspectCandidate { handle } => {
-                let (document, native) = self.candidates.target(handle, now)?;
+                let (document, _) = self.candidates.target(handle, now)?;
                 let scope = Scope {
                     document,
-                    definition: native.definition,
-                    object: native.object,
                 };
                 let task = self.candidates.prepare_inspection(handle, now)?;
                 let epoch = self.epoch();
@@ -584,12 +591,9 @@ impl Dispatcher {
         scope: Scope,
         now: Instant,
     ) -> Result<(), Failure> {
-        let (document, native) = self.candidates.target(handle, now)?;
+        let (document, _) = self.candidates.target(handle, now)?;
         if document != scope.document {
             return Err(Failure::new("conflict", "Candidate document scope differs"));
-        }
-        if native != scope {
-            return Err(Failure::new("conflict", "Candidate asset scope differs"));
         }
         Ok(())
     }
@@ -618,7 +622,7 @@ fn encode(epoch: ObjectId, result: Result<Value, Failure>) -> Vec<u8> {
 mod tests {
     use super::*;
     use fold_foundation::DocumentId;
-    use fold_motion::{editing, model::Construction};
+    use fold_motion_canvas::model::Canvas;
     use fold_project::{EditBatch, Mutation};
     use std::{sync::mpsc, time::Duration};
 
@@ -699,24 +703,19 @@ mod tests {
             .commit(EditBatch {
                 base: project.snapshot().revision(),
                 mutations: vec![Mutation::PutDocument(
-                    fold_motion::package::create(document).unwrap(),
+                    Canvas::default().document(document).unwrap(),
                 )],
             })
             .unwrap();
         let snapshot = project.snapshot();
         let mut construction =
-            Construction::from_document(&snapshot.state().documents[&document]).unwrap();
-        construction.seed = 42;
-        let candidate =
-            editing::prepare(&snapshot, document, editing::Scope::Document, construction).unwrap();
+            Canvas::from_document(&snapshot.state().documents[&document]).unwrap();
+        construction.width = 640;
+        let candidate = construction.document(document).unwrap();
         let candidate = native::Candidate::from_document(
             &snapshot,
-            Scope {
-                document,
-                definition: None,
-                object: None,
-            },
-            candidate.document(),
+            Scope { document },
+            &candidate,
             &fold_media::Cancel::default(),
         )
         .unwrap();
@@ -725,20 +724,12 @@ mod tests {
         let (release, resume) = mpsc::channel();
         let now = Instant::now();
         let result = dispatcher
-            .submit(
-                Scope {
-                    document,
-                    definition: None,
-                    object: None,
-                },
-                now,
-                move |_| {
-                    ready.send(()).unwrap();
-                    resume.recv_timeout(Duration::from_secs(5)).unwrap();
-                    // Simulate work that finishes after cancellation, returning a valid result.
-                    Ok(workers::Output::Candidate(Box::new(candidate)))
-                },
-            )
+            .submit(Scope { document }, now, move |_| {
+                ready.send(()).unwrap();
+                resume.recv_timeout(Duration::from_secs(5)).unwrap();
+                // Simulate work that finishes after cancellation, returning a valid result.
+                Ok(workers::Output::Candidate(Box::new(candidate)))
+            })
             .unwrap_or_else(|_| panic!("job admission"));
         let job: jobs::Handle = serde_json::from_value(result["job"].clone()).unwrap();
         started.recv_timeout(Duration::from_secs(5)).unwrap();
@@ -777,28 +768,22 @@ mod tests {
             .commit(EditBatch {
                 base: project.snapshot().revision(),
                 mutations: vec![Mutation::PutDocument(
-                    fold_motion::package::create(document).unwrap(),
+                    Canvas::default().document(document).unwrap(),
                 )],
             })
             .unwrap();
         let snapshot = project.snapshot();
-        let mut value =
-            Construction::from_document(&snapshot.state().documents[&document]).unwrap();
-        value.seed = 77;
-        let candidate =
-            editing::prepare(&snapshot, document, editing::Scope::Document, value).unwrap();
+        let mut value = Canvas::from_document(&snapshot.state().documents[&document]).unwrap();
+        value.width = 770;
+        let candidate = value.document(document).unwrap();
         let now = Instant::now();
         let handle = dispatcher
             .candidates
             .insert(
                 native::Candidate::from_document(
                     &snapshot,
-                    Scope {
-                        document,
-                        definition: None,
-                        object: None,
-                    },
-                    candidate.document(),
+                    Scope { document },
+                    &candidate,
                     &fold_media::Cancel::default(),
                 )
                 .unwrap(),
@@ -814,22 +799,14 @@ mod tests {
         let (ready, started) = mpsc::channel();
         let (release, resume) = mpsc::channel();
         let result = dispatcher
-            .submit(
-                Scope {
-                    document,
-                    definition: None,
-                    object: None,
-                },
-                now,
-                move |_| {
-                    ready.send(()).unwrap();
-                    resume.recv_timeout(Duration::from_secs(5)).unwrap();
-                    Ok(workers::Output::Inspection {
-                        proof,
-                        bytes: b"{}".as_slice().into(),
-                    })
-                },
-            )
+            .submit(Scope { document }, now, move |_| {
+                ready.send(()).unwrap();
+                resume.recv_timeout(Duration::from_secs(5)).unwrap();
+                Ok(workers::Output::Inspection {
+                    proof,
+                    bytes: b"{}".as_slice().into(),
+                })
+            })
             .unwrap_or_else(|_| panic!("job admission"));
         let job = serde_json::from_value(result["job"].clone()).unwrap();
         started.recv_timeout(Duration::from_secs(5)).unwrap();

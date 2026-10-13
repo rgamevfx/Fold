@@ -1,10 +1,6 @@
 //! Shared exact-time sampling across provider-owned source placements.
 use fold_foundation::{DocumentId, ObjectId, Time};
-use fold_motion::{
-    binding::{Binding, Track},
-    model::Construction,
-    types::{Literal, Unit},
-};
+use fold_graph::types::{Literal, Unit};
 use fold_platform::{image_source::Source, parameters};
 use fold_project::{DocumentRef, EditBatch, Mutation, Project};
 
@@ -12,35 +8,24 @@ use fold_project::{DocumentRef, EditBatch, Mutation, Project};
 fn nested_sources_map_one_root_time_and_repeated_uses_remain_distinct() {
     let registry = fold_app::packages::builtins();
     let motion_id = DocumentId::new();
-    let mut motion =
-        Construction::from_document(&fold_motion::package::create(motion_id).unwrap()).unwrap();
-    motion.canvas.start = Time::new(10, 1).unwrap();
-    motion.canvas.end = Time::new(20, 1).unwrap();
-    let parameter = motion.definitions[0].nodes[0]
-        .parameters
-        .get_mut("height")
-        .unwrap();
-    let id = parameter.id;
-    let mut track = Track::constant(
-        Literal::Distance {
-            value: 100.,
-            unit: Unit::Canvas,
-        },
-        Time::new(10, 1).unwrap(),
-    )
-    .unwrap();
-    let mut end = track.keys[0].clone();
-    end.id = ObjectId::new();
-    end.time = Time::new(20, 1).unwrap();
-    end.value = Literal::Distance {
-        value: 200.,
-        unit: Unit::Canvas,
+    let mut motion = fold_motion_canvas::model::Canvas {
+        rate: [24, 1],
+        duration: Time::new(10, 1).unwrap(),
+        ..Default::default()
     };
-    track.keys.push(end);
-    parameter.value = serde_json::to_value(Binding::Track { track }).unwrap();
+    let object = ObjectId::new();
+    let mut shape = fold_motion_canvas::tools::new_object("rectangle").unwrap();
+    let fold_motion_canvas::model::Content::Rectangle { height, .. } = &mut shape.content else {
+        unreachable!()
+    };
+    let id = height.id;
+    fold_motion_canvas::tools::set_scalar(height, Time::ZERO, 100., true);
+    fold_motion_canvas::tools::set_scalar(height, Time::new(10, 1).unwrap(), 200., true);
+    motion.roots.push(object);
+    motion.objects.insert(object, shape);
     let reference = DocumentRef {
         document: motion_id,
-        output: motion.definitions[0].outputs[0].id.to_string(),
+        output: "video".into(),
         extensions: Default::default(),
     };
     let mut composition = fold_composition::Composition::default();
@@ -151,7 +136,7 @@ fn nested_sources_map_one_root_time_and_repeated_uses_remain_distinct() {
         parameters::resolve(&entries, &[], &parameters::absolute_path(a)).unwrap(),
         a
     );
-    // Root 2 -> outer source 3 -> inner source 2/4 -> Motion authored 12/14.
+    // Root 2 -> outer source 3 -> inner source 2/4 -> Motion authored 2/4.
     for (entry, expected) in [(a, 120.), (b, 140.)] {
         assert_eq!(
             registry

@@ -1,0 +1,222 @@
+{
+  "scope": "Real MCP semantic anchor and outgoing moves at existing key, sheared path; shared viewer pixels; not native artist acceptance",
+  "frames": {
+    "after": {
+      "sha256": "8c948b952e6f774e525256b7c0cbc41fd3ee4f909a0008fb420cd575e05dee99",
+      "dimensions": [
+        640,
+        360
+      ],
+      "presentation": "shared_viewer_display",
+      "transfers": {
+        "cpu_adapter_nodes": 0,
+        "evaluation_readback_bytes": 0
+      },
+      "provenance": {
+        "candidate": null,
+        "canvas_size": [
+          640,
+          360
+        ],
+        "configuration": {
+          "adapter": "AdapterInfo { name: \"NVIDIA GeForce GTX 1070\", vendor: 4318, device: 7137, device_type: DiscreteGpu, driver: \"NVIDIA\", driver_info: \"580.173.02\", backend: Vulkan }",
+          "build": "afb073affeb5c54b9a7bd7f46b117cf793c9e7bcda53b986d7d81dc254b5efad",
+          "dimensions": [
+            640,
+            360
+          ],
+          "display_transform": "fold.legacy-linear-srgb-to-srgb.v1",
+          "profile": "gpu_display_no_history",
+          "project_settings": {},
+          "region": {
+            "height": 360,
+            "width": 640,
+            "x": 0,
+            "y": 0
+          },
+          "spatial": false,
+          "spatial_msaa": 1,
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "display_transform": "fold.legacy-linear-srgb-to-srgb.v1",
+        "document": "e05fae9a-5d30-4ba0-aef9-62b6f3d601bf",
+        "epoch": "a8f1b0e7-6bcc-40f8-9d65-38dd8d97c7e0",
+        "fingerprints": {
+          "configuration": "0b7a86c2035017a58d91e980846617d703a6acc23b589965ba940eeba9252e56",
+          "project": "06b0759c5bfb39258c1bbcf508b56ce0b136d15f8d0e02e604a430fb51eafdb7"
+        },
+        "frames_available": true,
+        "output": "video",
+        "output_size": [
+          640,
+          360
+        ],
+        "quality": "gpu_display_no_history",
+        "region": {
+          "height": 360,
+          "width": 640,
+          "x": 0,
+          "y": 0
+        },
+        "resource_inputs": {
+          "external_content_verified": false,
+          "scope": "immutable_project"
+        },
+        "revision": 3,
+        "time": {
+          "denominator": 2,
+          "numerator": 1
+        },
+        "time_basis": "output_relative"
+      }
+    },
+    "before": {
+      "sha256": "a6ac9ab9be9f2d48676833f338eeb5aac19b0339f3e36e0e13716dd92ee39d63",
+      "dimensions": [
+        640,
+        360
+      ],
+      "presentation": "shared_viewer_display",
+      "transfers": {
+        "cpu_adapter_nodes": 0,
+        "evaluation_readback_bytes": 0
+      },
+      "provenance": {
+        "candidate": null,
+        "canvas_size": [
+          640,
+          360
+        ],
+        "configuration": {
+          "adapter": "AdapterInfo { name: \"NVIDIA GeForce GTX 1070\", vendor: 4318, device: 7137, device_type: DiscreteGpu, driver: \"NVIDIA\", driver_info: \"580.173.02\", backend: Vulkan }",
+          "build": "afb073affeb5c54b9a7bd7f46b117cf793c9e7bcda53b986d7d81dc254b5efad",
+          "dimensions": [
+            640,
+            360
+          ],
+          "display_transform": "fold.legacy-linear-srgb-to-srgb.v1",
+          "profile": "gpu_display_no_history",
+          "project_settings": {},
+          "region": {
+            "height": 360,
+            "width": 640,
+            "x": 0,
+            "y": 0
+          },
+          "spatial": false,
+          "spatial_msaa": 1,
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "display_transform": "fold.legacy-linear-srgb-to-srgb.v1",
+        "document": "e05fae9a-5d30-4ba0-aef9-62b6f3d601bf",
+        "epoch": "a8f1b0e7-6bcc-40f8-9d65-38dd8d97c7e0",
+        "fingerprints": {
+          "configuration": "0b7a86c2035017a58d91e980846617d703a6acc23b589965ba940eeba9252e56",
+          "project": "68ad1acc1d2f2f489638cf91761e5327ff4da8a6a98851a547559ce37f49cb29"
+        },
+        "frames_available": true,
+        "output": "video",
+        "output_size": [
+          640,
+          360
+        ],
+        "quality": "gpu_display_no_history",
+        "region": {
+          "height": 360,
+          "width": 640,
+          "x": 0,
+          "y": 0
+        },
+        "resource_inputs": {
+          "external_content_verified": false,
+          "scope": "immutable_project"
+        },
+        "revision": 2,
+        "time": {
+          "denominator": 2,
+          "numerator": 1
+        },
+        "time_basis": "output_relative"
+      }
+    },
+    "candidate": {
+      "sha256": "8c948b952e6f774e525256b7c0cbc41fd3ee4f909a0008fb420cd575e05dee99",
+      "dimensions": [
+        640,
+        360
+      ],
+      "presentation": "shared_viewer_display",
+      "transfers": {
+        "cpu_adapter_nodes": 0,
+        "evaluation_readback_bytes": 0
+      },
+      "provenance": {
+        "candidate": {
+          "epoch": "a8f1b0e7-6bcc-40f8-9d65-38dd8d97c7e0",
+          "generation": "8416d858-5e3a-476e-ba12-554799ae915b"
+        },
+        "canvas_size": [
+          640,
+          360
+        ],
+        "configuration": {
+          "adapter": "AdapterInfo { name: \"NVIDIA GeForce GTX 1070\", vendor: 4318, device: 7137, device_type: DiscreteGpu, driver: \"NVIDIA\", driver_info: \"580.173.02\", backend: Vulkan }",
+          "build": "afb073affeb5c54b9a7bd7f46b117cf793c9e7bcda53b986d7d81dc254b5efad",
+          "dimensions": [
+            640,
+            360
+          ],
+          "display_transform": "fold.legacy-linear-srgb-to-srgb.v1",
+          "profile": "gpu_display_no_history",
+          "project_settings": {},
+          "region": {
+            "height": 360,
+            "width": 640,
+            "x": 0,
+            "y": 0
+          },
+          "spatial": false,
+          "spatial_msaa": 1,
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "display_transform": "fold.legacy-linear-srgb-to-srgb.v1",
+        "document": "e05fae9a-5d30-4ba0-aef9-62b6f3d601bf",
+        "epoch": "a8f1b0e7-6bcc-40f8-9d65-38dd8d97c7e0",
+        "fingerprints": {
+          "configuration": "0b7a86c2035017a58d91e980846617d703a6acc23b589965ba940eeba9252e56",
+          "project": "06b0759c5bfb39258c1bbcf508b56ce0b136d15f8d0e02e604a430fb51eafdb7"
+        },
+        "frames_available": true,
+        "output": "video",
+        "output_size": [
+          640,
+          360
+        ],
+        "quality": "gpu_display_no_history",
+        "region": {
+          "height": 360,
+          "width": 640,
+          "x": 0,
+          "y": 0
+        },
+        "resource_inputs": {
+          "external_content_verified": false,
+          "scope": "immutable_project"
+        },
+        "revision": 2,
+        "time": {
+          "denominator": 2,
+          "numerator": 1
+        },
+        "time_basis": "output_relative"
+      }
+    }
+  },
+  "checks": {
+    "candidate_apply_pixels_exact": true,
+    "committed_unchanged_during_preparation": true,
+    "saved_state_exact": true,
+    "point_track_key_identity_retained": true,
+    "two_undo_steps_restore_original": true
+  }
+}

@@ -1,0 +1,87 @@
+{
+  "app_integration_qualified": false,
+  "cpu_pixel_transport": false,
+  "device": "NVIDIA GeForce GTX 1070",
+  "frame_request_ms_excluding_reference_readback": [
+    4688.186922,
+    72.466146,
+    71.835307
+  ],
+  "host_profile": "debug",
+  "memory_released": true,
+  "oversized_changed_program_rejected_before_start": true,
+  "performance_qualified": false,
+  "producer_memory_reserved_before_demand": true,
+  "producer_release_confirmed_before_reservation_drop": true,
+  "runtime_statistics": {
+    "frames_completed": 128,
+    "workers_started": 1
+  },
+  "stale_epoch_revision_generation_time_dimensions_rejected": true,
+  "warm_frame_ms_max": 118.15213,
+  "warm_frame_ms_p50": 75.716365,
+  "warm_frame_ms_p95": 90.202797,
+  "warm_frames": 120,
+  "warm_measured_frames": 110,
+  "warm_measurement": "snapshot preparation, render, publication, release and host poll; no reference readback",
+  "warmup_frames_discarded": 10,
+  "worker_profile": "release",
+  "pixels": {
+    "frames": [
+      {
+        "frame": 0,
+        "text_pixels": 2255,
+        "dot_pixels": 78928,
+        "stroke_pixels": 5554,
+        "partial_alpha_stroke_pixels": 4246,
+        "alpha_min": 0.0,
+        "alpha_max": 1.0,
+        "dimensions": [
+          640,
+          360
+        ]
+      },
+      {
+        "frame": 1,
+        "text_pixels": 2255,
+        "dot_pixels": 62959,
+        "stroke_pixels": 5556,
+        "partial_alpha_stroke_pixels": 4245,
+        "alpha_min": 0.0,
+        "alpha_max": 1.0,
+        "dimensions": [
+          640,
+          360
+        ]
+      },
+      {
+        "frame": 2,
+        "text_pixels": 2255,
+        "dot_pixels": 78928,
+        "stroke_pixels": 5560,
+        "partial_alpha_stroke_pixels": 4248,
+        "alpha_min": 0.0,
+        "alpha_max": 1.0,
+        "dimensions": [
+          640,
+          360
+        ]
+      }
+    ],
+    "runtime_count_edit": true,
+    "animation_changes_pixels": true,
+    "subpixel_stroke_motion_changes_pixels": true,
+    "worker_profile": "release",
+    "performance_qualified": false
+  },
+  "date": "2026-10-12",
+  "upstream_commit": "b644f22cf5be2333e7098caf7ec064c3d36aeb02",
+  "dimensions": [
+    640,
+    360
+  ],
+  "scene": "native Noto text, 10000 animated scripted dots, four native Bezier strokes at 0.5/1/1.5/2.25 px moving by quarter pixels",
+  "scene_requests_sha256": "25b23e681887006d23978c3b4a3dce93a7ff5f3d7a15b63e0cde8ee7c1c6f724",
+  "validation_layer_requested": "VK_LAYER_KHRONOS_validation",
+  "native_artist_acceptance": false
+}

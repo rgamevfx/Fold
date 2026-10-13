@@ -1,0 +1,45 @@
+[package]
+name = "fold-motion-context"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[features]
+ui = ["dep:fold-ui"]
+gpu = ["fold-render/shared-images", "dep:fold-gpu-sharing", "dep:pollster"]
+
+[dependencies]
+fold-animation.workspace = true
+fold-motion-canvas.workspace = true
+fold-foundation.workspace = true
+fold-platform.workspace = true
+fold-project.workspace = true
+fold-media.workspace = true
+fold-graph.workspace = true
+fold-color.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+schemars.workspace = true
+fold-ui = { workspace = true, optional = true }
+sha2 = "0.10"
+bytemuck = "1"
+tempfile.workspace = true
+fold-render.workspace = true
+fold-gpu-sharing = { workspace = true, optional = true }
+pollster = { version = "0.4", optional = true }
+
+# Native FD import is confined to runtime/gpu/native.rs.
+[lints.rust]
+unsafe_code = "deny"
+
+[[example]]
+name = "render_gpu_program"
+required-features = ["gpu"]
+
+[[example]]
+name = "render_graph_program"
+required-features = ["gpu"]
+
+[[example]]
+name = "render_image_asset"
+required-features = ["gpu"]

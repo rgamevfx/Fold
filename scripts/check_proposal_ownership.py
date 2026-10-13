@@ -92,7 +92,7 @@ def imported_paths(values):
 def violations(source, provider=False):
     values = production_tokens(source)
     # Import aliases and grouped imports still contain their original identifiers.
-    forbidden = {'Project', 'InspectionProof'} if provider else {'fold_motion', 'fold_compositor', 'fold_composition', 'fold_timeline'}
+    forbidden = {'Project', 'InspectionProof'} if provider else {'fold_motion_canvas', 'fold_motion_context', 'fold_three_d', 'fold_compositor', 'fold_composition', 'fold_timeline'}
     errors = [f'forbidden dependency {name}' for name in sorted(forbidden & set(values))]
     paths = [('fold_project', '::', 'proposals'), ('proposals', '::', 'Store')] if provider else [('fold_graph', '::', 'reconcile')]
     for path in paths:
@@ -113,7 +113,7 @@ def violations(source, provider=False):
 def main():
     agent = ROOT / 'crates/app/src/agent'
     dispatch = [agent / 'wire.rs', *agent.glob('dispatch*.rs'), *(agent / 'dispatch').rglob('*.rs')]
-    providers = [path for crate in ('motion', 'compositor', 'composition')
+    providers = [path for crate in ('motion-context', 'three-d', 'compositor', 'composition', 'timeline')
                  for path in (ROOT / f'crates/{crate}/src').rglob('*.rs')
                  if path.stem == 'proposals' or 'proposals' in path.parts]
     errors = [f'{path.relative_to(ROOT)}: {error}'

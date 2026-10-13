@@ -18,6 +18,9 @@ tiff = "=0.11.3"
 image = { version = "=0.25.10", default-features = false, features = ["jpeg", "png", "webp", "tiff", "gif", "bmp"] }
 exr = { version = "=1.74.2", default-features = false }
 
+[target.'cfg(unix)'.dependencies]
+rustix = { version = "1", features = ["process"] }
+
 [dev-dependencies]
 fold-native-video = { workspace = true, features = ["gpu"] }
 wgpu = "27"

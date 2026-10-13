@@ -8,6 +8,13 @@ fn retired_providers_and_schemas_are_opaque_and_non_executable() {
     let mut project = Project::new(8);
     let mut documents = vec![];
     for (package, kind, versions) in [
+        ("fold.motion.native", "fold.motion.construction", vec![1]),
+        ("fold.motion.native", "fold.motion.native.scene", vec![1]),
+        (
+            fold_motion_canvas::PACKAGE,
+            fold_motion_canvas::TYPE,
+            vec![1],
+        ),
         (
             fold_timeline::PACKAGE,
             "fold.timeline.video-layers",
@@ -109,34 +116,51 @@ fn retired_operation_records_roundtrip_without_execution() {
 }
 
 #[test]
-fn shipped_fixtures_use_current_contracts_and_save_reopen() {
+fn current_provider_documents_save_reopen_without_retired_fixtures() {
     let packages = fold_app::packages::builtins();
-    let directory = tempfile::tempdir().unwrap();
-    for name in [
-        "Make-it-move",
-        "m5a-mixed-scene",
-        "m5b-background-spheres",
-        "m5b-wrangle",
-        "m5b-integrated",
-    ] {
-        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join(format!("../../demos/{name}.fold"));
-        let project = fold_project::load(path, 8).unwrap();
-        for document in project.snapshot().state().documents.values() {
-            assert!(
-                packages.supports(document),
-                "{name}: {} schema {}",
-                document.type_id,
-                document.schema_version
-            );
-            packages.validate_document(document).unwrap();
-            packages.output(&project.snapshot(), document.id).unwrap();
-        }
-        let saved = directory.path().join(format!("{name}.fold"));
-        fold_project::save(&project.snapshot(), &saved).unwrap();
-        assert_eq!(
-            fold_project::load(saved, 8).unwrap().snapshot().state(),
-            project.snapshot().state()
-        );
+    let mut project = Project::new(8);
+    let documents = packages
+        .document_kinds()
+        .into_iter()
+        .map(|kind| packages.create(kind.type_id, DocumentId::new()).unwrap())
+        .collect::<Vec<_>>();
+    project
+        .commit(EditBatch {
+            base: project.snapshot().revision(),
+            mutations: documents.into_iter().map(Mutation::PutDocument).collect(),
+        })
+        .unwrap();
+    for document in project.snapshot().state().documents.values() {
+        assert!(packages.supports(document));
+        packages.validate_document(document).unwrap();
+        packages.output(&project.snapshot(), document.id).unwrap();
     }
+    let directory = tempfile::tempdir().unwrap();
+    let saved = directory.path().join("current.fold");
+    fold_project::save(&project.snapshot(), &saved).unwrap();
+    assert_eq!(
+        fold_project::load(saved, 8).unwrap().snapshot().state(),
+        project.snapshot().state()
+    );
+}
+
+#[test]
+fn request_schema_rejects_retired_motion_source_and_patch_routes() {
+    for field in ["definition", "object"] {
+        let mut scope = serde_json::json!({"document": DocumentId::new()});
+        scope[field] = serde_json::Value::Null;
+        assert!(serde_json::from_value::<fold_platform::proposals::Scope>(scope).is_err());
+    }
+    for edit in [
+        serde_json::json!({"kind":"source","expected":"","text":"","mapping":{}}),
+        serde_json::json!({"kind":"patches","patches":[]}),
+    ] {
+        assert!(serde_json::from_value::<fold_app::agent::wire::Edit>(edit).is_err());
+    }
+    assert!(
+        serde_json::from_value::<fold_app::agent::wire::Edit>(
+            serde_json::json!({"kind":"native","request":{"op":"author"}})
+        )
+        .is_ok()
+    );
 }

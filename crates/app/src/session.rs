@@ -26,16 +26,22 @@ mod commands;
 mod jobs;
 use jobs::Completed;
 
+struct PreviewEdit {
+    session: fold_project::EditSession,
+    request: fold_platform::packages::CommandRequest,
+}
+
 pub struct Session {
     settings_request: Option<Option<fold_foundation::DocumentId>>,
     project: Project,
     agent: agent_transport::Agent,
     saved_project: fold_project::CommittedSnapshot,
     state: DesktopState,
-    overlay: Option<fold_project::EditSession>,
+    overlay: Option<PreviewEdit>,
     preview: PreviewWorker,
     metadata: std::cell::RefCell<preview_metadata::Metadata>,
     jobs: jobs::Jobs,
+    extension_failure: Option<(fold_platform::packages::CommandRequest, String)>,
     project_epoch: u64,
     imported_items: Vec<fold_project::ItemId>,
     workspace_project: Option<String>,
@@ -66,6 +72,7 @@ impl Session {
             preview: PreviewWorker::new(),
             metadata: Default::default(),
             jobs: Default::default(),
+            extension_failure: None,
             project_epoch: 0,
             imported_items: Vec::new(),
             workspace_project: None,
@@ -202,6 +209,7 @@ impl Session {
         self.metadata = Default::default();
         self.saved_project = project.snapshot();
         self.project = project;
+        self.extension_failure = None;
         self.agent.replace_project();
         self.imported_items.clear();
         self.playback_ranges.clear();
@@ -210,11 +218,19 @@ impl Session {
         self.refresh_job_state();
     }
     fn background(&mut self, command: DesktopCommand) {
+        let extension = match &command {
+            DesktopCommand::Extension(request) => {
+                self.extension_failure = None;
+                Some(request.clone())
+            }
+            _ => None,
+        };
         let result = self.jobs.start(
             command,
             self.project.snapshot(),
             self.state.project_path.clone(),
             self.project_epoch,
+            self.state.selection.clone(),
             #[cfg(feature = "gpu")]
             self.preview.shared.0.lock().unwrap().render_host.clone(),
         );
@@ -226,7 +242,12 @@ impl Session {
                 self.refresh_job_state();
                 self.state.status = "Background job running…".into();
             }
-            Err(error) => self.state.status = error,
+            Err(error) => {
+                if let Some(request) = extension {
+                    self.extension_failure = Some((request, error.clone()));
+                }
+                self.state.status = error;
+            }
         }
     }
     fn refresh_job_state(&mut self) {
@@ -240,6 +261,10 @@ impl Session {
             return;
         }
         let project_file = completion.kind.project_file();
+        let extension = match &completion.kind {
+            jobs::Kind::Extension(request) => Some(request.clone()),
+            _ => None,
+        };
         let result = completion.result;
         if project_file {
             self.state.file_result_serial += 1;
@@ -254,11 +279,18 @@ impl Session {
                 }
                 if let Some(proposal) = proposal {
                     let items = proposal.items.clone();
+                    let selection = proposal.placement_selection.clone();
                     match proposal.commit(&mut self.project) {
                         Ok(_) => {
                             self.refresh();
                             self.state.status.clear();
                             self.imported_items = items;
+                            if self.state.selection == completion.origin_selection
+                                && let Some(selection) = selection
+                                && selection.document == self.state.selection.document
+                            {
+                                self.state.selection = selection;
+                            }
                         }
                         Err(error) => self.state.status = error,
                     }
@@ -323,6 +355,10 @@ impl Session {
             }
             Ok(Completed::Exported(message)) => self.state.status = message,
             Err(error) => self.state.status = error,
+        }
+        if let Some(request) = extension {
+            self.extension_failure =
+                (!self.state.status.is_empty()).then(|| (request, self.state.status.clone()));
         }
     }
 }
@@ -449,6 +485,19 @@ impl DesktopClient for Session {
     }
     fn extension_pending(&self, request: &fold_platform::packages::CommandRequest) -> bool {
         self.jobs.extension_pending(request)
+    }
+    fn supports_extension(&self, id: &str) -> bool {
+        crate::packages::builtins().command(id).is_ok()
+    }
+    fn extension_error(&self, request: &fold_platform::packages::CommandRequest) -> Option<String> {
+        self.extension_failure
+            .as_ref()
+            .filter(|(failed, _)| {
+                failed.id == request.id
+                    && failed.base == request.base
+                    && failed.arguments == request.arguments
+            })
+            .map(|(_, error)| error.clone())
     }
 
     fn effect_interface(
@@ -603,7 +652,7 @@ impl DesktopClient for Session {
         self.supports_document(document)
             && matches!(
                 document.type_id.as_str(),
-                fold_compositor::COMPOSITE | fold_motion::CONSTRUCTION | fold_motion::scene::TYPE
+                fold_compositor::COMPOSITE | fold_motion_canvas::TYPE
             )
     }
     fn supports_document(&self, document: &fold_project::Document) -> bool {
@@ -749,6 +798,7 @@ mod tests {
         ];
         for (kind, result) in outcomes {
             session.accept_completion(jobs::Completion {
+                origin_selection: Default::default(),
                 kind,
                 epoch,
                 result: Ok(result),

@@ -1,0 +1,35 @@
+{
+  "device_uuid": [
+    51,
+    15,
+    224,
+    75,
+    242,
+    209,
+    55,
+    37,
+    162,
+    157,
+    10,
+    35,
+    238,
+    158,
+    113,
+    71
+  ],
+  "differing_pixels": 0,
+  "dimensions": [
+    640,
+    360
+  ],
+  "gradient_rejected": true,
+  "max_float_error": 0.0,
+  "objects": 11,
+  "qualification_readback": true,
+  "schema": 2,
+  "scope": "Static capture fixture; explicit qualification readback. Application conversion command and artist acceptance remain open.",
+  "pixel_hashes": {
+    "original": "782e43a913c1d558fec695fd6e7fc49277f3c53bcd096587b99a83cf5cc1db9f",
+    "editable": "782e43a913c1d558fec695fd6e7fc49277f3c53bcd096587b99a83cf5cc1db9f"
+  }
+}

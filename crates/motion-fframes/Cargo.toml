@@ -1,0 +1,35 @@
+# Native compilation is isolated from editor/document checks. This is the actual
+# fframes worker/render dependency, not an alternate rendering implementation.
+[workspace]
+
+[package]
+name = "fold-motion-fframes"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+fold-motion-canvas = { path = "../motion-canvas" }
+fold-foundation = { path = "../foundation" }
+fold-gpu-sharing = { path = "../gpu-sharing", default-features = false }
+ash = "0.38"
+fframes = { git = "https://github.com/dmtrKovalenko/fframes", rev = "b644f22cf5be2333e7098caf7ec064c3d36aeb02", default-features = false, features = ["compile-time-svgtree", "build-portable"] }
+fframes_skia_renderer = { git = "https://github.com/dmtrKovalenko/fframes", rev = "b644f22cf5be2333e7098caf7ec064c3d36aeb02", default-features = false, features = ["vulkan", "binary-cache"] }
+bytemuck = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tiny-skia-path = "0.11.4"
+
+[dev-dependencies]
+fold-graph = { path = "../graph" }
+fold-gpu-sharing = { path = "../gpu-sharing", features = ["consumer"] }
+fold-media = { path = "../media" }
+fold-render = { path = "../render", features = ["shared-images"] }
+wgpu = { version = "27", default-features = false, features = ["std", "vulkan"] }
+pollster = "0.4"
+half = "2"
+tempfile = "3"
+log = "0.4"
+
+[lints.rust]
+unsafe_code = "deny"

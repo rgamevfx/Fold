@@ -5,6 +5,7 @@
 #[path = "sdk_tests.rs"]
 mod tests;
 pub use dear_imgui_rs as imgui;
+pub use dear_implot as implot;
 // Unstable backend access for native UI capture tests in feature packages.
 #[doc(hidden)]
 pub use dear_imgui_wgpu as render_backend;
@@ -40,6 +41,9 @@ pub mod time_view;
 #[path = "toolbar.rs"]
 pub mod toolbar;
 pub use property_edit::{EditResponse, NumericProperty, UiId};
+#[path = "text_draft.rs"]
+mod text_draft;
+pub use text_draft::TextDraft;
 #[path = "graph_canvas/mod.rs"]
 pub mod graph_canvas;
 #[path = "inspector.rs"]

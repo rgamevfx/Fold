@@ -82,7 +82,20 @@ fn output_and_authored_color_do_not_rewrite_values_on_draw() {
             .build(|| {
                 assert!(!output(ui, &Choices::default(), &mut transform));
                 let mut response = EditResponse::default();
-                authored(ui, &mut color, true, &mut response);
+                {
+                    let _id = ui.push_id("aces");
+                    authored(ui, &mut color, true, &mut response);
+                }
+                {
+                    let _id = ui.push_id("rec709");
+                    authored(ui, &mut color, false, &mut response);
+                }
+                {
+                    let _id = ui.push_id("rgb");
+                    let mut rgb = [-0.2, 3., 0.123456789];
+                    authored_rgb(ui, &mut rgb, false, &mut response);
+                    assert_eq!(rgb, [-0.2, 3., 0.123456789]);
+                }
                 assert!(!response.changed);
             });
         context.end_frame();

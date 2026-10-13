@@ -362,6 +362,12 @@ pub trait DesktopClient {
     fn extension_pending(&self, _request: &crate::packages::CommandRequest) -> bool {
         false
     }
+    fn supports_extension(&self, _id: &str) -> bool {
+        false
+    }
+    fn extension_error(&self, _request: &crate::packages::CommandRequest) -> Option<String> {
+        None
+    }
     fn effect_interface(
         &self,
         _document: fold_foundation::DocumentId,

@@ -52,6 +52,20 @@ pub fn output(ui: &Ui, choices: &Choices, value: &mut OutputTransform) -> bool {
     changed
 }
 pub fn authored(ui: &Ui, value: &mut [f64; 4], aces: bool, response: &mut EditResponse) {
+    authored_components(ui, value, aces, true, response);
+}
+pub fn authored_rgb(ui: &Ui, value: &mut [f64; 3], aces: bool, response: &mut EditResponse) {
+    let mut rgba = [value[0], value[1], value[2], 1.];
+    authored_components(ui, &mut rgba, aces, false, response);
+    *value = [rgba[0], rgba[1], rgba[2]];
+}
+fn authored_components(
+    ui: &Ui,
+    value: &mut [f64; 4],
+    aces: bool,
+    alpha: bool,
+    response: &mut EditResponse,
+) {
     // Clamp only the SDR picker presentation, never the stored working values.
     let mut picker = fold_platform::color::to_picker(*value, aces).map(|v| {
         if v.is_finite() {
@@ -61,9 +75,13 @@ pub fn authored(ui: &Ui, value: &mut [f64; 4], aces: bool, response: &mut EditRe
         }
     });
     let original_picker = picker;
+    let mut flags = crate::sdk::imgui::ColorEditFlags::NO_OPTIONS;
+    if !alpha {
+        flags |= crate::sdk::imgui::ColorEditFlags::NO_ALPHA;
+    }
     let changed = ui
         .color_edit4_config("Color", &mut picker)
-        .flags(crate::sdk::imgui::ColorEditFlags::NO_OPTIONS)
+        .flags(flags)
         .build();
     response.item(ui, changed);
     if changed {
@@ -76,16 +94,15 @@ pub fn authored(ui: &Ui, value: &mut [f64; 4], aces: bool, response: &mut EditRe
 
     if let Some(_popup) = ui.begin_popup_context_item_with_label(Some("working-color")) {
         for (i, label) in ["Red", "Green", "Blue", "Alpha"].iter().enumerate() {
+            if i == 3 && !alpha {
+                break;
+            }
             NumericProperty {
                 id: label,
                 label,
                 unit: "",
                 speed: 0.005,
-                range: if i == 3 || !aces {
-                    Some([0., 1.])
-                } else {
-                    None
-                },
+                range: if i == 3 { Some([0., 1.]) } else { None },
                 default: None,
             }
             .draw(ui, &mut value[i], response);

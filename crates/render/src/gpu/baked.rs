@@ -117,6 +117,7 @@ impl Cache {
             view,
             dimensions: [w, h],
             bytes,
+            _reservation: None,
         });
         if bytes <= limit {
             self.entries.push_back(Entry {

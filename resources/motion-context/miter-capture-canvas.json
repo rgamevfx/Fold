@@ -1,0 +1,3744 @@
+{
+  "width": 640,
+  "height": 360,
+  "rate": [
+    30,
+    1
+  ],
+  "duration": {
+    "numerator": 5,
+    "denominator": 1
+  },
+  "roots": [
+    "23ad932a-e263-4088-b5f3-ac5997e2e98a"
+  ],
+  "objects": {
+    "1061a6e6-d910-4537-b4db-6c4fd5965f44": {
+      "name": "Captured ellipse",
+      "transform": {
+        "x": {
+          "id": "7d13f566-e675-45b3-9363-79dde3f4e268",
+          "value": 450.0,
+          "animation": null,
+          "protected": false
+        },
+        "y": {
+          "id": "8271dae1-6568-41dc-91f3-414ec978969e",
+          "value": 260.0,
+          "animation": null,
+          "protected": false
+        },
+        "rotation": {
+          "id": "6323903e-2320-4121-a7f2-2bb452ccef50",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "scale_x": {
+          "id": "639d2887-9ec0-45fb-a531-7211f2665ef4",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        },
+        "scale_y": {
+          "id": "ec63713f-ff2d-44dd-9c05-59c99a21dc5a",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        },
+        "shear": {
+          "id": "4d978f9c-e70e-4e53-b2ed-0786bd659f5b",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "opacity": {
+          "id": "68244460-bc4b-4fe7-9d71-bb9a494532b7",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        }
+      },
+      "paint": {
+        "fill": [
+          1.0,
+          0.6666666666666666,
+          0.2,
+          1.0
+        ],
+        "stroke": null,
+        "stroke_width": {
+          "id": "0822d042-6194-4e5e-8545-bf561aaa1f58",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        },
+        "cap": "round",
+        "join": "round",
+        "miter_limit": 4.0,
+        "even_odd": false
+      },
+      "content": {
+        "kind": "ellipse",
+        "radius_x": {
+          "id": "df921e73-c66e-4441-906c-c493a1e4292c",
+          "value": 50.0,
+          "animation": null,
+          "protected": false
+        },
+        "radius_y": {
+          "id": "9154c664-350f-4232-af9e-31e4a118e3a9",
+          "value": 30.0,
+          "animation": null,
+          "protected": false
+        }
+      },
+      "graph_position": null,
+      "protected": false
+    },
+    "1aa692bf-d7ce-4daa-a9eb-2494403a91e8": {
+      "name": "Captured group",
+      "transform": {
+        "x": {
+          "id": "bec2cd9e-61e4-4bc7-b824-f042ce6b4e85",
+          "value": 370.0,
+          "animation": null,
+          "protected": false
+        },
+        "y": {
+          "id": "11d7380c-c22a-4838-a646-2befc466dbe3",
+          "value": 30.0,
+          "animation": null,
+          "protected": false
+        },
+        "rotation": {
+          "id": "186e0ae2-e9a3-4b82-a8de-da52e8dccf80",
+          "value": 180.0,
+          "animation": null,
+          "protected": false
+        },
+        "scale_x": {
+          "id": "1e40a97d-96af-4d50-aae5-cb95f05c6818",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        },
+        "scale_y": {
+          "id": "cbfbea64-29f3-438f-875f-d5e3cce65264",
+          "value": -1.2999999523162842,
+          "animation": null,
+          "protected": false
+        },
+        "shear": {
+          "id": "1978d4b8-201a-4b2d-9bee-9da41de91084",
+          "value": 1.5920407804958493e-16,
+          "animation": null,
+          "protected": false
+        },
+        "opacity": {
+          "id": "79876c95-a09b-4b46-8988-e2763a6e8ba1",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        }
+      },
+      "paint": {
+        "fill": null,
+        "stroke": null,
+        "stroke_width": {
+          "id": "d42f973a-d371-49cb-93c4-6dd899798dbe",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        },
+        "cap": "round",
+        "join": "round",
+        "miter_limit": 4.0,
+        "even_odd": false
+      },
+      "content": {
+        "kind": "group",
+        "children": [
+          "5de6938f-d276-4c60-b4da-6889dc93f88c"
+        ]
+      },
+      "graph_position": null,
+      "protected": false
+    },
+    "20aebbc5-a929-4d8f-a3b0-96476db3785b": {
+      "name": "Captured rectangle",
+      "transform": {
+        "x": {
+          "id": "4859fd7f-de55-4deb-881b-3643561eacea",
+          "value": 510.0,
+          "animation": null,
+          "protected": false
+        },
+        "y": {
+          "id": "436a1576-72d1-435d-ac02-da2dca5ac775",
+          "value": 40.0,
+          "animation": null,
+          "protected": false
+        },
+        "rotation": {
+          "id": "42b8c963-0096-43e8-948d-db5ec7cf1474",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "scale_x": {
+          "id": "f3d0649b-9ef6-4427-b15e-8df48eb0c352",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        },
+        "scale_y": {
+          "id": "f2044e8b-7837-4620-b41e-0fa4527386a1",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        },
+        "shear": {
+          "id": "ba8bd470-6eb1-4465-87ac-38ec9f015965",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "opacity": {
+          "id": "4b01faae-1ba6-40b7-bbda-00dbe98f6a71",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        }
+      },
+      "paint": {
+        "fill": [
+          0.2,
+          0.6666666666666666,
+          1.0,
+          1.0
+        ],
+        "stroke": null,
+        "stroke_width": {
+          "id": "efd831c6-8a90-49b4-b9d6-5b56e134afff",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        },
+        "cap": "round",
+        "join": "round",
+        "miter_limit": 4.0,
+        "even_odd": false
+      },
+      "content": {
+        "kind": "rectangle",
+        "width": {
+          "id": "4b55b970-856d-4e67-8bb8-f06f8aa74c67",
+          "value": 70.0,
+          "animation": null,
+          "protected": false
+        },
+        "height": {
+          "id": "5b63046b-f583-433d-86bb-2599e9c245dc",
+          "value": 80.0,
+          "animation": null,
+          "protected": false
+        },
+        "radius": {
+          "id": "3ab6cc71-8535-4f08-a7b1-09bbe3836cb1",
+          "value": 12.0,
+          "animation": null,
+          "protected": false
+        }
+      },
+      "graph_position": null,
+      "protected": false
+    },
+    "23ad932a-e263-4088-b5f3-ac5997e2e98a": {
+      "name": "Captured group",
+      "transform": {
+        "x": {
+          "id": "d7ee048b-0af3-4da8-ba31-06608b0e10e0",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "y": {
+          "id": "915ef291-d34a-4151-8c1f-df8527c31bb2",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "rotation": {
+          "id": "b2dc3f1c-a468-430b-a9d0-d93c211303f9",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "scale_x": {
+          "id": "3711f2d2-e0ba-4db5-84e7-26bb60c4480b",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        },
+        "scale_y": {
+          "id": "96830607-9b65-4ca8-86f3-7cc14962e8cc",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        },
+        "shear": {
+          "id": "c7738b3f-2a54-4382-9e2e-50df81ae0b1a",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "opacity": {
+          "id": "1e629484-8cb5-4516-8648-e1d0b0a3a0a8",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        }
+      },
+      "paint": {
+        "fill": null,
+        "stroke": null,
+        "stroke_width": {
+          "id": "9109b4a0-91cf-406d-b702-06d3d37ff6a2",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        },
+        "cap": "round",
+        "join": "round",
+        "miter_limit": 4.0,
+        "even_odd": false
+      },
+      "content": {
+        "kind": "group",
+        "children": [
+          "94cff6be-a892-47ec-aeda-d1d580c18eeb",
+          "1aa692bf-d7ce-4daa-a9eb-2494403a91e8",
+          "dacae14f-bab2-41f2-ad29-f49a1fddb03d",
+          "365f0b6e-132e-436c-925d-ceb83611125b",
+          "1061a6e6-d910-4537-b4db-6c4fd5965f44",
+          "20aebbc5-a929-4d8f-a3b0-96476db3785b",
+          "cbcc16df-9bea-43ec-b13e-37d83644620d",
+          "c245da09-c695-4624-9c26-af18d68bce7b"
+        ]
+      },
+      "graph_position": null,
+      "protected": false
+    },
+    "365f0b6e-132e-436c-925d-ceb83611125b": {
+      "name": "Captured group",
+      "transform": {
+        "x": {
+          "id": "d25abe1b-97ac-44eb-bfb7-b1f29e737002",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "y": {
+          "id": "509da921-1db5-403b-a743-0cea389115a4",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "rotation": {
+          "id": "57e494c8-78b2-4b41-84f2-66c0101214a2",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "scale_x": {
+          "id": "0ef9ed96-39ea-4aa7-bf1d-7fea406d4d4c",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        },
+        "scale_y": {
+          "id": "1260e8db-14c2-455d-8ef7-2979e863d31c",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        },
+        "shear": {
+          "id": "7d8c04d5-271b-4d5d-b145-00828e4543c7",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "opacity": {
+          "id": "038490aa-7840-4d51-8f3b-fb1efd8702bb",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        }
+      },
+      "paint": {
+        "fill": null,
+        "stroke": null,
+        "stroke_width": {
+          "id": "be92c021-8cfc-493f-864c-cf35e504b2cb",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        },
+        "cap": "round",
+        "join": "round",
+        "miter_limit": 4.0,
+        "even_odd": false
+      },
+      "content": {
+        "kind": "group",
+        "children": [
+          "44f33ca6-0e0e-43dd-beca-23bede2aabad"
+        ]
+      },
+      "graph_position": null,
+      "protected": false
+    },
+    "44f33ca6-0e0e-43dd-beca-23bede2aabad": {
+      "name": "Captured path",
+      "transform": {
+        "x": {
+          "id": "221aff71-1d20-407d-8cfe-f97af2087be0",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "y": {
+          "id": "b598344d-a243-4afe-bc51-8fe4703db387",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "rotation": {
+          "id": "acd26b96-0671-49eb-9eb0-615f747bc1dc",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "scale_x": {
+          "id": "3387dc3e-34ec-4bd1-9d53-cc1956e516cc",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        },
+        "scale_y": {
+          "id": "7ade721e-8756-4b64-90eb-f0863b8a5f9c",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        },
+        "shear": {
+          "id": "a22076cb-a8ff-491a-afe5-929d50eb658f",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "opacity": {
+          "id": "30cb9cd4-fbfe-40ea-9aec-4ae04fb2f24d",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        }
+      },
+      "paint": {
+        "fill": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "stroke": null,
+        "stroke_width": {
+          "id": "54ca166f-df10-486d-b7c3-ee76740ba1ea",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        },
+        "cap": "round",
+        "join": "round",
+        "miter_limit": 4.0,
+        "even_odd": false
+      },
+      "content": {
+        "kind": "path",
+        "contours": [
+          {
+            "id": "0b531518-5b56-4136-8c76-bc4506e2781b",
+            "points": [
+              {
+                "id": "f6cfc9d4-149e-4c9b-a317-c6e15dc20246",
+                "position": [
+                  219.83999633789062,
+                  210.0
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "548bc428-111f-4e9f-9f85-318916961db3",
+                "position": [
+                  203.8800048828125,
+                  210.0
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "913d0c57-c842-43ba-858e-e61db7d4f1fe",
+                "position": [
+                  203.8800048828125,
+                  181.44000244140625
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "eabd789a-f82f-4cd3-9b89-6a5484021fd4",
+                "position": [
+                  219.83999633789062,
+                  181.44000244140625
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "120062bd-f866-4763-ab15-a5081aaeb413",
+                "position": [
+                  219.83999633789062,
+                  184.60000610351562
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "d2df729e-2aba-49ea-85fe-c1f6fe5cee7f",
+                "position": [
+                  207.47999572753906,
+                  184.60000610351562
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "d5556769-91b3-4aa4-bee4-866293cf0620",
+                "position": [
+                  207.47999572753906,
+                  193.52000427246094
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "2359864a-484b-4184-8a1d-d8495611d672",
+                "position": [
+                  219.1199951171875,
+                  193.52000427246094
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "f86d7c1a-e29a-425c-99d6-7756c474081f",
+                "position": [
+                  219.1199951171875,
+                  196.63999938964844
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "653802e4-7036-4d36-95d8-176db316c2ee",
+                "position": [
+                  207.47999572753906,
+                  196.63999938964844
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "415abdaa-f668-4ae7-ac79-ec7aaaed33a3",
+                "position": [
+                  207.47999572753906,
+                  206.83999633789062
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "00b3b52b-10ab-43b2-b864-73b25791dc02",
+                "position": [
+                  219.83999633789062,
+                  206.83999633789062
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              }
+            ],
+            "closed": true
+          },
+          {
+            "id": "4c8d95fd-e540-413d-b34e-a1c624da7383",
+            "points": [
+              {
+                "id": "828a8152-f19c-4c3a-8d39-55142261fd2b",
+                "position": [
+                  233.239990234375,
+                  210.39999389648438
+                ],
+                "incoming": [
+                  1.6800028483072915,
+                  0.0
+                ],
+                "outgoing": [
+                  -2.666656494140625,
+                  0.0
+                ]
+              },
+              {
+                "id": "f780b3ae-2f38-419e-a1f1-c23646c81110",
+                "position": [
+                  226.83999633789062,
+                  207.6199951171875
+                ],
+                "incoming": [
+                  1.600006103515625,
+                  1.85333251953125
+                ],
+                "outgoing": [
+                  -1.5999959309895833,
+                  -1.85333251953125
+                ]
+              },
+              {
+                "id": "7db1b382-872f-48c4-92b9-223441017006",
+                "position": [
+                  224.44000244140625,
+                  199.32000732421875
+                ],
+                "incoming": [
+                  0.0,
+                  3.67999267578125
+                ],
+                "outgoing": [
+                  0.0,
+                  -3.6800028483072915
+                ]
+              },
+              {
+                "id": "0842871b-244b-42b6-b4b7-51feff5fa96b",
+                "position": [
+                  226.86000061035156,
+                  190.97999572753906
+                ],
+                "incoming": [
+                  -1.6133321126302083,
+                  1.8800048828125
+                ],
+                "outgoing": [
+                  1.6133321126302083,
+                  -1.8799947102864583
+                ]
+              },
+              {
+                "id": "f8692c4d-54f7-4538-b185-b000a7381c64",
+                "position": [
+                  233.27999877929688,
+                  188.16000366210938
+                ],
+                "incoming": [
+                  -2.6666666666666665,
+                  0.0
+                ],
+                "outgoing": [
+                  1.6533304850260415,
+                  0.0
+                ]
+              },
+              {
+                "id": "1294ccbd-3f13-4acf-88f2-8d8b81e49efd",
+                "position": [
+                  237.33999633789062,
+                  189.0800018310547
+                ],
+                "incoming": [
+                  -1.0533345540364583,
+                  -0.6133321126302083
+                ],
+                "outgoing": [
+                  1.0533345540364583,
+                  0.6133321126302083
+                ]
+              },
+              {
+                "id": "9a98f6af-3244-40cd-a79c-356ebe765ceb",
+                "position": [
+                  239.9199981689453,
+                  191.32000732421875
+                ],
+                "incoming": [
+                  -0.6666666666666666,
+                  -0.8800048828125
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "110eef36-bd60-471b-bba1-4d837a23658b",
+                "position": [
+                  240.16000366210938,
+                  191.32000732421875
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  -0.02667236328125,
+                  -0.3466695149739583
+                ]
+              },
+              {
+                "id": "a2e53aeb-9ad5-4a69-866e-d37a201a69c6",
+                "position": [
+                  240.01998901367188,
+                  189.77999877929688
+                ],
+                "incoming": [
+                  0.06667073567708333,
+                  0.6800028483072916
+                ],
+                "outgoing": [
+                  -0.06666056315104166,
+                  -0.6800028483072916
+                ]
+              },
+              {
+                "id": "25c74299-17d4-44ef-84cf-3fc1c3bc617b",
+                "position": [
+                  239.9199981689453,
+                  188.16000366210938
+                ],
+                "incoming": [
+                  0.0,
+                  0.399993896484375
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "a629d1a3-e9ae-474f-9e9d-bfb7489ee1d8",
+                "position": [
+                  239.9199981689453,
+                  179.60000610351562
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "3f9f18f2-6c0f-4210-9a86-9952c96599d5",
+                "position": [
+                  243.44000244140625,
+                  179.60000610351562
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "9f00e13d-c74b-4e66-b3bf-adcbe37bfafd",
+                "position": [
+                  243.44000244140625,
+                  210.0
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "349db488-6749-4be0-bd81-531ec794a9c9",
+                "position": [
+                  240.60000610351562,
+                  210.0
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "919fb0a9-1104-4bbb-b59c-0e0f2f963f41",
+                "position": [
+                  240.0800018310547,
+                  207.1199951171875
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "279ea8e0-dcb4-4623-b63d-37c1f5e82d67",
+                "position": [
+                  239.9199981689453,
+                  207.1199951171875
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  -0.6400044759114583,
+                  0.9066670735677083
+                ]
+              },
+              {
+                "id": "362709a4-37d0-4640-bcd0-6e34c3bf7dfe",
+                "position": [
+                  237.36000061035156,
+                  209.44000244140625
+                ],
+                "incoming": [
+                  1.0666605631510415,
+                  -0.6400044759114583
+                ],
+                "outgoing": [
+                  -1.0666707356770833,
+                  0.6399943033854166
+                ]
+              }
+            ],
+            "closed": true
+          },
+          {
+            "id": "69debe45-92f9-4dcd-b038-1bcdee8324b9",
+            "points": [
+              {
+                "id": "7bb25162-0e14-425c-93f2-d4154c7df0e3",
+                "position": [
+                  233.8000030517578,
+                  207.47999572753906
+                ],
+                "incoming": [
+                  -1.9200032552083333,
+                  0.0
+                ],
+                "outgoing": [
+                  2.26666259765625,
+                  0.0
+                ]
+              },
+              {
+                "id": "a38788b9-6baf-4f66-90c8-91f37b86a612",
+                "position": [
+                  238.5800018310547,
+                  205.6199951171875
+                ],
+                "incoming": [
+                  -0.9200032552083333,
+                  1.2400004069010415
+                ],
+                "outgoing": [
+                  0.9199930826822916,
+                  -1.2400004069010415
+                ]
+              },
+              {
+                "id": "8193970a-e4ae-4b1d-9080-6c6f1f6015d4",
+                "position": [
+                  239.95999145507812,
+                  200.0
+                ],
+                "incoming": [
+                  0.0,
+                  2.5066630045572915
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "f12fafc5-0c5d-4fad-829d-bd7e7b391e0c",
+                "position": [
+                  239.95999145507812,
+                  199.36000061035156
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  -2.6666666666666665
+                ]
+              },
+              {
+                "id": "90ab9ae5-eb13-4244-ac9f-453a14ec64ca",
+                "position": [
+                  238.63999938964844,
+                  193.22000122070312
+                ],
+                "incoming": [
+                  0.8799947102864583,
+                  1.426666259765625
+                ],
+                "outgoing": [
+                  -0.8799947102864583,
+                  -1.426666259765625
+                ]
+              },
+              {
+                "id": "1e00bdf8-60f1-41de-9af9-b25b7431a076",
+                "position": [
+                  233.75999450683594,
+                  191.0800018310547
+                ],
+                "incoming": [
+                  2.373341878255208,
+                  0.0
+                ],
+                "outgoing": [
+                  -1.8933308919270833,
+                  0.0
+                ]
+              },
+              {
+                "id": "745dd831-e9eb-4ad5-b099-6fddaed4589c",
+                "position": [
+                  229.5,
+                  193.33999633789062
+                ],
+                "incoming": [
+                  0.9466654459635416,
+                  -1.5066630045572915
+                ],
+                "outgoing": [
+                  -0.9466654459635416,
+                  1.5066731770833333
+                ]
+              },
+              {
+                "id": "64955439-9517-4e84-a396-6c0a27b79ef0",
+                "position": [
+                  228.0800018310547,
+                  199.39999389648438
+                ],
+                "incoming": [
+                  0.0,
+                  -2.5333251953125
+                ],
+                "outgoing": [
+                  0.0,
+                  2.5600077311197915
+                ]
+              },
+              {
+                "id": "f3a8a38f-a22f-49d8-8d31-45a39b08a16a",
+                "position": [
+                  229.5,
+                  205.36000061035156
+                ],
+                "incoming": [
+                  -0.9466654459635416,
+                  -1.413330078125
+                ],
+                "outgoing": [
+                  0.9466654459635416,
+                  1.413330078125
+                ]
+              }
+            ],
+            "closed": true
+          },
+          {
+            "id": "726a2fc2-6a6a-4753-b697-ced578b3c99b",
+            "points": [
+              {
+                "id": "6c3fc119-d968-4eba-a2f0-59a668fca79a",
+                "position": [
+                  252.04000854492188,
+                  180.52000427246094
+                ],
+                "incoming": [
+                  -0.586669921875,
+                  0.0
+                ],
+                "outgoing": [
+                  0.5333251953125,
+                  0.0
+                ]
+              },
+              {
+                "id": "2c681684-1d95-4ec7-9a5d-f617d66caf66",
+                "position": [
+                  253.45999145507812,
+                  181.05999755859375
+                ],
+                "incoming": [
+                  -0.413330078125,
+                  -0.35999552408854163
+                ],
+                "outgoing": [
+                  0.41334025065104163,
+                  0.3600056966145833
+                ]
+              },
+              {
+                "id": "a653214d-aa97-46b8-8828-71ff4889833b",
+                "position": [
+                  254.0800018310547,
+                  182.75999450683594
+                ],
+                "incoming": [
+                  0.0,
+                  -0.7733256022135416
+                ],
+                "outgoing": [
+                  0.0,
+                  0.746673583984375
+                ]
+              },
+              {
+                "id": "e716bacd-802c-4825-9f3a-918b76607c8b",
+                "position": [
+                  253.45999145507812,
+                  184.44000244140625
+                ],
+                "incoming": [
+                  0.41334025065104163,
+                  -0.37333170572916663
+                ],
+                "outgoing": [
+                  -0.413330078125,
+                  0.37333170572916663
+                ]
+              },
+              {
+                "id": "1d47ae46-c3aa-45a7-8dd5-f2902f231749",
+                "position": [
+                  252.04000854492188,
+                  185.0
+                ],
+                "incoming": [
+                  0.5333251953125,
+                  0.0
+                ],
+                "outgoing": [
+                  -0.586669921875,
+                  0.0
+                ]
+              },
+              {
+                "id": "1e5bbdd2-9c14-414f-a262-63438191f3e0",
+                "position": [
+                  250.55999755859375,
+                  184.44000244140625
+                ],
+                "incoming": [
+                  0.40000406901041663,
+                  0.37333170572916663
+                ],
+                "outgoing": [
+                  -0.40000406901041663,
+                  -0.37333170572916663
+                ]
+              },
+              {
+                "id": "3d52aa99-49f4-4c6d-981e-1645028167b7",
+                "position": [
+                  249.95999145507812,
+                  182.75999450683594
+                ],
+                "incoming": [
+                  0.0,
+                  0.746673583984375
+                ],
+                "outgoing": [
+                  0.0,
+                  -0.7733256022135416
+                ]
+              },
+              {
+                "id": "15ed65b5-86e1-4e44-a077-739a5bf48c8a",
+                "position": [
+                  250.55999755859375,
+                  181.05999755859375
+                ],
+                "incoming": [
+                  -0.40000406901041663,
+                  0.3600056966145833
+                ],
+                "outgoing": [
+                  0.40000406901041663,
+                  -0.35999552408854163
+                ]
+              }
+            ],
+            "closed": true
+          },
+          {
+            "id": "e7c1bef5-c38b-4bee-a6ac-79b790cbd8ee",
+            "points": [
+              {
+                "id": "342b654e-75f3-4e97-a86c-cca65dc2a606",
+                "position": [
+                  253.760009765625,
+                  188.55999755859375
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "26307a14-1191-4e09-b34f-b1e87e076e17",
+                "position": [
+                  253.760009765625,
+                  210.0
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "ab898764-800a-466f-a97f-3032f3501d4c",
+                "position": [
+                  250.24000549316406,
+                  210.0
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "bf97c41a-363e-43ec-8768-7824fa11f02c",
+                "position": [
+                  250.24000549316406,
+                  188.55999755859375
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              }
+            ],
+            "closed": true
+          },
+          {
+            "id": "aeebc7bc-9f15-48bb-b258-eb543903d9d3",
+            "points": [
+              {
+                "id": "34838354-6919-480e-8d21-32b9ec965aab",
+                "position": [
+                  267.7200012207031,
+                  207.52000427246094
+                ],
+                "incoming": [
+                  -0.9866739908854166,
+                  0.0
+                ],
+                "outgoing": [
+                  0.5333251953125,
+                  0.0
+                ]
+              },
+              {
+                "id": "37c9d9a7-8990-4a22-9ae2-1a4d2396a85e",
+                "position": [
+                  269.3599853515625,
+                  207.3800048828125
+                ],
+                "incoming": [
+                  -0.55999755859375,
+                  0.09333292643229166
+                ],
+                "outgoing": [
+                  0.5600179036458333,
+                  -0.09333292643229166
+                ]
+              },
+              {
+                "id": "b0c01e1a-da2e-4993-818a-2c9d9b4d13fe",
+                "position": [
+                  270.7200012207031,
+                  207.0800018310547
+                ],
+                "incoming": [
+                  -0.34665934244791663,
+                  0.10666910807291666
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "cd53b003-9681-452d-a5b8-edb3d0fcb777",
+                "position": [
+                  270.7200012207031,
+                  209.75999450683594
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  -0.37333170572916663,
+                  0.18666585286458331
+                ]
+              },
+              {
+                "id": "487183b9-b226-4c71-aebc-c1fb610018f2",
+                "position": [
+                  269.1199951171875,
+                  210.22000122070312
+                ],
+                "incoming": [
+                  0.6933390299479166,
+                  -0.12000528971354166
+                ],
+                "outgoing": [
+                  -0.6933186848958333,
+                  0.1199951171875
+                ]
+              },
+              {
+                "id": "f17fd595-48a3-4830-94dd-73644e85aed7",
+                "position": [
+                  267.1199951171875,
+                  210.39999389648438
+                ],
+                "incoming": [
+                  0.6400146484375,
+                  0.0
+                ],
+                "outgoing": [
+                  -1.1199951171875,
+                  0.0
+                ]
+              },
+              {
+                "id": "98696d98-6e3a-4eba-8c11-cfe592776dc9",
+                "position": [
+                  264.0199890136719,
+                  209.82000732421875
+                ],
+                "incoming": [
+                  0.9466756184895833,
+                  0.38665771484375
+                ],
+                "outgoing": [
+                  -0.9466552734375,
+                  -0.38666788736979163
+                ]
+              },
+              {
+                "id": "de8b6508-4501-4250-a1d5-d24074e6008b",
+                "position": [
+                  261.7200012207031,
+                  207.8000030517578
+                ],
+                "incoming": [
+                  0.586669921875,
+                  0.9600016276041666
+                ],
+                "outgoing": [
+                  -0.586669921875,
+                  -0.9600016276041666
+                ]
+              },
+              {
+                "id": "7e074035-2d87-4f91-8fce-0d85e9d6701c",
+                "position": [
+                  260.8399963378906,
+                  203.75999450683594
+                ],
+                "incoming": [
+                  0.0,
+                  1.73333740234375
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "b2272342-6721-43e3-840b-a280c4f7a7ec",
+                "position": [
+                  260.8399963378906,
+                  191.27999877929688
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "e8973da2-fec2-4d58-b7c4-25db69b3459f",
+                "position": [
+                  257.79998779296875,
+                  191.27999877929688
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "f07f68c8-284e-46ba-b9ed-89a6851f23a5",
+                "position": [
+                  257.79998779296875,
+                  189.60000610351562
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "38cebb6a-7691-4d84-a293-f195b033683d",
+                "position": [
+                  260.8800048828125,
+                  188.1999969482422
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "b5b40e32-613a-4525-b184-47d44c58d9cb",
+                "position": [
+                  262.2799987792969,
+                  183.63999938964844
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "67f19cbe-28d6-4641-b0d1-3027abd0feb2",
+                "position": [
+                  264.3599853515625,
+                  183.63999938964844
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "383fc500-2fb5-4fc0-8f8c-1f325cae5df4",
+                "position": [
+                  264.3599853515625,
+                  188.55999755859375
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "50554097-6cee-4134-9760-d73a524aa972",
+                "position": [
+                  270.55999755859375,
+                  188.55999755859375
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "5e10636c-2d18-4556-8798-722a744c8287",
+                "position": [
+                  270.55999755859375,
+                  191.27999877929688
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "cf2cc21e-43a8-4e1a-87e2-364822ec9c7e",
+                "position": [
+                  264.3599853515625,
+                  191.27999877929688
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "6d3662e5-563e-4831-900a-d500b3864647",
+                "position": [
+                  264.3599853515625,
+                  203.67999267578125
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  1.306671142578125
+                ]
+              },
+              {
+                "id": "6ec5c489-ac97-478d-a253-9815aef2d7f8",
+                "position": [
+                  265.29998779296875,
+                  206.5800018310547
+                ],
+                "incoming": [
+                  -0.6266682942708333,
+                  -0.6266682942708333
+                ],
+                "outgoing": [
+                  0.6266682942708333,
+                  0.6266682942708333
+                ]
+              }
+            ],
+            "closed": true
+          },
+          {
+            "id": "f1322dbe-cb9b-4c7d-95d8-7ef901a62111",
+            "points": [
+              {
+                "id": "b8ab5d37-f203-4c2e-9d3d-394e8288755d",
+                "position": [
+                  283.1199951171875,
+                  188.1999969482422
+                ],
+                "incoming": [
+                  -1.38665771484375,
+                  0.0
+                ],
+                "outgoing": [
+                  2.61334228515625,
+                  0.0
+                ]
+              },
+              {
+                "id": "808b006f-f4d4-4d8d-9a70-99e0806bb5ba",
+                "position": [
+                  288.91998291015625,
+                  189.9199981689453
+                ],
+                "incoming": [
+                  -1.2533162434895833,
+                  -1.14666748046875
+                ],
+                "outgoing": [
+                  1.2533365885416665,
+                  1.14666748046875
+                ]
+              },
+              {
+                "id": "ddc20dd8-616f-4fd0-bcfc-5fd0de552f17",
+                "position": [
+                  290.79998779296875,
+                  195.39999389648438
+                ],
+                "incoming": [
+                  0.0,
+                  -2.5066630045572915
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "29178f51-9083-40be-a443-f13032016ded",
+                "position": [
+                  290.79998779296875,
+                  210.0
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "98212a4b-7c84-4dc0-90e4-646b94a0576c",
+                "position": [
+                  288.239990234375,
+                  210.0
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "b6b368fe-2e80-4b46-b10d-515f79cc6c19",
+                "position": [
+                  287.55999755859375,
+                  206.9600067138672
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "30c87450-4443-4664-a2eb-5276565c3a96",
+                "position": [
+                  287.3999938964844,
+                  206.9600067138672
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  -0.9333292643229166,
+                  1.1733296712239583
+                ]
+              },
+              {
+                "id": "824f6c03-d221-422f-8e2d-ba59be560936",
+                "position": [
+                  284.4599914550781,
+                  209.55999755859375
+                ],
+                "incoming": [
+                  1.02667236328125,
+                  -0.55999755859375
+                ],
+                "outgoing": [
+                  -1.02667236328125,
+                  0.55999755859375
+                ]
+              },
+              {
+                "id": "bf96da46-5621-4aa4-9e3c-934c0004ed43",
+                "position": [
+                  280.20001220703125,
+                  210.39999389648438
+                ],
+                "incoming": [
+                  1.8133138020833333,
+                  0.0
+                ],
+                "outgoing": [
+                  -1.9466756184895833,
+                  0.0
+                ]
+              },
+              {
+                "id": "5fb9b0b9-6887-46cb-97aa-7e0ff561cf32",
+                "position": [
+                  275.3599853515625,
+                  208.86000061035156
+                ],
+                "incoming": [
+                  1.2800089518229165,
+                  1.0266621907552083
+                ],
+                "outgoing": [
+                  -1.2799886067708333,
+                  -1.0266621907552083
+                ]
+              },
+              {
+                "id": "77cdac67-060f-443b-b29c-86424bc45243",
+                "position": [
+                  273.44000244140625,
+                  204.0399932861328
+                ],
+                "incoming": [
+                  0.0,
+                  2.186676025390625
+                ],
+                "outgoing": [
+                  0.0,
+                  -2.133331298828125
+                ]
+              },
+              {
+                "id": "e1c546d2-45b7-443b-8947-3c5da9f102bc",
+                "position": [
+                  275.9599914550781,
+                  199.10000610351562
+                ],
+                "incoming": [
+                  -1.67999267578125,
+                  1.1599934895833333
+                ],
+                "outgoing": [
+                  1.67999267578125,
+                  -1.160003662109375
+                ]
+              },
+              {
+                "id": "7f64fd39-4209-4a30-85d3-679ae7f532f9",
+                "position": [
+                  283.7200012207031,
+                  197.1999969482422
+                ],
+                "incoming": [
+                  -3.49334716796875,
+                  0.10666910807291666
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "36494f5b-9059-489c-bdb5-fb908ac3286c",
+                "position": [
+                  287.3599853515625,
+                  197.0800018310547
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "fb1d8973-20fa-45d3-ae82-99944e173637",
+                "position": [
+                  287.3599853515625,
+                  195.8000030517578
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  -1.7866719563802083
+                ]
+              },
+              {
+                "id": "06ab9acf-c1b8-47b7-86e1-2a46784e6390",
+                "position": [
+                  286.20001220703125,
+                  192.0800018310547
+                ],
+                "incoming": [
+                  0.7733154296875,
+                  0.693328857421875
+                ],
+                "outgoing": [
+                  -0.7733357747395833,
+                  -0.693328857421875
+                ]
+              },
+              {
+                "id": "f84739ee-7259-4274-9fae-7ccd472eb832",
+                "position": [
+                  282.91998291015625,
+                  191.04000854492188
+                ],
+                "incoming": [
+                  1.4133504231770833,
+                  0.0
+                ],
+                "outgoing": [
+                  -1.1199951171875,
+                  0.0
+                ]
+              },
+              {
+                "id": "e07fb3d3-334f-488c-9b06-77550007892a",
+                "position": [
+                  279.7200012207031,
+                  191.54000854492188
+                ],
+                "incoming": [
+                  1.0133260091145833,
+                  -0.3333333333333333
+                ],
+                "outgoing": [
+                  -1.0133260091145833,
+                  0.3333333333333333
+                ]
+              },
+              {
+                "id": "5db7c814-7511-46e8-901d-4462feabc229",
+                "position": [
+                  276.8800048828125,
+                  192.67999267578125
+                ],
+                "incoming": [
+                  0.8800048828125,
+                  -0.4266560872395833
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "6c4c7f0e-8d72-45d7-8431-f3c4958496c6",
+                "position": [
+                  275.79998779296875,
+                  190.04000854492188
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.933349609375,
+                  -0.5066731770833333
+                ]
+              },
+              {
+                "id": "606c234c-47df-442c-89f2-145de8eff375",
+                "position": [
+                  279.1199951171875,
+                  188.74000549316406
+                ],
+                "incoming": [
+                  -1.2799886067708333,
+                  0.35999552408854163
+                ],
+                "outgoing": [
+                  1.2800089518229165,
+                  -0.3600056966145833
+                ]
+              }
+            ],
+            "closed": true
+          },
+          {
+            "id": "44e96867-80c5-4e0a-bd72-741ee9321674",
+            "points": [
+              {
+                "id": "3fa4d5a2-f23f-41f6-af30-72638a6703f8",
+                "position": [
+                  284.1600036621094,
+                  199.63999938964844
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  -2.6666666666666665,
+                  0.10666910807291666
+                ]
+              },
+              {
+                "id": "c46c5ab3-0987-455e-8b35-7407679fcef8",
+                "position": [
+                  278.6199951171875,
+                  200.9199981689453
+                ],
+                "incoming": [
+                  1.02667236328125,
+                  -0.7466634114583333
+                ],
+                "outgoing": [
+                  -1.0266520182291665,
+                  0.7466634114583333
+                ]
+              },
+              {
+                "id": "9c3ef104-c9a2-4e7a-8258-54f7cbe03f44",
+                "position": [
+                  277.08001708984375,
+                  204.0800018310547
+                ],
+                "incoming": [
+                  0.0,
+                  -1.3600056966145833
+                ],
+                "outgoing": [
+                  0.0,
+                  1.2000020345052083
+                ]
+              },
+              {
+                "id": "95544295-32c4-42eb-84ca-8c3864625c76",
+                "position": [
+                  278.17999267578125,
+                  206.72000122070312
+                ],
+                "incoming": [
+                  -0.7333170572916666,
+                  -0.55999755859375
+                ],
+                "outgoing": [
+                  0.73333740234375,
+                  0.55999755859375
+                ]
+              },
+              {
+                "id": "9150df51-49e2-4303-9cab-ce37a2742675",
+                "position": [
+                  281.0,
+                  207.55999755859375
+                ],
+                "incoming": [
+                  -1.14666748046875,
+                  0.0
+                ],
+                "outgoing": [
+                  1.8133341471354165,
+                  0.0
+                ]
+              },
+              {
+                "id": "c38634fa-83ac-404e-9880-6c11be7327f7",
+                "position": [
+                  285.5199890136719,
+                  206.05999755859375
+                ],
+                "incoming": [
+                  -1.1999918619791665,
+                  1.0
+                ],
+                "outgoing": [
+                  1.20001220703125,
+                  -1.0
+                ]
+              },
+              {
+                "id": "94b132ff-15a3-491a-bc56-a467d17f8c35",
+                "position": [
+                  287.32000732421875,
+                  201.44000244140625
+                ],
+                "incoming": [
+                  0.0,
+                  2.0799967447916665
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "dcad5846-c103-4584-b50b-ad3e557affc0",
+                "position": [
+                  287.32000732421875,
+                  199.52000427246094
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              }
+            ],
+            "closed": true
+          },
+          {
+            "id": "f70a20f0-93b2-414e-936f-55fc37eec05c",
+            "points": [
+              {
+                "id": "43f2676b-c089-4587-aa4e-085880b6d79e",
+                "position": [
+                  300.9599914550781,
+                  187.0
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.9066670735677083
+                ]
+              },
+              {
+                "id": "618cc1cd-5e84-4673-af38-d91e6a093d29",
+                "position": [
+                  300.8999938964844,
+                  189.54000854492188
+                ],
+                "incoming": [
+                  0.03999837239583333,
+                  -0.7866719563802083
+                ],
+                "outgoing": [
+                  -0.03999837239583333,
+                  0.7866617838541666
+                ]
+              },
+              {
+                "id": "20d3952a-d5df-417a-bb75-f886c89ba23c",
+                "position": [
+                  300.760009765625,
+                  191.39999389648438
+                ],
+                "incoming": [
+                  0.053324381510416664,
+                  -0.4533284505208333
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "fc80eaab-442e-45bd-976d-16e8cbb0ba31",
+                "position": [
+                  300.9599914550781,
+                  191.39999389648438
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.61334228515625,
+                  -0.9066569010416666
+                ]
+              },
+              {
+                "id": "9c42ff48-e002-40c1-8370-109bc68ad4c1",
+                "position": [
+                  303.47998046875,
+                  189.1199951171875
+                ],
+                "incoming": [
+                  -1.066650390625,
+                  0.61334228515625
+                ],
+                "outgoing": [
+                  1.0666707356770833,
+                  -0.6133321126302083
+                ]
+              },
+              {
+                "id": "7579b326-9c2f-48fd-8ff5-8c129a6c0e49",
+                "position": [
+                  307.5999755859375,
+                  188.1999969482422
+                ],
+                "incoming": [
+                  -1.67999267578125,
+                  0.0
+                ],
+                "outgoing": [
+                  2.6666666666666665,
+                  0.0
+                ]
+              },
+              {
+                "id": "b01d6857-7ecb-485f-b977-a73564d55ac5",
+                "position": [
+                  314.0199890136719,
+                  190.97999572753906
+                ],
+                "incoming": [
+                  -1.61334228515625,
+                  -1.85333251953125
+                ],
+                "outgoing": [
+                  1.61334228515625,
+                  1.85333251953125
+                ]
+              },
+              {
+                "id": "8b8ebc9e-be04-423e-bb29-b3a451403d14",
+                "position": [
+                  316.44000244140625,
+                  199.27999877929688
+                ],
+                "incoming": [
+                  0.0,
+                  -3.6800028483072915
+                ],
+                "outgoing": [
+                  0.0,
+                  3.6800028483072915
+                ]
+              },
+              {
+                "id": "db43cd55-79db-4e7e-a608-855fd580308a",
+                "position": [
+                  314.0,
+                  207.60000610351562
+                ],
+                "incoming": [
+                  1.6266682942708333,
+                  -1.866668701171875
+                ],
+                "outgoing": [
+                  -1.6266682942708333,
+                  1.8666585286458333
+                ]
+              },
+              {
+                "id": "03dd3488-795f-4963-834e-ccc5d20870e6",
+                "position": [
+                  307.5999755859375,
+                  210.39999389648438
+                ],
+                "incoming": [
+                  2.6400146484375,
+                  0.0
+                ],
+                "outgoing": [
+                  -1.67999267578125,
+                  0.0
+                ]
+              },
+              {
+                "id": "c0f38261-07c4-419f-a76e-8fad62e29038",
+                "position": [
+                  303.47998046875,
+                  209.47999572753906
+                ],
+                "incoming": [
+                  1.0666707356770833,
+                  0.6133321126302083
+                ],
+                "outgoing": [
+                  -1.066650390625,
+                  -0.6133321126302083
+                ]
+              },
+              {
+                "id": "6ae3bb48-78b4-4b16-a7aa-1be4ca0cf1c7",
+                "position": [
+                  300.9599914550781,
+                  207.27999877929688
+                ],
+                "incoming": [
+                  0.61334228515625,
+                  0.85333251953125
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "2e50a9bc-eb95-4045-8a66-c2a65c163878",
+                "position": [
+                  300.67999267578125,
+                  207.27999877929688
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "5ac97c44-0041-4c79-bea7-24c6d3daa899",
+                "position": [
+                  299.9599914550781,
+                  210.0
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "63401c8d-03d5-4ff4-90fc-7373f1dd7181",
+                "position": [
+                  297.44000244140625,
+                  210.0
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "79a34913-1e42-49e6-b848-5a1ebb6d5fa6",
+                "position": [
+                  297.44000244140625,
+                  179.60000610351562
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "ac238f98-31ab-462d-8f85-0c5285d7190e",
+                "position": [
+                  300.9599914550781,
+                  179.60000610351562
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              }
+            ],
+            "closed": true
+          },
+          {
+            "id": "feff1778-017f-40fd-aca2-c8d7503460ff",
+            "points": [
+              {
+                "id": "c5c452e0-52ac-46b6-8e00-43666601d933",
+                "position": [
+                  307.0,
+                  191.1199951171875
+                ],
+                "incoming": [
+                  3.866658528645833,
+                  0.0
+                ],
+                "outgoing": [
+                  -2.266682942708333,
+                  0.0
+                ]
+              },
+              {
+                "id": "2dac1384-247d-464e-966b-39119134ab51",
+                "position": [
+                  302.2799987792969,
+                  193.0800018310547
+                ],
+                "incoming": [
+                  0.8799845377604166,
+                  -1.306671142578125
+                ],
+                "outgoing": [
+                  -0.8800048828125,
+                  1.3066609700520833
+                ]
+              },
+              {
+                "id": "a0301e6b-87ce-4165-9b00-4473f86816a0",
+                "position": [
+                  300.9599914550781,
+                  199.16000366210938
+                ],
+                "incoming": [
+                  0.0,
+                  -2.746673583984375
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "0ea47081-746e-4f13-a6a3-d95d4a9de72b",
+                "position": [
+                  300.9599914550781,
+                  199.32000732421875
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  2.6399943033854165
+                ]
+              },
+              {
+                "id": "ccb9ccbe-4e4a-473a-9240-20e0026e39f8",
+                "position": [
+                  302.260009765625,
+                  205.3800048828125
+                ],
+                "incoming": [
+                  -0.8666788736979166,
+                  -1.4000040690104165
+                ],
+                "outgoing": [
+                  0.8666585286458333,
+                  1.399993896484375
+                ]
+              },
+              {
+                "id": "3f65d959-d449-4927-a2a3-a59d54a6fc6f",
+                "position": [
+                  307.0799865722656,
+                  207.47999572753906
+                ],
+                "incoming": [
+                  -2.3466593424479165,
+                  0.0
+                ],
+                "outgoing": [
+                  1.9200032552083333,
+                  0.0
+                ]
+              },
+              {
+                "id": "f3f08717-5b0f-47a9-ae8c-e456849c4947",
+                "position": [
+                  311.3800048828125,
+                  205.36000061035156
+                ],
+                "incoming": [
+                  -0.9466756184895833,
+                  1.413330078125
+                ],
+                "outgoing": [
+                  0.9466552734375,
+                  -1.413330078125
+                ]
+              },
+              {
+                "id": "0c5fd7c8-2b7c-4f55-a1b3-f00ffbc3179a",
+                "position": [
+                  312.79998779296875,
+                  199.24000549316406
+                ],
+                "incoming": [
+                  0.0,
+                  2.6666666666666665
+                ],
+                "outgoing": [
+                  0.0,
+                  -5.413340250651041
+                ]
+              }
+            ],
+            "closed": true
+          },
+          {
+            "id": "e2130b3a-0082-41dd-9e32-ff71cdc02778",
+            "points": [
+              {
+                "id": "375f8f68-581d-47b0-b89b-76fd92530ddb",
+                "position": [
+                  325.55999755859375,
+                  210.0
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "0374d8d3-43bd-4607-85bc-9b2bd3118bef",
+                "position": [
+                  322.03997802734375,
+                  210.0
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "ab0e6990-0ab6-486e-b99c-4db10c141da3",
+                "position": [
+                  322.03997802734375,
+                  179.60000610351562
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "bb16bee5-4f6a-4882-a63a-9efc8eaf49e4",
+                "position": [
+                  325.55999755859375,
+                  179.60000610351562
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              }
+            ],
+            "closed": true
+          },
+          {
+            "id": "942d319f-5f6d-46c9-92f0-cac201617902",
+            "points": [
+              {
+                "id": "afd5e3d2-45b6-420a-81b1-15e5b499f22a",
+                "position": [
+                  340.6399841308594,
+                  188.16000366210938
+                ],
+                "incoming": [
+                  -1.8933308919270833,
+                  0.0
+                ],
+                "outgoing": [
+                  1.8400065104166665,
+                  0.0
+                ]
+              },
+              {
+                "id": "78fa90bc-9bb1-4cfc-ae58-f89c77334fee",
+                "position": [
+                  345.3800048828125,
+                  189.36000061035156
+                ],
+                "incoming": [
+                  -1.32000732421875,
+                  -0.7999979654947916
+                ],
+                "outgoing": [
+                  1.3199869791666665,
+                  0.7999979654947916
+                ]
+              },
+              {
+                "id": "a06a705d-cb4f-4d7e-b00f-2eabde4f0a0e",
+                "position": [
+                  348.41998291015625,
+                  192.74000549316406
+                ],
+                "incoming": [
+                  -0.7066650390625,
+                  -1.453338623046875
+                ],
+                "outgoing": [
+                  0.7066650390625,
+                  1.4533284505208333
+                ]
+              },
+              {
+                "id": "426dd1ec-c640-42c6-917e-5c8350475268",
+                "position": [
+                  349.47998046875,
+                  197.83999633789062
+                ],
+                "incoming": [
+                  0.0,
+                  -1.9466654459635415
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "7ec251b5-72ff-401b-8d8b-7d699372ef6c",
+                "position": [
+                  349.47998046875,
+                  199.9600067138672
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "f6373f4d-739a-4241-b57e-e2baaba160ca",
+                "position": [
+                  334.79998779296875,
+                  199.9600067138672
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0533447265625,
+                  2.426666259765625
+                ]
+              },
+              {
+                "id": "82895e03-940f-4e62-adb4-cc1b2bb05b99",
+                "position": [
+                  336.65997314453125,
+                  205.5
+                ],
+                "incoming": [
+                  -1.1866455078125,
+                  -1.26666259765625
+                ],
+                "outgoing": [
+                  1.1866861979166665,
+                  1.26666259765625
+                ]
+              },
+              {
+                "id": "7a1599b6-8b1b-45d7-b5d4-1605f140e6d9",
+                "position": [
+                  341.6399841308594,
+                  207.39999389648438
+                ],
+                "incoming": [
+                  -2.133321126302083,
+                  0.0
+                ],
+                "outgoing": [
+                  1.3600056966145833,
+                  0.0
+                ]
+              },
+              {
+                "id": "44a01fda-5493-4401-8a60-5f07077d7926",
+                "position": [
+                  345.260009765625,
+                  207.02000427246094
+                ],
+                "incoming": [
+                  -1.0533447265625,
+                  0.253326416015625
+                ],
+                "outgoing": [
+                  1.0533243815104165,
+                  -0.25333658854166663
+                ]
+              },
+              {
+                "id": "aa50e415-b8b6-4c21-9925-4e96d26fe150",
+                "position": [
+                  348.5199890136719,
+                  205.9199981689453
+                ],
+                "incoming": [
+                  -1.1199951171875,
+                  0.4800008138020833
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "1bfd47fb-6627-45e8-99df-9cdcad0186b8",
+                "position": [
+                  348.5199890136719,
+                  209.0
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  -1.09332275390625,
+                  0.4800008138020833
+                ]
+              },
+              {
+                "id": "02b7ba25-1084-40a2-b54e-82722c94253a",
+                "position": [
+                  345.2799987792969,
+                  210.05999755859375
+                ],
+                "incoming": [
+                  1.0666707356770833,
+                  -0.22666422526041666
+                ],
+                "outgoing": [
+                  -1.0666707356770833,
+                  0.22666422526041666
+                ]
+              },
+              {
+                "id": "bd9fd248-e907-4fa4-acb3-adaa6ddd0d95",
+                "position": [
+                  341.47998046875,
+                  210.39999389648438
+                ],
+                "incoming": [
+                  1.4666748046875,
+                  0.0
+                ],
+                "outgoing": [
+                  -2.0266520182291665,
+                  0.0
+                ]
+              },
+              {
+                "id": "26b43308-4b12-41bb-a5b3-f05ae7f54168",
+                "position": [
+                  336.0999755859375,
+                  209.16000366210938
+                ],
+                "incoming": [
+                  1.5600179036458333,
+                  0.82666015625
+                ],
+                "outgoing": [
+                  -1.5599772135416665,
+                  -0.8266703287760416
+                ]
+              },
+              {
+                "id": "39374b86-896d-40cf-91aa-26891cbe333f",
+                "position": [
+                  332.4599914550781,
+                  205.4600067138672
+                ],
+                "incoming": [
+                  0.8666788736979166,
+                  1.6399943033854165
+                ],
+                "outgoing": [
+                  -0.8666788736979166,
+                  -1.6400044759114583
+                ]
+              },
+              {
+                "id": "b6dead08-bddd-4475-a220-d5c6fd3644e8",
+                "position": [
+                  331.15997314453125,
+                  199.44000244140625
+                ],
+                "incoming": [
+                  0.0,
+                  2.3733317057291665
+                ],
+                "outgoing": [
+                  0.0,
+                  -2.346669514973958
+                ]
+              },
+              {
+                "id": "11f5caca-0ce4-44d6-9662-961fcbf1fbc4",
+                "position": [
+                  332.3399963378906,
+                  193.39999389648438
+                ],
+                "incoming": [
+                  -0.78668212890625,
+                  1.6800028483072915
+                ],
+                "outgoing": [
+                  0.7866617838541666,
+                  -1.67999267578125
+                ]
+              },
+              {
+                "id": "b7770a9a-bfa6-4387-916e-a56ea06ee4b0",
+                "position": [
+                  335.65997314453125,
+                  189.52000427246094
+                ],
+                "incoming": [
+                  -1.4266560872395833,
+                  0.9066670735677083
+                ],
+                "outgoing": [
+                  1.4266764322916665,
+                  -0.9066670735677083
+                ]
+              }
+            ],
+            "closed": true
+          },
+          {
+            "id": "ab6117eb-06bc-4db7-8dfd-6f9ecf68f9d6",
+            "points": [
+              {
+                "id": "1289b82f-ea52-4447-8a9d-079827983cc5",
+                "position": [
+                  340.5999755859375,
+                  191.04000854492188
+                ],
+                "incoming": [
+                  1.78668212890625,
+                  0.0
+                ],
+                "outgoing": [
+                  -1.67999267578125,
+                  0.0
+                ]
+              },
+              {
+                "id": "d993d9fe-47a8-4762-b5c7-d24d5529eed6",
+                "position": [
+                  336.6199951171875,
+                  192.66000366210938
+                ],
+                "incoming": [
+                  0.97332763671875,
+                  -1.0799967447916665
+                ],
+                "outgoing": [
+                  -0.9733479817708333,
+                  1.0799967447916665
+                ]
+              },
+              {
+                "id": "f30f91a7-4ac7-467c-9544-c4d1726194ff",
+                "position": [
+                  334.8800048828125,
+                  197.16000366210938
+                ],
+                "incoming": [
+                  0.1866455078125,
+                  -1.9200032552083333
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "32edbb1d-2904-404b-adde-993ef9269393",
+                "position": [
+                  345.79998779296875,
+                  197.16000366210938
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  -0.026652018229166664,
+                  -1.8133341471354165
+                ]
+              },
+              {
+                "id": "d4e3a4bd-3c42-4d6e-b4df-63a4a6ba1f5b",
+                "position": [
+                  344.5199890136719,
+                  192.74000549316406
+                ],
+                "incoming": [
+                  0.8266805013020833,
+                  1.133331298828125
+                ],
+                "outgoing": [
+                  -0.82666015625,
+                  -1.133331298828125
+                ]
+              }
+            ],
+            "closed": true
+          }
+        ]
+      },
+      "graph_position": null,
+      "protected": false
+    },
+    "5de6938f-d276-4c60-b4da-6889dc93f88c": {
+      "name": "Captured path",
+      "transform": {
+        "x": {
+          "id": "758f1074-363b-4499-9c29-7cfbf21ebd7b",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "y": {
+          "id": "b8a0d0af-d724-4898-86b3-dcfd795758f8",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "rotation": {
+          "id": "86093f03-4630-4069-bd2e-a00b98ac5e3c",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "scale_x": {
+          "id": "0ebd3666-c7d9-48f1-a055-9a3fccd1db44",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        },
+        "scale_y": {
+          "id": "d10f3bd9-17bc-4c98-9b81-321e04663e07",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        },
+        "shear": {
+          "id": "f64f188a-9225-4ac2-865e-6f7fbcd7a328",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "opacity": {
+          "id": "f045026e-0725-489f-a7ed-7e7b2de54b35",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        }
+      },
+      "paint": {
+        "fill": null,
+        "stroke": [
+          0.0,
+          0.8,
+          0.4666666666666667,
+          1.0
+        ],
+        "stroke_width": {
+          "id": "8bfa02a7-5575-4ba2-91e2-cda9a2c7c144",
+          "value": 3.0,
+          "animation": null,
+          "protected": false
+        },
+        "cap": "round",
+        "join": "bevel",
+        "miter_limit": 4.0,
+        "even_odd": false
+      },
+      "content": {
+        "kind": "path",
+        "contours": [
+          {
+            "id": "ac830cb1-7f0c-4b5d-b499-c52b2cdf95c8",
+            "points": [
+              {
+                "id": "571cfb45-9fc5-4b05-ae10-56a3a32f8d99",
+                "position": [
+                  0.0,
+                  0.0
+                ],
+                "incoming": [
+                  100.0,
+                  80.0
+                ],
+                "outgoing": [
+                  26.666666666666664,
+                  53.33333333333333
+                ]
+              },
+              {
+                "id": "d4892cce-0690-4da9-a3d4-ef48938cb1c2",
+                "position": [
+                  80.0,
+                  0.0
+                ],
+                "incoming": [
+                  -26.666666666666664,
+                  53.33333333333333
+                ],
+                "outgoing": [
+                  20.0,
+                  20.0
+                ]
+              }
+            ],
+            "closed": true
+          }
+        ]
+      },
+      "graph_position": null,
+      "protected": false
+    },
+    "94cff6be-a892-47ec-aeda-d1d580c18eeb": {
+      "name": "Captured group",
+      "transform": {
+        "x": {
+          "id": "5bbee86e-ade2-47d8-b2e5-e9e6432d8b8d",
+          "value": 40.0,
+          "animation": null,
+          "protected": false
+        },
+        "y": {
+          "id": "70915c66-b396-4d00-a792-c47efb0c43fe",
+          "value": 20.0,
+          "animation": null,
+          "protected": false
+        },
+        "rotation": {
+          "id": "39161be9-f90b-4ade-856f-94d7eafd2cac",
+          "value": 8.530765943942713,
+          "animation": null,
+          "protected": false
+        },
+        "scale_x": {
+          "id": "29a051c0-a974-4a7d-867b-44cc3ba436d2",
+          "value": 1.0111874216920123,
+          "animation": null,
+          "protected": false
+        },
+        "scale_y": {
+          "id": "3633b0d8-450b-495c-bc91-b8b2cfa2bf19",
+          "value": 0.9444342126267028,
+          "animation": null,
+          "protected": false
+        },
+        "shear": {
+          "id": "7301d03a-00e5-4c78-a4ab-9f4cdedb3796",
+          "value": 0.44502137608516906,
+          "animation": null,
+          "protected": false
+        },
+        "opacity": {
+          "id": "77855d6b-991e-46b7-b036-415081a332a8",
+          "value": 0.5,
+          "animation": null,
+          "protected": false
+        }
+      },
+      "paint": {
+        "fill": null,
+        "stroke": null,
+        "stroke_width": {
+          "id": "b8789a8e-8bb2-42bf-af8f-7ce4ccda3bb5",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        },
+        "cap": "round",
+        "join": "round",
+        "miter_limit": 4.0,
+        "even_odd": false
+      },
+      "content": {
+        "kind": "group",
+        "children": [
+          "ec0961cf-aa95-484d-acd5-2a32a86d48cb",
+          "a553d5d3-9352-4357-883a-b88b1ad3c64c"
+        ]
+      },
+      "graph_position": null,
+      "protected": false
+    },
+    "a553d5d3-9352-4357-883a-b88b1ad3c64c": {
+      "name": "Captured path",
+      "transform": {
+        "x": {
+          "id": "5412eb13-eeb5-4970-a02b-e13c0fd05260",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "y": {
+          "id": "78fe0b37-6c51-448d-917d-de49c750ef06",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "rotation": {
+          "id": "97df33f3-1d36-49c0-93db-731c0be6e619",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "scale_x": {
+          "id": "36dc1e82-3ab5-4f0a-9830-4af47ccf4857",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        },
+        "scale_y": {
+          "id": "7bca2e69-5d95-4d25-b812-6238d28cf664",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        },
+        "shear": {
+          "id": "b4c89271-84c9-4cda-afa4-09a721155a4e",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "opacity": {
+          "id": "de1d7b63-3d3f-4f85-9210-32b048387506",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        }
+      },
+      "paint": {
+        "fill": [
+          0.0,
+          0.4,
+          1.0,
+          1.0
+        ],
+        "stroke": null,
+        "stroke_width": {
+          "id": "4e62b2ec-311d-4563-bb4a-f7d41bf8d576",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        },
+        "cap": "round",
+        "join": "round",
+        "miter_limit": 4.0,
+        "even_odd": false
+      },
+      "content": {
+        "kind": "path",
+        "contours": [
+          {
+            "id": "7f97a5a9-407f-4f8b-a74f-bb53b53dd810",
+            "points": [
+              {
+                "id": "2ea2a313-b9cf-49a3-ab0f-7347b9f8b49a",
+                "position": [
+                  50.0,
+                  0.0
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "04866962-4c62-4d23-96ef-6c6237fa2f87",
+                "position": [
+                  150.0,
+                  0.0
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "aeb932c1-0393-4b1d-bce2-5d46dc37d4b5",
+                "position": [
+                  150.0,
+                  80.0
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "480f841c-12f7-4959-9598-64d474674588",
+                "position": [
+                  50.0,
+                  80.0
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              }
+            ],
+            "closed": true
+          }
+        ]
+      },
+      "graph_position": null,
+      "protected": false
+    },
+    "c245da09-c695-4624-9c26-af18d68bce7b": {
+      "name": "Captured path",
+      "transform": {
+        "x": {
+          "id": "05781e28-704d-429b-98c4-e0a383effd6e",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "y": {
+          "id": "bc45b1f7-1ae8-46c2-a589-d0669211275d",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "rotation": {
+          "id": "bb2ca8c1-3220-42f8-9a61-7fc100902bf0",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "scale_x": {
+          "id": "f285a4cd-af2e-4fe8-8b25-bcb79e4cc668",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        },
+        "scale_y": {
+          "id": "463b3139-5d01-4efe-ba7d-717a6c92b320",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        },
+        "shear": {
+          "id": "f44c10c5-ecc1-4da4-9838-db4d8cc4ed8a",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "opacity": {
+          "id": "790f5445-8516-43ac-8a2b-a4db5c803f21",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        }
+      },
+      "paint": {
+        "fill": null,
+        "stroke": [
+          0.3333333333333333,
+          1.0,
+          0.4666666666666667,
+          1.0
+        ],
+        "stroke_width": {
+          "id": "60f7ee24-e568-4ab7-9d3b-2be16a334b28",
+          "value": 8.0,
+          "animation": null,
+          "protected": false
+        },
+        "cap": "butt",
+        "join": "miter",
+        "miter_limit": 1.0,
+        "even_odd": false
+      },
+      "content": {
+        "kind": "path",
+        "contours": [
+          {
+            "id": "f1674d8a-0bf5-47bb-a043-d7a2ed421d61",
+            "points": [
+              {
+                "id": "f91ab482-9aa8-4989-be1e-3d25bd3f8b8e",
+                "position": [
+                  350.0,
+                  330.0
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "eaaf839e-1fe2-4afa-b3e6-b8a41a42bb08",
+                "position": [
+                  370.0,
+                  270.0
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "39f3a9d4-7412-46a1-b602-d6866c96958c",
+                "position": [
+                  380.0,
+                  330.0
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              }
+            ],
+            "closed": false
+          }
+        ]
+      },
+      "graph_position": null,
+      "protected": false
+    },
+    "cbcc16df-9bea-43ec-b13e-37d83644620d": {
+      "name": "Captured path",
+      "transform": {
+        "x": {
+          "id": "22b06673-1cfa-4808-aa40-8496c3ff4b5c",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "y": {
+          "id": "290d3c8b-ce2d-4028-96f4-8aad90bc4685",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "rotation": {
+          "id": "0387f94d-1a09-4182-a42c-8591427b08ec",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "scale_x": {
+          "id": "a1be5440-b064-45ce-bdc2-cda3148292f1",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        },
+        "scale_y": {
+          "id": "cbe1513d-e93d-4c34-8f1d-6a27cabbbbe5",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        },
+        "shear": {
+          "id": "67d42ef3-07fe-4238-9114-7d294c282ee9",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "opacity": {
+          "id": "320c2a21-e992-41a4-bd98-407316ebd05b",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        }
+      },
+      "paint": {
+        "fill": null,
+        "stroke": [
+          1.0,
+          0.3333333333333333,
+          0.4666666666666667,
+          1.0
+        ],
+        "stroke_width": {
+          "id": "4073903b-eb8a-4f44-bae6-fff3f970d2e3",
+          "value": 8.0,
+          "animation": null,
+          "protected": false
+        },
+        "cap": "butt",
+        "join": "miter",
+        "miter_limit": 10.0,
+        "even_odd": false
+      },
+      "content": {
+        "kind": "path",
+        "contours": [
+          {
+            "id": "44511aa7-55ea-48b1-9082-d01822f865f0",
+            "points": [
+              {
+                "id": "f95238fc-d79e-4c3f-91cf-9361a3f23dd9",
+                "position": [
+                  280.0,
+                  330.0
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "5b69e450-0b72-49da-92c4-c44374167789",
+                "position": [
+                  300.0,
+                  270.0
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "ca00d51d-8be9-41c4-b90e-91bd6cb4fbf4",
+                "position": [
+                  310.0,
+                  330.0
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              }
+            ],
+            "closed": false
+          }
+        ]
+      },
+      "graph_position": null,
+      "protected": false
+    },
+    "dacae14f-bab2-41f2-ad29-f49a1fddb03d": {
+      "name": "Captured path",
+      "transform": {
+        "x": {
+          "id": "292d07a6-ce6b-42c2-a10a-83c4cb1487dd",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "y": {
+          "id": "9a6d4b2f-da98-4326-9cda-d455bb883213",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "rotation": {
+          "id": "56ed9daf-7e20-499d-ae77-96a800b7d397",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "scale_x": {
+          "id": "17a42c52-efc3-4bf6-b376-141dfc397dcf",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        },
+        "scale_y": {
+          "id": "20e5ac0f-d28c-4a3c-99f4-321b83f2c606",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        },
+        "shear": {
+          "id": "0739fd09-4cb5-42aa-9609-e89cfbd1deb9",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "opacity": {
+          "id": "3f50a8d5-8334-49cd-a48c-04ceb09cf6df",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        }
+      },
+      "paint": {
+        "fill": [
+          0.6,
+          0.2,
+          1.0,
+          1.0
+        ],
+        "stroke": null,
+        "stroke_width": {
+          "id": "872cec6c-5a1c-486d-9bd4-cb115661deb0",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        },
+        "cap": "round",
+        "join": "round",
+        "miter_limit": 4.0,
+        "even_odd": true
+      },
+      "content": {
+        "kind": "path",
+        "contours": [
+          {
+            "id": "98304778-1231-4216-921a-6ef581ad7859",
+            "points": [
+              {
+                "id": "a1bc9bf4-22c2-48f9-80fa-191d20d2fd1a",
+                "position": [
+                  40.0,
+                  160.0
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "d6bca5ee-c9c8-4e9a-9244-b229a64b2389",
+                "position": [
+                  160.0,
+                  160.0
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "b86ea165-57a3-4595-9e0e-2269f765ff20",
+                "position": [
+                  160.0,
+                  280.0
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "5f9d8df6-8e26-4ff5-a4ef-1f8c1d4c4e75",
+                "position": [
+                  40.0,
+                  280.0
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              }
+            ],
+            "closed": true
+          },
+          {
+            "id": "23b45a45-8713-4e48-b61d-519995f9f8ff",
+            "points": [
+              {
+                "id": "e0670efc-fb2e-4839-a048-3175ce053483",
+                "position": [
+                  70.0,
+                  190.0
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "088b0d40-f3b4-40a0-9b83-411f039675ec",
+                "position": [
+                  130.0,
+                  190.0
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "0eb0afac-df7a-4f11-a219-2a7682597492",
+                "position": [
+                  130.0,
+                  250.0
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "6e29e3c3-beed-469c-95e2-861304e906e9",
+                "position": [
+                  70.0,
+                  250.0
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              }
+            ],
+            "closed": true
+          }
+        ]
+      },
+      "graph_position": null,
+      "protected": false
+    },
+    "ec0961cf-aa95-484d-acd5-2a32a86d48cb": {
+      "name": "Captured path",
+      "transform": {
+        "x": {
+          "id": "b05b75cf-94e4-46d0-9c51-105a55042dc2",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "y": {
+          "id": "c755bc30-9375-4530-8701-0e78aa5d4309",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "rotation": {
+          "id": "92c48b43-36c5-4970-93cd-1f011f017f58",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "scale_x": {
+          "id": "b9b802a6-ff5f-4ea7-b9ed-53f2802beb93",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        },
+        "scale_y": {
+          "id": "78b4ba40-ec2d-489c-bf7b-a11bb6cebab4",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        },
+        "shear": {
+          "id": "474d1e82-20c9-4e98-adce-08041b7144c0",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "opacity": {
+          "id": "6f70a1b4-4485-4177-b27e-8f2306c229f6",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        }
+      },
+      "paint": {
+        "fill": [
+          1.0,
+          0.2,
+          0.0,
+          1.0
+        ],
+        "stroke": null,
+        "stroke_width": {
+          "id": "9524e05e-f8b2-4270-a755-9500c262bda7",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        },
+        "cap": "round",
+        "join": "round",
+        "miter_limit": 4.0,
+        "even_odd": false
+      },
+      "content": {
+        "kind": "path",
+        "contours": [
+          {
+            "id": "0641d061-df9e-4ec3-9e8b-b04a7eac3f28",
+            "points": [
+              {
+                "id": "2ec0187e-15f0-4a19-9a6c-56441f780eed",
+                "position": [
+                  0.0,
+                  0.0
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "22149804-4f36-4165-bdc2-60e663c5fcbf",
+                "position": [
+                  100.0,
+                  0.0
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "1898ca90-185e-4dab-b1bf-e7b3582b563d",
+                "position": [
+                  100.0,
+                  80.0
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              },
+              {
+                "id": "d0bd4567-d02f-45af-8a1d-61c76ba3da2d",
+                "position": [
+                  0.0,
+                  80.0
+                ],
+                "incoming": [
+                  0.0,
+                  0.0
+                ],
+                "outgoing": [
+                  0.0,
+                  0.0
+                ]
+              }
+            ],
+            "closed": true
+          }
+        ]
+      },
+      "graph_position": null,
+      "protected": false
+    }
+  }
+}

@@ -1,0 +1,169 @@
+{
+  "app_integration_qualified": false,
+  "cpu_pixel_transport": false,
+  "device": "NVIDIA GeForce GTX 1070",
+  "frame_request_ms_excluding_reference_readback": [
+    584.803763,
+    9.83944,
+    10.349343000000001
+  ],
+  "host_profile": "release",
+  "memory_released": true,
+  "oversized_changed_program_rejected_before_start": true,
+  "performance_qualified": false,
+  "producer_memory_reserved_before_demand": true,
+  "producer_release_confirmed_before_reservation_drop": true,
+  "runtime_statistics": {
+    "frames_completed": 38,
+    "image_snapshots_sent": 1,
+    "workers_started": 1
+  },
+  "stale_epoch_revision_generation_time_dimensions_rejected": true,
+  "warm_frame_ms_max": 11.338795000000001,
+  "warm_frame_ms_p50": 10.534609,
+  "warm_frame_ms_p95": 11.338795000000001,
+  "warm_frames": 30,
+  "warm_host_phases": [
+    {
+      "poll_ms": 0.006251,
+      "publication_release_ms": 0.17548,
+      "render_ms": 9.574111,
+      "snapshot_ms": 0.036179
+    },
+    {
+      "poll_ms": 0.003675,
+      "publication_release_ms": 0.184859,
+      "render_ms": 11.093455,
+      "snapshot_ms": 0.027256000000000002
+    },
+    {
+      "poll_ms": 0.008002,
+      "publication_release_ms": 0.220103,
+      "render_ms": 10.005379,
+      "snapshot_ms": 0.027262
+    },
+    {
+      "poll_ms": 0.0036320000000000002,
+      "publication_release_ms": 0.184042,
+      "render_ms": 10.544036,
+      "snapshot_ms": 0.045307
+    },
+    {
+      "poll_ms": 0.00867,
+      "publication_release_ms": 0.220223,
+      "render_ms": 11.086959,
+      "snapshot_ms": 0.026248999999999998
+    },
+    {
+      "poll_ms": 0.004301999999999999,
+      "publication_release_ms": 0.17153200000000002,
+      "render_ms": 10.363959000000001,
+      "snapshot_ms": 0.027551000000000003
+    },
+    {
+      "poll_ms": 0.006948,
+      "publication_release_ms": 0.194258,
+      "render_ms": 10.617488,
+      "snapshot_ms": 0.027846
+    },
+    {
+      "poll_ms": 0.005887,
+      "publication_release_ms": 0.17682900000000001,
+      "render_ms": 10.402617,
+      "snapshot_ms": 0.027592
+    },
+    {
+      "poll_ms": 0.006456,
+      "publication_release_ms": 0.18122,
+      "render_ms": 10.204906999999999,
+      "snapshot_ms": 0.029065999999999998
+    },
+    {
+      "poll_ms": 0.005370000000000001,
+      "publication_release_ms": 0.186397,
+      "render_ms": 10.106626,
+      "snapshot_ms": 0.032457
+    },
+    {
+      "poll_ms": 0.0061909999999999995,
+      "publication_release_ms": 0.170197,
+      "render_ms": 10.302005,
+      "snapshot_ms": 0.02668
+    },
+    {
+      "poll_ms": 0.003926,
+      "publication_release_ms": 0.170882,
+      "render_ms": 10.033895,
+      "snapshot_ms": 0.027575
+    },
+    {
+      "poll_ms": 0.00362,
+      "publication_release_ms": 0.17202299999999998,
+      "render_ms": 9.952901,
+      "snapshot_ms": 0.025911
+    },
+    {
+      "poll_ms": 0.003584,
+      "publication_release_ms": 0.168696,
+      "render_ms": 10.45429,
+      "snapshot_ms": 0.026178
+    },
+    {
+      "poll_ms": 0.003529,
+      "publication_release_ms": 0.177847,
+      "render_ms": 10.328578,
+      "snapshot_ms": 0.026416
+    },
+    {
+      "poll_ms": 0.005449,
+      "publication_release_ms": 0.16641999999999998,
+      "render_ms": 10.085865,
+      "snapshot_ms": 0.025718
+    },
+    {
+      "poll_ms": 0.010117,
+      "publication_release_ms": 0.174337,
+      "render_ms": 10.342484,
+      "snapshot_ms": 0.028182
+    },
+    {
+      "poll_ms": 0.003209,
+      "publication_release_ms": 0.169363,
+      "render_ms": 10.206949999999999,
+      "snapshot_ms": 0.025431000000000002
+    },
+    {
+      "poll_ms": 0.0037349999999999996,
+      "publication_release_ms": 0.196064,
+      "render_ms": 9.910624,
+      "snapshot_ms": 0.026151
+    },
+    {
+      "poll_ms": 0.0042769999999999996,
+      "publication_release_ms": 0.174082,
+      "render_ms": 10.454573,
+      "snapshot_ms": 0.032851
+    }
+  ],
+  "warm_measured_frames": 20,
+  "warm_measurement": "snapshot preparation, render, publication, release and host poll; no reference readback",
+  "warmup_frames_discarded": 10,
+  "worker_profile": "release",
+  "native_only_compilation_disabled": true,
+  "program_cache_absent": true,
+  "three_exact_frames": true,
+  "center_rgba": [
+    0.0313720703125,
+    0.317626953125,
+    1.0,
+    1.0
+  ],
+  "analytic_linear_srgb": [
+    0.033104766570885055,
+    0.31854677812509186,
+    1.0,
+    1.0
+  ],
+  "maximum_center_difference": 0.0017326962583850553,
+  "absolute_color_precision_qualified": false
+}

@@ -8,16 +8,18 @@ default-run = "fold-cli"
 [features]
 default = []
 native-probe = ["desktop", "fold-ui/native-probe"]
-gpu = ["fold-render/gpu", "fold-platform/gpu"]
+gpu = ["fold-render/gpu", "fold-platform/gpu", "fold-motion-context/gpu"]
 spatial = ["gpu", "fold-render/spatial"]
 native-video = ["gpu", "fold-render/native-video"]
-desktop = ["native-video", "spatial", "dep:rfd", "dep:fold-ui", "dep:cpal", "dep:rtrb", "fold-timeline/ui", "fold-compositor/ui", "fold-composition/ui", "fold-motion/ui"]
+desktop = ["native-video", "spatial", "dep:rfd", "dep:fold-ui", "dep:cpal", "dep:rtrb", "fold-timeline/ui", "fold-compositor/ui", "fold-composition/ui", "fold-motion-context/ui", "fold-three-d/ui"]
 
 [dependencies]
 fold-graph.workspace = true
 schemars.workspace = true
 sha2 = "0.10"
-fold-motion.workspace = true
+fold-motion-canvas.workspace = true
+fold-motion-context.workspace = true
+fold-three-d.workspace = true
 fold-composition.workspace = true
 pollster = "0.4"
 serde.workspace = true
@@ -51,10 +53,6 @@ required-features = ["gpu"]
 [[example]]
 name = "project_profile"
 required-features = ["gpu"]
-
-[[example]]
-name = "maintenance_profile"
-required-features = ["native-probe"]
 
 [[bin]]
 name = "fold-desktop"

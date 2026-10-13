@@ -1,0 +1,59 @@
+{
+  "alpha_modes": [
+    "premultiplied",
+    "straight"
+  ],
+  "animated_frames_differ": true,
+  "color_space": "Linear Rec.709 (sRGB)",
+  "dimensions": [
+    640,
+    360
+  ],
+  "frames": [
+    {
+      "alpha_range": [
+        0.0,
+        1.0
+      ],
+      "frame": 15,
+      "half_opacity_pixels": 15649,
+      "hdr_green_pixels": 2256,
+      "max_error": 0.0,
+      "negative_red_pixels": 2280,
+      "pixels": 230400,
+      "preview_cpu_adapter_nodes": 0,
+      "preview_readback_bytes_before_review": 0,
+      "straight_alpha_unchanged": true,
+      "straight_rgb_max_error": 0.0,
+      "straight_transparent_rgb_zero": true,
+      "time": [
+        15,
+        30
+      ],
+      "transparent_pixels": 202159
+    },
+    {
+      "alpha_range": [
+        0.0,
+        1.0
+      ],
+      "frame": 16,
+      "half_opacity_pixels": 15066,
+      "hdr_green_pixels": 2256,
+      "max_error": 0.0,
+      "negative_red_pixels": 2280,
+      "pixels": 230400,
+      "preview_cpu_adapter_nodes": 0,
+      "preview_readback_bytes_before_review": 0,
+      "straight_alpha_unchanged": true,
+      "straight_rgb_max_error": 0.0,
+      "straight_transparent_rgb_zero": true,
+      "time": [
+        16,
+        30
+      ],
+      "transparent_pixels": 202743
+    }
+  ],
+  "workflow": "Motion + 3D -> Compositor Over -> Timeline -> Float RGBA EXR"
+}

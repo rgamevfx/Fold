@@ -1,0 +1,69 @@
+{
+  "app_integration_qualified": false,
+  "cpu_pixel_transport": false,
+  "device": "NVIDIA GeForce GTX 1070",
+  "frame_request_ms_excluding_reference_readback": [
+    1014.4037079999999,
+    63.604196,
+    72.831295
+  ],
+  "memory_released": true,
+  "performance_qualified": false,
+  "runtime_statistics": {
+    "frames_completed": 8,
+    "workers_started": 1
+  },
+  "stale_epoch_revision_generation_time_dimensions_rejected": true,
+  "frames": [
+    {
+      "frame": 0,
+      "text_pixels": 2255,
+      "dot_pixels": 78928,
+      "alpha_max": 1.0,
+      "dimensions": [
+        640,
+        360
+      ]
+    },
+    {
+      "frame": 1,
+      "text_pixels": 2255,
+      "dot_pixels": 62959,
+      "alpha_max": 1.0,
+      "dimensions": [
+        640,
+        360
+      ]
+    },
+    {
+      "frame": 2,
+      "text_pixels": 2255,
+      "dot_pixels": 78928,
+      "alpha_max": 1.0,
+      "dimensions": [
+        640,
+        360
+      ]
+    }
+  ],
+  "runtime_count_edit": true,
+  "animation_changes_pixels": true,
+  "worker_profile": "release",
+  "date": "2026-10-11",
+  "upstream_commit": "b644f22cf5be2333e7098caf7ec064c3d36aeb02",
+  "format": "RGBA16F",
+  "color": "linear_srgb",
+  "alpha": "premultiplied",
+  "host_example_profile": "debug",
+  "runtime_readback_bytes": 0,
+  "runtime_upload_bytes": 0,
+  "qualification_readback": true,
+  "exact_rational_timing_attached": true,
+  "native_lifecycle_fixture": {
+    "stale_header_rejected": true,
+    "socket_fd_receive_phase_reached": true,
+    "socket_holding_descendant_started": true,
+    "retirement_under_seconds": 2,
+    "passed": true
+  }
+}

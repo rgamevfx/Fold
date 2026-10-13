@@ -83,19 +83,19 @@ pub fn add(snapshot: &Snapshot, bytes: &[u8], cancel: &Cancel) -> Result<EditBat
     let mut composition = Composition::from_document(original)?;
     let id = DocumentId::new();
     let (mut document, name, info) = match args.kind.as_str() {
-        "scene" => {
-            let document = fold_motion::scene::package::create(
-                id,
-                fold_motion::model::Canvas {
-                    width: composition.info.width,
-                    height: composition.info.height,
-                    rate: composition.info.rate,
-                    start: Time::ZERO,
-                    end: composition.info.time(composition.info.frames)?,
-                    extensions: Default::default(),
-                },
-            )?;
-            (document, "Scene", composition.info.clone())
+        "motion" => {
+            let canvas = fold_motion_canvas::model::Canvas {
+                width: composition.info.width,
+                height: composition.info.height,
+                rate: composition.info.rate,
+                duration: composition.info.time(composition.info.frames)?,
+                ..Default::default()
+            };
+            (canvas.document(id)?, "Motion", composition.info.clone())
+        }
+        "3d" => {
+            let scene = fold_three_d::model::Scene::new(composition.info.clone());
+            (scene.document(id)?, "3D", composition.info.clone())
         }
         "image" => {
             let solid = Node::new(

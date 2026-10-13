@@ -4,21 +4,23 @@ from check_proposal_ownership import violations
 
 class ProposalOwnershipTests(unittest.TestCase):
     def test_aliases_grouped_imports_and_whitespace_cannot_hide_dependency(self):
-        for source in ('use fold_motion :: model::Construction as Graph;',
+        for source in ('use fold_motion_canvas :: model::Canvas as Graph;',
+                       'use fold_motion_context::proposals::MotionProvider;',
+                       'use fold_three_d::model::Scene;',
                        'use {fold_compositor::{Composite as Graph}, serde::Serialize};',
                        'use fold_composition::Composition;',
                        'extern crate fold_timeline as creative;'):
             self.assertTrue(violations(source), source)
 
     def test_comments_literals_and_test_modules_do_not_create_dependencies(self):
-        source = '''// fold_motion::model
+        source = '''// fold_motion_canvas::model
         /* nested /* fold_compositor */ comment */
-        const HELP: &str = r##"fold_motion:: and "Project""##;
-        #[cfg(test)] mod tests { use fold_motion::model::Construction; }
+        const HELP: &str = r##"fold_motion_canvas:: and "Project""##;
+        #[cfg(test)] mod tests { use fold_motion_canvas::model::Canvas; }
         use fold_platform::proposals::Prepared;
         '''
         self.assertEqual(violations(source), [])
-        self.assertTrue(violations(source + 'use fold_motion::model;'))
+        self.assertTrue(violations(source + 'use fold_motion_canvas::model;'))
 
     def test_provider_can_prepare_but_cannot_publish_or_own_receipts(self):
         self.assertEqual(violations('use fold_project::{Document, Snapshot, Mutation};', True), [])

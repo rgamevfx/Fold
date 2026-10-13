@@ -1,0 +1,18 @@
+{
+  "device": "NVIDIA GeForce GTX 1070",
+  "dimensions": [32, 16],
+  "allocation_bytes": 4096,
+  "format": "RGBA16F",
+  "expected_pixel": [1.5, -0.125, 0.25, 0.5],
+  "every_pixel_verified": true,
+  "cross_process_fd": true,
+  "gpu_copy_into_wgpu_texture": true,
+  "cpu_pixel_transport": false,
+  "qualification_readback": true,
+  "validation_layer": "VK_LAYER_KHRONOS_validation",
+  "validation_errors": false,
+  "warnings": ["VK_EXT_physical_device_drm unavailable", "requested validation layer enabled"],
+  "fframes_artwork_qualified": false,
+  "app_integration_qualified": false,
+  "performance_qualified": false
+}

@@ -10,22 +10,26 @@ impl Session {
     pub(super) fn preview_snapshot(&self) -> Snapshot {
         self.overlay
             .as_ref()
-            .map(fold_project::EditSession::snapshot)
+            .map(|preview| preview.session.snapshot())
             .unwrap_or_else(|| self.project.snapshot().evaluation())
     }
     pub(super) fn preview_edit(&mut self, request: CommandRequest) {
         let result = crate::packages::builtins()
             .stage(&self.project.snapshot(), &request, &Cancel::default())
             .and_then(|batch| {
-                let session = self
-                    .overlay
-                    .get_or_insert_with(|| self.project.begin_edit());
+                let session = self.overlay.get_or_insert_with(|| PreviewEdit {
+                    session: self.project.begin_edit(),
+                    request: request.clone(),
+                });
                 self.project
-                    .update_edit(session, batch.mutations)
+                    .update_edit(&mut session.session, batch.mutations)
                     .map_err(|e| e.to_string())
             });
         match result {
-            Ok(()) => self.refresh(),
+            Ok(()) => {
+                self.overlay.as_mut().unwrap().request = request;
+                self.refresh();
+            }
             Err(error) => {
                 self.overlay = None;
                 self.refresh();

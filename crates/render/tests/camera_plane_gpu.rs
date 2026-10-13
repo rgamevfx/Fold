@@ -23,7 +23,6 @@ fn camera_planes_match_declared_pixel_bounds_and_share_world_depth() {
     let ids = [ObjectId::new(), ObjectId::new()];
     let colors = [[1., 0., 0., 1.], [0., 1., 0., 1.]];
     let rectangles = [[[50., 25.], [150., 75.]], [[50., 25.], [100., 75.]]];
-    let mut planar = planar::Cache::default();
     for i in 0..2 {
         scene.materials.insert(
             ids[i],
@@ -61,41 +60,15 @@ fn camera_planes_match_declared_pixel_bounds_and_share_world_depth() {
                             .unwrap();
                         let [[left, top], [right, bottom]] = rectangles[i];
                         let points = [[left, top], [right, top], [right, bottom], [left, bottom]];
-                        let drawing = fold_render::vector::Drawing {
-                            feather: None,
-                            path: Arc::new(vec![
-                                fold_render::vector::Segment::Move(points[0]),
-                                fold_render::vector::Segment::Line(points[1]),
-                                fold_render::vector::Segment::Line(points[2]),
-                                fold_render::vector::Segment::Line(points[3]),
-                                fold_render::vector::Segment::Close,
-                            ]),
-                            transform: [1., 0., 0., 1., 0., 0.],
-                            fill: Some(colors[i].map(f64::from)),
-                            even_odd: false,
-                            stroke: None,
-                        };
-                        let local = planar
-                            .prepare_with(&drawing, 1.2, &mut || Ok(()))
-                            .unwrap()
-                            .fill
-                            .unwrap();
                         scene.meshes.insert(
                             ids[i],
                             Arc::new(Mesh {
-                                positions: local
-                                    .positions
-                                    .iter()
-                                    .map(|p| {
-                                        mapping.point([f64::from(p[0]), f64::from(p[1])]).unwrap()
-                                    })
+                                positions: points
+                                    .into_iter()
+                                    .map(|point| mapping.point(point).unwrap())
                                     .collect(),
-                                normals: vec![mapping.normal(); local.positions.len()],
-                                indices: local
-                                    .indices
-                                    .chunks_exact(3)
-                                    .flat_map(|t| [t[0], t[2], t[1]])
-                                    .collect(),
+                                normals: vec![mapping.normal(); 4],
+                                indices: vec![0, 2, 1, 0, 3, 2],
                             }),
                         );
                     }

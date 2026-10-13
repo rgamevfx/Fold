@@ -1,0 +1,22 @@
+{
+  "scope": "Optimized native-first SDK verification; first script request verifies dependency libraries; filesystem cache may be warm",
+  "runs": [
+    {
+      "executable": "/tmp/fold-motion-sdk-native-worker-20261012/libraries/fold-motion-native-worker",
+      "program_preparation_ms": 411.787289,
+      "sdk_verification_ms": 849.121582,
+      "case": "native",
+      "total_ms": 1262.590447004186
+    },
+    {
+      "executable": "/tmp/fold-native-sdk-script-probe-20261012/cache/995adfe357d2e6751c19ee4bd1aa2fe80a8b831140491ce759ee320486221f19/fold-motion-ce56bfabb884fcf112b7617d3cef0087d73929aa009e58e39581fa2a5ce63626",
+      "program_preparation_ms": 5962.868827,
+      "sdk_verification_ms": 844.865776,
+      "case": "cached script",
+      "total_ms": 6809.308659983799
+    }
+  ],
+  "native_compiler_rejects_compilation": true,
+  "native_program_cache_created": false,
+  "installed_app_acceptance": false
+}

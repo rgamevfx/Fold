@@ -50,6 +50,10 @@ impl Renderer {
                 software_sources.push((index, source, time));
             }
         }
+        #[cfg(not(all(feature = "native-video", target_os = "linux")))]
+        if !native_sources.is_empty() {
+            return Err("native NVDEC support is not enabled in this build/platform".into());
+        }
         if native_sources.is_empty() {
             decoder.single_stream(software_sources.len() > 1);
             if software_sources.len() > 1 {
@@ -96,39 +100,30 @@ impl Renderer {
                 // spawn when both lanes contain work; a single clip stays local.
                 let worker = (!software_sources.is_empty())
                     .then(|| scope.spawn(|| planes(decoder, &software_sources, cancel)));
+                #[cfg(all(feature = "native-video", target_os = "linux"))]
                 for (index, source, time) in native_sources {
-                    #[cfg(all(feature = "native-video", target_os = "linux"))]
-                    {
-                        if self.native_video.is_none() {
-                            self.native_video = Some(super::native_video::NativeVideo::new()?);
-                        }
-                        let native = self.native_video.as_mut().unwrap();
-                        let before = native.statistics();
-                        let input = native.decode(&self.host, source, time, cancel)?;
-                        let after = native.statistics();
-                        stats.native_allocate_nanoseconds += native.allocate_nanoseconds;
-                        stats.native_submit_nanoseconds += native.submit_nanoseconds;
-                        stats.native_codec_call_nanoseconds += after
-                            .codec_call_nanoseconds
-                            .saturating_sub(before.codec_call_nanoseconds);
-                        stats.native_copy_ready_nanoseconds += after
-                            .copy_ready_nanoseconds
-                            .saturating_sub(before.copy_ready_nanoseconds);
-                        stats.native_gpu_local_copy_bytes += after
-                            .gpu_local_copy_bytes
-                            .saturating_sub(before.gpu_local_copy_bytes);
-                        stats.native_seeks += after.seeks.saturating_sub(before.seeks);
-                        stats.native_forward_reuses +=
-                            after.forward_reuses.saturating_sub(before.forward_reuses);
-                        inputs[index] = Some(Video::Native(input));
+                    if self.native_video.is_none() {
+                        self.native_video = Some(super::native_video::NativeVideo::new()?);
                     }
-                    #[cfg(not(all(feature = "native-video", target_os = "linux")))]
-                    {
-                        let _ = (index, source, time);
-                        return Err(
-                            "native NVDEC support is not enabled in this build/platform".into()
-                        );
-                    }
+                    let native = self.native_video.as_mut().unwrap();
+                    let before = native.statistics();
+                    let input = native.decode(&self.host, source, time, cancel)?;
+                    let after = native.statistics();
+                    stats.native_allocate_nanoseconds += native.allocate_nanoseconds;
+                    stats.native_submit_nanoseconds += native.submit_nanoseconds;
+                    stats.native_codec_call_nanoseconds += after
+                        .codec_call_nanoseconds
+                        .saturating_sub(before.codec_call_nanoseconds);
+                    stats.native_copy_ready_nanoseconds += after
+                        .copy_ready_nanoseconds
+                        .saturating_sub(before.copy_ready_nanoseconds);
+                    stats.native_gpu_local_copy_bytes += after
+                        .gpu_local_copy_bytes
+                        .saturating_sub(before.gpu_local_copy_bytes);
+                    stats.native_seeks += after.seeks.saturating_sub(before.seeks);
+                    stats.native_forward_reuses +=
+                        after.forward_reuses.saturating_sub(before.forward_reuses);
+                    inputs[index] = Some(Video::Native(input));
                 }
                 if let Some(worker) = worker {
                     let (frames, bytes) = worker

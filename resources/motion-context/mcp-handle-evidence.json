@@ -1,0 +1,57 @@
+{
+  "fixture": "native animated anchor and outgoing handle under shear; creation and later key edits through real MCP subprocess",
+  "time": {
+    "numerator": 1,
+    "denominator": 2
+  },
+  "outgoing_before_key_edit": [
+    60,
+    10
+  ],
+  "outgoing_after_key_edit": [
+    80,
+    30
+  ],
+  "public_handle_parameter_sampling": true,
+  "initial_animation_candidate_apply_parity": true,
+  "committed_pixels_unchanged_during_preparation": true,
+  "save_reopen": true,
+  "artist_two_step_undo": true,
+  "native_execution_seconds": 21.41,
+  "frames": {
+    "before": {
+      "dimensions": [
+        640,
+        360
+      ],
+      "rgba8_sha256": "3f4b9de292a818ca1b63634568edeea4f1f2e61660d94965bdc29ad23badf96f",
+      "transfers": {
+        "cpu_adapter_nodes": 0,
+        "evaluation_readback_bytes": 0
+      }
+    },
+    "candidate": {
+      "dimensions": [
+        640,
+        360
+      ],
+      "rgba8_sha256": "d54b5d4cb8fc23652c786e210cea002d884401f582b455e042da40023287c3bf",
+      "transfers": {
+        "cpu_adapter_nodes": 0,
+        "evaluation_readback_bytes": 0
+      }
+    },
+    "after": {
+      "dimensions": [
+        640,
+        360
+      ],
+      "rgba8_sha256": "d54b5d4cb8fc23652c786e210cea002d884401f582b455e042da40023287c3bf",
+      "transfers": {
+        "cpu_adapter_nodes": 0,
+        "evaluation_readback_bytes": 0
+      }
+    }
+  },
+  "candidate_matches_applied": true
+}

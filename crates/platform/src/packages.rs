@@ -249,6 +249,18 @@ pub trait BrowserKind: Send + Sync {
     fn browser_kind(&self) -> Option<crate::browser::DocumentKind>;
 }
 pub trait Placement: Send + Sync {
+    /// Stable native identities created by placement. Empty means no selection hint.
+    fn placed_objects(
+        &self,
+        _before: &Document,
+        _after: &Document,
+    ) -> Result<Vec<fold_foundation::ObjectId>, String> {
+        Ok(Vec::new())
+    }
+
+    fn supports_canvas_position(&self) -> bool {
+        false
+    }
     fn place(
         &self,
         _snapshot: &Snapshot,
@@ -686,6 +698,29 @@ impl PackageRegistry {
         provider.validate(&document)?;
         Ok(document)
     }
+    pub fn placed_objects(
+        &self,
+        before: &Document,
+        after: &Document,
+    ) -> Result<Vec<fold_foundation::ObjectId>, String> {
+        if before.id != after.id
+            || before.package_id != after.package_id
+            || before.type_id != after.type_id
+        {
+            return Err("Placement selection requires the same document".into());
+        }
+        let provider = self
+            .documents
+            .iter()
+            .find(|provider| {
+                provider.package_id() == after.package_id && provider.type_id() == after.type_id
+            })
+            .ok_or("Unavailable placement provider")?;
+        match provider.placement_capability() {
+            Some(capability) => capability.placed_objects(before, after),
+            None => Ok(Vec::new()),
+        }
+    }
     pub fn place(
         &self,
         snapshot: &Snapshot,
@@ -702,6 +737,13 @@ impl PackageRegistry {
             .iter()
             .find(|p| p.type_id() == target.type_id && p.package_id() == target.package_id)
             .ok_or("unavailable destination provider")?;
+        if placement.canvas_position.is_some()
+            && !provider
+                .placement_capability()
+                .is_some_and(|capability| capability.supports_canvas_position())
+        {
+            return Err("Destination does not support canvas object placement".into());
+        }
         let info = match &placement.source {
             PlacementSource::Asset(id) => {
                 if !snapshot.state().assets.contains_key(id) {

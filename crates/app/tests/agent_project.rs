@@ -4,7 +4,7 @@ use fold_project::Project;
 use serde_json::{Value, json};
 use std::time::Instant;
 fn guard(d: &Dispatcher, p: &Project, id: DocumentId) -> Value {
-    json!({"epoch":d.epoch(),"request_id":ObjectId::new(),"base":p.snapshot().revision().0,"scope":{"document":id,"definition":null}})
+    json!({"epoch":d.epoch(),"request_id":ObjectId::new(),"base":p.snapshot().revision().0,"scope":{"document":id}})
 }
 fn raw(d: &mut Dispatcher, p: &mut Project, command: Value) -> Value {
     serde_json::from_slice(&d.dispatch(
@@ -35,7 +35,7 @@ fn create(d: &mut Dispatcher, p: &mut Project) -> (DocumentId, Value) {
         p,
         json!({"method":"propose","guard":g,"edit":{"kind":"project","edits":[
             {"op":"create","document":id,"type_id":fold_composition::COMPOSITION,"name":"Composition"},
-            {"op":"add_layer","composition":id,"kind":"scene"},
+            {"op":"add_layer","composition":id,"kind":"motion"},
             {"op":"add_layer","composition":id,"kind":"image"}
         ]}}),
     );
@@ -60,7 +60,7 @@ fn inspected(d: &mut Dispatcher, p: &mut Project, id: DocumentId) -> Value {
     let result = call(
         d,
         p,
-        json!({"method":"inspect_document","epoch":epoch,"revision":revision,"scope":{"document":id,"definition":null}}),
+        json!({"method":"inspect_document","epoch":epoch,"revision":revision,"scope":{"document":id}}),
     );
     assert!(result.get("error").is_none(), "{result}");
     serde_json::from_str(result["result"]["source"].as_str().unwrap()).unwrap()
@@ -95,158 +95,6 @@ fn public_mixed_creation_is_inspected_atomic_undoable_and_preserved_on_reopen() 
         p.snapshot().state()
     );
 }
-#[test]
-fn public_scene_hierarchy_rejects_stale_values_unlocks_and_partial_edits() {
-    let mut d = Dispatcher::default();
-    let mut p = Project::new(16);
-    let (id, handle) = create(&mut d, &mut p);
-    apply(&mut d, &mut p, id, handle);
-    let scene = p
-        .snapshot()
-        .state()
-        .documents
-        .values()
-        .find(|v| v.type_id == fold_motion::scene::TYPE)
-        .unwrap()
-        .id;
-    let expected = inspected(&mut d, &mut p, scene);
-    let g = guard(&d, &p, scene);
-    let result = call(
-        &mut d,
-        &mut p,
-        json!({"method":"propose","guard":g,"edit":{"kind":"project","edits":[
-            {"op":"hierarchy","document":scene,"expected":expected,"edits":[{"op":"create","kind":"sphere"}]}
-        ]}}),
-    );
-    assert!(result.get("error").is_none(), "{result}");
-    apply(&mut d, &mut p, scene, result["result"]["handle"].clone());
-    let current = inspected(&mut d, &mut p, scene);
-    assert_ne!(expected, current);
-    let record =
-        fold_motion::scene::Scene::from_document(&p.snapshot().state().documents[&scene]).unwrap();
-    let object = record.objects.last().unwrap().id;
-    for (expected, edits) in [
-        (
-            expected,
-            json!([{"op":"rename","object":object,"name":"Stale"}]),
-        ),
-        (
-            current,
-            json!([{"op":"rename","object":object,"name":"Forbidden"},{"op":"lock","object":object,"value":false}]),
-        ),
-    ] {
-        let before = p.snapshot();
-        let g = guard(&d, &p, scene);
-        let result = call(
-            &mut d,
-            &mut p,
-            json!({"method":"propose","guard":g,"edit":{"kind":"project","edits":[
-                {"op":"hierarchy","document":scene,"expected":expected,"edits":edits}
-            ]}}),
-        );
-        assert!(result.get("error").is_some(), "{result}");
-        assert_eq!(before.state(), p.snapshot().state());
-    }
-}
-
-#[test]
-fn scoped_object_source_rebases_disjoint_artist_edits_and_honors_new_locks() {
-    let mut d = Dispatcher::default();
-    let mut p = Project::new(16);
-    let (id, handle) = create(&mut d, &mut p);
-    apply(&mut d, &mut p, id, handle);
-    let scene = p
-        .snapshot()
-        .state()
-        .documents
-        .values()
-        .find(|v| v.type_id == fold_motion::scene::TYPE)
-        .unwrap()
-        .id;
-    let original = p.snapshot().state().documents[&scene].clone();
-    let record = fold_motion::scene::Scene::from_document(&original).unwrap();
-    let object = record.objects[0].id;
-    let scope = json!({"document":scene,"definition":null,"object":object});
-    let epoch = d.epoch();
-    let revision = p.snapshot().revision().0;
-    let inspection = call(
-        &mut d,
-        &mut p,
-        json!({"method":"inspect_document","epoch":epoch,"revision":revision,"scope":scope}),
-    );
-    let expected = inspection["result"]["source"].as_str().unwrap();
-    let mut graph = fold_motion::source::parse(expected).unwrap().construction;
-    graph.seed += 1;
-    let mut g = guard(&d, &p, scene);
-    g["scope"] = scope.clone();
-    let proposed = call(
-        &mut d,
-        &mut p,
-        json!({"method":"propose","guard":g,"edit":{"kind":"source","expected":expected,"text":fold_motion::source::canonical(&graph).unwrap(),"mapping":{}}}),
-    );
-    assert!(proposed.get("error").is_none(), "{proposed}");
-    let handle = proposed["result"]["handle"].clone();
-    let mut artist = record.clone();
-    artist.objects[0].name = "Artist camera".into();
-    p.commit(fold_project::EditBatch {
-        base: p.snapshot().revision(),
-        mutations: vec![fold_project::Mutation::PutDocument(
-            artist.replace(&original).unwrap(),
-        )],
-    })
-    .unwrap();
-    let mut g = guard(&d, &p, scene);
-    g["scope"] = scope.clone();
-    let rebased = call(
-        &mut d,
-        &mut p,
-        json!({"method":"rebase","guard":g,"handle":handle}),
-    );
-    assert!(rebased.get("error").is_none(), "{rebased}");
-    let next = rebased["result"]["handle"].clone();
-    let inspection = call(
-        &mut d,
-        &mut p,
-        json!({"method":"inspect_candidate","handle":next}),
-    );
-    let parsed =
-        fold_motion::source::parse(inspection["result"]["source"].as_str().unwrap()).unwrap();
-    assert_eq!(parsed.construction.seed, graph.seed);
-    // A fresh artist lock after preparation must invalidate rebasing, without
-    // retiring either immutable generation or editing the artist's scene.
-    let current = p.snapshot().state().documents[&scene].clone();
-    artist.objects[0].locked = true;
-    p.commit(fold_project::EditBatch {
-        base: p.snapshot().revision(),
-        mutations: vec![fold_project::Mutation::PutDocument(
-            artist.replace(&current).unwrap(),
-        )],
-    })
-    .unwrap();
-    let mut g = guard(&d, &p, scene);
-    g["scope"] = scope;
-    let locked = call(
-        &mut d,
-        &mut p,
-        json!({"method":"rebase","guard":g,"handle":next}),
-    );
-    assert_eq!(locked["error"]["code"], "conflict", "{locked}");
-    let retained = call(
-        &mut d,
-        &mut p,
-        json!({"method":"inspect_candidate","handle":next}),
-    );
-    assert!(retained.get("error").is_none(), "{retained}");
-    assert_eq!(
-        fold_motion::scene::Scene::from_document(&p.snapshot().state().documents[&scene])
-            .unwrap()
-            .objects[0]
-            .graph
-            .seed,
-        record.objects[0].graph.seed
-    );
-}
-
 #[test]
 fn explicit_layer_connections_use_discovered_ports_and_one_undo_entry() {
     let mut d = Dispatcher::default();
@@ -356,106 +204,6 @@ fn rebase_rejects_cycles_introduced_by_concurrent_layer_connections() {
 }
 
 #[test]
-fn replacing_a_scene_output_cannot_leave_existing_consumers_dangling() {
-    let mut d = Dispatcher::default();
-    let mut p = Project::new(16);
-    let (id, handle) = create(&mut d, &mut p);
-    apply(&mut d, &mut p, id, handle);
-    let scene = p
-        .snapshot()
-        .state()
-        .documents
-        .values()
-        .find(|document| document.type_id == fold_motion::scene::TYPE)
-        .unwrap()
-        .id;
-    let record = inspected(&mut d, &mut p, scene);
-    let mut next = record["native"].clone();
-    next["output"] = json!(ObjectId::new());
-    let before = p.snapshot();
-    let g = guard(&d, &p, scene);
-    let proposed = call(
-        &mut d,
-        &mut p,
-        json!({
-            "method":"propose","guard":g,"edit":{"kind":"project","edits":[
-                {"op":"author","document":scene,"expected":record,"edits":[
-                    {"op":"replace_scene","expected":record["native"],"value":next}
-                ]}
-            ]}
-        }),
-    );
-    assert!(
-        proposed.get("error").is_some(),
-        "Accepted a dangling Composition source: {proposed}"
-    );
-    assert_eq!(p.snapshot().state(), before.state());
-}
-
-#[test]
-fn rebase_revalidates_named_outputs_after_an_artist_replaces_a_publication() {
-    let mut d = Dispatcher::default();
-    let mut p = Project::new(16);
-    let (id, handle) = create(&mut d, &mut p);
-    apply(&mut d, &mut p, id, handle);
-    let composition = inspected(&mut d, &mut p, id);
-    let layers = composition["native"]["layers"].as_array().unwrap();
-    let graph = serde_json::from_value(layers[0]["source"]["Output"]["document"].clone()).unwrap();
-    let port = inspected(&mut d, &mut p, graph)["image_inputs"][0]["id"].clone();
-    let g = guard(&d, &p, id);
-    let pending = call(
-        &mut d,
-        &mut p,
-        json!({
-            "method":"propose","guard":g,"edit":{"kind":"project","edits":[
-                {"op":"connect_layers","composition":id,"source":layers[1]["id"],"target":layers[0]["id"],"port":port}
-            ]}
-        }),
-    );
-    assert!(pending.get("error").is_none(), "{pending}");
-    // The artist changes a scene publication and its existing Composition use
-    // together. The unpublished candidate still refers to the old output.
-    let mut root =
-        fold_composition::Composition::from_document(&p.snapshot().state().documents[&id]).unwrap();
-    let Some(fold_platform::image_source::Source::Output(source)) = &mut root.layers[1].source
-    else {
-        panic!()
-    };
-    let document = p.snapshot().state().documents[&source.document].clone();
-    let mut scene = fold_motion::scene::Scene::from_document(&document).unwrap();
-    scene.output = ObjectId::new();
-    source.output = scene.output.to_string();
-    p.commit(fold_project::EditBatch {
-        base: p.snapshot().revision(),
-        mutations: vec![
-            fold_project::Mutation::PutDocument(scene.replace(&document).unwrap()),
-            fold_project::Mutation::PutDocument(root.document(id).unwrap()),
-        ],
-    })
-    .unwrap();
-    let before = p.snapshot();
-    let g = guard(&d, &p, id);
-    let rebased = call(
-        &mut d,
-        &mut p,
-        json!({
-            "method":"rebase","guard":g,"handle":pending["result"]["handle"]
-        }),
-    );
-    assert!(
-        rebased.get("error").is_some(),
-        "Accepted a removed source output: {rebased}"
-    );
-    assert_eq!(p.snapshot().state(), before.state());
-    let retained = call(
-        &mut d,
-        &mut p,
-        json!({"method":"inspect_candidate","handle":pending["result"]["handle"]}),
-    );
-    assert!(retained.get("error").is_none(), "{retained}");
-}
-
-#[test]
 fn public_compositor_source_rebases_disjoint_controls_and_requires_fresh_inspection() {
     let mut d = Dispatcher::default();
     let mut p = Project::new(16);
@@ -524,7 +272,7 @@ fn public_compositor_source_rebases_disjoint_controls_and_requires_fresh_inspect
 }
 
 #[test]
-fn compositor_source_retains_its_provider_budget_above_the_motion_text_limit() {
+fn compositor_source_retains_its_provider_budget_above_sixty_four_kibibytes() {
     let mut dispatcher = Dispatcher::default();
     let mut project = Project::new(8);
     let document = DocumentId::new();

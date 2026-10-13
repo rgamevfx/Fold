@@ -1,0 +1,140 @@
+{
+  "date": "2026-10-12",
+  "upstream_commit": "b644f22cf5be2333e7098caf7ec064c3d36aeb02",
+  "scene": "sheared fframes script rectangle and rotated native 3D box, over in Compositor, document clip in Timeline",
+  "save_reopen_documents_identical": true,
+  "committed_parent_unchanged_before_apply": true,
+  "motion_candidate_matches_committed_motion": true,
+  "timeline_matches_compositor": true,
+  "mixed_frame_differs_from_both_sources": true,
+  "native_artist_acceptance": false,
+  "export_parity_qualified": false,
+  "frames": {
+    "before": {
+      "dimensions": [
+        640,
+        360
+      ],
+      "rgba8_sha256": "189d6395c9c6b0a1d0249dca73a3e83235e2816903a22e1c97a691640c531033",
+      "transfers": {
+        "cpu_adapter_nodes": 0,
+        "evaluation_readback_bytes": 0
+      },
+      "descriptor": {
+        "alpha": "opaque",
+        "dimensions": [
+          640,
+          360
+        ],
+        "encoding": "rgba8_hex",
+        "presentation": "shared_viewer_display",
+        "row_order": "top_to_bottom"
+      }
+    },
+    "candidate_motion": {
+      "dimensions": [
+        640,
+        360
+      ],
+      "rgba8_sha256": "6d1745bda62c532a511b63285aa284fce6e64ebdb78ad46fc86840ac0d4a74b4",
+      "transfers": {
+        "cpu_adapter_nodes": 0,
+        "evaluation_readback_bytes": 0
+      },
+      "descriptor": {
+        "alpha": "opaque",
+        "dimensions": [
+          640,
+          360
+        ],
+        "encoding": "rgba8_hex",
+        "presentation": "shared_viewer_display",
+        "row_order": "top_to_bottom"
+      }
+    },
+    "after": {
+      "dimensions": [
+        640,
+        360
+      ],
+      "rgba8_sha256": "0ddd617625ae0852e09cb731332b1217c10cab2d95b7b4c846035bc8387baade",
+      "transfers": {
+        "cpu_adapter_nodes": 0,
+        "evaluation_readback_bytes": 0
+      },
+      "descriptor": {
+        "alpha": "opaque",
+        "dimensions": [
+          640,
+          360
+        ],
+        "encoding": "rgba8_hex",
+        "presentation": "shared_viewer_display",
+        "row_order": "top_to_bottom"
+      }
+    },
+    "composite": {
+      "dimensions": [
+        640,
+        360
+      ],
+      "rgba8_sha256": "0ddd617625ae0852e09cb731332b1217c10cab2d95b7b4c846035bc8387baade",
+      "transfers": {
+        "cpu_adapter_nodes": 0,
+        "evaluation_readback_bytes": 0
+      },
+      "descriptor": {
+        "alpha": "opaque",
+        "dimensions": [
+          640,
+          360
+        ],
+        "encoding": "rgba8_hex",
+        "presentation": "shared_viewer_display",
+        "row_order": "top_to_bottom"
+      }
+    },
+    "motion": {
+      "dimensions": [
+        640,
+        360
+      ],
+      "rgba8_sha256": "6d1745bda62c532a511b63285aa284fce6e64ebdb78ad46fc86840ac0d4a74b4",
+      "transfers": {
+        "cpu_adapter_nodes": 0,
+        "evaluation_readback_bytes": 0
+      },
+      "descriptor": {
+        "alpha": "opaque",
+        "dimensions": [
+          640,
+          360
+        ],
+        "encoding": "rgba8_hex",
+        "presentation": "shared_viewer_display",
+        "row_order": "top_to_bottom"
+      }
+    },
+    "spatial": {
+      "dimensions": [
+        640,
+        360
+      ],
+      "rgba8_sha256": "529a897ac2733c3f8f8d61deed35db6b9bfbd9ea92fca501317d47603da2b879",
+      "transfers": {
+        "cpu_adapter_nodes": 0,
+        "evaluation_readback_bytes": 0
+      },
+      "descriptor": {
+        "alpha": "opaque",
+        "dimensions": [
+          640,
+          360
+        ],
+        "encoding": "rgba8_hex",
+        "presentation": "shared_viewer_display",
+        "row_order": "top_to_bottom"
+      }
+    }
+  }
+}

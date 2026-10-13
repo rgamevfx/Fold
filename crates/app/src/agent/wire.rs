@@ -3,7 +3,6 @@ use fold_foundation::{DocumentId, ObjectId, Time};
 use fold_project::proposals::{Handle, Receipt};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
 
 pub use fold_platform::proposals::Scope;
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
@@ -45,17 +44,8 @@ impl JobGuard {
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Edit {
-    Project {
-        edits: Vec<serde_json::Value>,
-    },
-    Source {
-        expected: String,
-        text: String,
-        mapping: BTreeMap<ObjectId, ObjectId>,
-    },
-    Patches {
-        patches: Vec<serde_json::Value>,
-    },
+    Project { edits: Vec<serde_json::Value> },
+    Native { request: serde_json::Value },
 }
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
@@ -67,8 +57,12 @@ pub enum ObservationTarget {
     },
     Candidate {
         handle: Handle,
+        /// Output document in the immutable candidate project, including a
+        /// downstream Compositor or Timeline document.
+        document: DocumentId,
     },
 }
+
 /// Pixel rectangle in the full output raster; it does not change camera framing.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -86,6 +80,55 @@ impl FrameRegion {
             width: self.width,
             height: self.height,
         }
+    }
+}
+/// Additional exact poses for one immutable frame review. The primary frame
+/// remains first. Review pixels are display-space diagnostics, not export media.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct FrameReview {
+    pub times: Vec<Time>,
+    pub layout: ReviewLayout,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum ReviewLayout {
+    ContactSheet { columns: u32 },
+    Onion,
+}
+impl FrameReview {
+    pub fn dimensions(&self, frame: [u32; 2]) -> Result<[u32; 2], String> {
+        if self.times.is_empty() || self.times.len() > 15 {
+            return Err("Animation review requires 1..15 additional times".into());
+        }
+        let count = self.times.len() as u64 + 1;
+        if frame.iter().any(|v| *v == 0 || *v > 4096)
+            || u64::from(frame[0]) * u64::from(frame[1]) * count > 2_073_600
+        {
+            return Err("Animation review exceeds 2073600 total source pixels".into());
+        }
+        let output = match self.layout {
+            ReviewLayout::Onion => frame,
+            ReviewLayout::ContactSheet { columns } => {
+                if columns == 0 || u64::from(columns) > count {
+                    return Err("Invalid contact sheet column count".into());
+                }
+                [
+                    frame[0]
+                        .checked_mul(columns)
+                        .ok_or("Contact sheet width overflow")?,
+                    frame[1]
+                        .checked_mul((count as u32).div_ceil(columns))
+                        .ok_or("Contact sheet height overflow")?,
+                ]
+            }
+        };
+        if output.iter().any(|v| *v > 4096)
+            || u64::from(output[0]) * u64::from(output[1]) > 2_073_600
+        {
+            return Err("Animation review output exceeds the image limit".into());
+        }
+        Ok(output)
     }
 }
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
@@ -121,6 +164,8 @@ pub enum Command {
         dimensions: [u32; 2],
         #[serde(default)]
         region: Option<FrameRegion>,
+        #[serde(default)]
+        review: Option<FrameReview>,
     },
     InspectParameters {
         epoch: ObjectId,
@@ -192,6 +237,51 @@ impl Command {
             | Self::CancelCandidate { guard, .. } => Some((guard.epoch, guard.base)),
             _ => None,
         }
+    }
+}
+
+#[cfg(test)]
+mod observation_tests {
+    use super::*;
+    #[test]
+    fn animation_review_rejects_unbounded_or_empty_images() {
+        let mut review = FrameReview {
+            times: vec![Time::ZERO; 2],
+            layout: ReviewLayout::ContactSheet { columns: 2 },
+        };
+        assert_eq!(review.dimensions([640, 360]).unwrap(), [1280, 720]);
+        assert!(review.dimensions([u32::MAX, u32::MAX]).is_err());
+        assert!(review.dimensions([1920, 1080]).is_err());
+        assert!(review.dimensions([0, 360]).is_err());
+        review.layout = ReviewLayout::ContactSheet { columns: 0 };
+        assert!(review.dimensions([640, 360]).is_err());
+        review.layout = ReviewLayout::Onion;
+        assert_eq!(review.dimensions([640, 360]).unwrap(), [640, 360]);
+        review.times.clear();
+        assert!(review.dimensions([640, 360]).is_err());
+        review.times = vec![Time::ZERO; 16];
+        assert!(review.dimensions([1, 1]).is_err());
+    }
+    #[test]
+    fn candidate_observation_requires_an_explicit_document() {
+        let handle = Handle {
+            epoch: ObjectId::new(),
+            generation: ObjectId::new(),
+        };
+        let document = DocumentId::new();
+        assert!(
+            serde_json::from_value::<ObservationTarget>(serde_json::json!({
+                "kind":"candidate","handle":handle
+            }))
+            .is_err()
+        );
+        let target = serde_json::from_value::<ObservationTarget>(serde_json::json!({
+            "kind":"candidate","handle":handle,"document":document
+        }))
+        .unwrap();
+        assert!(
+            matches!(target, ObservationTarget::Candidate { document: id, .. } if id == document)
+        );
     }
 }
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]

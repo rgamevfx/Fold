@@ -9,12 +9,15 @@ members = [
     "crates/project",
     "crates/media",
     "crates/render",
+    "crates/gpu-sharing",
     "crates/platform",
     "crates/ui",
     "crates/timeline",
     "crates/compositor",
     "crates/composition",
-    "crates/motion",
+    "crates/motion-canvas",
+    "crates/motion-context",
+    "crates/three-d",
     "crates/app",
 ]
 default-members = ["crates/app"]
@@ -38,12 +41,15 @@ fold-native-video = { path = "crates/native-video" }
 fold-project = { path = "crates/project" }
 fold-media = { path = "crates/media" }
 fold-render = { path = "crates/render" }
+fold-gpu-sharing = { path = "crates/gpu-sharing" }
 fold-platform = { path = "crates/platform" }
 fold-ui = { path = "crates/ui" }
 fold-timeline = { path = "crates/timeline" }
 fold-compositor = { path = "crates/compositor" }
 fold-composition = { path = "crates/composition" }
-fold-motion = { path = "crates/motion" }
+fold-motion-canvas = { path = "crates/motion-canvas" }
+fold-motion-context = { path = "crates/motion-context" }
+fold-three-d = { path = "crates/three-d" }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

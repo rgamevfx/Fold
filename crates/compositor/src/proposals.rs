@@ -43,7 +43,6 @@ impl ScopedProposals for Provider {
     ) -> Result<Box<dyn PreparedProposal>, Failure> {
         (|| -> Result<Box<dyn PreparedProposal>, Failure> {
             request(r, cancel)?;
-            document_scope(r.scope)?;
             let original = base
                 .state()
                 .documents
@@ -107,7 +106,6 @@ impl ScopedProposals for Provider {
         cancel: &Cancel,
     ) -> Result<Box<dyn PreparedProposal>, Failure> {
         (|| -> Result<Box<dyn PreparedProposal>, Failure> {
-            document_scope(scope)?;
             Ok(Box::new(Prepared::<Graph>::new(
                 base, scope, after, cancel,
             )?))
@@ -124,8 +122,7 @@ impl Records for Graph {
         let value = Composite::from_document(document).map_err(Failure::invalid)?;
         Ok(Self(value))
     }
-    fn validate_change(before: &Self, after: &Self, scope: Scope) -> Result<(), Failure> {
-        document_scope(scope)?;
+    fn validate_change(before: &Self, after: &Self, _scope: Scope) -> Result<(), Failure> {
         before
             .0
             .check_protection(&after.0)
@@ -146,8 +143,7 @@ impl Records for Graph {
         d.extensions = original.extensions.clone();
         Ok(d)
     }
-    fn source(&self, scope: Scope) -> Result<DocumentInspection, Failure> {
-        document_scope(scope)?;
+    fn source(&self, _scope: Scope) -> Result<DocumentInspection, Failure> {
         Ok(DocumentInspection::Native(
             json!({"native":self.0,"graph_source":self.0.source(None).map_err(Failure::invalid)?}),
         ))

@@ -52,6 +52,7 @@ pub fn place(
     };
     host.command(DesktopCommand::Browser(BrowserCommand::Place(Placement {
         graph: None,
+        canvas_position: None,
         source,
         target,
         track,
@@ -107,8 +108,13 @@ impl FileDrop {
             .rev()
             .find(|(min, max, _, _)| inside(position, *min, *max))?;
         let mut request = request.clone();
-        if let (Some(graph), Some([origin, scale])) = (&mut request.graph, transform) {
-            graph.position = [0, 1].map(|i| origin[i] + position[i] * scale[i]);
+        if let Some([origin, scale]) = transform {
+            let point = [0, 1].map(|i| origin[i] + position[i] * scale[i]);
+            if request.canvas_position.is_some() {
+                request.canvas_position = Some(point.map(f64::from));
+            } else if let Some(graph) = &mut request.graph {
+                graph.position = point;
+            }
         }
         Some(request)
     }
@@ -131,6 +137,7 @@ pub fn inside(p: [f32; 2], min: [f32; 2], max: [f32; 2]) -> bool {
 pub fn placement(target: DocumentId, at: Time) -> Placement {
     Placement {
         graph: None,
+        canvas_position: None,
         source: fold_platform::browser::PlacementSource::Asset(Default::default()),
         target,
         track: None,
@@ -184,6 +191,11 @@ mod tests {
         let p = drop.placement([150., 160.]).unwrap();
         assert_eq!(p.target, target);
         assert_eq!(p.graph.unwrap().position, [200., 120.]);
+        drop.regions[0].2.graph.as_mut().unwrap().position = [7., 9.];
+        drop.regions[0].2.canvas_position = Some([0.; 2]);
+        let p = drop.placement([150., 160.]).unwrap();
+        assert_eq!(p.graph.unwrap().position, [7., 9.]);
+        assert_eq!(p.canvas_position, Some([200., 120.]));
         assert!(drop.placement([500., 200.]).is_none());
         drop.begin_frame(Some([150., 160.]));
         assert!(drop.placement([150., 160.]).is_none());

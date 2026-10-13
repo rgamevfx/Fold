@@ -1,0 +1,95 @@
+{
+  "passed": true,
+  "cases": [
+    {
+      "id": 1,
+      "cache_limit": 33554432,
+      "error": null,
+      "sha256": "9e03a82982581c334b01356feebfab5fe2dbee8c697cc371c1527e3d67b1922c"
+    },
+    {
+      "id": 2,
+      "cache_limit": 1,
+      "error": "Motion GPU resource cache exceeds its allowance",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": 3,
+      "cache_limit": 33554432,
+      "error": null,
+      "sha256": "9e03a82982581c334b01356feebfab5fe2dbee8c697cc371c1527e3d67b1922c"
+    }
+  ],
+  "profile": "{\"motion_profile\":{\"cache_bytes\":2132020,\"cache_limit\":33554432,\"document_ms\":0.039993999999999995,\"draw\":{\"commands_ms\":0.7844990000000001,\"conversion_ms\":0.047893,\"submit_ms\":20.819462},\"id\":1,\"initialize_ms\":592.125129,\"output_mode\":\"cpu_readback\",\"output_ms\":11.161676,\"parse_ms\":0.10982,\"transport_ms\":4.161088}}\n{\"motion_profile\":{\"cache_bytes\":34868,\"cache_limit\":1,\"document_ms\":0.019319,\"draw\":{\"commands_ms\":0.0,\"conversion_ms\":0.0,\"submit_ms\":0.0},\"id\":2,\"initialize_ms\":0.000223,\"output_mode\":\"cpu_readback\",\"output_ms\":0.0,\"parse_ms\":0.046389,\"transport_ms\":0.019343000000000003}}\n{\"motion_profile\":{\"cache_bytes\":2132020,\"cache_limit\":33554432,\"document_ms\":0.02707,\"draw\":{\"commands_ms\":2.5616879999999997,\"conversion_ms\":0.035568,\"submit_ms\":38.471157999999996},\"id\":3,\"initialize_ms\":461.264878,\"output_mode\":\"cpu_readback\",\"output_ms\":25.422755,\"parse_ms\":0.045933,\"transport_ms\":18.056478000000002}}\n",
+  "scope": "Skia budgeted GPU cache. Temporary, unbudgeted and driver allocations are outside this allowance.",
+  "image_regression": {
+    "declared_image_capture_parity_all_fits": true,
+    "device_uuid": [
+      51,
+      15,
+      224,
+      75,
+      242,
+      209,
+      55,
+      37,
+      162,
+      157,
+      10,
+      35,
+      238,
+      158,
+      113,
+      71
+    ],
+    "dimensions": [
+      32,
+      32
+    ],
+    "image_pattern_capture_parity": true,
+    "missing_capture_resource_rejected": true,
+    "named_resources": true,
+    "native_pattern_repeat_origin_alpha": true,
+    "over_budget_snapshot_preserves_pixels": true,
+    "removed_data_released": true,
+    "replacement_changes_pixels": true,
+    "retained_handle_allowance_checked": true,
+    "samples": [
+      [
+        1.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      [
+        0.0,
+        0.501953125,
+        0.0,
+        0.501953125
+      ],
+      [
+        0.0,
+        0.0,
+        1.0,
+        1.0
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    ],
+    "script_image_control_matches_native_pixels": true,
+    "undeclared_image_capture_rejected": true,
+    "warm_pixels_identical": true,
+    "worker_image_capture_parity": true,
+    "worker_retention_replacement_and_error_recovery": true
+  },
+  "image_cache_pressure_recovery_passed": true,
+  "worker_retirement_test": {
+    "passed": true,
+    "seconds": 0.89,
+    "test": "runtime::gpu::tests::rejects_stale_headers_and_retires_blocked_socket_with_descendant"
+  }
+}

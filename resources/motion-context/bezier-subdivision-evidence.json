@@ -1,0 +1,21 @@
+{
+  "passed": true,
+  "test": "animated_subdivision_preserves_curves_between_distinct_key_schedules",
+  "command": "cargo test -p fold-motion-canvas --test tools animated_subdivision_preserves_curves_between_distinct_key_schedules --offline",
+  "final_build_seconds": 0.81,
+  "test_seconds": 0.16,
+  "new_cases": [
+    "aligned manual Bezier handles",
+    "aligned resolved Auto handles",
+    "equal-valued endpoints with temporal overshoot",
+    "incompatible time-handle fractions rejected without mutation"
+  ],
+  "rational_time_samples_per_case": 161,
+  "curve_positions_per_time": 101,
+  "absolute_geometry_tolerance": 1e-08,
+  "source_position_tracks_preserved": true,
+  "document_roundtrip": true,
+  "public_mcp_qualified": false,
+  "native_artist_qualified": false,
+  "raster_invariance_qualified": false
+}

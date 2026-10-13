@@ -1,0 +1,9 @@
+{
+  "scale": 0.5,
+  "maximum_absolute_errors": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "passed": true
+}

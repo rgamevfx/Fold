@@ -1,0 +1,13 @@
+{
+  "qualification": "persistent_local_script_capture_worker",
+  "fframes_revision": "b644f22cf5be2333e7098caf7ec064c3d36aeb02",
+  "command": "cargo run --manifest-path crates/motion-fframes/Cargo.toml --offline --release --example capture_worker",
+  "scope": "Compiled qualification script and actual worker transport; application source compilation and automatic conversion orchestration remain unqualified.",
+  "exact_time": [1, 2],
+  "gpu_required": false,
+  "inherited_paint": true,
+  "invalid_time_rejected": true,
+  "local_coordinates": true,
+  "recovery_after_error": true,
+  "runtime_control_update": true
+}

@@ -29,6 +29,7 @@ fn create(project: &mut Project, kind: &str) -> DocumentId {
 fn placement(source: PlacementSource, target: DocumentId) -> Placement {
     Placement {
         graph: None,
+        canvas_position: None,
         source,
         target,
         track: None,
@@ -593,6 +594,7 @@ fn native_drop_imports_and_places_all_targets_in_one_undo() {
         (fold_timeline::SEQUENCE, false),
         (fold_composition::COMPOSITION, false),
         (fold_compositor::COMPOSITE, true),
+        (fold_motion_canvas::TYPE, true),
     ] {
         let mut project = Project::new(16);
         let target = create(&mut project, kind);
@@ -605,7 +607,16 @@ fn native_drop_imports_and_places_all_targets_in_one_undo() {
                 object: None,
             });
         }
+        if kind == fold_motion_canvas::TYPE {
+            request.canvas_position = Some([320., 200.]);
+        }
         let mut session = fold_app::session::Session::new(project);
+        if kind == fold_motion_canvas::TYPE {
+            session.command(DesktopCommand::Select(fold_platform::desktop::Selection {
+                document: Some(target),
+                objects: vec![],
+            }));
+        }
         session.command(DesktopCommand::Browser(Command::ImportAndPlace {
             paths: vec![path.clone()],
             placement: request.clone(),
@@ -653,6 +664,38 @@ fn native_drop_imports_and_places_all_targets_in_one_undo() {
                 fold_compositor::OperationConfig::Read { .. }
             ) && n.position == Some([123., 456.])));
         }
+        if kind == fold_motion_canvas::TYPE {
+            let motion =
+                fold_motion_canvas::model::Canvas::from_document(&after.state().documents[&target])
+                    .unwrap();
+            assert_eq!(motion.roots.len(), 1);
+            let image = &motion.objects[&motion.roots[0]];
+            assert!(matches!(
+                image.content,
+                fold_motion_canvas::model::Content::Image { .. }
+            ));
+            assert_eq!(image.graph_position, Some([123., 456.]));
+            assert_eq!(after.state().documents[&target].assets.len(), 1);
+            assert_eq!(image.name, "source.ppm");
+            assert_eq!(session.state().selection.objects, motion.roots);
+            let asset = *after.state().assets.keys().next().unwrap();
+            session.command(DesktopCommand::Browser(Command::Place(placement(
+                PlacementSource::Asset(asset),
+                target,
+            ))));
+            assert_eq!(session.state().selection.document, Some(target));
+            assert_eq!(session.state().selection.objects.len(), 1);
+            assert_ne!(session.state().selection.objects, motion.roots);
+            session.command(DesktopCommand::Undo);
+            assert_eq!(
+                session.snapshot().unwrap().state().documents,
+                after.state().documents
+            );
+            assert_eq!(
+                [image.transform.x.value, image.transform.y.value],
+                [319.5, 199.5]
+            );
+        }
         session.command(DesktopCommand::Undo);
         let undone = session.snapshot().unwrap();
         assert!(undone.state().assets.is_empty());
@@ -660,17 +703,34 @@ fn native_drop_imports_and_places_all_targets_in_one_undo() {
         session.command(DesktopCommand::Redo);
         assert_eq!(session.snapshot().unwrap().state().assets.len(), 1);
         // Reuse preserves existing media when undoing the second placement.
-        request.at = Time::new(5, 1).unwrap();
+        request.at = Time::new(
+            if kind == fold_motion_canvas::TYPE {
+                2
+            } else {
+                5
+            },
+            1,
+        )
+        .unwrap();
         session.command(DesktopCommand::Browser(Command::ImportAndPlace {
             paths: vec![path.clone()],
             placement: request,
         }));
+        if kind == fold_motion_canvas::TYPE {
+            session.command(DesktopCommand::Select(Default::default()));
+        }
         wait_for_ingest(&mut session);
         assert!(
             session.state().status.is_empty(),
             "{kind}: {}",
             session.state().status
         );
+        if kind == fold_motion_canvas::TYPE {
+            assert_eq!(
+                session.state().selection,
+                fold_platform::desktop::Selection::default()
+            );
+        }
         assert_eq!(session.snapshot().unwrap().state().assets.len(), 1);
         session.command(DesktopCommand::Undo);
         assert_eq!(
@@ -818,4 +878,107 @@ fn common_image_import_placement_render_and_reopen() {
             );
         }
     }
+}
+
+#[test]
+fn motion_image_relink_preserves_edits_and_identity_and_undo_restores_source() {
+    let directory = tempfile::tempdir().unwrap();
+    let source = still(directory.path(), "source.ppm");
+    let replacement = directory.path().join("replacement.ppm");
+    std::fs::write(&replacement, b"P6\n1 1\n255\n\x00\x00\xff").unwrap();
+    let mut project = Project::new(16);
+    let target = create(&mut project, fold_motion_canvas::TYPE);
+    ingest::import(
+        &project.snapshot(),
+        &ingest::ImportRequest {
+            base: project.snapshot().revision(),
+            destination: Parent::Root,
+            paths: vec![source],
+        },
+        &Cancel::default(),
+    )
+    .unwrap()
+    .commit(&mut project)
+    .unwrap();
+    let asset = *project.snapshot().state().assets.keys().next().unwrap();
+    edit(
+        &mut project,
+        Command::Place(placement(PlacementSource::Asset(asset), target)),
+    );
+    let before = project.snapshot();
+    let mut canvas =
+        fold_motion_canvas::model::Canvas::from_document(&before.state().documents[&target])
+            .unwrap();
+    let id = canvas.roots[0];
+    canvas.objects.get_mut(&id).unwrap().transform.x.value = 123.25;
+    let mut source_asset = (*before.state().assets[&asset]).clone();
+    source_asset
+        .extensions
+        .insert("vendor.keep".into(), serde_json::json!({"preserve":true}));
+    project
+        .commit(fold_project::EditBatch {
+            base: before.revision(),
+            mutations: vec![
+                fold_project::Mutation::PutDocument(
+                    canvas
+                        .replace_document(&before.state().documents[&target])
+                        .unwrap(),
+                ),
+                fold_project::Mutation::PutAsset(source_asset),
+            ],
+        })
+        .unwrap();
+    let before = project.snapshot();
+    ingest::relink(
+        &before,
+        &ingest::RelinkRequest {
+            base: before.revision(),
+            asset,
+            path: replacement,
+        },
+        &Cancel::default(),
+    )
+    .unwrap()
+    .commit(&mut project)
+    .unwrap();
+    let after = project.snapshot();
+    assert_eq!(after.state().documents, before.state().documents);
+    assert_eq!(after.state().assets[&asset].id, asset);
+    assert_ne!(
+        after.state().assets[&asset].fingerprint,
+        before.state().assets[&asset].fingerprint
+    );
+    assert_eq!(
+        after.state().assets[&asset].extensions["vendor.keep"],
+        before.state().assets[&asset].extensions["vendor.keep"]
+    );
+    project.undo().unwrap();
+    assert_eq!(project.snapshot().state().assets, before.state().assets);
+    assert_eq!(
+        project.snapshot().state().documents,
+        before.state().documents
+    );
+    project.redo().unwrap();
+    assert_eq!(project.snapshot().state().assets, after.state().assets);
+    let mut assigned = (*after.state().assets[&asset]).clone();
+    assigned.extensions.insert(
+        fold_media::ingest::INTERPRETATION_KEY.into(),
+        serde_json::json!({
+        "color_space":"linear_rec709","alpha":null,"provenance":"artist"}),
+    );
+    project
+        .commit(fold_project::EditBatch {
+            base: project.snapshot().revision(),
+            mutations: vec![fold_project::Mutation::PutAsset(assigned)],
+        })
+        .unwrap();
+    let before_rejected = project.snapshot();
+    assert!(
+        browser::edit(
+            &before_rejected,
+            Command::Place(placement(PlacementSource::Asset(asset), target))
+        )
+        .is_err()
+    );
+    assert_eq!(project.snapshot().state(), before_rejected.state());
 }

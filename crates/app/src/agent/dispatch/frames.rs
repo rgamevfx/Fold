@@ -17,6 +17,7 @@ use std::sync::{
 };
 
 pub(super) const MAX_PIXELS: u64 = 1920 * 1080;
+#[derive(Clone)]
 pub(super) struct Request {
     pub snapshot: Snapshot,
     pub document: DocumentId,
@@ -26,6 +27,7 @@ pub(super) struct Request {
     pub time: Time,
     pub dimensions: [u32; 2],
     pub region: Option<fold_render::region::Region>,
+    pub review: Option<crate::agent::wire::FrameReview>,
     pub host: Host,
 }
 pub(super) struct Permit(Arc<AtomicUsize>);
@@ -162,6 +164,77 @@ impl Drop for Worker {
 }
 fn run(
     epoch: ObjectId,
+    mut request: Request,
+    renderer: &mut Renderer,
+    decoder: &mut fold_media::Decoder,
+    cancel: &fold_media::Cancel,
+) -> Result<Value, Failure> {
+    use crate::agent::wire::ReviewLayout;
+    let Some(review) = request.review.take() else {
+        return render_frame(epoch, request, renderer, decoder, cancel);
+    };
+    let frame_size = request
+        .region
+        .map_or(request.dimensions, |region| region.dimensions());
+    let dimensions = review.dimensions(frame_size).map_err(Failure::invalid)?;
+    let count = review.times.len() + 1;
+    let length = dimensions[0] as usize * dimensions[1] as usize * 4;
+    // Peak review storage includes RGBA bytes, u32 onion sums, one decoded
+    // frame, and the frame's hex encoding. Renderer storage has its own lease.
+    let _storage = fold_media::budget::reserve_working(length as u64 * 8)
+        .map_err(|e| Failure::new("budget", e))?;
+    let mut pixels = vec![0u8; length];
+    for alpha in pixels.iter_mut().skip(3).step_by(4) {
+        *alpha = 255;
+    }
+    let mut sums = matches!(review.layout, ReviewLayout::Onion).then(|| vec![0u32; length]);
+    let mut poses = vec![];
+    let times = std::iter::once(request.time).chain(review.times);
+    for (index, time) in times.enumerate() {
+        cancel.check().map_err(|e| Failure::new("cancelled", e))?;
+        request.time = time;
+        let frame = render_frame(epoch, request.clone(), renderer, decoder, cancel)?;
+        let data = frame["image"]["data"]
+            .as_str()
+            .ok_or_else(|| Failure::invalid("Missing review image".into()))?;
+        let bytes = data
+            .as_bytes()
+            .chunks_exact(2)
+            .map(|pair| {
+                let digit = |b| if b <= b'9' { b - b'0' } else { b - b'a' + 10 };
+                (digit(pair[0]) << 4) | digit(pair[1])
+            })
+            .collect::<Vec<u8>>();
+        if let Some(sums) = &mut sums {
+            for (sum, value) in sums.iter_mut().zip(&bytes) {
+                *sum += u32::from(*value);
+            }
+        } else if let ReviewLayout::ContactSheet { columns } = review.layout {
+            let column = index as u32 % columns;
+            let row = index as u32 / columns;
+            for y in 0..frame_size[1] as usize {
+                let source = y * frame_size[0] as usize * 4;
+                let target = ((row * frame_size[1]) as usize + y) * dimensions[0] as usize * 4
+                    + (column * frame_size[0] * 4) as usize;
+                pixels[target..target + frame_size[0] as usize * 4]
+                    .copy_from_slice(&bytes[source..source + frame_size[0] as usize * 4]);
+            }
+        }
+        poses.push(json!({"time":time,"provenance":frame["provenance"],"transfers":frame["transfers"],"rgba_sha256":format!("{:x}",Sha256::digest(&bytes))}));
+    }
+    if let Some(sums) = sums {
+        for (pixel, sum) in pixels.iter_mut().zip(sums) {
+            *pixel = ((sum + count as u32 / 2) / count as u32) as u8;
+        }
+    }
+    let data = hex(&pixels, cancel)?;
+    Ok(
+        json!({"review":{"layout":review.layout,"frame_size":frame_size,"frames":poses,"onion_blending":"equal_weight_display_space_average"},"image":{"encoding":"rgba8_hex","dimensions":dimensions,"row_order":"top_to_bottom","presentation":"shared_viewer_display","alpha":"opaque","data":data}}),
+    )
+}
+
+fn render_frame(
+    epoch: ObjectId,
     request: Request,
     renderer: &mut Renderer,
     decoder: &mut fold_media::Decoder,
@@ -176,6 +249,7 @@ fn run(
         time,
         dimensions,
         region,
+        review: _,
         host,
     } = request;
     let document_record = snapshot
@@ -281,16 +355,21 @@ fn run(
     ));
     provenance["configuration"] = configuration;
     // Hex is explicit, dependency-free and bounded below the 16 MiB wire budget.
-    let mut data = String::with_capacity(pixels.rgba().len() * 2);
+    let data = hex(pixels.rgba(), cancel)?;
+    Ok(
+        json!({"provenance":provenance,"transfers":transfer,"image":{"encoding":"rgba8_hex","dimensions":output_dimensions,"row_order":"top_to_bottom","presentation":"shared_viewer_display","alpha":"opaque","data":data}}),
+    )
+}
+
+fn hex(pixels: &[u8], cancel: &fold_media::Cancel) -> Result<String, Failure> {
+    let mut data = String::with_capacity(pixels.len() * 2);
     const HEX: &[u8; 16] = b"0123456789abcdef";
-    for row in pixels.rgba().chunks(output_dimensions[0] as usize * 4) {
+    for chunk in pixels.chunks(65536) {
         cancel.check().map_err(|e| Failure::new("cancelled", e))?;
-        for &byte in row {
+        for &byte in chunk {
             data.push(HEX[(byte >> 4) as usize] as char);
             data.push(HEX[(byte & 15) as usize] as char);
         }
     }
-    Ok(
-        json!({"provenance":provenance,"transfers":transfer,"image":{"encoding":"rgba8_hex","dimensions":output_dimensions,"row_order":"top_to_bottom","presentation":"shared_viewer_display","alpha":"opaque","data":data}}),
-    )
+    Ok(data)
 }

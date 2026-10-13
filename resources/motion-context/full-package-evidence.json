@@ -1,0 +1,72 @@
+{
+  "scope": "Complete package producer, relocation, installed CLI native/script/3D/native-video outputs",
+  "package": "/home/rgame/dev/Fold_Dev/Fold/target/motion-installed-relocated-20261012",
+  "cases": [
+    {
+      "case": "native",
+      "returncode": 0,
+      "seconds": 13.798425205999592,
+      "stdout": "Rendered committed revision 1 to /home/rgame/dev/Fold_Dev/Fold/target/motion-package-fixtures/native.ppm\n",
+      "stderr": "{\"evaluate_ms\":13227.635405,\"project_load_ms\":0.143791,\"renderer_init_ms\":266.030958}\n",
+      "sha256": "43cfb7730302e3a34cbfc0b257547a5fd00ba1c7cfd3e7f1e5c0f32623225d2c",
+      "nonblack_pixels": 5824
+    },
+    {
+      "case": "script",
+      "returncode": 0,
+      "seconds": 15.45648756599985,
+      "stdout": "Rendered committed revision 1 to /home/rgame/dev/Fold_Dev/Fold/target/motion-package-fixtures/script.ppm\n",
+      "stderr": "{\"evaluate_ms\":14927.885466,\"project_load_ms\":0.09185499999999999,\"renderer_init_ms\":218.279158}\n",
+      "sha256": "43cfb7730302e3a34cbfc0b257547a5fd00ba1c7cfd3e7f1e5c0f32623225d2c",
+      "nonblack_pixels": 5824
+    },
+    {
+      "case": "script-half",
+      "returncode": 0,
+      "seconds": 7.631524800000079,
+      "stdout": "Rendered committed revision 1 to /home/rgame/dev/Fold_Dev/Fold/target/motion-package-fixtures/script-half.ppm\n",
+      "stderr": "{\"evaluate_ms\":7098.966963,\"project_load_ms\":0.094466,\"renderer_init_ms\":209.373433}\n",
+      "sha256": "7cde7e67e8b2cfe3e3a9445f3dc6f0f1197ad9c6462ca8f75aac7c4c2f2e500b",
+      "nonblack_pixels": 5824
+    },
+    {
+      "case": "script-repeat",
+      "returncode": 0,
+      "seconds": 8.223361893000401,
+      "stdout": "Rendered committed revision 1 to /home/rgame/dev/Fold_Dev/Fold/target/motion-package-fixtures/script-repeat.ppm\n",
+      "stderr": "{\"evaluate_ms\":7177.331262,\"project_load_ms\":0.09197,\"renderer_init_ms\":209.113605}\n",
+      "sha256": "43cfb7730302e3a34cbfc0b257547a5fd00ba1c7cfd3e7f1e5c0f32623225d2c",
+      "nonblack_pixels": 5824
+    },
+    {
+      "case": "three-d",
+      "returncode": 0,
+      "seconds": 1.1979704860004858,
+      "stdout": "Rendered committed revision 1 to /home/rgame/dev/Fold_Dev/Fold/target/motion-package-fixtures/three-d.ppm\n",
+      "stderr": "{\"evaluate_ms\":641.0839739999999,\"project_load_ms\":0.129767,\"renderer_init_ms\":214.25219}\n",
+      "sha256": "49d8431b638541813abc4f8f76cdc36dfe92ffab30d490f878ff03487ab5964d",
+      "nonblack_pixels": 9216
+    },
+    {
+      "case": "video",
+      "returncode": 0,
+      "seconds": 0.9697675709994655,
+      "stdout": "Rendered committed revision 1 to /home/rgame/dev/Fold_Dev/Fold/target/motion-package-fixtures/video.ppm\n",
+      "stderr": "{\"evaluate_ms\":325.458211,\"project_load_ms\":0.074907,\"renderer_init_ms\":217.094025}\n",
+      "sha256": "e1004cd804d98040b81455ffccedc24451c53baf96a8bd96f8566fcc397c8dc3",
+      "nonblack_pixels": 230400
+    }
+  ],
+  "verified_manifest_files": 19582,
+  "old_package_path_absent": true,
+  "source_manifest_matches": true,
+  "native_dependencies": {
+    "fold-cli": "\tlinux-vdso.so.1 (0x00007c2e0ccbb000)\n\tlibstdc++.so.6 => /lib/x86_64-linux-gnu/libstdc++.so.6 (0x00007c2e08800000)\n\tlibgcc_s.so.1 => /lib/x86_64-linux-gnu/libgcc_s.so.1 (0x00007c2e0cc66000)\n\tlibm.so.6 => /lib/x86_64-linux-gnu/libm.so.6 (0x00007c2e0cb7d000)\n\tlibc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007c2e08400000)\n\t/lib64/ld-linux-x86-64.so.2 (0x00007c2e0ccbd000)\n",
+    "fold-desktop": "\tlinux-vdso.so.1 (0x00007a4277265000)\n\tlibasound.so.2 => /lib/x86_64-linux-gnu/libasound.so.2 (0x00007a42726f6000)\n\tlibstdc++.so.6 => /lib/x86_64-linux-gnu/libstdc++.so.6 (0x00007a4272400000)\n\tlibgcc_s.so.1 => /lib/x86_64-linux-gnu/libgcc_s.so.1 (0x00007a4277210000)\n\tlibm.so.6 => /lib/x86_64-linux-gnu/libm.so.6 (0x00007a4272317000)\n\tlibc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007a4272000000)\n\t/lib64/ld-linux-x86-64.so.2 (0x00007a4277267000)\n",
+    "fold-video-helper": "\tlinux-vdso.so.1 (0x000079ec64a42000)\n\tlibavformat.so.60 => /home/rgame/dev/Fold_Dev/Fold/target/motion-installed-relocated-20261012/bin/../lib/libavformat.so.60 (0x000079ec6497a000)\n\tlibavcodec.so.60 => /home/rgame/dev/Fold_Dev/Fold/target/motion-installed-relocated-20261012/bin/../lib/libavcodec.so.60 (0x000079ec64600000)\n\tlibavutil.so.58 => /home/rgame/dev/Fold_Dev/Fold/target/motion-installed-relocated-20261012/bin/../lib/libavutil.so.58 (0x000079ec63400000)\n\tlibcuda.so.1 => /lib/x86_64-linux-gnu/libcuda.so.1 (0x000079ec5d600000)\n\tlibgcc_s.so.1 => /lib/x86_64-linux-gnu/libgcc_s.so.1 (0x000079ec6492d000)\n\tlibc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x000079ec5d200000)\n\t/lib64/ld-linux-x86-64.so.2 (0x000079ec64a44000)\n\tlibm.so.6 => /lib/x86_64-linux-gnu/libm.so.6 (0x000079ec64842000)\n\tlibdl.so.2 => /lib/x86_64-linux-gnu/libdl.so.2 (0x000079ec6483d000)\n\tlibpthread.so.0 => /lib/x86_64-linux-gnu/libpthread.so.0 (0x000079ec64838000)\n\tlibrt.so.1 => /lib/x86_64-linux-gnu/librt.so.1 (0x000079ec64833000)\n"
+  },
+  "native_script_exact": true,
+  "repeat_exact": true,
+  "time_changes_pixels": true,
+  "passed": true
+}

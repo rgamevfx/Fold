@@ -86,7 +86,7 @@ impl Adapter {
                 if params.get("cursor").is_some() {
                     return Some(error(rpc.id, -32602, "This tool list has no cursor"));
                 }
-                json!({"tools":[{"name":"fold_request","description":"Discover, inspect, propose, observe, apply or cancel using Fold's native versioned protocol. Apply changes the open project; file writes and rendering are not supported yet.","inputSchema":wire::schema(),"annotations":{"readOnlyHint":false,"destructiveHint":true,"idempotentHint":false,"openWorldHint":false}}]})
+                json!({"tools":[{"name":"fold_request","description":"Discover capabilities, inspect documents, propose native or project edits, inspect and apply candidates, observe frames, save project copies or manage jobs through Fold's versioned protocol. Apply changes the open project; save writes a new file. Frame observations require the discovered GPU capability. Use discovery for provider schemas and limits.","inputSchema":wire::schema(),"annotations":{"readOnlyHint":false,"destructiveHint":true,"idempotentHint":false,"openWorldHint":false}}]})
             }
             "tools/call" => {
                 if params.get("task").is_some() {

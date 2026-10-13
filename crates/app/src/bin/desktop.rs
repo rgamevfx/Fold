@@ -72,7 +72,8 @@ fn main() -> std::process::ExitCode {
         .and_then(|()| fold_timeline::ui::register(&mut panels))
         .and_then(|()| fold_compositor::ui::register(&mut panels))
         .and_then(|()| fold_composition::ui::register(&mut panels))
-        .and_then(|()| fold_motion::ui::register(&mut panels))
+        .and_then(|()| fold_motion_context::ui::register(&mut panels))
+        .and_then(|()| fold_three_d::ui::register(&mut panels))
     {
         eprintln!("Fold panel registration failed: {error}");
         return std::process::ExitCode::FAILURE;

@@ -1,0 +1,38 @@
+{
+  "cold_conversion_ms": 0.270126,
+  "device_uuid": [
+    109,
+    101,
+    115,
+    97,
+    50,
+    54,
+    46,
+    49,
+    46,
+    54,
+    45,
+    49,
+    112,
+    111,
+    112,
+    0
+  ],
+  "differing_pixels": 0,
+  "dimensions": [
+    640,
+    360
+  ],
+  "linear_gradients_captured": true,
+  "max_float_error": 0.0,
+  "objects": 15,
+  "qualification_readback": true,
+  "radial_gradient_rejected": true,
+  "restored_text_pixels_identical": true,
+  "schema": 4,
+  "text_cache_capacity": 10,
+  "text_edit_changes_pixels": true,
+  "warm_conversion_p50_ms": 0.031629,
+  "warm_text_cache_pixels_identical": true,
+  "adapter_note": "Mesa Vulkan; this run does not qualify hardware frame speed."
+}

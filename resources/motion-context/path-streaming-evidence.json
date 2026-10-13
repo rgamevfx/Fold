@@ -1,0 +1,74 @@
+{
+  "scope": "native Vulkan streamed path coordinates versus prior eight-sample renderer; five animated and five subdivided frames",
+  "exact_rgba32f_before_after": true,
+  "frames": [
+    {
+      "kind": "frame",
+      "index": 0,
+      "rgba32f_sha256": "49696a6bf6d673a8a358ed73747bd0ff0f1aad33c476edfd959e26a19c75da58"
+    },
+    {
+      "kind": "frame",
+      "index": 1,
+      "rgba32f_sha256": "2330c1543d2f24d7cbdabff61c653ae6ec88723d523e03c2bd76482efa88e456"
+    },
+    {
+      "kind": "frame",
+      "index": 2,
+      "rgba32f_sha256": "b80bb4e48488c4287b81436209103d1b95914360605bcee4fe29f9e6f8796a18"
+    },
+    {
+      "kind": "frame",
+      "index": 3,
+      "rgba32f_sha256": "ca68d5fddc802fb4e1fbf33a47397edba172332bd4480f2a0bf57a9a62290394"
+    },
+    {
+      "kind": "frame",
+      "index": 4,
+      "rgba32f_sha256": "49696a6bf6d673a8a358ed73747bd0ff0f1aad33c476edfd959e26a19c75da58"
+    },
+    {
+      "kind": "split",
+      "index": 0,
+      "rgba32f_sha256": "937c678111f599e31517a76705d0d8ff4509c6bf63838561efecd6e02186d585"
+    },
+    {
+      "kind": "split",
+      "index": 1,
+      "rgba32f_sha256": "6d28dbb7ad81d62670a942a0606be93fb210c9f246ef86e863749b7c9181a516"
+    },
+    {
+      "kind": "split",
+      "index": 2,
+      "rgba32f_sha256": "337c9a3cf7bcef441c66c3a840b1d778c10cada42622e13037c3d7318f380976"
+    },
+    {
+      "kind": "split",
+      "index": 3,
+      "rgba32f_sha256": "5f563defa1b2162d5d7946de49fc7473939810cd5f9f521608ee3b06f00357d1"
+    },
+    {
+      "kind": "split",
+      "index": 4,
+      "rgba32f_sha256": "937c678111f599e31517a76705d0d8ff4509c6bf63838561efecd6e02186d585"
+    }
+  ],
+  "device_uuid": [
+    51,
+    15,
+    224,
+    75,
+    242,
+    209,
+    55,
+    37,
+    162,
+    157,
+    10,
+    35,
+    238,
+    158,
+    113,
+    71
+  ]
+}

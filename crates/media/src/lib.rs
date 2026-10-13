@@ -12,7 +12,7 @@ pub mod exr_sequence;
 pub mod ingest;
 #[cfg(all(feature = "native-video", target_os = "linux"))]
 pub mod native;
-mod process;
+pub mod process;
 mod source_pin;
 pub use source_pin::pinned_source_bytes;
 pub mod thumbnail;

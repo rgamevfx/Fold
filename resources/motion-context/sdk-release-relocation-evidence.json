@@ -1,0 +1,24 @@
+{
+  "scope": "Generated Fold worker prepared with relocated release SDK; standalone native Vulkan readback",
+  "sdk_profile": "release",
+  "driver_profile": "debug",
+  "preparation_ms": 95716.42885601614,
+  "original_sdk_path_absent": true,
+  "producer_build_directory_removed": true,
+  "worker_ms": 511.41277799615636,
+  "executable_permissions": true,
+  "frames_sha256": [
+    "ccc141e853102a5a94c939ae414644a4b914f7204260d1cf271e51ababd8257c",
+    "2c9238de94e75dcc3f97de04eb82f2d7664c71d9d0ba9a140c76e6a15b2d170f",
+    "ccc141e853102a5a94c939ae414644a4b914f7204260d1cf271e51ababd8257c"
+  ],
+  "debug_sdk_pixel_parity": true,
+  "repeat_exact": true,
+  "time_changes_pixels": true,
+  "installed_app_acceptance": false,
+  "dependency_libraries": 348,
+  "staged_files": 19533,
+  "sdk_status": "precompiled_libraries",
+  "dependency_build_seconds": 150,
+  "producer_log": "/tmp/fold-motion-sdk-release-qualified-stage.log"
+}

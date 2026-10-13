@@ -50,6 +50,10 @@ pub fn run(
             if let Some(graph) = &mut placement.graph {
                 graph.position[0] += 240.;
             }
+            if let Some(position) = &mut placement.canvas_position {
+                position[0] += 24.;
+                position[1] += 24.;
+            }
             // Batch timeline drops append each source, preserving its exact duration.
             if candidate
                 .snapshot()
@@ -84,11 +88,28 @@ pub fn run(
                 }
             }
         }
-        return Ok(Some(crate::ingest::IngestProposal::new(
-            candidate.proposal(),
-            cancel.clone(),
-            items,
-        )));
+        let objects = crate::packages::builtins().placed_objects(
+            snapshot
+                .state()
+                .documents
+                .get(&placement.target)
+                .ok_or("Missing placement target")?,
+            candidate
+                .snapshot()
+                .state()
+                .documents
+                .get(&placement.target)
+                .ok_or("Missing placed document")?,
+        )?;
+        let mut result =
+            crate::ingest::IngestProposal::new(candidate.proposal(), cancel.clone(), items);
+        if !objects.is_empty() {
+            result.placement_selection = Some(fold_platform::desktop::Selection {
+                document: Some(placement.target),
+                objects,
+            });
+        }
+        return Ok(Some(result));
     }
     let (paths, destination, relink) = match command {
         BrowserCommand::Import { paths, destination } => (paths, destination, None),

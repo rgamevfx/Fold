@@ -19,3 +19,29 @@ pub fn image(rgba: [f32; 4]) -> fold_compositor::Composite {
         extensions: Default::default(),
     }
 }
+
+/// Native artwork used to qualify shared services; no retired engine is involved.
+pub fn motion() -> fold_motion_canvas::model::Canvas {
+    let mut canvas = fold_motion_canvas::model::Canvas::default();
+    let id = fold_foundation::ObjectId::new();
+    canvas.roots.push(id);
+    canvas.objects.insert(
+        id,
+        fold_motion_canvas::tools::new_object("rectangle").unwrap(),
+    );
+    canvas
+}
+
+pub fn motion_request(
+    document: fold_foundation::DocumentId,
+    native: serde_json::Value,
+    x: f64,
+) -> serde_json::Value {
+    let id = native["native"]["roots"][0].as_str().unwrap();
+    let expected = native["native"]["objects"][id]["transform"]["x"].clone();
+    let mut value = expected.clone();
+    value["value"] = serde_json::json!(x);
+    serde_json::json!({"op":"author","document":document,"expected":native,"edits":[
+        {"op":"parameter","object":id,"expected":expected,"value":value}
+    ]})
+}

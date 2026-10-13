@@ -11,11 +11,6 @@ pub(super) fn run(
 ) -> Result<native::Candidate, Failure> {
     match edit {
         Edit::Project { edits } => native::prepare(snapshot, guard.scope, &edits, cancel),
-        edit => native::prepare_scoped(
-            snapshot,
-            guard.scope,
-            serde_json::to_value(edit).map_err(|e| Failure::invalid(e.to_string()))?,
-            cancel,
-        ),
+        Edit::Native { request } => native::prepare_scoped(snapshot, guard.scope, request, cancel),
     }
 }

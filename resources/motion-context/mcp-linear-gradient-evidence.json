@@ -1,0 +1,58 @@
+{
+  "workflow": "MCP script authoring -> editable capture -> native gradient stop edit -> immutable review -> Apply -> save/reopen -> artist undo",
+  "schema": 4,
+  "dimensions": [
+    640,
+    360
+  ],
+  "time": [
+    1,
+    2
+  ],
+  "capture_pixels_identical": true,
+  "edited_candidate_matches_committed": true,
+  "stop_edit_changes_pixels": true,
+  "stop_ids": [
+    "4a8d614b-6a40-4223-865f-b42ee041f0ae",
+    "1431ac70-1751-48a4-950c-a53e36b595af",
+    "e3ff6232-b071-4a94-8c5b-ffcfebaa51ae"
+  ],
+  "save_reopen_documents_identical": true,
+  "artist_undo_restores_stop_then_script_then_original_shape": true,
+  "display_encoding": "rgba8_hex",
+  "images": {
+    "before": {
+      "sha256": "4ff7b8a32174f7f0acca31bde85ecd5cbedf0f0fc154ce7c7a80ef8f44c0bad2"
+    },
+    "candidate": {
+      "sha256": "4ff7b8a32174f7f0acca31bde85ecd5cbedf0f0fc154ce7c7a80ef8f44c0bad2"
+    },
+    "after": {
+      "sha256": "4ff7b8a32174f7f0acca31bde85ecd5cbedf0f0fc154ce7c7a80ef8f44c0bad2"
+    },
+    "edited_candidate": {
+      "sha256": "bd7fcbd6489d566f0838a79f3f39cd697b59de2fc99b9dfd9c344067d160cf09"
+    },
+    "edited_committed": {
+      "sha256": "bd7fcbd6489d566f0838a79f3f39cd697b59de2fc99b9dfd9c344067d160cf09"
+    }
+  },
+  "transfers": {
+    "before": {
+      "cpu_adapter_nodes": 0,
+      "evaluation_readback_bytes": 0
+    },
+    "candidate": {
+      "cpu_adapter_nodes": 0,
+      "evaluation_readback_bytes": 0
+    },
+    "after": {
+      "cpu_adapter_nodes": 0,
+      "evaluation_readback_bytes": 0
+    }
+  },
+  "gradient_edit_transfers": {
+    "cpu_adapter_nodes": 0,
+    "evaluation_readback_bytes": 0
+  }
+}

@@ -36,7 +36,9 @@ impl VideoProvider for SequenceProvider {
             width,
             height,
             nodes: vec![ImageOp::Solid {
-                rgba: [0.0, 0.0, 0.0, 1.0],
+                // Empty timeline regions have no coverage. A black matte must
+                // be authored upstream rather than silently destroying alpha.
+                rgba: [0.; 4],
             }],
             output: 0,
         };

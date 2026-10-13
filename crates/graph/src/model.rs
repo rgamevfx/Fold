@@ -38,7 +38,7 @@ pub struct Node {
     #[serde(flatten)]
     pub extensions: Metadata,
 }
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct Parameter {
     pub id: ObjectId,
     /// Unknown operation/version arguments remain opaque until their owner resolves them.

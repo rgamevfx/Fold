@@ -1,0 +1,79 @@
+{
+  "scene": {
+    "dimensions": [
+      640,
+      360
+    ],
+    "native_objects": 2,
+    "script_dots": [
+      10000,
+      8000,
+      10000
+    ]
+  },
+  "fframes_revision": "b644f22cf5be2333e7098caf7ec064c3d36aeb02",
+  "worker_profile": "release",
+  "parent_profile": "debug",
+  "environment": "Native device access; Vulkan GPU0 NVIDIA GeForce GTX 1070, driver 580.173.02",
+  "direct_worker_phases": [
+    {
+      "document_ms": 2.9377090000000003,
+      "draw": {
+        "commands_ms": 5.428528,
+        "conversion_ms": 19.532040000000002,
+        "submit_ms": 19.404497
+      },
+      "id": 1,
+      "initialize_ms": 436.18408,
+      "parse_ms": 10.657651000000001,
+      "readback_ms": 4.596290000000001,
+      "transport_ms": 2.290178
+    },
+    {
+      "document_ms": 0.804781,
+      "draw": {
+        "commands_ms": 4.147717,
+        "conversion_ms": 12.330541,
+        "submit_ms": 0.494325
+      },
+      "id": 2,
+      "initialize_ms": 0.000124,
+      "parse_ms": 0.0339,
+      "readback_ms": 2.101296,
+      "transport_ms": 2.427319
+    },
+    {
+      "document_ms": 1.2801559999999998,
+      "draw": {
+        "commands_ms": 5.21494,
+        "conversion_ms": 18.611635,
+        "submit_ms": 0.563697
+      },
+      "id": 3,
+      "initialize_ms": 0.000123,
+      "parse_ms": 0.033312999999999995,
+      "readback_ms": 2.7206460000000003,
+      "transport_ms": 2.4410529999999997
+    }
+  ],
+  "parent_demands_before_bulk_float_read_ms": [
+    55320.72565,
+    129.09763,
+    127.144988
+  ],
+  "parent_demands_after_bulk_float_read_ms": [
+    8087.09522,
+    83.158269,
+    89.333124
+  ],
+  "first_demand_includes_compilation": true,
+  "cold_demand_timings_comparable": false,
+  "transport": "CPU RGBA32F readback for qualification",
+  "performance_qualified": false,
+  "limitations": [
+    "Three demands per run, no statistical benchmark",
+    "Native GPU and software-device debug runs are separate environments",
+    "Parent executable is unoptimized",
+    "Final GPU compositor transport is not implemented"
+  ]
+}

@@ -7,6 +7,7 @@ pub mod composition;
 pub mod composition_layers;
 pub mod document_placement;
 pub mod ingest;
+mod motion_runtime;
 pub mod output;
 pub mod packages;
 #[cfg(feature = "desktop")]
@@ -18,5 +19,6 @@ pub mod settings;
 mod timeline_transition;
 pub mod timeline_workflow;
 
+mod motion_conversion;
 mod read_source;
 mod write_destination;

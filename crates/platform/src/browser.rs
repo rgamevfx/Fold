@@ -80,6 +80,8 @@ pub struct GraphPlacement {
 pub struct Placement {
     /// Graph source placement; None creates a clip or visible layer/object.
     pub graph: Option<GraphPlacement>,
+    /// Image-space center for a visible object; independent of graph layout.
+    pub canvas_position: Option<[f64; 2]>,
     pub source: PlacementSource,
     pub target: DocumentId,
     pub track: Option<ObjectId>,

@@ -1,5 +1,5 @@
 //! C4 capability boundary: immutable providers cannot publish or mint receipts.
-use fold_foundation::{DocumentId, ObjectId};
+use fold_foundation::DocumentId;
 use fold_media::Cancel;
 use fold_platform::proposals::{FailureKind, InspectionRequest, Scope, ScopedRequest};
 use fold_project::{EditBatch, Mutation, Project};
@@ -10,7 +10,9 @@ fn scoped_preparation_guards_identity_revision_cancellation_and_inspection_scope
     let registry = fold_app::packages::builtins();
     let id = DocumentId::new();
     let mut project = Project::new(8);
-    let document = fold_motion::package::create(id).unwrap();
+    let document = fold_motion_canvas::model::Canvas::default()
+        .document(id)
+        .unwrap();
     project
         .commit(EditBatch {
             base: project.snapshot().revision(),
@@ -20,11 +22,7 @@ fn scoped_preparation_guards_identity_revision_cancellation_and_inspection_scope
     let base = project.snapshot();
     let document = &base.state().documents[&id];
     let capability = registry.scoped_proposals(document).unwrap();
-    let scope = Scope {
-        document: id,
-        definition: None,
-        object: None,
-    };
+    let scope = Scope { document: id };
     let request = ScopedRequest {
         scope,
         version: 99,
@@ -38,8 +36,8 @@ fn scoped_preparation_guards_identity_revision_cancellation_and_inspection_scope
             .kind,
         FailureKind::Unsupported
     );
-    let mut records = fold_motion::model::Construction::from_document(document).unwrap();
-    records.seed += 1;
+    let mut records = fold_motion_canvas::model::Canvas::from_document(document).unwrap();
+    records.width += 1;
     let after = records.replace_document(document).unwrap();
     let cancelled = Cancel::default();
     cancelled.cancel();
@@ -70,8 +68,7 @@ fn scoped_preparation_guards_identity_revision_cancellation_and_inspection_scope
         prepared
             .inspect(
                 &InspectionRequest::all(Scope {
-                    definition: Some(ObjectId::new()),
-                    ..scope
+                    document: DocumentId::new(),
                 }),
                 &Cancel::default()
             )
@@ -101,7 +98,9 @@ fn scoped_preparation_guards_identity_revision_cancellation_and_inspection_scope
         .commit(EditBatch {
             base: base.revision(),
             mutations: vec![Mutation::PutDocument(
-                fold_motion::package::create(other).unwrap(),
+                fold_motion_canvas::model::Canvas::default()
+                    .document(other)
+                    .unwrap(),
             )],
         })
         .unwrap();

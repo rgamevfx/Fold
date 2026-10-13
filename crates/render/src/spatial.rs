@@ -1,8 +1,5 @@
 //! Immutable, feature-neutral inputs. IDs belong to Fold; no ECS state escapes.
-pub mod extrude;
-pub mod planar;
 pub mod plane;
-pub mod primitives;
 /// Whether this build includes the GPU implementation of spatial image sources.
 pub const GPU_ENABLED: bool = cfg!(feature = "spatial");
 use fold_foundation::{DocumentId, ObjectId, Time};
@@ -97,7 +94,7 @@ pub struct Camera {
     pub ev100: f32,
 }
 impl Camera {
-    fn validate(&self) -> Result<(), String> {
+    pub fn validate(&self) -> Result<(), String> {
         let camera = self;
         let position = camera.position;
         let direction = std::array::from_fn(|i| camera.target[i] - position[i]);
@@ -151,6 +148,23 @@ pub struct DirectionalLight {
     pub direction: [f32; 3],
     pub color: [f32; 3],
     pub illuminance: f32,
+}
+impl DirectionalLight {
+    pub fn validate(&self) -> Result<(), String> {
+        if !finite(self.direction)
+            || !length_squared(self.direction).is_finite()
+            || length_squared(self.direction) < 1e-12
+            || self
+                .color
+                .iter()
+                .any(|v| !v.is_finite() || !(0.0..=1.).contains(v))
+            || !self.illuminance.is_finite()
+            || !(0.0..=100_000.).contains(&self.illuminance)
+        {
+            return Err("Invalid spatial directional light".into());
+        }
+        Ok(())
+    }
 }
 #[derive(Clone, Debug)]
 pub struct Scene {
@@ -243,18 +257,8 @@ impl Scene {
         self.camera.validate()?;
         ids.clear();
         for light in &self.lights {
-            let direction = light.direction;
-            if !ids.insert(light.id)
-                || !finite(direction)
-                || !length_squared(direction).is_finite()
-                || length_squared(direction) < 1e-12
-                || light
-                    .color
-                    .iter()
-                    .any(|v| !v.is_finite() || !(0.0..=1.).contains(v))
-                || !light.illuminance.is_finite()
-                || !(0.0..=100_000.).contains(&light.illuminance)
-            {
+            light.validate()?;
+            if !ids.insert(light.id) {
                 return Err("Invalid spatial directional light".into());
             }
         }

@@ -1,0 +1,244 @@
+{
+  "app_integration_qualified": false,
+  "cpu_pixel_transport": false,
+  "device": "NVIDIA GeForce GTX 1070",
+  "frame_request_ms_excluding_reference_readback": [
+    1088.2165870000001,
+    70.160293,
+    78.376477
+  ],
+  "host_profile": "debug",
+  "memory_released": true,
+  "oversized_changed_program_rejected_before_start": true,
+  "performance_qualified": false,
+  "producer_memory_reserved_before_demand": true,
+  "producer_release_confirmed_before_reservation_drop": true,
+  "runtime_statistics": {
+    "frames_completed": 28,
+    "workers_started": 1
+  },
+  "stale_epoch_revision_generation_time_dimensions_rejected": true,
+  "warm_frame_ms_max": 79.120039,
+  "warm_frame_ms_p50": 72.516638,
+  "warm_frame_ms_p95": 79.120039,
+  "warm_frames": 20,
+  "warm_host_phases": [
+    {
+      "poll_ms": 0.030691000000000003,
+      "publication_release_ms": 0.21075,
+      "render_ms": 69.84730499999999,
+      "snapshot_ms": 0.5113850000000001
+    },
+    {
+      "poll_ms": 0.030199,
+      "publication_release_ms": 0.213655,
+      "render_ms": 68.582989,
+      "snapshot_ms": 0.512416
+    },
+    {
+      "poll_ms": 0.03043,
+      "publication_release_ms": 0.21180400000000002,
+      "render_ms": 69.264184,
+      "snapshot_ms": 0.5072399999999999
+    },
+    {
+      "poll_ms": 0.028895999999999998,
+      "publication_release_ms": 0.218258,
+      "render_ms": 69.097124,
+      "snapshot_ms": 0.5047429999999999
+    },
+    {
+      "poll_ms": 0.03812,
+      "publication_release_ms": 0.225683,
+      "render_ms": 71.758902,
+      "snapshot_ms": 0.5045750000000001
+    },
+    {
+      "poll_ms": 0.041908,
+      "publication_release_ms": 0.222121,
+      "render_ms": 71.436133,
+      "snapshot_ms": 0.5982379999999999
+    },
+    {
+      "poll_ms": 0.030999,
+      "publication_release_ms": 0.22736699999999999,
+      "render_ms": 76.409937,
+      "snapshot_ms": 0.50261
+    },
+    {
+      "poll_ms": 0.033272,
+      "publication_release_ms": 0.215229,
+      "render_ms": 75.698112,
+      "snapshot_ms": 0.50437
+    },
+    {
+      "poll_ms": 0.074297,
+      "publication_release_ms": 0.398219,
+      "render_ms": 77.94744,
+      "snapshot_ms": 0.720358
+    },
+    {
+      "poll_ms": 0.031372,
+      "publication_release_ms": 0.245885,
+      "render_ms": 72.453835,
+      "snapshot_ms": 0.5831379999999999
+    }
+  ],
+  "warm_measured_frames": 10,
+  "warm_measurement": "snapshot preparation, render, publication, release and host poll; no reference readback",
+  "warmup_frames_discarded": 10,
+  "worker_profile": "release",
+  "worker_profiles": [
+    {
+      "document_ms": 1.087545,
+      "draw": {
+        "commands_ms": 6.256984999999999,
+        "conversion_ms": 13.791318,
+        "submit_ms": 0.858805
+      },
+      "id": 19,
+      "initialize_ms": 0.05863,
+      "output_mode": "gpu_publish",
+      "output_ms": 1.022806,
+      "parse_ms": 0.06629700000000001,
+      "transport_ms": 5.703059
+    },
+    {
+      "document_ms": 1.033711,
+      "draw": {
+        "commands_ms": 6.090873,
+        "conversion_ms": 14.263746000000001,
+        "submit_ms": 0.831009
+      },
+      "id": 20,
+      "initialize_ms": 0.056643,
+      "output_mode": "gpu_publish",
+      "output_ms": 1.070966,
+      "parse_ms": 0.065231,
+      "transport_ms": 5.451186
+    },
+    {
+      "document_ms": 1.089207,
+      "draw": {
+        "commands_ms": 6.202732,
+        "conversion_ms": 14.052636999999999,
+        "submit_ms": 0.827446
+      },
+      "id": 21,
+      "initialize_ms": 0.058844,
+      "output_mode": "gpu_publish",
+      "output_ms": 1.079925,
+      "parse_ms": 0.06469799999999999,
+      "transport_ms": 5.538679999999999
+    },
+    {
+      "document_ms": 1.083559,
+      "draw": {
+        "commands_ms": 6.182619000000001,
+        "conversion_ms": 13.722983,
+        "submit_ms": 0.829831
+      },
+      "id": 22,
+      "initialize_ms": 0.073201,
+      "output_mode": "gpu_publish",
+      "output_ms": 1.156977,
+      "parse_ms": 0.065329,
+      "transport_ms": 5.4085399999999995
+    },
+    {
+      "document_ms": 1.0703360000000002,
+      "draw": {
+        "commands_ms": 6.687308000000001,
+        "conversion_ms": 13.548014,
+        "submit_ms": 0.877004
+      },
+      "id": 23,
+      "initialize_ms": 0.071067,
+      "output_mode": "gpu_publish",
+      "output_ms": 1.212248,
+      "parse_ms": 0.06465800000000001,
+      "transport_ms": 5.787961
+    },
+    {
+      "document_ms": 1.085258,
+      "draw": {
+        "commands_ms": 6.250349,
+        "conversion_ms": 13.698814,
+        "submit_ms": 0.869182
+      },
+      "id": 24,
+      "initialize_ms": 0.073423,
+      "output_mode": "gpu_publish",
+      "output_ms": 1.121036,
+      "parse_ms": 0.065062,
+      "transport_ms": 6.434083
+    },
+    {
+      "document_ms": 1.079796,
+      "draw": {
+        "commands_ms": 8.839901000000001,
+        "conversion_ms": 13.529878,
+        "submit_ms": 0.923759
+      },
+      "id": 25,
+      "initialize_ms": 0.060758,
+      "output_mode": "gpu_publish",
+      "output_ms": 1.351248,
+      "parse_ms": 0.064211,
+      "transport_ms": 6.0445660000000005
+    },
+    {
+      "document_ms": 1.089811,
+      "draw": {
+        "commands_ms": 7.370432,
+        "conversion_ms": 14.843752,
+        "submit_ms": 0.865774
+      },
+      "id": 26,
+      "initialize_ms": 0.062222,
+      "output_mode": "gpu_publish",
+      "output_ms": 1.101933,
+      "parse_ms": 0.064862,
+      "transport_ms": 5.884086
+    },
+    {
+      "document_ms": 1.10206,
+      "draw": {
+        "commands_ms": 7.954960000000001,
+        "conversion_ms": 15.800020000000002,
+        "submit_ms": 0.8633580000000001
+      },
+      "id": 27,
+      "initialize_ms": 0.071325,
+      "output_mode": "gpu_publish",
+      "output_ms": 1.05549,
+      "parse_ms": 0.06747199999999999,
+      "transport_ms": 6.418634
+    },
+    {
+      "document_ms": 1.0575,
+      "draw": {
+        "commands_ms": 6.121842,
+        "conversion_ms": 14.298592000000001,
+        "submit_ms": 0.843846
+      },
+      "id": 28,
+      "initialize_ms": 0.059141,
+      "output_mode": "gpu_publish",
+      "output_ms": 1.366169,
+      "parse_ms": 0.064496,
+      "transport_ms": 6.808621
+    }
+  ],
+  "host_phase_medians_ms": {
+    "poll_ms": 0.031185499999999998,
+    "publication_release_ms": 0.2201895,
+    "render_ms": 71.59751750000001,
+    "snapshot_ms": 0.5093125000000001
+  },
+  "worker_draw_medians_ms": {
+    "commands_ms": 6.253667,
+    "conversion_ms": 13.9219775,
+    "submit_ms": 0.8610815
+  }
+}

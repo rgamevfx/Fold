@@ -15,8 +15,8 @@ fn builtin_capabilities_match_callable_contracts() {
             false,
         ),
         (fold_compositor::COMPOSITE, true, false, true, true, true),
-        (fold_motion::CONSTRUCTION, true, false, false, false, false),
-        (fold_motion::scene::TYPE, true, true, false, false, false),
+        (fold_motion_canvas::TYPE, true, false, false, false, false),
+        (fold_three_d::TYPE, true, false, false, false, false),
     ] {
         let document = registry.create(kind, DocumentId::new()).unwrap();
         assert!(

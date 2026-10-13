@@ -1,0 +1,19 @@
+{
+  "scope": "Relocated locked dependency resolution only; not compilation or rendering",
+  "packages": 276,
+  "local_packages": [
+    "fold-animation",
+    "fold-foundation",
+    "fold-gpu-sharing",
+    "fold-graph",
+    "fold-motion-canvas",
+    "fold-motion-fframes",
+    "fold-project"
+  ],
+  "empty_cargo_home": true,
+  "offline": true,
+  "locked": true,
+  "all_manifests_inside_sdk": true,
+  "vendor_configuration_relative": true,
+  "native_compile_accepted": false
+}

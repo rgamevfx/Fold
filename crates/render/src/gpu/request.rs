@@ -63,6 +63,20 @@ impl Renderer {
         let mut sources: Vec<Option<GpuFrame>> = (0..graph.nodes.len()).map(|_| None).collect();
         for (id, op) in graph.nodes.iter().enumerate() {
             if needed[id]
+                && let ImageOp::Source(source) = op
+            {
+                let frame = source.render(&self.host, cancel)?;
+                if frame.host.id() != self.host.id()
+                    || frame.dimensions() != source.dimensions()
+                    || frame.working_space != WorkingSpace::LegacyLinearSrgb
+                    || frame.config_identity.is_some()
+                {
+                    return Err("External source returned an incompatible frame".into());
+                }
+                stats.accumulate(&frame.statistics);
+                sources[id] = Some(frame);
+            }
+            if needed[id]
                 && let ImageOp::Spatial { scene, binding } = op
             {
                 #[cfg(feature = "spatial")]

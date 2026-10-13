@@ -1,0 +1,3749 @@
+{
+  "created": "2026-10-11",
+  "epoch": "77177d71-f6d4-4f30-a265-c5ffff84724e",
+  "revision": 16,
+  "documents": {
+    "comp": "2b4ef69c-1141-492b-8d86-547c61655915",
+    "texture": "baf2f43a-1a19-422e-b989-a2316531d62d",
+    "scene": "51b1a23e-ba5a-4443-a3f4-b056aaa9d695",
+    "layer": "7af6182f-1213-4e37-b2ca-af29bea3734c",
+    "textureOutput": "6707252f-f6ad-4dbb-a874-7c03ce1f82c5"
+  },
+  "format": {
+    "width": 1920,
+    "height": 1080,
+    "rate": [
+      30,
+      1
+    ],
+    "frames": 180
+  },
+  "saved": {
+    "durable": true,
+    "path": "/home/rgame/dev/Fold_Dev/Fold/demos/Fold-version-1.fold",
+    "revision": 16,
+    "session_file_changed": false,
+    "state": "saved",
+    "warning": null
+  },
+  "save_retry": {
+    "durable": true,
+    "path": "/home/rgame/dev/Fold_Dev/Fold/demos/Fold-version-1.fold",
+    "revision": 16,
+    "session_file_changed": false,
+    "state": "saved",
+    "warning": null
+  },
+  "composition": {
+    "image_inputs": [],
+    "native": {
+      "fold.composition.interface": {
+        "bindings": [
+          {
+            "control": "artwork_position",
+            "layer": "7af6182f-1213-4e37-b2ca-af29bea3734c",
+            "target": {
+              "kind": "position"
+            }
+          },
+          {
+            "control": "artwork_opacity",
+            "layer": "7af6182f-1213-4e37-b2ca-af29bea3734c",
+            "target": {
+              "kind": "opacity"
+            }
+          }
+        ],
+        "graphs": {},
+        "images": {},
+        "interface": {
+          "controls": [
+            {
+              "default": [
+                0,
+                0
+              ],
+              "id": "artwork_position",
+              "label": "Artwork Position",
+              "range": null
+            },
+            {
+              "default": [
+                1
+              ],
+              "id": "artwork_opacity",
+              "label": "Artwork Opacity",
+              "range": [
+                0,
+                1
+              ]
+            }
+          ],
+          "images": [],
+          "version": 1
+        }
+      },
+      "info": {
+        "frames": 180,
+        "height": 1080,
+        "rate": [
+          30,
+          1
+        ],
+        "width": 1920
+      },
+      "layers": [
+        {
+          "adjustment": false,
+          "animation": {},
+          "effects": [],
+          "end": {
+            "denominator": 1,
+            "numerator": 6
+          },
+          "id": "7af6182f-1213-4e37-b2ca-af29bea3734c",
+          "info": {
+            "frames": 180,
+            "height": 1080,
+            "rate": [
+              30,
+              1
+            ],
+            "width": 1920
+          },
+          "locked": false,
+          "name": "Dot display · Motion",
+          "offset": [
+            1,
+            0,
+            0,
+            1,
+            0,
+            0
+          ],
+          "opacity": 1,
+          "origin": {
+            "denominator": 1,
+            "numerator": 0
+          },
+          "parent": null,
+          "source": {
+            "Output": {
+              "document": "51b1a23e-ba5a-4443-a3f4-b056aaa9d695",
+              "output": "d9f8ab9d-33ca-4636-9eee-1ba7ae538807"
+            }
+          },
+          "source_start": {
+            "denominator": 1,
+            "numerator": 0
+          },
+          "start": {
+            "denominator": 1,
+            "numerator": 0
+          },
+          "visible": true
+        }
+      ]
+    },
+    "outputs": [
+      {
+        "info": {
+          "Ok": {
+            "frames": 180,
+            "height": 1080,
+            "rate": [
+              30,
+              1
+            ],
+            "width": 1920
+          }
+        },
+        "label": "Video",
+        "reference": {
+          "document": "2b4ef69c-1141-492b-8d86-547c61655915",
+          "output": "video"
+        }
+      }
+    ]
+  },
+  "scene": {
+    "image_inputs": [],
+    "native": {
+      "active_camera": "6cb54b66-99c9-49b8-b1c5-359fb9931806",
+      "canvas": {
+        "end": {
+          "denominator": 1,
+          "numerator": 6
+        },
+        "height": 1080,
+        "rate": [
+          30,
+          1
+        ],
+        "start": {
+          "denominator": 1,
+          "numerator": 0
+        },
+        "width": 1920
+      },
+      "objects": [
+        {
+          "clock": {
+            "offset": {
+              "denominator": 1,
+              "numerator": 0
+            },
+            "rate": {
+              "denominator": 1,
+              "numerator": 1
+            }
+          },
+          "graph": {
+            "canvas": {
+              "end": {
+                "denominator": 1,
+                "numerator": 6
+              },
+              "height": 1080,
+              "rate": [
+                30,
+                1
+              ],
+              "start": {
+                "denominator": 1,
+                "numerator": 0
+              },
+              "width": 1920
+            },
+            "definitions": [
+              {
+                "id": "a3afa278-c5b2-4576-a5b3-9fadf8fd4ba1",
+                "inputs": [],
+                "instances": [],
+                "name": "Camera",
+                "nodes": [
+                  {
+                    "id": "48672fe7-8093-45b5-aec7-1affd87428b7",
+                    "mode": "orthographic",
+                    "name": "Front camera",
+                    "operation": "fold.motion.camera",
+                    "parameters": {
+                      "ev100": {
+                        "id": "43c64492-f22b-45c2-b5da-d5aa03644314",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "scalar",
+                            "value": 8
+                          }
+                        }
+                      },
+                      "far": {
+                        "id": "04ae17a3-975c-498a-93a2-2dd81cedce6c",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "distance",
+                            "unit": "meters",
+                            "value": 100
+                          }
+                        }
+                      },
+                      "near": {
+                        "id": "9e7b22c9-e322-48bb-a43f-42fa4efb6eca",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "distance",
+                            "unit": "meters",
+                            "value": 0.01
+                          }
+                        }
+                      },
+                      "position": {
+                        "id": "54e4d1de-c7d0-4baf-b409-8fb14adbf259",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "vector",
+                            "space": "world",
+                            "unit": "meters",
+                            "value": [
+                              0,
+                              0,
+                              12
+                            ]
+                          }
+                        }
+                      },
+                      "target": {
+                        "id": "bb93b34f-f13c-46c6-bcb8-8fd1c280ddcb",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "vector",
+                            "space": "world",
+                            "unit": "meters",
+                            "value": [
+                              0,
+                              0,
+                              0
+                            ]
+                          }
+                        }
+                      },
+                      "up": {
+                        "id": "b561094a-1194-488c-9de9-325e8d44fa71",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "vector",
+                            "space": "world",
+                            "unit": "unitless",
+                            "value": [
+                              0,
+                              1,
+                              0
+                            ]
+                          }
+                        }
+                      },
+                      "vertical_size": {
+                        "id": "9400f3bb-9968-4f6c-a4da-8ce7542d5da6",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "distance",
+                            "unit": "meters",
+                            "value": 10.8
+                          }
+                        }
+                      }
+                    },
+                    "version": 1
+                  }
+                ],
+                "outputs": [
+                  {
+                    "id": "5d239bd7-ee49-4ba9-9c89-0e02be3984e6",
+                    "name": "main",
+                    "ty": {
+                      "kind": "camera"
+                    },
+                    "value": {
+                      "id": "3d69dacc-1eb5-4d92-9aee-392aee6d7ff3",
+                      "target": {
+                        "kind": "node",
+                        "node": "48672fe7-8093-45b5-aec7-1affd87428b7"
+                      }
+                    }
+                  }
+                ]
+              }
+            ],
+            "presentation": {
+              "annotations": {},
+              "groups": [],
+              "positions": {
+                "48672fe7-8093-45b5-aec7-1affd87428b7": [
+                  0,
+                  0
+                ]
+              }
+            },
+            "root": {
+              "clock": {
+                "offset": {
+                  "denominator": 1,
+                  "numerator": 0
+                },
+                "rate": {
+                  "denominator": 1,
+                  "numerator": 1
+                }
+              },
+              "definition": "a3afa278-c5b2-4576-a5b3-9fadf8fd4ba1",
+              "id": "a6a0de73-fb9d-426a-9633-0cdd8ea09daf",
+              "name": "Camera",
+              "overrides": {}
+            },
+            "seed": 0
+          },
+          "id": "6cb54b66-99c9-49b8-b1c5-359fb9931806",
+          "locked": false,
+          "name": "Camera",
+          "output": "5d239bd7-ee49-4ba9-9c89-0e02be3984e6",
+          "parent": null,
+          "position": {
+            "kind": "literal",
+            "value": {
+              "kind": "vector",
+              "space": "world",
+              "unit": "meters",
+              "value": [
+                0,
+                0,
+                0
+              ]
+            }
+          },
+          "rotation": {
+            "kind": "literal",
+            "value": {
+              "kind": "rotation",
+              "space": "world",
+              "value": [
+                0,
+                0,
+                0,
+                1
+              ]
+            }
+          },
+          "scale": {
+            "kind": "literal",
+            "value": {
+              "kind": "vector",
+              "space": "world",
+              "unit": "unitless",
+              "value": [
+                1,
+                1,
+                1
+              ]
+            }
+          },
+          "visible": true
+        },
+        {
+          "clock": {
+            "offset": {
+              "denominator": 1,
+              "numerator": 0
+            },
+            "rate": {
+              "denominator": 1,
+              "numerator": 1
+            }
+          },
+          "graph": {
+            "canvas": {
+              "end": {
+                "denominator": 1,
+                "numerator": 6
+              },
+              "height": 1080,
+              "rate": [
+                30,
+                1
+              ],
+              "start": {
+                "denominator": 1,
+                "numerator": 0
+              },
+              "width": 1920
+            },
+            "definitions": [
+              {
+                "id": "78ba26a7-dbd6-430c-a9fa-d18e76ace2a2",
+                "inputs": [],
+                "instances": [],
+                "name": "Light",
+                "nodes": [
+                  {
+                    "id": "a2b49ecc-2e6c-4aa5-a0fd-b50c4093821d",
+                    "mode": "directional",
+                    "name": "Light",
+                    "operation": "fold.motion.light",
+                    "parameters": {
+                      "color": {
+                        "id": "983b0998-a924-46e2-a7d2-d42c2891b80d",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "alpha": "straight",
+                            "encoding": "linear_rec709",
+                            "kind": "color",
+                            "value": [
+                              1,
+                              1,
+                              1,
+                              1
+                            ]
+                          }
+                        }
+                      },
+                      "direction": {
+                        "id": "08ea718f-496e-412c-9408-d53b60987291",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "vector",
+                            "space": "world",
+                            "unit": "unitless",
+                            "value": [
+                              0,
+                              -1,
+                              -1
+                            ]
+                          }
+                        }
+                      },
+                      "illuminance": {
+                        "id": "88d2481f-8345-4652-90b7-10e43bd7da9c",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "scalar",
+                            "value": 1000
+                          }
+                        }
+                      }
+                    },
+                    "version": 1
+                  }
+                ],
+                "outputs": [
+                  {
+                    "id": "f277d715-ab5f-4209-b814-a7da3bfab220",
+                    "name": "main",
+                    "ty": {
+                      "kind": "light"
+                    },
+                    "value": {
+                      "id": "50baa15d-e4bb-4d2f-a161-2cea4262ccff",
+                      "target": {
+                        "kind": "node",
+                        "node": "a2b49ecc-2e6c-4aa5-a0fd-b50c4093821d"
+                      }
+                    }
+                  }
+                ]
+              }
+            ],
+            "presentation": {
+              "annotations": {},
+              "groups": [],
+              "positions": {}
+            },
+            "root": {
+              "clock": {
+                "offset": {
+                  "denominator": 1,
+                  "numerator": 0
+                },
+                "rate": {
+                  "denominator": 1,
+                  "numerator": 1
+                }
+              },
+              "definition": "78ba26a7-dbd6-430c-a9fa-d18e76ace2a2",
+              "id": "cafabe45-98a0-4d9e-a592-dbbb27f258fd",
+              "name": "Light",
+              "overrides": {}
+            },
+            "seed": 0
+          },
+          "id": "284eb2ff-531f-4f3e-a132-f722ad027011",
+          "locked": false,
+          "name": "Key light",
+          "output": "f277d715-ab5f-4209-b814-a7da3bfab220",
+          "parent": null,
+          "position": {
+            "kind": "literal",
+            "value": {
+              "kind": "vector",
+              "space": "world",
+              "unit": "meters",
+              "value": [
+                0,
+                0,
+                0
+              ]
+            }
+          },
+          "rotation": {
+            "kind": "literal",
+            "value": {
+              "kind": "rotation",
+              "space": "world",
+              "value": [
+                0,
+                0,
+                0,
+                1
+              ]
+            }
+          },
+          "scale": {
+            "kind": "literal",
+            "value": {
+              "kind": "vector",
+              "space": "world",
+              "unit": "unitless",
+              "value": [
+                1,
+                1,
+                1
+              ]
+            }
+          },
+          "visible": true
+        },
+        {
+          "clock": {
+            "offset": {
+              "denominator": 1,
+              "numerator": 0
+            },
+            "rate": {
+              "denominator": 1,
+              "numerator": 1
+            }
+          },
+          "graph": {
+            "canvas": {
+              "end": {
+                "denominator": 1,
+                "numerator": 6
+              },
+              "height": 1080,
+              "rate": [
+                30,
+                1
+              ],
+              "start": {
+                "denominator": 1,
+                "numerator": 0
+              },
+              "width": 1920
+            },
+            "definitions": [
+              {
+                "id": "4a0f847d-93b6-4f92-8508-f746a8cb9938",
+                "inputs": [
+                  {
+                    "default": {
+                      "kind": "distance",
+                      "unit": "meters",
+                      "value": 0.12
+                    },
+                    "id": "0b3360c3-ffee-4973-b8a4-157a6efdfcdb",
+                    "name": "Dot Radius",
+                    "protected": false,
+                    "ty": {
+                      "kind": "distance",
+                      "unit": "meters"
+                    }
+                  },
+                  {
+                    "default": {
+                      "kind": "integer",
+                      "value": 60
+                    },
+                    "id": "57d0266e-4d66-4966-90c1-52e9f7517b59",
+                    "name": "Columns",
+                    "protected": false,
+                    "ty": {
+                      "kind": "integer"
+                    }
+                  },
+                  {
+                    "default": {
+                      "kind": "integer",
+                      "value": 14
+                    },
+                    "id": "a3bf7638-4e23-47af-8305-74fa1cdeb2bb",
+                    "name": "Rows",
+                    "protected": false,
+                    "ty": {
+                      "kind": "integer"
+                    }
+                  },
+                  {
+                    "default": {
+                      "kind": "vector",
+                      "space": "world",
+                      "unit": "meters",
+                      "value": [
+                        0.28,
+                        0.28
+                      ]
+                    },
+                    "id": "c2974066-d091-4461-bdab-703eddc7753c",
+                    "name": "Spacing",
+                    "protected": false,
+                    "ty": {
+                      "dimensions": 2,
+                      "kind": "vector",
+                      "space": "world",
+                      "unit": "meters"
+                    }
+                  },
+                  {
+                    "default": {
+                      "alpha": "straight",
+                      "encoding": "linear_rec709",
+                      "kind": "color",
+                      "value": [
+                        0.8,
+                        0.93,
+                        0.85,
+                        1
+                      ]
+                    },
+                    "id": "0dd77337-dedd-4372-85e0-e2c615ba21dc",
+                    "name": "Highlight",
+                    "protected": false,
+                    "ty": {
+                      "alpha": "straight",
+                      "encoding": "linear_rec709",
+                      "kind": "color"
+                    }
+                  },
+                  {
+                    "default": {
+                      "alpha": "straight",
+                      "encoding": "linear_rec709",
+                      "kind": "color",
+                      "value": [
+                        0.018,
+                        0.025,
+                        0.022,
+                        1
+                      ]
+                    },
+                    "id": "5294f322-2df7-491b-a9a0-6b37b5b9e4b0",
+                    "name": "Shadow",
+                    "protected": false,
+                    "ty": {
+                      "alpha": "straight",
+                      "encoding": "linear_rec709",
+                      "kind": "color"
+                    }
+                  },
+                  {
+                    "default": {
+                      "kind": "integer",
+                      "value": 1
+                    },
+                    "id": "e58bc8d9-fa95-4b81-a028-42cd31456b71",
+                    "name": "Speed",
+                    "protected": false,
+                    "ty": {
+                      "kind": "integer"
+                    }
+                  },
+                  {
+                    "default": {
+                      "alpha": "straight",
+                      "encoding": "linear_rec709",
+                      "kind": "color",
+                      "value": [
+                        0.4,
+                        0.055,
+                        0.8,
+                        1
+                      ]
+                    },
+                    "id": "27893a5d-0657-4950-9fae-67c3d002f604",
+                    "name": "Accent",
+                    "protected": false,
+                    "ty": {
+                      "alpha": "straight",
+                      "encoding": "linear_rec709",
+                      "kind": "color"
+                    }
+                  }
+                ],
+                "instances": [],
+                "name": "Dot display",
+                "nodes": [
+                  {
+                    "id": "f4e024c0-5f9a-493c-9854-a33186be741b",
+                    "mode": "grid",
+                    "name": "Display grid",
+                    "operation": "fold.motion.distribute",
+                    "parameters": {
+                      "center": {
+                        "id": "6821410d-e4b2-4b1c-b0eb-cf22fbc004c4",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "vector",
+                            "space": "world",
+                            "unit": "meters",
+                            "value": [
+                              0,
+                              -1.15,
+                              0
+                            ]
+                          }
+                        }
+                      },
+                      "columns": {
+                        "id": "334adf48-7b1d-4611-acb1-19b0f0c60de8",
+                        "protected": false,
+                        "value": {
+                          "expression": {
+                            "kind": "reference",
+                            "reference": {
+                              "id": "795f51d4-093d-43d5-ba10-e639bf581fc2",
+                              "target": {
+                                "input": "57d0266e-4d66-4966-90c1-52e9f7517b59",
+                                "kind": "input"
+                              }
+                            }
+                          },
+                          "kind": "expression"
+                        }
+                      },
+                      "rows": {
+                        "id": "c963e43d-761f-4998-bf8a-3e121da87b11",
+                        "protected": false,
+                        "value": {
+                          "expression": {
+                            "kind": "reference",
+                            "reference": {
+                              "id": "80415441-dd5c-420c-8d5d-4aa9e09fbbad",
+                              "target": {
+                                "input": "a3bf7638-4e23-47af-8305-74fa1cdeb2bb",
+                                "kind": "input"
+                              }
+                            }
+                          },
+                          "kind": "expression"
+                        }
+                      },
+                      "spacing": {
+                        "id": "6b7fff16-0955-4ad1-b8e8-fa1c9f87a506",
+                        "protected": false,
+                        "value": {
+                          "expression": {
+                            "kind": "reference",
+                            "reference": {
+                              "id": "afae17b6-32a5-440d-b69d-1a776b2ebf54",
+                              "target": {
+                                "input": "c2974066-d091-4461-bdab-703eddc7753c",
+                                "kind": "input"
+                              }
+                            }
+                          },
+                          "kind": "expression"
+                        }
+                      }
+                    },
+                    "version": 2
+                  },
+                  {
+                    "id": "3028e41d-640b-4056-ad68-1f854644ba01",
+                    "mode": "rhai",
+                    "name": "Dot",
+                    "operation": "fold.motion.wrangle",
+                    "parameters": {
+                      "inputs": {
+                        "id": "b0e5968a-32d0-490d-9881-553cb92a491f",
+                        "protected": false,
+                        "value": {
+                          "kind": "list",
+                          "values": []
+                        }
+                      },
+                      "parameters": {
+                        "id": "7f2b16ae-86ac-4759-a243-4732094de96f",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "text",
+                            "value": "{}"
+                          }
+                        }
+                      },
+                      "run_over": {
+                        "id": "0d3fad8d-a4c1-41dc-97bf-46015d1e85f5",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "text",
+                            "value": "detail"
+                          }
+                        }
+                      },
+                      "source": {
+                        "id": "08946208-f579-4463-8e20-fd58ca663c77",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "text",
+                            "value": "let g = geometry();\nadd_point(g, vec3(0.0, 0.0, 0.0));\nfor i in 0..16 {\n    let a = i.to_float() * 6.28318530718 / 16.0;\n    add_point(g, vec3(cos(a) * 0.061, sin(a) * 0.061, 0.0));\n}\nfor i in 0..16 { add_triangle(g, 0, i + 1, (i + 1) % 16 + 1); }\ncompute_normals(g);\ng"
+                          }
+                        }
+                      },
+                      "time": {
+                        "id": "1da7227b-396d-4e96-9d0b-ffcdf13fc32e",
+                        "protected": false,
+                        "value": {
+                          "expression": {
+                            "kind": "time",
+                            "scope": "asset"
+                          },
+                          "kind": "expression"
+                        }
+                      }
+                    },
+                    "version": 1
+                  },
+                  {
+                    "id": "ba47b529-fac8-4621-9440-f6a6dd62194b",
+                    "mode": "points",
+                    "name": "Copy to Points",
+                    "operation": "fold.motion.cloner",
+                    "parameters": {
+                      "attributes": {
+                        "id": "c621f779-973e-44b1-adf5-aadb5491f54d",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "text",
+                            "value": "Cd"
+                          }
+                        }
+                      },
+                      "points": {
+                        "id": "9928204c-15c4-4089-9808-a72800168dc2",
+                        "protected": false,
+                        "value": {
+                          "kind": "link",
+                          "reference": {
+                            "id": "ff07e0e5-640c-41d5-afeb-9b09d7f1f8d7",
+                            "target": {
+                              "kind": "node",
+                              "node": "f4e024c0-5f9a-493c-9854-a33186be741b"
+                            }
+                          }
+                        }
+                      },
+                      "prototype": {
+                        "id": "d9243608-367d-420d-b69b-621458af55f6",
+                        "protected": false,
+                        "value": {
+                          "kind": "link",
+                          "reference": {
+                            "id": "7659a41b-594b-4462-bde7-f89e03021526",
+                            "target": {
+                              "kind": "node",
+                              "node": "3028e41d-640b-4056-ad68-1f854644ba01"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "version": 2
+                  },
+                  {
+                    "id": "3b404a82-7a54-43e8-b153-cc1d51525c27",
+                    "mode": "linear",
+                    "name": "Horizontal UV",
+                    "operation": "fold.motion.field",
+                    "parameters": {
+                      "end": {
+                        "id": "a0e9cd05-6024-4258-a90c-7fad6a22fca7",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "vector",
+                            "space": "world",
+                            "unit": "meters",
+                            "value": [
+                              8.4,
+                              0,
+                              0
+                            ]
+                          }
+                        }
+                      },
+                      "start": {
+                        "id": "1bdab031-0417-4d66-a591-c25894902ef6",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "vector",
+                            "space": "world",
+                            "unit": "meters",
+                            "value": [
+                              -8.4,
+                              0,
+                              0
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "version": 1
+                  },
+                  {
+                    "id": "a2beabef-3f60-4e27-ac82-dd9a40659416",
+                    "mode": "linear",
+                    "name": "Vertical UV",
+                    "operation": "fold.motion.field",
+                    "parameters": {
+                      "end": {
+                        "id": "fb686144-fede-4435-8503-5b5be9d5acc9",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "vector",
+                            "space": "world",
+                            "unit": "meters",
+                            "value": [
+                              0,
+                              -3.04,
+                              0
+                            ]
+                          }
+                        }
+                      },
+                      "start": {
+                        "id": "07adcb9b-0ce2-4975-adde-0b855b8d5f7a",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "vector",
+                            "space": "world",
+                            "unit": "meters",
+                            "value": [
+                              0,
+                              0.74,
+                              0
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "version": 1
+                  },
+                  {
+                    "id": "9745705e-a472-42d3-b35b-87ea8141018a",
+                    "mode": "output",
+                    "name": "Message image",
+                    "operation": "fold.motion.image_texture",
+                    "parameters": {
+                      "color_space": {
+                        "id": "59124481-0a24-4b9e-9fbe-34257740914b",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "text",
+                            "value": ""
+                          }
+                        }
+                      },
+                      "document": {
+                        "id": "5373e5fe-b834-438e-b11a-e9a2f574fed2",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "text",
+                            "value": "baf2f43a-1a19-422e-b989-a2316531d62d"
+                          }
+                        }
+                      },
+                      "output": {
+                        "id": "fbf9032d-6c91-4759-a5a4-e9a54f335fa8",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "text",
+                            "value": "6707252f-f6ad-4dbb-a874-7c03ce1f82c5"
+                          }
+                        }
+                      },
+                      "outside": {
+                        "id": "dbf795a1-6cdd-48cf-b1cc-dfab84700e1e",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "text",
+                            "value": "hold"
+                          }
+                        }
+                      },
+                      "time": {
+                        "id": "108eaa4d-b686-4d47-901a-8e0810626cce",
+                        "protected": false,
+                        "value": {
+                          "expression": {
+                            "kind": "binary",
+                            "left": {
+                              "kind": "time",
+                              "scope": "asset"
+                            },
+                            "op": "multiply",
+                            "right": {
+                              "kind": "reference",
+                              "reference": {
+                                "id": "b9b0c857-b616-4c59-805a-0131b842b632",
+                                "target": {
+                                  "input": "e58bc8d9-fa95-4b81-a028-42cd31456b71",
+                                  "kind": "input"
+                                }
+                              }
+                            }
+                          },
+                          "kind": "expression"
+                        }
+                      }
+                    },
+                    "version": 1
+                  },
+                  {
+                    "id": "40e3fdcb-e7e8-44ee-af46-ac00dae3abdd",
+                    "mode": "scalar",
+                    "name": "Read message",
+                    "operation": "fold.motion.sample_image",
+                    "parameters": {
+                      "channel": {
+                        "id": "f6909984-2e16-4073-8134-9e4af8787ae8",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "text",
+                            "value": "alpha"
+                          }
+                        }
+                      },
+                      "filter": {
+                        "id": "44e091ee-5f9e-4baf-81f4-83253206109a",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "text",
+                            "value": "bilinear"
+                          }
+                        }
+                      },
+                      "image": {
+                        "id": "2a8b7179-f9d3-404b-bba8-ff58363f5a02",
+                        "protected": false,
+                        "value": {
+                          "kind": "link",
+                          "reference": {
+                            "id": "d2bcd474-ad1e-4672-bebd-3dfc899d6875",
+                            "target": {
+                              "kind": "node",
+                              "node": "9745705e-a472-42d3-b35b-87ea8141018a"
+                            }
+                          }
+                        }
+                      },
+                      "uv": {
+                        "id": "a64d07b5-492e-4fe4-bd66-259d5cb10964",
+                        "protected": false,
+                        "value": {
+                          "expression": {
+                            "components": [
+                              {
+                                "kind": "reference",
+                                "reference": {
+                                  "id": "7df16e69-cb66-4405-b860-cbdcf0d57b83",
+                                  "target": {
+                                    "kind": "node",
+                                    "node": "3b404a82-7a54-43e8-b153-cc1d51525c27"
+                                  }
+                                }
+                              },
+                              {
+                                "kind": "reference",
+                                "reference": {
+                                  "id": "0a0f8a0a-c068-4647-b41f-606bbd825ee1",
+                                  "target": {
+                                    "kind": "node",
+                                    "node": "a2beabef-3f60-4e27-ac82-dd9a40659416"
+                                  }
+                                }
+                              }
+                            ],
+                            "kind": "vector",
+                            "space": "world",
+                            "unit": "unitless"
+                          },
+                          "kind": "expression"
+                        }
+                      },
+                      "wrap": {
+                        "id": "0ffeefd9-8090-403f-acc4-cc23eb1facf3",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "text",
+                            "value": "clamp"
+                          }
+                        }
+                      }
+                    },
+                    "version": 1
+                  },
+                  {
+                    "id": "693b7fd4-90f4-48b8-b968-cbab3890b3d3",
+                    "mode": "color_replace",
+                    "name": "Dot colors",
+                    "operation": "fold.motion.animator",
+                    "parameters": {
+                      "color": {
+                        "id": "254a3fc5-4acf-4144-ac3b-5113ace0c77d",
+                        "protected": false,
+                        "value": {
+                          "expression": {
+                            "arguments": [
+                              {
+                                "kind": "reference",
+                                "reference": {
+                                  "id": "2a643ac6-f7bc-4c5e-8780-aca05763d3dc",
+                                  "target": {
+                                    "input": "5294f322-2df7-491b-a9a0-6b37b5b9e4b0",
+                                    "kind": "input"
+                                  }
+                                }
+                              },
+                              {
+                                "arguments": [
+                                  {
+                                    "kind": "reference",
+                                    "reference": {
+                                      "id": "422519e4-c3d0-4ec4-bbec-0d4d5f584302",
+                                      "target": {
+                                        "input": "0dd77337-dedd-4372-85e0-e2c615ba21dc",
+                                        "kind": "input"
+                                      }
+                                    }
+                                  },
+                                  {
+                                    "kind": "reference",
+                                    "reference": {
+                                      "id": "831a1d3c-f0a0-4269-8758-848cedda4ac9",
+                                      "target": {
+                                        "input": "27893a5d-0657-4950-9fae-67c3d002f604",
+                                        "kind": "input"
+                                      }
+                                    }
+                                  },
+                                  {
+                                    "arguments": [
+                                      {
+                                        "kind": "binary",
+                                        "left": {
+                                          "kind": "binary",
+                                          "left": {
+                                            "kind": "binary",
+                                            "left": {
+                                              "kind": "reference",
+                                              "reference": {
+                                                "id": "86636aeb-25bb-4b99-a442-c75cb17d3e64",
+                                                "target": {
+                                                  "kind": "parameter",
+                                                  "parameter": "108eaa4d-b686-4d47-901a-8e0810626cce"
+                                                }
+                                              }
+                                            },
+                                            "op": "divide",
+                                            "right": {
+                                              "kind": "literal",
+                                              "value": {
+                                                "kind": "duration",
+                                                "value": {
+                                                  "denominator": 1,
+                                                  "numerator": 1
+                                                }
+                                              }
+                                            }
+                                          },
+                                          "op": "subtract",
+                                          "right": {
+                                            "kind": "literal",
+                                            "value": {
+                                              "kind": "scalar",
+                                              "value": 3.6
+                                            }
+                                          }
+                                        },
+                                        "op": "divide",
+                                        "right": {
+                                          "kind": "literal",
+                                          "value": {
+                                            "kind": "scalar",
+                                            "value": 1.6
+                                          }
+                                        }
+                                      },
+                                      {
+                                        "kind": "literal",
+                                        "value": {
+                                          "kind": "scalar",
+                                          "value": 0
+                                        }
+                                      },
+                                      {
+                                        "kind": "literal",
+                                        "value": {
+                                          "kind": "scalar",
+                                          "value": 1
+                                        }
+                                      }
+                                    ],
+                                    "function": "clamp",
+                                    "kind": "call"
+                                  }
+                                ],
+                                "function": "lerp",
+                                "kind": "call"
+                              },
+                              {
+                                "arguments": [
+                                  {
+                                    "kind": "reference",
+                                    "reference": {
+                                      "id": "0e7903a8-d5fc-40c2-9c52-0e569115703f",
+                                      "target": {
+                                        "kind": "node",
+                                        "node": "40e3fdcb-e7e8-44ee-af46-ac00dae3abdd"
+                                      }
+                                    }
+                                  },
+                                  {
+                                    "kind": "binary",
+                                    "left": {
+                                      "kind": "literal",
+                                      "value": {
+                                        "kind": "scalar",
+                                        "value": 0.5
+                                      }
+                                    },
+                                    "op": "add",
+                                    "right": {
+                                      "kind": "binary",
+                                      "left": {
+                                        "kind": "literal",
+                                        "value": {
+                                          "kind": "scalar",
+                                          "value": 0.5
+                                        }
+                                      },
+                                      "op": "multiply",
+                                      "right": {
+                                        "arguments": [
+                                          {
+                                            "kind": "binary",
+                                            "left": {
+                                              "kind": "binary",
+                                              "left": {
+                                                "kind": "binary",
+                                                "left": {
+                                                  "kind": "reference",
+                                                  "reference": {
+                                                    "id": "c92203c9-b6f6-44f2-98e8-90fb71db58c5",
+                                                    "target": {
+                                                      "kind": "node",
+                                                      "node": "3b404a82-7a54-43e8-b153-cc1d51525c27"
+                                                    }
+                                                  }
+                                                },
+                                                "op": "multiply",
+                                                "right": {
+                                                  "kind": "literal",
+                                                  "value": {
+                                                    "kind": "scalar",
+                                                    "value": 18
+                                                  }
+                                                }
+                                              },
+                                              "op": "add",
+                                              "right": {
+                                                "kind": "binary",
+                                                "left": {
+                                                  "kind": "reference",
+                                                  "reference": {
+                                                    "id": "5798388c-5fba-4495-a544-a0c0e2367822",
+                                                    "target": {
+                                                      "kind": "node",
+                                                      "node": "a2beabef-3f60-4e27-ac82-dd9a40659416"
+                                                    }
+                                                  }
+                                                },
+                                                "op": "multiply",
+                                                "right": {
+                                                  "kind": "literal",
+                                                  "value": {
+                                                    "kind": "scalar",
+                                                    "value": 6
+                                                  }
+                                                }
+                                              }
+                                            },
+                                            "op": "subtract",
+                                            "right": {
+                                              "kind": "binary",
+                                              "left": {
+                                                "kind": "binary",
+                                                "left": {
+                                                  "kind": "reference",
+                                                  "reference": {
+                                                    "id": "a289a188-c242-497c-9c0d-dac516df0310",
+                                                    "target": {
+                                                      "kind": "parameter",
+                                                      "parameter": "108eaa4d-b686-4d47-901a-8e0810626cce"
+                                                    }
+                                                  }
+                                                },
+                                                "op": "divide",
+                                                "right": {
+                                                  "kind": "literal",
+                                                  "value": {
+                                                    "kind": "duration",
+                                                    "value": {
+                                                      "denominator": 1,
+                                                      "numerator": 1
+                                                    }
+                                                  }
+                                                }
+                                              },
+                                              "op": "multiply",
+                                              "right": {
+                                                "kind": "literal",
+                                                "value": {
+                                                  "kind": "scalar",
+                                                  "value": 3
+                                                }
+                                              }
+                                            }
+                                          }
+                                        ],
+                                        "function": "sin",
+                                        "kind": "call"
+                                      }
+                                    }
+                                  },
+                                  {
+                                    "arguments": [
+                                      {
+                                        "kind": "binary",
+                                        "left": {
+                                          "kind": "binary",
+                                          "left": {
+                                            "kind": "binary",
+                                            "left": {
+                                              "kind": "reference",
+                                              "reference": {
+                                                "id": "17d8f9d1-dce5-4e14-b24a-0b008e6bf7cb",
+                                                "target": {
+                                                  "kind": "parameter",
+                                                  "parameter": "108eaa4d-b686-4d47-901a-8e0810626cce"
+                                                }
+                                              }
+                                            },
+                                            "op": "divide",
+                                            "right": {
+                                              "kind": "literal",
+                                              "value": {
+                                                "kind": "duration",
+                                                "value": {
+                                                  "denominator": 1,
+                                                  "numerator": 1
+                                                }
+                                              }
+                                            }
+                                          },
+                                          "op": "subtract",
+                                          "right": {
+                                            "kind": "literal",
+                                            "value": {
+                                              "kind": "scalar",
+                                              "value": 3.6
+                                            }
+                                          }
+                                        },
+                                        "op": "divide",
+                                        "right": {
+                                          "kind": "literal",
+                                          "value": {
+                                            "kind": "scalar",
+                                            "value": 1.6
+                                          }
+                                        }
+                                      },
+                                      {
+                                        "kind": "literal",
+                                        "value": {
+                                          "kind": "scalar",
+                                          "value": 0
+                                        }
+                                      },
+                                      {
+                                        "kind": "literal",
+                                        "value": {
+                                          "kind": "scalar",
+                                          "value": 1
+                                        }
+                                      }
+                                    ],
+                                    "function": "clamp",
+                                    "kind": "call"
+                                  }
+                                ],
+                                "function": "lerp",
+                                "kind": "call"
+                              }
+                            ],
+                            "function": "lerp",
+                            "kind": "call"
+                          },
+                          "kind": "expression"
+                        }
+                      },
+                      "geometry": {
+                        "id": "024f327e-705f-4510-a656-1345fbc86c68",
+                        "protected": false,
+                        "value": {
+                          "kind": "link",
+                          "reference": {
+                            "id": "4e1b7958-f056-49c9-9722-1dca61de778b",
+                            "target": {
+                              "kind": "node",
+                              "node": "ba47b529-fac8-4621-9440-f6a6dd62194b"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "version": 1
+                  },
+                  {
+                    "id": "b972c105-29c6-49b3-83de-3955d3aa871e",
+                    "mode": "scale_multiply",
+                    "name": "Dot size",
+                    "operation": "fold.motion.animator",
+                    "parameters": {
+                      "factor": {
+                        "id": "66ffa6be-0ea7-480b-9538-f023fa9650f2",
+                        "protected": false,
+                        "value": {
+                          "expression": {
+                            "kind": "binary",
+                            "left": {
+                              "kind": "reference",
+                              "reference": {
+                                "id": "b449be62-6bad-49a5-bd1c-269422c921dc",
+                                "target": {
+                                  "input": "0b3360c3-ffee-4973-b8a4-157a6efdfcdb",
+                                  "kind": "input"
+                                }
+                              }
+                            },
+                            "op": "divide",
+                            "right": {
+                              "kind": "literal",
+                              "value": {
+                                "kind": "distance",
+                                "unit": "meters",
+                                "value": 0.061
+                              }
+                            }
+                          },
+                          "kind": "expression"
+                        }
+                      },
+                      "geometry": {
+                        "id": "3e342035-aad6-44a7-9d32-a72871dcc3bb",
+                        "protected": false,
+                        "value": {
+                          "kind": "link",
+                          "reference": {
+                            "id": "3f3e5211-1b22-4028-8692-6c3da3219222",
+                            "target": {
+                              "kind": "node",
+                              "node": "693b7fd4-90f4-48b8-b968-cbab3890b3d3"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "version": 1
+                  },
+                  {
+                    "id": "949f2a65-c280-4772-9cbd-226bf04e243a",
+                    "mode": "unlit",
+                    "name": "Display material",
+                    "operation": "fold.motion.material",
+                    "parameters": {
+                      "color": {
+                        "id": "c1ffe578-3f37-4608-ad54-7b45620cada9",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "alpha": "straight",
+                            "encoding": "linear_rec709",
+                            "kind": "color",
+                            "value": [
+                              1,
+                              1,
+                              1,
+                              1
+                            ]
+                          }
+                        }
+                      },
+                      "geometry": {
+                        "id": "59a127f5-3a5d-491a-af6a-53734b391ffd",
+                        "protected": false,
+                        "value": {
+                          "kind": "link",
+                          "reference": {
+                            "id": "1c576ab6-a8df-4968-977b-d68f1b5c57f7",
+                            "target": {
+                              "kind": "node",
+                              "node": "b972c105-29c6-49b3-83de-3955d3aa871e"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "version": 1
+                  }
+                ],
+                "outputs": [
+                  {
+                    "id": "b5cd1564-f6e7-4ead-9e5a-3c068a3ebef3",
+                    "name": "main",
+                    "ty": {
+                      "kind": "geometry"
+                    },
+                    "value": {
+                      "id": "55a9075a-a20f-40ee-b1bc-5b79f16fa311",
+                      "target": {
+                        "kind": "node",
+                        "node": "949f2a65-c280-4772-9cbd-226bf04e243a"
+                      }
+                    }
+                  }
+                ]
+              }
+            ],
+            "presentation": {
+              "annotations": {},
+              "groups": [],
+              "positions": {
+                "3028e41d-640b-4056-ad68-1f854644ba01": [
+                  300,
+                  -280
+                ],
+                "3b404a82-7a54-43e8-b153-cc1d51525c27": [
+                  0,
+                  380
+                ],
+                "40e3fdcb-e7e8-44ee-af46-ac00dae3abdd": [
+                  600,
+                  450
+                ],
+                "693b7fd4-90f4-48b8-b968-cbab3890b3d3": [
+                  900,
+                  0
+                ],
+                "949f2a65-c280-4772-9cbd-226bf04e243a": [
+                  1500,
+                  0
+                ],
+                "9745705e-a472-42d3-b35b-87ea8141018a": [
+                  300,
+                  1000
+                ],
+                "a2beabef-3f60-4e27-ac82-dd9a40659416": [
+                  0,
+                  680
+                ],
+                "b972c105-29c6-49b3-83de-3955d3aa871e": [
+                  1200,
+                  0
+                ],
+                "ba47b529-fac8-4621-9440-f6a6dd62194b": [
+                  600,
+                  0
+                ],
+                "f4e024c0-5f9a-493c-9854-a33186be741b": [
+                  0,
+                  0
+                ]
+              }
+            },
+            "root": {
+              "clock": {
+                "offset": {
+                  "denominator": 1,
+                  "numerator": 0
+                },
+                "rate": {
+                  "denominator": 1,
+                  "numerator": 1
+                }
+              },
+              "definition": "4a0f847d-93b6-4f92-8508-f746a8cb9938",
+              "id": "a2d95956-45e6-490d-b90a-fa288b85f322",
+              "name": "Dot display",
+              "overrides": {}
+            },
+            "seed": 0
+          },
+          "id": "0ff33c27-9c2e-4919-bec0-e1ac69f575ef",
+          "locked": false,
+          "name": "Dot display",
+          "output": "b5cd1564-f6e7-4ead-9e5a-3c068a3ebef3",
+          "parent": null,
+          "position": {
+            "kind": "literal",
+            "value": {
+              "kind": "vector",
+              "space": "world",
+              "unit": "meters",
+              "value": [
+                0,
+                0,
+                0
+              ]
+            }
+          },
+          "rotation": {
+            "kind": "literal",
+            "value": {
+              "kind": "rotation",
+              "space": "world",
+              "value": [
+                0,
+                0,
+                0,
+                1
+              ]
+            }
+          },
+          "scale": {
+            "kind": "literal",
+            "value": {
+              "kind": "vector",
+              "space": "world",
+              "unit": "unitless",
+              "value": [
+                1,
+                1,
+                1
+              ]
+            }
+          },
+          "visible": true
+        },
+        {
+          "clock": {
+            "offset": {
+              "denominator": 1,
+              "numerator": 0
+            },
+            "rate": {
+              "denominator": 1,
+              "numerator": 1
+            }
+          },
+          "graph": {
+            "canvas": {
+              "end": {
+                "denominator": 1,
+                "numerator": 6
+              },
+              "height": 1080,
+              "rate": [
+                30,
+                1
+              ],
+              "start": {
+                "denominator": 1,
+                "numerator": 0
+              },
+              "width": 1920
+            },
+            "definitions": [
+              {
+                "id": "120579aa-33bb-4195-afd6-57ce6e906685",
+                "inputs": [],
+                "instances": [],
+                "name": "Box",
+                "nodes": [
+                  {
+                    "id": "956de32c-e32d-4432-85e0-2cf819f0cea2",
+                    "mode": "box",
+                    "name": "Paper",
+                    "operation": "fold.motion.mesh",
+                    "parameters": {
+                      "size": {
+                        "id": "fe5c7c01-53ec-4814-b794-e7c3fa3bb34e",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "vector",
+                            "space": "world",
+                            "unit": "meters",
+                            "value": [
+                              20,
+                              12,
+                              0.05
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "version": 1
+                  },
+                  {
+                    "id": "170aac4a-006c-45b2-83af-4e2d3759e158",
+                    "mode": "unlit",
+                    "name": "Surface",
+                    "operation": "fold.motion.material",
+                    "parameters": {
+                      "color": {
+                        "id": "70981215-5876-4b84-869c-4ab7a5659845",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "alpha": "straight",
+                            "encoding": "linear_rec709",
+                            "kind": "color",
+                            "value": [
+                              2.5,
+                              2.5,
+                              2.3,
+                              1
+                            ]
+                          }
+                        }
+                      },
+                      "geometry": {
+                        "id": "fb1f8116-6407-4a7e-895d-cc1e4148adc8",
+                        "protected": false,
+                        "value": {
+                          "kind": "link",
+                          "reference": {
+                            "id": "e9a30e22-c172-4086-9863-7aafc53cc601",
+                            "target": {
+                              "kind": "node",
+                              "node": "956de32c-e32d-4432-85e0-2cf819f0cea2"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "version": 1
+                  },
+                  {
+                    "id": "a5911950-7eba-4b38-ad67-5ac679af16f0",
+                    "mode": "world",
+                    "name": "Position",
+                    "operation": "fold.motion.place",
+                    "parameters": {
+                      "geometry": {
+                        "id": "039bce1c-71ee-4e42-8544-53f069e1a883",
+                        "protected": false,
+                        "value": {
+                          "kind": "link",
+                          "reference": {
+                            "id": "bfdda3fe-d247-40ec-bb3d-af71ca36d0ec",
+                            "target": {
+                              "kind": "node",
+                              "node": "170aac4a-006c-45b2-83af-4e2d3759e158"
+                            }
+                          }
+                        }
+                      },
+                      "opacity": {
+                        "id": "48ce103c-4778-4f68-b381-df1e3556e620",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "scalar",
+                            "value": 1
+                          }
+                        }
+                      },
+                      "position": {
+                        "id": "b0019d73-112b-462d-8f3b-f61fca523330",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "vector",
+                            "space": "world",
+                            "unit": "meters",
+                            "value": [
+                              0,
+                              0,
+                              -1
+                            ]
+                          }
+                        }
+                      },
+                      "rotation": {
+                        "id": "b9b62110-7d91-4bfe-9e52-2bdca9703205",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "rotation",
+                            "space": "world",
+                            "value": [
+                              0,
+                              0,
+                              0,
+                              1
+                            ]
+                          }
+                        }
+                      },
+                      "scale": {
+                        "id": "5e1b58f7-099a-4259-b9fe-3c24d52827bc",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "vector",
+                            "space": "world",
+                            "unit": "unitless",
+                            "value": [
+                              1,
+                              1,
+                              1
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "version": 1
+                  }
+                ],
+                "outputs": [
+                  {
+                    "id": "291f929c-ec08-410b-8c40-ecac5caa3038",
+                    "name": "main",
+                    "ty": {
+                      "kind": "placement"
+                    },
+                    "value": {
+                      "id": "931e4347-5888-4fc1-a341-6c1aee41a13c",
+                      "target": {
+                        "kind": "node",
+                        "node": "a5911950-7eba-4b38-ad67-5ac679af16f0"
+                      }
+                    }
+                  }
+                ]
+              }
+            ],
+            "presentation": {
+              "annotations": {},
+              "groups": [],
+              "positions": {
+                "170aac4a-006c-45b2-83af-4e2d3759e158": [
+                  300,
+                  0
+                ],
+                "956de32c-e32d-4432-85e0-2cf819f0cea2": [
+                  0,
+                  0
+                ],
+                "a5911950-7eba-4b38-ad67-5ac679af16f0": [
+                  600,
+                  0
+                ]
+              }
+            },
+            "root": {
+              "clock": {
+                "offset": {
+                  "denominator": 1,
+                  "numerator": 0
+                },
+                "rate": {
+                  "denominator": 1,
+                  "numerator": 1
+                }
+              },
+              "definition": "120579aa-33bb-4195-afd6-57ce6e906685",
+              "id": "1d418fac-7654-42ff-8345-14877e7c1af0",
+              "name": "Box",
+              "overrides": {}
+            },
+            "seed": 0
+          },
+          "id": "2e192bd3-03d3-4663-8fa5-302eedf83591",
+          "locked": false,
+          "name": "Paper background",
+          "output": "291f929c-ec08-410b-8c40-ecac5caa3038",
+          "parent": null,
+          "position": {
+            "kind": "literal",
+            "value": {
+              "kind": "vector",
+              "space": "world",
+              "unit": "meters",
+              "value": [
+                0,
+                0,
+                0
+              ]
+            }
+          },
+          "rotation": {
+            "kind": "literal",
+            "value": {
+              "kind": "rotation",
+              "space": "world",
+              "value": [
+                0,
+                0,
+                0,
+                1
+              ]
+            }
+          },
+          "scale": {
+            "kind": "literal",
+            "value": {
+              "kind": "vector",
+              "space": "world",
+              "unit": "unitless",
+              "value": [
+                1,
+                1,
+                1
+              ]
+            }
+          },
+          "visible": true
+        },
+        {
+          "clock": {
+            "offset": {
+              "denominator": 1,
+              "numerator": 0
+            },
+            "rate": {
+              "denominator": 1,
+              "numerator": 1
+            }
+          },
+          "graph": {
+            "canvas": {
+              "end": {
+                "denominator": 1,
+                "numerator": 6
+              },
+              "height": 1080,
+              "rate": [
+                30,
+                1
+              ],
+              "start": {
+                "denominator": 1,
+                "numerator": 0
+              },
+              "width": 1920
+            },
+            "definitions": [
+              {
+                "id": "118a16aa-df33-46b8-91d1-10a9cdba279a",
+                "inputs": [],
+                "instances": [],
+                "name": "Box",
+                "nodes": [
+                  {
+                    "id": "a5c1fa54-910a-41dc-aa1d-3ad23dfc550f",
+                    "mode": "box",
+                    "name": "Display panel",
+                    "operation": "fold.motion.mesh",
+                    "parameters": {
+                      "size": {
+                        "id": "9305a264-42b6-42ae-9972-1bb78e7d1d69",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "vector",
+                            "space": "world",
+                            "unit": "meters",
+                            "value": [
+                              17.2,
+                              4.2,
+                              0.05
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "version": 1
+                  },
+                  {
+                    "id": "3d2832b7-bd43-4c32-8a0d-a2917209c52c",
+                    "mode": "unlit",
+                    "name": "Surface",
+                    "operation": "fold.motion.material",
+                    "parameters": {
+                      "color": {
+                        "id": "564118d9-428f-432a-b796-a1e8cf5f5422",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "alpha": "straight",
+                            "encoding": "linear_rec709",
+                            "kind": "color",
+                            "value": [
+                              0.002,
+                              0.006,
+                              0.004,
+                              1
+                            ]
+                          }
+                        }
+                      },
+                      "geometry": {
+                        "id": "2c4f8a08-c22e-47ca-9efd-53fcb4c10076",
+                        "protected": false,
+                        "value": {
+                          "kind": "link",
+                          "reference": {
+                            "id": "c4f2cbc3-4f3a-4aa5-81fe-5d5952d7c570",
+                            "target": {
+                              "kind": "node",
+                              "node": "a5c1fa54-910a-41dc-aa1d-3ad23dfc550f"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "version": 1
+                  },
+                  {
+                    "id": "c1b39043-92e0-4d98-a4b6-f06028501f15",
+                    "mode": "world",
+                    "name": "Position",
+                    "operation": "fold.motion.place",
+                    "parameters": {
+                      "geometry": {
+                        "id": "a13d6102-574c-478f-a4d4-dcaa8f0af142",
+                        "protected": false,
+                        "value": {
+                          "kind": "link",
+                          "reference": {
+                            "id": "db4c7ba6-4335-436a-bd4d-41521770e7ec",
+                            "target": {
+                              "kind": "node",
+                              "node": "3d2832b7-bd43-4c32-8a0d-a2917209c52c"
+                            }
+                          }
+                        }
+                      },
+                      "opacity": {
+                        "id": "4fd8ec72-84f7-4001-bbde-ddb323f228bf",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "scalar",
+                            "value": 1
+                          }
+                        }
+                      },
+                      "position": {
+                        "id": "9f8c6458-9dab-4f8f-bf81-e2caea1111f5",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "vector",
+                            "space": "world",
+                            "unit": "meters",
+                            "value": [
+                              0,
+                              -1.15,
+                              -0.25
+                            ]
+                          }
+                        }
+                      },
+                      "rotation": {
+                        "id": "58cc5d1f-9046-45f9-9fbe-1d2e9e972a8e",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "rotation",
+                            "space": "world",
+                            "value": [
+                              0,
+                              0,
+                              0,
+                              1
+                            ]
+                          }
+                        }
+                      },
+                      "scale": {
+                        "id": "05a1bbd9-c2a4-43ee-a1d5-2e268b0f8e99",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "vector",
+                            "space": "world",
+                            "unit": "unitless",
+                            "value": [
+                              1,
+                              1,
+                              1
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "version": 1
+                  }
+                ],
+                "outputs": [
+                  {
+                    "id": "a5c594ed-4431-473c-8fc2-1bb103f1e2f0",
+                    "name": "main",
+                    "ty": {
+                      "kind": "placement"
+                    },
+                    "value": {
+                      "id": "35bb7f97-3950-440f-84d6-e0e67c2703bf",
+                      "target": {
+                        "kind": "node",
+                        "node": "c1b39043-92e0-4d98-a4b6-f06028501f15"
+                      }
+                    }
+                  }
+                ]
+              }
+            ],
+            "presentation": {
+              "annotations": {},
+              "groups": [],
+              "positions": {
+                "3d2832b7-bd43-4c32-8a0d-a2917209c52c": [
+                  300,
+                  0
+                ],
+                "a5c1fa54-910a-41dc-aa1d-3ad23dfc550f": [
+                  0,
+                  0
+                ],
+                "c1b39043-92e0-4d98-a4b6-f06028501f15": [
+                  600,
+                  0
+                ]
+              }
+            },
+            "root": {
+              "clock": {
+                "offset": {
+                  "denominator": 1,
+                  "numerator": 0
+                },
+                "rate": {
+                  "denominator": 1,
+                  "numerator": 1
+                }
+              },
+              "definition": "118a16aa-df33-46b8-91d1-10a9cdba279a",
+              "id": "e4ec1514-983c-474e-b0a5-0321d1d3ce8f",
+              "name": "Box",
+              "overrides": {}
+            },
+            "seed": 0
+          },
+          "id": "6955312c-e0ac-451f-a9e1-fcc0c57b9f5b",
+          "locked": false,
+          "name": "Display panel",
+          "output": "a5c594ed-4431-473c-8fc2-1bb103f1e2f0",
+          "parent": null,
+          "position": {
+            "kind": "literal",
+            "value": {
+              "kind": "vector",
+              "space": "world",
+              "unit": "meters",
+              "value": [
+                0,
+                0,
+                0
+              ]
+            }
+          },
+          "rotation": {
+            "kind": "literal",
+            "value": {
+              "kind": "rotation",
+              "space": "world",
+              "value": [
+                0,
+                0,
+                0,
+                1
+              ]
+            }
+          },
+          "scale": {
+            "kind": "literal",
+            "value": {
+              "kind": "vector",
+              "space": "world",
+              "unit": "unitless",
+              "value": [
+                1,
+                1,
+                1
+              ]
+            }
+          },
+          "visible": true
+        },
+        {
+          "clock": {
+            "offset": {
+              "denominator": 1,
+              "numerator": 0
+            },
+            "rate": {
+              "denominator": 1,
+              "numerator": 1
+            }
+          },
+          "graph": {
+            "canvas": {
+              "end": {
+                "denominator": 1,
+                "numerator": 6
+              },
+              "height": 1080,
+              "rate": [
+                30,
+                1
+              ],
+              "start": {
+                "denominator": 1,
+                "numerator": 0
+              },
+              "width": 1920
+            },
+            "definitions": [
+              {
+                "id": "20943d99-1a19-421b-83d5-afb604be0b5b",
+                "inputs": [
+                  {
+                    "default": {
+                      "kind": "text",
+                      "value": "FOLD / VERSION 1"
+                    },
+                    "id": "7888a444-5283-4b32-93bc-36c9fafd1fa7",
+                    "name": "Copy",
+                    "protected": false,
+                    "ty": {
+                      "kind": "text"
+                    }
+                  }
+                ],
+                "instances": [],
+                "name": "Text",
+                "nodes": [
+                  {
+                    "id": "5edba5dd-709b-45ca-a198-5612e490774b",
+                    "mode": "packaged",
+                    "name": "Text",
+                    "operation": "fold.motion.text",
+                    "parameters": {
+                      "font": {
+                        "id": "5f11c121-ea39-4412-b2d0-980a24573b6d",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "text",
+                            "value": "Noto Sans Regular"
+                          }
+                        }
+                      },
+                      "size": {
+                        "id": "40d8430e-36f0-4db2-9477-b41672a0dc4c",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "distance",
+                            "unit": "canvas",
+                            "value": 126
+                          }
+                        }
+                      },
+                      "text": {
+                        "id": "af750b02-6a39-4a0c-9ed1-c52b2dcef1f2",
+                        "protected": false,
+                        "value": {
+                          "expression": {
+                            "kind": "reference",
+                            "reference": {
+                              "id": "e5d3fa90-198c-4afc-91ce-9c04bf5104f4",
+                              "target": {
+                                "input": "7888a444-5283-4b32-93bc-36c9fafd1fa7",
+                                "kind": "input"
+                              }
+                            }
+                          },
+                          "kind": "expression"
+                        }
+                      },
+                      "width": {
+                        "id": "4eee922d-b033-4fbc-b3ca-c7d51c6e89d3",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "distance",
+                            "unit": "canvas",
+                            "value": 1920
+                          }
+                        }
+                      },
+                      "wrap": {
+                        "id": "ffedbf17-f5f6-4ea6-8ebc-9d2112d20988",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "bool",
+                            "value": false
+                          }
+                        }
+                      }
+                    },
+                    "version": 1
+                  },
+                  {
+                    "id": "99192bc0-6260-4d37-afc6-f72037a06d2d",
+                    "mode": "curves",
+                    "name": "Outline",
+                    "operation": "fold.motion.outline_text",
+                    "parameters": {
+                      "text": {
+                        "id": "6a33a19e-add6-4595-8403-aba0bbae9e1f",
+                        "protected": false,
+                        "value": {
+                          "kind": "link",
+                          "reference": {
+                            "id": "c2fcaebd-6231-4ede-a2b7-9e312f5060fb",
+                            "target": {
+                              "kind": "node",
+                              "node": "5edba5dd-709b-45ca-a198-5612e490774b"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "version": 1
+                  },
+                  {
+                    "id": "1ae97047-c33c-4c9d-8bc7-258f77aa18f8",
+                    "mode": "straight_text",
+                    "name": "Text surface",
+                    "operation": "fold.motion.extrude",
+                    "parameters": {
+                      "canvas_unit": {
+                        "id": "dc8df51d-4bb0-4067-ab76-78643a32bbb0",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "distance",
+                            "unit": "meters",
+                            "value": 0.01
+                          }
+                        }
+                      },
+                      "depth": {
+                        "id": "d88bb8d7-a8e4-4330-9048-0a9f2eb53c41",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "distance",
+                            "unit": "meters",
+                            "value": 0.001
+                          }
+                        }
+                      },
+                      "detail": {
+                        "id": "9c5fd737-40f0-40dd-b7da-986469011474",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "scalar",
+                            "value": 0.1
+                          }
+                        }
+                      },
+                      "profile": {
+                        "id": "d6ebf2a1-7ebf-4740-a5cf-15cb81d527d5",
+                        "protected": false,
+                        "value": {
+                          "kind": "link",
+                          "reference": {
+                            "id": "2d073b08-b5c4-4e8b-b8a4-2e9569828909",
+                            "target": {
+                              "kind": "node",
+                              "node": "99192bc0-6260-4d37-afc6-f72037a06d2d"
+                            }
+                          }
+                        }
+                      },
+                      "segments": {
+                        "id": "3d8ffea1-431b-4fc0-a8bf-53209bebd8ff",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "integer",
+                            "value": 1
+                          }
+                        }
+                      }
+                    },
+                    "version": 1
+                  },
+                  {
+                    "id": "c07e62f9-55af-432f-be29-be684858a503",
+                    "mode": "unlit",
+                    "name": "Ink",
+                    "operation": "fold.motion.material",
+                    "parameters": {
+                      "color": {
+                        "id": "0eeef292-9bc4-4a9d-bcb0-abebce4a5e2a",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "alpha": "straight",
+                            "encoding": "linear_rec709",
+                            "kind": "color",
+                            "value": [
+                              0.006,
+                              0.012,
+                              0.009,
+                              1
+                            ]
+                          }
+                        }
+                      },
+                      "geometry": {
+                        "id": "5762b43a-3098-44dd-ac62-375f6488725f",
+                        "protected": false,
+                        "value": {
+                          "kind": "link",
+                          "reference": {
+                            "id": "70d74f8d-749a-414d-b810-4e50fa3a6084",
+                            "target": {
+                              "kind": "node",
+                              "node": "1ae97047-c33c-4c9d-8bc7-258f77aa18f8"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "version": 1
+                  },
+                  {
+                    "id": "9dbe9f4f-ee72-4452-af69-d395699fc531",
+                    "mode": "world",
+                    "name": "Position",
+                    "operation": "fold.motion.place",
+                    "parameters": {
+                      "geometry": {
+                        "id": "eb5be3b7-bc13-4adc-ace1-be0c1d9c23e2",
+                        "protected": false,
+                        "value": {
+                          "kind": "link",
+                          "reference": {
+                            "id": "3c169543-75f5-457c-8536-f316dec50039",
+                            "target": {
+                              "kind": "node",
+                              "node": "c07e62f9-55af-432f-be29-be684858a503"
+                            }
+                          }
+                        }
+                      },
+                      "opacity": {
+                        "id": "302e2fc0-5f67-49e7-868d-443fdf0e3b15",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "scalar",
+                            "value": 1
+                          }
+                        }
+                      },
+                      "position": {
+                        "id": "23ae8b50-b9df-4748-8a3a-58d4714a6eb7",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "vector",
+                            "space": "world",
+                            "unit": "meters",
+                            "value": [
+                              -8.6,
+                              4.2,
+                              0
+                            ]
+                          }
+                        }
+                      },
+                      "rotation": {
+                        "id": "b5bfdac0-84fd-49af-a9a7-878228a511bd",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "rotation",
+                            "space": "world",
+                            "value": [
+                              0,
+                              0,
+                              0,
+                              1
+                            ]
+                          }
+                        }
+                      },
+                      "scale": {
+                        "id": "2852ec95-f54b-4a52-a7dd-945acf654976",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "vector",
+                            "space": "world",
+                            "unit": "unitless",
+                            "value": [
+                              1,
+                              1,
+                              1
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "version": 1
+                  }
+                ],
+                "outputs": [
+                  {
+                    "id": "59aa81b1-c646-49f5-a054-f9c9ec672952",
+                    "name": "main",
+                    "ty": {
+                      "kind": "placement"
+                    },
+                    "value": {
+                      "id": "ce7a482d-4c24-4b93-a127-570a1a1ccbd7",
+                      "target": {
+                        "kind": "node",
+                        "node": "9dbe9f4f-ee72-4452-af69-d395699fc531"
+                      }
+                    }
+                  }
+                ]
+              }
+            ],
+            "presentation": {
+              "annotations": {},
+              "groups": [],
+              "positions": {
+                "1ae97047-c33c-4c9d-8bc7-258f77aa18f8": [
+                  600,
+                  0
+                ],
+                "5edba5dd-709b-45ca-a198-5612e490774b": [
+                  0,
+                  0
+                ],
+                "99192bc0-6260-4d37-afc6-f72037a06d2d": [
+                  300,
+                  0
+                ],
+                "9dbe9f4f-ee72-4452-af69-d395699fc531": [
+                  1200,
+                  0
+                ],
+                "c07e62f9-55af-432f-be29-be684858a503": [
+                  900,
+                  0
+                ]
+              }
+            },
+            "root": {
+              "clock": {
+                "offset": {
+                  "denominator": 1,
+                  "numerator": 0
+                },
+                "rate": {
+                  "denominator": 1,
+                  "numerator": 1
+                }
+              },
+              "definition": "20943d99-1a19-421b-83d5-afb604be0b5b",
+              "id": "f53ba8ba-4e2c-4ac4-bf93-55793d7b069b",
+              "name": "Text",
+              "overrides": {}
+            },
+            "seed": 0
+          },
+          "id": "6813efdd-40e9-4405-b283-5abbb3c00fd0",
+          "locked": false,
+          "name": "Fold version 1",
+          "output": "59aa81b1-c646-49f5-a054-f9c9ec672952",
+          "parent": null,
+          "position": {
+            "kind": "literal",
+            "value": {
+              "kind": "vector",
+              "space": "world",
+              "unit": "meters",
+              "value": [
+                0,
+                0,
+                0
+              ]
+            }
+          },
+          "rotation": {
+            "kind": "literal",
+            "value": {
+              "kind": "rotation",
+              "space": "world",
+              "value": [
+                0,
+                0,
+                0,
+                1
+              ]
+            }
+          },
+          "scale": {
+            "kind": "literal",
+            "value": {
+              "kind": "vector",
+              "space": "world",
+              "unit": "unitless",
+              "value": [
+                1,
+                1,
+                1
+              ]
+            }
+          },
+          "visible": true
+        },
+        {
+          "clock": {
+            "offset": {
+              "denominator": 1,
+              "numerator": 0
+            },
+            "rate": {
+              "denominator": 1,
+              "numerator": 1
+            }
+          },
+          "graph": {
+            "canvas": {
+              "end": {
+                "denominator": 1,
+                "numerator": 6
+              },
+              "height": 1080,
+              "rate": [
+                30,
+                1
+              ],
+              "start": {
+                "denominator": 1,
+                "numerator": 0
+              },
+              "width": 1920
+            },
+            "definitions": [
+              {
+                "id": "42d26b6d-25a0-49d4-a977-817500cc5f45",
+                "inputs": [
+                  {
+                    "default": {
+                      "kind": "text",
+                      "value": "IDEAS INTO MOTION."
+                    },
+                    "id": "cd6cb520-ab65-4fb6-bc8f-1f405b27f0a5",
+                    "name": "Copy",
+                    "protected": false,
+                    "ty": {
+                      "kind": "text"
+                    }
+                  }
+                ],
+                "instances": [],
+                "name": "Text",
+                "nodes": [
+                  {
+                    "id": "309d7a29-d8e5-4481-a9aa-813f98e7fb29",
+                    "mode": "packaged",
+                    "name": "Text",
+                    "operation": "fold.motion.text",
+                    "parameters": {
+                      "font": {
+                        "id": "3dfdb8c6-613d-48e1-b0df-d36c52dc2c23",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "text",
+                            "value": "Noto Sans Regular"
+                          }
+                        }
+                      },
+                      "size": {
+                        "id": "0e5d1630-40ed-4824-89c3-e0612908aad5",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "distance",
+                            "unit": "canvas",
+                            "value": 54
+                          }
+                        }
+                      },
+                      "text": {
+                        "id": "84c269f5-ac6d-4506-a655-6d1c0e25ad8d",
+                        "protected": false,
+                        "value": {
+                          "expression": {
+                            "kind": "reference",
+                            "reference": {
+                              "id": "00f9930f-2295-4694-a89b-2c1290861ac8",
+                              "target": {
+                                "input": "cd6cb520-ab65-4fb6-bc8f-1f405b27f0a5",
+                                "kind": "input"
+                              }
+                            }
+                          },
+                          "kind": "expression"
+                        }
+                      },
+                      "width": {
+                        "id": "2007e23d-aaeb-470c-8c54-24fd55ddcd49",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "distance",
+                            "unit": "canvas",
+                            "value": 1920
+                          }
+                        }
+                      },
+                      "wrap": {
+                        "id": "d52402be-f942-46c5-8315-1874b9425770",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "bool",
+                            "value": false
+                          }
+                        }
+                      }
+                    },
+                    "version": 1
+                  },
+                  {
+                    "id": "ac8cd420-dcda-447a-b3c4-3dc2b65e241f",
+                    "mode": "curves",
+                    "name": "Outline",
+                    "operation": "fold.motion.outline_text",
+                    "parameters": {
+                      "text": {
+                        "id": "25edcea1-7868-43e4-bab1-d3e19f9a2a11",
+                        "protected": false,
+                        "value": {
+                          "kind": "link",
+                          "reference": {
+                            "id": "1f2a1720-4eb0-471a-9ed2-71be675755a3",
+                            "target": {
+                              "kind": "node",
+                              "node": "309d7a29-d8e5-4481-a9aa-813f98e7fb29"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "version": 1
+                  },
+                  {
+                    "id": "5995a6b4-ffc9-4439-8c3e-e12143c0084f",
+                    "mode": "straight_text",
+                    "name": "Text surface",
+                    "operation": "fold.motion.extrude",
+                    "parameters": {
+                      "canvas_unit": {
+                        "id": "0923d533-5694-4ec1-9f9c-01da822d4176",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "distance",
+                            "unit": "meters",
+                            "value": 0.01
+                          }
+                        }
+                      },
+                      "depth": {
+                        "id": "2db9ad6b-284f-484f-b665-0a7b5478f959",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "distance",
+                            "unit": "meters",
+                            "value": 0.001
+                          }
+                        }
+                      },
+                      "detail": {
+                        "id": "104cb864-689a-486f-8b5a-b33c135a7bee",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "scalar",
+                            "value": 0.1
+                          }
+                        }
+                      },
+                      "profile": {
+                        "id": "ec8bb3e9-3b9f-4134-9028-ebdcd0619efb",
+                        "protected": false,
+                        "value": {
+                          "kind": "link",
+                          "reference": {
+                            "id": "3dab0381-b44b-4093-82e9-c9ce6465c65b",
+                            "target": {
+                              "kind": "node",
+                              "node": "ac8cd420-dcda-447a-b3c4-3dc2b65e241f"
+                            }
+                          }
+                        }
+                      },
+                      "segments": {
+                        "id": "89faa155-9526-4cf3-9350-4ee95294fa43",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "integer",
+                            "value": 1
+                          }
+                        }
+                      }
+                    },
+                    "version": 1
+                  },
+                  {
+                    "id": "7f8fb198-7bcd-4e94-b7d6-9ef7119508d1",
+                    "mode": "unlit",
+                    "name": "Ink",
+                    "operation": "fold.motion.material",
+                    "parameters": {
+                      "color": {
+                        "id": "a58f2725-7f80-4137-ba69-50912ead5886",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "alpha": "straight",
+                            "encoding": "linear_rec709",
+                            "kind": "color",
+                            "value": [
+                              0.05,
+                              0.09,
+                              0.07,
+                              1
+                            ]
+                          }
+                        }
+                      },
+                      "geometry": {
+                        "id": "d116fdc1-7e16-4049-bd9e-a722fbfe3305",
+                        "protected": false,
+                        "value": {
+                          "kind": "link",
+                          "reference": {
+                            "id": "a1c3ec6e-aafa-4343-abea-e6048189f3aa",
+                            "target": {
+                              "kind": "node",
+                              "node": "5995a6b4-ffc9-4439-8c3e-e12143c0084f"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "version": 1
+                  },
+                  {
+                    "id": "236821c2-0557-4d37-b453-d633558a3f7f",
+                    "mode": "world",
+                    "name": "Position",
+                    "operation": "fold.motion.place",
+                    "parameters": {
+                      "geometry": {
+                        "id": "3cfa52d5-448a-42ae-9fcb-58ad62be0ffa",
+                        "protected": false,
+                        "value": {
+                          "kind": "link",
+                          "reference": {
+                            "id": "70936d4c-07b1-48ad-b197-633a786de8f3",
+                            "target": {
+                              "kind": "node",
+                              "node": "7f8fb198-7bcd-4e94-b7d6-9ef7119508d1"
+                            }
+                          }
+                        }
+                      },
+                      "opacity": {
+                        "id": "d8d517ea-d1ad-4730-bd20-daac0d2c1706",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "scalar",
+                            "value": 1
+                          }
+                        }
+                      },
+                      "position": {
+                        "id": "b93b4129-a9a5-42b0-8928-976456b97acb",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "vector",
+                            "space": "world",
+                            "unit": "meters",
+                            "value": [
+                              -8.55,
+                              2.38,
+                              0
+                            ]
+                          }
+                        }
+                      },
+                      "rotation": {
+                        "id": "772f209c-aedb-42d6-9272-0cdc92289257",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "rotation",
+                            "space": "world",
+                            "value": [
+                              0,
+                              0,
+                              0,
+                              1
+                            ]
+                          }
+                        }
+                      },
+                      "scale": {
+                        "id": "c2f40ae8-cc87-4675-bbfd-bb197b98e4ef",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "vector",
+                            "space": "world",
+                            "unit": "unitless",
+                            "value": [
+                              1,
+                              1,
+                              1
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "version": 1
+                  }
+                ],
+                "outputs": [
+                  {
+                    "id": "34c51598-8d8e-4068-8965-13436582204c",
+                    "name": "main",
+                    "ty": {
+                      "kind": "placement"
+                    },
+                    "value": {
+                      "id": "cdb5d7cd-7604-4dfb-a606-3cbc15387dcd",
+                      "target": {
+                        "kind": "node",
+                        "node": "236821c2-0557-4d37-b453-d633558a3f7f"
+                      }
+                    }
+                  }
+                ]
+              }
+            ],
+            "presentation": {
+              "annotations": {},
+              "groups": [],
+              "positions": {
+                "236821c2-0557-4d37-b453-d633558a3f7f": [
+                  1200,
+                  0
+                ],
+                "309d7a29-d8e5-4481-a9aa-813f98e7fb29": [
+                  0,
+                  0
+                ],
+                "5995a6b4-ffc9-4439-8c3e-e12143c0084f": [
+                  600,
+                  0
+                ],
+                "7f8fb198-7bcd-4e94-b7d6-9ef7119508d1": [
+                  900,
+                  0
+                ],
+                "ac8cd420-dcda-447a-b3c4-3dc2b65e241f": [
+                  300,
+                  0
+                ]
+              }
+            },
+            "root": {
+              "clock": {
+                "offset": {
+                  "denominator": 1,
+                  "numerator": 0
+                },
+                "rate": {
+                  "denominator": 1,
+                  "numerator": 1
+                }
+              },
+              "definition": "42d26b6d-25a0-49d4-a977-817500cc5f45",
+              "id": "86ae8a3d-3e1b-466f-ad72-9da3c97ed458",
+              "name": "Text",
+              "overrides": {}
+            },
+            "seed": 0
+          },
+          "id": "d8f3bbae-a644-49ba-b294-4193d0012bb1",
+          "locked": false,
+          "name": "Ideas into motion",
+          "output": "34c51598-8d8e-4068-8965-13436582204c",
+          "parent": null,
+          "position": {
+            "kind": "literal",
+            "value": {
+              "kind": "vector",
+              "space": "world",
+              "unit": "meters",
+              "value": [
+                0,
+                0,
+                0
+              ]
+            }
+          },
+          "rotation": {
+            "kind": "literal",
+            "value": {
+              "kind": "rotation",
+              "space": "world",
+              "value": [
+                0,
+                0,
+                0,
+                1
+              ]
+            }
+          },
+          "scale": {
+            "kind": "literal",
+            "value": {
+              "kind": "vector",
+              "space": "world",
+              "unit": "unitless",
+              "value": [
+                1,
+                1,
+                1
+              ]
+            }
+          },
+          "visible": true
+        },
+        {
+          "clock": {
+            "offset": {
+              "denominator": 1,
+              "numerator": 0
+            },
+            "rate": {
+              "denominator": 1,
+              "numerator": 1
+            }
+          },
+          "graph": {
+            "canvas": {
+              "end": {
+                "denominator": 1,
+                "numerator": 6
+              },
+              "height": 1080,
+              "rate": [
+                30,
+                1
+              ],
+              "start": {
+                "denominator": 1,
+                "numerator": 0
+              },
+              "width": 1920
+            },
+            "definitions": [
+              {
+                "id": "18875914-0fec-437d-af73-27e2f34caeaa",
+                "inputs": [
+                  {
+                    "default": {
+                      "kind": "text",
+                      "value": "01   /   DOT DISPLAY                                     PROCEDURAL MOTION"
+                    },
+                    "id": "7cb24907-a84e-49cd-be0f-85c05bcf0e56",
+                    "name": "Copy",
+                    "protected": false,
+                    "ty": {
+                      "kind": "text"
+                    }
+                  }
+                ],
+                "instances": [],
+                "name": "Text",
+                "nodes": [
+                  {
+                    "id": "bcf43694-c6fd-41fb-9a90-fc0d1aec4069",
+                    "mode": "packaged",
+                    "name": "Text",
+                    "operation": "fold.motion.text",
+                    "parameters": {
+                      "font": {
+                        "id": "2217cdee-4269-4e08-9054-648a9c9c19fa",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "text",
+                            "value": "Noto Sans Regular"
+                          }
+                        }
+                      },
+                      "size": {
+                        "id": "3e842c2f-52dd-4ea7-8226-7731ee0be420",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "distance",
+                            "unit": "canvas",
+                            "value": 24
+                          }
+                        }
+                      },
+                      "text": {
+                        "id": "dc2f3896-f11c-4807-a19f-e83d325f0874",
+                        "protected": false,
+                        "value": {
+                          "expression": {
+                            "kind": "reference",
+                            "reference": {
+                              "id": "92dda0ae-3eab-4ba6-a8b2-8f2288e62d07",
+                              "target": {
+                                "input": "7cb24907-a84e-49cd-be0f-85c05bcf0e56",
+                                "kind": "input"
+                              }
+                            }
+                          },
+                          "kind": "expression"
+                        }
+                      },
+                      "width": {
+                        "id": "6fd9f0d4-7850-4ce6-8aa6-fe79450d7132",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "distance",
+                            "unit": "canvas",
+                            "value": 1920
+                          }
+                        }
+                      },
+                      "wrap": {
+                        "id": "d8ea558c-8b37-4459-8ae7-d287c7a4b261",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "bool",
+                            "value": false
+                          }
+                        }
+                      }
+                    },
+                    "version": 1
+                  },
+                  {
+                    "id": "c26c0db6-2079-44ee-ab51-7c68e550f8b1",
+                    "mode": "curves",
+                    "name": "Outline",
+                    "operation": "fold.motion.outline_text",
+                    "parameters": {
+                      "text": {
+                        "id": "5fc63fe4-bdf5-4e2e-b0aa-d44f848a412e",
+                        "protected": false,
+                        "value": {
+                          "kind": "link",
+                          "reference": {
+                            "id": "1cfd2ed5-e5ed-4028-b124-39b607507eda",
+                            "target": {
+                              "kind": "node",
+                              "node": "bcf43694-c6fd-41fb-9a90-fc0d1aec4069"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "version": 1
+                  },
+                  {
+                    "id": "afce8924-33f4-46bd-8e48-7c93b1f7a82c",
+                    "mode": "straight_text",
+                    "name": "Text surface",
+                    "operation": "fold.motion.extrude",
+                    "parameters": {
+                      "canvas_unit": {
+                        "id": "cb447025-9ade-4df3-a479-318e0c7fa445",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "distance",
+                            "unit": "meters",
+                            "value": 0.01
+                          }
+                        }
+                      },
+                      "depth": {
+                        "id": "b5d1d3fe-9b8a-4231-990d-006abbc0c24b",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "distance",
+                            "unit": "meters",
+                            "value": 0.001
+                          }
+                        }
+                      },
+                      "detail": {
+                        "id": "29cd7ced-fdb5-464a-a856-b75e58a132b2",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "scalar",
+                            "value": 0.1
+                          }
+                        }
+                      },
+                      "profile": {
+                        "id": "ead563a0-dd0e-4a54-be44-f6bf00f7077d",
+                        "protected": false,
+                        "value": {
+                          "kind": "link",
+                          "reference": {
+                            "id": "480e6dc0-8567-462d-be34-81cb1f4e2076",
+                            "target": {
+                              "kind": "node",
+                              "node": "c26c0db6-2079-44ee-ab51-7c68e550f8b1"
+                            }
+                          }
+                        }
+                      },
+                      "segments": {
+                        "id": "701431f6-9743-4be9-b304-b572ad6a451a",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "integer",
+                            "value": 1
+                          }
+                        }
+                      }
+                    },
+                    "version": 1
+                  },
+                  {
+                    "id": "0593a5bd-7dbb-4583-9387-77ce0f4d45d2",
+                    "mode": "unlit",
+                    "name": "Ink",
+                    "operation": "fold.motion.material",
+                    "parameters": {
+                      "color": {
+                        "id": "c9b7c6e4-dae5-44d1-bb45-959075e40765",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "alpha": "straight",
+                            "encoding": "linear_rec709",
+                            "kind": "color",
+                            "value": [
+                              0.05,
+                              0.09,
+                              0.07,
+                              1
+                            ]
+                          }
+                        }
+                      },
+                      "geometry": {
+                        "id": "eeea1fe9-0932-4947-b509-967d6f86d98e",
+                        "protected": false,
+                        "value": {
+                          "kind": "link",
+                          "reference": {
+                            "id": "5a572ef6-c9d6-4c8b-86b7-38066e5d4177",
+                            "target": {
+                              "kind": "node",
+                              "node": "afce8924-33f4-46bd-8e48-7c93b1f7a82c"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "version": 1
+                  },
+                  {
+                    "id": "3098280e-bfb1-44dd-9cd2-7f22a65466f9",
+                    "mode": "world",
+                    "name": "Position",
+                    "operation": "fold.motion.place",
+                    "parameters": {
+                      "geometry": {
+                        "id": "ee0f3981-f91b-4a51-8386-6296588cab20",
+                        "protected": false,
+                        "value": {
+                          "kind": "link",
+                          "reference": {
+                            "id": "985aa529-1dc7-455b-938b-b7b17d719c2d",
+                            "target": {
+                              "kind": "node",
+                              "node": "0593a5bd-7dbb-4583-9387-77ce0f4d45d2"
+                            }
+                          }
+                        }
+                      },
+                      "opacity": {
+                        "id": "903ecb6a-4629-4a0d-934d-5de2d81b0225",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "scalar",
+                            "value": 1
+                          }
+                        }
+                      },
+                      "position": {
+                        "id": "45458a6a-3a27-4f03-9089-266a24c472db",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "vector",
+                            "space": "world",
+                            "unit": "meters",
+                            "value": [
+                              -8.55,
+                              -4.25,
+                              0
+                            ]
+                          }
+                        }
+                      },
+                      "rotation": {
+                        "id": "69f9ef0a-bd24-491b-a902-dccc2369eabb",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "rotation",
+                            "space": "world",
+                            "value": [
+                              0,
+                              0,
+                              0,
+                              1
+                            ]
+                          }
+                        }
+                      },
+                      "scale": {
+                        "id": "364a5783-061d-45fa-9f9f-5dfab8bef768",
+                        "protected": false,
+                        "value": {
+                          "kind": "literal",
+                          "value": {
+                            "kind": "vector",
+                            "space": "world",
+                            "unit": "unitless",
+                            "value": [
+                              1,
+                              1,
+                              1
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "version": 1
+                  }
+                ],
+                "outputs": [
+                  {
+                    "id": "1f461545-7af0-421c-a2cd-ecddc6e50aff",
+                    "name": "main",
+                    "ty": {
+                      "kind": "placement"
+                    },
+                    "value": {
+                      "id": "26b9131a-432d-4fe6-947e-9d8a68b8c766",
+                      "target": {
+                        "kind": "node",
+                        "node": "3098280e-bfb1-44dd-9cd2-7f22a65466f9"
+                      }
+                    }
+                  }
+                ]
+              }
+            ],
+            "presentation": {
+              "annotations": {},
+              "groups": [],
+              "positions": {
+                "0593a5bd-7dbb-4583-9387-77ce0f4d45d2": [
+                  900,
+                  0
+                ],
+                "3098280e-bfb1-44dd-9cd2-7f22a65466f9": [
+                  1200,
+                  0
+                ],
+                "afce8924-33f4-46bd-8e48-7c93b1f7a82c": [
+                  600,
+                  0
+                ],
+                "bcf43694-c6fd-41fb-9a90-fc0d1aec4069": [
+                  0,
+                  0
+                ],
+                "c26c0db6-2079-44ee-ab51-7c68e550f8b1": [
+                  300,
+                  0
+                ]
+              }
+            },
+            "root": {
+              "clock": {
+                "offset": {
+                  "denominator": 1,
+                  "numerator": 0
+                },
+                "rate": {
+                  "denominator": 1,
+                  "numerator": 1
+                }
+              },
+              "definition": "18875914-0fec-437d-af73-27e2f34caeaa",
+              "id": "56736930-96ab-4fbc-b1bc-b62188c4d8f0",
+              "name": "Text",
+              "overrides": {}
+            },
+            "seed": 0
+          },
+          "id": "7d1967f8-06b3-4547-b4f5-3c333c89814c",
+          "locked": false,
+          "name": "Clip label",
+          "output": "1f461545-7af0-421c-a2cd-ecddc6e50aff",
+          "parent": null,
+          "position": {
+            "kind": "literal",
+            "value": {
+              "kind": "vector",
+              "space": "world",
+              "unit": "meters",
+              "value": [
+                0,
+                0,
+                0
+              ]
+            }
+          },
+          "rotation": {
+            "kind": "literal",
+            "value": {
+              "kind": "rotation",
+              "space": "world",
+              "value": [
+                0,
+                0,
+                0,
+                1
+              ]
+            }
+          },
+          "scale": {
+            "kind": "literal",
+            "value": {
+              "kind": "vector",
+              "space": "world",
+              "unit": "unitless",
+              "value": [
+                1,
+                1,
+                1
+              ]
+            }
+          },
+          "visible": true
+        }
+      ],
+      "output": "d9f8ab9d-33ca-4636-9eee-1ba7ae538807"
+    },
+    "object_sources": {
+      "0ff33c27-9c2e-4919-bec0-e1ac69f575ef": "motion 1;\nseed 0;\ncanvas {\"width\":1920,\"height\":1080,\"rate\":[30,1],\"start\":{\"numerator\":0,\"denominator\":1},\"end\":{\"numerator\":6,\"denominator\":1}};\nasset \"Dot display\" @{\"id\":\"4a0f847d-93b6-4f92-8508-f746a8cb9938\"} {\n  input \"Dot Radius\" @{\"id\":\"0b3360c3-ffee-4973-b8a4-157a6efdfcdb\",\"protected\":false} : {\"kind\":\"distance\",\"unit\":\"meters\"} = 0.12m;\n  input \"Columns\" @{\"id\":\"57d0266e-4d66-4966-90c1-52e9f7517b59\",\"protected\":false} : {\"kind\":\"integer\"} = 60i;\n  input \"Rows\" @{\"id\":\"a3bf7638-4e23-47af-8305-74fa1cdeb2bb\",\"protected\":false} : {\"kind\":\"integer\"} = 14i;\n  input \"Spacing\" @{\"id\":\"c2974066-d091-4461-bdab-703eddc7753c\",\"protected\":false} : {\"kind\":\"vector\",\"dimensions\":2,\"unit\":\"meters\",\"space\":\"world\"} = literal({\"kind\":\"vector\",\"value\":[0.28,0.28],\"unit\":\"meters\",\"space\":\"world\"});\n  input \"Highlight\" @{\"id\":\"0dd77337-dedd-4372-85e0-e2c615ba21dc\",\"protected\":false} : {\"kind\":\"color\",\"encoding\":\"linear_rec709\",\"alpha\":\"straight\"} = literal({\"kind\":\"color\",\"value\":[0.8,0.93,0.85,1.0],\"encoding\":\"linear_rec709\",\"alpha\":\"straight\"});\n  input \"Shadow\" @{\"id\":\"5294f322-2df7-491b-a9a0-6b37b5b9e4b0\",\"protected\":false} : {\"kind\":\"color\",\"encoding\":\"linear_rec709\",\"alpha\":\"straight\"} = literal({\"kind\":\"color\",\"value\":[0.018,0.025,0.022,1.0],\"encoding\":\"linear_rec709\",\"alpha\":\"straight\"});\n  input \"Speed\" @{\"id\":\"e58bc8d9-fa95-4b81-a028-42cd31456b71\",\"protected\":false} : {\"kind\":\"integer\"} = 1i;\n  input \"Accent\" @{\"id\":\"27893a5d-0657-4950-9fae-67c3d002f604\",\"protected\":false} : {\"kind\":\"color\",\"encoding\":\"linear_rec709\",\"alpha\":\"straight\"} = literal({\"kind\":\"color\",\"value\":[0.4,0.055,0.8,1.0],\"encoding\":\"linear_rec709\",\"alpha\":\"straight\"});\n  let \"Display grid\" @{\"id\":\"f4e024c0-5f9a-493c-9854-a33186be741b\"} = \"fold.motion.distribute\".\"grid\" @2 (\n    \"center\" @{\"id\":\"6821410d-e4b2-4b1c-b0eb-cf22fbc004c4\",\"protected\":false} = value(literal({\"kind\":\"vector\",\"value\":[0.0,-1.15,0.0],\"unit\":\"meters\",\"space\":\"world\"}));\n    \"columns\" @{\"id\":\"334adf48-7b1d-4611-acb1-19b0f0c60de8\",\"protected\":false} = expr($\"Columns\" @{\"id\":\"795f51d4-093d-43d5-ba10-e639bf581fc2\"});\n    \"rows\" @{\"id\":\"c963e43d-761f-4998-bf8a-3e121da87b11\",\"protected\":false} = expr($\"Rows\" @{\"id\":\"80415441-dd5c-420c-8d5d-4aa9e09fbbad\"});\n    \"spacing\" @{\"id\":\"6b7fff16-0955-4ad1-b8e8-fa1c9f87a506\",\"protected\":false} = expr($\"Spacing\" @{\"id\":\"afae17b6-32a5-440d-b69d-1a776b2ebf54\"});\n  );\n  let \"Dot\" @{\"id\":\"3028e41d-640b-4056-ad68-1f854644ba01\"} = \"fold.motion.wrangle\".\"rhai\" @1 (\n    \"inputs\" @{\"id\":\"b0e5968a-32d0-490d-9881-553cb92a491f\",\"protected\":false} = list[];\n    \"parameters\" @{\"id\":\"7f2b16ae-86ac-4759-a243-4732094de96f\",\"protected\":false} = value(\"{}\");\n    \"run_over\" @{\"id\":\"0d3fad8d-a4c1-41dc-97bf-46015d1e85f5\",\"protected\":false} = value(\"detail\");\n    \"source\" @{\"id\":\"08946208-f579-4463-8e20-fd58ca663c77\",\"protected\":false} = value(\"let g = geometry();\\nadd_point(g, vec3(0.0, 0.0, 0.0));\\nfor i in 0..16 {\\n    let a = i.to_float() * 6.28318530718 / 16.0;\\n    add_point(g, vec3(cos(a) * 0.061, sin(a) * 0.061, 0.0));\\n}\\nfor i in 0..16 { add_triangle(g, 0, i + 1, (i + 1) % 16 + 1); }\\ncompute_normals(g);\\ng\");\n    \"time\" @{\"id\":\"1da7227b-396d-4e96-9d0b-ffcdf13fc32e\",\"protected\":false} = expr(time.asset);\n  );\n  let \"Copy to Points\" @{\"id\":\"ba47b529-fac8-4621-9440-f6a6dd62194b\"} = \"fold.motion.cloner\".\"points\" @2 (\n    \"attributes\" @{\"id\":\"c621f779-973e-44b1-adf5-aadb5491f54d\",\"protected\":false} = value(\"Cd\");\n    \"points\" @{\"id\":\"9928204c-15c4-4089-9808-a72800168dc2\",\"protected\":false} = link($\"Display grid\" @{\"id\":\"ff07e0e5-640c-41d5-afeb-9b09d7f1f8d7\"});\n    \"prototype\" @{\"id\":\"d9243608-367d-420d-b69b-621458af55f6\",\"protected\":false} = link($\"Dot\" @{\"id\":\"7659a41b-594b-4462-bde7-f89e03021526\"});\n  );\n  let \"Horizontal UV\" @{\"id\":\"3b404a82-7a54-43e8-b153-cc1d51525c27\"} = \"fold.motion.field\".\"linear\" @1 (\n    \"end\" @{\"id\":\"a0e9cd05-6024-4258-a90c-7fad6a22fca7\",\"protected\":false} = value(literal({\"kind\":\"vector\",\"value\":[8.4,0.0,0.0],\"unit\":\"meters\",\"space\":\"world\"}));\n    \"start\" @{\"id\":\"1bdab031-0417-4d66-a591-c25894902ef6\",\"protected\":false} = value(literal({\"kind\":\"vector\",\"value\":[-8.4,0.0,0.0],\"unit\":\"meters\",\"space\":\"world\"}));\n  );\n  let \"Vertical UV\" @{\"id\":\"a2beabef-3f60-4e27-ac82-dd9a40659416\"} = \"fold.motion.field\".\"linear\" @1 (\n    \"end\" @{\"id\":\"fb686144-fede-4435-8503-5b5be9d5acc9\",\"protected\":false} = value(literal({\"kind\":\"vector\",\"value\":[0.0,-3.04,0.0],\"unit\":\"meters\",\"space\":\"world\"}));\n    \"start\" @{\"id\":\"07adcb9b-0ce2-4975-adde-0b855b8d5f7a\",\"protected\":false} = value(literal({\"kind\":\"vector\",\"value\":[0.0,0.74,0.0],\"unit\":\"meters\",\"space\":\"world\"}));\n  );\n  let \"Message image\" @{\"id\":\"9745705e-a472-42d3-b35b-87ea8141018a\"} = \"fold.motion.image_texture\".\"output\" @1 (\n    \"color_space\" @{\"id\":\"59124481-0a24-4b9e-9fbe-34257740914b\",\"protected\":false} = value(\"\");\n    \"document\" @{\"id\":\"5373e5fe-b834-438e-b11a-e9a2f574fed2\",\"protected\":false} = value(\"baf2f43a-1a19-422e-b989-a2316531d62d\");\n    \"output\" @{\"id\":\"fbf9032d-6c91-4759-a5a4-e9a54f335fa8\",\"protected\":false} = value(\"6707252f-f6ad-4dbb-a874-7c03ce1f82c5\");\n    \"outside\" @{\"id\":\"dbf795a1-6cdd-48cf-b1cc-dfab84700e1e\",\"protected\":false} = value(\"hold\");\n    \"time\" @{\"id\":\"108eaa4d-b686-4d47-901a-8e0810626cce\",\"protected\":false} = expr((time.asset * $\"Speed\" @{\"id\":\"b9b0c857-b616-4c59-805a-0131b842b632\"}));\n  );\n  let \"Read message\" @{\"id\":\"40e3fdcb-e7e8-44ee-af46-ac00dae3abdd\"} = \"fold.motion.sample_image\".\"scalar\" @1 (\n    \"channel\" @{\"id\":\"f6909984-2e16-4073-8134-9e4af8787ae8\",\"protected\":false} = value(\"alpha\");\n    \"filter\" @{\"id\":\"44e091ee-5f9e-4baf-81f4-83253206109a\",\"protected\":false} = value(\"bilinear\");\n    \"image\" @{\"id\":\"2a8b7179-f9d3-404b-bba8-ff58363f5a02\",\"protected\":false} = link($\"Message image\" @{\"id\":\"d2bcd474-ad1e-4672-bebd-3dfc899d6875\"});\n    \"uv\" @{\"id\":\"a64d07b5-492e-4fe4-bd66-259d5cb10964\",\"protected\":false} = expr(vector(\"unitless\", \"world\", $\"Horizontal UV\" @{\"id\":\"7df16e69-cb66-4405-b860-cbdcf0d57b83\"}, $\"Vertical UV\" @{\"id\":\"0a0f8a0a-c068-4647-b41f-606bbd825ee1\"}));\n    \"wrap\" @{\"id\":\"0ffeefd9-8090-403f-acc4-cc23eb1facf3\",\"protected\":false} = value(\"clamp\");\n  );\n  let \"Dot colors\" @{\"id\":\"693b7fd4-90f4-48b8-b968-cbab3890b3d3\"} = \"fold.motion.animator\".\"color_replace\" @1 (\n    \"color\" @{\"id\":\"254a3fc5-4acf-4144-ac3b-5113ace0c77d\",\"protected\":false} = expr(lerp($\"Shadow\" @{\"id\":\"2a643ac6-f7bc-4c5e-8780-aca05763d3dc\"}, lerp($\"Highlight\" @{\"id\":\"422519e4-c3d0-4ec4-bbec-0d4d5f584302\"}, $\"Accent\" @{\"id\":\"831a1d3c-f0a0-4269-8758-848cedda4ac9\"}, clamp((((ch(\"/Dot display/Message image/time\") @{\"id\":\"86636aeb-25bb-4b99-a442-c75cb17d3e64\"} / literal({\"kind\":\"duration\",\"value\":{\"numerator\":1,\"denominator\":1}})) - 3.6) / 1.6), 0, 1)), lerp($\"Read message\" @{\"id\":\"0e7903a8-d5fc-40c2-9c52-0e569115703f\"}, (0.5 + (0.5 * sin(((($\"Horizontal UV\" @{\"id\":\"c92203c9-b6f6-44f2-98e8-90fb71db58c5\"} * 18) + ($\"Vertical UV\" @{\"id\":\"5798388c-5fba-4495-a544-a0c0e2367822\"} * 6)) - ((ch(\"/Dot display/Message image/time\") @{\"id\":\"a289a188-c242-497c-9c0d-dac516df0310\"} / literal({\"kind\":\"duration\",\"value\":{\"numerator\":1,\"denominator\":1}})) * 3))))), clamp((((ch(\"/Dot display/Message image/time\") @{\"id\":\"17d8f9d1-dce5-4e14-b24a-0b008e6bf7cb\"} / literal({\"kind\":\"duration\",\"value\":{\"numerator\":1,\"denominator\":1}})) - 3.6) / 1.6), 0, 1))));\n    \"geometry\" @{\"id\":\"024f327e-705f-4510-a656-1345fbc86c68\",\"protected\":false} = link($\"Copy to Points\" @{\"id\":\"4e1b7958-f056-49c9-9722-1dca61de778b\"});\n  );\n  let \"Dot size\" @{\"id\":\"b972c105-29c6-49b3-83de-3955d3aa871e\"} = \"fold.motion.animator\".\"scale_multiply\" @1 (\n    \"factor\" @{\"id\":\"66ffa6be-0ea7-480b-9538-f023fa9650f2\",\"protected\":false} = expr(($\"Dot Radius\" @{\"id\":\"b449be62-6bad-49a5-bd1c-269422c921dc\"} / 0.061m));\n    \"geometry\" @{\"id\":\"3e342035-aad6-44a7-9d32-a72871dcc3bb\",\"protected\":false} = link($\"Dot colors\" @{\"id\":\"3f3e5211-1b22-4028-8692-6c3da3219222\"});\n  );\n  let \"Display material\" @{\"id\":\"949f2a65-c280-4772-9cbd-226bf04e243a\"} = \"fold.motion.material\".\"unlit\" @1 (\n    \"color\" @{\"id\":\"c1ffe578-3f37-4608-ad54-7b45620cada9\",\"protected\":false} = value(literal({\"kind\":\"color\",\"value\":[1.0,1.0,1.0,1.0],\"encoding\":\"linear_rec709\",\"alpha\":\"straight\"}));\n    \"geometry\" @{\"id\":\"59a127f5-3a5d-491a-af6a-53734b391ffd\",\"protected\":false} = link($\"Dot size\" @{\"id\":\"1c576ab6-a8df-4968-977b-d68f1b5c57f7\"});\n  );\n  output \"main\" @{\"id\":\"b5cd1564-f6e7-4ead-9e5a-3c068a3ebef3\"} : {\"kind\":\"geometry\"} = $\"Display material\" @{\"id\":\"55a9075a-a20f-40ee-b1bc-5b79f16fa311\"};\n}\nroot \"Dot display\" @{\"id\":\"a2d95956-45e6-490d-b90a-fa288b85f322\"} = \"Dot display\" clock {\"offset\":{\"numerator\":0,\"denominator\":1},\"rate\":{\"numerator\":1,\"denominator\":1}} {\n};\npresentation {\"positions\":{\"3028e41d-640b-4056-ad68-1f854644ba01\":[300.0,-280.0],\"3b404a82-7a54-43e8-b153-cc1d51525c27\":[0.0,380.0],\"40e3fdcb-e7e8-44ee-af46-ac00dae3abdd\":[600.0,450.0],\"693b7fd4-90f4-48b8-b968-cbab3890b3d3\":[900.0,0.0],\"949f2a65-c280-4772-9cbd-226bf04e243a\":[1500.0,0.0],\"9745705e-a472-42d3-b35b-87ea8141018a\":[300.0,1000.0],\"a2beabef-3f60-4e27-ac82-dd9a40659416\":[0.0,680.0],\"b972c105-29c6-49b3-83de-3955d3aa871e\":[1200.0,0.0],\"ba47b529-fac8-4621-9440-f6a6dd62194b\":[600.0,0.0],\"f4e024c0-5f9a-493c-9854-a33186be741b\":[0.0,0.0]},\"groups\":[],\"annotations\":{}};\nextensions {};\n",
+      "284eb2ff-531f-4f3e-a132-f722ad027011": "motion 1;\nseed 0;\ncanvas {\"width\":1920,\"height\":1080,\"rate\":[30,1],\"start\":{\"numerator\":0,\"denominator\":1},\"end\":{\"numerator\":6,\"denominator\":1}};\nasset \"Light\" @{\"id\":\"78ba26a7-dbd6-430c-a9fa-d18e76ace2a2\"} {\n  let \"Light\" @{\"id\":\"a2b49ecc-2e6c-4aa5-a0fd-b50c4093821d\"} = \"fold.motion.light\".\"directional\" @1 (\n    \"color\" @{\"id\":\"983b0998-a924-46e2-a7d2-d42c2891b80d\",\"protected\":false} = value(literal({\"kind\":\"color\",\"value\":[1.0,1.0,1.0,1.0],\"encoding\":\"linear_rec709\",\"alpha\":\"straight\"}));\n    \"direction\" @{\"id\":\"08ea718f-496e-412c-9408-d53b60987291\",\"protected\":false} = value(literal({\"kind\":\"vector\",\"value\":[0.0,-1.0,-1.0],\"unit\":\"unitless\",\"space\":\"world\"}));\n    \"illuminance\" @{\"id\":\"88d2481f-8345-4652-90b7-10e43bd7da9c\",\"protected\":false} = value(1000);\n  );\n  output \"main\" @{\"id\":\"f277d715-ab5f-4209-b814-a7da3bfab220\"} : {\"kind\":\"light\"} = $\"Light\" @{\"id\":\"50baa15d-e4bb-4d2f-a161-2cea4262ccff\"};\n}\nroot \"Light\" @{\"id\":\"cafabe45-98a0-4d9e-a592-dbbb27f258fd\"} = \"Light\" clock {\"offset\":{\"numerator\":0,\"denominator\":1},\"rate\":{\"numerator\":1,\"denominator\":1}} {\n};\npresentation {\"positions\":{},\"groups\":[],\"annotations\":{}};\nextensions {};\n",
+      "2e192bd3-03d3-4663-8fa5-302eedf83591": "motion 1;\nseed 0;\ncanvas {\"width\":1920,\"height\":1080,\"rate\":[30,1],\"start\":{\"numerator\":0,\"denominator\":1},\"end\":{\"numerator\":6,\"denominator\":1}};\nasset \"Box\" @{\"id\":\"120579aa-33bb-4195-afd6-57ce6e906685\"} {\n  let \"Paper\" @{\"id\":\"956de32c-e32d-4432-85e0-2cf819f0cea2\"} = \"fold.motion.mesh\".\"box\" @1 (\n    \"size\" @{\"id\":\"fe5c7c01-53ec-4814-b794-e7c3fa3bb34e\",\"protected\":false} = value(literal({\"kind\":\"vector\",\"value\":[20.0,12.0,0.05],\"unit\":\"meters\",\"space\":\"world\"}));\n  );\n  let \"Surface\" @{\"id\":\"170aac4a-006c-45b2-83af-4e2d3759e158\"} = \"fold.motion.material\".\"unlit\" @1 (\n    \"color\" @{\"id\":\"70981215-5876-4b84-869c-4ab7a5659845\",\"protected\":false} = value(literal({\"kind\":\"color\",\"value\":[2.5,2.5,2.3,1.0],\"encoding\":\"linear_rec709\",\"alpha\":\"straight\"}));\n    \"geometry\" @{\"id\":\"fb1f8116-6407-4a7e-895d-cc1e4148adc8\",\"protected\":false} = link($\"Paper\" @{\"id\":\"e9a30e22-c172-4086-9863-7aafc53cc601\"});\n  );\n  let \"Position\" @{\"id\":\"a5911950-7eba-4b38-ad67-5ac679af16f0\"} = \"fold.motion.place\".\"world\" @1 (\n    \"geometry\" @{\"id\":\"039bce1c-71ee-4e42-8544-53f069e1a883\",\"protected\":false} = link($\"Surface\" @{\"id\":\"bfdda3fe-d247-40ec-bb3d-af71ca36d0ec\"});\n    \"opacity\" @{\"id\":\"48ce103c-4778-4f68-b381-df1e3556e620\",\"protected\":false} = value(1);\n    \"position\" @{\"id\":\"b0019d73-112b-462d-8f3b-f61fca523330\",\"protected\":false} = value(literal({\"kind\":\"vector\",\"value\":[0.0,0.0,-1.0],\"unit\":\"meters\",\"space\":\"world\"}));\n    \"rotation\" @{\"id\":\"b9b62110-7d91-4bfe-9e52-2bdca9703205\",\"protected\":false} = value(literal({\"kind\":\"rotation\",\"value\":[0.0,0.0,0.0,1.0],\"space\":\"world\"}));\n    \"scale\" @{\"id\":\"5e1b58f7-099a-4259-b9fe-3c24d52827bc\",\"protected\":false} = value(literal({\"kind\":\"vector\",\"value\":[1.0,1.0,1.0],\"unit\":\"unitless\",\"space\":\"world\"}));\n  );\n  output \"main\" @{\"id\":\"291f929c-ec08-410b-8c40-ecac5caa3038\"} : {\"kind\":\"placement\"} = $\"Position\" @{\"id\":\"931e4347-5888-4fc1-a341-6c1aee41a13c\"};\n}\nroot \"Box\" @{\"id\":\"1d418fac-7654-42ff-8345-14877e7c1af0\"} = \"Box\" clock {\"offset\":{\"numerator\":0,\"denominator\":1},\"rate\":{\"numerator\":1,\"denominator\":1}} {\n};\npresentation {\"positions\":{\"170aac4a-006c-45b2-83af-4e2d3759e158\":[300.0,0.0],\"956de32c-e32d-4432-85e0-2cf819f0cea2\":[0.0,0.0],\"a5911950-7eba-4b38-ad67-5ac679af16f0\":[600.0,0.0]},\"groups\":[],\"annotations\":{}};\nextensions {};\n",
+      "6813efdd-40e9-4405-b283-5abbb3c00fd0": "motion 1;\nseed 0;\ncanvas {\"width\":1920,\"height\":1080,\"rate\":[30,1],\"start\":{\"numerator\":0,\"denominator\":1},\"end\":{\"numerator\":6,\"denominator\":1}};\nasset \"Text\" @{\"id\":\"20943d99-1a19-421b-83d5-afb604be0b5b\"} {\n  input \"Copy\" @{\"id\":\"7888a444-5283-4b32-93bc-36c9fafd1fa7\",\"protected\":false} : {\"kind\":\"text\"} = \"FOLD / VERSION 1\";\n  let \"Text\" @{\"id\":\"5edba5dd-709b-45ca-a198-5612e490774b\"} = \"fold.motion.text\".\"packaged\" @1 (\n    \"font\" @{\"id\":\"5f11c121-ea39-4412-b2d0-980a24573b6d\",\"protected\":false} = value(\"Noto Sans Regular\");\n    \"size\" @{\"id\":\"40d8430e-36f0-4db2-9477-b41672a0dc4c\",\"protected\":false} = value(126px);\n    \"text\" @{\"id\":\"af750b02-6a39-4a0c-9ed1-c52b2dcef1f2\",\"protected\":false} = expr($\"Copy\" @{\"id\":\"e5d3fa90-198c-4afc-91ce-9c04bf5104f4\"});\n    \"width\" @{\"id\":\"4eee922d-b033-4fbc-b3ca-c7d51c6e89d3\",\"protected\":false} = value(1920px);\n    \"wrap\" @{\"id\":\"ffedbf17-f5f6-4ea6-8ebc-9d2112d20988\",\"protected\":false} = value(false);\n  );\n  let \"Outline\" @{\"id\":\"99192bc0-6260-4d37-afc6-f72037a06d2d\"} = \"fold.motion.outline_text\".\"curves\" @1 (\n    \"text\" @{\"id\":\"6a33a19e-add6-4595-8403-aba0bbae9e1f\",\"protected\":false} = link($\"Text\" @{\"id\":\"c2fcaebd-6231-4ede-a2b7-9e312f5060fb\"});\n  );\n  let \"Text surface\" @{\"id\":\"1ae97047-c33c-4c9d-8bc7-258f77aa18f8\"} = \"fold.motion.extrude\".\"straight_text\" @1 (\n    \"canvas_unit\" @{\"id\":\"dc8df51d-4bb0-4067-ab76-78643a32bbb0\",\"protected\":false} = value(0.01m);\n    \"depth\" @{\"id\":\"d88bb8d7-a8e4-4330-9048-0a9f2eb53c41\",\"protected\":false} = value(0.001m);\n    \"detail\" @{\"id\":\"9c5fd737-40f0-40dd-b7da-986469011474\",\"protected\":false} = value(0.1);\n    \"profile\" @{\"id\":\"d6ebf2a1-7ebf-4740-a5cf-15cb81d527d5\",\"protected\":false} = link($\"Outline\" @{\"id\":\"2d073b08-b5c4-4e8b-b8a4-2e9569828909\"});\n    \"segments\" @{\"id\":\"3d8ffea1-431b-4fc0-a8bf-53209bebd8ff\",\"protected\":false} = value(1i);\n  );\n  let \"Ink\" @{\"id\":\"c07e62f9-55af-432f-be29-be684858a503\"} = \"fold.motion.material\".\"unlit\" @1 (\n    \"color\" @{\"id\":\"0eeef292-9bc4-4a9d-bcb0-abebce4a5e2a\",\"protected\":false} = value(literal({\"kind\":\"color\",\"value\":[0.006,0.012,0.009,1.0],\"encoding\":\"linear_rec709\",\"alpha\":\"straight\"}));\n    \"geometry\" @{\"id\":\"5762b43a-3098-44dd-ac62-375f6488725f\",\"protected\":false} = link($\"Text surface\" @{\"id\":\"70d74f8d-749a-414d-b810-4e50fa3a6084\"});\n  );\n  let \"Position\" @{\"id\":\"9dbe9f4f-ee72-4452-af69-d395699fc531\"} = \"fold.motion.place\".\"world\" @1 (\n    \"geometry\" @{\"id\":\"eb5be3b7-bc13-4adc-ace1-be0c1d9c23e2\",\"protected\":false} = link($\"Ink\" @{\"id\":\"3c169543-75f5-457c-8536-f316dec50039\"});\n    \"opacity\" @{\"id\":\"302e2fc0-5f67-49e7-868d-443fdf0e3b15\",\"protected\":false} = value(1);\n    \"position\" @{\"id\":\"23ae8b50-b9df-4748-8a3a-58d4714a6eb7\",\"protected\":false} = value(literal({\"kind\":\"vector\",\"value\":[-8.6,4.2,0.0],\"unit\":\"meters\",\"space\":\"world\"}));\n    \"rotation\" @{\"id\":\"b5bfdac0-84fd-49af-a9a7-878228a511bd\",\"protected\":false} = value(literal({\"kind\":\"rotation\",\"value\":[0.0,0.0,0.0,1.0],\"space\":\"world\"}));\n    \"scale\" @{\"id\":\"2852ec95-f54b-4a52-a7dd-945acf654976\",\"protected\":false} = value(literal({\"kind\":\"vector\",\"value\":[1.0,1.0,1.0],\"unit\":\"unitless\",\"space\":\"world\"}));\n  );\n  output \"main\" @{\"id\":\"59aa81b1-c646-49f5-a054-f9c9ec672952\"} : {\"kind\":\"placement\"} = $\"Position\" @{\"id\":\"ce7a482d-4c24-4b93-a127-570a1a1ccbd7\"};\n}\nroot \"Text\" @{\"id\":\"f53ba8ba-4e2c-4ac4-bf93-55793d7b069b\"} = \"Text\" clock {\"offset\":{\"numerator\":0,\"denominator\":1},\"rate\":{\"numerator\":1,\"denominator\":1}} {\n};\npresentation {\"positions\":{\"1ae97047-c33c-4c9d-8bc7-258f77aa18f8\":[600.0,0.0],\"5edba5dd-709b-45ca-a198-5612e490774b\":[0.0,0.0],\"99192bc0-6260-4d37-afc6-f72037a06d2d\":[300.0,0.0],\"9dbe9f4f-ee72-4452-af69-d395699fc531\":[1200.0,0.0],\"c07e62f9-55af-432f-be29-be684858a503\":[900.0,0.0]},\"groups\":[],\"annotations\":{}};\nextensions {};\n",
+      "6955312c-e0ac-451f-a9e1-fcc0c57b9f5b": "motion 1;\nseed 0;\ncanvas {\"width\":1920,\"height\":1080,\"rate\":[30,1],\"start\":{\"numerator\":0,\"denominator\":1},\"end\":{\"numerator\":6,\"denominator\":1}};\nasset \"Box\" @{\"id\":\"118a16aa-df33-46b8-91d1-10a9cdba279a\"} {\n  let \"Display panel\" @{\"id\":\"a5c1fa54-910a-41dc-aa1d-3ad23dfc550f\"} = \"fold.motion.mesh\".\"box\" @1 (\n    \"size\" @{\"id\":\"9305a264-42b6-42ae-9972-1bb78e7d1d69\",\"protected\":false} = value(literal({\"kind\":\"vector\",\"value\":[17.2,4.2,0.05],\"unit\":\"meters\",\"space\":\"world\"}));\n  );\n  let \"Surface\" @{\"id\":\"3d2832b7-bd43-4c32-8a0d-a2917209c52c\"} = \"fold.motion.material\".\"unlit\" @1 (\n    \"color\" @{\"id\":\"564118d9-428f-432a-b796-a1e8cf5f5422\",\"protected\":false} = value(literal({\"kind\":\"color\",\"value\":[0.002,0.006,0.004,1.0],\"encoding\":\"linear_rec709\",\"alpha\":\"straight\"}));\n    \"geometry\" @{\"id\":\"2c4f8a08-c22e-47ca-9efd-53fcb4c10076\",\"protected\":false} = link($\"Display panel\" @{\"id\":\"c4f2cbc3-4f3a-4aa5-81fe-5d5952d7c570\"});\n  );\n  let \"Position\" @{\"id\":\"c1b39043-92e0-4d98-a4b6-f06028501f15\"} = \"fold.motion.place\".\"world\" @1 (\n    \"geometry\" @{\"id\":\"a13d6102-574c-478f-a4d4-dcaa8f0af142\",\"protected\":false} = link($\"Surface\" @{\"id\":\"db4c7ba6-4335-436a-bd4d-41521770e7ec\"});\n    \"opacity\" @{\"id\":\"4fd8ec72-84f7-4001-bbde-ddb323f228bf\",\"protected\":false} = value(1);\n    \"position\" @{\"id\":\"9f8c6458-9dab-4f8f-bf81-e2caea1111f5\",\"protected\":false} = value(literal({\"kind\":\"vector\",\"value\":[0.0,-1.15,-0.25],\"unit\":\"meters\",\"space\":\"world\"}));\n    \"rotation\" @{\"id\":\"58cc5d1f-9046-45f9-9fbe-1d2e9e972a8e\",\"protected\":false} = value(literal({\"kind\":\"rotation\",\"value\":[0.0,0.0,0.0,1.0],\"space\":\"world\"}));\n    \"scale\" @{\"id\":\"05a1bbd9-c2a4-43ee-a1d5-2e268b0f8e99\",\"protected\":false} = value(literal({\"kind\":\"vector\",\"value\":[1.0,1.0,1.0],\"unit\":\"unitless\",\"space\":\"world\"}));\n  );\n  output \"main\" @{\"id\":\"a5c594ed-4431-473c-8fc2-1bb103f1e2f0\"} : {\"kind\":\"placement\"} = $\"Position\" @{\"id\":\"35bb7f97-3950-440f-84d6-e0e67c2703bf\"};\n}\nroot \"Box\" @{\"id\":\"e4ec1514-983c-474e-b0a5-0321d1d3ce8f\"} = \"Box\" clock {\"offset\":{\"numerator\":0,\"denominator\":1},\"rate\":{\"numerator\":1,\"denominator\":1}} {\n};\npresentation {\"positions\":{\"3d2832b7-bd43-4c32-8a0d-a2917209c52c\":[300.0,0.0],\"a5c1fa54-910a-41dc-aa1d-3ad23dfc550f\":[0.0,0.0],\"c1b39043-92e0-4d98-a4b6-f06028501f15\":[600.0,0.0]},\"groups\":[],\"annotations\":{}};\nextensions {};\n",
+      "6cb54b66-99c9-49b8-b1c5-359fb9931806": "motion 1;\nseed 0;\ncanvas {\"width\":1920,\"height\":1080,\"rate\":[30,1],\"start\":{\"numerator\":0,\"denominator\":1},\"end\":{\"numerator\":6,\"denominator\":1}};\nasset \"Camera\" @{\"id\":\"a3afa278-c5b2-4576-a5b3-9fadf8fd4ba1\"} {\n  let \"Front camera\" @{\"id\":\"48672fe7-8093-45b5-aec7-1affd87428b7\"} = \"fold.motion.camera\".\"orthographic\" @1 (\n    \"ev100\" @{\"id\":\"43c64492-f22b-45c2-b5da-d5aa03644314\",\"protected\":false} = value(8);\n    \"far\" @{\"id\":\"04ae17a3-975c-498a-93a2-2dd81cedce6c\",\"protected\":false} = value(100m);\n    \"near\" @{\"id\":\"9e7b22c9-e322-48bb-a43f-42fa4efb6eca\",\"protected\":false} = value(0.01m);\n    \"position\" @{\"id\":\"54e4d1de-c7d0-4baf-b409-8fb14adbf259\",\"protected\":false} = value(literal({\"kind\":\"vector\",\"value\":[0.0,0.0,12.0],\"unit\":\"meters\",\"space\":\"world\"}));\n    \"target\" @{\"id\":\"bb93b34f-f13c-46c6-bcb8-8fd1c280ddcb\",\"protected\":false} = value(literal({\"kind\":\"vector\",\"value\":[0.0,0.0,0.0],\"unit\":\"meters\",\"space\":\"world\"}));\n    \"up\" @{\"id\":\"b561094a-1194-488c-9de9-325e8d44fa71\",\"protected\":false} = value(literal({\"kind\":\"vector\",\"value\":[0.0,1.0,0.0],\"unit\":\"unitless\",\"space\":\"world\"}));\n    \"vertical_size\" @{\"id\":\"9400f3bb-9968-4f6c-a4da-8ce7542d5da6\",\"protected\":false} = value(10.8m);\n  );\n  output \"main\" @{\"id\":\"5d239bd7-ee49-4ba9-9c89-0e02be3984e6\"} : {\"kind\":\"camera\"} = $\"Front camera\" @{\"id\":\"3d69dacc-1eb5-4d92-9aee-392aee6d7ff3\"};\n}\nroot \"Camera\" @{\"id\":\"a6a0de73-fb9d-426a-9633-0cdd8ea09daf\"} = \"Camera\" clock {\"offset\":{\"numerator\":0,\"denominator\":1},\"rate\":{\"numerator\":1,\"denominator\":1}} {\n};\npresentation {\"positions\":{\"48672fe7-8093-45b5-aec7-1affd87428b7\":[0.0,0.0]},\"groups\":[],\"annotations\":{}};\nextensions {};\n",
+      "7d1967f8-06b3-4547-b4f5-3c333c89814c": "motion 1;\nseed 0;\ncanvas {\"width\":1920,\"height\":1080,\"rate\":[30,1],\"start\":{\"numerator\":0,\"denominator\":1},\"end\":{\"numerator\":6,\"denominator\":1}};\nasset \"Text\" @{\"id\":\"18875914-0fec-437d-af73-27e2f34caeaa\"} {\n  input \"Copy\" @{\"id\":\"7cb24907-a84e-49cd-be0f-85c05bcf0e56\",\"protected\":false} : {\"kind\":\"text\"} = \"01   /   DOT DISPLAY                                     PROCEDURAL MOTION\";\n  let \"Text\" @{\"id\":\"bcf43694-c6fd-41fb-9a90-fc0d1aec4069\"} = \"fold.motion.text\".\"packaged\" @1 (\n    \"font\" @{\"id\":\"2217cdee-4269-4e08-9054-648a9c9c19fa\",\"protected\":false} = value(\"Noto Sans Regular\");\n    \"size\" @{\"id\":\"3e842c2f-52dd-4ea7-8226-7731ee0be420\",\"protected\":false} = value(24px);\n    \"text\" @{\"id\":\"dc2f3896-f11c-4807-a19f-e83d325f0874\",\"protected\":false} = expr($\"Copy\" @{\"id\":\"92dda0ae-3eab-4ba6-a8b2-8f2288e62d07\"});\n    \"width\" @{\"id\":\"6fd9f0d4-7850-4ce6-8aa6-fe79450d7132\",\"protected\":false} = value(1920px);\n    \"wrap\" @{\"id\":\"d8ea558c-8b37-4459-8ae7-d287c7a4b261\",\"protected\":false} = value(false);\n  );\n  let \"Outline\" @{\"id\":\"c26c0db6-2079-44ee-ab51-7c68e550f8b1\"} = \"fold.motion.outline_text\".\"curves\" @1 (\n    \"text\" @{\"id\":\"5fc63fe4-bdf5-4e2e-b0aa-d44f848a412e\",\"protected\":false} = link($\"Text\" @{\"id\":\"1cfd2ed5-e5ed-4028-b124-39b607507eda\"});\n  );\n  let \"Text surface\" @{\"id\":\"afce8924-33f4-46bd-8e48-7c93b1f7a82c\"} = \"fold.motion.extrude\".\"straight_text\" @1 (\n    \"canvas_unit\" @{\"id\":\"cb447025-9ade-4df3-a479-318e0c7fa445\",\"protected\":false} = value(0.01m);\n    \"depth\" @{\"id\":\"b5d1d3fe-9b8a-4231-990d-006abbc0c24b\",\"protected\":false} = value(0.001m);\n    \"detail\" @{\"id\":\"29cd7ced-fdb5-464a-a856-b75e58a132b2\",\"protected\":false} = value(0.1);\n    \"profile\" @{\"id\":\"ead563a0-dd0e-4a54-be44-f6bf00f7077d\",\"protected\":false} = link($\"Outline\" @{\"id\":\"480e6dc0-8567-462d-be34-81cb1f4e2076\"});\n    \"segments\" @{\"id\":\"701431f6-9743-4be9-b304-b572ad6a451a\",\"protected\":false} = value(1i);\n  );\n  let \"Ink\" @{\"id\":\"0593a5bd-7dbb-4583-9387-77ce0f4d45d2\"} = \"fold.motion.material\".\"unlit\" @1 (\n    \"color\" @{\"id\":\"c9b7c6e4-dae5-44d1-bb45-959075e40765\",\"protected\":false} = value(literal({\"kind\":\"color\",\"value\":[0.05,0.09,0.07,1.0],\"encoding\":\"linear_rec709\",\"alpha\":\"straight\"}));\n    \"geometry\" @{\"id\":\"eeea1fe9-0932-4947-b509-967d6f86d98e\",\"protected\":false} = link($\"Text surface\" @{\"id\":\"5a572ef6-c9d6-4c8b-86b7-38066e5d4177\"});\n  );\n  let \"Position\" @{\"id\":\"3098280e-bfb1-44dd-9cd2-7f22a65466f9\"} = \"fold.motion.place\".\"world\" @1 (\n    \"geometry\" @{\"id\":\"ee0f3981-f91b-4a51-8386-6296588cab20\",\"protected\":false} = link($\"Ink\" @{\"id\":\"985aa529-1dc7-455b-938b-b7b17d719c2d\"});\n    \"opacity\" @{\"id\":\"903ecb6a-4629-4a0d-934d-5de2d81b0225\",\"protected\":false} = value(1);\n    \"position\" @{\"id\":\"45458a6a-3a27-4f03-9089-266a24c472db\",\"protected\":false} = value(literal({\"kind\":\"vector\",\"value\":[-8.55,-4.25,0.0],\"unit\":\"meters\",\"space\":\"world\"}));\n    \"rotation\" @{\"id\":\"69f9ef0a-bd24-491b-a902-dccc2369eabb\",\"protected\":false} = value(literal({\"kind\":\"rotation\",\"value\":[0.0,0.0,0.0,1.0],\"space\":\"world\"}));\n    \"scale\" @{\"id\":\"364a5783-061d-45fa-9f9f-5dfab8bef768\",\"protected\":false} = value(literal({\"kind\":\"vector\",\"value\":[1.0,1.0,1.0],\"unit\":\"unitless\",\"space\":\"world\"}));\n  );\n  output \"main\" @{\"id\":\"1f461545-7af0-421c-a2cd-ecddc6e50aff\"} : {\"kind\":\"placement\"} = $\"Position\" @{\"id\":\"26b9131a-432d-4fe6-947e-9d8a68b8c766\"};\n}\nroot \"Text\" @{\"id\":\"56736930-96ab-4fbc-b1bc-b62188c4d8f0\"} = \"Text\" clock {\"offset\":{\"numerator\":0,\"denominator\":1},\"rate\":{\"numerator\":1,\"denominator\":1}} {\n};\npresentation {\"positions\":{\"0593a5bd-7dbb-4583-9387-77ce0f4d45d2\":[900.0,0.0],\"3098280e-bfb1-44dd-9cd2-7f22a65466f9\":[1200.0,0.0],\"afce8924-33f4-46bd-8e48-7c93b1f7a82c\":[600.0,0.0],\"bcf43694-c6fd-41fb-9a90-fc0d1aec4069\":[0.0,0.0],\"c26c0db6-2079-44ee-ab51-7c68e550f8b1\":[300.0,0.0]},\"groups\":[],\"annotations\":{}};\nextensions {};\n",
+      "d8f3bbae-a644-49ba-b294-4193d0012bb1": "motion 1;\nseed 0;\ncanvas {\"width\":1920,\"height\":1080,\"rate\":[30,1],\"start\":{\"numerator\":0,\"denominator\":1},\"end\":{\"numerator\":6,\"denominator\":1}};\nasset \"Text\" @{\"id\":\"42d26b6d-25a0-49d4-a977-817500cc5f45\"} {\n  input \"Copy\" @{\"id\":\"cd6cb520-ab65-4fb6-bc8f-1f405b27f0a5\",\"protected\":false} : {\"kind\":\"text\"} = \"IDEAS INTO MOTION.\";\n  let \"Text\" @{\"id\":\"309d7a29-d8e5-4481-a9aa-813f98e7fb29\"} = \"fold.motion.text\".\"packaged\" @1 (\n    \"font\" @{\"id\":\"3dfdb8c6-613d-48e1-b0df-d36c52dc2c23\",\"protected\":false} = value(\"Noto Sans Regular\");\n    \"size\" @{\"id\":\"0e5d1630-40ed-4824-89c3-e0612908aad5\",\"protected\":false} = value(54px);\n    \"text\" @{\"id\":\"84c269f5-ac6d-4506-a655-6d1c0e25ad8d\",\"protected\":false} = expr($\"Copy\" @{\"id\":\"00f9930f-2295-4694-a89b-2c1290861ac8\"});\n    \"width\" @{\"id\":\"2007e23d-aaeb-470c-8c54-24fd55ddcd49\",\"protected\":false} = value(1920px);\n    \"wrap\" @{\"id\":\"d52402be-f942-46c5-8315-1874b9425770\",\"protected\":false} = value(false);\n  );\n  let \"Outline\" @{\"id\":\"ac8cd420-dcda-447a-b3c4-3dc2b65e241f\"} = \"fold.motion.outline_text\".\"curves\" @1 (\n    \"text\" @{\"id\":\"25edcea1-7868-43e4-bab1-d3e19f9a2a11\",\"protected\":false} = link($\"Text\" @{\"id\":\"1f2a1720-4eb0-471a-9ed2-71be675755a3\"});\n  );\n  let \"Text surface\" @{\"id\":\"5995a6b4-ffc9-4439-8c3e-e12143c0084f\"} = \"fold.motion.extrude\".\"straight_text\" @1 (\n    \"canvas_unit\" @{\"id\":\"0923d533-5694-4ec1-9f9c-01da822d4176\",\"protected\":false} = value(0.01m);\n    \"depth\" @{\"id\":\"2db9ad6b-284f-484f-b665-0a7b5478f959\",\"protected\":false} = value(0.001m);\n    \"detail\" @{\"id\":\"104cb864-689a-486f-8b5a-b33c135a7bee\",\"protected\":false} = value(0.1);\n    \"profile\" @{\"id\":\"ec8bb3e9-3b9f-4134-9028-ebdcd0619efb\",\"protected\":false} = link($\"Outline\" @{\"id\":\"3dab0381-b44b-4093-82e9-c9ce6465c65b\"});\n    \"segments\" @{\"id\":\"89faa155-9526-4cf3-9350-4ee95294fa43\",\"protected\":false} = value(1i);\n  );\n  let \"Ink\" @{\"id\":\"7f8fb198-7bcd-4e94-b7d6-9ef7119508d1\"} = \"fold.motion.material\".\"unlit\" @1 (\n    \"color\" @{\"id\":\"a58f2725-7f80-4137-ba69-50912ead5886\",\"protected\":false} = value(literal({\"kind\":\"color\",\"value\":[0.05,0.09,0.07,1.0],\"encoding\":\"linear_rec709\",\"alpha\":\"straight\"}));\n    \"geometry\" @{\"id\":\"d116fdc1-7e16-4049-bd9e-a722fbfe3305\",\"protected\":false} = link($\"Text surface\" @{\"id\":\"a1c3ec6e-aafa-4343-abea-e6048189f3aa\"});\n  );\n  let \"Position\" @{\"id\":\"236821c2-0557-4d37-b453-d633558a3f7f\"} = \"fold.motion.place\".\"world\" @1 (\n    \"geometry\" @{\"id\":\"3cfa52d5-448a-42ae-9fcb-58ad62be0ffa\",\"protected\":false} = link($\"Ink\" @{\"id\":\"70936d4c-07b1-48ad-b197-633a786de8f3\"});\n    \"opacity\" @{\"id\":\"d8d517ea-d1ad-4730-bd20-daac0d2c1706\",\"protected\":false} = value(1);\n    \"position\" @{\"id\":\"b93b4129-a9a5-42b0-8928-976456b97acb\",\"protected\":false} = value(literal({\"kind\":\"vector\",\"value\":[-8.55,2.38,0.0],\"unit\":\"meters\",\"space\":\"world\"}));\n    \"rotation\" @{\"id\":\"772f209c-aedb-42d6-9272-0cdc92289257\",\"protected\":false} = value(literal({\"kind\":\"rotation\",\"value\":[0.0,0.0,0.0,1.0],\"space\":\"world\"}));\n    \"scale\" @{\"id\":\"c2f40ae8-cc87-4675-bbfd-bb197b98e4ef\",\"protected\":false} = value(literal({\"kind\":\"vector\",\"value\":[1.0,1.0,1.0],\"unit\":\"unitless\",\"space\":\"world\"}));\n  );\n  output \"main\" @{\"id\":\"34c51598-8d8e-4068-8965-13436582204c\"} : {\"kind\":\"placement\"} = $\"Position\" @{\"id\":\"cdb5d7cd-7604-4dfb-a606-3cbc15387dcd\"};\n}\nroot \"Text\" @{\"id\":\"86ae8a3d-3e1b-466f-ad72-9da3c97ed458\"} = \"Text\" clock {\"offset\":{\"numerator\":0,\"denominator\":1},\"rate\":{\"numerator\":1,\"denominator\":1}} {\n};\npresentation {\"positions\":{\"236821c2-0557-4d37-b453-d633558a3f7f\":[1200.0,0.0],\"309d7a29-d8e5-4481-a9aa-813f98e7fb29\":[0.0,0.0],\"5995a6b4-ffc9-4439-8c3e-e12143c0084f\":[600.0,0.0],\"7f8fb198-7bcd-4e94-b7d6-9ef7119508d1\":[900.0,0.0],\"ac8cd420-dcda-447a-b3c4-3dc2b65e241f\":[300.0,0.0]},\"groups\":[],\"annotations\":{}};\nextensions {};\n"
+    },
+    "outputs": [
+      {
+        "info": {
+          "Ok": {
+            "frames": 180,
+            "height": 1080,
+            "rate": [
+              30,
+              1
+            ],
+            "width": 1920
+          }
+        },
+        "label": "Scene",
+        "reference": {
+          "document": "51b1a23e-ba5a-4443-a3f4-b056aaa9d695",
+          "output": "d9f8ab9d-33ca-4636-9eee-1ba7ae538807"
+        }
+      }
+    ]
+  },
+  "texture_source": "motion 1;\nseed 0;\ncanvas {\"width\":250,\"height\":55,\"rate\":[30,1],\"start\":{\"numerator\":0,\"denominator\":1},\"end\":{\"numerator\":6,\"denominator\":1}};\nasset \"Motion\" @{\"id\":\"e1d336c5-9a4c-4cdc-9238-46ceb591f1f9\"} {\n  input \"Text\" @{\"id\":\"c721b51c-1acb-4672-b0d9-52bd843a487e\",\"protected\":false} : {\"kind\":\"text\"} = \"FOLD V1\";\n  let \"Message\" @{\"id\":\"a99acba4-06c6-476a-a6cf-9e66cc5c00aa\"} = \"fold.motion.text\".\"packaged\" @1 (\n    \"font\" @{\"id\":\"ca2782ff-94c7-4fba-afa4-7236485d1cf3\",\"protected\":false} = value(\"Noto Sans Regular\");\n    \"size\" @{\"id\":\"73f3577f-b767-4dfc-9489-c00ca706f27b\",\"protected\":false} = value(48px);\n    \"text\" @{\"id\":\"adee1bed-010c-494c-b3f7-9b5be51c510c\",\"protected\":false} = expr($\"Text\" @{\"id\":\"1c404c03-3213-4ba8-8963-b9dfefeb654e\"});\n    \"width\" @{\"id\":\"45bc585f-eb01-4861-b28b-aef438eb7460\",\"protected\":false} = value(1920px);\n    \"wrap\" @{\"id\":\"8f721a03-7269-420f-825c-721fa970592a\",\"protected\":false} = value(false);\n  );\n  let \"Letter outlines\" @{\"id\":\"53402179-1286-45fd-8dcb-b59510dbb352\"} = \"fold.motion.outline_text\".\"curves\" @1 (\n    \"text\" @{\"id\":\"e0f1b56f-64f3-4bd3-8e75-6273ee39acef\",\"protected\":false} = link($\"Message\" @{\"id\":\"a95a9969-d6e5-454d-aace-2887bb9f8902\"});\n  );\n  let \"White ink\" @{\"id\":\"b3b89f6a-222c-48a1-9398-e66dc3ef088a\"} = \"fold.motion.fill\".\"solid\" @1 (\n    \"color\" @{\"id\":\"6f0531a5-0ad8-4926-87cf-795bfa21edf8\",\"protected\":false} = value(literal({\"kind\":\"color\",\"value\":[1.0,1.0,1.0,1.0],\"encoding\":\"linear_rec709\",\"alpha\":\"straight\"}));\n    \"even_odd\" @{\"id\":\"fa56bbd5-034b-4e94-8153-38162f1812ef\",\"protected\":false} = value(false);\n    \"geometry\" @{\"id\":\"942981e7-39e9-4c2d-9106-838513aef787\",\"protected\":false} = link($\"Letter outlines\" @{\"id\":\"9f116742-0bae-4f4b-8c3a-0e69e5bc7299\"});\n  );\n  let \"Message position\" @{\"id\":\"bc7f5ba7-d942-4e19-89fa-fa5134189a7e\"} = \"fold.motion.place\".\"screen\" @1 (\n    \"geometry\" @{\"id\":\"7647640c-ffa8-4592-a3be-a5fbf5018835\",\"protected\":false} = link($\"White ink\" @{\"id\":\"09324cd2-da8d-4a02-8289-b2bb1191f366\"});\n    \"opacity\" @{\"id\":\"c166d8d7-3f5a-42dc-a868-82a5d4571f24\",\"protected\":false} = value(1);\n    \"position\" @{\"id\":\"cc5067ef-0786-4bc8-a3aa-0dddb40bf874\",\"protected\":false} = expr(vector(\"canvas\", \"screen\", (20px + (((250px * (1 - clamp(((time.asset / literal({\"kind\":\"duration\",\"value\":{\"numerator\":1,\"denominator\":1}})) / 1.2), 0, 1))) * (1 - clamp(((time.asset / literal({\"kind\":\"duration\",\"value\":{\"numerator\":1,\"denominator\":1}})) / 1.2), 0, 1))) * (1 - clamp(((time.asset / literal({\"kind\":\"duration\",\"value\":{\"numerator\":1,\"denominator\":1}})) / 1.2), 0, 1)))), (-3px)));\n  );\n  let \"Image output\" @{\"id\":\"19bb641d-0fa3-43cb-8c67-a769299a5c3f\"} = \"fold.motion.scene\".\"ordered\" @1 (\n    \"children\" @{\"id\":\"68c7975c-71f4-43cc-bb69-60d42efbb322\",\"protected\":false} = list[link($\"Message position\" @{\"id\":\"58a9faa1-2b43-479f-b214-a89ef3bd8149\"})];\n  );\n  output \"main\" @{\"id\":\"6707252f-f6ad-4dbb-a874-7c03ce1f82c5\"} : {\"kind\":\"scene\"} = $\"Image output\" @{\"id\":\"00e548c5-06f1-4ab7-becd-09bc77d26fd4\"};\n}\nroot \"Main\" @{\"id\":\"118f71f3-2696-43ec-b360-e0444ac44565\"} = \"Motion\" clock {\"offset\":{\"numerator\":0,\"denominator\":1},\"rate\":{\"numerator\":1,\"denominator\":1}} {\n};\npresentation {\"positions\":{\"19bb641d-0fa3-43cb-8c67-a769299a5c3f\":[1200.0,0.0],\"53402179-1286-45fd-8dcb-b59510dbb352\":[300.0,0.0],\"a99acba4-06c6-476a-a6cf-9e66cc5c00aa\":[0.0,0.0],\"b3b89f6a-222c-48a1-9398-e66dc3ef088a\":[600.0,0.0],\"bc7f5ba7-d942-4e19-89fa-fa5134189a7e\":[900.0,0.0]},\"groups\":[],\"annotations\":{}};\nextensions {};\n",
+  "verification": {
+    "frame_times": [
+      0,
+      0.5,
+      2,
+      5.5
+    ],
+    "hero_dimensions": [
+      1920,
+      1080
+    ],
+    "node_count": 10,
+    "instances": 840,
+    "primitive_control_nodes": 0,
+    "parameter_samples": [
+      "Dot Radius = 0.12 meters",
+      "Columns = 60",
+      "Dot size/factor = 1.9672131147540983 (0.12 / 0.061)"
+    ],
+    "native_ui_verified": false,
+    "project_reopen_verified": false
+  },
+  "limitations": [
+    "Composition bindings support layer position/opacity/effects, not Motion inputs; Motion controls remain in the object graph.",
+    "The live discovery has no Timeline authoring provider; this is clip 01 Composition, not a master Sequence.",
+    "Expected-document guards distinguish floating-point and integer JSON representations. Lossless number parsing was required.",
+    "Dense grid Wrangle point edits exhausted geometry quota. Final Wrangle creates one 16-sided disc prototype; Copy to Points shares it.",
+    "Large sampled text sources and denser animated grids exceeded evaluation/element budgets. Qualified configuration is 250x55 source, 60x14 dots, low-detail text extrusion.",
+    "Rewrite plan and architecture proposal referenced by AGENTS.md are absent from this checkout and HEAD. No rewrite phase acceptance is claimed."
+  ]
+}

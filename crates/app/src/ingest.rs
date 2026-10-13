@@ -44,10 +44,12 @@ pub struct IngestProposal {
     batch: EditBatch,
     cancel: Cancel,
     pub items: Vec<ItemId>,
+    pub placement_selection: Option<fold_platform::desktop::Selection>,
 }
 impl IngestProposal {
     pub(crate) fn new(batch: EditBatch, cancel: Cancel, items: Vec<ItemId>) -> Self {
         Self {
+            placement_selection: None,
             batch,
             cancel,
             items,
@@ -177,6 +179,7 @@ pub fn import(
     }
     cancel.check()?;
     Ok(IngestProposal {
+        placement_selection: None,
         batch: EditBatch {
             base: request.base,
             mutations,
@@ -258,6 +261,7 @@ pub fn relink(
     );
     cancel.check()?;
     Ok(IngestProposal {
+        placement_selection: None,
         batch: EditBatch {
             base: request.base,
             mutations: vec![Mutation::PutAsset(asset)],

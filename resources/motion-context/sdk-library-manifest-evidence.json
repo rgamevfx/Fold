@@ -1,0 +1,15 @@
+{
+  "scope": "SDK library manifest producer; reused debug dependency build",
+  "version": 1,
+  "profile": "debug",
+  "input_count": 56,
+  "library_count": 286,
+  "primary_externs": {
+    "fframes": "libfframes-6f77d6602ce3a61e.rlib",
+    "fold_motion_fframes": "libfold_motion_fframes-c201365ea5a56d0e.rlib"
+  },
+  "source_inputs_exact": true,
+  "primary_library_hashes_exact": true,
+  "release_precompile_qualified": false,
+  "runtime_compiler_changed": false
+}

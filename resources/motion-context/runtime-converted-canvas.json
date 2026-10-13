@@ -1,0 +1,333 @@
+{
+  "width": 640,
+  "height": 360,
+  "rate": [
+    30,
+    1
+  ],
+  "duration": {
+    "numerator": 5,
+    "denominator": 1
+  },
+  "roots": [
+    "7d791d68-66f2-4c63-9d74-c6e420b0057b"
+  ],
+  "objects": {
+    "3816c6fb-235a-4982-915d-932351822ca5": {
+      "name": "Captured group",
+      "transform": {
+        "x": {
+          "id": "38a88137-5207-4906-bbce-fa884ffd5a1b",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "y": {
+          "id": "36e59136-92a5-4bb8-979a-9720894027f1",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "rotation": {
+          "id": "eb3a3f27-e718-4db5-9078-3edc19a66c94",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "scale_x": {
+          "id": "7fa1a249-72bf-4d2a-89eb-31ea3b223a7e",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        },
+        "scale_y": {
+          "id": "5a942921-4ade-49ff-afc8-e67d2deaf921",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        },
+        "shear": {
+          "id": "2934572a-6f33-4102-bfd1-10187ca3f5b0",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "opacity": {
+          "id": "04b205a8-4b31-4f41-b970-ad96cf53005d",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        }
+      },
+      "paint": {
+        "fill": null,
+        "stroke": null,
+        "stroke_width": {
+          "id": "0dae8c8e-2b0a-458d-a92c-46e92310ffd7",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        },
+        "cap": "round",
+        "join": "round",
+        "even_odd": false
+      },
+      "content": {
+        "kind": "group",
+        "children": [
+          "92f0161b-1a12-4fc8-927a-530d6a1fa97a"
+        ]
+      },
+      "graph_position": null,
+      "protected": false,
+      "fold.motion.capture": {
+        "source": {
+          "controls": {
+            "1d9d9a99-c57e-49ac-b8ed-97afec2604ce": {
+              "name": "X",
+              "protected": false,
+              "value": {
+                "kind": "number",
+                "value": {
+                  "animation": null,
+                  "id": "2d219057-25d7-4242-a1ba-8e86958b893c",
+                  "protected": false,
+                  "value": 84.0
+                }
+              }
+            }
+          },
+          "kind": "script",
+          "source": "pub fn render<'a>(input: Context<'a>) -> Result<fframes::Svgr<'a>, String> {\n    let x = input.number(\"X\")?;\n    let y = input.seconds() * 10.;\n    Ok(fframes::svgr!(<circle cx={x} cy={y} r=\"10\"/>))\n}"
+        },
+        "time": {
+          "denominator": 2,
+          "numerator": 1
+        }
+      }
+    },
+    "7d791d68-66f2-4c63-9d74-c6e420b0057b": {
+      "name": "Script",
+      "transform": {
+        "x": {
+          "id": "4ad69bad-9e3f-4c5a-917c-f066a7bec03b",
+          "value": 100.0,
+          "animation": null,
+          "protected": false
+        },
+        "y": {
+          "id": "d5cef924-2779-44f9-b418-53ccee2dd1a4",
+          "value": 20.0,
+          "animation": null,
+          "protected": false
+        },
+        "rotation": {
+          "id": "4576f027-717d-4066-bd8b-0dd84e11cac6",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "scale_x": {
+          "id": "7968bb6d-4071-4f59-91cb-6409996f01e4",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        },
+        "scale_y": {
+          "id": "c753a2bd-78d4-4255-a1d3-9d37165d1b0e",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        },
+        "shear": {
+          "id": "63554132-7a1b-4956-b440-d825b913db49",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "opacity": {
+          "id": "b7b47777-dc5a-4436-ae4e-3cb788f611f5",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        }
+      },
+      "paint": {
+        "fill": [
+          0.35,
+          0.2,
+          0.95,
+          1.0
+        ],
+        "stroke": null,
+        "stroke_width": {
+          "id": "de2e40a9-fe23-42a5-956b-28fb8527afdb",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        },
+        "cap": "round",
+        "join": "round",
+        "even_odd": false
+      },
+      "content": {
+        "kind": "group",
+        "children": [
+          "3816c6fb-235a-4982-915d-932351822ca5"
+        ]
+      },
+      "graph_position": null,
+      "protected": false
+    },
+    "92f0161b-1a12-4fc8-927a-530d6a1fa97a": {
+      "name": "Captured group",
+      "transform": {
+        "x": {
+          "id": "e26582dc-0b11-471b-a56e-9c0d9a3e5f6c",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "y": {
+          "id": "176f176a-4c1c-452e-81b6-2fb90b108c54",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "rotation": {
+          "id": "42176e97-a191-4156-8778-6ae6b6aeed87",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "scale_x": {
+          "id": "ff76a596-561e-47ee-a67a-4c56136ed4a3",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        },
+        "scale_y": {
+          "id": "61196a49-acda-42fc-85dc-b96993408cc6",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        },
+        "shear": {
+          "id": "4d7f3739-798c-48ab-acec-cbb17c00a65b",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "opacity": {
+          "id": "8487bf81-6f6d-4a21-a343-4359f1e27be0",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        }
+      },
+      "paint": {
+        "fill": null,
+        "stroke": null,
+        "stroke_width": {
+          "id": "1eac7f8d-74ca-4de1-bb91-bc4de9fdf50a",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        },
+        "cap": "round",
+        "join": "round",
+        "even_odd": false
+      },
+      "content": {
+        "kind": "group",
+        "children": [
+          "c30f5d58-fdde-47d6-8ab3-bb7d871db216"
+        ]
+      },
+      "graph_position": null,
+      "protected": false
+    },
+    "c30f5d58-fdde-47d6-8ab3-bb7d871db216": {
+      "name": "Captured ellipse",
+      "transform": {
+        "x": {
+          "id": "e9fb3828-78e7-464f-9efb-9bcb8b091339",
+          "value": 84.0,
+          "animation": null,
+          "protected": false
+        },
+        "y": {
+          "id": "6fe03fcb-e274-43d0-b429-2a3e8626edde",
+          "value": 5.0,
+          "animation": null,
+          "protected": false
+        },
+        "rotation": {
+          "id": "da726132-b0d7-41ed-abe7-ace965b79578",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "scale_x": {
+          "id": "fb52fe99-8280-4501-a2d7-39aee181cd54",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        },
+        "scale_y": {
+          "id": "e57a34a5-2b4d-4fa9-bb36-f118bd21c6da",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        },
+        "shear": {
+          "id": "4348690d-d1d5-4b2a-bd32-03e65070e65b",
+          "value": 0.0,
+          "animation": null,
+          "protected": false
+        },
+        "opacity": {
+          "id": "6c0a116a-958f-4b66-9401-561d5f89f454",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        }
+      },
+      "paint": {
+        "fill": [
+          0.34901960784313724,
+          0.2,
+          0.9490196078431372,
+          1.0
+        ],
+        "stroke": null,
+        "stroke_width": {
+          "id": "13c2eaa4-434b-47e5-afa4-1b3676217414",
+          "value": 1.0,
+          "animation": null,
+          "protected": false
+        },
+        "cap": "round",
+        "join": "round",
+        "even_odd": false
+      },
+      "content": {
+        "kind": "ellipse",
+        "radius_x": {
+          "id": "124ffde2-bd63-4f95-83c3-066586d83da5",
+          "value": 10.0,
+          "animation": null,
+          "protected": false
+        },
+        "radius_y": {
+          "id": "fd5467c4-c48e-41ea-957c-58acf1b5de02",
+          "value": 10.0,
+          "animation": null,
+          "protected": false
+        }
+      },
+      "graph_position": null,
+      "protected": false
+    }
+  }
+}

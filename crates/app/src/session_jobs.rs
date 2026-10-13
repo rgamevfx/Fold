@@ -50,6 +50,7 @@ enum Lifecycle {
     Completed,
 }
 struct Worker {
+    origin_selection: fold_platform::desktop::Selection,
     kind: Kind,
     epoch: u64,
     lifecycle: Lifecycle,
@@ -76,6 +77,7 @@ impl Drop for Worker {
     }
 }
 pub(super) struct Completion {
+    pub origin_selection: fold_platform::desktop::Selection,
     pub kind: Kind,
     pub epoch: u64,
     pub result: Result<Completed, String>,
@@ -141,6 +143,7 @@ impl Jobs {
         // proposals retain the token: successful teardown must not cancel them.
         job.lifecycle = Lifecycle::Completed;
         Some(Completion {
+            origin_selection: job.origin_selection.clone(),
             kind: job.kind.clone(),
             epoch: job.epoch,
             result,
@@ -152,6 +155,7 @@ impl Jobs {
         snapshot: fold_project::CommittedSnapshot,
         suggested_path: Option<std::path::PathBuf>,
         epoch: u64,
+        origin_selection: fold_platform::desktop::Selection,
         #[cfg(feature = "gpu")] render_host: Option<fold_render::gpu::Host>,
     ) -> Result<Kind, String> {
         let kind = Kind::for_command(&command)?;
@@ -177,6 +181,7 @@ impl Jobs {
             let _ = sender.send(result);
         });
         self.workers.push(Worker {
+            origin_selection,
             kind: kind.clone(),
             epoch,
             lifecycle: Lifecycle::Running,
@@ -309,6 +314,7 @@ mod tests {
         let cancel = Cancel::default();
         let jobs = Jobs {
             workers: vec![Worker {
+                origin_selection: Default::default(),
                 kind,
                 epoch: 7,
                 lifecycle: Lifecycle::Running,
@@ -413,6 +419,7 @@ mod tests {
                 snapshot,
                 None,
                 7,
+                Default::default(),
                 #[cfg(feature = "gpu")]
                 None,
             )

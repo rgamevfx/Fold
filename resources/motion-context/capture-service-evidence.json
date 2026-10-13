@@ -1,0 +1,17 @@
+{
+  "capture_ms": [
+    4452.27152,
+    34.374741
+  ],
+  "document_identity_and_extensions": true,
+  "exact_time": [
+    1,
+    2
+  ],
+  "guarded_conversion": true,
+  "immutable_input": true,
+  "pixel_readback": false,
+  "runtime_control_update": true,
+  "scope": "Configured conversion preparation service; public candidate orchestration and artist acceptance remain open",
+  "source_compilation": true
+}

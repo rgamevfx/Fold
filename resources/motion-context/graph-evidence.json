@@ -1,0 +1,21 @@
+{
+  "adapter": "NVIDIA GeForce GTX 1070",
+  "application_registered": false,
+  "artist_qualified": false,
+  "cpu_upload_bytes": 0,
+  "evaluation_and_qualification_readback_ms": [
+    1227.834498,
+    148.999841,
+    169.861231
+  ],
+  "gpu_opacity": 0.5,
+  "immutable_snapshot": true,
+  "video_registry": true,
+  "working_readback_before_qualification": 0,
+  "reference_times_opacity_max_absolute_error": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "pixel_comparison_passed": true
+}

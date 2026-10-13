@@ -1,0 +1,50 @@
+{
+  "adapter": "NVIDIA GeForce GTX 1070",
+  "animation_changed_pixels": 13329,
+  "application_registered": false,
+  "artist_qualified": false,
+  "dimensions": [
+    320,
+    180
+  ],
+  "frames": [
+    {
+      "coverage_pixels": 12551,
+      "cpu_raster_adapters": 0,
+      "evaluation_and_qualification_ms": 525.013359,
+      "maximum_rgb": 0.7421875,
+      "time": {
+        "denominator": 1,
+        "numerator": 0
+      },
+      "working_readback_before_qualification": 0
+    },
+    {
+      "coverage_pixels": 12651,
+      "cpu_raster_adapters": 0,
+      "evaluation_and_qualification_ms": 21.450308,
+      "maximum_rgb": 0.7197265625,
+      "time": {
+        "denominator": 2,
+        "numerator": 1
+      },
+      "working_readback_before_qualification": 0
+    },
+    {
+      "coverage_pixels": 12760,
+      "cpu_raster_adapters": 0,
+      "evaluation_and_qualification_ms": 18.448644,
+      "maximum_rgb": 0.6962890625,
+      "time": {
+        "denominator": 1,
+        "numerator": 1
+      },
+      "working_readback_before_qualification": 0
+    }
+  ],
+  "geometry_resources": 1,
+  "instances": 64,
+  "material_resources": 1,
+  "package_video_graph": true,
+  "performance_qualified": false
+}

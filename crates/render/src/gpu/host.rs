@@ -18,6 +18,7 @@ pub(crate) struct Image {
     pub view: wgpu::TextureView,
     pub dimensions: [u32; 2],
     pub bytes: u64,
+    pub _reservation: Option<Arc<Reservation>>,
 }
 #[derive(Clone, Copy)]
 pub(crate) enum AllocationKind {
@@ -47,6 +48,8 @@ struct Pool {
     peak: u64,
 }
 struct Shared {
+    #[cfg(all(feature = "shared-images", target_os = "linux"))]
+    shared_validation: std::sync::OnceLock<super::shared::Validation>,
     id: u64,
     instance: wgpu::Instance,
     adapter: wgpu::Adapter,
@@ -125,6 +128,16 @@ impl Pool {
         self.bytes += bytes;
         self.by_kind[kind as usize] += bytes;
         self.peak = self.peak.max(self.bytes);
+    }
+}
+
+/// Budget held for resources owned by an external renderer. The owner must keep
+/// this lease until those resources and all work that uses them are released.
+/// This is an allowance, not a measurement of physical driver memory.
+pub struct ResourceAllowance(Arc<Reservation>);
+impl ResourceAllowance {
+    pub fn bytes(&self) -> u64 {
+        self.0.bytes
     }
 }
 
@@ -288,6 +301,8 @@ impl Host {
             *lost.lock().unwrap() = Some(format!("GPU device lost ({reason:?}): {message}"));
         });
         Ok(Self(Arc::new(Shared {
+            #[cfg(all(feature = "shared-images", target_os = "linux"))]
+            shared_validation: std::sync::OnceLock::new(),
             id: NEXT_ID.fetch_add(1, Ordering::Relaxed),
             instance,
             adapter,
@@ -308,6 +323,12 @@ impl Host {
     }
     pub(super) fn sources(&self) -> std::sync::MutexGuard<'_, super::still::Cache> {
         self.0.sources.lock().unwrap()
+    }
+    #[cfg(all(feature = "shared-images", target_os = "linux"))]
+    pub(super) fn shared_validation(&self) -> &super::shared::Validation {
+        self.0
+            .shared_validation
+            .get_or_init(|| super::shared::Validation::new(self.device()))
     }
     pub fn id(&self) -> u64 {
         self.0.id
@@ -365,6 +386,14 @@ impl Host {
             geometry: pool.by_kind[3],
             scratch: pool.by_kind[4],
         }
+    }
+    /// Reserve retained external-renderer resources against the shared scratch
+    /// budget before starting their owner. Drop only after the owner is reaped.
+    pub fn reserve_external_resources(
+        &self,
+        bytes: u64,
+    ) -> Result<ResourceAllowance, fold_foundation::Failure> {
+        self.reserve(bytes).map(ResourceAllowance)
     }
     pub(crate) fn reserve(&self, bytes: u64) -> Result<Arc<Reservation>, fold_foundation::Failure> {
         self.reserve_as(bytes, AllocationKind::Scratch)
@@ -490,6 +519,7 @@ impl Host {
             view,
             dimensions,
             bytes,
+            _reservation: None,
         });
         self.0.pool.lock().unwrap().images.push(image.clone());
         Ok(image)

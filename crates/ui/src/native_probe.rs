@@ -108,9 +108,15 @@ impl Probe {
         ready: bool,
     ) -> Result<bool, Box<dyn std::error::Error>> {
         if self.passive {
-            return Ok(
-                self.start.elapsed() >= Duration::from_secs(15) || self.samples.len() >= 6000
-            );
+            return Ok(self.start.elapsed()
+                >= Duration::from_secs(
+                    std::env::var("FOLD_PASSIVE_PROBE_SECONDS")
+                        .ok()
+                        .and_then(|value| value.parse::<u64>().ok())
+                        .unwrap_or(15)
+                        .clamp(1, 120),
+                )
+                || self.samples.len() >= 6000);
         }
         if self.start.elapsed() > Duration::from_secs(90) || self.samples.len() >= 6000 {
             return Err("native probe timed out or exceeded sample budget".into());

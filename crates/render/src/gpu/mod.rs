@@ -33,12 +33,16 @@ pub use display::Display;
 mod coverage;
 #[cfg(all(feature = "native-video", target_os = "linux"))]
 mod native_video;
+#[cfg(all(feature = "shared-images", target_os = "linux"))]
+mod shared;
 mod validation;
+#[cfg(all(feature = "shared-images", target_os = "linux"))]
+pub use shared::{SharedImage, SharedSource};
 mod vector;
 mod yuv;
 use crate::{ImageOp, RenderGraph, WorkingSpace, graph};
 use host::Image;
-pub use host::{Host, Memory};
+pub use host::{Host, Memory, ResourceAllowance};
 use std::sync::Arc;
 
 /// Worker-owned pipeline state, sharing host allocations with other workers.

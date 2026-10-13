@@ -1,0 +1,21 @@
+{
+  "scope": "Direct rustc experiment; production compiler unchanged",
+  "compile_seconds": 1.1435770349926315,
+  "relocated_library_compile_seconds": 7.761958292976487,
+  "relocated_library_exit_code": 0,
+  "relocated_library_stderr": "",
+  "library_files": 286,
+  "library_bytes": 1602675540,
+  "cargo_vs_direct_float_frames_exact": true,
+  "frame_sha256": [
+    "39911858c02cf3204e01eaa221c3a7a7619326f317717fe774a42f1a687b1813",
+    "b273331267856a56860187242dff3dc851b97a2ba0b03710e0b61f97e90f1642",
+    "39911858c02cf3204e01eaa221c3a7a7619326f317717fe774a42f1a687b1813"
+  ],
+  "requires_cargo_manifest_dir": true,
+  "installed_acceptance": false,
+  "original_libraries_unavailable_compile_seconds": 1.978228398016654,
+  "original_libraries_unavailable_exit_code": 0,
+  "original_libraries_unavailable_stderr": "",
+  "relocated_library_gpu_frames_exact": true
+}

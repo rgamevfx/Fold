@@ -1,0 +1,47 @@
+{
+  "fixture": "native two-color PPM image; guarded position X edit through actual fold-cli MCP subprocess",
+  "candidate_matches_applied": true,
+  "pixels_change": true,
+  "save_reopen": true,
+  "artist_undo_redo": true,
+  "frames": {
+    "before": {
+      "dimensions": [
+        640,
+        360
+      ],
+      "sha256": "b2cb0003eb7fa1f247b4748d289aea0ad2dfcdc836ef1d5872beb6a928a6ea3e",
+      "transfers": {
+        "cpu_adapter_nodes": 0,
+        "evaluation_readback_bytes": 0
+      }
+    },
+    "candidate": {
+      "dimensions": [
+        640,
+        360
+      ],
+      "sha256": "3020d9ee3c483f36f4540ad97842401546820c269d7cea87a464ec5fa2c73191",
+      "transfers": {
+        "cpu_adapter_nodes": 0,
+        "evaluation_readback_bytes": 0
+      }
+    },
+    "after": {
+      "dimensions": [
+        640,
+        360
+      ],
+      "sha256": "3020d9ee3c483f36f4540ad97842401546820c269d7cea87a464ec5fa2c73191",
+      "transfers": {
+        "cpu_adapter_nodes": 0,
+        "evaluation_readback_bytes": 0
+      }
+    }
+  },
+  "creation_from_existing_asset": true,
+  "creation_candidate_matches_applied": true,
+  "creation_keeps_committed_pixels_unchanged": true,
+  "undo_creation_preserves_asset": true,
+  "focused_native_run_seconds": 6.89
+}

@@ -37,7 +37,6 @@ impl ScopedProposals for Provider {
     ) -> Result<Box<dyn PreparedProposal>, Failure> {
         (|| -> Result<Box<dyn PreparedProposal>, Failure> {
             request(r, cancel)?;
-            document_scope(r.scope)?;
             let original = base
                 .state()
                 .documents
@@ -78,7 +77,6 @@ impl ScopedProposals for Provider {
         cancel: &Cancel,
     ) -> Result<Box<dyn PreparedProposal>, Failure> {
         (|| -> Result<Box<dyn PreparedProposal>, Failure> {
-            document_scope(scope)?;
             Ok(Box::new(Prepared::<Layers>::new(
                 base, scope, after, cancel,
             )?))
@@ -96,8 +94,7 @@ impl Records for Layers {
             .map(Self)
             .map_err(Failure::invalid)
     }
-    fn validate_change(before: &Self, after: &Self, scope: Scope) -> Result<(), Failure> {
-        document_scope(scope)?;
+    fn validate_change(before: &Self, after: &Self, _scope: Scope) -> Result<(), Failure> {
         for layer in &before.0.layers {
             if before.0.locked(layer.id)
                 && after.0.layers.iter().find(|v| v.id == layer.id) != Some(layer)
@@ -126,8 +123,7 @@ impl Records for Layers {
         d.extensions = original.extensions.clone();
         Ok(d)
     }
-    fn source(&self, scope: Scope) -> Result<DocumentInspection, Failure> {
-        document_scope(scope)?;
+    fn source(&self, _scope: Scope) -> Result<DocumentInspection, Failure> {
         Ok(DocumentInspection::Native(json!({"native":self.0})))
     }
     fn diff(before: Option<&Self>, after: &Self, scope: Scope) -> Result<Vec<Value>, Failure> {

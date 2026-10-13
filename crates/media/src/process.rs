@@ -1,7 +1,7 @@
-//! Supervised codec processes. Cancellation kills/reaps the child, including
+//! Supervised child processes. Cancellation kills/reaps the child, including
 //! while an encoder caller is blocked writing to its pipe. No shell expansion.
 use std::{
-    io::Read,
+    io::{Read, Seek, SeekFrom},
     process::{ChildStdin, ChildStdout, Command, Stdio},
     sync::{
         Arc,
@@ -87,13 +87,36 @@ impl Cancel {
     }
 }
 
-pub(crate) struct Process {
+pub struct Process {
     pub stdin: Option<ChildStdin>,
     pub stdout: Option<ChildStdout>,
     worker: Option<JoinHandle<Result<(), fold_foundation::Failure>>>,
     stop: Cancel,
+    log: Arc<tempfile::NamedTempFile>,
+}
+fn diagnostic_tail(log: &tempfile::NamedTempFile) -> String {
+    let mut details = Vec::new();
+    if let Ok(mut file) = log.reopen() {
+        let end = file.metadata().map(|m| m.len()).unwrap_or(0);
+        let _ = file.seek(SeekFrom::Start(end.saturating_sub(8192)));
+        let _ = file.take(8192).read_to_end(&mut details);
+    }
+    String::from_utf8_lossy(&details).into_owned()
 }
 impl Process {
+    /// Bounded diagnostics for retained workers, including successful jobs.
+    pub fn diagnostics(&self) -> String {
+        diagnostic_tail(&self.log)
+    }
+    /// Bounded one-shot work, including compiler children. Callers retain the
+    /// same cancellation, diagnostics and capacity policy as media workers.
+    pub fn timed(
+        command: Command,
+        cancel: Cancel,
+        timeout: Duration,
+    ) -> Result<Self, fold_foundation::Failure> {
+        Self::supervise(command, cancel, None, Some(timeout), false)
+    }
     pub fn spawn(
         command: Command,
         cancel: Cancel,
@@ -131,16 +154,23 @@ impl Process {
     ) -> Result<Self, fold_foundation::Failure> {
         cancel.check()?;
         let slot = CAPACITY.reserve(audio)?;
-        let log = crate::scratch::file().map_err(|e| e.to_string())?;
+        let log = Arc::new(crate::scratch::file().map_err(|e| e.to_string())?);
         command.stderr(Stdio::from(log.reopen().map_err(|e| e.to_string())?));
+        #[cfg(unix)]
+        {
+            use std::os::unix::process::CommandExt;
+            command.process_group(0);
+        }
         let mut child = command
             .spawn()
-            .map_err(|e| format!("codec unavailable: {e}"))?;
+            .map_err(|e| format!("worker unavailable: {e}"))?;
         let stdin = child.stdin.take();
         let stdout = child.stdout.take();
         let stop = Cancel::default();
         let worker_stop = stop.clone();
+        let worker_log = log.clone();
         let worker = std::thread::spawn(move || {
+            let log = worker_log;
             let _slot = slot;
             let start = Instant::now();
             let result = loop {
@@ -149,15 +179,15 @@ impl Process {
                     .and_then(|_| worker_stop.check())
                     .and_then(|_| {
                         if timeout.is_some_and(|timeout| start.elapsed() > timeout) {
-                            Err("codec timeout (600s)".into())
+                            Err(format!("worker timeout ({}s)", timeout.unwrap().as_secs()).into())
                         } else if log.as_file().metadata().map(|m| m.len()).unwrap_or(0)
                             > 1024 * 1024
                         {
-                            Err("codec diagnostic budget exceeded".into())
+                            Err("worker diagnostic budget exceeded".into())
                         } else if limit.as_ref().is_some_and(|(p, n)| {
                             std::fs::metadata(p).map(|m| m.len() > *n).unwrap_or(false)
                         }) {
-                            Err("codec output budget exceeded".into())
+                            Err("worker output budget exceeded".into())
                         } else {
                             Ok(())
                         }
@@ -170,7 +200,7 @@ impl Process {
                         break if status.success() {
                             Ok(())
                         } else {
-                            Err(format!("codec exited with {status}").into())
+                            Err(format!("worker exited with {status}").into())
                         };
                     }
                     Ok(None) => std::thread::sleep(Duration::from_millis(10)),
@@ -178,14 +208,16 @@ impl Process {
                 }
             };
             // Also reap on cancellation, timeout, and monitoring failures.
+            #[cfg(unix)]
+            if let Ok(id) = i32::try_from(child.id())
+                && let Some(group) = rustix::process::Pid::from_raw(id)
+            {
+                let _ = rustix::process::kill_process_group(group, rustix::process::Signal::KILL);
+            }
             let _ = child.kill();
             let _ = child.wait();
             result.map_err(|mut error| {
-                let mut details = String::new();
-                if let Ok(file) = log.reopen() {
-                    let _ = file.take(8192).read_to_string(&mut details);
-                }
-                error.message = format!("{}: {details}", error.message);
+                error.message = format!("{}: {}", error.message, diagnostic_tail(&log));
                 error
             })
         });
@@ -194,10 +226,10 @@ impl Process {
             stdout,
             worker: Some(worker),
             stop,
+            log,
         })
     }
-    #[cfg(feature = "native-video")]
-    pub(crate) fn is_finished(&self) -> bool {
+    pub fn is_finished(&self) -> bool {
         self.worker
             .as_ref()
             .is_none_or(|worker| worker.is_finished())
@@ -213,7 +245,7 @@ impl Process {
             .take()
             .unwrap()
             .join()
-            .map_err(|_| "codec monitor panicked".to_owned())?
+            .map_err(|_| "worker monitor panicked".to_owned())?
     }
 }
 impl Drop for Process {

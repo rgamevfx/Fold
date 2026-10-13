@@ -291,6 +291,7 @@ impl Panel for TimelinePanel {
             };
             let request = fold_platform::browser::Placement {
                 graph: None,
+                canvas_position: None,
                 source,
                 target: *document,
                 track,
@@ -327,6 +328,7 @@ impl Panel for TimelinePanel {
                         fold_platform::browser::BrowserCommand::Place(
                             fold_platform::browser::Placement {
                                 graph: None,
+                                canvas_position: None,
                                 source,
                                 target: *document,
                                 track,
