@@ -34,9 +34,12 @@ pub fn choose(
             #[cfg(feature = "desktop")]
             {
                 let Some(path) = rfd::FileDialog::new()
-                    .set_title("Write EXR sequence")
-                    .set_file_name("comp.####.exr")
-                    .add_filter("OpenEXR", &["exr"])
+                    .set_title("Write destination")
+                    .set_file_name(settings.file_type.default_filename())
+                    .add_filter(
+                        settings.file_type.label(),
+                        &[settings.file_type.extension()],
+                    )
                     .save_file()
                 else {
                     return Ok(EditBatch {

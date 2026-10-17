@@ -87,6 +87,7 @@ fn two_consumers_continue_while_export_and_asset_only_ingest_run() {
     std::fs::write(&image, b"P6\n1 1\n255\n\x10\x20\x30").unwrap();
     let destination = directory.path().join("delivery.mp4");
     session.command(DesktopCommand::Export {
+        encoding: fold_media::encoding::Movie::H264(Default::default()),
         path: destination.clone(),
         start: 0,
         end: 8,

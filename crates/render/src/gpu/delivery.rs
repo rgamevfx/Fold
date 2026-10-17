@@ -20,6 +20,18 @@ impl Renderer {
         cancel: &Cancel,
         class: Option<crate::scheduling::Class>,
     ) -> Result<Rgba16Output, fold_foundation::Failure> {
+        self.output_rgba16_with_alpha(frame, processor, true, cancel, class)
+    }
+
+    /// Matte in working space before the output transform when alpha is disabled.
+    pub fn output_rgba16_with_alpha(
+        &mut self,
+        frame: &GpuFrame,
+        processor: Option<&fold_color::Processor>,
+        preserve_alpha: bool,
+        cancel: &Cancel,
+        class: Option<crate::scheduling::Class>,
+    ) -> Result<Rgba16Output, fold_foundation::Failure> {
         cancel.check()?;
         self.host.check()?;
         if frame.host.id() != self.host.id() {
@@ -86,7 +98,7 @@ impl Renderer {
             &mut encoder,
             &frame.image,
             &output,
-            false,
+            !preserve_alpha,
             &status,
         )?;
         let pipeline = self.delivery.as_ref().unwrap();

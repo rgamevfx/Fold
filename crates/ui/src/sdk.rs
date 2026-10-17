@@ -41,6 +41,8 @@ pub mod time_view;
 #[path = "toolbar.rs"]
 pub mod toolbar;
 pub use property_edit::{EditResponse, NumericProperty, UiId};
+#[path = "delivery_controls.rs"]
+pub mod delivery_controls;
 #[path = "property_rows.rs"]
 pub mod property_rows;
 #[path = "text_draft.rs"]

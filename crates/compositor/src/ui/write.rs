@@ -17,56 +17,75 @@ pub(super) fn draw(
     response.item(ui, edited);
     ui.same_line();
     let browse = ui.button_with_size("…##destination", [button, button]);
-    row(ui, "File type");
-    ui.text("OpenEXR");
-    combo(
-        ui,
-        "Channels",
-        &mut settings.channels,
-        &[
-            (Channels::Rgba, "rgba"),
-            (Channels::Rgb, "rgb"),
-            (Channels::Alpha, "alpha"),
-        ],
-        response,
-    );
-    combo(
-        ui,
-        "Data type",
-        &mut settings.precision,
-        &[
-            (Precision::Half, "16-bit half"),
-            (Precision::Float, "32-bit float"),
-        ],
-        response,
-    );
-    combo(
-        ui,
-        "Compression",
-        &mut settings.compression,
-        &[
-            (Compression::Zip1, "ZIP (1 scanline)"),
-            (Compression::Zip16, "ZIP (16 scanlines)"),
-            (Compression::Piz, "PIZ"),
-            (Compression::Rle, "RLE"),
-            (Compression::None, "None"),
-        ],
-        response,
-    );
-    row(ui, "Color space");
-    if let Some(_combo) = ui.begin_combo("##color-space", &settings.color_space) {
-        for name in choices
-            .inputs
-            .iter()
-            .map(String::as_str)
-            .chain(std::iter::once("Linear Rec.709 (sRGB)"))
-        {
-            if ui
-                .selectable_config(name)
-                .selected(name == settings.color_space)
-                .build()
+    fold_ui::sdk::delivery_controls::file_type(ui, settings, false, response);
+    if settings.file_type == FileType::OpenExr {
+        combo(
+            ui,
+            "Channels",
+            &mut settings.channels,
+            &[
+                (Channels::Rgba, "rgba"),
+                (Channels::Rgb, "rgb"),
+                (Channels::Alpha, "alpha"),
+            ],
+            response,
+        );
+        combo(
+            ui,
+            "Data type",
+            &mut settings.precision,
+            &[
+                (Precision::Half, "16-bit half"),
+                (Precision::Float, "32-bit float"),
+            ],
+            response,
+        );
+        combo(
+            ui,
+            "Compression",
+            &mut settings.compression,
+            &[
+                (Compression::Zip1, "ZIP (1 scanline)"),
+                (Compression::Zip16, "ZIP (16 scanlines)"),
+                (Compression::Piz, "PIZ"),
+                (Compression::Rle, "RLE"),
+                (Compression::None, "None"),
+            ],
+            response,
+        );
+        row(ui, "Color space");
+        if let Some(_combo) = ui.begin_combo("##color-space", &settings.color_space) {
+            for name in choices
+                .inputs
+                .iter()
+                .map(String::as_str)
+                .chain(std::iter::once("Linear Rec.709 (sRGB)"))
             {
-                settings.color_space = name.to_owned();
+                if ui
+                    .selectable_config(name)
+                    .selected(name == settings.color_space)
+                    .build()
+                {
+                    settings.color_space = name.to_owned();
+                    response.changed = true;
+                    response.finished = true;
+                }
+            }
+        }
+        check(ui, "Premultiplied", &mut settings.premultiplied, response);
+    } else {
+        fold_ui::sdk::delivery_controls::movie_options(ui, settings, response);
+        if choices.outputs.is_empty() {
+            ui.text_disabled("Output color: sRGB");
+        } else {
+            let mut movie_choices = choices.clone();
+            movie_choices.outputs.retain(|c| {
+                matches!(
+                    c.display.as_str(),
+                    "sRGB - Display" | "Rec.1886 Rec.709 - Display"
+                )
+            });
+            if fold_ui::sdk::color_controls::output(ui, &movie_choices, &mut settings.movie_color) {
                 response.changed = true;
                 response.finished = true;
             }
@@ -93,12 +112,13 @@ pub(super) fn draw(
         .range(settings.first, i32::MAX as u32)
         .build(ui, &mut settings.last);
     response.item(ui, changed);
-    row(ui, "Step");
-    let changed = fold_ui::sdk::imgui::Drag::new("##step")
-        .range(1, i32::MAX as u32)
-        .build(ui, &mut settings.step);
-    response.item(ui, changed);
-    check(ui, "Premultiplied", &mut settings.premultiplied, response);
+    if settings.file_type == FileType::OpenExr {
+        row(ui, "Step");
+        let changed = fold_ui::sdk::imgui::Drag::new("##step")
+            .range(1, i32::MAX as u32)
+            .build(ui, &mut settings.step);
+        response.item(ui, changed);
+    }
     check(ui, "Create folders", &mut settings.create_folders, response);
     let valid = settings.path(settings.first);
     let _disabled = ui.begin_disabled_with_cond(valid.is_err());

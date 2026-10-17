@@ -9,9 +9,7 @@ pub use frames::export_frames;
 mod identity;
 #[path = "output_scene.rs"]
 mod scene;
-pub use export::export;
-#[cfg(feature = "gpu")]
-pub(crate) use export::export_with_host;
+pub use export::{export, export_configured};
 use fold_media::{Cancel, Decoder};
 use fold_project::CommittedSnapshot;
 use fold_render::DisplayFrame;
@@ -160,8 +158,19 @@ impl OutputRenderer {
         request: &SceneRequest,
         cancel: &Cancel,
     ) -> Result<fold_render::Rgba16Output, fold_foundation::Failure> {
+        let transform = fold_platform::color::output(snapshot, request.source.document)?;
+        self.evaluate_movie_frame(snapshot, request, &transform, true, cancel)
+    }
+    pub(crate) fn evaluate_movie_frame(
+        &mut self,
+        snapshot: &CommittedSnapshot,
+        request: &SceneRequest,
+        transform: &fold_platform::color::OutputTransform,
+        preserve_alpha: bool,
+        cancel: &Cancel,
+    ) -> Result<fold_render::Rgba16Output, fold_foundation::Failure> {
         self.with_budget_retry(cancel, |renderer| {
-            renderer.evaluate_rgba16_once(snapshot, request, cancel)
+            renderer.evaluate_rgba16_once(snapshot, request, transform, preserve_alpha, cancel)
         })
         .map_err(|error| {
             error
@@ -173,6 +182,8 @@ impl OutputRenderer {
         &mut self,
         snapshot: &CommittedSnapshot,
         request: &SceneRequest,
+        transform: &fold_platform::color::OutputTransform,
+        preserve_alpha: bool,
         cancel: &Cancel,
     ) -> Result<fold_render::Rgba16Output, fold_foundation::Failure> {
         #[cfg(feature = "gpu")]
@@ -188,16 +199,13 @@ impl OutputRenderer {
             return crate::color::with_config(snapshot, |config| {
                 let processor = config
                     .map(|config| {
-                        config.display(
-                            fold_color::WORKING_SPACE,
-                            &fold_platform::color::output(snapshot, request.source.document)?
-                                .display_transform(),
-                        )
+                        config.display(fold_color::WORKING_SPACE, &transform.display_transform())
                     })
                     .transpose()?;
-                renderer.output_rgba16_admitted(
+                renderer.output_rgba16_with_alpha(
                     &scene,
                     processor.as_ref(),
+                    preserve_alpha,
                     cancel,
                     Some(fold_render::scheduling::Class::Export),
                 )
@@ -207,13 +215,14 @@ impl OutputRenderer {
         crate::color::with_config(snapshot, |config| {
             let processor = config
                 .map(|config| {
-                    config.display(
-                        fold_color::WORKING_SPACE,
-                        &fold_platform::color::output(snapshot, request.source.document)?
-                            .display_transform(),
-                    )
+                    config.display(fold_color::WORKING_SPACE, &transform.display_transform())
                 })
                 .transpose()?;
+            let scene = if preserve_alpha {
+                scene
+            } else {
+                scene.over_black()
+            };
             scene.into_rgba16(processor.as_ref())
         })
     }

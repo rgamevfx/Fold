@@ -231,6 +231,7 @@ impl Shared {
                 let image = self.directory.join("linked.ppm");
                 std::fs::write(&image, b"P6\n1 1\n255\n\x10\x20\x30")?;
                 client.command(C::Export {
+                    encoding: fold_media::encoding::Movie::H264(Default::default()),
                     path: self.directory.join("delivery.mp4"),
                     start: 0,
                     end: 150,

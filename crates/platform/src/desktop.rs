@@ -251,6 +251,7 @@ pub enum DesktopCommand {
         settings: crate::delivery::Settings,
     },
     Export {
+        encoding: fold_media::encoding::Movie,
         path: PathBuf,
         start: u32,
         end: u32,

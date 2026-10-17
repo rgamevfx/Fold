@@ -1,6 +1,6 @@
 //! Pinned committed-snapshot delivery; cancellation cannot retract finalized files.
 use super::{SceneRequest, output};
-use fold_media::{Cancel, Encoder};
+use fold_media::{Cancel, Encoder, encoding::Movie};
 use std::path::Path;
 /// Export only a coordinator-published revision, never a live gesture overlay.
 /// ```compile_fail
@@ -18,48 +18,43 @@ pub fn export(
     end: u32,
     cancel: &Cancel,
 ) -> Result<(), String> {
-    export_inner(
+    export_configured(
         snapshot,
         path,
         start,
         end,
+        Movie::from_path(path)?,
         cancel,
         #[cfg(feature = "gpu")]
         None,
     )
 }
 
-#[cfg(feature = "gpu")]
-pub(crate) fn export_with_host(
+/// Delivery-panel movie export, including audio when the selected output supplies it.
+pub fn export_configured(
     snapshot: &fold_project::CommittedSnapshot,
     path: &Path,
     start: u32,
     end: u32,
-    cancel: &Cancel,
-    host: Option<fold_render::gpu::Host>,
-) -> Result<(), String> {
-    export_inner(snapshot, path, start, end, cancel, host)
-}
-
-fn export_inner(
-    snapshot: &fold_project::CommittedSnapshot,
-    path: &Path,
-    start: u32,
-    end: u32,
+    encoding: Movie,
     cancel: &Cancel,
     #[cfg(feature = "gpu")] host: Option<fold_render::gpu::Host>,
 ) -> Result<(), String> {
+    encoding.validate_path(path)?;
     use fold_foundation::Rounding;
     use fold_media::audio::{AUDIO_RATE, AudioDecoder};
     use std::io::Write;
     let (reference, info) = output(snapshot)?;
+    let transform = fold_platform::color::output(snapshot, reference.document)?;
     let registry = crate::packages::builtins();
     if !registry.supports_audio(snapshot, reference.document) {
-        return export_video(
+        return export_movie(
             snapshot,
+            &reference,
             path,
-            start,
-            end,
+            start..end,
+            encoding,
+            &transform,
             cancel,
             #[cfg(feature = "gpu")]
             host,
@@ -73,11 +68,13 @@ fn export_inner(
     plan.preflight(&mut decoder, cancel)?;
     let _video_scratch = fold_media::budget::reserve_delivery(2 * 1024 * 1024 * 1024)?;
     let temporary = tempfile::tempdir().map_err(|e| e.to_string())?;
-    let video = temporary.path().join(if prores_destination(path)? {
-        "video.mov"
-    } else {
-        "video.mp4"
-    });
+    let video = temporary
+        .path()
+        .join(if matches!(encoding, Movie::ProRes(_)) {
+            "video.mov"
+        } else {
+            "video.mp4"
+        });
     let pcm = temporary.path().join("audio.f32");
     let mut file = std::fs::File::create(&pcm).map_err(|e| e.to_string())?;
     let mut sample = info
@@ -104,11 +101,13 @@ fn export_inner(
     // Delivery PCM is complete. Release prepared PCM files while the decoder
     // still retains immutable video-source pins for the pinned export.
     decoder.retain_sources([]);
-    export_video(
+    export_movie(
         snapshot,
+        &reference,
         &video,
-        start,
-        end,
+        start..end,
+        encoding,
+        &transform,
         cancel,
         #[cfg(feature = "gpu")]
         host,
@@ -116,31 +115,34 @@ fn export_inner(
     Ok(fold_media::audio::mux_audio(&video, &pcm, path, cancel)?)
 }
 
-fn prores_destination(path: &Path) -> Result<bool, String> {
-    match path
-        .extension()
-        .and_then(|e| e.to_str())
-        .map(str::to_ascii_lowercase)
-        .as_deref()
-    {
-        Some("mov") => Ok(true),
-        Some("mp4") => Ok(false),
-        _ => Err("Choose .mp4 (H.264) or .mov (ProRes 4444 with alpha)".into()),
-    }
-}
-
-fn export_video(
+/// The same branch-local movie renderer serves Write and Delivery. Source identity
+/// and color are explicit; this never changes the project's delivery selection.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn export_movie(
     snapshot: &fold_project::CommittedSnapshot,
+    source: &fold_project::DocumentRef,
     path: &Path,
-    start: u32,
-    end: u32,
+    frames: std::ops::Range<u32>,
+    encoding: Movie,
+    transform: &fold_platform::color::OutputTransform,
     cancel: &Cancel,
     #[cfg(feature = "gpu")] host: Option<fold_render::gpu::Host>,
 ) -> Result<(), String> {
-    let (source, info) = output(snapshot)?;
-    if start >= end || end > info.frames {
-        return Err("export requires nonempty half-open [start,end) within the sequence".into());
+    encoding.validate_path(path)?;
+    cancel.check()?;
+    let info = crate::packages::builtins().output_ref(snapshot, source)?;
+    if frames.start >= frames.end || frames.end > info.frames || path.exists() {
+        return Err("Invalid export range or destination already exists".into());
     }
+    let rec709 = if fold_platform::color::project(snapshot)?.is_some() {
+        match transform.display.as_str() {
+            "Rec.1886 Rec.709 - Display" => true,
+            "sRGB - Display" => false,
+            _ => return Err("Movies require an sRGB or Rec.1886 Rec.709 output transform".into()),
+        }
+    } else {
+        false
+    };
     #[cfg(feature = "gpu")]
     let mut evaluator = crate::output::OutputRenderer::with_shared_host(host)?;
     #[cfg(not(feature = "gpu"))]
@@ -148,72 +150,60 @@ fn export_video(
     let mut request = SceneRequest {
         region: None,
         preview: None,
-        source,
-        time: info.time(start)?,
+        source: source.clone(),
+        time: info.time(frames.start)?,
         dimensions: [info.width, info.height],
     };
-    let prores = prores_destination(path)?;
-    if prores {
-        let mut first = Some(evaluator.evaluate_rgba16(snapshot, &request, cancel)?);
-        let output_color = fold_platform::color::project(snapshot)?
-            .map(|_| fold_platform::color::output(snapshot, request.source.document))
-            .transpose()?;
-        let rec709 = match output_color.as_ref().map(|c| c.display.as_str()) {
-            Some("Rec.1886 Rec.709 - Display") => true,
-            Some("sRGB - Display") | None => false,
-            _ => {
-                return Err(
-                    "ProRes 4444 requires an sRGB or Rec.1886 Rec.709 output transform".into(),
-                );
-            }
-        };
-        let encoder = Encoder::new_prores4444(path, &info, end - start, cancel.clone(), rec709)?;
-        return write_pipeline(
-            encoder,
-            start..end,
-            cancel,
-            |frame| {
-                request.time = info.time(frame)?;
-                match first.take() {
-                    Some(frame) => Ok(frame),
-                    None => Ok(evaluator.evaluate_rgba16(snapshot, &request, cancel)?),
-                }
-            },
-            |encoder, output| encoder.write_rgba16(output.bytes()).map_err(Into::into),
-        );
-    }
-    let mut evaluate_output =
-        |request: &SceneRequest| evaluator.evaluate(snapshot, request, cancel);
-    // Preflight decode AND the explicit output transform before any destination.
-    let mut first = Some(evaluate_output(&request)?);
-    let output_color = fold_platform::color::project(snapshot)?
-        .map(|_| fold_platform::color::output(snapshot, request.source.document))
-        .transpose()?;
-    let encoder = match output_color.as_ref().map(|c| c.display.as_str()) {
-        Some("Rec.1886 Rec.709 - Display") => {
-            Encoder::new_rec709(path, &info, end - start, cancel.clone())?
-        }
-        Some("sRGB - Display") | None => Encoder::new(path, &info, end - start, cancel.clone())?,
-        _ => return Err("MP4 requires an sRGB or Rec.1886 Rec.709 output transform".into()),
-    };
+    // Validate decode and output conversion before starting the atomic encoder.
+    let mut first = Some(evaluator.evaluate_movie_frame(
+        snapshot,
+        &request,
+        transform,
+        encoding.preserves_alpha(),
+        cancel,
+    )?);
+    let encoder = Encoder::new_with_signal(
+        path,
+        &info,
+        frames.end - frames.start,
+        cancel.clone(),
+        rec709,
+        encoding,
+    )?;
     write_pipeline(
         encoder,
-        start..end,
+        frames,
         cancel,
         |frame| {
             request.time = info.time(frame)?;
             match first.take() {
-                Some(display) => Ok(display),
-                None => Ok(evaluate_output(&request)?),
+                Some(frame) => Ok(frame),
+                None => Ok(evaluator.evaluate_movie_frame(
+                    snapshot,
+                    &request,
+                    transform,
+                    encoding.preserves_alpha(),
+                    cancel,
+                )?),
             }
         },
-        |encoder, display| {
-            let rgb: Vec<u8> = display
-                .rgba()
-                .chunks_exact(4)
-                .flat_map(|p| p[..3].iter().copied())
-                .collect();
-            encoder.write_rgb(&rgb).map_err(Into::into)
+        |encoder, frame| match encoding {
+            Movie::ProRes(_) => encoder.write_rgba16(frame.bytes()).map_err(Into::into),
+            Movie::H264(_) => {
+                let _lease = fold_media::budget::reserve_output(
+                    u64::from(info.width) * u64::from(info.height) * 3,
+                )?;
+                let rgb: Vec<u8> = frame
+                    .bytes()
+                    .chunks_exact(8)
+                    .flat_map(|p| {
+                        p[..6].chunks_exact(2).map(|c| {
+                            ((u32::from(u16::from_le_bytes([c[0], c[1]])) + 128) / 257) as u8
+                        })
+                    })
+                    .collect();
+                encoder.write_rgb(&rgb).map_err(Into::into)
+            }
         },
     )
 }

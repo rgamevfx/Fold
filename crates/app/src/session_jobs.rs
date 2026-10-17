@@ -262,12 +262,22 @@ fn execute(
                 render_host,
             )
             .map(|_| Completed::Exported(format!("Write complete: {}", settings.destination))),
-            DesktopCommand::Export { path, start, end } => {
-                #[cfg(feature = "gpu")]
-                let result =
-                    workflow::export_with_host(snapshot, &path, start, end, token, render_host);
-                #[cfg(not(feature = "gpu"))]
-                let result = workflow::export(snapshot, &path, start, end, token);
+            DesktopCommand::Export {
+                path,
+                start,
+                end,
+                encoding,
+            } => {
+                let result = workflow::export_configured(
+                    snapshot,
+                    &path,
+                    start,
+                    end,
+                    encoding,
+                    token,
+                    #[cfg(feature = "gpu")]
+                    render_host,
+                );
                 result.map(|_| Completed::Exported(format!("Export complete: {}", path.display())))
             }
             _ => Err("command is not a background operation".into()),
@@ -368,6 +378,7 @@ mod tests {
             DesktopCommand::Open(path.clone()),
             DesktopCommand::Save(path.clone()),
             DesktopCommand::Export {
+                encoding: fold_media::encoding::Movie::H264(Default::default()),
                 path: path.clone(),
                 start: 0,
                 end: 1,

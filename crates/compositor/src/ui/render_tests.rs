@@ -105,6 +105,10 @@ fn shuffle_inspector_normal_and_narrow() {
         ("read-narrow", 280.),
         ("write-normal", 420.),
         ("write-narrow", 280.),
+        ("write-mov-normal", 420.),
+        ("write-mov-narrow", 280.),
+        ("write-mp4-normal", 420.),
+        ("write-mp4-narrow", 280.),
         ("merge-normal", 420.),
         ("merge-narrow", 280.),
         ("cull-normal", 420.),
@@ -159,13 +163,18 @@ fn shuffle_inspector_normal_and_narrow() {
                     .defaults(&graph.info)
                     .unwrap()
             } else if name.starts_with("write") {
-                OperationConfig::Write {
-                    settings: fold_platform::delivery::Settings {
-                        destination: "/tmp/render/comp.####.exr".into(),
-                        last: 99,
-                        ..Default::default()
-                    },
+                let mut settings = fold_platform::delivery::Settings {
+                    destination: "/tmp/render/comp.####.exr".into(),
+                    last: 99,
+                    ..Default::default()
+                };
+                if name.contains("mov") {
+                    settings.set_file_type(fold_platform::delivery::FileType::QuickTime);
                 }
+                if name.contains("mp4") {
+                    settings.set_file_type(fold_platform::delivery::FileType::Mp4);
+                }
+                OperationConfig::Write { settings }
             } else if name.starts_with("merge") {
                 OperationConfig::Composite {
                     mode: Default::default(),

@@ -1,4 +1,4 @@
-//! Branch-local, committed-snapshot EXR delivery. Does not change project outputs.
+//! Branch-local, committed-snapshot file delivery. Does not change project outputs.
 use fold_media::Cancel;
 use fold_platform::delivery::{Channels, Compression, Precision, Settings};
 use fold_project::{CommittedSnapshot, DocumentRef};
@@ -9,11 +9,33 @@ pub fn export_frames(
     cancel: &Cancel,
     #[cfg(feature = "gpu")] host: Option<fold_render::gpu::Host>,
 ) -> Result<(), String> {
+    cancel.check()?;
     settings.validate()?;
     let registry = crate::packages::builtins();
     let info = registry.output_ref(snapshot, source)?;
     if settings.last >= info.frames {
         return Err("Write range exceeds the document duration".into());
+    }
+    if let Some(encoding) = settings.movie() {
+        let path = settings.path(settings.first)?;
+        if path.exists() {
+            return Err(format!("Destination already exists: {}", path.display()));
+        }
+        if settings.create_folders {
+            std::fs::create_dir_all(path.parent().ok_or("Missing output directory")?)
+                .map_err(|e| e.to_string())?;
+        }
+        return super::export::export_movie(
+            snapshot,
+            source,
+            &path,
+            settings.first..settings.last + 1,
+            encoding,
+            &settings.movie_color,
+            cancel,
+            #[cfg(feature = "gpu")]
+            host,
+        );
     }
     let frames = (settings.first..=settings.last).step_by(settings.step as usize);
     // Preflight every destination before rendering or publishing any frame.

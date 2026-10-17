@@ -1,7 +1,7 @@
 //! Delivery owns export form state; Session remains the job and project authority.
 use super::*;
 pub(super) struct Delivery {
-    export_path: String,
+    settings: fold_platform::delivery::Settings,
     start: i32,
     end: i32,
     pub(super) output: Option<(DocumentId, u32)>,
@@ -9,7 +9,11 @@ pub(super) struct Delivery {
 impl Default for Delivery {
     fn default() -> Self {
         Self {
-            export_path: "/tmp/fold-export.mp4".into(),
+            settings: fold_platform::delivery::Settings {
+                destination: "/tmp/fold-export.mp4".into(),
+                file_type: fold_platform::delivery::FileType::Mp4,
+                ..Default::default()
+            },
             start: 0,
             end: 1,
             output: None,
@@ -78,40 +82,20 @@ impl Delivery {
                     Err(error) => ui.text_wrapped(error),
                 }
             }
-            let mut prores = std::path::Path::new(&self.export_path)
-                .extension()
-                .is_some_and(|e| e.eq_ignore_ascii_case("mov"));
-            if let Some(_combo) = ui.begin_combo(
-                "Format",
-                if prores {
-                    "ProRes 4444 • Alpha (.mov)"
-                } else {
-                    "H.264 (.mp4)"
-                },
-            ) {
-                for (value, label) in [
-                    (false, "H.264 (.mp4)"),
-                    (true, "ProRes 4444 • Alpha (.mov)"),
-                ] {
-                    if ui
-                        .selectable_config(label)
-                        .selected(value == prores)
-                        .build()
-                    {
-                        prores = value;
-                        self.export_path = std::path::Path::new(&self.export_path)
-                            .with_extension(if prores { "mov" } else { "mp4" })
-                            .to_string_lossy()
-                            .into_owned();
-                    }
-                }
-            }
-            ui.input_text("Output file", &mut self.export_path).build();
+            let mut response = crate::sdk::EditResponse::default();
+            crate::sdk::delivery_controls::file_type(ui, &mut self.settings, true, &mut response);
+            crate::sdk::delivery_controls::movie_options(ui, &mut self.settings, &mut response);
+            ui.input_text("Output file", &mut self.settings.destination)
+                .build();
             ui.input_int("Start frame", &mut self.start);
             ui.input_int("End (exclusive)", &mut self.end);
             if ui.button("Export range") && self.start >= 0 && self.end > self.start {
                 client.command(DesktopCommand::Export {
-                    path: self.export_path.clone().into(),
+                    encoding: self
+                        .settings
+                        .movie()
+                        .expect("Delivery selects a movie format"),
+                    path: self.settings.destination.clone().into(),
                     start: self.start as u32,
                     end: self.end as u32,
                 });

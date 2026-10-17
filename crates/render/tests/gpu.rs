@@ -109,25 +109,33 @@ fn packed_alpha_delivery_matches_cpu_without_scene_readback() {
             }],
             output: 0,
         };
-        let expected = fold_render::render_with(graph.clone(), &mut decoder, &cancel)
-            .unwrap()
+        let scene = renderer
+            .evaluate(graph.clone(), None, &mut decoder, &cancel)
+            .unwrap();
+        for preserve_alpha in [true, false] {
+            let reference = fold_render::render_with(graph.clone(), &mut decoder, &cancel).unwrap();
+            let expected = if preserve_alpha {
+                reference
+            } else {
+                reference.over_black()
+            }
             .into_rgba16(None)
             .unwrap();
-        let scene = renderer
-            .evaluate(graph, None, &mut decoder, &cancel)
-            .unwrap();
-        let actual = renderer.output_rgba16(&scene, None, &cancel).unwrap();
-        assert_eq!(actual.bytes().len(), 17 * 9 * 8);
-        for (a, b) in actual
-            .bytes()
-            .chunks_exact(2)
-            .zip(expected.bytes().chunks_exact(2))
-        {
-            assert!(
-                u16::from_le_bytes(a.try_into().unwrap())
-                    .abs_diff(u16::from_le_bytes(b.try_into().unwrap()))
-                    <= 1
-            );
+            let actual = renderer
+                .output_rgba16_with_alpha(&scene, None, preserve_alpha, &cancel, None)
+                .unwrap();
+            assert_eq!(actual.bytes().len(), 17 * 9 * 8);
+            for (a, b) in actual
+                .bytes()
+                .chunks_exact(2)
+                .zip(expected.bytes().chunks_exact(2))
+            {
+                assert!(
+                    u16::from_le_bytes(a.try_into().unwrap())
+                        .abs_diff(u16::from_le_bytes(b.try_into().unwrap()))
+                        <= 1
+                );
+            }
         }
     }
 }

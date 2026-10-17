@@ -149,6 +149,7 @@ fn instance_play_seek_retarget_and_close_never_change_another_clock_or_project()
     let directory = tempfile::tempdir().unwrap();
     let export = directory.path().join("pinned.mp4");
     session.command(Command::Export {
+        encoding: fold_media::encoding::Movie::H264(Default::default()),
         path: export.clone(),
         start: 0,
         end: 2,

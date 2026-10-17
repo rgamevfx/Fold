@@ -777,7 +777,7 @@ impl Drop for Decoder {
     }
 }
 
-/// Ordered RGB8 sRGB frames to video-only limited-range BT.709 H.264/MP4.
+/// Ordered display RGB8 or straight RGBA16 frames to BT.709 H.264/MP4 or ProRes/MOV.
 /// Writes a temporary destination; no partial final output or overwrites.
 pub struct Encoder {
     process: Option<Process>,
@@ -798,7 +798,14 @@ impl Encoder {
         frames: u32,
         cancel: Cancel,
     ) -> Result<Self, fold_foundation::Failure> {
-        Self::new_with_signal(destination, info, frames, cancel, false, false)
+        Self::new_with_signal(
+            destination,
+            info,
+            frames,
+            cancel,
+            false,
+            crate::encoding::Movie::H264(Default::default()),
+        )
     }
     /// Display-rendered Rec.709 RGB: only RGB-to-YUV reconstruction is applied,
     /// never a second sRGB/scene transfer. Rec.1886 display signal is retained.
@@ -808,7 +815,14 @@ impl Encoder {
         frames: u32,
         cancel: Cancel,
     ) -> Result<Self, fold_foundation::Failure> {
-        Self::new_with_signal(destination, info, frames, cancel, true, false)
+        Self::new_with_signal(
+            destination,
+            info,
+            frames,
+            cancel,
+            true,
+            crate::encoding::Movie::H264(Default::default()),
+        )
     }
     /// ProRes 4444 in MOV, straight RGBA64 input; 10-bit 4:4:4 color and alpha
     /// input are the supported prores_ks interface (16-bit encoded alpha plane).
@@ -819,16 +833,25 @@ impl Encoder {
         cancel: Cancel,
         rec709: bool,
     ) -> Result<Self, fold_foundation::Failure> {
-        Self::new_with_signal(destination, info, frames, cancel, rec709, true)
+        Self::new_with_signal(
+            destination,
+            info,
+            frames,
+            cancel,
+            rec709,
+            crate::encoding::Movie::ProRes(Default::default()),
+        )
     }
-    fn new_with_signal(
+    pub fn new_with_signal(
         destination: &Path,
         info: &VideoInfo,
         frames: u32,
         cancel: Cancel,
         rec709: bool,
-        prores: bool,
+        encoding: crate::encoding::Movie,
     ) -> Result<Self, fold_foundation::Failure> {
+        encoding.validate_path(destination)?;
+        let prores = matches!(encoding, crate::encoding::Movie::ProRes(_));
         info.validate()?;
         let mut delivery = info.clone();
         delivery.frames = frames;
@@ -845,8 +868,11 @@ impl Encoder {
         let disk = crate::budget::reserve_delivery(MAX_FILE)?;
         let output = tempfile::NamedTempFile::new_in(parent).map_err(|e| e.to_string())?;
         let transfer = if rec709 { "709" } else { "iec61966-2-1" };
-        let filter = if prores {
-            "scale=in_range=full:out_range=limited:out_color_matrix=bt709,format=yuva444p10le,setsar=1".to_owned()
+        let filter = if let crate::encoding::Movie::ProRes(settings) = encoding {
+            format!(
+                "scale=in_range=full:out_range=limited:out_color_matrix=bt709,format={},setsar=1",
+                settings.pixel_format()
+            )
         } else {
             format!(
                 "format=gbrpf32le,zscale=matrixin=gbr:transferin={transfer}:primariesin=709:rangein=full:matrix=709:transfer=709:primaries=709:range=limited,format=yuv420p,setsar=1"
@@ -877,17 +903,29 @@ impl Encoder {
             "-threads",
             "1",
         ]);
-        if prores {
-            cmd.args([
-                "-profile:v",
-                "4",
-                "-alpha_bits",
-                "16",
-                "-pix_fmt",
-                "yuva444p10le",
-            ]);
-        } else {
-            cmd.args(["-preset", "veryfast", "-crf", "18"]);
+        match encoding {
+            crate::encoding::Movie::ProRes(settings) => {
+                cmd.args([
+                    "-profile:v",
+                    settings.profile.ffmpeg(),
+                    "-alpha_bits",
+                    if settings.preserves_alpha() {
+                        "16"
+                    } else {
+                        "0"
+                    },
+                    "-pix_fmt",
+                    settings.pixel_format(),
+                ]);
+            }
+            crate::encoding::Movie::H264(settings) => {
+                cmd.args([
+                    "-preset",
+                    settings.preset.label(),
+                    "-crf",
+                    &settings.crf.to_string(),
+                ]);
+            }
         }
         cmd.args([
             "-color_range",

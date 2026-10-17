@@ -307,6 +307,21 @@ fn production_node_inspectors_fit_normal_and_narrow_panels_without_edits() {
     let mut composite = initial.graph.unwrap();
     let image = composite.nodes[0].id;
     for parameters in [
+        OperationConfig::Write {
+            settings: Default::default(),
+        },
+        OperationConfig::Write {
+            settings: fold_platform::delivery::Settings {
+                file_type: fold_platform::delivery::FileType::QuickTime,
+                ..Default::default()
+            },
+        },
+        OperationConfig::Write {
+            settings: fold_platform::delivery::Settings {
+                file_type: fold_platform::delivery::FileType::Mp4,
+                ..Default::default()
+            },
+        },
         OperationConfig::ColorGrade {
             settings: Default::default(),
         },

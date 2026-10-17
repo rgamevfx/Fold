@@ -4,6 +4,7 @@ use std::sync::Arc;
 pub mod audio;
 pub mod budget;
 mod decoded;
+pub mod encoding;
 pub mod scratch;
 mod system_memory;
 pub use decoded::{PlaneLayout, YuvFrame};
@@ -186,7 +187,9 @@ impl RgbImage {
             .as_ref()
             .map(|planes| &planes[..self.dimensions[0] as usize * self.dimensions[1] as usize * 3])
     }
-    pub fn encoded_pixels(&self) -> impl Iterator<Item = [f32; 4]> + '_ {
+    /// Unassociated samples in the source transfer encoding. Preserve RGB even
+    /// at zero alpha for explicit opaque interpretation; this is not working color.
+    pub fn straight_pixels(&self) -> impl Iterator<Item = [f32; 4]> + '_ {
         let count = self.dimensions[0] as usize * self.dimensions[1] as usize;
         (0..count).map(move |i| {
             self.signal.as_ref().map_or_else(
@@ -200,10 +203,14 @@ impl RgbImage {
                 },
                 |p| {
                     let a = p.get(3 * count + i).copied().unwrap_or(1.);
-                    [p[2 * count + i] * a, p[i] * a, p[count + i] * a, a]
+                    [p[2 * count + i], p[i], p[count + i], a]
                 },
             )
         })
+    }
+    pub fn encoded_pixels(&self) -> impl Iterator<Item = [f32; 4]> + '_ {
+        self.straight_pixels()
+            .map(|[r, g, b, a]| [r * a, g * a, b * a, a])
     }
     pub fn has_alpha(&self) -> bool {
         self.signal.as_ref().is_some_and(|p| {

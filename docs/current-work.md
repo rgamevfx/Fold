@@ -411,6 +411,37 @@ catalog exposes the parameterless Viewer. Native artist interaction and
 visual docking acceptance remain open. Full suites and Clippy remain deferred
 until the user's hands-on review.
 
+## Write file formats: artist review pending
+
+Write selects OpenEXR sequence, QuickTime MOV or MP4. Inspector options follow
+the selected format: EXR channels/precision/compression, six ProRes profiles with
+optional alpha for 4444/XQ, or H.264 CRF/preset. Inactive format settings survive
+switching and save/reopen; existing EXR records default to EXR. Switching updates
+the extension and adds/removes sequence numbering. EXR retains frame step and
+premultiplication; movies use every frame in the inclusive Write range at the
+document's rational rate. Non-alpha movies composite over black in working color
+before the explicit output transform. ProRes uses the existing 10-bit encoder
+input path; EXR retains floating-point delivery.
+
+Write renders its own branch without changing project output. Write and Delivery
+share movie controls, codec options and the snapshot-pinned exporter. Write is
+video-only; Delivery retains audio muxing for outputs that supply audio. Encoders
+publish complete files without replacing existing destinations.
+
+Focused checks cover real encoded profiles, alpha/timing, branch selection,
+no-overwrite/cancellation, old EXR settings, and real-Session format-edit
+Undo/Redo/save/reopen. Normal/narrow inspector layout tests and rendered captures
+passed; packed alpha/opaque output matches CPU through Vulkan. Captures used
+software Vulkan, not native NVIDIA artist acceptance. Live interaction and
+installed-package acceptance remain pending.
+
+Validation passed: focused Write/codec/settings/UI/GPU checks, the existing
+audio/video/EXR delivery regressions, and the explicit packaged-OCIO ACES
+color/alpha regression. Workspace all-target checks, Clippy (existing warnings),
+formatting, boundary/ownership checks and the optimized desktop build passed.
+The full workspace test suite was not run; disk space is constrained. The running
+artist session was not restarted.
+
 ## Final acceptance gate
 
 - Complete the remaining slices and removal audit, retaining generic opaque

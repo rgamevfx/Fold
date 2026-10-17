@@ -97,3 +97,88 @@ fn prores4444_roundtrip_retains_fractional_alpha_timing_and_no_clobber() {
     drop(encoder);
     assert!(!cancelled.exists());
 }
+
+#[test]
+fn all_movie_profiles_encode_the_selected_codec_and_alpha_mode() {
+    use fold_media::encoding::{H264, H264Preset, Movie, ProRes, ProResProfile};
+    let dir = tempfile::tempdir().unwrap();
+    let info = VideoInfo {
+        width: 32,
+        height: 16,
+        rate: [24000, 1001],
+        frames: 2,
+    };
+    let variants = ProResProfile::ALL
+        .into_iter()
+        .map(|profile| {
+            Movie::ProRes(ProRes {
+                profile,
+                alpha: true,
+            })
+        })
+        .chain([
+            Movie::ProRes(ProRes {
+                alpha: false,
+                ..Default::default()
+            }),
+            Movie::H264(H264 {
+                crf: 23,
+                preset: H264Preset::Fast,
+            }),
+        ]);
+    for (i, encoding) in variants.enumerate() {
+        let path = dir
+            .path()
+            .join(format!("profile-{i}.{}", encoding.extension()));
+        let mut encoder =
+            Encoder::new_with_signal(&path, &info, 2, Cancel::default(), false, encoding).unwrap();
+        for _ in 0..2 {
+            match encoding {
+                Movie::ProRes(_) => {
+                    let bytes: Vec<u8> = (0..512)
+                        .flat_map(|_| {
+                            [16000u16, 8000, 0, 32768]
+                                .into_iter()
+                                .flat_map(u16::to_le_bytes)
+                        })
+                        .collect();
+                    encoder.write_rgba16(&bytes).unwrap();
+                }
+                Movie::H264(_) => encoder.write_rgb(&[128, 64, 0].repeat(512)).unwrap(),
+            }
+        }
+        encoder.finish().unwrap();
+        let probe = Command::new("ffprobe")
+            .args(["-v", "error", "-show_streams", "-of", "json"])
+            .arg(&path)
+            .output()
+            .unwrap();
+        assert!(probe.status.success());
+        let probe: serde_json::Value = serde_json::from_slice(&probe.stdout).unwrap();
+        let stream = &probe["streams"][0];
+        assert_eq!(stream["nb_frames"], "2");
+        assert_eq!(stream["r_frame_rate"], "24000/1001");
+        match encoding {
+            Movie::ProRes(settings) => {
+                assert_eq!(stream["codec_name"], "prores");
+                let profile = match settings.profile {
+                    ProResProfile::Proxy => "Proxy",
+                    ProResProfile::Lt => "LT",
+                    ProResProfile::Standard => "Standard",
+                    ProResProfile::Hq => "HQ",
+                    ProResProfile::FourFourFourFour => "4444",
+                    ProResProfile::Xq => "XQ",
+                };
+                assert_eq!(stream["profile"], profile);
+                assert_eq!(
+                    stream["pix_fmt"].as_str().unwrap().starts_with("yuva"),
+                    encoding.preserves_alpha()
+                );
+            }
+            Movie::H264(_) => {
+                assert_eq!(stream["codec_name"], "h264");
+                assert_eq!(stream["pix_fmt"], "yuv420p");
+            }
+        }
+    }
+}

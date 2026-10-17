@@ -139,6 +139,10 @@ fn mixed_motion_and_3d_float_exr_matches_linear_preview() {
     };
     let directory = tempfile::tempdir().unwrap();
     let settings = Settings {
+        file_type: Default::default(),
+        prores: Default::default(),
+        h264: Default::default(),
+        movie_color: Default::default(),
         destination: directory
             .path()
             .join("mixed.####.exr")

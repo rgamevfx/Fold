@@ -471,6 +471,7 @@ fn latest_requests_cancel_export_and_nonblocking_commands() {
     }
     let successful = dir.path().join("concurrent.mp4");
     session.command(DesktopCommand::Export {
+        encoding: fold_media::encoding::Movie::H264(Default::default()),
         path: successful.clone(),
         start: 0,
         end: 5,
@@ -493,6 +494,7 @@ fn latest_requests_cancel_export_and_nonblocking_commands() {
     assert!(successful.exists(), "{}", session.state().status);
     let output = dir.path().join("cancelled.mp4");
     session.command(DesktopCommand::Export {
+        encoding: fold_media::encoding::Movie::H264(Default::default()),
         path: output.clone(),
         start: 0,
         end: 5,
