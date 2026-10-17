@@ -400,7 +400,11 @@ impl Editor {
     fn select_all(&mut self, channels: &[Channel], context: &Context<'_>) {
         self.selected = channels
             .iter()
-            .filter(|c| self.matches(c, context))
+            .filter(|c| {
+                self.matches(c, context)
+                    && (!self.curves || self.visible_channels.contains(&(c.object, c.path.clone())))
+                    && !context.tracks.iter().any(|t| t.id == c.object && t.locked)
+            })
             .flat_map(|c| c.curve.keys.iter().map(|k| k.id))
             .collect();
     }

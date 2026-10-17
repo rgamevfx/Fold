@@ -1,0 +1,185 @@
+{
+  "date": "2026-10-13",
+  "scope": "Native Motion design, public MCP fframes preparation, native GPU review and editable text follow-up",
+  "schema": 5,
+  "fixture": "design-workspace.fold",
+  "fixture_sha256": "e76dde4bfcf1d08b85f6423503d4bf51586a5f628c9bc3e5262983cfbc1208a1",
+  "design": {
+    "objects": 8,
+    "native_text_objects": 3,
+    "stable_object_and_transform_ids": true,
+    "authored_design_unchanged_by_motion": true
+  },
+  "animation": {
+    "target": "a4fb41c6-de3f-4314-b42e-c63c80bb1c56",
+    "spec": {
+      "controls": {
+        "Delay": 0.0,
+        "Distance": 180.0,
+        "Duration": 0.75
+      },
+      "sample_rate": 120,
+      "source": "pub fn animate(input: MotionContext<'_>) -> Result<MotionPose, String> {\n    let duration = input.number(\"Duration\")? as f32;\n    let t = ((input.seconds() - input.number(\"Delay\")?).max(0.) as f32).min(duration);\n    let curve = fframes::animation::AnimationRuntime::new(duration, &fframes::animation::Easing::EaseOut);\n    let p = curve.solve(&t) as f64;\n    Ok(MotionPose {\n        position: [0., input.number(\"Distance\")? * (1. - p)],\n        opacity: p,\n        ..Default::default()\n    })\n}"
+    },
+    "prepared_channel_key_counts": [
+      2,
+      92,
+      2,
+      2,
+      2,
+      92
+    ],
+    "sampling": "linear between samples; constant spans retain endpoints",
+    "image": "design-motion-review.png",
+    "frames": [
+      {
+        "time": {
+          "denominator": 1,
+          "numerator": 0
+        },
+        "rgba_sha256": "f72496523cfd941dc8ddb15f70cb4ae6e9fefccb6812f0b0c9aeab42d19f2b0d",
+        "transfers": {
+          "cpu_adapter_nodes": 0,
+          "evaluation_readback_bytes": 0
+        }
+      },
+      {
+        "time": {
+          "denominator": 4,
+          "numerator": 1
+        },
+        "rgba_sha256": "7472a5b485a5f3b486908bbfdf05bccbc38ffa39769168c34308e6fd3ec9c311",
+        "transfers": {
+          "cpu_adapter_nodes": 0,
+          "evaluation_readback_bytes": 0
+        }
+      },
+      {
+        "time": {
+          "denominator": 4,
+          "numerator": 3
+        },
+        "rgba_sha256": "aa4a8564713b11e52ba8c4d0a64fcd308fb7fd1cb13f83ffcc5a687c573a2d04",
+        "transfers": {
+          "cpu_adapter_nodes": 0,
+          "evaluation_readback_bytes": 0
+        }
+      },
+      {
+        "time": {
+          "denominator": 2,
+          "numerator": 3
+        },
+        "rgba_sha256": "aa4a8564713b11e52ba8c4d0a64fcd308fb7fd1cb13f83ffcc5a687c573a2d04",
+        "transfers": {
+          "cpu_adapter_nodes": 0,
+          "evaluation_readback_bytes": 0
+        }
+      }
+    ]
+  },
+  "follow_up": {
+    "text": "STILL EDITABLE",
+    "original_motion_exactly_preserved": true,
+    "image": "design-text-after-animation.png"
+  },
+  "checks": {
+    "native_model_tests": "14 passed",
+    "ui_tests": "10 passed; remaining 9 context tests passed in preceding run",
+    "session_gesture": "1 passed, 1 manual profile ignored",
+    "workspace_all_target_desktop_check": "passed",
+    "workspace_all_target_desktop_clippy": "passed with warnings",
+    "boundaries_and_proposal_ownership": "passed",
+    "full_workspace_tests": "not rerun; focused validation requested",
+    "optimized_desktop": "built",
+    "native_artist_interaction": "not verified; Orca runtime_unavailable, runtime_open_timeout",
+    "matching_sdk": "release dependencies and native worker built; reopened render verified",
+    "final_source_notes": "Final identity-pose preparation fix and sample admission limit were exercised through public MCP; subsequent integration Clippy and optimized builds passed."
+  },
+  "reopen": {
+    "before_animation": true,
+    "final_animation": true,
+    "native_data_exact": true,
+    "pixels_exact": true
+  },
+  "build": {
+    "desktop_sha256": "954302ed313e47ff22378f0b014706e047d368953c08d7926b88da1deaa62f89",
+    "sdk_manifest_sha256": "ef1cf9f5282f5cbed0b311e340d287ea738109c815feee15caedde0b6d1dae17",
+    "sdk_sources_sha256": "324b585dac6a1e3a09f3276e589030101798de35a8b756a875fedb0747f1ec86",
+    "render_provenance": {
+      "provenance": {
+        "candidate": null,
+        "canvas_size": [
+          960,
+          540
+        ],
+        "configuration": {
+          "adapter": "AdapterInfo { name: \"NVIDIA GeForce GTX 1070\", vendor: 4318, device: 7137, device_type: DiscreteGpu, driver: \"NVIDIA\", driver_info: \"580.173.02\", backend: Vulkan }",
+          "build": "da2192a2ef3ea5cc7358deb0a226bfee148543b99532e7ec33d1ebc9f8636f7d",
+          "dimensions": [
+            960,
+            540
+          ],
+          "display_transform": "1d4915451d0796608bee0ab5367036bad8131330432169307acee677850ee99c",
+          "profile": "gpu_display_no_history",
+          "project_settings": {
+            "fold.color": {
+              "config": {
+                "kind": "Bundled",
+                "sha256": "d8b361f76750ebfbedf0ded0b5e4315b283eed5e095814486b9d7c416cfbbb4c"
+              },
+              "ocio_version": "2.4.2",
+              "version": 1,
+              "working_space": "ACEScg"
+            }
+          },
+          "region": {
+            "height": 540,
+            "width": 960,
+            "x": 0,
+            "y": 0
+          },
+          "spatial": true,
+          "spatial_msaa": 1,
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "display_transform": "1d4915451d0796608bee0ab5367036bad8131330432169307acee677850ee99c",
+        "document": "3e547d0a-4190-460c-8008-14b91671ace7",
+        "epoch": "fa367210-75a4-46e1-8e4f-bd0f718fad11",
+        "fingerprints": {
+          "configuration": "43005650fd7e0f81be05cd040c50979ff5b8f56d9be915bb83e38ba20c7a2883",
+          "project": "faaf7c40c1e29bd7c119be7911ee60575929f92d533623914b744578f713847f"
+        },
+        "frames_available": true,
+        "output": "video",
+        "output_size": [
+          960,
+          540
+        ],
+        "quality": "gpu_display_no_history",
+        "region": {
+          "height": 540,
+          "width": 960,
+          "x": 0,
+          "y": 0
+        },
+        "resource_inputs": {
+          "external_content_verified": false,
+          "scope": "immutable_project"
+        },
+        "revision": 4,
+        "time": {
+          "denominator": 1,
+          "numerator": 1
+        },
+        "time_basis": "output_relative"
+      },
+      "transfers": {
+        "cpu_adapter_nodes": 0,
+        "evaluation_readback_bytes": 0
+      },
+      "reopened_source_exact": true,
+      "reopened_pixels_exact": true
+    }
+  }
+}

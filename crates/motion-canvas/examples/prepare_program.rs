@@ -19,6 +19,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut title = Object::new(
         "Title",
         Content::Text {
+            layout: Default::default(),
             text: "MOTION / 10,000 DOTS".into(),
             font_family: "Noto Sans".into(),
             size: Scalar::new(28.),

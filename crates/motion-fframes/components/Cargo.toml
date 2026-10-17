@@ -1,0 +1,21 @@
+[package]
+name = "fframes-components"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+publish = false
+[dependencies]
+fframes = { git = "https://github.com/dmtrKovalenko/fframes", rev = "b644f22cf5be2333e7098caf7ec064c3d36aeb02", default-features = false, features = ["compile-time-svgtree", "build-portable"] }
+ttf-parser = "0.25"
+[features]
+default = ["cinematic-text-swap", "soft-blur-in", "tracking-in", "word-gather", "word-flip", "lines-to-text", "echo-stack", "glitch-cycle", "text-highlight", "logo-assemble"]
+cinematic-text-swap = []
+soft-blur-in = []
+tracking-in = []
+word-gather = []
+word-flip = []
+lines-to-text = []
+echo-stack = []
+glitch-cycle = []
+text-highlight = []
+logo-assemble = []

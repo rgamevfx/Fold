@@ -1,9 +1,12 @@
 //! Native canvas tools and artist controls over the same guarded document edits
 //! used by agent authoring. Panels retain only selection, drafts and gestures.
+mod controls;
+mod design_input;
+mod gradient_input;
 mod graph;
 mod image_control;
 mod inspector;
-mod outliner;
+mod layers;
 mod overlay;
 mod paint;
 mod path_input;
@@ -24,6 +27,7 @@ pub fn panels() -> sdk::EditorPanels {
         editor: Box::new(Editor {
             state: state.clone(),
             viewport: Default::default(),
+            animation: Default::default(),
             graph: Default::default(),
             files: Default::default(),
         }),
@@ -31,6 +35,8 @@ pub fn panels() -> sdk::EditorPanels {
             state,
             sources: Default::default(),
             names: Default::default(),
+            motions: Default::default(),
+            embedded: Default::default(),
         }),
     }
 }
@@ -41,6 +47,7 @@ pub fn register(registry: &mut PanelRegistry) -> Result<(), String> {
         Editor {
             state: state.clone(),
             viewport: Default::default(),
+            animation: Default::default(),
             graph: Default::default(),
             files: Default::default(),
         },
@@ -51,6 +58,8 @@ pub fn register(registry: &mut PanelRegistry) -> Result<(), String> {
             state,
             sources: Default::default(),
             names: Default::default(),
+            motions: Default::default(),
+            embedded: Default::default(),
         },
     )
 }
@@ -58,6 +67,7 @@ pub fn register(registry: &mut PanelRegistry) -> Result<(), String> {
 struct Editor {
     state: Shared,
     viewport: viewport::Viewport,
+    animation: sdk::animation_editor::Editor,
     graph: sdk::graph_canvas::GraphCanvas,
     files: sdk::project_drop::FileDrop,
 }
@@ -178,6 +188,6 @@ impl Panel for Editor {
     fn draw(&mut self, context: ExtensionUi<'_>) {
         let mut state = self.state.borrow_mut();
         state.sync(context.host);
-        outliner::draw(context, &mut state);
+        layers::draw(context, &mut state, &mut self.animation);
     }
 }

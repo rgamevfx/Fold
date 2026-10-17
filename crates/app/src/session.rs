@@ -643,6 +643,25 @@ impl DesktopClient for Session {
         }
         registry.hierarchy(document)
     }
+    fn parameter_sources(
+        &self,
+        document: fold_foundation::DocumentId,
+    ) -> Result<Vec<fold_platform::parameters::Source>, String> {
+        let snapshot = self.project.snapshot();
+        let document = snapshot
+            .state()
+            .documents
+            .get(&document)
+            .ok_or("Missing source container")?;
+        let registry = crate::packages::builtins();
+        if !registry.has_capability(
+            document,
+            fold_platform::packages::Capability::ParameterSources,
+        ) {
+            return Ok(vec![]);
+        }
+        registry.parameter_sources(document)
+    }
     fn animation_channels(
         &self,
         document: fold_foundation::DocumentId,
@@ -791,6 +810,7 @@ impl DesktopClient for Session {
     }
     #[cfg(feature = "gpu")]
     fn set_render_host(&mut self, host: fold_render::gpu::Host) {
+        crate::gallery::set_host(host.clone());
         self.preview.cancel();
         self.preview.shared.0.lock().unwrap().render_host = Some(host);
     }

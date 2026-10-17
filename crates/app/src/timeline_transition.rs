@@ -8,6 +8,8 @@ struct Args {
     document: DocumentId,
     outgoing: ObjectId,
     id: ObjectId,
+    #[serde(default)]
+    definition: Option<DocumentId>,
 }
 pub fn add(
     snapshot: &Snapshot,
@@ -58,6 +60,9 @@ pub fn add(
     }
     let registry = crate::packages::builtins();
     let existing = snapshot.state().documents.values().find(|d| {
+        if let Some(id) = args.definition {
+            return d.id == id;
+        }
         registry
             .effect_interface(snapshot, d.id)
             .is_ok_and(|i| i.images == ["outgoing", "incoming"])
@@ -72,6 +77,14 @@ pub fn add(
                 })
             })
     });
+    if args.definition.is_some() && existing.is_none() {
+        return Err("Missing transition definition".into());
+    }
+    if let Some(doc) = existing {
+        if registry.effect_interface(snapshot, doc.id)?.images != ["outgoing", "incoming"] {
+            return Err("Transition requires outgoing and incoming image ports".into());
+        }
+    }
     let definition = existing.map(|d| d.id).unwrap_or_default();
     let mut mutations = Vec::new();
     if existing.is_none() {

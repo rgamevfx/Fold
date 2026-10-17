@@ -562,7 +562,10 @@ impl<R: Records> ScopedProposals for AuthoringProposals<R> {
         cancel: &Cancel,
     ) -> Result<Box<dyn PreparedProposal>, Failure> {
         if let Some(before) = base.state().documents.get(&scope.document)
-            && before.extensions != after.extensions
+            && !fold_project::components::preserves_extensions(
+                &before.extensions,
+                &after.extensions,
+            )
         {
             return Err(Failure::new(
                 FailureKind::ProtectedEdit,

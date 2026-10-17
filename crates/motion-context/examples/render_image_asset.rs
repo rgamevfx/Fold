@@ -65,6 +65,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         host.clone(),
         &cancel,
     )?;
+    let working_baseline = fold_media::budget::working_usage().bytes;
+    let fonts = vec![std::fs::read(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../resources/fonts/NotoSans-Regular.ttf"
+    ))?];
+    let font_bytes = fonts
+        .iter()
+        .map(|font| (font.len() + std::mem::size_of::<Vec<u8>>()) as u64)
+        .sum::<u64>();
     let project_snapshot = project.snapshot();
     let snapshot = Snapshot::from_document(
         ObjectId::new(),
@@ -77,7 +86,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut previous = None;
     for _ in 0..2 {
         let mut frame = runtime
-            .render(&snapshot, &[], &cancel)?
+            .render(&snapshot, &fonts, &cancel)?
             .into_current(snapshot.intent())?;
         if frame.statistics.upload_bytes != 0 || frame.statistics.readback_bytes != 0 {
             return Err("Evaluation used CPU pixel transport".into());
@@ -101,7 +110,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Err("Unchanged resources were resent".into());
     }
     std::fs::write(&path, b"P6\n1 1\n255\n\x00\x00\x00")?;
-    if runtime.render(&snapshot, &[], &cancel).is_ok() {
+    if runtime.render(&snapshot, &fonts, &cancel).is_ok() {
         return Err("Changed source reused stale image".into());
     }
     let mut replacement = (*project.snapshot().state().assets[&asset]).clone();
@@ -123,7 +132,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?
     .bind_assets(&replacement_project)?;
     let mut frame = runtime
-        .render(&replacement_snapshot, &[], &cancel)?
+        .render(&replacement_snapshot, &fonts, &cancel)?
         .into_current(replacement_snapshot.intent())?;
     let pixels = frame.readback(&cancel)?;
     let center = pixels.pixels()[8 * 32 + 16];
@@ -133,6 +142,60 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     drop(pixels);
     drop(frame);
     host.poll()?;
+    let alpha_path = directory.join("alpha.png");
+    let alpha_bytes = include_bytes!("../../../resources/motion-context/alpha-input.png");
+    std::fs::write(&alpha_path, alpha_bytes)?;
+    for (generation, alpha) in [(3, "straight"), (4, "opaque")] {
+        let mut assigned = (*project.snapshot().state().assets[&asset]).clone();
+        assigned.location = alpha_path
+            .canonicalize()?
+            .to_str()
+            .ok_or("Invalid path")?
+            .into();
+        assigned.fingerprint = format!("sha256:{}", fold_media::content_hash(alpha_bytes));
+        assigned.extensions.insert(
+            fold_media::ingest::INTERPRETATION_KEY.into(),
+            serde_json::json!({"color_space":"sRGB","alpha":alpha,"provenance":"artist"}),
+        );
+        project.commit(EditBatch {
+            base: project.snapshot().revision(),
+            mutations: vec![Mutation::PutAsset(assigned)],
+        })?;
+        let assigned_project = project.snapshot();
+        let assigned_snapshot = Snapshot::from_document(
+            snapshot.intent().epoch,
+            generation,
+            &assigned_project.state().documents[&document],
+            Time::ZERO,
+            [32, 16],
+        )?
+        .bind_assets(&assigned_project)?;
+        let mut frame = runtime
+            .render(&assigned_snapshot, &fonts, &cancel)?
+            .into_current(assigned_snapshot.intent())?;
+        if frame.statistics.upload_bytes != 0 || frame.statistics.readback_bytes != 0 {
+            return Err("Alpha assignment used CPU pixel transport".into());
+        }
+        let readback = frame.readback(&cancel)?;
+        let left = readback.pixels()[4 * 32 + 4];
+        let right = readback.pixels()[4 * 32 + 28];
+        if alpha == "straight" {
+            if (left[3] - 128. / 255.).abs() > 0.002 || right.iter().any(|n| *n != 0.) {
+                return Err("Straight image alpha samples failed".into());
+            }
+        } else if (left[3] - 1.).abs() > 0.002
+            || (right[3] - 1.).abs() > 0.002
+            || (right[1] - 0.21586).abs() > 0.002
+            || right[2] < 0.99
+        {
+            return Err(
+                "Opaque assignment lost transparent source RGB or used stale pixels".into(),
+            );
+        }
+        drop(readback);
+        drop(frame);
+        host.poll()?;
+    }
     project.commit(fold_motion_canvas::editing::stage(
         &project.snapshot(),
         document,
@@ -144,14 +207,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let empty_project = project.snapshot();
     let empty_snapshot = Snapshot::from_document(
         snapshot.intent().epoch,
-        3,
+        5,
         &empty_project.state().documents[&document],
         Time::ZERO,
         [32, 16],
     )?
     .bind_assets(&empty_project)?;
     let mut frame = runtime
-        .render(&empty_snapshot, &[], &cancel)?
+        .render(&empty_snapshot, &fonts, &cancel)?
         .into_current(empty_snapshot.intent())?;
     if frame
         .readback(&cancel)?
@@ -163,11 +226,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     drop(frame);
     host.poll()?;
-    if runtime.statistics().image_snapshots_sent != 3 {
+    if runtime.statistics().image_snapshots_sent != 5 {
         return Err("Resource update count differs".into());
     }
+    let statistics = runtime.statistics();
+    if fold_media::budget::working_usage().bytes != working_baseline + font_bytes * 3 {
+        return Err("Host and GPU worker font bytes are not retained in working accounting".into());
+    }
+    drop(runtime);
+    if fold_media::budget::working_usage().bytes != working_baseline {
+        return Err("Retired font/resource ownership did not release working allocations".into());
+    }
     let evidence = serde_json::json!({"device":adapter.name,"dimensions":[32,16],"native_project_image":true,
-        "warm_pixels_identical":true,"evaluation_cpu_pixel_transport":false,"image_snapshots_sent":runtime.statistics().image_snapshots_sent,
+        "warm_pixels_identical":true,"evaluation_cpu_pixel_transport":false,"image_snapshots_sent":statistics.image_snapshots_sent,
+        "explicit_straight_alpha":true,"explicit_opaque_retains_zero_alpha_rgb":true,
+        "assignment_changes_resource_identity":true,"font_snapshot_bytes":font_bytes,
+        "host_and_worker_font_bytes":font_bytes * 3,"working_bytes_released_after_runtime_drop":true,
         "changed_source_rejected":true,"relink_changes_pixels":true,"image_removal_clears_pixels":true,"warm_snapshot_count":1});
     std::fs::write(
         directory.join("project-image-evidence.json"),

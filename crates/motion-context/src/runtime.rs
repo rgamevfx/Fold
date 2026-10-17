@@ -66,13 +66,14 @@ impl Readback {
     }
 }
 /// Captured native artwork with its transport allocation retained until staged.
-pub struct Capture {
-    pub artwork: Captured,
+pub struct Capture<T = Captured> {
+    pub artwork: T,
     _storage: Arc<Lease>,
 }
 enum Reply {
     Frame(Readback),
     Capture(Capture),
+    Motion(Capture<[fold_animation::Curve; 6]>),
 }
 pub struct Runtime {
     config: Config,
@@ -87,6 +88,7 @@ pub struct Runtime {
 struct FontCache {
     data: Vec<Vec<u8>>,
     identity: Option<String>,
+    bytes: u64,
     _storage: Option<Arc<Lease>>,
 }
 impl FontCache {
@@ -116,6 +118,7 @@ impl FontCache {
         }
         let identity = format!("{:x}", hash.finalize());
         self.data = fonts.to_vec();
+        self.bytes = bytes as u64;
         self.identity = Some(identity.clone());
         self._storage = Some(storage);
         Ok(identity)
@@ -128,7 +131,7 @@ impl Runtime {
     /// when script source changes, not on each parameter/frame demand.
     pub fn prepare(&self, canvas: &Canvas, cancel: &Cancel) -> Result<PathBuf, Failure> {
         let program = compilation::program(canvas, &self.config.bridge, &self.identity)?;
-        self.executable(canvas, &program, cancel)
+        self.executable(&program, cancel)
     }
     pub fn new(mut config: Config, cancel: &Cancel) -> Result<Self, Failure> {
         if config.compile_timeout.is_zero() || config.frame_timeout.is_zero() {
@@ -223,6 +226,26 @@ impl Runtime {
         }
     }
 
+    pub fn animate(
+        &mut self,
+        canvas: &Canvas,
+        object: ObjectId,
+        inputs: Inputs<'_>,
+        cancel: &Cancel,
+    ) -> Result<[fold_animation::Curve; 6], Failure> {
+        match self.request(
+            canvas,
+            Time::ZERO,
+            [canvas.width, canvas.height],
+            inputs,
+            Operation::Animate { object },
+            cancel,
+        )? {
+            Reply::Motion(result) => Ok(result.artwork),
+            _ => Err("Motion worker returned the wrong result kind".into()),
+        }
+    }
+
     fn request(
         &mut self,
         canvas: &Canvas,
@@ -237,11 +260,15 @@ impl Runtime {
             Operation::Render => Some(budget::reserve_working(
                 (pixel_count(dimensions)? as u64) * 16,
             )?),
-            Operation::Capture { .. } => None,
+            Operation::Capture { .. } | Operation::Animate { .. } => None,
         };
         crate::resources::validate(canvas, inputs.assets)?;
         let image_key = crate::resources::key(inputs.assets, cancel)?;
-        let program = compilation::program(canvas, &self.config.bridge, &self.identity)?;
+        let program = if matches!(operation, Operation::Animate { .. }) {
+            compilation::motion_program(canvas, &self.config.bridge, &self.identity)?
+        } else {
+            compilation::program(canvas, &self.config.bridge, &self.identity)?
+        };
         let changed = self.worker.as_ref().is_none_or(|worker| {
             worker.identity != program.identity || worker.images_key.as_ref() != Some(&image_key)
         });
@@ -264,13 +291,18 @@ impl Runtime {
             .is_none_or(|worker| worker.identity != program.identity)
         {
             self.worker.take();
-            let binary = self.executable(canvas, &program, cancel)?;
+            let binary = self.executable(&program, cancel)?;
             self.worker = Some(Worker::start(&binary, program.identity)?);
         }
         let id = self.next_id;
         self.next_id = id.checked_add(1).ok_or("Motion request IDs exhausted")?;
         let font_identity = self.fonts.identity(inputs.fonts)?;
         let worker = self.worker.as_mut().expect("started worker");
+        // Reserve the raw snapshot and the font bytes copied into each of the
+        // render/capture databases. Parser/cache overhead is not included.
+        let font_storage = (worker.fonts.as_ref() != Some(&font_identity))
+            .then(|| budget::reserve_working(self.fonts.bytes * 3))
+            .transpose()?;
         let request = Request {
             id,
             operation,
@@ -317,6 +349,9 @@ impl Runtime {
         match result {
             Ok(frame) => {
                 worker.fonts = Some(font_identity);
+                if let Some(storage) = font_storage {
+                    worker.font_storage = Some(storage);
+                }
                 if let Some(storage) = resource_storage {
                     worker.image_storage = Some(storage);
                     worker.images_key = Some(image_key);
@@ -336,16 +371,11 @@ impl Runtime {
 
     fn executable(
         &self,
-        canvas: &Canvas,
         program: &compilation::Program,
         cancel: &Cancel,
     ) -> Result<PathBuf, Failure> {
         cancel.check()?;
-        if canvas
-            .objects
-            .values()
-            .any(|object| matches!(object.content, Content::Script { .. }))
-        {
+        if program.requires_compilation {
             return self.compile(program, cancel);
         }
         if bridge_identity(&self.config.bridge)? != self.bridge_identity {
@@ -490,6 +520,7 @@ struct Demand {
 struct Worker {
     identity: String,
     fonts: Option<String>,
+    font_storage: Option<Arc<Lease>>,
     images_key: Option<crate::resources::Key>,
     image_storage: Option<Arc<Lease>>,
     input: Option<mpsc::SyncSender<Demand>>,
@@ -517,6 +548,9 @@ impl Worker {
                             demand.storage.ok_or("Missing frame allocation")?,
                         )
                         .map(Reply::Frame),
+                        Operation::Animate { .. } => {
+                            receive_capture(&mut output, demand.id).map(Reply::Motion)
+                        }
                         Operation::Capture { .. } => {
                             receive_capture(&mut output, demand.id).map(Reply::Capture)
                         }
@@ -532,6 +566,7 @@ impl Worker {
         Ok(Self {
             identity,
             fonts: None,
+            font_storage: None,
             images_key: None,
             image_storage: None,
             input: Some(tx),
@@ -611,7 +646,10 @@ fn receive_header(output: &mut impl BufRead) -> Result<Vec<u8>, Failure> {
     }
     Ok(header)
 }
-fn receive_capture(output: &mut impl BufRead, id: u64) -> Result<Capture, Failure> {
+fn receive_capture<T: serde::de::DeserializeOwned>(
+    output: &mut impl BufRead,
+    id: u64,
+) -> Result<Capture<T>, Failure> {
     let response: CaptureResponse =
         serde_json::from_slice(&receive_header(output)?).map_err(|error| error.to_string())?;
     if response.id != id {
@@ -914,6 +952,16 @@ for line in sys.stdin:
                 &cancel,
             )
             .unwrap();
+        let worker_fonts = Arc::downgrade(
+            runtime
+                .worker
+                .as_ref()
+                .unwrap()
+                .font_storage
+                .as_ref()
+                .unwrap(),
+        );
+        assert!(worker_fonts.upgrade().is_some());
         canvas.width = 1000;
         let second = runtime
             .render(
@@ -928,6 +976,21 @@ for line in sys.stdin:
             )
             .unwrap();
         assert_ne!(first.pixels, second.pixels);
+        assert!(
+            std::ptr::eq(
+                worker_fonts.as_ptr(),
+                Arc::as_ptr(
+                    runtime
+                        .worker
+                        .as_ref()
+                        .unwrap()
+                        .font_storage
+                        .as_ref()
+                        .unwrap()
+                ),
+            ),
+            "unchanged fonts must reuse the worker reservation"
+        );
         assert_eq!(runtime.worker.as_ref().unwrap().identity, program.identity);
         canvas.width = 20;
         let stale = runtime
@@ -945,6 +1008,14 @@ for line in sys.stdin:
             .unwrap();
         assert!(stale.message.contains("does not match"));
         assert!(runtime.worker.is_none());
+        assert!(
+            worker_fonts.upgrade().is_none(),
+            "retired worker must release font bytes"
+        );
+        assert!(
+            runtime.fonts._storage.is_some(),
+            "the host font cache still owns its bytes"
+        );
         canvas.width = 21;
         let invalid = runtime
             .render(

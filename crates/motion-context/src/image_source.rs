@@ -21,18 +21,28 @@ pub(crate) fn dimensions(profile: &SourceProfile) -> Result<[u32; 2], String> {
     Ok(dimensions)
 }
 
-pub(crate) fn interpretation(asset: &Asset) -> Result<(), String> {
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Alpha {
+    Straight,
+    Opaque,
+}
+
+pub(crate) fn interpretation(asset: &Asset) -> Result<Alpha, String> {
     if let Some(value) = asset.extensions.get(fold_media::ingest::INTERPRETATION_KEY) {
         let input: InputInterpretation =
             serde_json::from_value(value.clone()).map_err(|error| error.to_string())?;
-        if input.alpha.is_some()
-            || input
-                .color_space
-                .as_ref()
-                .is_some_and(|space| !space.eq_ignore_ascii_case("srgb"))
+        if input
+            .color_space
+            .as_ref()
+            .is_some_and(|space| !space.eq_ignore_ascii_case("srgb"))
         {
-            return Err("Motion image input color/alpha assignment is not qualified yet".into());
+            return Err("Motion image input currently requires sRGB color assignment".into());
         }
+        return match input.alpha.as_deref() {
+            None | Some("straight") => Ok(Alpha::Straight),
+            Some("opaque") => Ok(Alpha::Opaque),
+            _ => Err("Motion image alpha assignment must be straight or opaque".into()),
+        };
     }
-    Ok(())
+    Ok(Alpha::Straight)
 }

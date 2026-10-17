@@ -1,5 +1,163 @@
 # Current work: Motion, 3D and Compositing replacement
 
+## Curated fframes Gallery presets
+
+Implemented the ten selected components from fframes-components revision
+`ae04b1be6596b0fc51e18280392ff6ee77629c47`: Cinematic Text Swap, Soft Blur In,
+Tracking In, Word Gather, Word Flip, Lines to Text, Echo Stack, Glitch Cycle,
+Text Highlight and Logo Assemble.
+
+- [x] Curated upstream code behind the existing fframes/Skia adapter, with attribution.
+- [x] Native script containers with Content, Appearance and Motion controls.
+- [x] Shared source controls on selected Composition layers and Timeline clips.
+- [x] Packaged font/image resources; Logo Assemble takes an editable logo asset.
+- [x] Focused placement, independent controls, portable image decode, and Session Undo/cancel checks.
+- [x] Bounded lossless raster transport replaces expanded raw-pixel JSON arrays.
+- [x] Public MCP animated previews and rendered frames for all ten presets.
+- [x] Final optimized desktop and matching SDK; saved project reopens with identical pixels.
+
+Controls use existing native parameters and animation channels; MCP edits the same
+source controls, including placement-aware channel targets. Presets are graphics
+that can be placed and saved to My Library. Single-script placement keeps controls
+on the selected root. Source inspectors reuse the same widgets and transactions,
+with source-time mapping and container locks. No copied parameter values or new
+animation engine. Upstream blur is an SVG approximation, not a Gaussian filter.
+
+Ready for artist testing: [review project](../resources/motion-context/curated-workspace.fold),
+[rendered examples](../resources/motion-context/curated-review.png),
+[portable user preset](../resources/motion-context/curated-soft-title.foldcomponent) and
+[verification evidence](../resources/motion-context/curated-evidence.json).
+Open **Gallery → Built-in → Animated titles / Branding**. Select a placed preset
+and edit **Content**, **Appearance** or **Motion** in the inspector; Composition
+layers and Timeline clips show the same source controls above placement properties.
+Numbers support the existing keyframe controls. Logo Assemble exposes the logo and
+eight image slots. Save customized instances through **Add → Save selection**.
+
+Launch the optimized review build with:
+`./target/run-curated-review.sh --project resources/motion-context/curated-workspace.fold`.
+The library and materialized image assets are in `target/curated-review-library`;
+the matching precompiled SDK is `target/motion-sdk-curated-ready`. Initial script
+compilation runs in the existing worker; ordinary control edits retain the code.
+The review project includes a ten-preset Timeline and a Composition for container
+control inspection. Its image records refer to the materialized local library.
+
+Validation: five Gallery regressions, one lossless/bounded raster transport test,
+workspace desktop check and Clippy (warnings), package boundaries and proposal
+ownership. Public MCP verified changing previews, asset rendering, text/speed edits
+without source changes, My Library export, independent Timeline sources and
+placement-aware parameter sampling. Reopening with the final SDK retained identical
+Logo Assemble pixels and exposed controls. Full workspace tests were omitted as
+requested. Native mouse/keyboard acceptance at normal/narrow widths remains for
+artist review; MCP and pixel checks do not establish interaction quality.
+
+## Shared Gallery and My Library
+
+One shared component library serves artist and MCP workflows. It reuses native
+documents, effect interfaces, placement, rendering and guarded transactions.
+
+- [x] Versioned portable packages, owned assets and persistent My Library.
+- [x] Save selection/effect, import/export, categories, search and favorites.
+- [x] Shared Gallery panel with animated previews and existing drop targets.
+- [x] Graphic, motion and image effect/transition placement with independent copies.
+- [x] MCP library operations and inspected, atomic placement/update proposals.
+- [x] Focused save/import/update/reopen, Composition effect and Session Undo checks.
+- [x] Final optimized build, precompiled SDK and public MCP/render workflow evidence.
+- [ ] Native artist review at normal/narrow widths, drops and cancellation.
+
+Open **Gallery**, choose **Built-in** or **My Library**, then drag an entry into
+Motion, Composition or Timeline. Double-click applies to the current selection.
+Use **Add → Save selection** or **Import component**; right-click an entry for
+export, favorites, saving a new version or explicitly updating an instance.
+Library edits never silently change placed artwork. Updates replace component
+contents while retaining placement, and can be undone as one project transaction.
+
+Native properties and existing exposed controls remain editable. To add an
+fframes component, author a native Script with controls or prepare a motion
+behavior through MCP, then save the selection. Packages use `.foldcomponent`;
+the curated fframes-components subset is bundled in the renderer SDK.
+
+Supported scope: native Motion subtrees (including text, shapes and scripts),
+one prepared motion behavior, and standalone reusable image effects/transitions.
+Composition/Timeline Save resolves one selected native source or effect; arbitrary
+multi-document assemblies are not packaged. Motion behaviors apply in Motion,
+image effects apply to Composition layers/Timeline clips, and transitions apply
+at Timeline cuts. Updates that change a placed graphic's format or an effect's
+exposed interface require a new instance. Use existing inspectors/interface
+promotion for controls; there is no separate Gallery control-authoring model.
+
+Review the [saved project](../resources/motion-context/gallery-workspace.fold),
+[portable component](../resources/motion-context/gallery-lower-third.foldcomponent),
+[rendered frame](../resources/motion-context/gallery-review.png) and
+[workflow evidence](../resources/motion-context/gallery-evidence.json).
+The public MCP check covered changing previews, compiled fframes motion with
+unchanged design IDs, save/favorite/export/import, explicit native and Timeline
+instance updates, independent source documents, source-handle rejection, valid
+Dissolve placement and GPU output. Text color remained editable after animation.
+Workspace all-target desktop check, Clippy (existing warnings), package/proposal
+ownership checks and the three Gallery regressions passed. The optimized binaries
+and precompiled SDK are ready. Local review launcher:
+`./target/run-gallery-review.sh --project resources/motion-context/gallery-workspace.fold`.
+Its library lives in `target/gallery-review-library`; ordinary launches use the
+user data directory. Open **Panels → Gallery**.
+
+Validation is focused as requested; full workspace tests are omitted. Native GUI
+review remains unverified: Orca reports `runtime_unavailable`; starting it timed
+out with `runtime_open_timeout`. Pixel/MCP evidence does not qualify native UX.
+
+## Motion design workspace implementation
+
+Requested outcome: compose editable Motion artwork directly on the canvas, then
+have an agent animate the same objects through MCP without flattening the design.
+The implementation is ready for native artist acceptance. The older acceptance
+notes below do not qualify this new interaction workflow.
+
+- [x] Shared design geometry, selection transforms, alignment and distribution.
+- [x] Canvas tools, marquee/multiple selection, handles, snapping and contextual layers.
+- [x] Editable typography/text boxes and direct text creation/editing.
+- [x] Interactive appearance controls and retained path tools.
+- [x] Agent-authored motion on stable native objects, exposed controls and explicit keyframe composition.
+- [x] Connected layer/animation workflow and document settings.
+- [x] Focused checks and optimized artist-review desktop build.
+- [x] Final matching Motion SDK; saved animation reopens with identical native data and pixels.
+- [x] Public MCP lower third: native design → compiled fframes motion → editable text.
+- [x] Shared Session gesture/Undo regression and public save/reopen before animation.
+- [ ] Native artist review at normal/narrow widths, gesture Undo/cancel and playback.
+
+Keep implementation status and material limitations here. Preserve unrelated
+uncommitted compositor/media work. Replace superseded Motion paths directly;
+do not introduce legacy readers or parallel renderers. Validation is targeted
+during implementation, with broader checks at the integration checkpoint.
+
+Implemented controls: V Select, A Direct Selection, T point/frame text, R rectangle,
+E ellipse, P Pen and G gradient. Shift constrains shapes/transforms or extends
+selection; Alt bypasses snapping and drags the native pivot. Ctrl-click drills
+into groups. Text is edited on the canvas with double-click; Ctrl+Enter finishes.
+Layers use the shared track/curve editor with visibility, locks, ordering, grouping,
+alignment/distribution and document settings. Code-motion controls have an explicit
+Update motion action; they do not rewrite the design. See architecture for sampling
+and keyframe composition rules.
+
+Limits: typography currently uses packaged Noto Sans, plain text and paragraph
+alignment/spacing; font import/rich text are not included. Multi-selection pivots
+are temporary; single-object pivots are stored. Motion schema 4 payloads remain
+opaque rather than passing through a compatibility reader. Native GUI review is
+unverified: Orca reports runtime_unavailable and opening it timed out. The public
+MCP/render workflow and final SDK/reopen checks passed. Native interaction and
+performance acceptance remain with the artist.
+
+Review the [saved editable project](../resources/motion-context/design-workspace.fold)
+and [workflow evidence](../resources/motion-context/design-workspace-evidence.json).
+The fixture contains native text/shapes in a group with prepared fframes easing.
+Scrub past the entrance to edit the headline; select the group to adjust exposed
+motion controls and use Update motion. For new designs, use the canvas tools, then
+have the agent inspect the document and submit an `animate` scoped proposal for
+the chosen object/group. Candidate inspection and Apply use the existing MCP flow.
+
+Validation: 14 model tests, 10 UI interaction tests and the real Session gesture
+regression passed. Workspace all-target desktop check and Clippy passed (warnings
+remain), as did package/proposal ownership checks. Full workspace tests were not
+rerun; validation stayed focused as requested.
+
 Status consolidated from the 2026-10-12 checkpoints, including the existing
 uncommitted image-alpha, font-ownership and keyframe fixes. **All five replacement
 slices remain open.** This checklist owns remaining scope and acceptance;
@@ -10,7 +168,7 @@ for the documentation consolidation.
 
 | Slice | Implemented at selected seams | Still required |
 | --- | --- | --- |
-| 1. Shared 2D document | Schema-4 native shapes, text, paths, groups, images, paint and scripts; stable IDs, guarded edits, scalar/point/handle animation | Complete remaining path/animation and image/resource workflows; establish concrete missing cases before adding features |
+| 1. Shared 2D document | Schema-5 native shapes, text frames, paths, groups, images, paint, scripts and prepared motion; stable IDs, guarded edits, scalar/point/handle animation | Complete remaining path/animation and image/resource workflows; establish concrete missing cases before adding features |
 | 2. fframes integration | Retained compiled scripts, shared native/script SVG/Skia rendering, floating-point GPU sharing and signed/HDR shader transport | Broader image/color input, full resource accounting, measured larger-scene performance and native package acceptance |
 | 3. Artist and agent tools | Canvas, Pen, numeric point controls, hierarchy, graph navigation, script controls, conversion and immutable multi-pose frame review | Native keyframe, conversion and remaining vector/artist-agent workflow acceptance |
 | 4. Context cutover | New Motion and independent 3D registered; old Motion crate/protocol paths removed; 3D hierarchy, resources, picking, transforms and animated parenting | Native 3D parenting/workflow acceptance, final deletion audit and current checkpoint validation |

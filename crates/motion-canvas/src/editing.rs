@@ -7,6 +7,24 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Edit {
+    Lock {
+        object: ObjectId,
+        expected: bool,
+        value: bool,
+    },
+    Settings {
+        expected: Box<Canvas>,
+        width: u32,
+        height: u32,
+        rate: [u32; 2],
+        duration: Time,
+    },
+    Align {
+        objects: Vec<ObjectId>,
+        time: Time,
+        mode: crate::design::Align,
+        auto_key: bool,
+    },
     /// One atomic conversion regardless of generated object count.
     Capture {
         id: ObjectId,
@@ -89,6 +107,46 @@ pub fn apply(before: &Canvas, edits: &[Edit]) -> Result<Canvas, String> {
     let mut after = before.clone();
     for edit in edits {
         match edit {
+            Edit::Lock {
+                object,
+                expected,
+                value,
+            } => {
+                let owner = after
+                    .objects
+                    .get_mut(object)
+                    .ok_or("Missing Motion object")?;
+                if owner.locked != *expected || owner.protected {
+                    return Err("Layer lock changed or object is protected".into());
+                }
+                owner.locked = false;
+                editable(&after, *object)?;
+                after.objects.get_mut(object).unwrap().locked = *value;
+            }
+            Edit::Settings {
+                expected,
+                width,
+                height,
+                rate,
+                duration,
+            } => {
+                if &after != expected.as_ref() {
+                    return Err("Motion document changed; inspect it again".into());
+                }
+                after.width = *width;
+                after.height = *height;
+                after.rate = *rate;
+                after.duration = *duration;
+            }
+            Edit::Align {
+                objects,
+                time,
+                mode,
+                auto_key,
+            } => {
+                let edits = crate::design::align(&after, objects, *time, *mode, *auto_key)?;
+                after = apply(&after, &edits)?;
+            }
             Edit::MovePoint {
                 object,
                 expected,
@@ -338,6 +396,20 @@ pub fn stage(
 }
 
 fn check_protection(before: &Object, after: &Object) -> Result<(), String> {
+    if before.motion != after.motion
+        && [
+            &before.transform.x,
+            &before.transform.y,
+            &before.transform.rotation,
+            &before.transform.scale_x,
+            &before.transform.scale_y,
+            &before.transform.opacity,
+        ]
+        .iter()
+        .any(|v| v.protected)
+    {
+        return Err("Motion cannot alter protected transform controls".into());
+    }
     for (before, after) in [
         (&before.paint.fill, &after.paint.fill),
         (&before.paint.stroke, &after.paint.stroke),
@@ -358,7 +430,7 @@ fn check_protection(before: &Object, after: &Object) -> Result<(), String> {
         }
     }
     if before.protected != after.protected
-        || before.extensions != after.extensions
+        || !fold_project::components::preserves_extensions(&before.extensions, &after.extensions)
         || before.transform.extensions != after.transform.extensions
         || before.paint.extensions != after.paint.extensions
         || before.content.extensions() != after.content.extensions()
@@ -468,7 +540,7 @@ pub fn editable(canvas: &Canvas, id: ObjectId) -> Result<(), String> {
             return Err("Cyclic Motion hierarchy".into());
         }
         let object = canvas.objects.get(&id).ok_or("Missing Motion object")?;
-        if object.protected {
+        if object.protected || object.locked {
             return Err("Motion object is protected".into());
         }
         // Parent groups protect their whole subtree.
@@ -558,8 +630,14 @@ pub fn check_change(before: &Canvas, after: &Canvas) -> Result<(), String> {
             check_protection(object, next)?;
             let mut artwork = next.clone();
             artwork.graph_position = object.graph_position;
+            let lock_changed = artwork.locked != object.locked;
+            artwork.locked = object.locked;
             if artwork != *object || parent_changed {
                 editable(before, id)?;
+            } else if lock_changed {
+                let mut unlocked = before.clone();
+                unlocked.objects.get_mut(&id).unwrap().locked = false;
+                editable(&unlocked, id)?;
             }
         } else {
             editable(before, id)?;

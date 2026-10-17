@@ -6,6 +6,7 @@ pub mod color;
 pub mod composition;
 pub mod composition_layers;
 pub mod document_placement;
+pub mod gallery;
 pub mod ingest;
 mod motion_runtime;
 pub mod output;

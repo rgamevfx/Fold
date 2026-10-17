@@ -93,6 +93,80 @@ fn compact_views_fit_normal_and_narrow_panels_without_mutations() {
     }
 }
 #[test]
+fn select_all_then_delete_preserves_hidden_curve_channels() {
+    let _guard = crate::IMGUI_TEST_LOCK.lock().unwrap();
+    let mut imgui = context();
+    for width in [900., 210.] {
+        for curves in [true, false] {
+            let document = DocumentId::new();
+            let mut editor = Editor::default();
+            let mut channels = channels();
+            let hidden = channels[1].curve.clone();
+            let mut auto = false;
+            let draw = |imgui: &mut ImGui,
+                        editor: &mut Editor,
+                        channels: &mut Vec<Channel>,
+                        auto: &mut bool| {
+                let mut response = Response::default();
+                let ui = imgui.frame();
+                ui.window("Composition")
+                    .position([0.; 2], Condition::Always)
+                    .size([width, 500.], Condition::Always)
+                    .build(|| {
+                        response = editor.draw(
+                            ui,
+                            channels,
+                            super::Context {
+                                cache: &Default::default(),
+                                document,
+                                generation: 0,
+                                time: Time::ZERO,
+                                rate: [24, 1],
+                                frames: 96,
+                                nodes: &[],
+                                tracks: &[],
+                                auto_key: auto,
+                            },
+                        );
+                    });
+                drop(imgui.render_legacy());
+                response
+            };
+            draw(&mut imgui, &mut editor, &mut channels, &mut auto);
+            editor.curves = curves;
+            editor.visible_channels =
+                BTreeSet::from([(channels[0].object, channels[0].path.clone())]);
+            for _ in 0..3 {
+                draw(&mut imgui, &mut editor, &mut channels, &mut auto);
+            }
+            imgui.io_mut().add_key_event(Key::ModCtrl, true);
+            imgui.io_mut().add_key_event(Key::A, true);
+            draw(&mut imgui, &mut editor, &mut channels, &mut auto);
+            imgui.io_mut().add_key_event(Key::A, false);
+            imgui.io_mut().add_key_event(Key::ModCtrl, false);
+            draw(&mut imgui, &mut editor, &mut channels, &mut auto);
+            imgui.io_mut().add_key_event(Key::Delete, true);
+            let response = draw(&mut imgui, &mut editor, &mut channels, &mut auto);
+            assert!(response.edit.changed && response.edit.finished);
+            assert!(channels[0].curve.keys.is_empty());
+            if curves {
+                assert_eq!(
+                    channels[1].curve, hidden,
+                    "hidden keys must survive at {width}"
+                );
+            } else {
+                assert!(
+                    channels[1].curve.keys.is_empty(),
+                    "Track view selects both channels"
+                );
+            }
+            imgui.io_mut().add_key_event(Key::Delete, false);
+            draw(&mut imgui, &mut editor, &mut channels, &mut auto);
+        }
+    }
+}
+
+#[test]
 fn dragging_keys_previews_releases_once_and_escape_restores_original() {
     let _guard = crate::IMGUI_TEST_LOCK.lock().unwrap();
     let mut context = context();

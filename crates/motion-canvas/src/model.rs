@@ -33,9 +33,12 @@ pub struct Object {
     pub transform: Transform,
     pub paint: Paint,
     pub content: Content,
+    pub motion: Option<crate::motion::Motion>,
     /// Graph presentation only; hierarchy/order remains in roots and groups.
     pub graph_position: Option<[f32; 2]>,
     pub protected: bool,
+    pub visible: bool,
+    pub locked: bool,
     #[serde(flatten)]
     pub extensions: Metadata,
 }
@@ -73,6 +76,7 @@ pub enum Content {
         text: String,
         font_family: String,
         size: Scalar,
+        layout: TextLayout,
         #[serde(flatten)]
         extensions: Metadata,
     },
@@ -88,6 +92,33 @@ pub enum Content {
         #[serde(flatten)]
         extensions: Metadata,
     },
+}
+
+/// Text uses a top-left frame; width zero means point text. The frame remains
+/// editable independently of glyph outlines and object scale.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct TextLayout {
+    pub width: f64,
+    pub line_height: f64,
+    pub tracking: f64,
+    pub alignment: TextAlignment,
+}
+impl Default for TextLayout {
+    fn default() -> Self {
+        Self {
+            width: 0.,
+            line_height: 1.2,
+            tracking: 0.,
+            alignment: TextAlignment::Left,
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum TextAlignment {
+    Left,
+    Center,
+    Right,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
@@ -257,6 +288,8 @@ impl Scalar {
 pub struct Transform {
     pub x: Scalar,
     pub y: Scalar,
+    pub anchor_x: Scalar,
+    pub anchor_y: Scalar,
     pub rotation: Scalar,
     pub scale_x: Scalar,
     pub scale_y: Scalar,
@@ -272,6 +305,8 @@ impl Default for Transform {
         Self {
             x: Scalar::new(0.),
             y: Scalar::new(0.),
+            anchor_x: Scalar::new(0.),
+            anchor_y: Scalar::new(0.),
             rotation: Scalar::new(0.),
             scale_x: Scalar::new(1.),
             scale_y: Scalar::new(1.),
@@ -290,13 +325,14 @@ impl Transform {
             self.scale_y.at(time),
             self.shear.at(time),
         );
+        let (px, py) = (self.anchor_x.at(time), self.anchor_y.at(time));
         let matrix = [
             cos * sx,
             sin * sx,
             cos * shear - sin * sy,
             sin * shear + cos * sy,
-            self.x.at(time),
-            self.y.at(time),
+            self.x.at(time) + px - cos * sx * px - (cos * shear - sin * sy) * py,
+            self.y.at(time) + py - sin * sx * px - (sin * shear + cos * sy) * py,
         ];
         if matrix.iter().all(|value| value.is_finite()) {
             Ok(matrix)
@@ -559,14 +595,47 @@ impl Default for Paint {
     }
 }
 impl Object {
+    pub fn affine(&self, time: Time) -> Result<[f64; 6], String> {
+        let Some(motion) = &self.motion else {
+            return self.transform.affine(time);
+        };
+        let pose = motion.pose(time);
+        let mut t = self.transform.clone();
+        for (scalar, value) in [
+            (&mut t.x, self.transform.x.at(time) + pose.position[0]),
+            (&mut t.y, self.transform.y.at(time) + pose.position[1]),
+            (
+                &mut t.rotation,
+                self.transform.rotation.at(time) + pose.rotation,
+            ),
+            (
+                &mut t.scale_x,
+                self.transform.scale_x.at(time) * pose.scale[0],
+            ),
+            (
+                &mut t.scale_y,
+                self.transform.scale_y.at(time) * pose.scale[1],
+            ),
+        ] {
+            scalar.value = value;
+            scalar.animation = None;
+        }
+        t.affine(time)
+    }
+    pub fn opacity(&self, time: Time) -> f64 {
+        self.transform.opacity.at(time) * self.motion.as_ref().map_or(1., |m| m.pose(time).opacity)
+    }
     pub fn new(name: impl Into<String>, content: Content) -> Self {
         Self {
             name: name.into(),
             transform: Transform::default(),
             paint: Paint::default(),
             content,
+            motion: None,
             graph_position: None,
             protected: false,
+            visible: true,
+            locked: false,
             extensions: Metadata::new(),
         }
     }
@@ -592,6 +661,8 @@ impl Object {
         let mut result = vec![
             ("Position X", &t.x),
             ("Position Y", &t.y),
+            ("Anchor X", &t.anchor_x),
+            ("Anchor Y", &t.anchor_y),
             ("Rotation", &t.rotation),
             ("Scale X", &t.scale_x),
             ("Scale Y", &t.scale_y),
@@ -628,6 +699,8 @@ impl Object {
         let mut values = vec![
             &mut t.x,
             &mut t.y,
+            &mut t.anchor_x,
+            &mut t.anchor_y,
             &mut t.rotation,
             &mut t.scale_x,
             &mut t.scale_y,
@@ -703,14 +776,18 @@ impl Canvas {
                     "transform",
                     "paint",
                     "content",
+                    "motion",
                     "graph_position",
                     "protected",
+                    "visible",
+                    "locked",
                 ],
             )?;
             extensions(
                 &object.transform.extensions,
                 &[
-                    "x", "y", "rotation", "scale_x", "scale_y", "shear", "opacity",
+                    "x", "y", "anchor_x", "anchor_y", "rotation", "scale_x", "scale_y", "shear",
+                    "opacity",
                 ],
             )?;
             extensions(
@@ -733,6 +810,14 @@ impl Canvas {
                     .is_some_and(|p| !p.iter().all(|v| v.is_finite()))
             {
                 return Err("Invalid Motion object name or graph position".into());
+            }
+            if let Some(motion) = &object.motion {
+                motion.validate()?;
+                for curve in &motion.curves {
+                    for key in &curve.keys {
+                        take(key.id)?;
+                    }
+                }
             }
             for scalar in object.scalars() {
                 take(scalar.id)?;
@@ -765,6 +850,16 @@ impl Canvas {
                 source.validate(&mut take)?;
             }
             match &object.content {
+                Content::Text { layout, .. } => {
+                    if ![layout.width, layout.line_height, layout.tracking]
+                        .iter()
+                        .all(|v| v.is_finite())
+                        || layout.width < 0.
+                        || layout.line_height <= 0.
+                    {
+                        return Err("Invalid text frame or spacing".into());
+                    }
+                }
                 Content::Path { contours, .. } => {
                     for contour in contours {
                         take(contour.id)?;
@@ -930,7 +1025,7 @@ impl Content {
             Self::Rectangle { .. } => &["kind", "width", "height", "radius"],
             Self::Ellipse { .. } => &["kind", "radius_x", "radius_y"],
             Self::Path { .. } => &["kind", "contours"],
-            Self::Text { .. } => &["kind", "text", "font_family", "size"],
+            Self::Text { .. } => &["kind", "text", "font_family", "size", "layout"],
             Self::Group { .. } => &["kind", "children"],
             Self::Script { .. } => &["kind", "source", "controls"],
         }

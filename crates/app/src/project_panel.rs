@@ -147,6 +147,7 @@ impl ProjectPanel {
     }
     fn open(&mut self, row: &Row, host: &mut dyn DesktopClient) {
         match row.entry {
+            Entry::Component(..) => {}
             Entry::Bin(id) => {
                 if self.tree {
                     self.toggle_expansion(id);
@@ -167,6 +168,7 @@ impl ProjectPanel {
     }
     fn destination(&self, row: Option<&Row>, snapshot: &Snapshot) -> Parent {
         row.and_then(|r| match r.entry {
+            Entry::Component(..) => None,
             Entry::Bin(id) => Some(Parent::Bin(id)),
             Entry::Item(id) => snapshot
                 .state()
@@ -345,6 +347,7 @@ impl ProjectPanel {
         }
         let mut warning = None;
         let (kind, texture) = match row.entry {
+            Entry::Component(..) => ("Component", None),
             Entry::Bin(_) => ("Folder", None),
             Entry::Item(ItemId::Document(id)) => {
                 let document = &snapshot.state().documents[&id];

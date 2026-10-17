@@ -1,5 +1,6 @@
 //! Motion's host-facing document adapter. Artist tools and agent authoring both
 //! use the canvas edit implementation; renderer state never enters the document.
+pub mod components;
 pub mod conversion;
 mod image_source;
 pub mod package;

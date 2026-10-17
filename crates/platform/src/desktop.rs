@@ -269,6 +269,14 @@ pub struct GpuPreviewResult {
     pub consumers: Vec<(crate::workspace::PanelInstanceId, u64)>,
 }
 pub trait DesktopClient {
+    /// Declared nested source containers, shared with channel reference resolution.
+    fn parameter_sources(
+        &self,
+        _document: fold_foundation::DocumentId,
+    ) -> Result<Vec<crate::parameters::Source>, String> {
+        Ok(vec![])
+    }
+
     fn probe_image(
         &mut self,
         _request: crate::image_probe::Request,

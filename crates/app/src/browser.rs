@@ -33,6 +33,7 @@ pub fn edit(snapshot: &Snapshot, command: BrowserCommand) -> Result<EditBatch, S
             ]
         }
         BrowserCommand::Rename { entry, name } => match entry {
+            Entry::Component(..) => return Err("Manage components in the Gallery".into()),
             Entry::Bin(id) => {
                 let mut bin = organization.bins.get(&id).ok_or("missing bin")?.clone();
                 bin.name = name;
@@ -50,6 +51,7 @@ pub fn edit(snapshot: &Snapshot, command: BrowserCommand) -> Result<EditBatch, S
             }
         },
         BrowserCommand::Move { entry, parent } => match entry {
+            Entry::Component(..) => return Err("Manage components in the Gallery".into()),
             Entry::Bin(id) => {
                 let mut bin = organization.bins.get(&id).ok_or("missing bin")?.clone();
                 bin.parent = parent;
@@ -102,21 +104,7 @@ fn place(
     snapshot: &Snapshot,
     request: &fold_platform::browser::Placement,
 ) -> Result<EditBatch, String> {
-    for doc in snapshot
-        .state()
-        .documents
-        .values()
-        .filter(|d| d.type_id == fold_composition::COMPOSITION)
-    {
-        let composition = fold_composition::Composition::from_document(doc)?;
-        for layer in &composition.layers {
-            if matches!(&layer.source, Some(fold_platform::image_source::Source::Output(r)) if r.document == request.target)
-                && composition.locked(layer.id)
-            {
-                return Err("Destination layer is locked".into());
-            }
-        }
-    }
+    check_placement_locks(snapshot, request.target)?;
     let mut batch = crate::packages::builtins().place(snapshot, request)?;
     let original = &snapshot.state().documents[&request.target];
     if original.type_id == fold_composition::COMPOSITION {
@@ -144,4 +132,26 @@ fn place(
         batch.mutations.extend(graphs);
     }
     Ok(batch)
+}
+
+pub(crate) fn check_placement_locks(
+    snapshot: &Snapshot,
+    target: fold_foundation::DocumentId,
+) -> Result<(), String> {
+    for doc in snapshot
+        .state()
+        .documents
+        .values()
+        .filter(|d| d.type_id == fold_composition::COMPOSITION)
+    {
+        let composition = fold_composition::Composition::from_document(doc)?;
+        for layer in &composition.layers {
+            if matches!(&layer.source, Some(fold_platform::image_source::Source::Output(r)) if r.document == target)
+                && composition.locked(layer.id)
+            {
+                return Err("Destination layer is locked".into());
+            }
+        }
+    }
+    Ok(())
 }

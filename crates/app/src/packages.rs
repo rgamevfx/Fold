@@ -21,6 +21,7 @@ pub fn builtins() -> Arc<PackageRegistry> {
                 motion,
                 vec![Box::new(motion_video)],
                 Some(crate::motion_conversion::convert),
+                Some(crate::motion_conversion::animate),
             )
             .expect("valid Motion package registration");
             fold_three_d::package::register(&mut registry).expect("valid 3D package registration");
@@ -106,6 +107,31 @@ pub fn builtins() -> Arc<PackageRegistry> {
                     ],
                 })
                 .expect("valid application commands");
+            registry
+                .register(Contributions {
+                    manifest: Manifest {
+                        id: "fold.gallery",
+                        version: env!("CARGO_PKG_VERSION"),
+                        host_api: HOST_API,
+                        dependencies: &["fold.motion", "fold.timeline", "fold.compositor"],
+                        panels: &[PanelDescriptor {
+                            id: "fold.gallery.browser",
+                            title: "Gallery",
+                            placement: PanelPlacement::Browser,
+                        }],
+                        build: "components-v1",
+                    },
+                    documents: vec![],
+                    video: vec![],
+                    audio: vec![],
+                    commands: vec![CommandRegistration {
+                        id: fold_platform::gallery::PLACE,
+                        title: "Place Gallery component",
+                        execution: Execution::Worker,
+                        handler: crate::gallery::stage,
+                    }],
+                })
+                .expect("valid Gallery registration");
             Arc::new(registry)
         })
         .clone()

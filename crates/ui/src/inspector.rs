@@ -40,12 +40,66 @@ impl Panel for Inspector {
             .as_ref()
             .and_then(|s| selected.and_then(|id| s.state().documents.get(&id)))
             .map(|d| d.type_id.as_str());
+        let source = selected.and_then(|document| {
+            let objects = &context.host.state().selection.objects;
+            if objects.len() != 1 {
+                return None;
+            }
+            let owner = objects[0];
+            let time = context
+                .host
+                .state()
+                .navigation
+                .last()
+                .filter(|v| v.document == document)
+                .map_or(fold_foundation::Time::ZERO, |v| v.time);
+            context
+                .host
+                .parameter_sources(document)
+                .ok()?
+                .into_iter()
+                .find(|s| s.owner == owner)
+                .and_then(|s| {
+                    let time = s.at(time).ok()?;
+                    let target = snapshot
+                        .as_ref()?
+                        .state()
+                        .documents
+                        .get(&s.reference.document)?;
+                    Some((
+                        target.type_id.clone(),
+                        s.reference.document,
+                        time,
+                        s.editable,
+                    ))
+                })
+        });
+        for provider in &mut self.providers {
+            let target = source
+                .as_ref()
+                .filter(|(kind, ..)| provider.document_type() == Some(kind.as_str()))
+                .map(|(_, document, time, editable)| crate::sdk::SourceControls {
+                    document: *document,
+                    time: *time,
+                    editable: *editable,
+                });
+            provider.draw_source_controls(
+                ExtensionUi {
+                    ui: context.ui,
+                    host: context.host,
+                },
+                target,
+            );
+        }
         if let Some(provider) = self
             .providers
             .iter_mut()
             .find(|p| p.document_type() == kind && kind.is_some())
         {
-            provider.draw(context);
+            provider.draw(ExtensionUi {
+                ui: context.ui,
+                host: context.host,
+            });
         } else {
             context
                 .ui

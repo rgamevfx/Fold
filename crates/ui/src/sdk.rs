@@ -41,6 +41,8 @@ pub mod time_view;
 #[path = "toolbar.rs"]
 pub mod toolbar;
 pub use property_edit::{EditResponse, NumericProperty, UiId};
+#[path = "property_rows.rs"]
+pub mod property_rows;
 #[path = "text_draft.rs"]
 mod text_draft;
 pub use text_draft::TextDraft;
@@ -89,7 +91,18 @@ pub struct SelectionTarget {
     /// Scene-object rows inspect their content; image layers inspect placement.
     pub inspect_content: bool,
 }
+/// A source document inspected in its selected placement's time and lock context.
+pub struct SourceControls {
+    pub document: fold_foundation::DocumentId,
+    pub time: fold_foundation::Time,
+    pub editable: bool,
+}
 pub trait Panel {
+    /// Shared inspector invokes this after the container's properties. None
+    /// releases any previous source gesture when selection or navigation changes.
+    fn draw_source_controls(&mut self, _context: ExtensionUi<'_>, _source: Option<SourceControls>) {
+    }
+
     fn selection_target(
         &mut self,
         _host: &mut dyn DesktopClient,

@@ -9,7 +9,9 @@ edition = "2024"
 publish = false
 
 [dependencies]
+fframes-components = { path = "components" }
 fold-motion-canvas = { path = "../motion-canvas" }
+fold-animation = { path = "../animation" }
 fold-foundation = { path = "../foundation" }
 fold-gpu-sharing = { path = "../gpu-sharing", default-features = false }
 ash = "0.38"

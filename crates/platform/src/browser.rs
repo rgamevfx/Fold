@@ -5,6 +5,7 @@ use fold_project::{DocumentRef, Snapshot};
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Entry {
     Bin(fold_foundation::BinId),
+    Component(crate::gallery::Reference, crate::gallery::Kind),
     Item(fold_project::ItemId),
 }
 impl Entry {
@@ -13,6 +14,7 @@ impl Entry {
         output: impl FnOnce(DocumentId) -> Result<DocumentRef, String>,
     ) -> Result<PlacementSource, String> {
         match self {
+            Self::Component(..) => Err("Gallery components use component placement".into()),
             Self::Item(fold_project::ItemId::Asset(id)) => Ok(PlacementSource::Asset(id)),
             Self::Item(fold_project::ItemId::Document(document)) => {
                 output(document).map(PlacementSource::Output)

@@ -444,3 +444,15 @@ pub(crate) fn validate(state: &ProjectState) -> Result<(), ProjectError> {
     }
     Ok(())
 }
+
+impl Snapshot {
+    /// Validate a batch as an immutable evaluation overlay. This grants no
+    /// publication or persistence authority; the host still commits the batch.
+    pub fn overlay(&self, batch: EditBatch) -> Result<Snapshot, ProjectError> {
+        let project = Project {
+            current: self.0.clone(),
+            ..Project::new(0)
+        };
+        project.stage(&batch).map(Snapshot)
+    }
+}

@@ -1,4 +1,4 @@
-use super::paint::{color, draw as paint};
+use super::paint::draw as paint;
 use super::{Shared, state::State};
 use fold_foundation::{DocumentId, ObjectId};
 use fold_motion_canvas::{
@@ -13,10 +13,75 @@ use std::collections::BTreeMap;
 
 pub(super) struct Inspector {
     pub state: Shared,
+    pub embedded: State,
     pub sources: BTreeMap<(DocumentId, ObjectId), TextDraft>,
     pub names: BTreeMap<(DocumentId, ObjectId), TextDraft>,
+    pub motions: BTreeMap<
+        (DocumentId, ObjectId),
+        (
+            fold_motion_canvas::motion::Spec,
+            fold_motion_canvas::motion::Spec,
+        ),
+    >,
 }
 impl Panel for Inspector {
+    fn draw_source_controls(
+        &mut self,
+        context: ExtensionUi<'_>,
+        source: Option<sdk::SourceControls>,
+    ) {
+        let ExtensionUi { ui, host } = context;
+        let Some(source) = source else {
+            self.embedded.cancel(host);
+            return;
+        };
+        let target = host
+            .snapshot()
+            .and_then(|s| s.state().documents.get(&source.document).cloned())
+            .and_then(|d| fold_motion_canvas::model::Canvas::from_document(&d).ok());
+        let Some(canvas) = target else {
+            self.embedded.cancel(host);
+            return;
+        };
+        let root = canvas
+            .roots
+            .first()
+            .copied()
+            .filter(|_| canvas.roots.len() == 1);
+        let Some(id) =
+            root.filter(|id| matches!(canvas.objects[id].content, Content::Script { .. }))
+        else {
+            self.embedded.cancel(host);
+            return;
+        };
+        self.embedded
+            .sync_target(host, Some(source.document), vec![id], source.time);
+        let state = &mut self.embedded;
+        if !source.editable || editing::editable(&canvas, id).is_err() {
+            state.cancel(host);
+        }
+        let _scope = ui.push_id(&format!("source-controls-{}", source.document));
+        let _disabled = ui.begin_disabled_with_cond(
+            !source.editable
+                || editing::editable(&canvas, id).is_err()
+                || host.state().playing
+                || state.busy(),
+        );
+        let Some(mut object) = state.canvas().and_then(|c| c.objects.get(&id)).cloned() else {
+            return;
+        };
+        ui.separator();
+        ui.text(&object.name);
+        let mut response = EditResponse::default();
+        if let Content::Script { controls, .. } = &mut object.content {
+            super::controls::draw(ui, host, source.time, controls, &mut response);
+        }
+        respond(state, ui, host, id, &object, response);
+        if !state.error.is_empty() {
+            ui.text_wrapped(&state.error);
+        }
+    }
+
     fn id(&self) -> &'static str {
         crate::package::INSPECTOR
     }
@@ -75,20 +140,19 @@ impl Panel for Inspector {
         let scalars: Vec<_> = object
             .named_controls()
             .into_iter()
+            .filter(|(_, value)| !matches!(&object.content, Content::Script {controls,..} if controls.values().any(|c|matches!(&c.value,ControlValue::Number(n) if n.id==value.id))))
             .map(|(label, value)| (label.to_owned(), value.clone()))
             .collect();
-        if ui.collapsing_header("Properties", TreeNodeFlags::DEFAULT_OPEN) {
+        if ui.collapsing_header(
+            "Properties",
+            if matches!(object.content, Content::Script { .. }) {
+                TreeNodeFlags::empty()
+            } else {
+                TreeNodeFlags::DEFAULT_OPEN
+            },
+        ) {
             for (label, original) in scalars {
-                let script_control = match &object.content {
-                    Content::Script { controls, .. } => controls
-                        .values()
-                        .find(|c| matches!(&c.value,ControlValue::Number(n) if n.id==original.id)),
-                    _ => None,
-                };
-                let locked = original.protected || script_control.is_some_and(|c| c.protected);
-                let range = if script_control.is_some() {
-                    None
-                } else if original.id == object.transform.opacity.id {
+                let range = if original.id == object.transform.opacity.id {
                     Some([0., 1.])
                 } else if [
                     "Width",
@@ -105,13 +169,13 @@ impl Panel for Inspector {
                 } else {
                     None
                 };
-                let unit = if script_control.is_some() {
-                    ""
-                } else if original.id == object.transform.rotation.id {
+                let unit = if original.id == object.transform.rotation.id {
                     "°"
                 } else if [
                     "Position X",
                     "Position Y",
+                    "Anchor X",
+                    "Anchor Y",
                     "Width",
                     "Height",
                     "Radius",
@@ -126,37 +190,28 @@ impl Panel for Inspector {
                 } else {
                     ""
                 };
-                let identity = original.id.to_string();
-                let path = format!("{identity}.0");
-                let mut channels = BTreeMap::new();
-                if let Some(curve) = original.animation.clone() {
-                    channels.insert(path.clone(), curve);
-                }
-                let mut base = [original.value];
-                let _disabled = ui.begin_disabled_with_cond(locked);
-                AnimatedProperty {
-                    id: &identity,
-                    label: &label,
-                    components: &[""],
-                    unit,
-                    range,
-                    color: None,
-                }
-                .draw(
+                let value = object.scalar_mut(original.id).expect("native scalar");
+                super::controls::scalar(
                     ui,
-                    &mut base,
-                    &mut channels,
+                    host,
                     state.time,
-                    host.state().auto_key,
+                    &label,
+                    value,
+                    range,
+                    unit,
                     &mut response,
                 );
-                let scalar = object.scalar_mut(original.id).expect("native scalar");
-                scalar.value = base[0];
-                scalar.animation = channels.remove(&path);
             }
         }
         if !matches!(object.content, Content::Image { .. })
-            && ui.collapsing_header("Paint", TreeNodeFlags::DEFAULT_OPEN)
+            && ui.collapsing_header(
+                "Paint",
+                if matches!(object.content, Content::Script { .. }) {
+                    TreeNodeFlags::empty()
+                } else {
+                    TreeNodeFlags::DEFAULT_OPEN
+                },
+            )
         {
             paint(
                 ui,
@@ -295,7 +350,10 @@ impl Panel for Inspector {
                 }
             }
             Content::Text {
-                text, font_family, ..
+                text,
+                font_family,
+                layout,
+                ..
             } => {
                 let changed = ui
                     .input_text_multiline(
@@ -305,83 +363,79 @@ impl Panel for Inspector {
                     )
                     .build();
                 response.item(ui, changed);
-                let changed = ui.input_text("Font", font_family).build();
-                response.item(ui, changed);
+                ui.text_disabled(format!("Font: {font_family}"));
+                for (label, value) in [
+                    ("Text box width", &mut layout.width),
+                    ("Line spacing", &mut layout.line_height),
+                    ("Tracking", &mut layout.tracking),
+                ] {
+                    let changed = ui.input_double(label, value);
+                    response.item(ui, changed);
+                }
+                let options = [
+                    fold_motion_canvas::model::TextAlignment::Left,
+                    fold_motion_canvas::model::TextAlignment::Center,
+                    fold_motion_canvas::model::TextAlignment::Right,
+                ];
+                let mut index = options.iter().position(|a| *a == layout.alignment).unwrap();
+                if ui.combo_simple_string("Alignment", &mut index, &["Left", "Center", "Right"]) {
+                    layout.alignment = options[index];
+                    response.changed = true;
+                    response.finished = true;
+                }
             }
             Content::Script { controls, .. } => {
-                if controls
-                    .values()
-                    .any(|control| !matches!(control.value, ControlValue::Number(_)))
-                    && ui.collapsing_header("Controls", TreeNodeFlags::DEFAULT_OPEN)
-                {
-                    for (id, control) in controls {
-                        let _id = ui.push_id(&id.to_string());
-                        let _disabled = ui.begin_disabled_with_cond(control.protected);
-                        match &mut control.value {
-                            ControlValue::Number(_) => {}
-                            ControlValue::Image(asset) => {
-                                super::image_control::draw(
-                                    ui,
-                                    host,
-                                    &control.name,
-                                    asset,
-                                    &mut response,
-                                );
-                            }
-                            ControlValue::Text(value) => {
-                                let changed = ui.input_text(&control.name, value).build();
-                                response.item(ui, changed);
-                            }
-                            ControlValue::Boolean(value) => {
-                                let changed = ui.checkbox(&control.name, value);
-                                response.item(ui, changed);
-                            }
-                            ControlValue::Color(value) => {
-                                ui.text(&control.name);
-                                color(ui, value, &mut response);
-                            }
-                        }
-                    }
-                }
+                super::controls::draw(ui, host, state.time, controls, &mut response);
             }
             _ => {}
         }
-        let invalid_property = response.cancelled;
-        response.cancel_on_escape(ui, state.editing);
-        response.cancelled |= invalid_property;
-        if response.began && state.editing {
-            state.cancel(host);
-        }
-        if response.cancelled {
-            state.cancel(host);
-        } else {
-            let result = (|| -> Result<(), String> {
-                if response.changed {
-                    let expected = state
-                        .before
-                        .as_ref()
-                        .and_then(|c| c.objects.get(&id))
-                        .ok_or("Missing Motion object")?
-                        .clone();
-                    state.preview(
-                        host,
-                        vec![Edit::Replace {
-                            id,
-                            expected: Box::new(expected),
-                            object: Box::new(object.clone()),
-                        }],
-                    )?;
+        if let Some(motion) = &mut object.motion {
+            if ui.collapsing_header("Motion behavior", TreeNodeFlags::DEFAULT_OPEN) {
+                if ui.checkbox("Enabled", &mut motion.enabled) {
+                    response.changed = true;
+                    response.finished = true;
                 }
-                if response.finished {
-                    state.commit(host)?;
+                let draft = self
+                    .motions
+                    .entry((document, id))
+                    .or_insert_with(|| (motion.spec.clone(), motion.spec.clone()));
+                if draft.0 != motion.spec {
+                    *draft = (motion.spec.clone(), motion.spec.clone());
                 }
-                Ok(())
-            })();
-            if let Err(error) = result {
-                state.cancel(host);
-                state.error = error;
+                for (name, value) in &mut draft.1.controls {
+                    ui.input_double(name, value);
+                }
+                if ui.collapsing_header("Behavior code", TreeNodeFlags::empty()) {
+                    ui.input_text_multiline(
+                        "##motion-source",
+                        &mut draft.1.source,
+                        [ui.content_region_avail()[0], ui.frame_height() * 8.],
+                    )
+                    .build();
+                    let mut rate = draft.1.sample_rate as i32;
+                    if ui.input_int("Samples / second", &mut rate) && (1..=480).contains(&rate) {
+                        draft.1.sample_rate = rate as u32;
+                    }
+                }
+                let changed = draft.1 != motion.spec;
+                let _disabled = ui.begin_disabled_with_cond(
+                    !changed || state.editing || !host.supports_extension(crate::package::ANIMATE),
+                );
+                if ui.button("Update motion") {
+                    if let Err(error) = state.animate(host, id, draft.1.clone()) {
+                        state.error = error;
+                    }
+                }
+                drop(_disabled);
+                if changed {
+                    ui.same_line();
+                    if ui.button("Discard changes") {
+                        draft.1 = motion.spec.clone();
+                    }
+                }
             }
         }
+        respond(&mut state, ui, host, id, &object, response);
         if let Content::Script { source, .. } = &object.content {
             if let Some(draft) = self.sources.get_mut(&(document, id)) {
                 draft.sync(source);
@@ -559,4 +613,50 @@ pub(super) fn edited_point_property(
         .filter_map(|(name, curve)| curve.map(|curve| (name.into(), curve)))
         .collect::<Vec<_>>();
     Ok((value, Some(fold_graph::curves::replace(track, &edits)?)))
+}
+
+fn respond(
+    state: &mut State,
+    ui: &sdk::imgui::Ui,
+    host: &mut dyn fold_platform::desktop::DesktopClient,
+    id: ObjectId,
+    object: &fold_motion_canvas::model::Object,
+    mut response: EditResponse,
+) {
+    let invalid_property = response.cancelled;
+    response.cancel_on_escape(ui, state.editing);
+    response.cancelled |= invalid_property;
+    if response.began && state.editing {
+        state.cancel(host);
+    }
+    if response.cancelled {
+        state.cancel(host);
+    } else {
+        let result = (|| -> Result<(), String> {
+            if response.changed {
+                let expected = state
+                    .before
+                    .as_ref()
+                    .and_then(|c| c.objects.get(&id))
+                    .ok_or("Missing Motion object")?
+                    .clone();
+                state.preview(
+                    host,
+                    vec![Edit::Replace {
+                        id,
+                        expected: Box::new(expected),
+                        object: Box::new(object.clone()),
+                    }],
+                )?;
+            }
+            if response.finished {
+                state.commit(host)?;
+            }
+            Ok(())
+        })();
+        if let Err(error) = result {
+            state.cancel(host);
+            state.error = error;
+        }
+    }
 }

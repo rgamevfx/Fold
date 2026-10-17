@@ -43,26 +43,9 @@ pub fn place(
     track: Option<ObjectId>,
     at: Time,
 ) {
-    let source = match entry.source(|id| host.default_output(id)) {
-        Ok(source) => source,
-        Err(error) => {
-            host.command(DesktopCommand::Notify(error));
-            return;
-        }
-    };
-    host.command(DesktopCommand::Browser(BrowserCommand::Place(Placement {
-        graph: None,
-        canvas_position: None,
-        source,
-        target,
-        track,
-        at,
-        source_start: Time::ZERO,
-        duration: None,
-        audio_only: false,
-        new_track: false,
-        mode: Default::default(),
-    })));
+    let mut request = placement(target, at);
+    request.track = track;
+    place_request(host, entry, request);
 }
 
 /// Current-frame native drop geometry. Cleared before each draw, so hidden tabs and
@@ -160,12 +143,48 @@ pub fn import_and_place(
     }));
 }
 pub fn place_request(host: &mut dyn DesktopClient, entry: Entry, mut request: Placement) {
+    if let Entry::Component(component, _) = entry {
+        let args = fold_platform::gallery::Place {
+            component,
+            document: request.target,
+            objects: if request.track.is_some() {
+                vec![]
+            } else if host.state().selection.document == Some(request.target) {
+                host.state().selection.objects.clone()
+            } else {
+                vec![]
+            },
+            at: request.at,
+            position: request.canvas_position,
+            track: request.track,
+            update: None,
+        };
+        gallery_place(host, args);
+        return;
+    }
+
     match entry.source(|id| host.default_output(id)) {
         Ok(source) => {
             request.source = source;
             host.command(DesktopCommand::Browser(BrowserCommand::Place(request)));
         }
         Err(error) => host.command(DesktopCommand::Notify(error)),
+    }
+}
+
+pub fn gallery_place(host: &mut dyn DesktopClient, args: fold_platform::gallery::Place) {
+    let Some(snapshot) = host.snapshot() else {
+        return;
+    };
+    match serde_json::to_vec(&args) {
+        Ok(arguments) => host.command(DesktopCommand::Extension(
+            fold_platform::packages::CommandRequest {
+                id: fold_platform::gallery::PLACE.into(),
+                base: snapshot.revision(),
+                arguments,
+            },
+        )),
+        Err(error) => host.command(DesktopCommand::Notify(error.to_string())),
     }
 }
 

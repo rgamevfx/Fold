@@ -71,7 +71,7 @@ pub(crate) fn load(assets: &[Arc<Asset>], cancel: &Cancel) -> Result<Resolved, F
     };
     for asset in assets {
         cancel.check()?;
-        crate::image_source::interpretation(asset)?;
+        let alpha = crate::image_source::interpretation(asset)?;
         let (image, info) =
             fold_media::still::load(Path::new(&asset.location), &asset.fingerprint, cancel)?;
         if !image.is_srgb() {
@@ -94,7 +94,12 @@ pub(crate) fn load(assets: &[Arc<Asset>], cancel: &Cancel) -> Result<Resolved, F
                     .map_err(|_| "Motion image allocation overflow")?,
             )
             .map_err(|_| "Motion image allocation failed")?;
-        for (index, rgba) in image.encoded_pixels().enumerate() {
+        for (index, [r, g, b, source_alpha]) in image.straight_pixels().enumerate() {
+            let a = match alpha {
+                crate::image_source::Alpha::Straight => source_alpha,
+                crate::image_source::Alpha::Opaque => 1.,
+            };
+            let rgba = [r * a, g * a, b * a, a];
             if index % 65536 == 0 {
                 cancel.check()?;
             }
@@ -109,7 +114,7 @@ pub(crate) fn load(assets: &[Arc<Asset>], cancel: &Cancel) -> Result<Resolved, F
         result.snapshot.images.insert(
             asset.id.to_string(),
             Raster {
-                identity: format!("{}:{}", asset.id, asset.fingerprint),
+                identity: format!("{}:{}:{alpha:?}", asset.id, asset.fingerprint),
                 dimensions,
                 rgba8_premultiplied_srgb: pixels,
             },
@@ -126,6 +131,60 @@ pub(crate) fn load(assets: &[Arc<Asset>], cancel: &Cancel) -> Result<Resolved, F
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn explicit_image_alpha_preserves_transparency_or_ignores_it_without_losing_rgb() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("alpha.png");
+        // RGBA8: [255,64,128,128], [64,128,255,0]. The transparent
+        // pixel's RGB must survive an explicit opaque interpretation.
+        let bytes = include_bytes!("../../../resources/motion-context/alpha-input.png");
+        std::fs::write(&path, bytes).unwrap();
+        let mut asset = Asset {
+            id: fold_foundation::AssetId::new(),
+            location: path.to_str().unwrap().into(),
+            fingerprint: format!("sha256:{}", fold_media::content_hash(bytes)),
+            extensions: Default::default(),
+        };
+        let cancel = Cancel::default();
+        let name = asset.id.to_string();
+        let default = load(&[Arc::new(asset.clone())], &cancel).unwrap();
+        assert_eq!(
+            default.snapshot.images[&name].rgba8_premultiplied_srgb,
+            [128, 32, 64, 128, 0, 0, 0, 0]
+        );
+        asset.extensions.insert(
+            fold_media::ingest::INTERPRETATION_KEY.into(),
+            serde_json::json!({"color_space":"sRGB","alpha":"straight","provenance":"artist"}),
+        );
+        let straight = load(&[Arc::new(asset.clone())], &cancel).unwrap();
+        assert_eq!(
+            straight.snapshot.images[&name].rgba8_premultiplied_srgb,
+            default.snapshot.images[&name].rgba8_premultiplied_srgb
+        );
+        assert_eq!(
+            straight.snapshot.images[&name].identity,
+            default.snapshot.images[&name].identity
+        );
+        asset.extensions.insert(
+            fold_media::ingest::INTERPRETATION_KEY.into(),
+            serde_json::json!({"color_space":"sRGB","alpha":"opaque","provenance":"artist"}),
+        );
+        let opaque = load(&[Arc::new(asset.clone())], &cancel).unwrap();
+        assert_eq!(
+            opaque.snapshot.images[&name].rgba8_premultiplied_srgb,
+            [255, 64, 128, 255, 64, 128, 255, 255]
+        );
+        assert_ne!(
+            opaque.snapshot.images[&name].identity,
+            straight.snapshot.images[&name].identity
+        );
+        asset.extensions.insert(
+            fold_media::ingest::INTERPRETATION_KEY.into(),
+            serde_json::json!({"color_space":"sRGB","alpha":"premultiplied","provenance":"artist"}),
+        );
+        assert!(load(&[Arc::new(asset)], &cancel).is_err());
+    }
+
     #[test]
     fn project_image_decode_preserves_samples_and_rejects_changed_source_and_assignments() {
         let directory = tempfile::tempdir().unwrap();

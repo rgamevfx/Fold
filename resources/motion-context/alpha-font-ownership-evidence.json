@@ -1,0 +1,22 @@
+{
+  "assignment_changes_resource_identity": true,
+  "changed_source_rejected": true,
+  "device": "NVIDIA GeForce GTX 1070",
+  "dimensions": [
+    32,
+    16
+  ],
+  "evaluation_cpu_pixel_transport": false,
+  "explicit_opaque_retains_zero_alpha_rgb": true,
+  "explicit_straight_alpha": true,
+  "font_snapshot_bytes": 569232,
+  "host_and_worker_font_bytes": 1707696,
+  "image_removal_clears_pixels": true,
+  "image_snapshots_sent": 5,
+  "native_project_image": true,
+  "relink_changes_pixels": true,
+  "warm_pixels_identical": true,
+  "warm_snapshot_count": 1,
+  "working_bytes_released_after_runtime_drop": true,
+  "scope": "Native project asset decode and retained shared-GPU worker; explicit qualification readback only. Font payload/database bytes, not parser/cache or driver overhead."
+}

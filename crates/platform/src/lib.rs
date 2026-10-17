@@ -7,6 +7,7 @@ pub mod delivery;
 pub mod desktop;
 pub mod effects;
 pub mod format;
+pub mod gallery;
 pub mod layer_graph;
 pub mod packages;
 pub mod panel_context;

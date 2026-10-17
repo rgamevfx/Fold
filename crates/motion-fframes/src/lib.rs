@@ -7,6 +7,7 @@ mod native;
 pub mod worker;
 pub use fframes;
 pub use fold_foundation::ObjectId;
+pub use fold_motion_canvas::motion::{Context as MotionContext, Pose as MotionPose};
 pub use fold_motion_canvas::scripts::Context;
 pub use native::{Scripts, document, script_output};
 
@@ -320,3 +321,5 @@ impl Drop for Renderer {
         }
     }
 }
+
+pub mod presets;

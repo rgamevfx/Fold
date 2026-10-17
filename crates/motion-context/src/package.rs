@@ -11,6 +11,14 @@ use fold_project::{Document, EditBatch, Snapshot};
 use serde::{Deserialize, Serialize};
 
 pub const EDIT: &str = "fold.motion.edit";
+pub const ANIMATE: &str = "fold.motion.animate";
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AnimateArgs {
+    pub document: DocumentId,
+    pub object: ObjectId,
+    pub spec: fold_motion_canvas::motion::Spec,
+}
 pub const CONVERT: &str = "fold.motion.convert";
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -149,6 +157,13 @@ impl Authoring for Provider {
             "document": schemars::schema_for!(Canvas),
             "script_entry": "pub fn render<'a>(input: Context<'a>) -> Result<fframes::Svgr<'a>, String>",
             "time": "Exact rational seconds; controls are runtime values",
+            "motion": {
+                "entry": "pub fn animate(input: MotionContext<'_>) -> Result<MotionPose, String>",
+                "authoring": "Use the animate scoped proposal with object ID and spec {source,controls,sample_rate}; compilation and preparation run on a worker before candidate Apply",
+                "composition": "position and rotation add to authored/keyframed values; scale and opacity multiply. Moving native artwork preserves the prepared motion",
+                "evaluation": "Curves sampled at spec.sample_rate Hz with linear interpolation between samples, clamped outside sampled time. Re-prepare to change code or controls",
+                "controls": "input.seconds(), input.number(name), input.canvas, input.object. MotionPose {position:[x,y],rotation,scale:[x,y],opacity}; Default is identity"
+            },
             "path_animation": {
                 "owner": "Native point ID; preserve point, track and key IDs when editing",
                 "coordinates": "Position is path-local; incoming and outgoing are offsets from the sampled position",
@@ -601,8 +616,31 @@ fn anchor_literal(point: &fold_motion_canvas::model::Point, time: Time) -> Resul
 // Units come from native field identity, never artist-controlled labels.
 fn scalar_literal(object: &Object, scalar: &Scalar, time: Time) -> Literal {
     let id = scalar.id;
+    let pose = object
+        .motion
+        .as_ref()
+        .map(|m| m.pose(time))
+        .unwrap_or_default();
+    let value = scalar.at(time);
+    let value = if id == object.transform.x.id {
+        value + pose.position[0]
+    } else if id == object.transform.y.id {
+        value + pose.position[1]
+    } else if id == object.transform.rotation.id {
+        value + pose.rotation
+    } else if id == object.transform.scale_x.id {
+        value * pose.scale[0]
+    } else if id == object.transform.scale_y.id {
+        value * pose.scale[1]
+    } else if id == object.transform.opacity.id {
+        value * pose.opacity
+    } else {
+        value
+    };
     let distance = id == object.transform.x.id
         || id == object.transform.y.id
+        || id == object.transform.anchor_x.id
+        || id == object.transform.anchor_y.id
         || id == object.paint.stroke_width.id
         || match &object.content {
             Content::Rectangle {
@@ -620,13 +658,11 @@ fn scalar_literal(object: &Object, scalar: &Scalar, time: Time) -> Literal {
         };
     if distance {
         Literal::Distance {
-            value: scalar.at(time),
+            value,
             unit: Unit::Canvas,
         }
     } else {
-        Literal::Scalar {
-            value: scalar.at(time),
-        }
+        Literal::Scalar { value }
     }
 }
 
@@ -659,7 +695,7 @@ pub fn edit(snapshot: &Snapshot, arguments: &[u8], cancel: &Cancel) -> Result<Ed
 }
 
 pub fn register(registry: &mut PackageRegistry) -> Result<(), String> {
-    register_with(registry, Provider::default(), vec![], None)
+    register_with(registry, Provider::default(), vec![], None, None)
 }
 
 /// Assemble document capabilities and the configured renderer in one package.
@@ -668,6 +704,7 @@ pub fn register_with(
     provider: Provider,
     video: Vec<Box<dyn fold_platform::VideoProvider>>,
     convert: Option<CommandHandler>,
+    animate: Option<CommandHandler>,
 ) -> Result<(), String> {
     let mut commands = vec![CommandRegistration {
         id: EDIT,
@@ -679,6 +716,14 @@ pub fn register_with(
         commands.push(CommandRegistration {
             id: CONVERT,
             title: "Convert to editable",
+            execution: Execution::Worker,
+            handler,
+        });
+    }
+    if let Some(handler) = animate {
+        commands.push(CommandRegistration {
+            id: ANIMATE,
+            title: "Update motion",
             execution: Execution::Worker,
             handler,
         });

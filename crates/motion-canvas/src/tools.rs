@@ -12,7 +12,7 @@ pub fn new_object(kind: &str) -> Result<Object, String> {
     Ok(match kind {
         "rectangle" => rectangle("Rectangle", [0.;2], [160.,100.]),
         "ellipse" => ellipse("Ellipse", [-60.;2], [60.;2]),
-        "text" => Object::new("Text", Content::Text { text: "Text".into(), font_family: "Noto Sans".into(), size: Scalar::new(64.), extensions: Default::default() }),
+        "text" => Object::new("Text", Content::Text { layout: Default::default(), text: "Text".into(), font_family: "Noto Sans".into(), size: Scalar::new(64.), extensions: Default::default() }),
         "group" => Object::new("Group", Content::Group { children: vec![], extensions: Default::default() }),
         "path" => {
             let mut object = Object::new("Path", Content::Path { contours: vec![], extensions: Default::default() });
@@ -97,7 +97,7 @@ impl Transform {
 }
 
 fn local(object: &Object, time: Time) -> Result<Transform, String> {
-    object.transform.affine(time).map(Transform)
+    object.affine(time).map(Transform)
 }
 
 /// Object transforms include all ancestor groups. The map is also the editor's
@@ -144,6 +144,8 @@ pub fn rectangle(name: &str, start: [f64; 2], end: [f64; 2]) -> Object {
             extensions: Default::default(),
         },
     );
+    object.transform.anchor_x.value = (end[0] - start[0]).abs() / 2.;
+    object.transform.anchor_y.value = (end[1] - start[1]).abs() / 2.;
     object.transform.x.value = start[0].min(end[0]);
     object.transform.y.value = start[1].min(end[1]);
     object

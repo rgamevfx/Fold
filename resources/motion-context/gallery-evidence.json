@@ -1,0 +1,135 @@
+{
+  "workflow": "public MCP Gallery",
+  "native_ui": "unverified: Orca runtime unavailable",
+  "builtins": [
+    "Title",
+    "Lower third",
+    "Fade up",
+    "Scale in",
+    "Dissolve",
+    "Circular Wipe",
+    "Glow"
+  ],
+  "motion_preview_hashes": [
+    "6f4dfbc640124304fb1769204613ef70c4e955a7402817069771041801c14471",
+    "85de90352a549cd82dfe2b7920d75b5b1ddb8ee193183bebfc838cadda3f06db",
+    "1f2bf41f2d75a359d53ef33264929f5ad1131332eee3cde6710889f03a4148c8",
+    "7940fbb6c8831921188a98568d4eafcbe128931a5a38af4d4e668405b0ffa09d",
+    "3035d2020aa3f862258dfafc6a416b418a4a4c0e9f6330457b1b592af3ae6767",
+    "f82572fc9b9f8e90b221db7135096d3f1feecebef8232214ed5c1e3e1d00f47e",
+    "47b703c9b1fa28c234344200a434bbe5173543ef1c8d01c9435b74b0a6caf2c3",
+    "47b703c9b1fa28c234344200a434bbe5173543ef1c8d01c9435b74b0a6caf2c3"
+  ],
+  "user_component": {
+    "id": "b17a625a-49c8-42bd-b540-602eb9636624",
+    "version": 3
+  },
+  "timeline_clips": 2,
+  "transitions": 1,
+  "checks": [
+    "native artwork and stable IDs retained after compiled fframes motion",
+    "save, favorite, export with preview, idempotent import",
+    "explicit version update",
+    "independent Timeline source documents",
+    "transition source-handle rejection and trimmed-clip success",
+    "post-animation text color editing and explicit Timeline instance update",
+    "final optimized build reopens saved project with identical rendered pixels"
+  ],
+  "render": {
+    "provenance": {
+      "candidate": null,
+      "canvas_size": [
+        640,
+        360
+      ],
+      "configuration": {
+        "adapter": "AdapterInfo { name: \"NVIDIA GeForce GTX 1070\", vendor: 4318, device: 7137, device_type: DiscreteGpu, driver: \"NVIDIA\", driver_info: \"580.173.02\", backend: Vulkan }",
+        "build": "091248234f294cb22ad1c8ebeb0d59f291e2ce7f88daa313fe83f1ae364f78e1",
+        "dimensions": [
+          640,
+          360
+        ],
+        "display_transform": "1d4915451d0796608bee0ab5367036bad8131330432169307acee677850ee99c",
+        "profile": "gpu_display_no_history",
+        "project_settings": {
+          "fold.color": {
+            "config": {
+              "kind": "Bundled",
+              "sha256": "d8b361f76750ebfbedf0ded0b5e4315b283eed5e095814486b9d7c416cfbbb4c"
+            },
+            "ocio_version": "2.4.2",
+            "version": 1,
+            "working_space": "ACEScg"
+          }
+        },
+        "region": {
+          "height": 360,
+          "width": 640,
+          "x": 0,
+          "y": 0
+        },
+        "spatial": true,
+        "spatial_msaa": 1,
+        "target": "x86_64-unknown-linux-gnu"
+      },
+      "display_transform": "1d4915451d0796608bee0ab5367036bad8131330432169307acee677850ee99c",
+      "document": "e36d5152-bc9c-4be4-8b67-9c3cd3206c9a",
+      "epoch": "74ab8a90-332c-4a30-a958-347e08038d33",
+      "fingerprints": {
+        "configuration": "1e773cee50f1a98ef26e44713e408b00b63285da3c43a7bd965587ba565d9860",
+        "project": "773a30b6f2d2f5e3ebdbc0814b9718ef80aeca4ef5ea810fa5f0ba48b030f0d6"
+      },
+      "frames_available": true,
+      "output": "video",
+      "output_size": [
+        640,
+        360
+      ],
+      "quality": "gpu_display_no_history",
+      "region": {
+        "height": 360,
+        "width": 640,
+        "x": 0,
+        "y": 0
+      },
+      "resource_inputs": {
+        "external_content_verified": false,
+        "scope": "immutable_project"
+      },
+      "revision": 13,
+      "time": {
+        "denominator": 1,
+        "numerator": 2
+      },
+      "time_basis": "output_relative"
+    },
+    "transfers": {
+      "cpu_adapter_nodes": 0,
+      "evaluation_readback_bytes": 0
+    }
+  },
+  "saved": {
+    "epoch": "74ab8a90-332c-4a30-a958-347e08038d33",
+    "result": {
+      "durable": true,
+      "path": "/home/rgame/dev/Fold_Dev/Fold/resources/motion-context/gallery-workspace.fold",
+      "revision": 13,
+      "session_file_changed": false,
+      "state": "saved",
+      "warning": null
+    },
+    "version": 2
+  },
+  "documents": {
+    "motion": "ded069d4-73c4-4bf3-9282-e47154f8463c",
+    "timeline": "e36d5152-bc9c-4be4-8b67-9c3cd3206c9a"
+  },
+  "validation": {
+    "gallery_regressions": 3,
+    "workspace_check": "passed",
+    "workspace_clippy": "passed with existing warnings",
+    "full_workspace_tests": "omitted as requested",
+    "optimized_build": "passed",
+    "sdk": "precompiled_libraries"
+  }
+}

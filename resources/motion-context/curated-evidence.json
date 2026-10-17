@@ -1,0 +1,547 @@
+{
+  "workflow": "public MCP curated Gallery presets",
+  "presets": {
+    "Cinematic Text Swap": {
+      "document": "aff1f8d5-0192-485d-96fb-3f960024294b",
+      "root": "795eaa45-92f6-4837-8cb8-1373f24b4992",
+      "reference": {
+        "id": "47474747-4747-4747-4747-474747474708",
+        "version": 1
+      },
+      "preview_hashes": [
+        "f575d6e132e24e2b195bdfc63a6e8bccf1a78f39cc141fe425c6aafbc842d85c",
+        "c45cd1260584057a912e85b5cb1cacec26ff7193c0300083d91a4eb6c02ae8f8",
+        "6a8c273222f3a0a16d2783eb92ace583c731affd29b44ab0452a101c7a860719",
+        "73202f06f3a17ace8273b19a2a563250e5e87033ac5c95a139e36a203529a684",
+        "73202f06f3a17ace8273b19a2a563250e5e87033ac5c95a139e36a203529a684",
+        "73202f06f3a17ace8273b19a2a563250e5e87033ac5c95a139e36a203529a684",
+        "73202f06f3a17ace8273b19a2a563250e5e87033ac5c95a139e36a203529a684",
+        "73202f06f3a17ace8273b19a2a563250e5e87033ac5c95a139e36a203529a684"
+      ],
+      "frame_hashes": [
+        "a8881e931bc344f96711c5846383dbe09367066b9d457afa0bee80f50fe75954",
+        "164a0ba3a443e9b27cac44f30c3fb0cdc3b6ade3bee1a8770e1f023d12e2ee9f"
+      ],
+      "duration": {
+        "denominator": 1,
+        "numerator": 5
+      },
+      "controls": [
+        "Color",
+        "Speed",
+        "Stagger",
+        "Exit frames",
+        "Enter frames",
+        "Start",
+        "Unit",
+        "From",
+        "Size",
+        "Transition",
+        "To"
+      ],
+      "render_validation_document": "960909e4-1dd8-4da9-8c46-47234fc6fb1d"
+    },
+    "Soft Blur In": {
+      "document": "b7b0c156-76d7-44ef-9d92-074cf124ead8",
+      "root": "f48def12-6ffe-4b66-8cc5-1fc41af17e50",
+      "reference": {
+        "id": "47474747-4747-4747-4747-474747474709",
+        "version": 1
+      },
+      "preview_hashes": [
+        "6f4dfbc640124304fb1769204613ef70c4e955a7402817069771041801c14471",
+        "dd40a4ae1db4e47e121781cf5a4aa9d654e743167f49e60c2be26740e9836fbb",
+        "16ee2c3b2342bf0e9a1931b71921fde07eb7dca7df53d43918460a9971947402",
+        "4cedfb955bd82a516cf935faec054ee8eda897fd1d70b3e76b6fa6708ee6c15b",
+        "260ac2c91c6083c9b7e21f9ff24e20e28db91695434cd6cfc495aa88afaefbf4",
+        "260ac2c91c6083c9b7e21f9ff24e20e28db91695434cd6cfc495aa88afaefbf4",
+        "260ac2c91c6083c9b7e21f9ff24e20e28db91695434cd6cfc495aa88afaefbf4",
+        "260ac2c91c6083c9b7e21f9ff24e20e28db91695434cd6cfc495aa88afaefbf4"
+      ],
+      "frame_hashes": [
+        "fea271c045c12bce3f8c5542c05c27459c909c20d8cacb2a93b498b5bddabdeb",
+        "b4850402564da9ff6c6510b986da4638c495c11b67a76674f065bdfb2d30d23d"
+      ],
+      "duration": {
+        "denominator": 1,
+        "numerator": 5
+      },
+      "controls": [
+        "Start",
+        "Color",
+        "Reveal frames",
+        "Stagger",
+        "Text",
+        "Size",
+        "Blur",
+        "Speed"
+      ],
+      "render_validation_document": "c8bfb1cd-974d-4475-805a-aa7c6c1c29e4"
+    },
+    "Tracking In": {
+      "document": "8ab4a989-2aae-4b3f-8403-f4220d367cde",
+      "root": "0b7d8698-8074-4cef-bf6a-ca6e1aaaacf3",
+      "reference": {
+        "id": "47474747-4747-4747-4747-47474747470a",
+        "version": 1
+      },
+      "preview_hashes": [
+        "6f4dfbc640124304fb1769204613ef70c4e955a7402817069771041801c14471",
+        "e0c434c89cd16531e762e4343340f56308fb1bf1c0e8b2187948608f072601cd",
+        "33c693b75ab8859369b9bc8788ae8ee059bffa9cc71efd86a1966dd61f6a2e5a",
+        "592e3aeb8a3f937ab34d06feeeaff86cc3ae203de208e68da63f38ecfebd84bd",
+        "b7a46e69766b10ca7d43092286b3b6038d8741936c9b5c1afba53bea506cec57",
+        "b7a46e69766b10ca7d43092286b3b6038d8741936c9b5c1afba53bea506cec57",
+        "b7a46e69766b10ca7d43092286b3b6038d8741936c9b5c1afba53bea506cec57",
+        "b7a46e69766b10ca7d43092286b3b6038d8741936c9b5c1afba53bea506cec57"
+      ],
+      "frame_hashes": [
+        "e4639fa408ba217cba863df9621424721882648490fe821aa1e740bbae4054e0",
+        "597d817172e705041da71ce3093a5f0d4cc460e1c5bafd0012395c5719549c50"
+      ],
+      "duration": {
+        "denominator": 1,
+        "numerator": 5
+      },
+      "controls": [
+        "Start tracking",
+        "Stiffness",
+        "Text",
+        "End tracking",
+        "Start",
+        "Speed",
+        "Damping",
+        "Color",
+        "Size"
+      ],
+      "render_validation_document": "7f073d71-0cb4-4e90-b5d8-1b2240de2061"
+    },
+    "Word Gather": {
+      "document": "bd98df31-bff1-4f8c-8c92-8300cb067eac",
+      "root": "e23efd14-285f-4e39-853f-f6fc00b4eba8",
+      "reference": {
+        "id": "47474747-4747-4747-4747-47474747470b",
+        "version": 1
+      },
+      "preview_hashes": [
+        "6e71d3fbb0fc3701cd93cf79881a096fd090a819a92fa61d189607ddd65ca209",
+        "a564ce37fe76a91f9ddbe18143f03546dec059599a8fe03a1a75f98a2e36a32a",
+        "65b23c525a69c7bc520d9a5a647948aee1d504fe9a172437fd88d8f85d8267b4",
+        "e712e95018f2d887a023bcc9acaf626e9af1c94313b95213ddd75707fc70bfd2",
+        "764589f1bb4c71fbccd3fe2487afa0c79028ce73843f217b239c85fdfea91e2f",
+        "764589f1bb4c71fbccd3fe2487afa0c79028ce73843f217b239c85fdfea91e2f",
+        "764589f1bb4c71fbccd3fe2487afa0c79028ce73843f217b239c85fdfea91e2f",
+        "764589f1bb4c71fbccd3fe2487afa0c79028ce73843f217b239c85fdfea91e2f"
+      ],
+      "frame_hashes": [
+        "0ca2ba8ac92c263199d65f9ded428a2fb268e19f8ce219b580697ab6c277b8bd",
+        "56b791e718233c169ddc59a72cee35320e693b6865a33cb825d53754171b358d"
+      ],
+      "duration": {
+        "denominator": 1,
+        "numerator": 5
+      },
+      "controls": [
+        "Accent",
+        "Speed",
+        "Text",
+        "Line width",
+        "Start"
+      ],
+      "render_validation_document": "b38311b3-2614-41e5-9b0e-d8295d4ad571"
+    },
+    "Word Flip": {
+      "document": "7ddd1a97-6883-4b94-8c4d-aa320d48f6c2",
+      "root": "34a03103-c298-43af-82f7-491a5543a043",
+      "reference": {
+        "id": "47474747-4747-4747-4747-47474747470c",
+        "version": 1
+      },
+      "preview_hashes": [
+        "3cd36ab760035f0d823c9475250ff1d96c35da7e0eab3dbec3704571b96af10a",
+        "b4c509480cc4a1f68e2176b0bb5047fe94501deff91a57a7be567011840e3d02",
+        "b232d8216b44e894c25e613b801eafbc8444919cbd75c29c7039c43f324c7124",
+        "e18ccdadde309b3b198722b1d33c80cb51197c371f106225c6760a6dc395eb84",
+        "d248f5e3ee38ec2657b11249a5e9bc258b41b7463430961e1470c8033a5a15da",
+        "aaabdb886aa76f7ea57256b0088dba3f8575521f10175109a39c5f492f91812b",
+        "aaabdb886aa76f7ea57256b0088dba3f8575521f10175109a39c5f492f91812b",
+        "aaabdb886aa76f7ea57256b0088dba3f8575521f10175109a39c5f492f91812b"
+      ],
+      "frame_hashes": [
+        "072201d87e4d3a0316726dac0f74f7e46a7c72653021739ddfc4f62481717071",
+        "a294ce2c6698480d8d2e48fcc0b2cf06558d69a35dfadf1e65a72d8411d81c52"
+      ],
+      "duration": {
+        "denominator": 1,
+        "numerator": 5
+      },
+      "controls": [
+        "Suffix",
+        "Accent",
+        "Cycle frames",
+        "Size",
+        "Speed",
+        "Prefix",
+        "Start",
+        "Overlap",
+        "Color",
+        "Words"
+      ],
+      "render_validation_document": "fecd5745-e3d3-406c-9ac7-4128d12534df"
+    },
+    "Lines to Text": {
+      "document": "894e809a-43ad-43ee-a649-bc1c5db4d73a",
+      "root": "08b84cbf-1b06-47eb-9b1d-234185bd79b7",
+      "reference": {
+        "id": "47474747-4747-4747-4747-47474747470d",
+        "version": 1
+      },
+      "preview_hashes": [
+        "0219c50c0ebf3e51a076f7ede30d178c2c09e61c2e67f92682eecafaa091ecd8",
+        "4516faa5ce8462a63ee1f84b1c546ba5736fae6fd7afa95034c86d605b31fbf8",
+        "6ffef50e91e03e00694ed7b887149574af8e1d53ae694a930a817d93c0150701",
+        "6ffef50e91e03e00694ed7b887149574af8e1d53ae694a930a817d93c0150701",
+        "6ffef50e91e03e00694ed7b887149574af8e1d53ae694a930a817d93c0150701",
+        "cd97f50cc53a6ccce1543300cd62a35e0f120372e3309924aec6c48a59380f8e",
+        "18525ea977354089eabc176fa6727640b7f2093336fb4f189240391826ff7882",
+        "7336bf7d3c5e34e3d55ba8f3e44bd9ba2af484fd6abdc0bfa9222c15e7563507"
+      ],
+      "frame_hashes": [
+        "55c256869f1ef34104ccc9fb3094da94eabea6d6988bcd4e71e7bf5bbaa0abb0",
+        "7281bbf0f16b45716e5c00aea776e19bc227353659c4b22cca6bec53ab8ee6cd"
+      ],
+      "duration": {
+        "denominator": 1,
+        "numerator": 5
+      },
+      "controls": [
+        "Hold frames",
+        "Resolve frames",
+        "Exit frames",
+        "Bars per line",
+        "Converge frames",
+        "Speed",
+        "Drift frames",
+        "Start",
+        "Lines"
+      ],
+      "render_validation_document": "b26f109e-8ae2-4c3f-b51e-260b0e42c090"
+    },
+    "Echo Stack": {
+      "document": "80874888-a657-4acc-8d3b-0ddc7808adc5",
+      "root": "78b3cd99-b317-45ad-aa23-aafb8ffbd120",
+      "reference": {
+        "id": "47474747-4747-4747-4747-47474747470e",
+        "version": 1
+      },
+      "preview_hashes": [
+        "6f4dfbc640124304fb1769204613ef70c4e955a7402817069771041801c14471",
+        "3ca194d42ebc536b80d90a29760be9ef9923353f10e26491220ef3bb6f78cf33",
+        "a37d6f4048976b40536fcf73659467ba2cbe065d51f07f4ca05386e148cf54da",
+        "498c0d836dfaaa68c2f1caaf45e04717227945db6ff1bcedd2cdba942d3c2ebd",
+        "cbfcefdd5f063b8e8f3becf500113f2429d63e74a5603b3ec0e31b03afddc982",
+        "f39888ec47ddecbb9be7eabaac5a77907f804f97bf1c8c716a0adf96c9a594b3",
+        "4212b896a003b300bb044fd111e7ba83f7f21531bae280b1d42826efdf020777",
+        "9caf5491b6116cdfa27eeffb61b4c168d0e61c26133a532be5003073df8224bc"
+      ],
+      "frame_hashes": [
+        "8e39109db9e9af15b09139f13baabfd4e06dd131d3118709c3d1c6e0bb2eb9a2",
+        "6ee4cd6e0132f7c0cbb1cffa53fd803441d07b9c3cdbccfb44fbe836073f2322"
+      ],
+      "duration": {
+        "denominator": 1,
+        "numerator": 5
+      },
+      "controls": [
+        "Speed",
+        "Outline",
+        "Cycle frames",
+        "Direction",
+        "Text",
+        "Echo opacity",
+        "Echo color",
+        "Echoes",
+        "Color",
+        "Size",
+        "Start"
+      ],
+      "render_validation_document": "8a364b7d-ffb2-4958-98b7-2818ed39a936"
+    },
+    "Glitch Cycle": {
+      "document": "1a941d5d-54d9-43a3-a023-54ff41db9fb9",
+      "root": "ccb7314b-af8e-4efc-bb90-79d53a675dc0",
+      "reference": {
+        "id": "47474747-4747-4747-4747-47474747470f",
+        "version": 1
+      },
+      "preview_hashes": [
+        "6f4dfbc640124304fb1769204613ef70c4e955a7402817069771041801c14471",
+        "28cfc4251b461a23d8f4078d6bb7709e17e7d9f36b38c6d2b1447916d87a6774",
+        "2f2a2177121f9b0ffd79dc14f22627459b60defa74393f91735fb986a2309208",
+        "2f2a2177121f9b0ffd79dc14f22627459b60defa74393f91735fb986a2309208",
+        "396077910719593b40feca3deb0c4adce899a0263c3148a26c0d2a8123a6ee33",
+        "396077910719593b40feca3deb0c4adce899a0263c3148a26c0d2a8123a6ee33",
+        "28cfc4251b461a23d8f4078d6bb7709e17e7d9f36b38c6d2b1447916d87a6774",
+        "be5c46914fe8f05fba0baaa6d422811659dd8ab252b30ec2e392c87840d7b8a3"
+      ],
+      "frame_hashes": [
+        "73022dcf66591af3a24b9c14bfe916e22725ae64943676d61fa5c936f3faddcf",
+        "b110a95c00562fbf754bd5cf7a42964f2a9e3b2fc898a592388c31348f6231b9"
+      ],
+      "duration": {
+        "denominator": 1,
+        "numerator": 5
+      },
+      "controls": [
+        "Words",
+        "Speed",
+        "Size",
+        "Glitch amount",
+        "Item frames",
+        "Start",
+        "Delay frames",
+        "Color"
+      ],
+      "render_validation_document": "446c5b99-224c-4633-877a-33a1b8b5dc9f"
+    },
+    "Text Highlight": {
+      "document": "5cb74e45-6db5-4506-8e4e-d9e2be00775b",
+      "root": "9e6abdb3-614c-424a-a597-19c565db0839",
+      "reference": {
+        "id": "47474747-4747-4747-4747-474747474710",
+        "version": 1
+      },
+      "preview_hashes": [
+        "069e67531ba6b01e8d010a3afb4786c1d778a106d3e561572e6f25ca8e5c2da8",
+        "8cef6a751a5c0ca86c62e8566b2143470f920b090c81de12ae0221fc06f6e29f",
+        "6adc8e230275612ea2058906d402f52c52d8befa506bb44cc840a2f760cfea35",
+        "6adc8e230275612ea2058906d402f52c52d8befa506bb44cc840a2f760cfea35",
+        "6adc8e230275612ea2058906d402f52c52d8befa506bb44cc840a2f760cfea35",
+        "6adc8e230275612ea2058906d402f52c52d8befa506bb44cc840a2f760cfea35",
+        "6adc8e230275612ea2058906d402f52c52d8befa506bb44cc840a2f760cfea35",
+        "6adc8e230275612ea2058906d402f52c52d8befa506bb44cc840a2f760cfea35"
+      ],
+      "frame_hashes": [
+        "7535103d113bf9589b2de0ac41a59362542ca3012c5e836f142a5db182809539",
+        "09f0dc4f04b71431a743775e3961d6b7def3611a5eb1675ab88648987b1c0296"
+      ],
+      "duration": {
+        "denominator": 1,
+        "numerator": 5
+      },
+      "controls": [
+        "After",
+        "Style",
+        "Before",
+        "Accent",
+        "Color",
+        "Start",
+        "Thickness",
+        "Speed",
+        "Replacement",
+        "Draw frames",
+        "Size",
+        "Highlight"
+      ],
+      "render_validation_document": "a0ce587b-534a-4c03-87b1-cd6627584fee"
+    },
+    "Logo Assemble": {
+      "document": "3c656997-bdad-4f29-b729-8a2147a2dd8b",
+      "root": "6590cf72-1bd8-484f-b861-518f0424c08f",
+      "reference": {
+        "id": "47474747-4747-4747-4747-474747474711",
+        "version": 1
+      },
+      "preview_hashes": [
+        "b6ee10c88cf20a7c45b1a420051cbf2b1ef77483bdf82927064038b8392a09e7",
+        "7a0e3c2260c76a3fe3c27388b3aa0a27671445535c18eaa8e5fef218021c08de",
+        "7d1b192f27b89dae9be210eaee128b876f6a6710651d449f1be10780047eedef",
+        "ae157e4448d5fbb970de86c9f7c67df5699eeac6401a6437097ea5bfb54a6227",
+        "ca20a545bc9a34c549cc67432ccf21ea7f404c505317b0e2a6facd0d21ef885d",
+        "dfbeebc79f2f2ea8910ba53a4062dbf5aeb501274817f380bcfcb3cee0f7efb9",
+        "d485db9f429e30fb4f7c88835b213f185395be63449662cbcee1db98a244d54d",
+        "d485db9f429e30fb4f7c88835b213f185395be63449662cbcee1db98a244d54d"
+      ],
+      "frame_hashes": [
+        "b19827f9b4df6e0ed6caa69affbf9d984c65321a2a025449db2ee3696a924b2d",
+        "fa91fce3e36ddc3bab7ead1d238c68a52fc4b0c923f2a10e3acce2feb4765a07"
+      ],
+      "duration": {
+        "denominator": 1,
+        "numerator": 5
+      },
+      "controls": [
+        "Brand",
+        "Cards",
+        "Start",
+        "Speed",
+        "Background",
+        "Middle text",
+        "Image 4",
+        "Image 6",
+        "Logo",
+        "Image 8",
+        "Image 2",
+        "Image 1",
+        "Image 7",
+        "Image 5",
+        "Image 3"
+      ]
+    }
+  },
+  "native_ui": "Artist interaction review pending",
+  "agent_control_edit": true,
+  "user_component": {
+    "id": "ae2c646b-35e3-4dbc-8b42-d947319f4f70",
+    "version": 1
+  },
+  "timeline": "4e3e8229-e78f-4647-9204-22ed9f848aa8",
+  "composition": "59e6441b-4e49-4fb3-b481-9f378998623e",
+  "container_parameter": {
+    "descriptor": {
+      "editable": true,
+      "path": [
+        "Curated component controls",
+        "Text Highlight",
+        "Text Highlight",
+        "Text Highlight",
+        "Speed"
+      ],
+      "target": {
+        "component": null,
+        "document": "32947257-49ba-4168-a920-ff0f130fffc2",
+        "object": "98c9942e-6cd8-4bbd-bd31-eecfb3f2b968",
+        "occurrence": [],
+        "parameter": {
+          "id": "29879bb1-f8b9-49e2-bae2-7dae7eafe804",
+          "kind": "native"
+        },
+        "placement": {
+          "owners": [
+            "0ce6e263-4216-4c50-967c-77747a48fd32"
+          ],
+          "root": "59e6441b-4e49-4fb3-b481-9f378998623e"
+        }
+      },
+      "value_type": {
+        "kind": "scalar"
+      }
+    },
+    "sample": {
+      "revision": 34,
+      "target": {
+        "component": null,
+        "document": "32947257-49ba-4168-a920-ff0f130fffc2",
+        "object": "98c9942e-6cd8-4bbd-bd31-eecfb3f2b968",
+        "occurrence": [],
+        "parameter": {
+          "id": "29879bb1-f8b9-49e2-bae2-7dae7eafe804",
+          "kind": "native"
+        },
+        "placement": {
+          "owners": [
+            "0ce6e263-4216-4c50-967c-77747a48fd32"
+          ],
+          "root": "59e6441b-4e49-4fb3-b481-9f378998623e"
+        }
+      },
+      "time": {
+        "denominator": 1,
+        "numerator": 1
+      },
+      "value": {
+        "kind": "scalar",
+        "value": 1.0
+      }
+    }
+  },
+  "checks": {
+    "gallery_regressions": 5,
+    "transport_roundtrip": true,
+    "workspace_check": true,
+    "clippy": "passed with warnings",
+    "boundaries": true,
+    "proposal_ownership": true,
+    "full_workspace_tests": "omitted: focused validation requested"
+  },
+  "upstream_revision": "ae04b1be6596b0fc51e18280392ff6ee77629c47",
+  "reopened": {
+    "identical_logo_pixels": true,
+    "sha256": "b19827f9b4df6e0ed6caa69affbf9d984c65321a2a025449db2ee3696a924b2d",
+    "container_parameters_retained": true,
+    "renderer": {
+      "provenance": {
+        "candidate": null,
+        "canvas_size": [
+          640,
+          360
+        ],
+        "configuration": {
+          "adapter": "AdapterInfo { name: \"NVIDIA GeForce GTX 1070\", vendor: 4318, device: 7137, device_type: DiscreteGpu, driver: \"NVIDIA\", driver_info: \"580.173.02\", backend: Vulkan }",
+          "build": "dfe08c1733f18ff3c4343ab4571bd162ea4cee2530327236a97f2f6cd7ca2038",
+          "dimensions": [
+            640,
+            360
+          ],
+          "display_transform": "1d4915451d0796608bee0ab5367036bad8131330432169307acee677850ee99c",
+          "profile": "gpu_display_no_history",
+          "project_settings": {
+            "fold.color": {
+              "config": {
+                "kind": "Bundled",
+                "sha256": "d8b361f76750ebfbedf0ded0b5e4315b283eed5e095814486b9d7c416cfbbb4c"
+              },
+              "ocio_version": "2.4.2",
+              "version": 1,
+              "working_space": "ACEScg"
+            }
+          },
+          "region": {
+            "height": 360,
+            "width": 640,
+            "x": 0,
+            "y": 0
+          },
+          "spatial": true,
+          "spatial_msaa": 1,
+          "target": "x86_64-unknown-linux-gnu"
+        },
+        "display_transform": "1d4915451d0796608bee0ab5367036bad8131330432169307acee677850ee99c",
+        "document": "3c656997-bdad-4f29-b729-8a2147a2dd8b",
+        "epoch": "af400348-b3bc-4f9b-902d-ca0b737a6a40",
+        "fingerprints": {
+          "configuration": "e5f89a5389268a0af5c890a35751fba7f34f23880c6b5dce7b259f728b55f782",
+          "project": "645283a9ba007db658c555b2e811b4ab7b13c9761debfbc7d1af1a0eab79ae89"
+        },
+        "frames_available": true,
+        "output": "video",
+        "output_size": [
+          640,
+          360
+        ],
+        "quality": "gpu_display_no_history",
+        "region": {
+          "height": 360,
+          "width": 640,
+          "x": 0,
+          "y": 0
+        },
+        "resource_inputs": {
+          "external_content_verified": false,
+          "scope": "immutable_project"
+        },
+        "revision": 34,
+        "time": {
+          "denominator": 2,
+          "numerator": 1
+        },
+        "time_basis": "output_relative"
+      },
+      "transfers": {
+        "cpu_adapter_nodes": 0,
+        "evaluation_readback_bytes": 0
+      }
+    },
+    "sdk": "target/motion-sdk-curated-ready"
+  }
+}

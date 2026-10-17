@@ -111,6 +111,17 @@ impl Candidate {
             direct: true,
         })
     }
+    pub(super) fn from_batch(
+        base: &CommittedSnapshot,
+        scope: Scope,
+        batch: EditBatch,
+        cancel: &Cancel,
+    ) -> Result<Self, Failure> {
+        let after = fold_project::Candidate::new(base.clone())
+            .apply(batch)
+            .map_err(Failure::invalid)?;
+        Self::seal(base, scope, after, cancel)
+    }
     fn seal(
         base: &CommittedSnapshot,
         scope: Scope,
@@ -205,6 +216,12 @@ impl Candidate {
                         .find(|i| i.id == item.id)
             {
                 return Err(Failure::new("conflict", "An edited project item changed"));
+            }
+            if let Mutation::PutAsset(asset) = &mutation
+                && current.state().assets.get(&asset.id)
+                    != self.before.state().assets.get(&asset.id)
+            {
+                return Err(Failure::new("conflict", "A component asset changed"));
             }
             if !matches!(mutation, Mutation::PutDocument(_)) {
                 mutations.push(mutation);

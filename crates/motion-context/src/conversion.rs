@@ -29,6 +29,112 @@ impl Service {
         }
     }
 
+    pub fn prepare_motion(
+        &self,
+        document: &Document,
+        object: ObjectId,
+        spec: fold_motion_canvas::motion::Spec,
+        project: &fold_project::Snapshot,
+        cancel: &Cancel,
+    ) -> Result<Document, Failure> {
+        cancel.check()?;
+        spec.validate()?;
+        let before = Canvas::from_document(document)?;
+        if (fold_animation::seconds(before.duration) * f64::from(spec.sample_rate)).ceil()
+            >= 18_000.
+        {
+            return Err(
+                "Motion sampling exceeds 18000 keys per channel; reduce duration or sample rate"
+                    .into(),
+            );
+        }
+        editing::editable(&before, object)?;
+        let expected = before
+            .objects
+            .get(&object)
+            .ok_or("Missing motion target")?
+            .clone();
+        let mut owner = expected.clone();
+        owner.motion = Some(fold_motion_canvas::motion::Motion {
+            spec,
+            enabled: true,
+            curves: [0., 0., 0., 1., 1., 1.].map(|value| {
+                let mut curve = fold_animation::Curve::default();
+                curve.insert(Time::ZERO, value);
+                curve
+            }),
+        });
+        let draft = editing::apply(
+            &before,
+            &[Edit::Replace {
+                id: object,
+                expected: Box::new(expected.clone()),
+                object: Box::new(owner.clone()),
+            }],
+        )?;
+        let assets = crate::resources::bind(&draft, project)?;
+        let mut runtime = self.lock_runtime(cancel)?;
+        if runtime.is_none() {
+            *runtime = Some(Runtime::new(self.config.clone(), cancel)?);
+        }
+        let mut curves = runtime.as_mut().ok_or("Missing motion runtime")?.animate(
+            &draft,
+            object,
+            Inputs {
+                fonts: &self.fonts,
+                assets: &assets,
+            },
+            cancel,
+        )?;
+        // Constant spans need only their endpoints. Keep exact samples where
+        // values change, without filling documents/MCP guards with static keys.
+        for curve in &mut curves {
+            let mut keys: Vec<fold_animation::Key> = Vec::new();
+            for key in std::mem::take(&mut curve.keys) {
+                if keys.len() >= 2
+                    && keys[keys.len() - 2].value == key.value
+                    && keys[keys.len() - 1].value == key.value
+                {
+                    keys.pop();
+                }
+                keys.push(key);
+            }
+            curve.keys = keys;
+        }
+        owner.motion.as_mut().unwrap().curves = curves;
+        cancel.check()?;
+        let after = editing::apply(
+            &before,
+            &[Edit::Replace {
+                id: object,
+                expected: Box::new(expected),
+                object: Box::new(owner),
+            }],
+        )?;
+        Ok(after.replace_document(document)?)
+    }
+    fn lock_runtime(
+        &self,
+        cancel: &Cancel,
+    ) -> Result<std::sync::MutexGuard<'_, Option<Runtime>>, Failure> {
+        let start = Instant::now();
+        loop {
+            cancel.check()?;
+            match self.runtime.try_lock() {
+                Ok(runtime) => return Ok(runtime),
+                Err(TryLockError::Poisoned(_)) => {
+                    return Err("Motion preparation service is unavailable".into());
+                }
+                Err(TryLockError::WouldBlock) => {
+                    if start.elapsed() >= self.config.compile_timeout {
+                        return Err("Motion preparation deadline exceeded".into());
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                }
+            }
+        }
+    }
+
     pub fn prepare(
         &self,
         document: &Document,
@@ -59,22 +165,7 @@ impl Service {
             return Err("Capture time is outside the document".into());
         }
         let assets = crate::resources::bind(&canvas, project)?;
-        let start = Instant::now();
-        let mut runtime = loop {
-            cancel.check()?;
-            match self.runtime.try_lock() {
-                Ok(runtime) => break runtime,
-                Err(TryLockError::Poisoned(_)) => {
-                    return Err("Motion capture service is unavailable".into());
-                }
-                Err(TryLockError::WouldBlock) => {
-                    if start.elapsed() >= self.config.compile_timeout {
-                        return Err("Motion capture preparation deadline exceeded".into());
-                    }
-                    std::thread::sleep(std::time::Duration::from_millis(10));
-                }
-            }
-        };
+        let mut runtime = self.lock_runtime(cancel)?;
         if runtime.is_none() {
             *runtime = Some(Runtime::new(self.config.clone(), cancel)?);
         }

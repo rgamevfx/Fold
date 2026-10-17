@@ -185,9 +185,7 @@ impl GpuRuntime {
             .is_none_or(|w| w.identity != program.identity)
         {
             self.worker.take();
-            let binary = self
-                .compiler
-                .executable(&snapshot.canvas, &program, cancel)?;
+            let binary = self.compiler.executable(&program, cancel)?;
             self.worker = Some(Worker::start(
                 &binary,
                 program.identity,
@@ -209,6 +207,10 @@ impl GpuRuntime {
         };
         let font_identity = self.compiler.fonts.identity(fonts)?;
         let worker = self.worker.as_mut().expect("started worker");
+        let font_storage = (worker.fonts.as_ref() != Some(&font_identity))
+            // GPU workers only render: raw snapshot plus one font database.
+            .then(|| fold_media::budget::reserve_working(self.compiler.fonts.bytes * 2))
+            .transpose()?;
         let body = serialize(&Request {
             operation: protocol::Operation::Render,
             id,
@@ -257,6 +259,9 @@ impl GpuRuntime {
             Ok(frame) => {
                 worker.inflight.take(); // producer confirmed that its image was freed
                 worker.fonts = Some(font_identity);
+                if let Some(storage) = font_storage {
+                    worker.font_storage = Some(storage);
+                }
                 if let Some(storage) = resource_storage {
                     worker.image_storage = Some(storage);
                     worker.images_key = Some(image_key);
@@ -296,6 +301,7 @@ struct Worker {
     images_key: Option<crate::resources::Key>,
     identity: String,
     fonts: Option<String>,
+    font_storage: Option<Arc<fold_media::budget::Lease>>,
     input: Option<mpsc::SyncSender<Demand>>,
     process: Option<Process>,
     io: Option<JoinHandle<()>>,
@@ -382,6 +388,7 @@ impl Worker {
             cache,
             identity,
             fonts: None,
+            font_storage: None,
             image_storage: None,
             images_key: None,
             input: Some(tx),

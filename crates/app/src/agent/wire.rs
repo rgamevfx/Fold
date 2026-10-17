@@ -44,8 +44,15 @@ impl JobGuard {
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Edit {
-    Project { edits: Vec<serde_json::Value> },
-    Native { request: serde_json::Value },
+    Gallery {
+        request: fold_platform::gallery::Place,
+    },
+    Project {
+        edits: Vec<serde_json::Value>,
+    },
+    Native {
+        request: serde_json::Value,
+    },
 }
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
@@ -145,6 +152,10 @@ pub enum Command {
         guard: JobGuard,
         handle: super::jobs::Handle,
     },
+    Gallery {
+        guard: ProjectGuard,
+        request: fold_platform::gallery::Request,
+    },
     SaveProjectCopy {
         guard: ProjectGuard,
         /// Absolute destination path. Existing files are never replaced.
@@ -230,7 +241,9 @@ impl Command {
                 epoch, revision, ..
             } => Some((*epoch, *revision)),
             Self::CancelJob { guard, .. } => Some(guard.base()),
-            Self::SaveProjectCopy { guard, .. } => Some((guard.epoch, guard.base)),
+            Self::Gallery { guard, .. } | Self::SaveProjectCopy { guard, .. } => {
+                Some((guard.epoch, guard.base))
+            }
             Self::Propose { guard, .. }
             | Self::Rebase { guard, .. }
             | Self::Apply { guard, .. }

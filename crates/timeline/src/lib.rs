@@ -226,3 +226,5 @@ mod automation;
 
 mod selection_edit;
 pub use selection_edit::{EditMode, SelectionEdit};
+
+mod proposals;

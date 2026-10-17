@@ -278,6 +278,38 @@ impl Panel for TimelinePanel {
             crate::EditMode::Overwrite => fold_platform::browser::PlacementMode::Overwrite,
         };
         let placement = |entry: fold_platform::browser::Entry, track, at, new_track, audio_only| {
+            if let fold_platform::browser::Entry::Component(_, kind) = entry {
+                use fold_platform::gallery::Kind;
+                if audio_only || kind == Kind::Motion {
+                    return Err(
+                        "Use a video track for graphics, image effects and transitions".into(),
+                    );
+                }
+                if let Some(track) = track
+                    && sequence.track(track)?.locked
+                {
+                    return Err("Track is locked".into());
+                }
+                if matches!(kind, Kind::Effect | Kind::Transition) {
+                    let clip = sequence
+                        .clips
+                        .iter()
+                        .find(|c| {
+                            Some(c.track) == track
+                                && c.start <= at
+                                && c.end().is_ok_and(|end| at <= end)
+                        })
+                        .ok_or("Drop on a clip or cut")?;
+                    if kind == Kind::Transition
+                        && !sequence.clips.iter().any(|c| {
+                            c.track == clip.track && clip.end().is_ok_and(|end| c.start == end)
+                        })
+                    {
+                        return Err("Drop on a cut between adjacent clips".into());
+                    }
+                }
+                return Ok(sequence.clone());
+            }
             let source = entry.source(|id| host.default_output(id))?;
             let output = match &source {
                 fold_platform::browser::PlacementSource::Output(source) => Some(
@@ -323,26 +355,14 @@ impl Panel for TimelinePanel {
                     at,
                     new_track,
                     audio_only,
-                } => match entry.source(|id| host.default_output(id)) {
-                    Ok(source) => host.command(DesktopCommand::Browser(
-                        fold_platform::browser::BrowserCommand::Place(
-                            fold_platform::browser::Placement {
-                                graph: None,
-                                canvas_position: None,
-                                source,
-                                target: *document,
-                                track,
-                                at,
-                                source_start: fold_foundation::Time::ZERO,
-                                duration: None,
-                                audio_only,
-                                new_track,
-                                mode: placement_mode,
-                            },
-                        ),
-                    )),
-                    Err(error) => host.command(DesktopCommand::Notify(error)),
-                },
+                } => {
+                    let mut request = fold_ui::sdk::project_drop::placement(*document, at);
+                    request.track = track;
+                    request.new_track = new_track;
+                    request.audio_only = audio_only;
+                    request.mode = placement_mode;
+                    fold_ui::sdk::project_drop::place_request(host, entry, request);
+                }
                 Action::AddTransition(outgoing) => {
                     transitions::add(host, *document, sequence, outgoing, *revision)
                 }

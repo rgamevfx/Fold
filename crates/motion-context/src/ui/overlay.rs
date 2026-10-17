@@ -43,12 +43,12 @@ pub(super) fn hit(
     ) -> Option<ObjectId> {
         for id in ids.iter().rev() {
             let object = &canvas.objects[id];
-            if object.transform.opacity.at(time) <= 0. {
+            if object.opacity(time) <= 0. || object.protected || object.locked || !object.visible {
                 continue;
             }
             if let Content::Group { children, .. } = &object.content {
-                if let Some(id) = visit(canvas, transforms, children, p, time, view) {
-                    return Some(id);
+                if visit(canvas, transforms, children, p, time, view).is_some() {
+                    return Some(*id);
                 }
             }
             let Ok(inverse) = transforms[id].inverse() else {
@@ -73,6 +73,8 @@ pub(super) fn hit(
                     let (rx, ry) = (radius_x.at(time), radius_y.at(time));
                     rx > 0. && ry > 0. && (x / rx).powi(2) + (y / ry).powi(2) <= 1.
                 }
+                Content::Text { .. } => fold_motion_canvas::design::local_bounds(object, time)
+                    .is_some_and(|b| b.contains([x, y])),
                 _ => false,
             };
             if hit {

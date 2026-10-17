@@ -8,6 +8,13 @@ use std::fmt::Write;
 
 pub trait Scripts {
     fn render<'a>(&mut self, id: ObjectId, input: Context<'a>) -> Result<Svgr<'a>, String>;
+    fn animate(
+        &mut self,
+        _id: ObjectId,
+        _input: fold_motion_canvas::motion::Context<'_>,
+    ) -> Result<fold_motion_canvas::motion::Pose, String> {
+        Err("No compiled motion behavior".into())
+    }
 }
 
 /// Evaluate only this script's local output. Its authored transform and opacity
@@ -37,6 +44,7 @@ pub fn script_output<'a>(
     )?;
     let mut local = object.clone();
     local.transform = Default::default();
+    local.motion = None;
     let children = wrap(id, &local, time, output)?;
     let (width, height) = (canvas.width, canvas.height);
     let view_box = format!("0 0 {width} {height}");
@@ -75,6 +83,9 @@ fn object<'a>(
     scripts: &mut dyn Scripts,
 ) -> Result<Svgr<'a>, String> {
     let value = &canvas.objects[&id];
+    if !value.visible {
+        return Ok(Svgr::default());
+    }
     let children = match &value.content {
         Content::Image {
             asset,
@@ -116,10 +127,15 @@ fn object<'a>(
             text,
             font_family,
             size,
+            layout,
             ..
         } => {
             let size = dimension(size.at(time))?;
-            svgr!(<text font-family={font_family.clone()} font-size={size}>{text.clone()}</text>)
+            let tracking = layout.tracking;
+            fold_motion_canvas::typography::layout(text, size, layout).into_iter().map(|line| {
+                let (x,y)=(line.x,line.baseline);
+                svgr!(<text x={x} y={y} font-family={font_family.clone()} font-size={size} letter-spacing={tracking}>{line.text}</text>)
+            }).collect()
         }
         Content::Path { contours, .. } => {
             let mut path = String::new();
@@ -175,13 +191,12 @@ fn wrap<'a>(
     time: Time,
     children: Svgr<'a>,
 ) -> Result<Svgr<'a>, String> {
-    let t = &object.transform;
-    let values = [t.opacity.at(time), object.paint.stroke_width.at(time)];
+    let values = [object.opacity(time), object.paint.stroke_width.at(time)];
     if !values.iter().all(|v| v.is_finite()) {
         return Err("Motion animation produced a nonfinite value".into());
     }
     let [opacity, width] = values;
-    let [a, b, c, d, x, y] = t.affine(time)?;
+    let [a, b, c, d, x, y] = object.affine(time)?;
     let transform = format!("matrix({a} {b} {c} {d} {x} {y})");
     let (fill, fill_opacity, fill_definition) =
         paint(object.paint.fill.as_ref(), format!("fold-fill-{id}"));

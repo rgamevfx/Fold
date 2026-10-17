@@ -34,12 +34,74 @@ controls change runtime input without changing script source. **Convert to
 editable** captures supported output at an explicit time; it does not reconstruct
 the script's procedural logic or animation.
 
+Motion schema 5 adds text frames, layer visibility/locks, native transform pivots
+and prepared code motion. The canvas and layer timeline share selection and the
+existing preview/commit/cancel lifecycle. Select manipulates objects; Direct
+Selection retains ImPlot point/handle editing. Shared design geometry owns bounds,
+selection transforms, alignment and distribution; UI guides never rasterize artwork.
+Typography currently uses the packaged Noto Sans face for deterministic wrapping
+and measurements, shared with the fframes text output. Font import and rich text
+are not implemented.
+
+An `animate` scoped proposal targets an existing object ID and carries a Rust
+`Spec` with source, numeric controls and an explicit sample rate (1–480 Hz).
+Its `animate(MotionContext) -> Result<MotionPose, String>` entry may use fframes
+animation utilities. Preparation is bounded to 18,000 keys per channel, runs
+on the retained worker and stores six separate curves: position offsets in parent
+pixels, rotation offsets in degrees, and unitless scale/opacity multipliers. Ordinary
+keyframes evaluate first, then these offsets/multipliers apply around the native
+pivot. Between prepared samples evaluation is linear; values hold outside the
+sampled interval. This is sampled procedural motion, not live Rust evaluation at
+every render time. Source/control changes require atomic re-preparation; the
+inspector keeps unsubmitted changes in a draft. Playback of native artwork uses
+the native worker without compiling its retained motion source. Disabling motion
+reveals the authored/keyframed design. Text, shapes, IDs and source remain editable.
+
 There are two different curve editors:
 
 - **Canvas paths:** ImPlot provides point/handle input and guides; fframes/Skia
   renders artwork. Fold owns evaluation, coupling and transactions.
 - **Animation curves:** the shared animation editor changes values over time.
   Acceptance of canvas path editing does not qualify keyframe interaction.
+
+## Shared Gallery
+
+`app::gallery` owns the Built-in/My Library catalog and cross-document assembly.
+`platform::gallery` exposes the same requests to UI and MCP; project component
+identities specify an immutable library revision. Motion owns extraction and fresh
+native IDs. Existing placement and effect services assemble Composition and
+Timeline instances. Library I/O, previews and motion compilation run on workers.
+Previews use the existing renderer and shared GPU host.
+
+A `.foldcomponent` package stores one native Motion document or reusable image
+effect, embedded asset bytes, metadata and an optional bounded preview. My Library
+uses immutable revision files under the user data directory (`FOLD_LIBRARY_ROOT`
+can override it). Placed instances copy documents and retain their version; saving
+or importing never edits projects. Explicit updates pass the same provider guards
+and Undo transaction as placement. Unknown extension data remains opaque; the
+recognized component-origin field may change revision only within its component
+identity. Effect interface and placed graphic format changes require a new instance.
+
+MCP uses `gallery` for library operations and `propose` with edit kind `gallery`
+for placement/update, followed by candidate inspection and Apply. Motion presets
+prepare their retained Rust source against the destination through the existing
+motion service. Native properties and existing exposed controls stay editable.
+
+The ten curated fframes components are ordinary native Script documents.
+`motion-canvas::presets` owns their public inputs and control presentation metadata;
+`motion-fframes::presets` adapts these immutable inputs to the pinned upstream
+components and owns each returned SVG tree. The curated third-party source uses
+Fold's fframes revision, with no second renderer or media loader. Fonts and images
+are packaged resources; image controls resolve through the existing asset snapshot.
+Worker raster transport uses lossless deflate/base64 encoding with decoded size
+bounded by the declared dimensions and transport allowance. Pixels retain their
+explicit premultiplied encoded-sRGB interpretation; image snapshots are sent only
+on resource changes. This avoids expanding full-resolution asset bytes into large
+JSON number arrays.
+The shared inspector uses provider-declared `ParameterSources` to show the source
+provider's controls on placed containers, with exact source time and inherited locks.
+The owning Motion provider retains preview/commit/cancel state. Source edits use
+the same command as direct editing; MCP targets remain the existing stable native IDs.
 
 ## Edit and render lifecycle
 

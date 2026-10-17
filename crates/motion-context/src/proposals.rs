@@ -28,6 +28,12 @@ enum Request {
         expected: Value,
         edits: Vec<Value>,
     },
+    Animate {
+        document: DocumentId,
+        expected: Value,
+        object: ObjectId,
+        spec: fold_motion_canvas::motion::Spec,
+    },
     Capture {
         document: DocumentId,
         expected: Value,
@@ -40,7 +46,7 @@ impl ScopedProposals for Proposals {
         if self.conversion.is_none() {
             return CAPABILITY.schema();
         }
-        json!({"version":1,"request":schemars::schema_for!(Request),"authoring":catalog(),"capture":"Convert local script output to editable objects at exact time. Inspect the candidate before Apply."})
+        json!({"version":1,"request":schemars::schema_for!(Request),"authoring":catalog(),"animate":"Compile fframes Rust animate(MotionContext) -> Result<MotionPose,String> into separate sampled motion curves on an existing object. Controls and sample_rate belong to spec. Design and ordinary keys remain editable. Inspect before Apply.","capture":"Convert local script output to editable objects at exact time. Inspect the candidate before Apply."})
     }
     fn inspect(
         &self,
@@ -71,6 +77,39 @@ impl ScopedProposals for Proposals {
                     body: json!({"op":"author","document":document,"expected":expected,"edits":edits}),
                 };
                 CAPABILITY.prepare(base, &native, cancel)
+            }
+            Request::Animate {
+                document,
+                expected,
+                object,
+                spec,
+            } => {
+                let service = self.conversion.as_ref().ok_or_else(|| {
+                    Failure::new(
+                        FailureKind::Unsupported,
+                        "Motion compilation is not configured",
+                    )
+                })?;
+                let original = base
+                    .state()
+                    .documents
+                    .get(&input.scope.document)
+                    .ok_or_else(|| Failure::invalid("Missing Motion document".into()))?;
+                let DocumentInspection::Native(native) =
+                    Record::decode(original)?.source(input.scope)?
+                else {
+                    return Err(Failure::invalid("Native inspection required".into()));
+                };
+                if document != input.scope.document || expected["native"] != native["native"] {
+                    return Err(Failure::new(
+                        FailureKind::Conflict,
+                        "Expected native document differs",
+                    ));
+                }
+                let after = service
+                    .prepare_motion(original, object, spec, base, cancel)
+                    .map_err(|e| Failure::new(FailureKind::Execution, e.message))?;
+                self.prepare_change(base, input.scope, &after, cancel)
             }
             Request::Capture {
                 document,

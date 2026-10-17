@@ -280,8 +280,9 @@ impl Dispatcher {
                 })).collect::<Vec<_>>(),
                 "scoped_proposals":crate::packages::builtins().proposal_catalog(),
                 "project_authoring":{"schema":schemars::schema_for!(native::ProjectEdit),"providers":crate::packages::builtins().proposal_authoring_catalog(),"inspection":"Native provider records are under native. Project candidates inspect all changed documents before atomic Apply."},
+                "gallery":{"library":"gallery uses a project guard; save/import/export/list/inspect/preview/favorite are background library operations", "placement":"propose edit kind gallery, inspect_candidate, then Apply. Instances own copied revisions; update is explicit."},
                 "transport_support":{"linux_local_socket":cfg!(target_os = "linux"),"cli_protocol":cfg!(target_os = "linux"),"mcp_stdio":cfg!(target_os = "linux")},
-                "implemented":({ let mut methods = vec!["job_status","cancel_job","save_project_copy","observe","inspect_parameters","resolve_parameter","sample_parameter","inspect_document","inspect_candidate","propose","rebase","apply","cancel_candidate"]; if self.frames_available() { methods.push("observe_frame"); } methods }),
+                "implemented":({ let mut methods = vec!["gallery","job_status","cancel_job","save_project_copy","observe","inspect_parameters","resolve_parameter","sample_parameter","inspect_document","inspect_candidate","propose","rebase","apply","cancel_candidate"]; if self.frames_available() { methods.push("observe_frame"); } methods }),
                 "parameter_inspection":{"methods":["inspect_parameters","resolve_parameter","sample_parameter"],"providers":crate::packages::builtins().parameter_provider_types(),"path_scope":"project/document/object/occurrence/parameter as returned by inspection; names are escaped per segment","binding_scope":"Bindings belong to the target provider; discover its authoring schema","time":"placement root authored time when placement is present; otherwise target document authored time; source clocks apply once","page_limit":256,"structured_values":"discoverable but not sampled as primitives"},
                 "frame_observation":{"available":self.frames_available(),"method":"observe_frame","encoding":"rgba8_hex","max_pixels":2073600,"max_dimension":4096,"in_flight":2,"time_range":"registered output half-open duration","presentation":"shared_viewer_display","regions":true,"animation_review":{"max_frames":16,"max_total_source_pixels":2073600,"layouts":["contact_sheet","onion"],"onion":"equal_weight_display_space_average"}},
                 "unavailable":if self.frames_available() { json!({}) } else { json!({"frames":"No shared GPU host attached"}) },
@@ -302,6 +303,12 @@ impl Dispatcher {
                     jobs::Cancellation::AlreadyCommitted(_) => "already_committed",
                 };
                 Ok(json!({"state":state,"job":handle}))
+            }
+            Command::Gallery { guard: _, request } => {
+                self.submit(None, now, move |cancel| {
+                    crate::gallery::operate(&crate::gallery::storage::Store::user(), &snapshot, request, cancel)
+                        .map(workers::Output::Value).map_err(Failure::invalid)
+                })
             }
             Command::SaveProjectCopy { guard: _, path } => {
                 persistence::validate_path(&path)?;

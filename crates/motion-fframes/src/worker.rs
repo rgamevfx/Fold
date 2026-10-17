@@ -96,7 +96,74 @@ pub fn run(mut scripts: impl Scripts) -> Result<(), String> {
                 .as_ref()
                 .is_none_or(|retained| **retained != fonts)
         {
+            // Both operations may retain a database and a reference to the old
+            // raw snapshot. Retire them before publishing replacement fonts.
+            renderer.take();
+            conversion.take();
             font_data = Some(Arc::new(fonts));
+        }
+        if let Operation::Animate { object } = request.operation {
+            let result = (|| -> Result<Vec<u8>, String> {
+                request.canvas.validate()?;
+                let owner = request
+                    .canvas
+                    .objects
+                    .get(&object)
+                    .ok_or("Missing motion target")?;
+                let motion = owner
+                    .motion
+                    .as_ref()
+                    .ok_or("Missing motion specification")?;
+                let rate = motion.spec.sample_rate;
+                let count = (fold_animation::seconds(request.canvas.duration) * f64::from(rate))
+                    .ceil() as usize;
+                if count >= 18_000 {
+                    return Err(
+                        "Motion sampling exceeds 18000 keys per channel; reduce duration or sample rate"
+                            .into(),
+                    );
+                }
+                let mut curves: [fold_animation::Curve; 6] = Default::default();
+                for index in 0..=count {
+                    let time = fold_foundation::Time::new(index as i64, rate)
+                        .map_err(|e| e.to_string())?
+                        .min(request.canvas.duration);
+                    let pose = scripts.animate(
+                        object,
+                        fold_motion_canvas::motion::Context {
+                            canvas: &request.canvas,
+                            object: owner,
+                            time,
+                            controls: &motion.spec.controls,
+                        },
+                    )?;
+                    for (curve, value) in curves.iter_mut().zip(pose.values()?) {
+                        curve.insert(time, value);
+                    }
+                }
+                serde_json::to_vec(&curves).map_err(|e| e.to_string())
+            })();
+            let (body, error) = match result {
+                Ok(body) if body.len() <= protocol::MAX_REQUEST_BYTES => (body, None),
+                Ok(_) => (
+                    vec![],
+                    Some("Motion result exceeds transport allowance".into()),
+                ),
+                Err(e) => (vec![], Some(e.chars().take(2048).collect::<String>())),
+            };
+            serde_json::to_writer(
+                &mut output,
+                &CaptureResponse {
+                    id: request.id,
+                    bytes: body.len(),
+                    error,
+                },
+            )
+            .map_err(|e| e.to_string())?;
+            output.write_all(b"\n").map_err(|e| e.to_string())?;
+            output.write_all(&body).map_err(|e| e.to_string())?;
+            output.flush().map_err(|e| e.to_string())?;
+            continue;
         }
         if let Operation::Capture { object } = request.operation {
             let result = (|| -> Result<Vec<u8>, String> {

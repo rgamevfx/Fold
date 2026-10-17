@@ -29,6 +29,9 @@ impl State {
         let Some(snapshot) = host.snapshot() else {
             return;
         };
+        if self.editing && (self.edit_time != Some(time(host)) || host.state().playing) {
+            self.cancel(host);
+        }
         let desired = host.state().selection.document.filter(|id| {
             snapshot
                 .state()
@@ -135,6 +138,7 @@ impl State {
         self.composition = self.original.clone();
         self.graph_channels = self.original_channels.clone();
         self.editing = false;
+        self.edit_time = None;
         self.generation += 1;
     }
     pub fn preview(&mut self, host: &mut dyn DesktopClient) {

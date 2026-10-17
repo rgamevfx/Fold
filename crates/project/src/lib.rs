@@ -16,3 +16,5 @@ pub use model::{
 pub use persistence::{LoadError, SaveError, load, save, save_cancellable, save_new};
 
 pub mod proposals;
+
+pub mod components;

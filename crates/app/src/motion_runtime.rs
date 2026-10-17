@@ -44,7 +44,17 @@ pub(crate) fn providers() -> (fold_motion_context::package::Provider, Provider) 
         compile_timeout: Duration::from_secs(600),
         frame_timeout: Duration::from_secs(30),
     };
-    let fonts = vec![include_bytes!("../../../resources/fonts/NotoSans-Regular.ttf").to_vec()];
+    let fonts = vec![
+        include_bytes!("../../../resources/fonts/NotoSans-Regular.ttf").to_vec(),
+        include_bytes!("../../../resources/fframes-components/DMSans-Medium.ttf").to_vec(),
+        include_bytes!("../../../resources/fframes-components/Inter-Bold.ttf").to_vec(),
+        include_bytes!("../../../resources/fframes-components/Inter-Medium.ttf").to_vec(),
+        include_bytes!("../../../resources/fframes-components/Inter-Regular.ttf").to_vec(),
+        include_bytes!("../../../resources/fframes-components/Inter-SemiBold.ttf").to_vec(),
+        include_bytes!("../../../resources/fframes-components/Montserrat-Black.ttf").to_vec(),
+        include_bytes!("../../../resources/fframes-components/Montserrat-Bold.ttf").to_vec(),
+        include_bytes!("../../../resources/fframes-components/Montserrat-ExtraBold.ttf").to_vec(),
+    ];
     (
         fold_motion_context::package::Provider::new(fold_motion_context::conversion::Service::new(
             config.clone(),

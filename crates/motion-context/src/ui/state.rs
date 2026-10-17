@@ -19,6 +19,7 @@ pub(super) struct State {
     pub selected: Vec<ObjectId>,
     pub point: Option<(ObjectId, ObjectId)>,
     pub graph_group: Option<ObjectId>,
+    pub settings: Option<(Canvas, Canvas)>,
     pub editing: bool,
     pub error: String,
     pub generation: u64,
@@ -37,6 +38,7 @@ impl Default for State {
             selected: vec![],
             point: None,
             graph_group: None,
+            settings: None,
             editing: false,
             error: String::new(),
             generation: 0,
@@ -68,6 +70,20 @@ impl State {
             .filter(|n| Some(n.document) == document)
             .map_or(Time::ZERO, |n| n.time);
         let selected = host.state().selection.objects.clone();
+        self.sync_target(host, document, selected, time);
+    }
+    pub(super) fn sync_target(
+        &mut self,
+        host: &mut dyn DesktopClient,
+        document: Option<DocumentId>,
+        selected: Vec<ObjectId>,
+        time: Time,
+    ) {
+        let Some(snapshot) = host.snapshot() else {
+            self.cancel(host);
+            self.before = None;
+            return;
+        };
         let selection_changed = selected != self.selected || document != self.document;
         if selection_changed {
             self.point = None;
@@ -104,6 +120,7 @@ impl State {
         self.cancelling = false;
         if document != self.document {
             self.graph_group = None;
+            self.settings = None;
         }
         self.document = document;
         self.time = time;
@@ -138,6 +155,7 @@ impl State {
             })
         }) {
             self.graph_group = None;
+            self.settings = None;
         }
         if selection_changed {
             self.reveal_selection();
@@ -164,6 +182,30 @@ impl State {
                 self.cancelling = true;
             }
         }
+    }
+    pub fn animate(
+        &mut self,
+        host: &mut dyn DesktopClient,
+        object: ObjectId,
+        spec: fold_motion_canvas::motion::Spec,
+    ) -> Result<(), String> {
+        if self.busy() || self.editing || host.state().playing {
+            return Err("Finish the current edit and stop playback before updating motion".into());
+        }
+        let request = CommandRequest {
+            id: package::ANIMATE.into(),
+            base: self.base,
+            arguments: serde_json::to_vec(&package::AnimateArgs {
+                document: self.document.ok_or("No Motion document")?,
+                object,
+                spec,
+            })
+            .map_err(|e| e.to_string())?,
+        };
+        self.error.clear();
+        host.command(DesktopCommand::Extension(request.clone()));
+        self.pending = Some(request);
+        Ok(())
     }
     pub fn convert(
         &mut self,
@@ -249,7 +291,7 @@ impl State {
         self.pending = Some(request);
         self.editing = false;
         self.edits.clear();
-        self.sync(host);
+        self.sync_target(host, self.document, self.selected.clone(), self.time);
         Ok(())
     }
     pub fn cancel(&mut self, host: &mut dyn DesktopClient) {

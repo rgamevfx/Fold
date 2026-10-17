@@ -1,4 +1,4 @@
-use super::overlay::{View, guides, hit};
+use super::overlay::{View, guides};
 use super::state::State;
 use fold_foundation::ObjectId;
 use fold_motion_canvas::{
@@ -16,6 +16,9 @@ use fold_ui::sdk::{
 enum Tool {
     #[default]
     Select,
+    Direct,
+    Text,
+    Gradient,
     Rectangle,
     Ellipse,
     Pen,
@@ -27,10 +30,6 @@ enum Gesture {
         object: Object,
         ellipse: bool,
     },
-    Move {
-        objects: Vec<ObjectId>,
-        start: [f64; 2],
-    },
     Pen {
         id: ObjectId,
         object: Object,
@@ -39,6 +38,8 @@ enum Gesture {
 #[derive(Default)]
 pub(super) struct Viewport {
     tool: Tool,
+    design: super::design_input::DesignInput,
+    gradient: super::gradient_input::GradientInput,
     path: super::path_input::PathInput,
     gesture: Option<Gesture>,
     basis: Option<([f32; 2], [f32; 2])>,
@@ -52,6 +53,8 @@ impl Viewport {
     pub fn cancel(&mut self) {
         self.gesture = None;
         self.path.cancel();
+        self.design.cancel();
+        self.gradient.cancel();
         self.basis = None;
         self.anchor_menu = None;
     }
@@ -79,10 +82,29 @@ impl Viewport {
         let save = ui.cursor_screen_pos();
         ui.set_cursor_screen_pos(rect.canvas_origin);
         let entries = [
-            (Tool::Select, ToolbarIcon::Select, "Select (V)"),
+            (
+                Tool::Select,
+                ToolbarIcon::Select,
+                "Select (V): drag to move; corners resize; top handle rotates; Alt-drag the pivot",
+            ),
+            (
+                Tool::Direct,
+                ToolbarIcon::Move,
+                "Direct selection (A): edit path points",
+            ),
+            (
+                Tool::Text,
+                ToolbarIcon::Text,
+                "Text (T): click to create, double-click to edit",
+            ),
             (Tool::Rectangle, ToolbarIcon::Rectangle, "Rectangle (R)"),
             (Tool::Ellipse, ToolbarIcon::Ellipse, "Ellipse (E)"),
             (Tool::Pen, ToolbarIcon::Pen, "Pen (P)"),
+            (
+                Tool::Gradient,
+                ToolbarIcon::Curve,
+                "Gradient (G): drag fill gradient handles",
+            ),
         ];
         let mut chosen = None;
         let _disabled = ui.begin_disabled_with_cond(!rect.editable || state.busy());
@@ -112,6 +134,7 @@ impl Viewport {
             }
             ui.same_line();
         }
+        self.design.controls(ui);
         drop(_disabled);
         if let Some(tool) = chosen {
             state.cancel(host);
@@ -126,11 +149,11 @@ impl Viewport {
         ];
         ui.set_cursor_screen_pos(origin);
         let panning = ui.is_key_down(Key::Space);
-        if !panning && self.tool != Tool::Select {
+        if !panning && !matches!(self.tool, Tool::Select | Tool::Direct) {
             ui.invisible_button("##motion-canvas", size);
         }
         let hovered = !panning
-            && if self.tool == Tool::Select {
+            && if matches!(self.tool, Tool::Select | Tool::Direct) {
                 ui.is_window_hovered_with_flags(fold_ui::sdk::imgui::WindowHoveredFlags::ROOT_AND_CHILD_WINDOWS | fold_ui::sdk::imgui::WindowHoveredFlags::ALLOW_WHEN_BLOCKED_BY_ACTIVE_ITEM)
             } else {
                 ui.is_item_hovered()
@@ -149,11 +172,14 @@ impl Viewport {
         if focused && self.gesture.is_none() {
             for (key, tool) in [
                 (Key::V, Tool::Select),
+                (Key::A, Tool::Direct),
+                (Key::T, Tool::Text),
                 (Key::R, Tool::Rectangle),
                 (Key::E, Tool::Ellipse),
                 (Key::P, Tool::Pen),
+                (Key::G, Tool::Gradient),
             ] {
-                if ui.is_key_pressed(key) && self.tool != tool {
+                if !ui.io().key_ctrl() && ui.is_key_pressed(key) && self.tool != tool {
                     state.cancel(host);
                     self.cancel();
                     self.tool = tool;
@@ -283,7 +309,7 @@ impl Viewport {
                 }
             }
         }
-        let path_owned = if self.tool == Tool::Select && self.gesture.is_none() {
+        let path_owned = if self.tool == Tool::Direct && self.gesture.is_none() {
             match self
                 .path
                 .draw(ui, host, state, view, origin, size, !panning)
@@ -299,7 +325,32 @@ impl Viewport {
         } else {
             false
         };
-        let click = click && !path_owned;
+        if self.tool == Tool::Gradient && rect.editable && !state.busy() {
+            if let Err(error) = self.gradient.draw(ui, host, state, view, click) {
+                state.cancel(host);
+                self.gradient.cancel();
+                state.error = error;
+            }
+        }
+        self.design.text_tool = self.tool == Tool::Text;
+        let design_owned = match self.design.draw(
+            ui,
+            host,
+            state,
+            view,
+            matches!(self.tool, Tool::Select | Tool::Text) && !path_owned,
+            hovered,
+            click && !path_owned,
+        ) {
+            Ok(owned) => owned,
+            Err(error) => {
+                state.cancel(host);
+                self.design.cancel();
+                state.error = error;
+                true
+            }
+        };
+        let click = click && !path_owned && !design_owned;
         let mut finish = false;
         let mut select_after = None;
         let mut point_after = None;
@@ -410,21 +461,7 @@ impl Viewport {
                             self.gesture = Some(Gesture::Pen { id, object });
                         }
                     }
-                    Tool::Select => {
-                        let transforms = tools::transforms(&canvas, state.time)?;
-                        if let Some(id) = hit(&canvas, &transforms, position, state.time, view) {
-                            state.point = None;
-                            if !state.selected.contains(&id) {
-                                state.select(host, vec![id]);
-                            }
-                            self.gesture = Some(Gesture::Move {
-                                objects: state.selected.clone(),
-                                start: position,
-                            });
-                        } else {
-                            state.select(host, vec![]);
-                        }
-                    }
+                    Tool::Select | Tool::Text | Tool::Direct | Tool::Gradient => {}
                 }
                 self.basis = self.gesture.as_ref().map(|_| (rect.origin, rect.size));
                 self.generation = state.generation;
@@ -438,6 +475,16 @@ impl Viewport {
                         object,
                         ellipse,
                     } => {
+                        let position = if ui.io().key_shift() {
+                            let d = [position[0] - start[0], position[1] - start[1]];
+                            let side = d[0].abs().max(d[1].abs());
+                            [
+                                start[0] + side * d[0].signum(),
+                                start[1] + side * d[1].signum(),
+                            ]
+                        } else {
+                            position
+                        };
                         let left = [start[0].min(position[0]), start[1].min(position[1])];
                         let dimensions = [
                             (position[0] - start[0]).abs(),
@@ -456,6 +503,8 @@ impl Viewport {
                         } else {
                             object.transform.x.value = left[0];
                             object.transform.y.value = left[1];
+                            object.transform.anchor_x.value = dimensions[0] / 2.;
+                            object.transform.anchor_y.value = dimensions[1] / 2.;
                             if let Content::Rectangle { width, height, .. } = &mut object.content {
                                 width.value = dimensions[0];
                                 height.value = dimensions[1];
@@ -475,17 +524,6 @@ impl Viewport {
                             finish = true;
                             select_after = Some(*id);
                         }
-                    }
-                    Gesture::Move { objects, start } => {
-                        let edits = tools::translate(
-                            before,
-                            objects,
-                            state.time,
-                            [position[0] - start[0], position[1] - start[1]],
-                            host.state().auto_key,
-                        )?;
-                        state.preview(host, edits)?;
-                        finish = ui.is_mouse_released(MouseButton::Left);
                     }
                     Gesture::Pen { .. } => {}
                 }

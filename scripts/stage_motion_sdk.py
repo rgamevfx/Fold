@@ -57,6 +57,9 @@ def install_libraries(destination, artifacts, rustc, profile):
         crate = destination / "crates" / name
         inputs.append(crate / "Cargo.toml")
         inputs.extend(path for path in (crate / "src").rglob("*") if path.is_file())
+    inputs.extend(path for path in (destination / "crates/motion-fframes/components").rglob("*") if path.is_file())
+    inputs.extend(path for path in (destination / "resources/fframes-components").rglob("*") if path.is_file())
+    inputs.extend(path for path in (destination / "resources/fonts").rglob("*") if path.is_file())
     inputs.extend(path for path in (destination / "native").rglob("*") if path.is_file())
     libraries = destination / "libraries"
     libraries.mkdir()
@@ -121,6 +124,8 @@ def stage(destination, vendor=False, skia=None, ffmpeg=None, toolchain=None, pre
         target = destination / "crates" / name
         target.mkdir(parents=True)
         shutil.copytree(source / "src", target / "src")
+        if name == "motion-fframes":
+            shutil.copytree(source / "components", target / "components")
         manifest = (source / "Cargo.toml").read_text()
         # The installed compiler consumes these crates as dependencies. Do not
         # pull editor/test-only path dependencies into the production SDK.
@@ -128,6 +133,8 @@ def stage(destination, vendor=False, skia=None, ffmpeg=None, toolchain=None, pre
         (target / "Cargo.toml").write_text(manifest)
         if (source / "Cargo.lock").exists():
             shutil.copy2(source / "Cargo.lock", target / "Cargo.lock")
+    shutil.copytree(ROOT / "resources/fonts", destination / "resources/fonts")
+    shutil.copytree(ROOT / "resources/fframes-components", destination / "resources/fframes-components")
     # Resolve the production graph before recording input hashes: removing dev
     # dependencies can prune the copied lock without changing pinned versions.
     subprocess.run([
@@ -142,7 +149,7 @@ def stage(destination, vendor=False, skia=None, ffmpeg=None, toolchain=None, pre
             "--versioned-dirs", "--manifest-path",
             str(destination / "crates/motion-fframes/Cargo.toml"),
             str(destination / "vendor"),
-        ], check=True, capture_output=True, text=True, timeout=60)
+        ], check=True, capture_output=True, text=True, timeout=600)
         if not result.stdout.strip():
             raise ValueError("Cargo vendor did not emit source configuration")
         config = destination / ".cargo/config.toml"

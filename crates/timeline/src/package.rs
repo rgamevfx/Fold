@@ -65,6 +65,11 @@ impl DocumentProvider for Documents {
     fn settings_capability(&self) -> Option<&dyn fold_platform::packages::Settings> {
         Some(self)
     }
+    fn scoped_proposals_capability(
+        &self,
+    ) -> Option<&dyn fold_platform::proposals::ScopedProposals> {
+        Some(&crate::proposals::CAPABILITY)
+    }
     fn authoring_capability(&self) -> Option<&dyn fold_platform::packages::Authoring> {
         Some(self)
     }

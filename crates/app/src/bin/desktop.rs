@@ -69,6 +69,7 @@ fn main() -> std::process::ExitCode {
     }
     let mut panels = fold_ui::sdk::PanelRegistry::new(&fold_app::packages::builtins());
     if let Err(error) = fold_app::project_panel::register(&mut panels)
+        .and_then(|()| fold_app::gallery::ui::register(&mut panels))
         .and_then(|()| fold_timeline::ui::register(&mut panels))
         .and_then(|()| fold_compositor::ui::register(&mut panels))
         .and_then(|()| fold_composition::ui::register(&mut panels))

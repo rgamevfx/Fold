@@ -63,15 +63,25 @@ pub fn group(canvas: &Canvas, selection: &[ObjectId]) -> Result<(ObjectId, Vec<E
         .rposition(|id| selected.contains(id))
         .expect("selected siblings");
     let id = ObjectId::new();
+    let mut group = Object::new(
+        "Group",
+        Content::Group {
+            children: vec![],
+            extensions: Default::default(),
+        },
+    );
+    if let Some(bounds) =
+        crate::design::selection_bounds(canvas, selection, fold_foundation::Time::ZERO)?
+    {
+        let transforms = crate::tools::transforms(canvas, fold_foundation::Time::ZERO)?;
+        let space = parent.map_or(crate::tools::Transform::IDENTITY, |id| transforms[&id]);
+        let center = space.inverse()?.point(bounds.center());
+        group.transform.anchor_x.value = center[0];
+        group.transform.anchor_y.value = center[1];
+    }
     let mut edits = vec![Edit::Insert {
         id,
-        object: Box::new(Object::new(
-            "Group",
-            Content::Group {
-                children: vec![],
-                extensions: Default::default(),
-            },
-        )),
+        object: Box::new(group),
         parent,
         index: index + 1,
     }];

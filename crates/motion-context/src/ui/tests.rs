@@ -421,6 +421,9 @@ fn native_canvas_drag_previews_cancel_then_commit_one_undo_entry() {
     .into_iter()
     .enumerate()
     {
+        context
+            .io_mut()
+            .add_key_event(sdk::imgui::Key::A, frame == 1);
         context.io_mut().add_mouse_pos_event(mouse);
         context
             .io_mut()
@@ -1140,6 +1143,8 @@ fn implot_handles_preserve_length_and_respond_before_render_completion() {
         state: shared.clone(),
         sources: Default::default(),
         names: Default::default(),
+        motions: Default::default(),
+        embedded: Default::default(),
     };
     let mut state = shared.borrow_mut();
     state.sync(&mut host);
@@ -1168,14 +1173,20 @@ fn implot_handles_preserve_length_and_respond_before_render_completion() {
         size: [300., 300.],
         dimensions: [100, 100],
     };
-    for (mouse, down) in [
+    for (frame, (mouse, down)) in [
         ([500., 490.], false),
         ([500., 490.], false),
         ([125., 160.], true),
         ([155., 190.], true),
         ([155., 190.], true),
         ([155., 190.], false),
-    ] {
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        context
+            .io_mut()
+            .add_key_event(sdk::imgui::Key::A, frame == 1);
         context.io_mut().add_mouse_pos_event(mouse);
         context
             .io_mut()

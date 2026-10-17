@@ -14,6 +14,7 @@ native-video = ["gpu", "fold-render/native-video"]
 desktop = ["native-video", "spatial", "dep:rfd", "dep:fold-ui", "dep:cpal", "dep:rtrb", "fold-timeline/ui", "fold-compositor/ui", "fold-composition/ui", "fold-motion-context/ui", "fold-three-d/ui"]
 
 [dependencies]
+fold-animation.workspace = true
 fold-graph.workspace = true
 schemars.workspace = true
 sha2 = "0.10"
@@ -63,7 +64,6 @@ required-features = ["desktop"]
 workspace = true
 
 [dev-dependencies]
-fold-animation.workspace = true
 exr = { version = "=1.74.2", default-features = false }
 
 [build-dependencies]

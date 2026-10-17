@@ -672,6 +672,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "fframes-components"
+version = "0.1.0"
+dependencies = [
+ "fframes",
+ "ttf-parser 0.25.1",
+]
+
+[[package]]
 name = "fframes-media"
 version = "1.2.0"
 source = "git+https://github.com/dmtrKovalenko/fframes?rev=b644f22cf5be2333e7098caf7ec064c3d36aeb02#b644f22cf5be2333e7098caf7ec064c3d36aeb02"
@@ -826,10 +834,13 @@ dependencies = [
 name = "fold-motion-canvas"
 version = "0.1.0"
 dependencies = [
+ "base64 0.23.1",
+ "flate2",
  "fold-animation",
  "fold-foundation",
  "fold-graph",
  "fold-project",
+ "rustybuzz",
  "schemars",
  "serde",
  "serde_json",
@@ -843,7 +854,9 @@ dependencies = [
  "ash",
  "bytemuck",
  "fframes",
+ "fframes-components",
  "fframes_skia_renderer",
+ "fold-animation",
  "fold-foundation",
  "fold-gpu-sharing",
  "fold-graph",
@@ -891,6 +904,7 @@ dependencies = [
  "fold-gpu-sharing",
  "fold-media",
  "fold-native-video",
+ "fold-rife",
  "half",
  "lyon_tessellation",
  "naga",
@@ -899,6 +913,17 @@ dependencies = [
  "serde_json",
  "sha2",
  "tiny-skia",
+ "wgpu",
+]
+
+[[package]]
+name = "fold-rife"
+version = "0.1.0"
+dependencies = [
+ "ash",
+ "fold-foundation",
+ "libloading",
+ "sha2",
  "wgpu",
 ]
 
