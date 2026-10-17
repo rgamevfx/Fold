@@ -31,6 +31,7 @@ fn run() -> Result<(), Box<dyn Error>> {
         std::io::stdout().write_all(&response)?;
         return Ok(());
     }
+    fold_platform::color::validate_runtime()?;
     if args.first().is_some_and(|arg| arg == "color-config") {
         if args.len() != 3 {
             return Err(

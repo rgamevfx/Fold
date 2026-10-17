@@ -12,13 +12,14 @@ sudo apt-get install -y build-essential cmake ninja-build pkg-config libasound2-
 cargo build -p fold-app --bin fold-desktop --release --features desktop --locked
 ```
 
-The executable build alone does not install the color/RIFE runtimes or Motion SDK.
-Color-managed rendering needs the private runtime. Build it with the exact
-compiler/CMake versions in [toolchain.json](../resources/color/toolchain.json):
+Cargo automatically builds and caches the pinned OpenColorIO runtime and ACES
+configuration. The first build downloads native sources and needs the tools above;
+subsequent builds reuse the cache in the Cargo profile directory. No color runtime
+environment variables are needed. The native producer accepts a C++17 compiler and
+CMake compatible with OCIO 2.4.2; it records their versions rather than requiring
+one Ubuntu toolchain. Native cross-compilation is not supported yet.
 
-```sh
-python3 scripts/build_color_runtime.py /absolute/build-dir /absolute/new-color-package
-```
+The executable build alone does not install the RIFE runtime or Motion SDK.
 
 Retime's RIFE mode needs the pinned ncnn/Vulkan runtime and v4.6 model. Its producer
 requires Vulkan headers, CMake, Ninja and Git; it fetches pinned upstream sources:
@@ -53,10 +54,9 @@ These paths are placeholders for real inputs, not downloadable artifact names.
 See each producer's `--help` for its current interface. Source-only SDK staging
 is not sufficient for runtime rendering. Use a new absolute destination.
 
-Launch the built desktop with the prepared runtime and SDK:
+Launch the built desktop with the prepared RIFE runtime and Motion SDK:
 
 ```sh
-FOLD_COLOR_ROOT=/absolute/new-color-package \
 FOLD_RIFE_ROOT=/absolute/rife-package \
 FOLD_MOTION_BRIDGE=/absolute/new-sdk/crates/motion-fframes \
   target/release/fold-desktop --protocol-dir /tmp/fold-review
@@ -85,6 +85,10 @@ python3 scripts/package_fold.py /absolute/build-dir /absolute/new-package-dir \
 Use absolute paths and a package directory that does not exist. Packaged runtime
 paths resolve relative to the executable. Do not globally add the package's
 minimal FFmpeg libraries to `LD_LIBRARY_PATH`; they can override system FFmpeg.
+The color libraries and configuration are bundled and located relative to the
+executable. Desktop startup validates the default ACES view before opening.
+`FOLD_COLOR_ROOT` remains an optional developer override. Copy the complete
+package when installing, not just the executable.
 Relocation, GPU and artist acceptance require separate checks; a producer pass
 alone is not package acceptance.
 

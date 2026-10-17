@@ -55,3 +55,15 @@ pub fn runtime() -> Result<fold_color::Runtime, String> {
         None => fold_color::Runtime::installed(),
     }
 }
+
+/// Run before entering the desktop event loop; validates the default ACES view.
+pub fn validate_runtime() -> Result<(), String> {
+    (|| {
+        let config = runtime()?.bundled()?;
+        let processor = config.display(WORKING_SPACE, &DisplayTransform::default())?;
+        processor.apply(&mut [[0.18, 0.18, 0.18, 1.0]])
+    })()
+    .map_err(|error| format!(
+        "Cannot initialize Fold color processing: {error}. Restore the complete Fold installation or rebuild the checkout."
+    ))
+}

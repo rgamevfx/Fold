@@ -29,7 +29,7 @@ jobs:
       - name: Install Linux build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake pkg-config libasound2-dev ffmpeg
+          sudo apt-get install -y build-essential cmake ninja-build pkg-config libasound2-dev ffmpeg
       - run: python3 -m unittest discover -s scripts -p 'test_*.py'
       - run: python3 scripts/check_boundaries.py
       - run: python3 scripts/check_proposal_ownership.py

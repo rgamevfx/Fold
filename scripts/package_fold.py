@@ -3,7 +3,7 @@
 
 Usage: python3 scripts/package_fold.py BUILD PACKAGE --motion-skia ARCHIVE
        --motion-ffmpeg ARCHIVE --motion-toolchain SYSROOT
-Uses the locked Cargo graph and the pinned native compiler/CMake versions.
+Uses the locked Cargo graph and pinned native dependency sources.
 Includes the Motion SDK and isolated LGPL-only native-video helper/runtime. The separate FFmpeg
 executable, NVIDIA driver (for native decode), Vulkan, audio and system C/C++
 libraries remain declared OS prerequisites.
@@ -17,6 +17,7 @@ import shutil
 import subprocess
 import sys
 from stage_motion_sdk import stage as stage_motion_sdk
+from build_color_runtime import ensure as ensure_color
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -47,7 +48,9 @@ def main():
     if not all(path.is_file() for path in (args.motion_skia, args.motion_ffmpeg,
         args.motion_toolchain / "bin/cargo", args.motion_toolchain / "bin/rustc")):
         raise SystemExit("Motion native archives and compiler toolchain must exist")
-    subprocess.run([sys.executable, str(ROOT / "scripts/build_color_runtime.py"), str(build), str(package)], check=True, timeout=3600)
+    metadata = json.loads(subprocess.check_output(["cargo", "metadata", "--no-deps", "--format-version", "1", "--locked"], cwd=ROOT))
+    binary = Path(metadata["target_directory"]) / "release"
+    shutil.copytree(ensure_color(binary / "fold-color"), package)
     subprocess.run([sys.executable, str(ROOT / "scripts/build_rife_runtime.py"),
                     "--work", str(build / "rife-build"), "--prefix", str(package)],
                    check=True, timeout=3600)
@@ -60,8 +63,6 @@ def main():
     subprocess.run(["cargo", "build", "--locked", "--release", "-p", "fold-app", "--features", "desktop", "--bins"], cwd=ROOT,
                    env=dict(os.environ, FOLD_MOTION_SDK_RELATIVE="../share/fold/motion-sdk/crates/motion-fframes"),
                    check=True, timeout=1800)
-    metadata = json.loads(subprocess.check_output(["cargo", "metadata", "--no-deps", "--format-version", "1", "--locked"], cwd=ROOT))
-    binary = Path(metadata["target_directory"]) / "release"
     (package / "bin").mkdir()
     manifest_path = package / "share/fold/color/manifest.json"
     manifest = json.loads(manifest_path.read_text())

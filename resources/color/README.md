@@ -12,16 +12,20 @@ using an unpinned runtime.
 - The native packaging script also copies dependency licenses and the bundled
   xxHash/sampleicc licensed headers from the exact OCIO build sources.
 
-Build the private Linux runtime outside the repository:
+Cargo prepares and caches the private Linux runtime automatically. To produce a
+standalone runtime package for development:
 
 ```sh
 python3 scripts/build_color_runtime.py /absolute/build-dir /absolute/package-dir
 ```
 
 The script verifies the OCIO source archive SHA-256, builds the dependencies
-selected by that source tree (not the system OCIO), enforces compiler/CMake
-versions from `toolchain.json`, and writes a content-hashed package manifest.
-This pins the native tool versions, not a hermetic OS/container image.
+selected by that source tree (not the system OCIO), and writes a content-hashed
+package manifest recording the compiler/CMake versions actually used.
+`toolchain.json` records the original reference environment; it is not a build
+requirement. Cargo caches by producer, bridge, resource and toolchain identity;
+cache reuse verifies all packaged file hashes. Packages are published only after
+a successful build, with a lock serializing concurrent producers.
 
 For the complete desktop/CLI package, use the [development guide](../../docs/development.md#package).
 The packager records compiler/source/binary identities. Platform graphics/audio
@@ -38,7 +42,10 @@ share/fold/color/{config.ocio,manifest.json,*LICENSE,third-party/}
 ```
 
 The private bridge uses `$ORIGIN` RPATH. Rust resolves this layout from its
-executable (or an explicit absolute root), never CWD or `$OCIO`. External configs
+executable (or an explicit absolute root), never CWD or `$OCIO`. Executables
+running inside their original Cargo profile directory use the automatically
+prepared build cache. Relocated executables require the complete package; they
+never fall back to a developer machine’s cache. External configs
 must be self-contained directories with relative resource paths, no environment
 variables or symlinks, at most 4096 entries / 32 levels / 64 MiB. They are copied
 to worker-owned temporary storage and content-hashed before OCIO opens them.

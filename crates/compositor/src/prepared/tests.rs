@@ -40,11 +40,17 @@ fn consumers_share_one_decode_per_record_and_stable_indexes() {
         .insert("color.0".into(), curve)
         .unwrap();
     let before = serde_json::to_vec(&native).unwrap();
+    // Operators such as Retime contribute their own default animation tracks.
+    let expected_channel_bindings = native
+        .nodes
+        .iter()
+        .map(|node| node.animation.bindings().len())
+        .sum::<usize>();
     crate::operation::DECODES.with(|count| count.set(0));
     let prepared = native.prepare().unwrap();
     let counters = prepared.counters();
     assert_eq!(counters.decoded_records, native.nodes.len());
-    assert_eq!(counters.decoded_channel_bindings, 1);
+    assert_eq!(counters.decoded_channel_bindings, expected_channel_bindings);
     assert_eq!(prepared.render_order().unwrap().len(), 2);
     for node in prepared.nodes() {
         assert_eq!(prepared.node(node.id).unwrap().config(), node.config());

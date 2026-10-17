@@ -68,7 +68,22 @@ impl Runtime {
             .parent()
             .and_then(Path::parent)
             .ok_or("invalid executable location")?;
-        Self::at(root)
+        // Only executables in this Cargo output tree may use its build cache.
+        // Relocated installations must carry their own runtime beside bin/.
+        let profile = Path::new(env!("FOLD_COLOR_PROFILE"));
+        let parent = executable.parent().ok_or("invalid executable location")?;
+        let checkout = parent == profile
+            || parent == profile.join("deps")
+            || parent == profile.join("examples");
+        let root = if checkout {
+            Path::new(env!("FOLD_BUILT_COLOR_ROOT"))
+        } else {
+            root
+        };
+        Self::at(root).map_err(|error| format!(
+            "Fold's required color runtime is missing or invalid at {}: {error}. Restore the complete Fold installation, or rebuild the checkout with Cargo.",
+            root.display()
+        ))
     }
     pub fn at(root: &Path) -> Result<Self, String> {
         if !root.is_absolute() {

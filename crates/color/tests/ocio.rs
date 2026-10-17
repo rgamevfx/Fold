@@ -1,12 +1,59 @@
 use fold_color::{DisplayTransform, Runtime, WORKING_SPACE};
-use std::{fs, path::PathBuf};
+use std::fs;
 
 fn runtime() -> Runtime {
-    Runtime::at(&PathBuf::from(
-        std::env::var_os("FOLD_TEST_COLOR_ROOT")
-            .expect("set FOLD_TEST_COLOR_ROOT to the built package"),
-    ))
-    .unwrap()
+    Runtime::installed().unwrap()
+}
+
+#[test]
+fn installed_runtime_probe() {
+    let config = runtime().bundled().unwrap();
+    let processor = config.display(WORKING_SPACE, &Default::default()).unwrap();
+    let mut pixels = [[0.18, 0.18, 0.18, 1.0]];
+    processor.apply(&mut pixels).unwrap();
+    assert!((pixels[0][0] - 0.3559523).abs() < 0.0002);
+}
+
+#[test]
+fn relocated_package_works_without_build_cache_or_environment() {
+    let directory = tempfile::tempdir().unwrap();
+    let package = directory.path().join("relocated");
+    let bin = package.join("bin");
+    fs::create_dir_all(&bin).unwrap();
+    let executable = bin.join("color-probe");
+    fs::copy(std::env::current_exe().unwrap(), &executable).unwrap();
+    for name in [
+        "lib/fold/libfold_ocio.so",
+        "lib/fold/libOpenColorIO.so.2.4",
+        "share/fold/color/config.ocio",
+    ] {
+        let target = package.join(name);
+        fs::create_dir_all(target.parent().unwrap()).unwrap();
+        fs::copy(
+            std::path::Path::new(env!("FOLD_BUILT_COLOR_ROOT")).join(name),
+            target,
+        )
+        .unwrap();
+    }
+    let probe = || {
+        std::process::Command::new(&executable)
+            .args(["--exact", "installed_runtime_probe", "--nocapture"])
+            .env_remove("FOLD_COLOR_ROOT")
+            .env_remove("FOLD_TEST_COLOR_ROOT")
+            .env_remove("LD_LIBRARY_PATH")
+            .env("OCIO", "/nonexistent/config.ocio")
+            .current_dir(directory.path())
+            .output()
+            .unwrap()
+    };
+    let output = probe();
+    assert!(output.status.success(), "{output:?}");
+    fs::remove_file(package.join("lib/fold/libfold_ocio.so")).unwrap();
+    let output = probe();
+    assert!(!output.status.success());
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("Restore the complete Fold installation")
+    );
 }
 
 #[test]
@@ -20,7 +67,6 @@ fn missing_runtime_is_not_a_silent_fallback() {
 }
 
 #[test]
-#[ignore = "requires the privately built OCIO package; set FOLD_TEST_COLOR_ROOT"]
 fn bundled_cpu_reference_hdr_alpha_and_catalog() {
     let runtime = runtime();
     let config = runtime.bundled().unwrap();
@@ -80,7 +126,6 @@ fn bundled_cpu_reference_hdr_alpha_and_catalog() {
 const EXTERNAL: &str = "ocio_profile_version: 2\nsearch_path: .\nroles:\n  default: linear\n  scene_linear: linear\nfile_rules:\n  - !<Rule> {name: Default, colorspace: linear}\ndisplays:\n  Test:\n    - !<View> {name: Raw, colorspace: output}\ncolorspaces:\n  - !<ColorSpace>\n    name: linear\n    family: test\n    bitdepth: 32f\n    isdata: false\n    allocation: uniform\n  - !<ColorSpace>\n    name: output\n    family: test\n    bitdepth: 32f\n    isdata: false\n    allocation: uniform\n    from_scene_reference: !<FileTransform> {src: test.spi1d, interpolation: linear}\n";
 
 #[test]
-#[ignore = "requires the privately built OCIO package; set FOLD_TEST_COLOR_ROOT"]
 fn external_resources_are_pinned_content_identified_and_fail_closed() {
     let runtime = runtime();
     let root = tempfile::tempdir().unwrap();

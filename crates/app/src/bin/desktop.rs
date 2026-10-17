@@ -1,6 +1,10 @@
 //! Desktop assembly. All I/O, decode, and export execute on worker threads.
 use fold_platform::desktop::{DesktopClient, DesktopCommand};
 fn main() -> std::process::ExitCode {
+    if let Err(error) = fold_platform::color::validate_runtime() {
+        eprintln!("Cannot start Fold: {error}");
+        return std::process::ExitCode::FAILURE;
+    }
     let mut session = fold_app::session::Session::default();
     let mut args: Vec<_> = std::env::args_os().skip(1).collect();
     if args.first().is_some_and(|arg| arg == "--protocol-dir") {
