@@ -7,6 +7,10 @@ Skia's existing float attributes. It changes no surface format or blending rule.
 
 ## Build
 
+Normal Cargo and package builds acquire and prepare these inputs automatically
+through `scripts/prepare_runtimes.py`. The following commands are for maintaining
+the native producer or changing its pinned inputs.
+
 Get the source archive from
 [rust-skia m153-0.101.2](https://codeload.github.com/rust-skia/skia/tar.gz/refs/tags/m153-0.101.2).
 The builder verifies SHA-256

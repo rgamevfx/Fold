@@ -27,6 +27,19 @@ def run(*args):
     subprocess.run(args, check=True, timeout=1800)
 
 
+def prepare_yaml_patch(source):
+    module = source / "share/cmake/modules/install/Installyaml-cpp.cmake"
+    text = module.read_text()
+    marker = "        ExternalProject_Add(yaml-cpp_install\n"
+    patch = ('            PATCH_COMMAND ${CMAKE_COMMAND} -DSOURCE_DIR=<SOURCE_DIR> -P '
+             f'"{ROOT / "resources/color/patch-yaml-cpp.cmake"}"\n')
+    if patch in text:
+        return
+    if text.count(marker) != 1:
+        raise RuntimeError("Unexpected OCIO yaml-cpp build module; review the header backport")
+    module.write_text(text.replace(marker, marker + patch))
+
+
 def produce(build_dir, package):
     build_dir.mkdir(parents=True, exist_ok=True)
     archive = build_dir / "ocio-2.4.2.tar.gz"
@@ -44,6 +57,7 @@ def produce(build_dir, package):
     if not source.exists():
         with tarfile.open(archive) as tar:
             tar.extractall(build_dir, filter="data")
+    prepare_yaml_patch(source)
     install = build_dir / "install"
     build = build_dir / "build"
     run("cmake", "-S", str(source), "-B", str(build), "-G", "Ninja",

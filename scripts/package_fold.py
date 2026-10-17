@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Build a relocatable Linux reference package, including desktop, CLI and OCIO.
 
-Usage: python3 scripts/package_fold.py BUILD PACKAGE --motion-skia ARCHIVE
-       --motion-ffmpeg ARCHIVE --motion-toolchain SYSROOT
+Usage: python3 scripts/package_fold.py BUILD PACKAGE
 Uses the locked Cargo graph and pinned native dependency sources.
 Includes the Motion SDK and isolated LGPL-only native-video helper/runtime. The separate FFmpeg
 executable, NVIDIA driver (for native decode), Vulkan, audio and system C/C++
@@ -16,7 +15,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
-from stage_motion_sdk import stage as stage_motion_sdk
+from prepare_runtimes import ensure_motion, ensure_rife
 from build_color_runtime import ensure as ensure_color
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -34,34 +33,33 @@ def crate_sources(root):
     return sorted(sources)
 
 
+def stage_runtimes(package, profile):
+    """The installed layout uses the exact same producers as checkout builds."""
+    cache = profile.parent / "fold-runtime-cache"
+    shutil.copytree(ensure_color(profile / "fold-color"), package)
+    rife = ensure_rife(cache)
+    for directory in ("lib", "share"):
+        shutil.copytree(rife / directory, package / directory, dirs_exist_ok=True)
+    shutil.copytree(ensure_motion(cache), package / "share/fold/motion-sdk")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("build", type=Path)
     parser.add_argument("package", type=Path)
-    parser.add_argument("--motion-skia", type=Path, required=True)
-    parser.add_argument("--motion-ffmpeg", type=Path, required=True)
-    parser.add_argument("--motion-toolchain", type=Path, required=True)
     args = parser.parse_args()
     build, package = args.build, args.package
     if not build.is_absolute() or not package.is_absolute() or package.exists():
         raise SystemExit("absolute build path and a new absolute package path required")
-    if not all(path.is_file() for path in (args.motion_skia, args.motion_ffmpeg,
-        args.motion_toolchain / "bin/cargo", args.motion_toolchain / "bin/rustc")):
-        raise SystemExit("Motion native archives and compiler toolchain must exist")
     metadata = json.loads(subprocess.check_output(["cargo", "metadata", "--no-deps", "--format-version", "1", "--locked"], cwd=ROOT))
     binary = Path(metadata["target_directory"]) / "release"
-    shutil.copytree(ensure_color(binary / "fold-color"), package)
-    subprocess.run([sys.executable, str(ROOT / "scripts/build_rife_runtime.py"),
-                    "--work", str(build / "rife-build"), "--prefix", str(package)],
-                   check=True, timeout=3600)
+    stage_runtimes(package, binary)
     sdk = package / "share/fold/motion-sdk"
-    stage_motion_sdk(sdk, precompile=True, vendor=True, skia=args.motion_skia,
-                     ffmpeg=args.motion_ffmpeg, toolchain=args.motion_toolchain)
     video_root = build / "video-runtime"
     subprocess.run([sys.executable, str(ROOT / "scripts/build_video_runtime.py"), "--work", str(build / "video-build"), "--prefix", str(video_root)], check=True, timeout=1800)
     subprocess.run(["cargo", "build", "--locked", "--release", "-p", "fold-native-video", "--features", "helper", "--bin", "fold-video-helper"], cwd=ROOT, env=dict(os.environ, FOLD_VIDEO_ROOT=str(video_root)), check=True, timeout=1800)
     subprocess.run(["cargo", "build", "--locked", "--release", "-p", "fold-app", "--features", "desktop", "--bins"], cwd=ROOT,
-                   env=dict(os.environ, FOLD_MOTION_SDK_RELATIVE="../share/fold/motion-sdk/crates/motion-fframes"),
+                   env=os.environ.copy(),
                    check=True, timeout=1800)
     (package / "bin").mkdir()
     manifest_path = package / "share/fold/color/manifest.json"
@@ -71,7 +69,7 @@ def main():
     for name, digest in sdk_manifest["files"].items():
         manifest["files"][f"share/fold/motion-sdk/{name}"] = digest
     manifest["files"]["share/fold/motion-sdk/sources.json"] = hashlib.sha256((sdk / "sources.json").read_bytes()).hexdigest()
-    for name in ("fold-cli", "fold-desktop", "fold-video-helper"):
+    for name in ("fold-cli", "fold-desktop", "fold-video-helper", "fold-runtime-check"):
         shutil.copy2(binary / name, package / "bin" / name)
         manifest["files"][f"bin/{name}"] = hashlib.sha256((package / "bin" / name).read_bytes()).hexdigest()
     for pattern in ("libavcodec.so*", "libavformat.so*", "libavutil.so*"):

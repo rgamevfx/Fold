@@ -3,6 +3,7 @@ import hashlib
 import json
 from pathlib import Path
 import tempfile
+import subprocess
 import unittest
 from unittest.mock import patch
 
@@ -21,6 +22,19 @@ def fake_produce(_build, package):
 
 
 class ColorCacheTests(unittest.TestCase):
+    def test_yaml_header_backport_is_idempotent(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "src"
+            source.mkdir()
+            emitter = source / "emitterutils.cpp"
+            emitter.write_text("#include <algorithm>\nint main() { uint16_t value = 0; return value; }\n")
+            for _ in range(2):
+                subprocess.run(["cmake", f"-DSOURCE_DIR={root}", "-P",
+                    str(color.ROOT / "resources/color/patch-yaml-cpp.cmake")], check=True)
+            self.assertEqual(emitter.read_text().count("#include <cstdint>"), 1)
+            subprocess.run(["c++", "-std=c++17", "-fsyntax-only", str(emitter)], check=True)
+
     def test_reuse_corruption_and_input_change(self):
         with tempfile.TemporaryDirectory() as directory, \
                 patch.object(color, "fingerprint", return_value="first") as identity, \

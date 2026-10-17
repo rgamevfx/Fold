@@ -1,5 +1,29 @@
 # Current work: Motion, 3D and Compositing replacement
 
+## Reproducible native runtime setup
+
+Cargo and packaging now share automatic Motion/RIFE producers with pinned inputs,
+verified caches and atomic publication. Motion stages its matching Rust compiler,
+linker and native link inputs; relocated applications resolve the installed SDK.
+OCIO's pinned yaml-cpp receives the upstream missing `<cstdint>` fix during setup.
+See [development](development.md) for build prerequisites and package validation.
+
+- [x] Automatic native setup and installed discovery without environment overrides.
+- [x] Cache recovery, nested build isolation and YAML header regression checks (28 Python tests).
+- [x] Workspace check/Clippy, 673 passing tests (120 existing ignored), and optimized isolated runtime acceptance.
+- [ ] Qualify Motion/RIFE on a second machine and other GPU vendors.
+- [ ] Exercise the yaml-cpp backport on the reported GCC 16.2.1 toolchain (local build uses GCC 13.3).
+
+`fold-runtime-check` exercises ACES, native Motion pixels, fresh animation script
+compilation, and fractional HDR RIFE inference. The isolation runner hides the
+checkout, build caches and system compiler tools and disables networking. These
+checks do not replace native artist acceptance or cross-driver qualification.
+The relocated runtime bundle passed on Pop!_OS 24.04 / NVIDIA GTX 1070 with no
+checkout, host compiler tools, network or warm user cache. This run staged the
+shared runtime producers and optimized acceptance binary; the full desktop and
+native-video package assembly was not repeated. See the
+[qualification evidence](../resources/motion-context/runtime-portability-evidence.json).
+
 ## Curated fframes Gallery presets
 
 Implemented the ten selected components from fframes-components revision

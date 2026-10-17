@@ -6,7 +6,7 @@ use fold_motion_context::{
 };
 use std::{path::PathBuf, time::Duration};
 
-pub(crate) fn providers() -> (fold_motion_context::package::Provider, Provider) {
+pub(crate) fn configuration() -> Config {
     let cache = std::env::var_os("FOLD_MOTION_CACHE")
         .map(PathBuf::from)
         .unwrap_or_else(|| {
@@ -19,31 +19,36 @@ pub(crate) fn providers() -> (fold_motion_context::package::Provider, Provider) 
     let bridge = std::env::var_os("FOLD_MOTION_BRIDGE")
         .map(PathBuf::from)
         .unwrap_or_else(|| {
-            if let Some(relative) = option_env!("FOLD_MOTION_SDK_RELATIVE") {
-                std::env::current_exe()
-                    .expect("Resolve the installed Motion SDK from the application executable")
-                    .parent()
-                    .expect("Application executable has a parent directory")
-                    .join(relative)
+            let executable = std::env::current_exe().expect("Motion executable location");
+            let parent = executable.parent().expect("Motion executable directory");
+            let profile = std::path::Path::new(env!("FOLD_MOTION_PROFILE"));
+            let root = if parent == profile
+                || parent == profile.join("deps")
+                || parent == profile.join("examples")
+            {
+                PathBuf::from(env!("FOLD_BUILT_MOTION_ROOT"))
             } else {
-                cache.join("sdk/crates/motion-fframes")
-            }
+                parent.join("../share/fold/motion-sdk")
+            };
+            root.join("crates/motion-fframes")
         });
     let tools = bridge
         .parent()
         .and_then(std::path::Path::parent)
         .expect("Motion SDK has a root directory")
         .join("toolchain/bin");
-    let config = Config {
+    Config {
         bridge,
         cache,
-        rustc: std::env::var_os("RUSTC")
-            .map(PathBuf::from)
-            .unwrap_or_else(|| tools.join("rustc")),
+        rustc: tools.join("rustc"),
         profile: Profile::Release,
         compile_timeout: Duration::from_secs(600),
         frame_timeout: Duration::from_secs(30),
-    };
+    }
+}
+
+pub(crate) fn providers() -> (fold_motion_context::package::Provider, Provider) {
+    let config = configuration();
     let fonts = vec![
         include_bytes!("../../../resources/fonts/NotoSans-Regular.ttf").to_vec(),
         include_bytes!("../../../resources/fframes-components/DMSans-Medium.ttf").to_vec(),

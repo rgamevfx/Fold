@@ -12,7 +12,7 @@ concurrency:
 jobs:
   checks:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 180
     env:
       CARGO_BUILD_JOBS: 2
       CARGO_INCREMENTAL: 0
@@ -29,7 +29,12 @@ jobs:
       - name: Install Linux build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake ninja-build pkg-config libasound2-dev ffmpeg
+          sudo apt-get install -y build-essential cmake ninja-build pkg-config clang libclang-dev patch libasound2-dev libvulkan-dev libfontconfig1-dev libfreetype6-dev libegl1-mesa-dev libgl1-mesa-dev ffmpeg
+      - uses: actions/cache@v4
+        with:
+          path: target/fold-runtime-cache
+          key: native-${{ runner.os }}-${{ hashFiles('scripts/*', 'resources/motion-context/runtime-inputs.json', 'resources/motion-context/skia-color-precision.patch', 'crates/motion-fframes/Cargo.lock', 'Cargo.lock') }}
+          restore-keys: native-${{ runner.os }}-
       - run: python3 -m unittest discover -s scripts -p 'test_*.py'
       - run: python3 scripts/check_boundaries.py
       - run: python3 scripts/check_proposal_ownership.py

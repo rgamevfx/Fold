@@ -117,7 +117,9 @@ explicit color/alpha contracts and resource ownership.
 
 Motion retains workers and compiled scripts. The precompiled SDK supplies the
 native-only worker and libraries; authored source compiles with its bundled
-`rustc`, not runtime Cargo. GPU sharing avoids CPU pixel transport at qualified
+`rustc` and linker, not runtime Cargo or a host development toolchain. Cargo
+and the package producer prepare the same pinned native-runtime caches; installed
+paths resolve relative to the executable. GPU sharing avoids CPU pixel transport at qualified
 seams. Display observations include a display transform and are not HDR/alpha
 exports. See [development](development.md) for SDK setup.
 

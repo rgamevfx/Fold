@@ -14,6 +14,8 @@ import subprocess
 import os
 import tempfile
 import tarfile
+from runtime_cache import build_environment
+from motion_linker import stage_linker, linker_args
 
 ROOT = Path(__file__).resolve().parents[1]
 CRATES = ("motion-fframes", "motion-canvas", "gpu-sharing", "graph",
@@ -61,6 +63,8 @@ def install_libraries(destination, artifacts, rustc, profile):
     inputs.extend(path for path in (destination / "resources/fframes-components").rglob("*") if path.is_file())
     inputs.extend(path for path in (destination / "resources/fonts").rglob("*") if path.is_file())
     inputs.extend(path for path in (destination / "native").rglob("*") if path.is_file())
+    inputs.extend(path for path in (destination / "link").rglob("*") if path.is_file())
+    inputs.append(destination / "toolchain/lib/rustlib/x86_64-unknown-linux-gnu/bin/rust-lld")
     libraries = destination / "libraries"
     libraries.mkdir()
     files = {}
@@ -80,7 +84,8 @@ def install_libraries(destination, artifacts, rustc, profile):
                "-L", f"dependency={libraries}", "-o", str(libraries / native_worker)]
     for name, file in externs.items():
         command.extend(["--extern", f"{name}={libraries / file}"])
-    subprocess.run(command, check=True, timeout=600)
+    command.extend(linker_args(destination))
+    subprocess.run(command, check=True, timeout=600, env=build_environment())
     files[native_worker] = digest(libraries / native_worker)
     (libraries / "manifest.json").write_text(json.dumps({
         "version": 2, "profile": profile, "native_worker": native_worker,
@@ -142,14 +147,14 @@ def stage(destination, vendor=False, skia=None, ffmpeg=None, toolchain=None, pre
         str(destination / "crates/motion-fframes/Cargo.toml"),
         "--offline", "--filter-platform", "x86_64-unknown-linux-gnu",
         "--format-version", "1",
-    ], check=True, stdout=subprocess.DEVNULL, timeout=60)
+    ], check=True, stdout=subprocess.DEVNULL, timeout=60, env=build_environment())
     if vendor:
         result = subprocess.run([
             "cargo", "vendor", "--offline", "--locked",
             "--versioned-dirs", "--manifest-path",
             str(destination / "crates/motion-fframes/Cargo.toml"),
             str(destination / "vendor"),
-        ], check=True, capture_output=True, text=True, timeout=600)
+        ], check=True, capture_output=True, text=True, timeout=600, env=build_environment())
         if not result.stdout.strip():
             raise ValueError("Cargo vendor did not emit source configuration")
         config = destination / ".cargo/config.toml"
@@ -172,6 +177,7 @@ def stage(destination, vendor=False, skia=None, ffmpeg=None, toolchain=None, pre
         for name in ("COPYRIGHT.html", "COPYRIGHT-library.html"):
             shutil.copy2(notices / name, target / "licenses" / name)
     if precompile:
+        stage_linker(destination)
         rustc = destination / "toolchain/bin/rustc"
         with tempfile.TemporaryDirectory(prefix="fold-sdk-dependencies-") as working:
             target = Path(working) / "target"
@@ -180,7 +186,7 @@ def stage(destination, vendor=False, skia=None, ffmpeg=None, toolchain=None, pre
                 "--offline", "--locked", "--config", str(destination / ".cargo/config.toml"),
                 "--manifest-path", str(destination / "crates/motion-fframes/Cargo.toml"),
                 "--target-dir", str(target),
-            ], env=dict(os.environ, RUSTC=str(rustc), CARGO_HOME=str(Path(working) / "cargo"),
+            ], env=dict(build_environment(), RUSTC=str(rustc), CARGO_HOME=str(Path(working) / "cargo"),
                 SKIA_BINARIES_URL=f"file://{destination}/native/skia/skia-binaries-{{key}}.tar.gz",
                 FFMPEG_BINARIES_URL=f"file://{destination}/native/ffmpeg/ffmpeg-{{key}}.tar.gz",
                 FFMPEG_BINARIES_CACHE=str(Path(working) / "ffmpeg")), check=True, timeout=1800)
@@ -193,7 +199,7 @@ def stage(destination, vendor=False, skia=None, ffmpeg=None, toolchain=None, pre
         "status": "precompiled_libraries" if precompile else ("native_build_inputs" if skia else ("vendored_sources" if vendor else "source_inputs_only")),
         "bridge": "crates/motion-fframes",
         "files": files,
-        "requires": (["system linker and native link libraries", "relocation qualification"]
+        "requires": (["Linux x86_64 runtime libraries and Vulkan driver", "relocation qualification"]
                      if precompile else
                      ([] if vendor else ["locked upstream dependency bundle"])
                      + ([] if toolchain else ["Rust compiler and Cargo"])

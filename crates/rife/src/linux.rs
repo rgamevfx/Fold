@@ -32,15 +32,21 @@ impl Api {
         let root = std::env::var_os("FOLD_RIFE_ROOT")
             .map(PathBuf::from)
             .unwrap_or_else(|| {
-                std::env::current_exe()
-                    .unwrap_or_default()
-                    .parent()
-                    .unwrap_or(std::path::Path::new("."))
-                    .join("..")
+                let executable = std::env::current_exe().expect("RIFE executable location");
+                let parent = executable.parent().expect("RIFE executable directory");
+                let profile = std::path::Path::new(env!("FOLD_RIFE_PROFILE"));
+                if parent == profile
+                    || parent == profile.join("deps")
+                    || parent == profile.join("examples")
+                {
+                    PathBuf::from(env!("FOLD_BUILT_RIFE_ROOT"))
+                } else {
+                    parent.join("..")
+                }
             });
         let path = root.join("lib/fold/libfold_rife.so");
         unsafe {
-            let library=libloading::Library::new(&path).map_err(|e|format!("RIFE runtime unavailable at {}: {e}. Install Fold's RIFE runtime or set FOLD_RIFE_ROOT.",path.display()))?;
+            let library=libloading::Library::new(&path).map_err(|e|format!("RIFE runtime unavailable at {}: {e}. Restore the complete Fold installation or rebuild the checkout.",path.display()))?;
             let abi = library
                 .get::<unsafe extern "C" fn() -> u32>(b"fold_rife_abi\0")
                 .map_err(|e| e.to_string())?;

@@ -14,6 +14,7 @@ import shutil
 import subprocess
 import tarfile
 import tempfile
+from runtime_cache import build_environment
 
 ROOT = Path(__file__).resolve().parents[1]
 PATCH = ROOT / "resources/motion-context/skia-color-precision.patch"
@@ -25,7 +26,7 @@ def digest(path):
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
-def build(source_archive, reference_archive, source, destination, offline):
+def build(source_archive, reference_archive, source, destination, offline, target=None):
     if digest(source_archive) != SOURCE_SHA256:
         raise ValueError("Expected the pinned rust-skia m153-0.101.2 source archive")
     if destination.exists() or destination.name != reference_archive.name:
@@ -50,12 +51,14 @@ def build(source_archive, reference_archive, source, destination, offline):
             shutil.copytree(prepared, source)
         if not offline:
             subprocess.run(["python3", "tools/git-sync-deps"], cwd=source, check=True,
-                           env=dict(os.environ, GIT_SYNC_DEPS_SKIP_EMSDK="1"))
+                           env=dict(build_environment(), GIT_SYNC_DEPS_SKIP_EMSDK="1"))
         command = ["cargo", "build", "--manifest-path",
                    str(ROOT / "crates/motion-fframes/Cargo.toml"), "--release", "--lib",
                    "--offline", "--message-format=json-render-diagnostics"]
+        if target is not None:
+            command.extend(["--target-dir", str(target)])
         process = subprocess.Popen(command, stdout=subprocess.PIPE, text=True,
-                                   env=dict(os.environ, SKIA_SOURCE_DIR=str(source)))
+                                   env=dict(build_environment(), SKIA_SOURCE_DIR=str(source)))
         output = None
         for line in process.stdout:
             event = json.loads(line)

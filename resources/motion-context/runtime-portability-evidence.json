@@ -1,0 +1,57 @@
+{
+  "date": "2026-10-17",
+  "scope": "Relocated shared runtime producers plus optimized fold-runtime-check; full desktop/native-video package assembly and native UI acceptance were not repeated.",
+  "host": {
+    "platform": "Linux-7.1.5-76070105-generic-x86_64-with-glibc2.39",
+    "gpu": "NVIDIA GeForce GTX 1070",
+    "driver": "580.173.02",
+    "backend": "Vulkan",
+    "compiler": "c++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+    "distribution": "Pop!_OS 24.04 LTS (Ubuntu noble base)"
+  },
+  "isolation": {
+    "checkout_visible": false,
+    "system_compiler_tools_available": false,
+    "network_available": false,
+    "warm_user_cache": false,
+    "runtime_path_overrides": false
+  },
+  "runtime_acceptance": {
+    "aces_default_view": "passed",
+    "native_motion_pixels": "passed",
+    "fresh_script_compilation_and_animated_pixels": "passed",
+    "rife_fractional_motion_hdr_gpu_transport": "passed"
+  },
+  "identities": {
+    "probe_sha256": "00536dbef88b1f6368575f9580beb375d6fcf4cd1579a0efcc6b8e61d22839c6",
+    "color_build": "fdad41eb17d67387ad0f20cc22a271fc09ca56ac94794d5be488d33c6ea6082a",
+    "motion_build": "2bba79dc24685a90d37205a18dd36d4ed925deb420e5497ec0dba15427d4c8cb",
+    "rife_manifest_sha256": "60d9af071624c186bc987abaa3aae069d34eca4b088fa6bb10f12903d3cb26ee"
+  },
+  "source_sha256": {
+    "crates/app/src/runtime_check.rs": "fb90b751edf23b7832b4d2869f49d67df3864de8a0261efc9deda14fb3f3efea",
+    "crates/app/src/bin/runtime_check.rs": "c99adacafb0e54cdd42315d1c40bce336481484c5a937694082cd5f15b1b38ec",
+    "scripts/verify_runtime_package.py": "002fb8d6b96507a2b05c5145f246eadf715f2ac5b9eeaf22c1506221c389289e",
+    "resources/color/patch-yaml-cpp.cmake": "29d8b9519397d94065db3e2ead2e7f2a803eab64f964daf9aa375dfd0734e987",
+    "resources/motion-context/runtime-inputs.json": "2d78d9ccdb4dc0261969ea98c00cface260eb3912594b64861fabd3f471e870a"
+  },
+  "validation": {
+    "workspace_check": "passed",
+    "workspace_tests": {
+      "passed": 673,
+      "failed": 0,
+      "ignored": 120
+    },
+    "workspace_clippy": "passed with existing warnings",
+    "python_setup_tests": 28,
+    "explicit_color_workflow_tests": 3,
+    "package_boundaries": "passed",
+    "proposal_ownership": "passed"
+  },
+  "not_qualified": [
+    "reported GCC 16.2.1 (header fix built and ACES config validated with GCC 13.3)",
+    "second machine or different GPU vendor",
+    "full desktop/native-video package assembly",
+    "native artist interaction"
+  ]
+}

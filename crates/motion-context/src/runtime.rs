@@ -434,6 +434,34 @@ impl Runtime {
         fs::write(directory.join("src/main.rs"), &program.source).map_err(io_error)?;
         let temporary = tempfile::NamedTempFile::new_in(&directory).map_err(io_error)?;
         let mut command = Command::new(&self.config.rustc);
+        let sdk = self
+            .config
+            .bridge
+            .parent()
+            .and_then(Path::parent)
+            .ok_or("Missing Motion SDK root")?;
+        let link = sdk.join("link");
+        let linker = sdk.join("toolchain/lib/rustlib/x86_64-unknown-linux-gnu/bin/rust-lld");
+        if !linker.is_file() || !link.join("Scrt1.o").is_file() {
+            return Err(
+                "Motion SDK lacks its bundled linker; rebuild or reinstall the complete runtime"
+                    .into(),
+            );
+        }
+        command
+            .arg("-C")
+            .arg(format!("linker={}", linker.display()))
+            .args(["-C", "linker-flavor=ld.lld", "-L"])
+            .arg(format!("native={}", link.display()));
+        for name in ["Scrt1.o", "crti.o", "crtn.o"] {
+            command
+                .arg("-C")
+                .arg(format!("link-arg={}", link.join(name).display()));
+        }
+        command.args([
+            "-C",
+            "link-arg=--dynamic-linker=/lib64/ld-linux-x86-64.so.2",
+        ]);
         command
             .arg(directory.join("src/main.rs"))
             .args(["--edition=2024", "--crate-name", "fold_motion_program"])

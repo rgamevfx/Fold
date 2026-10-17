@@ -15,6 +15,8 @@ pub mod packages;
 pub mod playback;
 #[cfg(feature = "desktop")]
 pub mod project_panel;
+#[cfg(feature = "gpu")]
+pub mod runtime_check;
 pub mod session;
 pub mod settings;
 mod timeline_transition;

@@ -1,4 +1,6 @@
 //! Build identity without hashing a large executable on the first render.
+#[path = "../../scripts/native_runtime_build.rs"]
+mod native_runtime;
 use sha2::{Digest, Sha256};
 use std::{
     env, fs,
@@ -27,7 +29,7 @@ fn files(path: &Path, result: &mut Vec<PathBuf>) {
     }
 }
 fn main() {
-    println!("cargo:rerun-if-env-changed=FOLD_MOTION_SDK_RELATIVE");
+    native_runtime::prepare("motion");
     let root = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").unwrap()).join("../..");
     let mut inputs = vec![root.join("Cargo.toml"), root.join("Cargo.lock")];
     for directory in ["crates", "resources", "skills/fold"] {
